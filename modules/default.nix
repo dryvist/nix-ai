@@ -41,10 +41,6 @@ let
       source = "${ai-assistant-instructions}/CLAUDE.md";
       force = true;
     };
-    "GEMINI.md" = {
-      source = "${ai-assistant-instructions}/GEMINI.md";
-      force = true;
-    };
     "AGENTS.md" = {
       source = "${ai-assistant-instructions}/AGENTS.md";
       force = true;
@@ -101,6 +97,18 @@ in
           $DRY_RUN_CMD ${./scripts/validate-claude-settings.sh} \
             "${config.home.homeDirectory}/.claude/settings.json" \
             "${userConfig.ai.claudeSchemaUrl}"
+        '';
+
+        cleanupLegacyGeminiMd = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
+          gemini_md="${config.home.homeDirectory}/GEMINI.md"
+          if [ -L "$gemini_md" ]; then
+            target=$(readlink "$gemini_md")
+            case "$target" in
+              /nix/store/*)
+                $DRY_RUN_CMD rm "$gemini_md"
+                ;;
+            esac
+          fi
         '';
 
         # open-webui: installed via uv (nixpkgs broken on darwin — see modules/open-webui.nix)

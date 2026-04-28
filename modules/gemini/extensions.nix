@@ -1,7 +1,7 @@
 # Gemini Extension Management
 #
 # Deploys Nix-managed extensions to ~/.gemini/extensions/<name>/.
-# Each extension gets a gemini-extension.json manifest, optional skills, and commands.
+# Each extension gets a gemini-extension.json manifest and optional commands.
 { config, lib, ... }:
 
 let
@@ -16,13 +16,6 @@ let
         inherit (ext) description;
         inherit (ext) mcpServers;
       };
-      skillFiles = lib.mapAttrs' (
-        skillName: path:
-        lib.nameValuePair ".gemini/extensions/${name}/skills/${skillName}/SKILL.md" {
-          source = path;
-          force = true;
-        }
-      ) ext.skills;
       commandFiles = lib.mapAttrs' (
         cmdName: path:
         lib.nameValuePair ".gemini/extensions/${name}/commands/${cmdName}.toml" {
@@ -37,7 +30,6 @@ let
         force = true;
       };
     }
-    // skillFiles
     // commandFiles;
 in
 {

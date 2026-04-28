@@ -236,8 +236,13 @@
           };
         };
 
+        mcp = {
+          imports = [ ./modules/mcp ];
+        };
+
         codex = {
           imports = [
+            ./modules/mcp
             ./modules/agent-skills
             ./modules/codex
           ];
@@ -251,6 +256,7 @@
 
         gemini = {
           imports = [
+            ./modules/mcp
             ./modules/agent-skills
             ./modules/gemini
           ];

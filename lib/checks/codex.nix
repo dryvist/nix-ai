@@ -2,6 +2,7 @@
 { pkgs, hmConfig }:
 let
   cfg = hmConfig.config.programs.codex;
+  homeFileNames = builtins.attrNames hmConfig.config.home.file;
 in
 {
   # Verify all expected Codex option paths exist.
@@ -18,6 +19,7 @@ in
         "modelReasoningEffort"
         "modelVerbosity"
         "planModeReasoningEffort"
+        "projectDocFallbackFilenames"
         "reviewModel"
         "serviceTier"
         "trustedProjectDirs"
@@ -102,6 +104,11 @@ in
           expected = [ ];
         }
         {
+          name = "codex.projectDocFallbackFilenames";
+          actual = cfg.projectDocFallbackFilenames;
+          expected = [ "AGENTS.md" ];
+        }
+        {
           name = "codex.hooks.notification";
           actual = cfg.hooks.notification;
           expected = null;
@@ -122,6 +129,14 @@ in
 
   # Validate the activation package builds (forces config.toml generation).
   codex-settings-toml = builtins.seq hmConfig.activationPackage (
+    let
+      disallowedCodexFiles = builtins.filter (
+        n: n == "GEMINI.md" || builtins.match "^\\.codex/skills(/.*)?$" n != null
+      ) homeFileNames;
+    in
+    assert
+      disallowedCodexFiles == [ ]
+      || throw "Codex must not deploy tool-specific shared skills or GEMINI.md: ${builtins.toJSON disallowedCodexFiles}";
     pkgs.runCommand "check-codex-settings-toml" { } ''
       echo "Codex settings: activation package builds successfully (config.toml generation verified)"
       touch $out

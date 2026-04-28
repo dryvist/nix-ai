@@ -106,6 +106,6 @@ If PAL fails after the protocol:
 
 - **Bifrost health**: `curl http://localhost:30080/health`
 - **Bifrost model catalog**: `curl http://localhost:30080/v1/models`
-- **Bifrost MCP registration**: `bifrost` block in `modules/mcp/default.nix`
+- **Bifrost MCP registration**: `bifrost` block in `modules/mcp/catalog.nix`
 - **Phase 3 audit matrix** (full PAL → native mapping):
   [JacobPEvans/nix-ai#450](https://github.com/JacobPEvans/nix-ai/issues/450)

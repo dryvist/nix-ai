@@ -2,6 +2,7 @@
 { pkgs, hmConfig }:
 let
   cfg = hmConfig.config.programs.gemini;
+  homeFileNames = builtins.attrNames hmConfig.config.home.file;
 in
 {
   # Verify all expected Gemini option paths exist.
@@ -38,6 +39,11 @@ in
           name = "gemini.trustedFolders";
           actual = cfg.trustedFolders;
           expected = [ ];
+        }
+        {
+          name = "gemini.contextFileNames";
+          actual = cfg.contextFileNames;
+          expected = [ "AGENTS.md" ];
         }
         {
           name = "gemini.excludedMcpServers.length";
@@ -128,8 +134,17 @@ in
   gemini-module-loaded =
     let
       keepFile = hmConfig.config.home.file.".gemini/.keep".text;
+      disallowedGeminiFiles = builtins.filter (
+        n:
+        n == "GEMINI.md"
+        || builtins.match "^\\.gemini/skills(/.*)?$" n != null
+        || builtins.match "^\\.gemini/extensions/[^/]+/skills(/.*)?$" n != null
+      ) homeFileNames;
     in
     assert keepFile != "" || throw "Gemini .keep file is empty (module not loaded)";
+    assert
+      disallowedGeminiFiles == [ ]
+      || throw "Gemini must not deploy skills or GEMINI.md: ${builtins.toJSON disallowedGeminiFiles}";
     pkgs.runCommand "check-gemini-module-loaded" { } ''
       echo "Gemini module: .keep file present, module loaded successfully"
       touch $out

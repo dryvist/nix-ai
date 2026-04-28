@@ -11,8 +11,12 @@
 
 set -euo pipefail
 
-# shellcheck source=cleanup-common.sh
-. "$(dirname "$0")/cleanup-common.sh"
+if [[ -f "$(dirname "$0")/cleanup-common.sh" ]]; then
+  # shellcheck source=cleanup-common.sh
+  . "$(dirname "$0")/cleanup-common.sh"
+else
+  log_info() { echo "$(date '+%Y-%m-%d %H:%M:%S') [INFO] $1" >&2; }
+fi
 
 HOME_DIR="${1:?HOME_DIR required}"
 RETENTION_DAYS="${2:-30}"
@@ -67,7 +71,9 @@ prune_dir_by_age() {
     count=$((count + 1))
   done < <(find "$dir" -mindepth 1 -maxdepth 1 -mtime +"$RETENTION_DAYS" -print0 2>/dev/null)
 
-  [[ $count -gt 0 ]] && log_info "Pruned $count stale $label entries"
+  if [[ $count -gt 0 ]]; then
+    log_info "Pruned $count stale $label entries"
+  fi
 }
 
 prune_files_by_age() {
@@ -81,7 +87,9 @@ prune_files_by_age() {
     rm -f "$f"
     count=$((count + 1))
   done < <(find "$dir" -mindepth 1 -maxdepth 1 -type f -mtime +"$days" -print0 2>/dev/null)
-  [[ $count -gt 0 ]] && log_info "Pruned $count stale $label files"
+  if [[ $count -gt 0 ]]; then
+    log_info "Pruned $count stale $label files"
+  fi
 }
 
 # ────────────────────────────────────────────────
@@ -94,7 +102,9 @@ if [[ -d "${CLAUDE_DIR}/telemetry" ]]; then
     rm -f "$f"
     count=$((count + 1))
   done < <(find "${CLAUDE_DIR}/telemetry" -name "1p_failed_events*" -print0 2>/dev/null)
-  [[ $count -gt 0 ]] && log_info "Removed $count failed telemetry events"
+  if [[ $count -gt 0 ]]; then
+    log_info "Removed $count failed telemetry events"
+  fi
 fi
 
 # ────────────────────────────────────────────────
@@ -107,7 +117,9 @@ while IFS= read -r -d $'\0' f; do
   rm -f "$f"
   stale_warnings=$((stale_warnings + 1))
 done < <(find "${CLAUDE_DIR}" -maxdepth 1 -name "security_warnings_state_*.json" -print0 2>/dev/null)
-[[ $stale_warnings -gt 0 ]] && log_info "Removed $stale_warnings stale security_warnings_state files"
+if [[ $stale_warnings -gt 0 ]]; then
+  log_info "Removed $stale_warnings stale security_warnings_state files"
+fi
 
 # ────────────────────────────────────────────────
 # 3. projects/ + session-keyed runtime data dirs

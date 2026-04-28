@@ -42,9 +42,9 @@ let
   # HTTP/SSE: { httpUrl, headers? } (note: httpUrl not url)
   normalizeGeminiMcpServer =
     server:
-    if server ? url then
+    if server.url != null then
       # HTTP/SSE server
-      { httpUrl = server.url; } // lib.optionalAttrs (server ? headers) { inherit (server) headers; }
+      { httpUrl = server.url; } // lib.optionalAttrs (server.headers != { }) { inherit (server) headers; }
     else
       # stdio server
       lib.filterAttrs (_name: value: value != null && value != [ ] && value != { }) (
@@ -58,14 +58,12 @@ let
       );
 
   mcpServers =
-    let
-      sharedServers = import ../mcp;
-    in
-    lib.mapAttrs' (name: server: lib.nameValuePair name (normalizeGeminiMcpServer server)) (
-      lib.filterAttrs (
-        name: server: !(server.disabled or false) && !(lib.elem name cfg.excludedMcpServers)
-      ) sharedServers
-    );
+    lib.mapAttrs' (name: server: lib.nameValuePair name (normalizeGeminiMcpServer server))
+      (
+        lib.filterAttrs (
+          name: server: !(server.disabled or false) && !(lib.elem name cfg.excludedMcpServers)
+        ) config.programs.aiMcp.servers
+      );
 
   # Policy Engine: generate TOML rules from shared permissions
   policyRules =
@@ -96,10 +94,7 @@ let
     };
 
     context = {
-      fileName = [
-        "AGENTS.md"
-        "GEMINI.md"
-      ];
+      fileName = [ "AGENTS.md" ];
     };
 
     security = {
@@ -134,6 +129,7 @@ let
 in
 {
   config = lib.mkIf cfg.enable {
+    programs.gemini.contextFileNames = settings.context.fileName;
     programs.gemini.sandboxAllowedPathsMerged = mergedSandboxAllowedPaths;
 
     home = {
