@@ -30,9 +30,18 @@ EXCLUDE_PATTERN = re.compile(
 
 
 def get_memory_budget_gb() -> int:
-    """Return available memory in GB (total - 20 GB reserved for system)."""
+    """Return available memory in GB (total - 20 GB reserved for system).
+
+    Use the absolute path /usr/sbin/sysctl rather than relying on $PATH:
+    home-manager activation runs in a minimal nix env with /run/current-system/sw/bin
+    on PATH but not /usr/sbin, so a bare ``sysctl`` lookup raises FileNotFoundError
+    and aborts the discoverMlxModels activation step.
+    """
     result = subprocess.run(
-        ["sysctl", "-n", "hw.memsize"], capture_output=True, text=True, check=True
+        ["/usr/sbin/sysctl", "-n", "hw.memsize"],
+        capture_output=True,
+        text=True,
+        check=True,
     )
     total_bytes = int(result.stdout.strip())
     total_gb = total_bytes // (1024**3)
