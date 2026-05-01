@@ -1,6 +1,6 @@
 # Orphan Cleanup Module
 #
-# Three-phase cleanup for Nix-managed directories, plus optional runtime data pruning:
+# Three-phase cleanup for Nix-managed directories:
 #
 # Phase 1 (BEFORE checkLinkTargets):
 # - Removes directory symlinks and real directories that conflict with
@@ -15,15 +15,9 @@
 # Phase 3 (AFTER linkGeneration):
 # - Verifies plugin cache integrity when marketplace symlinks change.
 #
-# Phase 4 (AFTER linkGeneration, when programs.claude.runtimeCleanup.enable = true):
-# - Prunes stale runtime data (projects/, todos/, shell-snapshots/, etc.)
-# - Removes known cruft files and empty directories
-# - Controlled by programs.claude.runtimeCleanup.{retentionDays, maxBackups}
-#
 {
   config,
   lib,
-  pkgs,
   ...
 }:
 
@@ -90,17 +84,6 @@ in
       # See: https://github.com/anthropics/claude-code/issues/17361
       verifyCacheIntegrity = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
         $DRY_RUN_CMD ${./scripts/verify-cache-integrity.sh} "${homeDir}"
-      '';
-    }
-    // lib.optionalAttrs cfg.runtimeCleanup.enable {
-      # Phase 4: Prune stale runtime data on every home-manager switch.
-      # Prepend jq to PATH — activation runs before the Nix profile is fully sourced.
-      cleanupRuntimeData = lib.hm.dag.entryAfter [ "verifyCacheIntegrity" ] ''
-        export PATH="${pkgs.jq}/bin:$PATH"
-        $DRY_RUN_CMD ${./scripts/cleanup-runtime-data.sh} \
-          "${homeDir}" \
-          "${toString cfg.runtimeCleanup.retentionDays}" \
-          "${toString cfg.runtimeCleanup.maxBackups}"
       '';
     };
   };

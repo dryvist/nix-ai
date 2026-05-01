@@ -310,21 +310,6 @@ in
       description = "Commit attribution trailer appended to every commit message. Default uses Linux kernel-style Assisted-by trailer format.";
     };
 
-    # Runtime data cleanup — prunes stale session artifacts on home-manager switch
-    runtimeCleanup = {
-      enable = lib.mkEnableOption "Prune stale ~/.claude runtime data on home-manager switch";
-      retentionDays = lib.mkOption {
-        type = lib.types.int;
-        default = 30;
-        description = "Delete runtime data (projects, todos, snapshots, etc.) older than this many days";
-      };
-      maxBackups = lib.mkOption {
-        type = lib.types.int;
-        default = 5;
-        description = "Maximum number of ~/.claude.json backups to retain";
-      };
-    };
-
     # Settings
     settings = {
       # Extended thinking mode
