@@ -125,12 +125,22 @@ let
 
   # One entry per unique physical model. The entry owning the "default"
   # alias is preloaded; others inherit the proxy idle TTL.
+  #
+  # useModelName makes llama-swap rewrite the OpenAI-compatible request body's
+  # `model` field to the physical model id before forwarding to vllm-mlx.
+  # vllm-mlx 0.2.9 strictly validates the model field against the loaded model
+  # name and returns 404 for unknown names — without this rewrite, callers
+  # using a capability-class alias (e.g. `model: "default"`) hit
+  #   "The model `default` does not exist."
+  # even though llama-swap routed the request correctly. With it, the alias
+  # works end-to-end through the local proxy without needing Bifrost in front.
   registryModels = lib.mapAttrs (physical: roles: {
     cmd = mkVllmCmd physical;
     ttl = if builtins.elem "default" roles then 0 else cfg.proxy.idleTtl;
     env = [ "HF_HOME=${cfg.huggingFaceHome}" ];
     checkEndpoint = "/v1/models";
     aliases = roles;
+    useModelName = physical;
   }) rolesByPhysical;
 
   # Additional ad-hoc models from cfg.models (existing extension point).
