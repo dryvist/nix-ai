@@ -62,23 +62,22 @@
       description = "Cache memory limit in MB. Null = auto-detect. Default 32GB amortises prefix-cache reuse on multi-turn workloads.";
     };
 
-    # enablePrefixCaching — Enable prefix sharing across requests (--enable-prefix-caching).
-    # New in vllm-mlx 0.2.9. Eliminates re-prefill of unchanged conversation
-    # context — the single biggest speed win for multi-turn tool-calling workloads.
+    # enablePrefixCaching — Enable prefix sharing across requests (--enable-prefix-cache).
+    # Eliminates re-prefill of unchanged conversation context — the single
+    # biggest speed win for multi-turn tool-calling workloads.
     # Pairs with pagedKvCache.
     enablePrefixCaching = lib.mkOption {
       type = lib.types.bool;
       default = true;
-      description = "Enable prefix sharing across requests. New in 0.2.9.";
+      description = "Enable prefix sharing across requests (--enable-prefix-cache).";
     };
 
-    # pagedKvCache — Use paged KV cache (--paged-kv-cache).
-    # New in vllm-mlx 0.2.9. Required for prefix sharing (enablePrefixCaching).
-    # Distinct from the legacy --use-paged-cache experimental flag.
+    # pagedKvCache — Use paged KV cache (--use-paged-cache).
+    # Required for prefix sharing (enablePrefixCaching).
     pagedKvCache = lib.mkOption {
       type = lib.types.bool;
       default = true;
-      description = "Use paged KV cache. New in 0.2.9. Required for prefix sharing.";
+      description = "Use paged KV cache (--use-paged-cache). Required for prefix sharing.";
     };
 
     # prefillBatchSize — Batch size for prompt prefill processing (--prefill-batch-size).
