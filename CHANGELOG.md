@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.58.1](https://github.com/JacobPEvans/nix-ai/compare/v1.58.0...v1.58.1) (2026-05-01)
+
+
+### Bug Fixes
+
+* **deps:** refresh gh-aw action SHA pins ([#675](https://github.com/JacobPEvans/nix-ai/issues/675)) ([fe00fa0](https://github.com/JacobPEvans/nix-ai/commit/fe00fa065c50e37ada1bc5e996efc5489ec712e4))
+
 ## [1.58.0](https://github.com/JacobPEvans/nix-ai/compare/v1.57.0...v1.58.0) (2026-04-29)
 
 
