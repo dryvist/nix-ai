@@ -128,6 +128,7 @@ in
 
   # Linux "Assisted-by" trailer — official AI contribution format
   # Includes LLM tool identity per Linux kernel contribution guidelines
+  # Claude Code automatically appends this string to every commit message
   attribution = {
     commit = "Assisted-by: Claude <noreply@anthropic.com>";
   };
