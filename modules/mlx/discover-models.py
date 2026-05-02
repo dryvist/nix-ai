@@ -124,11 +124,11 @@ def main() -> None:
 
     # Extract default model and command template.
     # `preload` may reference a role alias (e.g. "default") rather than a
-    # physical model id, since modules/mlx/default.nix:174 sets
-    # `preload = ["default"]` and llama-swap resolves the alias at lookup
-    # time. When that's the case, walk the aliases tables to find the
-    # physical entry, then update default_model so the cmd_template
-    # substitution below targets the right `serve <model>` token.
+    # physical model id, since hooks.on_startup.preload = ["default"] and
+    # llama-swap resolves the alias at lookup time. When that's the case,
+    # walk the aliases tables to find the physical entry, then update
+    # default_model so the cmd_template substitution below targets the
+    # right `serve <model>` token.
     preload = (
         current_config.get("hooks", {}).get("on_startup", {}).get("preload", [])
     )

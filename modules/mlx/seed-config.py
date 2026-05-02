@@ -28,10 +28,10 @@ def _atomic_write(target: Path, content: bytes) -> None:
         dir=target.parent, prefix=target.name + ".", suffix=".tmp"
     )
     try:
-        os.write(fd, content)
-        os.close(fd)
+        with os.fdopen(fd, "wb") as f:
+            f.write(content)
         os.chmod(tmp, 0o644)
-        os.rename(tmp, target)
+        os.replace(tmp, target)
     except Exception:
         if os.path.exists(tmp):
             os.unlink(tmp)
