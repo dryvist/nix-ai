@@ -26,8 +26,7 @@ What it does NOT manage:
 
 - `~/.config/fabric/.env` (per-host secrets, set via `fabric --setup`)
 - AI provider API keys (deferred to a future Doppler-injection PR — see #445)
-- The fabric MCP server enablement state (defined in `modules/mcp/default.nix`,
-  disabled by default — see #442)
+- The fabric MCP server enablement state (defined in `programs.aiMcp.servers.fabric`)
 
 ## What this gives you
 
@@ -39,7 +38,7 @@ What it does NOT manage:
 | YouTube/multimedia extraction | `yt-dlp` added to `home.packages` |
 | Optional REST API server (LaunchAgent) | `programs.fabric.enableServer = true` (port 8180) |
 | 32 curated patterns as Claude Code skills | Synthetic marketplace at `modules/claude/marketplace-overrides.nix` |
-| Fabric MCP server in Claude Code | `modules/mcp/default.nix` (community-maintained, disabled by default) |
+| Fabric MCP server in Claude Code | `modules/mcp/catalog.nix` (community-maintained) |
 
 ## One-time runtime setup
 
@@ -146,10 +145,10 @@ the SKILL.md count matches the JSON entry count after the next `nix flake check`
 
 ### Path B: As MCP tools (explicit invocation)
 
-The `fabric` MCP server in `modules/mcp/default.nix` exposes patterns as MCP tools using
+The `fabric` MCP server in `modules/mcp/catalog.nix` exposes patterns as MCP tools using
 [ksylvan/fabric-mcp](https://github.com/ksylvan/fabric-mcp) via uvx. This is a
 **community-maintained** package (not official danielmiessler) — if it becomes
-unmaintained, an alternative MCP wrapper will be needed. Currently disabled by default.
+unmaintained, an alternative MCP wrapper will be needed.
 
 ## Version bumps
 

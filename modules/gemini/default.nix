@@ -1,8 +1,8 @@
 # Gemini CLI Configuration Module
 #
 # Declarative configuration for Google Gemini CLI.
-# Generates settings.json with shared MCP servers, permissions, skills,
-# commands, extensions, and folder trust.
+# Generates settings.json with shared MCP servers, permissions, commands,
+# extensions, and folder trust.
 #
 # CRITICAL - tools.allowed vs tools.core:
 # Per the official Gemini CLI schema:

@@ -1,10 +1,12 @@
 # MCP Servers - Nix-Native Configuration
 
-MCP server definitions are declared in `default.nix` and deployed to `~/.claude.json`
-automatically on every `darwin-rebuild switch` via a `home.activation` script.
+MCP server definitions are owned by the `modules/mcp` Home Manager module. The
+shared catalog lives in `catalog.nix` and is exposed as `programs.aiMcp.servers`.
+Claude, Codex, and Gemini consume that option and render it into their own
+configuration formats during every `darwin-rebuild switch`.
 
-**Nix is the sole manager of user-scoped MCP servers.** Any entries added manually via
-`claude mcp add --scope user` will be overwritten on the next rebuild.
+**Nix is the sole manager of user-scoped MCP servers.** Any entries added manually
+through client CLIs may be overwritten on the next rebuild.
 
 ## Transports
 
@@ -48,19 +50,19 @@ my-server = {
 
 ## Enabling / Disabling Servers
 
-All servers are enabled by default (`disabled = false` is the module system default).
-To disable a server, set `disabled = true`:
+All servers are enabled by default (`disabled = false` is the module system
+default). To disable a server, set `disabled = true`:
 
 ```nix
-postgresql = official "postgres" // { disabled = true; };
+programs.aiMcp.servers.postgresql.disabled = true;
 ```
 
-To enable a disabled server without editing `default.nix`, override via the module system.
-Because the catalog uses plain assignments (priority 100), the override must use `lib.mkForce`
-to win the merge:
+To enable a disabled server without editing `catalog.nix`, override via the
+module system. Because the catalog uses plain assignments (priority 100), the
+override must use `lib.mkForce` to win the merge:
 
 ```nix
-programs.claude.mcpServers.postgresql.disabled = lib.mkForce false;
+programs.aiMcp.servers.postgresql.disabled = lib.mkForce false;
 ```
 
 ## Secrets Management
@@ -86,8 +88,9 @@ export HF_TOKEN=${HF_TOKEN:-"$(_get_keychain_secret 'HF_TOKEN' 'ai-cli-coder')"}
 The account name (`ai-cli-coder`) and keychain db (`automation.keychain-db`) are defined
 in `lib/user-config.nix` in nix-darwin. Adapt these values if your setup uses different names.
 
-The shell exports the env var, and Claude Code (and its MCP servers) inherit it at startup.
-Secrets are never written to `~/.claude.json` or any Nix-managed file.
+The shell exports the env var, and AI clients plus their MCP servers inherit it
+at startup. Secrets are never written to generated client config or any
+Nix-managed file.
 
 **One-time setup:** Add secrets to macOS Keychain:
 
@@ -127,7 +130,7 @@ and log levels are not sensitive and belong in the Nix-managed `env` attribute.
 ### Plugin-managed servers (context7)
 
 Some servers are provided by Claude Code plugins and manage their own MCP server lifecycle.
-Do **not** define these in `mcp/default.nix` — doing so creates a duplicate that causes
+Do **not** define these in `mcp/catalog.nix` — doing so creates a duplicate that causes
 conflicts on startup.
 
 | Plugin | Server |
@@ -246,7 +249,7 @@ Both tools are `uvx` wrappers defined in `ai-tools.nix` — no separate installa
 
 ### Server not appearing in Claude Code
 
-1. Check `disabled` is not set to `true` in `mcp/default.nix`
+1. Check `disabled` is not set to `true` in `programs.aiMcp.servers`
 2. Run `darwin-rebuild switch --flake .`
 3. Restart Claude Code
 4. Check `~/.claude.json` contains the server: `jq .mcpServers ~/.claude.json`

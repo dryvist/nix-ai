@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.58.3](https://github.com/JacobPEvans/nix-ai/compare/v1.58.2...v1.58.3) (2026-05-02)
+
+
+### Bug Fixes
+
+* centralize agent skills and MCP config ([#662](https://github.com/JacobPEvans/nix-ai/issues/662)) ([ca350e5](https://github.com/JacobPEvans/nix-ai/commit/ca350e5d7f0c85a616b31cae578192f15cfa623e))
+
+## [1.58.2](https://github.com/JacobPEvans/nix-ai/compare/v1.58.1...v1.58.2) (2026-05-01)
+
+
+### Bug Fixes
+
+* switch Claude commit attribution to Linux Assisted-by format ([#585](https://github.com/JacobPEvans/nix-ai/issues/585)) [issue-solver-2026-04-29] ([#663](https://github.com/JacobPEvans/nix-ai/issues/663)) ([00fdd11](https://github.com/JacobPEvans/nix-ai/commit/00fdd11f301b8d879e2eaf2e14b675e3d4fd4ddb))
+
 ## [1.58.1](https://github.com/JacobPEvans/nix-ai/compare/v1.58.0...v1.58.1) (2026-05-01)
 
 

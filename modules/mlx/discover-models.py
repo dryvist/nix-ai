@@ -18,6 +18,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -31,8 +32,9 @@ EXCLUDE_PATTERN = re.compile(
 
 def get_memory_budget_gb() -> int:
     """Return available memory in GB (total - 20 GB reserved for system)."""
+    sysctl = shutil.which("sysctl") or "/usr/sbin/sysctl"
     result = subprocess.run(
-        ["sysctl", "-n", "hw.memsize"], capture_output=True, text=True, check=True
+        [sysctl, "-n", "hw.memsize"], capture_output=True, text=True, check=True
     )
     total_bytes = int(result.stdout.strip())
     total_gb = total_bytes // (1024**3)
