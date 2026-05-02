@@ -35,10 +35,9 @@ def main() -> None:
     # Atomically create runtime config if it doesn't exist (avoids TOCTOU race
     # with concurrent darwin-rebuild or LaunchAgent startup).
     try:
-        fd = os.open(str(runtime), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        fd = os.open(str(runtime), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
         os.write(fd, base_content)
         os.close(fd)
-        runtime.chmod(0o600)
         marker.write_text(base_hash + "\n")
         print("Seeded llama-swap runtime config from Nix store")
         return
@@ -48,7 +47,6 @@ def main() -> None:
     prev_hash = marker.read_text().strip() if marker.exists() else ""
 
     if base_hash != prev_hash:
-        runtime.chmod(0o600)
         shutil.copy2(base, runtime)
         runtime.chmod(0o600)
         marker.write_text(base_hash + "\n")

@@ -101,6 +101,7 @@ in
       type = lib.types.listOf lib.types.str;
       readOnly = true;
       internal = true;
+      default = [ ];
       description = "Project doc fallback filenames emitted to Codex config.toml; read-only.";
     };
 

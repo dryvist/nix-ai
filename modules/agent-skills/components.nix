@@ -38,7 +38,7 @@ in
 
           [ -d "$root" ] || return 0
 
-          find "$root" -mindepth 1 -maxdepth 1 -type d -print | while IFS= read -r skill_dir; do
+          find "$root" -mindepth 1 -maxdepth 1 -type d -print0 | while IFS= read -r -d $'\0' skill_dir; do
             skill_file="$skill_dir/SKILL.md"
             if [ -L "$skill_file" ] && [ "$(find "$skill_dir" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')" = "1" ]; then
               target=$(readlink "$skill_file")
@@ -50,7 +50,7 @@ in
             fi
           done
 
-          rmdir "$root" 2>/dev/null || true
+          $DRY_RUN_CMD rmdir "$root" 2>/dev/null || true
         }
 
         cleanup_skill_tree "${homeDir}/.agents/skills"
