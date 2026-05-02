@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.58.3](https://github.com/JacobPEvans/nix-ai/compare/v1.58.2...v1.58.3) (2026-05-02)
+
+
+### Bug Fixes
+
+* centralize agent skills and MCP config ([#662](https://github.com/JacobPEvans/nix-ai/issues/662)) ([ca350e5](https://github.com/JacobPEvans/nix-ai/commit/ca350e5d7f0c85a616b31cae578192f15cfa623e))
+
 ## [1.58.2](https://github.com/JacobPEvans/nix-ai/compare/v1.58.1...v1.58.2) (2026-05-01)
 
 
