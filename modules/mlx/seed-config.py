@@ -35,7 +35,7 @@ def main() -> None:
     # Atomically create runtime config if it doesn't exist (avoids TOCTOU race
     # with concurrent darwin-rebuild or LaunchAgent startup).
     try:
-        fd = os.open(str(runtime), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        fd = os.open(str(runtime), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
         os.write(fd, base_content)
         os.close(fd)
         marker.write_text(base_hash + "\n")
@@ -48,6 +48,7 @@ def main() -> None:
 
     if base_hash != prev_hash:
         shutil.copy2(base, runtime)
+        runtime.chmod(0o600)
         marker.write_text(base_hash + "\n")
         print("Updated llama-swap runtime config (base config changed)")
     else:

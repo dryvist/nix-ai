@@ -86,17 +86,17 @@ graph TD
 
 ## MCP Server Connectivity
 
-The MCP server catalog (`modules/mcp/default.nix`) is a **shared Nix attribute set** consumed
-by Claude, Gemini, and Codex — each normalizes server entries differently via their own
-settings modules.
+The MCP server catalog (`modules/mcp/catalog.nix`) is exposed by the dedicated
+MCP module as `programs.aiMcp.servers`. Claude, Gemini, and Codex each normalize
+that shared option differently via their own settings modules.
 
 ```mermaid
 graph LR
-    MCPCAT["modules/mcp/default.nix\n(shared catalog)"]
+    MCPCAT["modules/mcp/catalog.nix\nprograms.aiMcp.servers"]
 
-    MCPCAT -->|programs.claude.mcpServers| CSETTINGS["modules/claude/settings.nix\n→ ~/.claude.json"]
-    MCPCAT -->|programs.gemini.mcpServers| GSETTINGS["modules/gemini/settings.nix\n→ ~/.gemini/settings.json"]
-    MCPCAT -->|programs.codex.mcpServers| DSETTINGS["modules/codex/settings.nix\n→ ~/.codex/config.toml"]
+    MCPCAT -->|normalized for Claude| CSETTINGS["modules/claude/settings.nix\n→ ~/.claude.json"]
+    MCPCAT -->|normalized for Gemini| GSETTINGS["modules/gemini/settings.nix\n→ ~/.gemini/settings.json"]
+    MCPCAT -->|normalized for Codex| DSETTINGS["modules/codex/settings.nix\n→ ~/.codex/config.toml"]
 ```
 
 ### Shared MCP Servers (all three CLI tools)
@@ -104,7 +104,8 @@ graph LR
 | Server | Transport | Auth | Notes |
 |--------|-----------|------|-------|
 | `everything`, `fetch`, `filesystem`, `git`, `memory` | stdio (bunx) | None | Official Anthropic servers |
-| `sequentialthinking`, `time`, `docker` | stdio (bunx) | None | Official Anthropic servers |
+| `sequentialthinking`, `docker` | stdio (bunx) | None | Official Anthropic servers |
+| `time` | stdio (uvx) | None | Official maintained Python server |
 | `aws` | stdio (bunx) | IAM/STS env vars | AWS KB retrieval |
 | `terraform` | stdio (binary) | None | nixpkgs binary |
 | `pal` | stdio (wrapper) | Doppler | Multi-model orchestration |
@@ -126,7 +127,7 @@ graph LR
 
 `brave-search`, `cloudflare`, `exa`, `firecrawl`, `github`, `google-maps`, `postgresql`,
 `puppeteer`, `sentry`, `slack`, `sqlite` — all require API keys not currently configured.
-Enable by removing `disabled = true` in `modules/mcp/default.nix` and adding the key to Doppler.
+Enable by overriding `programs.aiMcp.servers.<name>.disabled` and adding the key to Doppler.
 
 ## Port Allocation
 

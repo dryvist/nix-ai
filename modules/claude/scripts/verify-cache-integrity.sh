@@ -86,7 +86,8 @@ fi
 # resolved at session start — deleting them mid-session causes an unbreakable error
 # loop (every hook fails, including Stop). By also skipping the hash file update,
 # the next rebuild will re-detect staleness and purge when no sessions are active.
-if [[ "$stale_detected" == true ]] && pgrep -qx "claude"; then
+PGREP_BIN=$(command -v pgrep || true)
+if [[ -n "$PGREP_BIN" && "$stale_detected" == true ]] && "$PGREP_BIN" -qx "claude"; then
   log_info "Stale caches detected but Claude Code session is active — deferring purge"
   exit 0
 fi

@@ -26,11 +26,6 @@ let
         default = { };
         description = "MCP servers provided by this extension";
       };
-      skills = lib.mkOption {
-        type = lib.types.attrsOf lib.types.path;
-        default = { };
-        description = "Skills within this extension (name -> path to SKILL.md)";
-      };
       commands = lib.mkOption {
         type = lib.types.attrsOf lib.types.path;
         default = { };
@@ -98,6 +93,13 @@ in
       type = lib.types.listOf lib.types.str;
       default = [ ];
       description = "Additional trusted folders (merged with defaults)";
+    };
+
+    contextFileNames = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      readOnly = true;
+      internal = true;
+      description = "Context file names emitted to Gemini settings.json; read-only.";
     };
 
     # Sandbox allowed paths (merged with `~/git` default so worktree operations

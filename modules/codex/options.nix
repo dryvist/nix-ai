@@ -97,6 +97,13 @@ in
       description = "Additional directories to trust (merged with shared permission dirs)";
     };
 
+    projectDocFallbackFilenames = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      readOnly = true;
+      internal = true;
+      description = "Project doc fallback filenames emitted to Codex config.toml; read-only.";
+    };
+
     # Approval policy
     approvalPolicy = lib.mkOption {
       type = lib.types.enum [

@@ -88,6 +88,25 @@ let
       source = "${sourcePath}/${name}.md";
     }) names;
 
+  normalizeClaudeMcpServer =
+    server:
+    lib.filterAttrs (
+      name: value:
+      lib.elem name [
+        "type"
+        "command"
+        "args"
+        "env"
+        "url"
+        "headers"
+        "disabled"
+      ]
+      && value != null
+      && value != [ ]
+      && value != { }
+      && !(name == "disabled" && !value)
+    ) server;
+
 in
 {
   enable = true;
@@ -304,9 +323,8 @@ in
   };
 
   # MCP Servers - deployed to ~/.claude.json via home.activation (see claude/settings.nix).
-  # Nix is the sole manager of user-scoped MCP servers; manual `claude mcp add --scope user`
-  # entries will be overwritten on next darwin-rebuild switch.
-  mcpServers = import ./mcp;
+  # Shared definitions are owned by modules/mcp and rendered per-client here.
+  mcpServers = lib.mapAttrs (_: normalizeClaudeMcpServer) config.programs.aiMcp.servers;
 
   statusLine = {
     enable = true;
