@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.58.4](https://github.com/JacobPEvans/nix-ai/compare/v1.58.3...v1.58.4) (2026-05-02)
+
+
+### Bug Fixes
+
+* **claude:** :fire: remove runtimeCleanup activation hook ([#681](https://github.com/JacobPEvans/nix-ai/issues/681)) ([745f9e3](https://github.com/JacobPEvans/nix-ai/commit/745f9e3ae723415ed88b3113f823f5ab2d276ab1))
+* **mlx:** resolve role aliases in discover-models preload lookup ([#682](https://github.com/JacobPEvans/nix-ai/issues/682)) ([c0fe4cf](https://github.com/JacobPEvans/nix-ai/commit/c0fe4cffd38c501e92c926df0dd0094eb4c3154c))
+
 ## [1.58.3](https://github.com/JacobPEvans/nix-ai/compare/v1.58.2...v1.58.3) (2026-05-02)
 
 
