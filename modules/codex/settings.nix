@@ -118,18 +118,21 @@ let
   '';
 in
 {
-  config = lib.mkIf cfg.enable {
-    programs.codex.projectDocFallbackFilenames = configAttrs.project_doc_fallback_filenames;
+  config = lib.mkMerge [
+    # Read-only introspection option set unconditionally so module evaluation
+    # succeeds even when programs.codex.enable = false.
+    { programs.codex.projectDocFallbackFilenames = configAttrs.project_doc_fallback_filenames; }
+    (lib.mkIf cfg.enable {
+      home = {
+        activation.codexConfigMerge = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+          export PATH="${pkgs.jq}/bin:${pkgs.yj}/bin:$PATH"
+          $DRY_RUN_CMD ${../scripts/merge-toml-settings.sh} \
+            "${configToml}" \
+            "${homeDir}/.codex/config.toml"
+        '';
 
-    home = {
-      activation.codexConfigMerge = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-        export PATH="${pkgs.jq}/bin:${pkgs.yj}/bin:$PATH"
-        $DRY_RUN_CMD ${../scripts/merge-toml-settings.sh} \
-          "${configToml}" \
-          "${homeDir}/.codex/config.toml"
-      '';
-
-      file."${configDir}/rules/default.rules".text = formatters.codex.formatRulesFile permissions;
-    };
-  };
+        file."${configDir}/rules/default.rules".text = formatters.codex.formatRulesFile permissions;
+      };
+    })
+  ];
 }

@@ -128,22 +128,28 @@ let
       '';
 in
 {
-  config = lib.mkIf cfg.enable {
-    programs.gemini.contextFileNames = settings.context.fileName;
-    programs.gemini.sandboxAllowedPathsMerged = mergedSandboxAllowedPaths;
+  config = lib.mkMerge [
+    # Read-only introspection options set unconditionally so module evaluation
+    # succeeds even when programs.gemini.enable = false. Values are derived from
+    # pure Nix expressions (no activation-time side effects).
+    {
+      programs.gemini.contextFileNames = settings.context.fileName;
+      programs.gemini.sandboxAllowedPathsMerged = mergedSandboxAllowedPaths;
+    }
+    (lib.mkIf cfg.enable {
+      home = {
+        # Deploy the Policy Engine TOML file (read-only is fine — Gemini only reads it)
+        file."${lib.removePrefix "${homeDir}/" policyPath}".source = policyToml;
 
-    home = {
-      # Deploy the Policy Engine TOML file (read-only is fine — Gemini only reads it)
-      file."${lib.removePrefix "${homeDir}/" policyPath}".source = policyToml;
-
-      activation.mergeGeminiSettings = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-        export PATH="${pkgs.jq}/bin:$PATH"
-        $DRY_RUN_CMD ${../scripts/merge-json-settings.sh} \
-          "${settingsJson}" \
-          "${homeDir}/.gemini/settings.json"
-        $DRY_RUN_CMD ${../scripts/strip-deprecated-gemini-keys.sh} \
-          "${homeDir}/.gemini/settings.json"
-      '';
-    };
-  };
+        activation.mergeGeminiSettings = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+          export PATH="${pkgs.jq}/bin:$PATH"
+          $DRY_RUN_CMD ${../scripts/merge-json-settings.sh} \
+            "${settingsJson}" \
+            "${homeDir}/.gemini/settings.json"
+          $DRY_RUN_CMD ${../scripts/strip-deprecated-gemini-keys.sh} \
+            "${homeDir}/.gemini/settings.json"
+        '';
+      };
+    })
+  ];
 }

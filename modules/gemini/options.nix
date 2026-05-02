@@ -99,7 +99,6 @@ in
       type = lib.types.listOf lib.types.str;
       readOnly = true;
       internal = true;
-      default = [ ];
       description = "Context file names emitted to Gemini settings.json; read-only.";
     };
 
