@@ -105,7 +105,7 @@ This is the cleanest pattern: zero credential exposure outside the cluster bound
 
 ## What NOT to Do
 
-- **Never put secrets in `env:` blocks of MCP server definitions** in `modules/mcp/default.nix`.
+- **Never put secrets in `env:` blocks of MCP server definitions** in `programs.aiMcp.servers`.
   These flow into `~/.claude.json`, which is not secret-protected. They also appear in
   the Nix store derivation (world-readable at `/nix/store/`).
 - **Never hardcode API keys in Nix expressions.** Even in a private repo, they end up

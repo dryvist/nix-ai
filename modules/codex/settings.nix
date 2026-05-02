@@ -42,7 +42,7 @@ let
     server:
     let
       allowedKeys =
-        if server ? url then
+        if server.url != null then
           [
             "bearer_token_env_var"
             "disabled_tools"
@@ -70,17 +70,15 @@ let
             "tool_timeout_sec"
           ];
     in
-    lib.filterAttrs (name: value: lib.elem name allowedKeys && value != null) server;
+    lib.filterAttrs (
+      name: value: lib.elem name allowedKeys && value != null && value != [ ] && value != { }
+    ) server;
 
-  mcpServers =
-    let
-      sharedServers = import ../mcp;
-    in
-    lib.mapAttrs' (name: server: lib.nameValuePair name (normalizeMcpServer server)) (
-      lib.filterAttrs (
-        name: server: !(server.disabled or false) && !(lib.elem name cfg.excludedMcpServers)
-      ) sharedServers
-    );
+  mcpServers = lib.mapAttrs' (name: server: lib.nameValuePair name (normalizeMcpServer server)) (
+    lib.filterAttrs (
+      name: server: !(server.disabled or false) && !(lib.elem name cfg.excludedMcpServers)
+    ) config.programs.aiMcp.servers
+  );
 
   optionalValue = key: value: lib.optionalAttrs (value != null) { ${key} = value; };
 
@@ -88,11 +86,7 @@ let
   configAttrs = {
     approval_policy = cfg.approvalPolicy;
     personality = "pragmatic";
-    project_doc_fallback_filenames = [
-      "AGENTS.md"
-      "CLAUDE.md"
-      "GEMINI.md"
-    ];
+    project_doc_fallback_filenames = [ "AGENTS.md" ];
     projects = lib.listToAttrs (
       map (path: {
         name = path;
@@ -124,16 +118,21 @@ let
   '';
 in
 {
-  config = lib.mkIf cfg.enable {
-    home = {
-      activation.codexConfigMerge = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-        export PATH="${pkgs.jq}/bin:${pkgs.yj}/bin:$PATH"
-        $DRY_RUN_CMD ${../scripts/merge-toml-settings.sh} \
-          "${configToml}" \
-          "${homeDir}/.codex/config.toml"
-      '';
+  config = lib.mkMerge [
+    # Read-only introspection option set unconditionally so module evaluation
+    # succeeds even when programs.codex.enable = false.
+    { programs.codex.projectDocFallbackFilenames = configAttrs.project_doc_fallback_filenames; }
+    (lib.mkIf cfg.enable {
+      home = {
+        activation.codexConfigMerge = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+          export PATH="${pkgs.jq}/bin:${pkgs.yj}/bin:$PATH"
+          $DRY_RUN_CMD ${../scripts/merge-toml-settings.sh} \
+            "${configToml}" \
+            "${homeDir}/.codex/config.toml"
+        '';
 
-      file."${configDir}/rules/default.rules".text = formatters.codex.formatRulesFile permissions;
-    };
-  };
+        file."${configDir}/rules/default.rules".text = formatters.codex.formatRulesFile permissions;
+      };
+    })
+  ];
 }
