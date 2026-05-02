@@ -78,6 +78,7 @@ in
     ./gemini
     ./fabric
     ./maestro
+    ./mcp
     ./mcp/module.nix
     ./mlx
     ./open-webui.nix
