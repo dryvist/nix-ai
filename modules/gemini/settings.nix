@@ -42,30 +42,28 @@ let
   # HTTP/SSE: { httpUrl, headers? } (note: httpUrl not url)
   normalizeGeminiMcpServer =
     server:
-    if server ? url then
+    if server.url != null then
       # HTTP/SSE server
-      { httpUrl = server.url; } // lib.optionalAttrs (server ? headers) { inherit (server) headers; }
+      { httpUrl = server.url; } // lib.optionalAttrs (server.headers != { }) { inherit (server) headers; }
     else
       # stdio server
-      lib.filterAttrs (_name: value: value != null && value != [ ] && value != { }) (
-        {
-          command = server.command or null;
-          args = server.args or [ ];
-          env = server.env or { };
-        }
-        // lib.optionalAttrs (server ? cwd) { inherit (server) cwd; }
-        // lib.optionalAttrs (server ? timeout) { inherit (server) timeout; }
-      );
+      lib.filterAttrs (_name: value: value != null && value != [ ] && value != { }) {
+        inherit (server)
+          command
+          args
+          env
+          cwd
+          timeout
+          ;
+      };
 
   mcpServers =
-    let
-      sharedServers = import ../mcp;
-    in
-    lib.mapAttrs' (name: server: lib.nameValuePair name (normalizeGeminiMcpServer server)) (
-      lib.filterAttrs (
-        name: server: !(server.disabled or false) && !(lib.elem name cfg.excludedMcpServers)
-      ) sharedServers
-    );
+    lib.mapAttrs' (name: server: lib.nameValuePair name (normalizeGeminiMcpServer server))
+      (
+        lib.filterAttrs (
+          name: server: !(server.disabled or false) && !(lib.elem name cfg.excludedMcpServers)
+        ) config.programs.aiMcp.servers
+      );
 
   # Policy Engine: generate TOML rules from shared permissions
   policyRules =
@@ -96,10 +94,7 @@ let
     };
 
     context = {
-      fileName = [
-        "AGENTS.md"
-        "GEMINI.md"
-      ];
+      fileName = [ "AGENTS.md" ];
     };
 
     security = {
@@ -133,21 +128,28 @@ let
       '';
 in
 {
-  config = lib.mkIf cfg.enable {
-    programs.gemini.sandboxAllowedPathsMerged = mergedSandboxAllowedPaths;
+  config = lib.mkMerge [
+    # Read-only introspection options set unconditionally so module evaluation
+    # succeeds even when programs.gemini.enable = false. Values are derived from
+    # pure Nix expressions (no activation-time side effects).
+    {
+      programs.gemini.contextFileNames = settings.context.fileName;
+      programs.gemini.sandboxAllowedPathsMerged = mergedSandboxAllowedPaths;
+    }
+    (lib.mkIf cfg.enable {
+      home = {
+        # Deploy the Policy Engine TOML file (read-only is fine — Gemini only reads it)
+        file."${lib.removePrefix "${homeDir}/" policyPath}".source = policyToml;
 
-    home = {
-      # Deploy the Policy Engine TOML file (read-only is fine — Gemini only reads it)
-      file."${lib.removePrefix "${homeDir}/" policyPath}".source = policyToml;
-
-      activation.mergeGeminiSettings = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-        export PATH="${pkgs.jq}/bin:$PATH"
-        $DRY_RUN_CMD ${../scripts/merge-json-settings.sh} \
-          "${settingsJson}" \
-          "${homeDir}/.gemini/settings.json"
-        $DRY_RUN_CMD ${../scripts/strip-deprecated-gemini-keys.sh} \
-          "${homeDir}/.gemini/settings.json"
-      '';
-    };
-  };
+        activation.mergeGeminiSettings = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+          export PATH="${pkgs.jq}/bin:$PATH"
+          $DRY_RUN_CMD ${../scripts/merge-json-settings.sh} \
+            "${settingsJson}" \
+            "${homeDir}/.gemini/settings.json"
+          $DRY_RUN_CMD ${../scripts/strip-deprecated-gemini-keys.sh} \
+            "${homeDir}/.gemini/settings.json"
+        '';
+      };
+    })
+  ];
 }

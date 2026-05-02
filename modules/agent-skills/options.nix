@@ -24,7 +24,7 @@ in
     local = lib.mkOption {
       type = lib.types.attrsOf lib.types.path;
       default = { };
-      description = "Local skill files (name -> path to SKILL.md)";
+      description = "Local skill files (name -> path to SKILL.md; the containing skill directory is deployed)";
     };
   };
 }

@@ -4,6 +4,9 @@ let
   cfg = hmConfig.config.programs.agentSkills;
   homeFileNames = builtins.attrNames hmConfig.config.home.file;
   managedSkillEntries = builtins.filter (
+    n: builtins.match "^\\.agents/skills/[^/]+$" n != null
+  ) homeFileNames;
+  legacySkillFileEntries = builtins.filter (
     n: builtins.match "^\\.agents/skills/.+/SKILL\\.md$" n != null
   ) homeFileNames;
 in
@@ -63,9 +66,18 @@ in
   agent-skills-home-files =
     let
       keepFile = hmConfig.config.home.file.".agents/.keep".text;
+      missingSkillFiles = builtins.filter (
+        n: !(builtins.pathExists "${hmConfig.config.home.file.${n}.source}/SKILL.md")
+      ) managedSkillEntries;
     in
     assert keepFile != "" || throw "Agent Skills .agents/.keep file is empty (module not loaded)";
     assert builtins.length managedSkillEntries > 0 || throw "No managed .agents skill entries found";
+    assert
+      legacySkillFileEntries == [ ]
+      || throw "Agent Skills must deploy skill directories, not SKILL.md files: ${builtins.toJSON legacySkillFileEntries}";
+    assert
+      missingSkillFiles == [ ]
+      || throw "Agent Skills directory entries missing SKILL.md: ${builtins.toJSON missingSkillFiles}";
     pkgs.runCommand "check-agent-skills-home-files" { } ''
       echo "Agent Skills home.file wiring: ${toString (builtins.length managedSkillEntries)} managed skill entries"
       touch $out
