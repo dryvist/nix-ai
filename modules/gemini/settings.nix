@@ -47,15 +47,15 @@ let
       { httpUrl = server.url; } // lib.optionalAttrs (server.headers != { }) { inherit (server) headers; }
     else
       # stdio server
-      lib.filterAttrs (_name: value: value != null && value != [ ] && value != { }) (
-        {
-          command = server.command or null;
-          args = server.args or [ ];
-          env = server.env or { };
-        }
-        // lib.optionalAttrs (server ? cwd) { inherit (server) cwd; }
-        // lib.optionalAttrs (server ? timeout) { inherit (server) timeout; }
-      );
+      lib.filterAttrs (_name: value: value != null && value != [ ] && value != { }) {
+        inherit (server)
+          command
+          args
+          env
+          cwd
+          timeout
+          ;
+      };
 
   mcpServers =
     lib.mapAttrs' (name: server: lib.nameValuePair name (normalizeGeminiMcpServer server))
