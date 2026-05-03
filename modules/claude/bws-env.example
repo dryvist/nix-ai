@@ -1,4 +1,4 @@
-# BWS Configuration for Auto-Claude
+# BWS Configuration for Claude apiKeyHelper
 #
 # Copy this file to ~/.config/bws/.env and fill in your values.
 # This file should NEVER be committed to git.
@@ -26,19 +26,6 @@ BWS_KEYCHAIN_ACCOUNT=your-keychain-account-name
 # Format: BWS_SECRET_<KEY>=<secret-name-in-bws>
 # The KEY must match exactly what the code requests
 BWS_SECRET_CLAUDE_OAUTH_TOKEN=CLAUDE_OAUTH_TOKEN
-BWS_SECRET_SLACK_BOT_TOKEN=SLACK_BOT_TOKEN
 
 # Optional: Add more secrets as needed
 # BWS_SECRET_GEMINI_API_KEY=GEMINI_API_KEY
-
-# Slack channel IDs (stored directly in keychain, not BWS)
-# These are less sensitive and stored with the same account name
-# Format: SLACK_CHANNEL_ID_<REPO> in keychain (repo name uppercase, dashes/dots → underscores)
-#
-# To add channel IDs to keychain (use same account as BWS_KEYCHAIN_ACCOUNT):
-#   security add-generic-password -a <account> -s SLACK_CHANNEL_ID_AI_ASSISTANT_INSTRUCTIONS -w C0123456789 automation.keychain
-#   security add-generic-password -a <account> -s SLACK_CHANNEL_ID_NIX_CONFIG -w C9876543210 automation.keychain
-#
-# Examples:
-# - SLACK_CHANNEL_ID_AI_ASSISTANT_INSTRUCTIONS → for ai-assistant-instructions repo
-# - SLACK_CHANNEL_ID_NIX_CONFIG → for nix-config repo

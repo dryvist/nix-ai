@@ -152,13 +152,6 @@ in
     commit = "Assisted-by: Claude <noreply@anthropic.com>";
   };
 
-  # Auto-Claude: DISABLED - migrating to ai-workflows repo
-  # Module files preserved (guarded by mkIf), will be extracted later
-  autoClaude.enable = false;
-
-  # Menu bar: disabled (depends on auto-claude)
-  menubar.enable = false;
-
   plugins = {
     # Marketplaces from modular configuration with flakeInput for Nix symlinks
     # See: modules/home-manager/ai-cli/claude/plugins/marketplaces.nix
@@ -230,7 +223,6 @@ in
     # See: https://code.claude.com/docs/en/model-config
     env = {
       # Model: opusplan set above. Env var overrides available if needed.
-      # Auto-claude background jobs use their own CLAUDE_MODEL env var (haiku).
       # ANTHROPIC_MODEL = "sonnet"; # Uncomment to override default model via env var
       # CLAUDE_CODE_SUBAGENT_MODEL = "claude-haiku-4-5-20251001"; # Cost control for subagents
 
@@ -339,11 +331,6 @@ in
   # Hooks: Event-driven automation for Claude Code
   # See: https://code.claude.com/docs/en/hooks
   hooks = {
-    # Notify on user input needed (Issue #455)
-    # Sends Slack notification when Claude needs input via AskUserQuestion
-    # Enables mobile/async workflows
-    preToolUse = ./claude/hooks/ask-user-notify.sh;
-
     # Capture last output for statusline display (Issue #479)
     # Writes compact summary of last tool execution to ~/.cache/claude-last-output.txt
     # Can be read by statusline, tmux, or other display tools
