@@ -18,8 +18,6 @@ import argparse
 import json
 import os
 import re
-import shutil
-import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -31,12 +29,15 @@ EXCLUDE_PATTERN = re.compile(
 
 
 def get_memory_budget_gb() -> int:
-    """Return available memory in GB (total - 20 GB reserved for system)."""
-    sysctl = shutil.which("sysctl") or "/usr/sbin/sysctl"
-    result = subprocess.run(
-        [sysctl, "-n", "hw.memsize"], capture_output=True, text=True, check=True
-    )
-    total_bytes = int(result.stdout.strip())
+    """Return available memory in GB (total - 20 GB reserved for system).
+
+    Use os.sysconf rather than subprocess sysctl: it requires no external
+    binary and no PATH lookup, making it safe to call from home-manager
+    activation (which runs with a minimal Nix env that omits /usr/sbin).
+    SC_PAGE_SIZE * SC_PHYS_PAGES gives the same value as ``sysctl hw.memsize``
+    on macOS and is portable across macOS and Linux.
+    """
+    total_bytes = os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES")
     total_gb = total_bytes // (1024**3)
     return total_gb - 20
 
