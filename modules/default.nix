@@ -135,9 +135,10 @@ in
       # Claude Code declarative configuration
       claude = claudeConfig;
 
-      # Claude Code statusline (switched from powerline to daniel3303)
-      claudeStatusline.enable = false; # Disabled (kept for easy re-enable)
-      claudeStatuslineDaniel3303.enable = true; # Active: ClaudeCodeStatusLine (2-line)
+      # Claude Code statusline — ccstatusline active; others dormant for rollback
+      claudeStatusline.enable = false;
+      claudeStatuslineDaniel3303.enable = false;
+      claudeStatuslineCcstatusline.enable = true;
 
       # OpenAI Codex configuration (settings handled by modules/codex/)
       codex = {

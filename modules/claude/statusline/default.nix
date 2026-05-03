@@ -1,18 +1,12 @@
 # Claude Statusline Module
 #
-# Multi-line statusline for Claude Code using @owloops/claude-powerline.
-# Uses bunx at runtime for simplicity - no build-time hashes to maintain.
+# Three available implementations (mutually exclusive — enable exactly one):
 #
-# This module follows NixOS module patterns:
-# - Options defined in options.nix
-# - Theme implementation in powerline.nix
-# - Config logic uses lib.mkIf for conditional activation
+#   programs.claudeStatuslineCcstatusline.enable = true;  # Active (ccstatusline)
+#   programs.claudeStatuslineDaniel3303.enable = true;    # Dormant (daniel3303 fork)
+#   programs.claudeStatusline.enable = true;              # Dormant (claude-powerline)
 #
-# Usage:
-#   programs.claudeStatusline.enable = true;
-#
-# Configuration is hardcoded to Rose Pine theme with capsule style.
-# See powerline.nix for the full configuration.
+# ccstatusline and powerline use bunx at runtime (no build-time hashes); daniel3303 runs a local bash script.
 {
   config,
   lib,
@@ -28,6 +22,8 @@ in
     ./powerline.nix
     ./daniel3303-options.nix
     ./daniel3303.nix
+    ./ccstatusline-options.nix
+    ./ccstatusline.nix
   ];
 
   config = lib.mkIf cfg.enable { };

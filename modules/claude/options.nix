@@ -291,16 +291,18 @@ in
           "low"
           "medium"
           "high"
+          "xhigh"
         ]
       );
       default = null;
       description = ''
         Adaptive reasoning effort for Opus and Sonnet.
         - null: Use upstream default (medium for Max/Team as of v2.1.68)
+        - "xhigh": Extra-high reasoning (deeper than high)
         - "high": Full reasoning
         - "medium": Balanced cost/quality
         - "low": Minimal reasoning, fastest and cheapest
-        Override per-session via /model effort slider or "ultrathink" keyword.
+        Override per-session via /effort command.
       '';
     };
 

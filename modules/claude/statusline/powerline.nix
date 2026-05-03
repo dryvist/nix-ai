@@ -15,6 +15,7 @@
 let
   cfg = config.programs.claudeStatusline;
   daniel3303Cfg = config.programs.claudeStatuslineDaniel3303;
+  ccstatuslineCfg = config.programs.claudeStatuslineCcstatusline;
 
   # JSON config in separate file to preserve segment order and enable IDE validation
   configFile = ./claude-powerline.json;
@@ -25,10 +26,11 @@ in
     # Ensure only one statusline implementation is enabled
     assertions = [
       {
-        assertion = !daniel3303Cfg.enable;
+        assertion = !daniel3303Cfg.enable && !ccstatuslineCfg.enable;
         message = ''
-          Cannot enable both programs.claudeStatusline (powerline) and programs.claudeStatuslineDaniel3303 (daniel3303) simultaneously.
-          Choose one statusline implementation or disable both to use Claude Code's default.
+          Cannot enable more than one statusline implementation simultaneously.
+          Disable programs.claudeStatuslineDaniel3303 (daniel3303) and programs.claudeStatuslineCcstatusline (ccstatusline)
+          before enabling programs.claudeStatusline (powerline).
         '';
       }
     ];
