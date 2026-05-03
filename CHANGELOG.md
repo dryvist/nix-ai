@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.61.0](https://github.com/JacobPEvans/nix-ai/compare/v1.60.1...v1.61.0) (2026-05-03)
+
+
+### Features
+
+* **gemini:** add defaultModel and gemmaModelRouter options ([#700](https://github.com/JacobPEvans/nix-ai/issues/700)) ([9eaff06](https://github.com/JacobPEvans/nix-ai/commit/9eaff06b4e82eb255d4c088baf2d08a4190b4d78))
+
 ## [1.60.1](https://github.com/JacobPEvans/nix-ai/compare/v1.60.0...v1.60.1) (2026-05-03)
 
 
