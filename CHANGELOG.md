@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.58.5](https://github.com/JacobPEvans/nix-ai/compare/v1.58.4...v1.58.5) (2026-05-03)
+
+
+### Bug Fixes
+
+* **mlx:** correct vllm-mlx 0.2.9 prefix-cache flag names ([#683](https://github.com/JacobPEvans/nix-ai/issues/683)) ([dbd0ae8](https://github.com/JacobPEvans/nix-ai/commit/dbd0ae820244c94d0ec48a149b1345ed8d1efb11))
+* **mlx:** fix discover-models memory query, sysctl path, and vllm-mlx 0.2.9 flag names ([#684](https://github.com/JacobPEvans/nix-ai/issues/684)) ([db66230](https://github.com/JacobPEvans/nix-ai/commit/db662308c7016e1c640a6f711472d5b55c89c043))
+
 ## [1.58.4](https://github.com/JacobPEvans/nix-ai/compare/v1.58.3...v1.58.4) (2026-05-02)
 
 
