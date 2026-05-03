@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.60.1](https://github.com/JacobPEvans/nix-ai/compare/v1.60.0...v1.60.1) (2026-05-03)
+
+
+### Bug Fixes
+
+* **claude:** remove auto-claude orchestrator ([#697](https://github.com/JacobPEvans/nix-ai/issues/697)) ([6fb3d00](https://github.com/JacobPEvans/nix-ai/commit/6fb3d00fd2d6616bcce5803e7979e958e31e4f34))
+
 ## [1.60.0](https://github.com/JacobPEvans/nix-ai/compare/v1.59.0...v1.60.0) (2026-05-03)
 
 
