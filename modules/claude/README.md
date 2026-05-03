@@ -42,11 +42,8 @@ Defined in [`claude-config.nix`](../claude-config.nix), scripts in [`hooks/`](ho
 
 | Event | Script | Trigger | What It Does |
 | ----- | ------ | ------- | ------------ |
-| `preToolUse` | [`ask-user-notify.sh`](hooks/ask-user-notify.sh) | `AskUserQuestion` tool call | Sends Slack notification for async/mobile workflow |
 | `postToolUse` | [`last-output.sh`](hooks/last-output.sh) | Every tool execution | Writes compact summary to `~/.cache/claude-last-output.txt` |
-
-The Slack hook requires `SLACK_CHANNEL` env var or a matching keychain entry
-(`SLACK_CHANNEL_<REPO>`). Exits silently if not configured.
+| `sessionStart` | [`marketplace-refresh.sh`](hooks/marketplace-refresh.sh) | New session | Refreshes stale marketplace indexes after Nix rebuilds |
 
 Available hook events: `preToolUse`, `postToolUse`, `userPromptSubmit`, `stop`,
 `subagentStop`, `sessionStart`, `sessionEnd`.
@@ -126,5 +123,4 @@ and enabled plugins organized by category.
 
 - [MCP Servers](../mcp/README.md) — 15+ MCP server definitions
 - [Fabric Module](../fabric/README.md) — Fabric CLI and pattern integration
-- [Auto-Claude Testing](TESTING.md) — Autonomous agent testing procedures
 - [Plugin Cache Architecture](../../.claude/rules/plugin-cache-architecture.md) — Marketplace symlink and cache rules

@@ -33,9 +33,6 @@ in
     ./settings.nix
     ./statusline
     # Note: MCP server configuration is handled in settings.nix via the `mcpServers` option.
-    ./auto-claude.nix
-    ./auto-claude-reporting.nix
-    ./menubar.nix
     ./orphan-cleanup.nix
     # PAL/MCP runtime moved to ../mcp/module.nix (sub-flake) — imported from
     # modules/default.nix so it's available regardless of which AI tool is enabled.
@@ -61,6 +58,18 @@ in
       "${cfg.apiKeyHelper.scriptPath}" = {
         source = ./get-api-key.py; # Python script using bws_helper
         executable = true;
+      };
+
+      # Shared BWS helper used by get-api-key.py to fetch CLAUDE_OAUTH_TOKEN
+      # from ~/.config/bws/.env (Bitwarden Secrets Manager backend).
+      ".claude/scripts/bws_helper.py" = {
+        source = ./bws_helper.py;
+        executable = true;
+      };
+
+      # Template for ~/.config/bws/.env that bws_helper.py reads
+      ".config/bws/.env.example" = {
+        source = ./bws-env.example;
       };
     };
 
