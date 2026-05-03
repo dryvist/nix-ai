@@ -268,6 +268,16 @@
           };
         };
 
+        aider = {
+          imports = [
+            ./modules/ai-stack
+            ./modules/aider
+          ];
+          _module.args = {
+            inherit ai-assistant-instructions;
+          };
+        };
+
         maestro = {
           imports = [ ./modules/maestro ];
         };

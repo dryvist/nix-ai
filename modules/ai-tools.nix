@@ -57,9 +57,8 @@
 #   hf: huggingface-hub CLI (model downloads, used with HuggingFace MCP)
 #   vllm-mlx: defined in modules/mlx.nix (owns the wrapper + LaunchAgent)
 #
-# UVX ON-DEMAND (documented here; users run uvx <pkg> manually):
-#   aider-chat: AI pair programming (nixpkgs has 0.86.1 but lags upstream;
-#               uvx keeps latest. Run: uvx aider-chat)
+# DECLARATIVE MODULE (package + config managed by modules/aider/):
+#   aider-chat: AI pair programming — see modules/aider/ (programs.aider)
 #
 # NOTE: These are home-manager packages, not system packages.
 # Imported in hosts/macbook-m4/home.nix via home.packages.
@@ -200,14 +199,8 @@ in
     # ==========================================================================
     # Aider - AI pair programming in the terminal
     # ==========================================================================
-    # Available in nixpkgs as `aider-chat` but version lags upstream (0.86.1 as of
-    # 2026-04). We intentionally do NOT package it here — users run `uvx aider-chat`
-    # to always get the latest release. Migrating to the nixpkgs package would
-    # trade "always-latest" for "reproducible pin", which is the opposite of our
-    # preference for AI tooling that ships fixes weekly.
-    # Source: https://github.com/paul-gauthier/aider
-    # PyPI: aider-chat
-    # Run: uvx aider-chat
+    # Package and configuration managed by modules/aider/ (programs.aider).
+    # See that module for routing, model selection, and YAML config generation.
 
   ];
 }
