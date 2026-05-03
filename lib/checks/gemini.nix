@@ -10,12 +10,19 @@ in
     let
       expectedOptions = [
         "commands"
+        "contextFileNames"
+        "defaultApprovalMode"
+        "defaultModel"
         "enable"
         "excludedMcpServers"
         "extensions"
+        "gemmaModelRouter"
         "hooks"
         "sandbox"
+        "sandboxAllowedPaths"
+        "sandboxAllowedPathsMerged"
         "trustedFolders"
+        "worktrees"
       ];
       actualOptions = builtins.attrNames cfg;
       missingOptions = builtins.filter (o: !(builtins.elem o actualOptions)) expectedOptions;
@@ -89,6 +96,36 @@ in
           name = "gemini.sandboxAllowedPaths";
           actual = cfg.sandboxAllowedPaths;
           expected = [ ];
+        }
+        {
+          name = "gemini.defaultModel";
+          actual = cfg.defaultModel;
+          expected = null;
+        }
+        {
+          name = "gemini.gemmaModelRouter.enable";
+          actual = cfg.gemmaModelRouter.enable;
+          expected = false;
+        }
+        {
+          name = "gemini.gemmaModelRouter.autoStartServer";
+          actual = cfg.gemmaModelRouter.autoStartServer;
+          expected = false;
+        }
+        {
+          name = "gemini.gemmaModelRouter.port";
+          actual = cfg.gemmaModelRouter.port;
+          expected = 9379;
+        }
+        {
+          name = "gemini.gemmaModelRouter.binaryPath";
+          actual = cfg.gemmaModelRouter.binaryPath;
+          expected = "";
+        }
+        {
+          name = "gemini.gemmaModelRouter.classifierModel";
+          actual = cfg.gemmaModelRouter.classifierModel;
+          expected = "gemma3-1b-gpu-custom";
         }
       ];
       failures = builtins.filter (c: c.actual != c.expected) checks;

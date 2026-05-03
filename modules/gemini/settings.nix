@@ -111,9 +111,24 @@ let
 
     experimental = {
       inherit (cfg) worktrees;
+    }
+    // lib.optionalAttrs cfg.gemmaModelRouter.enable {
+      gemmaModelRouter = {
+        enabled = true;
+        inherit (cfg.gemmaModelRouter) autoStartServer binaryPath;
+        classifier = {
+          host = "http://localhost:${toString cfg.gemmaModelRouter.port}";
+          model = cfg.gemmaModelRouter.classifierModel;
+        };
+      };
     };
 
     inherit mcpServers;
+  }
+  // lib.optionalAttrs (cfg.defaultModel != null) {
+    model = {
+      name = cfg.defaultModel;
+    };
   };
 
   settingsJson =

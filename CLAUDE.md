@@ -182,6 +182,7 @@ new ports to avoid collisions (e.g., the 11434/11435/11436 fragmentation during 
 | 11436 | vllm-mlx backend (internal, managed by llama-swap) | HTTP | `modules/mlx/` |
 | 8080 | Open WebUI | HTTP | `modules/open-webui.nix` |
 | 8180 | Fabric REST API (opt-in LaunchAgent) | HTTP + Swagger UI | `modules/fabric/` |
+| 9379 | LiteRT-LM classifier (Gemini CLI gemma router, opt-in) | HTTP | `modules/gemini/` |
 
 **Reserved/conflicting ports to avoid:**
 

@@ -171,6 +171,60 @@ in
       '';
     };
 
+    # Default chat model
+    defaultModel = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = ''
+        Pin Gemini CLI's default chat model (sets model.name in settings.json).
+        Accepts any value the upstream CLI accepts: tier aliases ("pro", "flash",
+        "flash-lite"), "auto" family aliases, or explicit model IDs from the
+        upstream registry. Prefer aliases over versioned IDs so this option
+        does not go stale when upstream ships new models.
+        See the in-CLI /model dialog or upstream settings.schema.json for
+        the current accepted values.
+        null leaves Gemini CLI's own model resolution alone.
+        NOTE: Google-hosted model values execute in Google's cloud. For
+        on-device generation via local MLX inference, configure
+        GOOGLE_GEMINI_BASE_URL to point at the Bifrost genai translator.
+      '';
+    };
+
+    # Experimental local Gemma classifier router (LiteRT-LM)
+    gemmaModelRouter = {
+      enable = lib.mkEnableOption "experimental local Gemma classifier router (LiteRT-LM)";
+
+      autoStartServer = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = "Automatically start the LiteRT-LM server when Gemini CLI starts.";
+      };
+
+      port = lib.mkOption {
+        type = lib.types.port;
+        default = 9379;
+        description = "Local port for the LiteRT-LM classifier HTTP server.";
+      };
+
+      classifierModel = lib.mkOption {
+        type = lib.types.str;
+        default = "gemma3-1b-gpu-custom";
+        description = ''
+          LiteRT-LM bundle name used by the local classifier. This is a
+          LiteRT-LM identifier, NOT an MLX model ID — different runtime,
+          different catalog. Discover available bundles via the runtime's
+          list-models subcommand. Cannot reference services.aiStack.models
+          (those are MLX models served by a different stack).
+        '';
+      };
+
+      binaryPath = lib.mkOption {
+        type = lib.types.str;
+        default = "";
+        description = "Override path to the LiteRT-LM binary. Empty string uses Gemini CLI's default (~/.gemini/bin/litert/).";
+      };
+    };
+
     # MCP servers to exclude from shared definitions
     excludedMcpServers = lib.mkOption {
       type = lib.types.listOf lib.types.str;
