@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.58.6](https://github.com/JacobPEvans/nix-ai/compare/v1.58.5...v1.58.6) (2026-05-03)
+
+
+### Bug Fixes
+
+* **mlx:** write seed-config target with user-writable mode ([#685](https://github.com/JacobPEvans/nix-ai/issues/685)) ([163bd17](https://github.com/JacobPEvans/nix-ai/commit/163bd173354b0ca5e9585fea0e63707037e197d0))
+
 ## [1.58.5](https://github.com/JacobPEvans/nix-ai/compare/v1.58.4...v1.58.5) (2026-05-03)
 
 
