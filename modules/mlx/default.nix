@@ -85,8 +85,8 @@ let
           (toString cfg.prefillBatchSize)
         ]
         ++ lib.optionals cfg.continuousBatching [ "--continuous-batching" ]
-        ++ lib.optionals cfg.enablePrefixCaching [ "--enable-prefix-caching" ]
-        ++ lib.optionals cfg.pagedKvCache [ "--paged-kv-cache" ]
+        ++ lib.optionals cfg.enablePrefixCaching [ "--enable-prefix-cache" ]
+        ++ lib.optionals cfg.pagedKvCache [ "--use-paged-cache" ]
         ++ lib.optionals (cfg.maxNumSeqs != null) [
           "--max-num-seqs"
           (toString cfg.maxNumSeqs)
