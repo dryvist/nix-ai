@@ -137,6 +137,7 @@ Enable by overriding `programs.aiMcp.servers.<name>.disabled` and adding the key
 | 11436+ | vllm-mlx backends | HTTP (managed by llama-swap) | `modules/mlx/` |
 | 8080 | Open WebUI | HTTP | `modules/open-webui.nix` |
 | 8180 | Fabric REST API (opt-in) | HTTP + Swagger UI | `modules/fabric/` |
+| 9379 | LiteRT-LM classifier (Gemini CLI gemma router, opt-in) | HTTP | `modules/gemini/` |
 | 30080 | Bifrost AI gateway | HTTP | `orbstack-kubernetes` repo |
 | 30030 | Cribl MCP | HTTP | `orbstack-kubernetes` repo |
 

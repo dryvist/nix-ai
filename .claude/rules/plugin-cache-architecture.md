@@ -1,3 +1,13 @@
+---
+description: Marketplace symlinks vs cache, never delete cache mid-session, never mutate cache from activation scripts
+paths:
+  - "**/.claude/plugins/**"
+  - "**/modules/claude/**"
+  - "**/plugins.nix"
+  - "**/plugins/*.nix"
+  - "**/orphan-cleanup.nix"
+---
+
 # Plugin Cache Architecture
 
 ## Marketplace Symlinks

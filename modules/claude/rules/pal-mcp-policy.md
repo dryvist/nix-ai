@@ -1,5 +1,16 @@
 ---
 description: PAL MCP availability protocol — clink/consensus have no native fallback; chat/listmodels re-enabled
+paths:
+  - "**/.claude/**"
+  - "**/.gemini/**"
+  - "**/.copilot/**"
+  - "**/modules/claude/**"
+  - "**/modules/gemini/**"
+  - "**/modules/mcp/**"
+  - "**/bifrost*/**"
+  - "**/pal*/**"
+  - "**/llama-swap*/**"
+  - "**/mlx*/**"
 ---
 
 # PAL MCP Policy

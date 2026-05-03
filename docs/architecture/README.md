@@ -52,6 +52,15 @@ use which pattern and explains the trust boundary each pattern enforces.
 **Read when**: Adding a new MCP server that needs API keys, debugging secrets not reaching
 a subprocess, or auditing where credentials flow.
 
+### [mlx-stack.md](mlx-stack.md)
+
+The three user-facing MLX tools (parakeet-mlx, mlx-vlm, vllm-mlx) and their shared library
+dependencies. Includes the dependency graph, version management strategy, and operational
+notes covering tool-call parser compatibility, idle eviction, and MoE vs dense throughput.
+
+**Read when**: Adding a new MLX tool, debugging a model loading or tool-calling issue,
+or understanding why the 35B model is preloaded vs the 122B MoE.
+
 ## ADRs
 
 [`docs/adr/`](../adr/README.md) contains the decisions behind non-obvious design choices.
