@@ -38,8 +38,8 @@ in
       default = false;
       description = ''
         When true, install a writeShellScriptBin "aider" wrapper that runs
-        `uvx aider-chat` instead of the nixpkgs package. Gives access to
-        the latest upstream release at the cost of reproducibility.
+        `uv tool run --from "aider-chat" aider` instead of the nixpkgs package.
+        Gives access to the latest upstream release at the cost of reproducibility.
         Set package = null when enabling this.
       '';
     };
@@ -160,12 +160,6 @@ in
         "GEMINI.md"
       ];
       description = "Files always added as read-only context in every Aider session.";
-    };
-
-    trustedProjectDirs = lib.mkOption {
-      type = lib.types.listOf lib.types.str;
-      default = [ ];
-      description = "Additional directories to scan. Merged with shared development/config directories.";
     };
 
     hooks = {

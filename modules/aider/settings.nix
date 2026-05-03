@@ -3,9 +3,9 @@
 #
 # Generates three read-only files via home.file (Aider does NOT rewrite them):
 #
-#   ~/.aider.conf.yml          Main config; picked up before project-level overrides
-#   ~/.aider.model.metadata.json  Context limits / cost data for local MLX models
-#   ~/.aider.model.settings.yml   Per-model edit format and streaming overrides
+#   ~/.aider.conf.yml             Main config; picked up before project-level overrides
+#   ~/.aider/aider-meta.json      Context limits / cost data for local MLX models
+#   ~/.aider/aider-settings.yml   Per-model edit format and streaming overrides
 #
 # All three files are read-only Nix-store symlinks - no activation merge script
 # needed because Aider treats them as static config, not runtime state.
@@ -131,14 +131,16 @@ let
 
   makeSettingsEntry =
     name: role:
+    let
+      selectedFormat = if lib.elem role codeRoles then cfg.editFormat else cfg.weakEditFormat;
+    in
     {
       inherit name;
-      edit_format = if lib.elem role codeRoles then cfg.editFormat else cfg.weakEditFormat;
       weak_model_name = prefixModel cfg.weakModel;
       use_repo_map = true;
       streaming = cfg.stream;
     }
-    // lib.optionalAttrs (cfg.editFormat != null) { edit_format = cfg.editFormat; };
+    // lib.optionalAttrs (selectedFormat != null) { edit_format = selectedFormat; };
 
   roleAliasSettings = lib.mapAttrsToList (role: _: makeSettingsEntry "openai/${role}" role) models;
 
@@ -149,11 +151,11 @@ let
   # Regex catch-all for any mlx-local/* model not explicitly listed above
   catchAllEntry = {
     name = "openai/mlx-local/.*";
-    edit_format = cfg.editFormat;
     weak_model_name = prefixModel cfg.weakModel;
     use_repo_map = true;
     streaming = cfg.stream;
-  };
+  }
+  // lib.optionalAttrs (cfg.editFormat != null) { edit_format = cfg.editFormat; };
 
   modelSettings = roleAliasSettings ++ physicalIdSettings ++ [ catchAllEntry ];
 
@@ -164,8 +166,8 @@ in
   config = lib.mkIf cfg.enable {
     home.file = {
       ".aider.conf.yml".source = yamlConf;
-      ".aider.model.metadata.json".source = metadataJson;
-      ".aider.model.settings.yml".source = modelSettingsYaml;
+      ".aider/aider-meta.json".source = metadataJson;
+      ".aider/aider-settings.yml".source = modelSettingsYaml;
       ".aider/history/.keep".text = "# Managed by Nix - programs.aider\n";
     };
   };
