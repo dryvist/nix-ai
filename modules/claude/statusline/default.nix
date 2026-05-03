@@ -6,7 +6,7 @@
 #   programs.claudeStatuslineDaniel3303.enable = true;    # Dormant (daniel3303 fork)
 #   programs.claudeStatusline.enable = true;              # Dormant (claude-powerline)
 #
-# All three use bunx at runtime — no build-time hashes to maintain.
+# ccstatusline and powerline use bunx at runtime (no build-time hashes); daniel3303 runs a local bash script.
 {
   config,
   lib,

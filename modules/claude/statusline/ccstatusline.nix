@@ -42,6 +42,7 @@ in
       script = ''
         #!/usr/bin/env bash
         # ccstatusline by sirmalloc (semver-pinned for stability)
+        export PATH="${pkgs.git}/bin:$PATH"
         exec ${pkgs.bun}/bin/bunx ccstatusline@'^2' --config ${configFile} "$@"
       '';
     };
