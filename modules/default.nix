@@ -66,6 +66,13 @@ let
     inherit pkgs lib;
     inherit (pkgs) fetchFromGitHub;
   };
+
+  # renovate: datasource=pypi depName=open-webui
+  openWebuiVersion = "0.9.2";
+  # Keep in sync with modules/claude/marketplace-overrides.nix browserUseVersion.
+  # Renovate updates both files in a single PR (same datasource+depName = one update).
+  # renovate: datasource=pypi depName=browser-use
+  browserUseInstallVersion = "0.12.6";
 in
 {
   imports = [
@@ -116,7 +123,7 @@ in
         installOpenWebui = lib.hm.dag.entryAfter [ "writeBoundary" "knownMarketplacesMerge" ] ''
           if ! ${lib.getExe pkgs.uv} tool list 2>/dev/null | grep -q "^open-webui"; then
             echo "-> Installing open-webui via uv (Python 3.14)..."
-            $DRY_RUN_CMD ${lib.getExe pkgs.uv} tool install "open-webui==0.9.2" --python 3.14
+            $DRY_RUN_CMD ${lib.getExe pkgs.uv} tool install "open-webui==${openWebuiVersion}" --python 3.14
           fi
         '';
 
@@ -124,7 +131,7 @@ in
         installBrowserUse = lib.hm.dag.entryAfter [ "writeBoundary" "knownMarketplacesMerge" ] ''
           if ! ${lib.getExe pkgs.uv} tool list 2>/dev/null | grep -q "^browser-use"; then
             echo "-> Installing browser-use via uv..."
-            $DRY_RUN_CMD ${lib.getExe pkgs.uv} tool install "browser-use==0.12.6"
+            $DRY_RUN_CMD ${lib.getExe pkgs.uv} tool install "browser-use==${browserUseInstallVersion}"
           fi
         '';
       };

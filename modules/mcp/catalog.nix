@@ -9,31 +9,64 @@
 # secrets manager (Doppler, Keychain, etc.) to inject env vars.
 
 let
-  # bunx helper - command only, args set inline per server so Renovate's
-  # regex manager can match literal "@scope/pkg@version" strings in the source.
+  # bunx helper: command-only args for MCP server definitions.
   bunx = args: {
     command = "bunx";
     inherit args;
   };
+
+  # ================================================================
+  # Package version pins — Renovate tracks these via annotation comments
+  # ================================================================
+
+  # renovate: datasource=npm depName=@modelcontextprotocol/server-everything
+  mcpEverythingVersion = "2026.1.26";
+  # renovate: datasource=npm depName=@modelcontextprotocol/server-filesystem
+  mcpFilesystemVersion = "2026.1.14";
+  # renovate: datasource=npm depName=@modelcontextprotocol/server-memory
+  mcpMemoryVersion = "2026.1.26";
+  # renovate: datasource=npm depName=@modelcontextprotocol/server-aws-kb-retrieval
+  mcpAwsVersion = "0.6.2";
+  # renovate: datasource=npm depName=@modelcontextprotocol/server-postgres
+  mcpPostgresVersion = "0.6.2";
+  # renovate: datasource=npm depName=@modelcontextprotocol/server-brave-search
+  mcpBraveSearchVersion = "0.6.2";
+  # renovate: datasource=npm depName=@modelcontextprotocol/server-google-maps
+  mcpGoogleMapsVersion = "0.6.2";
+  # renovate: datasource=npm depName=@modelcontextprotocol/server-puppeteer
+  mcpPuppeteerVersion = "2025.5.12";
+  # renovate: datasource=npm depName=@modelcontextprotocol/server-slack
+  mcpSlackVersion = "2025.4.25";
+
+  # renovate: datasource=pypi depName=mcp-server-time
+  mcpServerTimeVersion = "2026.1.26";
+  # renovate: datasource=pypi depName=huggingface-mcp-server
+  hfMcpServerVersion = "0.1.0";
+  # renovate: datasource=pypi depName=huggingface-hub
+  huggingfaceHubVersion = "1.12.0";
+  # renovate: datasource=pypi depName=fabric-mcp
+  fabricMcpVersion = "1.1.0";
+  # renovate: datasource=pypi depName=google-workspace-mcp
+  gwsMcpVersion = "2.0.1";
 in
 {
   # ================================================================
   # Official Anthropic MCP Servers
   # ================================================================
-  # Versions pinned as literal strings for Renovate regex tracking.
+  # Versions are let-bound above with Renovate annotation comments for regex tracking.
   # Archived servers remain unpinned unless a maintained replacement exists.
 
-  everything = bunx [ "@modelcontextprotocol/server-everything@2026.1.26" ];
+  everything = bunx [ "@modelcontextprotocol/server-everything@${mcpEverythingVersion}" ];
   fetch = bunx [ "@modelcontextprotocol/server-fetch" ]; # archived
-  filesystem = bunx [ "@modelcontextprotocol/server-filesystem@2026.1.14" ];
+  filesystem = bunx [ "@modelcontextprotocol/server-filesystem@${mcpFilesystemVersion}" ];
   git = bunx [ "@modelcontextprotocol/server-git" ]; # archived
-  memory = bunx [ "@modelcontextprotocol/server-memory@2026.1.26" ];
+  memory = bunx [ "@modelcontextprotocol/server-memory@${mcpMemoryVersion}" ];
   sequentialthinking = bunx [ "@modelcontextprotocol/server-sequential-thinking" ]; # archived
   time = {
     command = "uvx";
     args = [
       "--from"
-      "mcp-server-time==2026.1.26"
+      "mcp-server-time==${mcpServerTimeVersion}"
       "mcp-server-time"
     ];
   };
@@ -47,7 +80,7 @@ in
   cloudflare = bunx [ "@modelcontextprotocol/server-cloudflare" ] // {
     disabled = true;
   }; # archived; Requires: CLOUDFLARE_API_TOKEN
-  aws = bunx [ "@modelcontextprotocol/server-aws-kb-retrieval@0.6.2" ]; # Requires: AWS credentials
+  aws = bunx [ "@modelcontextprotocol/server-aws-kb-retrieval@${mcpAwsVersion}" ]; # Requires: AWS credentials
 
   # ================================================================
   # Native nixpkgs packages
@@ -89,21 +122,20 @@ in
     command = "uvx";
     args = [
       "--from"
-      "huggingface-mcp-server==0.1.0"
+      "huggingface-mcp-server==${hfMcpServerVersion}"
       "--with"
-      "huggingface-hub==1.12.0"
+      "huggingface-hub==${huggingfaceHubVersion}"
       "huggingface-mcp-server"
     ];
   };
 
   # Fabric MCP - community-maintained (ksylvan/fabric-mcp), exposes fabric
   # patterns as MCP tools. Requires fabric CLI setup (see modules/fabric/).
-  # renovate: datasource=pypi depName=fabric-mcp
   fabric = {
     command = "uvx";
     args = [
       "--from"
-      "fabric-mcp==1.1.0"
+      "fabric-mcp==${fabricMcpVersion}"
       "fabric-mcp"
       "--transport"
       "stdio"
@@ -129,7 +161,7 @@ in
   # Database (disabled by default)
   # ================================================================
 
-  postgresql = bunx [ "@modelcontextprotocol/server-postgres@0.6.2" ] // {
+  postgresql = bunx [ "@modelcontextprotocol/server-postgres@${mcpPostgresVersion}" ] // {
     disabled = true;
   };
   sqlite = bunx [ "@modelcontextprotocol/server-sqlite" ] // {
@@ -140,7 +172,7 @@ in
   # Additional (disabled - specialized use cases)
   # ================================================================
 
-  brave-search = bunx [ "@modelcontextprotocol/server-brave-search@0.6.2" ] // {
+  brave-search = bunx [ "@modelcontextprotocol/server-brave-search@${mcpBraveSearchVersion}" ] // {
     disabled = true;
   };
   # Google Workspace - Gmail, Drive, Calendar integration.
@@ -150,7 +182,7 @@ in
     args = [
       "uvx"
       "--from"
-      "google-workspace-mcp==2.0.1"
+      "google-workspace-mcp==${gwsMcpVersion}"
       "workspace-mcp"
       "--tools"
       "gmail"
@@ -158,13 +190,13 @@ in
       "calendar"
     ];
   };
-  google-maps = bunx [ "@modelcontextprotocol/server-google-maps@0.6.2" ] // {
+  google-maps = bunx [ "@modelcontextprotocol/server-google-maps@${mcpGoogleMapsVersion}" ] // {
     disabled = true;
   };
-  puppeteer = bunx [ "@modelcontextprotocol/server-puppeteer@2025.5.12" ] // {
+  puppeteer = bunx [ "@modelcontextprotocol/server-puppeteer@${mcpPuppeteerVersion}" ] // {
     disabled = true;
   };
-  slack = bunx [ "@modelcontextprotocol/server-slack@2025.4.25" ] // {
+  slack = bunx [ "@modelcontextprotocol/server-slack@${mcpSlackVersion}" ] // {
     disabled = true;
   };
   sentry = bunx [ "@modelcontextprotocol/server-sentry" ] // {

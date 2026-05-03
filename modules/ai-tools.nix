@@ -74,10 +74,23 @@
 #   3. Add to version check script (scripts/workflows/check-package-versions.sh)
 
 { pkgs, ... }:
-
+let
+  # renovate: datasource=npm depName=@felixgeelhaar/cclint
+  cclintVersion = "0.12.1";
+  # renovate: datasource=npm depName=@githubnext/github-copilot-cli
+  ghCopilotVersion = "0.1.36";
+  # renovate: datasource=npm depName=chatgpt-cli
+  chatgptCliVersion = "3.3.0";
+  # renovate: datasource=npm depName=claude-flow
+  claudeFlowVersion = "3.5";
+  # renovate: datasource=npm depName=@googleworkspace/cli
+  gwsCliVersion = "0.22.5";
+  # renovate: datasource=pypi depName=huggingface-hub
+  huggingfaceHubVersion = "1.12.0";
+in
 {
   # AI-specific development tools
-  # Install via: home.packages = [ ... ] ++ (import ./ai-cli/ai-tools.nix { inherit pkgs; }).packages;
+  # Install via: home.packages = [ ... ] ++ (import ./ai-tools.nix { inherit pkgs; }).packages;
   #
   # See CURRENT STATUS section at the top of this file for package details.
   packages = with pkgs; [
@@ -98,7 +111,7 @@
     # Source: https://github.com/felixgeelhaar/cclint
     # NPM: @felixgeelhaar/cclint (pinned version)
     (writeShellScriptBin "cclint" ''
-      exec ${bun}/bin/bunx --bun @felixgeelhaar/cclint@0.12.1 "$@"
+      exec ${bun}/bin/bunx --bun @felixgeelhaar/cclint@${cclintVersion} "$@"
     '')
 
     # ==========================================================================
@@ -131,7 +144,7 @@
     # Source: https://github.com/github/gh-copilot
     # NPM: @githubnext/github-copilot-cli (pinned version)
     (writeShellScriptBin "gh-copilot" ''
-      exec ${bun}/bin/bunx --bun @githubnext/github-copilot-cli@0.1.36 "$@"
+      exec ${bun}/bin/bunx --bun @githubnext/github-copilot-cli@${ghCopilotVersion} "$@"
     '')
 
     # ==========================================================================
@@ -140,7 +153,7 @@
     # Source: https://github.com/manno/chatgpt-cli
     # NPM: chatgpt-cli (pinned version)
     (writeShellScriptBin "chatgpt" ''
-      exec ${bun}/bin/bunx --bun chatgpt-cli@3.3.0 "$@"
+      exec ${bun}/bin/bunx --bun chatgpt-cli@${chatgptCliVersion} "$@"
     '')
 
     # ==========================================================================
@@ -149,7 +162,7 @@
     # Source: https://github.com/ruvnet/claude-flow
     # NPM: claude-flow (pinned version)
     (writeShellScriptBin "claude-flow" ''
-      exec ${bun}/bin/bunx --bun claude-flow@3.5 "$@"
+      exec ${bun}/bin/bunx --bun claude-flow@${claudeFlowVersion} "$@"
     '')
 
     # ==========================================================================
@@ -160,7 +173,7 @@
     # NPM: @googleworkspace/cli (pinned version)
     # Key commands: gws gmail +triage, gws gmail +watch, gws drive +upload
     (writeShellScriptBin "gws" ''
-      exec ${bun}/bin/bunx --bun @googleworkspace/cli@0.22.5 "$@"
+      exec ${bun}/bin/bunx --bun @googleworkspace/cli@${gwsCliVersion} "$@"
     '')
 
     # ==========================================================================
@@ -181,7 +194,7 @@
     # PyPI: huggingface-hub (provides `hf` entry point)
     # Requires: HF_TOKEN env var (from macOS Keychain via nix-darwin shell init)
     (writeShellScriptBin "hf" ''
-      exec ${uv}/bin/uvx --from "huggingface-hub==1.12.0" hf "$@"
+      exec ${uv}/bin/uvx --from "huggingface-hub==${huggingfaceHubVersion}" hf "$@"
     '')
 
     # ==========================================================================

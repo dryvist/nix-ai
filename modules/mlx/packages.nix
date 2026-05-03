@@ -30,6 +30,10 @@ let
     llamaSwapRuntimeConfigPath
     ;
   vllmMlxPin = "vllm-mlx==${vllmMlxVersion}";
+  # renovate: datasource=pypi depName=mlx-lm
+  mlxLmVersion = "0.31.3";
+  # renovate: datasource=pypi depName=lm-eval
+  lmEvalVersion = "0.4.11";
 in
 {
   config = lib.mkIf cfg.enable {
@@ -130,9 +134,8 @@ in
         '')
 
         # mlx-bench-raw — raw MLX prefill + decode (no vllm-mlx overhead)
-        # renovate: datasource=pypi depName=mlx-lm
         (pkgs.writeShellScriptBin "mlx-bench-raw" ''
-          exec ${pkgs.uv}/bin/uvx --from "mlx-lm==0.31.3" mlx_lm.benchmark "$@"
+          exec ${pkgs.uv}/bin/uvx --from "mlx-lm==${mlxLmVersion}" mlx_lm.benchmark "$@"
         '')
 
         # mlx-eval — accuracy evaluation against the live vllm-mlx server API
@@ -151,10 +154,9 @@ in
         # The [api,math] extras bring in sympy + math_verify + antlr4 for
         # minerva_math500, which is the math-hard suite task currently run.
         #
-        # renovate: datasource=pypi depName=lm-eval
         (pkgs.writeShellScriptBin "mlx-eval" ''
           concurrent="''${MLX_EVAL_CONCURRENT:-4}"
-          exec ${pkgs.uv}/bin/uvx --from "lm-eval[api,math]==0.4.11" lm-eval run \
+          exec ${pkgs.uv}/bin/uvx --from "lm-eval[api,math]==${lmEvalVersion}" lm-eval run \
             --model local-chat-completions \
             --model_args "base_url=''${MLX_API_URL:-${apiUrl}}/chat/completions,model=''${MLX_DEFAULT_MODEL:-${cfg.defaultModel}},tokenizer_backend=None,tokenized_requests=False,num_concurrent=''${concurrent},max_retries=3,max_length=32768" \
             --apply_chat_template \
