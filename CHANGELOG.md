@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.60.0](https://github.com/JacobPEvans/nix-ai/compare/v1.59.0...v1.60.0) (2026-05-03)
+
+
+### Features
+
+* **claude:** migrate statusline from daniel3303 fork to ccstatusline ([#690](https://github.com/JacobPEvans/nix-ai/issues/690)) ([9a392d7](https://github.com/JacobPEvans/nix-ai/commit/9a392d70362dcfaa60951cefee6b5aae8fdccda3))
+
 ## [1.59.0](https://github.com/JacobPEvans/nix-ai/compare/v1.58.6...v1.59.0) (2026-05-03)
 
 
