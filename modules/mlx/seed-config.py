@@ -39,6 +39,7 @@ def _atomic_write(target: Path, content: bytes) -> None:
         raise
 
 
+
 def main() -> None:
     if len(sys.argv) != 3:
         print(
