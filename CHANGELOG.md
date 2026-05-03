@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.59.0](https://github.com/JacobPEvans/nix-ai/compare/v1.58.6...v1.59.0) (2026-05-03)
+
+
+### Features
+
+* **mlx:** rewrite alias→physical via llama-swap useModelName ([#686](https://github.com/JacobPEvans/nix-ai/issues/686)) ([6b42fd2](https://github.com/JacobPEvans/nix-ai/commit/6b42fd202652c669a7b252899b2432f4f08e2751))
+
 ## [1.58.6](https://github.com/JacobPEvans/nix-ai/compare/v1.58.5...v1.58.6) (2026-05-03)
 
 
