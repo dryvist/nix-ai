@@ -24,12 +24,19 @@ disable the lower-tier one. Document each disable inline with a reason.
 | **1** | Anthropic Official | `claude-plugins-official`, `anthropic-agent-skills` |
 | **2** | First-party AI/cloud vendors | `openai-codex`, MCP integrations under `claude-plugins-official/external_plugins/*` |
 | **3** | Personal | `jacobpevans-cc-plugins` |
-| **4** | Community by GitHub-stars popularity (verified at edit time) | `claude-code-workflows` (34k★), `superpowers-marketplace` (925★), `cc-marketplace` (679★), `claude-skills` (129★) |
-| **5** | Niche / specialty | `lunar-claude`, `claude-code-plugins-plus`, `bitwarden-marketplace`, `cc-dev-tools`, `fabric-patterns`, `huggingface-skills`, `obsidian-skills`, `axton-obsidian-visual-skills`, `visual-explainer-marketplace`, `browser-use-skills`, `vct-cribl-pack-validator-skills`, `wakatime` |
+| **4** | Broad-scope community marketplaces (multi-plugin); ordering within the tier follows GitHub stars | `claude-code-workflows` (34k★), `superpowers-marketplace` (925★), `cc-marketplace` (679★), `claude-skills` (129★) |
+| **5** | Niche / specialty / single-purpose / synthetic — classified by use-case scope, not stars | `lunar-claude`, `claude-code-plugins-plus`, `bitwarden-marketplace`, `cc-dev-tools`, `fabric-patterns`, `huggingface-skills`, `obsidian-skills`, `axton-obsidian-visual-skills`, `visual-explainer-marketplace`, `browser-use-skills`, `vct-cribl-pack-validator-skills`, `wakatime` |
+
+> Tier 4 vs Tier 5 is **not** purely a star count comparison. Several Tier 5
+> entries wrap very high-star upstream repos (e.g., `browser-use` 91k★,
+> `fabric` 41k★, `obsidian-skills` 28k★) but the *wrapped Claude Code plugin*
+> is specialty/single-purpose use, which is what tier classification reflects.
+> Stars are used only to order marketplaces *within* Tier 4 when they all
+> meet the broad-scope bar.
 
 **Star counts are verified at edit time** via `gh repo view <owner>/<repo> --json
-stargazerCount` and embedded in each tier file's header. Re-verify yearly or when
-significantly reorganizing tiers.
+stargazerCount` and embedded inline. Re-verify yearly or when significantly
+reorganizing tiers.
 
 ## Marketplaces
 
@@ -151,8 +158,9 @@ load. **Reduce per-session overhead** by:
 1. Disabling lower-tier duplicates (this directory's primary mechanism).
 2. Committing per-repo `.claude/settings.json` overrides into individual project
    repositories to disable plugins that aren't relevant to that repo's stack.
-3. Verifying `ENABLE_TOOL_SEARCH = "auto:10"` in `modules/claude/settings.nix`
-   so MCP schemas defer until needed.
+3. Verifying `ENABLE_TOOL_SEARCH = "auto:10"` is set in
+   [`modules/claude-config.nix`](../../claude-config.nix) (env block) so MCP
+   schemas defer until needed.
 
 See [`docs/architecture/token-optimization.md`](../../../docs/architecture/token-optimization.md)
 for the full rationale and per-session measurements (if it exists; otherwise consult
