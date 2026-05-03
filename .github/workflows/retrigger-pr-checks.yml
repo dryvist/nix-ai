@@ -19,5 +19,4 @@ jobs:
   retrigger:
     uses: JacobPEvans/.github/.github/workflows/_retrigger-pr-checks.yml@main
     secrets:
-      GH_ACTION_JACOBPEVANS_APP_ID: ${{ secrets.GH_ACTION_JACOBPEVANS_APP_ID }}
       GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
