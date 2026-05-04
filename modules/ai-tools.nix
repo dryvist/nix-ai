@@ -81,7 +81,7 @@ let
   # renovate: datasource=npm depName=chatgpt-cli
   chatgptCliVersion = "3.3.0";
   # renovate: datasource=npm depName=claude-flow
-  claudeFlowVersion = "3.5";
+  claudeFlowVersion = "3.6.12";
   # renovate: datasource=npm depName=@googleworkspace/cli
   gwsCliVersion = "0.22.5";
   # renovate: datasource=pypi depName=huggingface-hub
