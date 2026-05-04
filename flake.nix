@@ -119,8 +119,10 @@
     };
 
     # Fabric - Daniel Miessler's 252+ AI prompt pattern framework (Go CLI).
-    # Source of both the fabric binary and the pattern library. Pinned to a
-    # release tag; Renovate bumps via the annotation in modules/fabric/package.nix.
+    # Source of both the fabric binary and the pattern library. The flake input
+    # tag and lib/versions.nix.fabric must stay in sync — Renovate opens separate
+    # PRs for each (nix manager for this URL, custom.regex for the version).
+    # CI catches mismatches via vendorHash failure.
     fabric-src = {
       url = "github:danielmiessler/fabric/v1.4.444";
       flake = false;
