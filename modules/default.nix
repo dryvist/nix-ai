@@ -68,8 +68,9 @@ let
     inherit (pkgs) fetchFromGitHub;
   };
 
-  openWebuiVersion = (import ../lib/versions.nix).openWebui;
-  browserUseVersion = (import ../lib/versions.nix).browserUse;
+  versions = import ../lib/versions.nix;
+  openWebuiVersion = versions.openWebui;
+  browserUseVersion = versions.browserUse;
 in
 {
   imports = [

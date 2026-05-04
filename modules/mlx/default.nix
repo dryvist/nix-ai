@@ -30,7 +30,7 @@
 #
 let
   cfg = config.programs.mlx;
-  _versions = import ../../lib/versions.nix;
+  versions = import ../../lib/versions.nix;
 
   # Version history for vllm-mlx (canonical pin in lib/versions.nix):
   #   - 0.2.6: stable baseline.
@@ -40,9 +40,9 @@ let
   #     MLLM continuous-batching path failed parallel text requests.
   #   - 0.2.9: ships Paged KV Cache + prefix sharing + continuous batching
   #     (MLLM-detection bug fixed). Loads gemma-4-e4b architectures.
-  vllmMlxVersion = _versions.vllmMlx;
-  parakeetMlxVersion = _versions.parakeetMlx;
-  mlxVlmVersion = _versions.mlxVlm;
+  vllmMlxVersion = versions.vllmMlx;
+  parakeetMlxVersion = versions.parakeetMlx;
+  mlxVlmVersion = versions.mlxVlm;
 
   # Central vllm-mlx wrapper — single source of truth for the pinned version.
   # The LaunchAgent needs a Nix store path (not a PATH lookup), so the

@@ -29,10 +29,10 @@ let
     llamaSwapConfigFile
     llamaSwapRuntimeConfigPath
     ;
-  _versions = import ../../lib/versions.nix;
+  versions = import ../../lib/versions.nix;
   vllmMlxPin = "vllm-mlx==${vllmMlxVersion}";
-  mlxLmVersion = _versions.mlxLm;
-  lmEvalVersion = _versions.lmEval;
+  mlxLmVersion = versions.mlxLm;
+  lmEvalVersion = versions.lmEval;
 in
 {
   config = lib.mkIf cfg.enable {
