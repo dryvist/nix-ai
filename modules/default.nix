@@ -68,10 +68,8 @@ let
     inherit (pkgs) fetchFromGitHub;
   };
 
-  # renovate: datasource=pypi depName=open-webui
-  openWebuiVersion = "0.9.2";
-  # renovate: datasource=pypi depName=browser-use
-  browserUseVersion = "0.12.6";
+  openWebuiVersion = (import ../lib/versions.nix).openWebui;
+  browserUseVersion = (import ../lib/versions.nix).browserUse;
 in
 {
   imports = [

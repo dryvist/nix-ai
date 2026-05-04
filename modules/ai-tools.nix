@@ -75,16 +75,11 @@
 { pkgs, ... }:
 let
   versions = import ../lib/versions.nix;
-  # renovate: datasource=npm depName=@felixgeelhaar/cclint
-  cclintVersion = "0.12.1";
-  # renovate: datasource=npm depName=@githubnext/github-copilot-cli
-  ghCopilotVersion = "0.1.36";
-  # renovate: datasource=npm depName=chatgpt-cli
-  chatgptCliVersion = "3.3.0";
-  # renovate: datasource=npm depName=claude-flow
-  claudeFlowVersion = "3.6.12";
-  # renovate: datasource=npm depName=@googleworkspace/cli
-  gwsCliVersion = "0.22.5";
+  cclintVersion = versions.cclint;
+  ghCopilotVersion = versions.ghCopilot;
+  chatgptCliVersion = versions.chatgptCli;
+  claudeFlowVersion = versions.claudeFlow;
+  gwsCliVersion = versions.gwsCli;
 in
 {
   # AI-specific development tools

@@ -30,12 +30,9 @@
 #
 let
   cfg = config.programs.mlx;
+  _versions = import ../../lib/versions.nix;
 
-  # Pinned versions — single source of truth. Shared via mlxShared so
-  # packages.nix uses the same values without duplication.
-  #
-  # Version history (kept above the renovate directive so the regex still
-  # matches the line immediately above the version pin):
+  # Version history for vllm-mlx (canonical pin in lib/versions.nix):
   #   - 0.2.6: stable baseline.
   #   - 0.2.7: regressed vllm_mlx/utils/tokenizer.py::load_model_with_fallback
   #     (the success path forgot to return, yielding None implicitly).
@@ -43,12 +40,9 @@ let
   #     MLLM continuous-batching path failed parallel text requests.
   #   - 0.2.9: ships Paged KV Cache + prefix sharing + continuous batching
   #     (MLLM-detection bug fixed). Loads gemma-4-e4b architectures.
-  # renovate: datasource=pypi depName=vllm-mlx
-  vllmMlxVersion = "0.2.9";
-  # renovate: datasource=pypi depName=parakeet-mlx
-  parakeetMlxVersion = "0.5.1";
-  # renovate: datasource=pypi depName=mlx-vlm
-  mlxVlmVersion = "0.4.4";
+  vllmMlxVersion = _versions.vllmMlx;
+  parakeetMlxVersion = _versions.parakeetMlx;
+  mlxVlmVersion = _versions.mlxVlm;
 
   # Central vllm-mlx wrapper — single source of truth for the pinned version.
   # The LaunchAgent needs a Nix store path (not a PATH lookup), so the
