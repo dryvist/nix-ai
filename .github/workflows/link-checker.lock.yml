@@ -218,7 +218,7 @@ jobs:
           cat "${RUNNER_TEMP}/gh-aw/prompts/github_mcp_tools_with_safeoutputs_prompt.md"
           cat << 'GH_AW_PROMPT_65189ddd89581abf_EOF'
           </system>
-          {{#runtime-import .github/aw/imports/githubnext/agentics/f2cfb4fb924dbd58ea9b4235d18e905c9040b0ca/workflows_link-checker.md}}
+          {{#runtime-import .github/aw/imports/githubnext/agentics/e8a4d8a2217966474ef08cedff70c92d65a7a1a5/workflows_link-checker.md}}
           {{#runtime-import .github/workflows/link-checker.md}}
           GH_AW_PROMPT_65189ddd89581abf_EOF
           } > "$GH_AW_PROMPT"

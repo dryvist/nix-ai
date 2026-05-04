@@ -28,8 +28,8 @@
 #   Imports:
 #     - JacobPEvans/.github/.github/workflows/shared/repo-health-audit-config.md@main
 #   Includes:
-#     - /tmp/gh-aw-include-4159179285.md
-#     - /tmp/gh-aw-include-828558380.md
+#     - /tmp/gh-aw-include-2525592913.md
+#     - /tmp/gh-aw-include-4139897039.md
 #
 # Secrets used:
 #   - COPILOT_GITHUB_TOKEN
@@ -214,7 +214,7 @@ jobs:
           cat "${RUNNER_TEMP}/gh-aw/prompts/github_mcp_tools_with_safeoutputs_prompt.md"
           cat << 'GH_AW_PROMPT_08ba0e7d5ddbc6b4_EOF'
           </system>
-          {{#runtime-import .github/b81fee6f6f9628660e651265e11f958622b8e7f6/.github_workflows_shared_repo-health-audit-config.md}}
+          {{#runtime-import .github/a730b2a5bced2c78e86709528bb8166fc384198e/.github_workflows_shared_repo-health-audit-config.md}}
           {{#runtime-import .github/workflows/repo-health-audit.md}}
           GH_AW_PROMPT_08ba0e7d5ddbc6b4_EOF
           } > "$GH_AW_PROMPT"
