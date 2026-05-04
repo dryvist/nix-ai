@@ -257,7 +257,7 @@ jobs:
           fi
           cat << 'GH_AW_PROMPT_7292a494e1641d48_EOF'
           </system>
-          {{#runtime-import .github/aw/imports/githubnext/agentics/f2cfb4fb924dbd58ea9b4235d18e905c9040b0ca/workflows_ai-moderator.md}}
+          {{#runtime-import .github/aw/imports/githubnext/agentics/e8a4d8a2217966474ef08cedff70c92d65a7a1a5/workflows_ai-moderator.md}}
           {{#runtime-import .github/workflows/ai-moderator.md}}
           GH_AW_PROMPT_7292a494e1641d48_EOF
           } > "$GH_AW_PROMPT"
