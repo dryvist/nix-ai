@@ -12,4 +12,12 @@
 # - .github/workflows/ci-eol-check.yml - end-of-life validation
 {
   stableVersion = "25.11";
+
+  # Package version pins — single source of truth for cross-module shared deps.
+  # Each pin entry (below) must have a `# renovate:` annotation immediately above
+  # it so the org-wide customManager regex tracks it (datasource= depName= on one
+  # line). `stableVersion` above is informational and not tracked by Renovate.
+
+  # renovate: datasource=pypi depName=huggingface-hub
+  huggingfaceHub = "1.13.0";
 }

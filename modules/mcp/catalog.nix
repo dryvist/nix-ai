@@ -15,6 +15,8 @@ let
     inherit args;
   };
 
+  versions = import ../../lib/versions.nix;
+
   # ================================================================
   # Package version pins — Renovate tracks these via annotation comments
   # ================================================================
@@ -42,8 +44,6 @@ let
   mcpServerTimeVersion = "2026.1.26";
   # renovate: datasource=pypi depName=huggingface-mcp-server
   hfMcpServerVersion = "0.1.0";
-  # renovate: datasource=pypi depName=huggingface-hub
-  huggingfaceHubVersion = "1.13.0";
   # renovate: datasource=pypi depName=fabric-mcp
   fabricMcpVersion = "1.1.0";
   # renovate: datasource=pypi depName=google-workspace-mcp
@@ -124,7 +124,7 @@ in
       "--from"
       "huggingface-mcp-server==${hfMcpServerVersion}"
       "--with"
-      "huggingface-hub==${huggingfaceHubVersion}"
+      "huggingface-hub==${versions.huggingfaceHub}"
       "huggingface-mcp-server"
     ];
   };
