@@ -2,17 +2,17 @@
 # check-fabric-version-sync.sh
 #
 # CI guard: assert that the fabric version pin in flake.nix matches the
-# version constant in modules/fabric/package.nix.
+# version constant in lib/versions.nix.
 #
 # Why this exists:
 #   - Renovate's `nix` manager bumps `flake.nix` flake input pins automatically
-#   - The version constant in `modules/fabric/package.nix` is plain text that
-#     no manager updates
+#   - The `fabric` entry in `lib/versions.nix` is managed by the custom.regex
+#     manager — a separate Renovate PR
 #   - If they drift, the build still works (fabric-src is the actual source)
 #     but the version label becomes a lie
 #
 # The marketplace metadata version (used in fabric-curated-patterns marketplace)
-# is derived at Nix eval time from package.nix — no separate sync needed.
+# is derived at Nix eval time from lib/versions.nix — no separate sync needed.
 #
 # When to run:
 #   - Pre-commit (manual)
@@ -28,15 +28,15 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 flake_nix="${repo_root}/flake.nix"
-package_nix="${repo_root}/modules/fabric/package.nix"
+versions_nix="${repo_root}/lib/versions.nix"
 
 if [ ! -f "$flake_nix" ]; then
   echo "ERROR: flake.nix not found at $flake_nix" >&2
   exit 2
 fi
 
-if [ ! -f "$package_nix" ]; then
-  echo "ERROR: modules/fabric/package.nix not found at $package_nix" >&2
+if [ ! -f "$versions_nix" ]; then
+  echo "ERROR: lib/versions.nix not found at $versions_nix" >&2
   exit 2
 fi
 
@@ -56,31 +56,30 @@ if [ -z "$flake_version" ]; then
   exit 2
 fi
 
-# Extract version constant from package.nix: version = "1.4.444";
+# Extract fabric version from lib/versions.nix via nix eval.
+# The version is now an attrset entry, not a plain string in package.nix.
 package_version=$(
-  grep -oE 'version = "[0-9][^"]*"' "$package_nix" \
-    | head -1 \
-    | sed -E 's/version = "([^"]+)"/\1/' \
+  nix eval --raw --impure --expr "(import ${versions_nix}).fabric" 2>/dev/null \
     || true
 )
 
 if [ -z "$package_version" ]; then
-  echo "ERROR: could not parse version constant from $package_nix" >&2
-  echo "Expected pattern: version = \"<VERSION>\"" >&2
+  echo "ERROR: could not evaluate lib/versions.nix.fabric" >&2
+  echo "Expected: fabric = \"<VERSION>\"; in lib/versions.nix" >&2
   exit 2
 fi
 
 if [ "$flake_version" != "$package_version" ]; then
   echo "FAIL: fabric version drift detected" >&2
-  echo "  flake.nix fabric-src:                v${flake_version}" >&2
-  echo "  modules/fabric/package.nix version:  ${package_version}" >&2
+  echo "  flake.nix fabric-src:        v${flake_version}" >&2
+  echo "  lib/versions.nix fabric:     ${package_version}" >&2
   echo "" >&2
-  echo "The flake input pin and the package.nix version constant must stay in" >&2
-  echo "sync. Either Renovate bumped one but not the other, or you edited one" >&2
+  echo "The flake input pin and lib/versions.nix must stay in sync." >&2
+  echo "Either Renovate bumped one but not the other, or you edited one" >&2
   echo "manually without updating the other." >&2
   echo "" >&2
-  echo "Fix: edit both to the same version, then run nix build .#fabric-ai" >&2
-  echo "and update the vendorHash in package.nix from the error message." >&2
+  echo "Fix: update both to the same version, then run nix build .#fabric-ai" >&2
+  echo "and update the vendorHash in modules/fabric/package.nix." >&2
   exit 1
 fi
 

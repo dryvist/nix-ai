@@ -25,8 +25,7 @@
 
 buildGoModule rec {
   pname = "fabric-ai";
-  # managed by: renovate (datasource=github-releases depName=danielmiessler/fabric)
-  version = "1.4.444";
+  version = (import ../../lib/versions.nix).fabric;
 
   src = fabric-src;
 

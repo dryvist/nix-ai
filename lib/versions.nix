@@ -83,4 +83,10 @@
   openWebui = "0.9.2";
   # renovate: datasource=pypi depName=browser-use
   browserUse = "0.12.6";
+
+  # Fabric Go CLI (github-releases)
+  # The flake input fabric-src is ALSO tracked by Renovate's nix manager.
+  # Both must be bumped together — CI catches mismatches via vendorHash.
+  # renovate: datasource=github-releases depName=danielmiessler/fabric
+  fabric = "1.4.444";
 }
