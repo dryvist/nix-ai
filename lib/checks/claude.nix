@@ -50,6 +50,7 @@ in
         "permissions"
         "sandbox"
         "schemaUrl"
+        "skillListingBudgetFraction"
       ];
       actualSettingsOptions = builtins.attrNames cfg.settings;
       missingSettingsOptions = builtins.filter (
@@ -128,6 +129,11 @@ in
           name = "cleanupPeriodDays";
           actual = cfg.settings.cleanupPeriodDays;
           expected = 30;
+        }
+        {
+          name = "skillListingBudgetFraction";
+          actual = cfg.settings.skillListingBudgetFraction;
+          expected = 0.03;
         }
         {
           name = "autoUpdatesChannel";
