@@ -11,12 +11,13 @@ under `programs.cecli` to ease migration.
 
 ## What it manages
 
-- A real Nix derivation built from cecli-dev's PyPI sdist via
-  `python3Packages.buildPythonApplication`. See
-  [`modules/cecli/package.nix`](./package.nix) for the build
-  definition; exposed as `pkgs.cecli` through this flake's
-  `packages.<system>` output. Three entry points land on PATH:
-  `cecli`, `aider-ce`, `ce.cli`.
+- A uv2nix-built Python venv derivation. The
+  [`pyproject.toml`](./pyproject.toml) shim declares cecli-dev as a
+  pinned dep; [`uv.lock`](./uv.lock) records the hash-pinned closure
+  (~120 packages); [`package.nix`](./package.nix) loads them into a
+  `pythonSet` and exposes the venv as `pkgs.cecli` through this
+  flake's `packages.<system>` output. Three entry points land on
+  PATH: `cecli`, `aider-ce`, `ce.cli`.
 - Three read-only generated config files — `~/.cecli.conf.yml`,
   `~/.cecli/cecli-meta.json`, `~/.cecli/cecli-settings.yml` — wired
   to the local MLX endpoint and the capability-class registry.
@@ -24,33 +25,29 @@ under `programs.cecli` to ease migration.
   `modules/ai-aliases.zsh`) for sessions that need cloud-provider
   keys.
 
-## Why a local derivation (and not uvx / homebrew)
+## Why uv2nix (and not nixpkgs / uvx / homebrew)
 
 Per the repo install-order rule:
 
 1. nixpkgs (if available)
-2. Local Nix derivation (`buildPythonApplication`)
+2. Local Nix derivation (uv2nix from a vendored `uv.lock`)
 3. Homebrew (if it makes sense)
 
-cecli isn't in nixpkgs and Homebrew has no formula, so we build from
-PyPI as a real derivation in `package.nix`. This keeps everything
-under Nix's deterministic graph — no `uv tool install` activation
-hooks, no `~/.local/bin` shims, just a normal `home.packages` entry.
+cecli isn't in nixpkgs and Homebrew has no formula, so we build it
+locally. cecli's runtime closure spans ~120 packages; nixpkgs ships
+some at versions incompatible with cecli (e.g. `mcp` 1.15 vs cecli's
+required `>=1.24`) and doesn't ship others at all (`py-cymbal`).
+Rather than carry inline overrides for each gap and a `postPatch`
+ladder of relaxed lower bounds, we let uv resolve the closure from
+PyPI directly and uv2nix turn that resolution into a Nix derivation.
+The whole thing fits in ~50 lines of `package.nix`.
 
-Seven transitive deps required local packaging because nixpkgs-25.11
-either doesn't ship them or ships an incompatible version. Six are
-inline derivations: four tree-sitter pieces (`tree-sitter-c-sharp`,
-`tree-sitter-embedded-template`, `tree-sitter-yaml`, and
-`tree-sitter-language-pack` 0.13.0 — all wheel-based; cecli pins
-tslp to <=0.13.0), plus `py-cymbal` (wheel) and `diff-match-patch`
-(sdist via flit-core). The seventh is an `mcp` 1.24.0 sdist override:
-nixpkgs ships 1.15, but cecli imports a symbol added in 1.24.
+uv.lock is hash-pinned and Renovate-managed: bumping the version pin
+in `pyproject.toml` triggers `uv lock --upgrade-package cecli-dev`
+which regenerates the lockfile.
 
-Five version pins (`pypandoc>=1.15`, `litellm>=1.80.11`,
-`watchfiles>=1.1.0`, `tomlkit>=0.14.0`, `xxhash>=3.6.0`) are relaxed
-via `postPatch` against `requirements/requirements.in` — nixpkgs
-ships slightly older versions, functionally compatible. The gap
-closes the next time we bump nixpkgs.
+uv2nix is the repo standard for any new PyPI-fetched Python tool —
+see [`docs/architecture/per-agent-flakes.md`](../../docs/architecture/per-agent-flakes.md).
 
 ## Routing
 
@@ -79,9 +76,10 @@ alias — it loads `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, etc. from
 
 ## Version pin
 
-Pinned inside [`modules/cecli/package.nix`](./package.nix) with a
-`# renovate: datasource=pypi depName=cecli-dev` annotation. Renovate
-bumps the version + sha256; rebuilding picks up the new derivation.
+Pinned inside [`modules/cecli/pyproject.toml`](./pyproject.toml) with
+a `# renovate: datasource=pypi depName=cecli-dev` annotation. Renovate
+bumps the version, then runs `uv lock --upgrade-package cecli-dev` to
+regenerate [`uv.lock`](./uv.lock) with the new hash-pinned closure.
 The `cliVersions.cecli` entry in `vars/ai-stack.nix` documents the
 intended version for non-Nix consumers but is no longer the source of
 truth for the install.

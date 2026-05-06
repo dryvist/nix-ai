@@ -64,9 +64,9 @@
   cliVersions = {
     # cecli — actively maintained Aider fork. PyPI distribution name is
     # `cecli-dev`; entry-point binary is `cecli`. Built locally via
-    # modules/cecli/package.nix (buildPythonApplication). This pin is
-    # informational only — package.nix has its own renovate-managed
-    # version constant.
+    # modules/cecli/package.nix (uv2nix). This pin is informational
+    # only — modules/cecli/pyproject.toml has its own renovate-managed
+    # version constant which drives the uv.lock closure.
     # renovate: datasource=pypi depName=cecli-dev
     cecli = "0.99.10";
 

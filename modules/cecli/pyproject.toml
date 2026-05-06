@@ -1,0 +1,23 @@
+# cecli — uv2nix workspace shim.
+#
+# This file is consumed by uv2nix (via modules/cecli/package.nix) to
+# build a hash-pinned closure of cecli-dev and all its transitive deps
+# from PyPI, bypassing nixpkgs' python3Packages set entirely.
+#
+# Renovate manages the version pin below via the regex annotation;
+# bumping it triggers `uv lock --upgrade-package cecli-dev` which
+# regenerates uv.lock.
+#
+# Python pin matches the nixpkgs-25.11 default `python3`; cecli upstream
+# accepts >=3.10 but resolving on 3.13 keeps the closure consistent
+# with what we actually build against.
+
+[project]
+name = "cecli-shim"
+version = "0.0.0"
+requires-python = ">=3.13"
+
+dependencies = [
+  # renovate: datasource=pypi depName=cecli-dev
+  "cecli-dev==0.99.10",
+]

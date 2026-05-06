@@ -125,6 +125,31 @@
       url = "github:danielmiessler/fabric/v1.4.444";
       flake = false;
     };
+
+    # Python tooling: uv2nix builds Python derivations from a uv.lock,
+    # bypassing nixpkgs' python3Packages set so version mismatches and
+    # missing transitive deps are non-issues. Used by modules/cecli/.
+    # Standard for any new PyPI-fetched Python tool in this repo —
+    # see docs/architecture/per-agent-flakes.md.
+    pyproject-nix = {
+      url = "github:pyproject-nix/pyproject.nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    uv2nix = {
+      url = "github:pyproject-nix/uv2nix";
+      inputs = {
+        pyproject-nix.follows = "pyproject-nix";
+        nixpkgs.follows = "nixpkgs";
+      };
+    };
+    pyproject-build-systems = {
+      url = "github:pyproject-nix/build-system-pkgs";
+      inputs = {
+        pyproject-nix.follows = "pyproject-nix";
+        uv2nix.follows = "uv2nix";
+        nixpkgs.follows = "nixpkgs";
+      };
+    };
   };
 
   outputs =
@@ -157,6 +182,9 @@
       vct-cribl-pack-validator-skills,
       pal-mcp-server,
       fabric-src,
+      pyproject-nix,
+      uv2nix,
+      pyproject-build-systems,
       ...
     }:
     let
@@ -397,7 +425,9 @@
           gh-aw = pkgs.callPackage ./modules/gh-extensions/gh-aw.nix { };
           pal-mcp-server = pkgs.callPackage ./modules/mcp/pal-package.nix { inherit pal-mcp-server; };
           fabric-ai = pkgs.callPackage ./modules/fabric/package.nix { inherit fabric-src; };
-          cecli = pkgs.callPackage ./modules/cecli/package.nix { };
+          cecli = pkgs.callPackage ./modules/cecli/package.nix {
+            inherit pyproject-nix uv2nix pyproject-build-systems;
+          };
         }
       );
 
