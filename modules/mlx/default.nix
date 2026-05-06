@@ -186,7 +186,11 @@ let
 in
 {
   imports = [
-    ./options.nix
+    ./options-server.nix
+    ./options-cache.nix
+    ./options-batching.nix
+    ./options-parsers.nix
+    ./options-runtime.nix
     ./packages.nix
     ./launchd.nix
   ];
