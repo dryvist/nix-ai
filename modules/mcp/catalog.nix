@@ -18,43 +18,31 @@ let
   versions = import ../../lib/versions.nix;
 
   # ================================================================
-  # Package version pins — Renovate tracks these via annotation comments
+  # Package version pins — sourced from lib/versions.nix
   # ================================================================
 
-  # renovate: datasource=npm depName=@modelcontextprotocol/server-everything
-  mcpEverythingVersion = "2026.1.26";
-  # renovate: datasource=npm depName=@modelcontextprotocol/server-filesystem
-  mcpFilesystemVersion = "2026.1.14";
-  # renovate: datasource=npm depName=@modelcontextprotocol/server-memory
-  mcpMemoryVersion = "2026.1.26";
-  # renovate: datasource=npm depName=@modelcontextprotocol/server-aws-kb-retrieval
-  mcpAwsVersion = "0.6.2";
-  # renovate: datasource=npm depName=@modelcontextprotocol/server-postgres
-  mcpPostgresVersion = "0.6.2";
-  # renovate: datasource=npm depName=@modelcontextprotocol/server-brave-search
-  mcpBraveSearchVersion = "0.6.2";
-  # renovate: datasource=npm depName=@modelcontextprotocol/server-google-maps
-  mcpGoogleMapsVersion = "0.6.2";
-  # renovate: datasource=npm depName=@modelcontextprotocol/server-puppeteer
-  mcpPuppeteerVersion = "2025.5.12";
-  # renovate: datasource=npm depName=@modelcontextprotocol/server-slack
-  mcpSlackVersion = "2025.4.25";
-
-  # renovate: datasource=pypi depName=mcp-server-time
-  mcpServerTimeVersion = "2026.1.26";
-  # renovate: datasource=pypi depName=huggingface-mcp-server
-  hfMcpServerVersion = "0.1.0";
-  # renovate: datasource=pypi depName=fabric-mcp
-  fabricMcpVersion = "1.1.0";
-  # renovate: datasource=pypi depName=google-workspace-mcp
-  gwsMcpVersion = "2.0.1";
+  mcpEverythingVersion = versions.mcpEverything;
+  mcpFilesystemVersion = versions.mcpFilesystem;
+  mcpMemoryVersion = versions.mcpMemory;
+  mcpAwsVersion = versions.mcpAws;
+  mcpPostgresVersion = versions.mcpPostgres;
+  mcpBraveSearchVersion = versions.mcpBraveSearch;
+  mcpGoogleMapsVersion = versions.mcpGoogleMaps;
+  mcpPuppeteerVersion = versions.mcpPuppeteer;
+  mcpSlackVersion = versions.mcpSlack;
+  mcpServerTimeVersion = versions.mcpServerTime;
+  hfMcpServerVersion = versions.hfMcpServer;
+  fabricMcpVersion = versions.fabricMcp;
+  gwsMcpVersion = versions.gwsMcp;
 in
 {
   # ================================================================
   # Official Anthropic MCP Servers
   # ================================================================
-  # Versions are let-bound above with Renovate annotation comments for regex tracking.
-  # Archived servers remain unpinned unless a maintained replacement exists.
+  # Version pins live in lib/versions.nix where the Renovate annotations are
+  # tracked by the org-wide customManager regex; the let-bindings above are
+  # plain references. Archived servers remain unpinned unless a maintained
+  # replacement exists.
 
   everything = bunx [ "@modelcontextprotocol/server-everything@${mcpEverythingVersion}" ];
   fetch = bunx [ "@modelcontextprotocol/server-fetch" ]; # archived

@@ -155,12 +155,16 @@ unmaintained, an alternative MCP wrapper will be needed.
 The fabric version is pinned in two places that MUST stay in sync:
 
 1. `flake.nix` input pin: `url = "github:danielmiessler/fabric/v1.4.444";`
-2. `modules/fabric/package.nix` version constant: `version = "1.4.444";`
+2. `lib/versions.nix`: `fabric = "1.4.444";` (read by `package.nix`)
 
-The marketplace metadata version is derived from `package.nix` at Nix eval time —
-no separate sync needed. Renovate manages bumps via the `# managed by: renovate`
-annotation in `package.nix`. The CI guard `scripts/check-fabric-version-sync.sh`
-asserts both stay in sync.
+`package.nix` derives `version` from `lib/versions.nix`, and the marketplace
+metadata version is derived from the same package at Nix eval time — no
+separate sync needed. Renovate manages bumps via the `# renovate:` annotation
+above the entry in `lib/versions.nix` (custom regex manager) and the `nix`
+manager for the flake input. The fabric-version-sync regression check in
+`lib/checks/fabric.nix` (and the equivalent
+`scripts/check-fabric-version-sync.sh` for pre-commit / manual runs) asserts
+both stay in sync.
 
 To bump manually: edit both values to the new version, run `nix build .#fabric-ai`,
 copy the new `vendorHash` from the error message, paste it into `package.nix`, and re-build.

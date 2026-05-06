@@ -5,8 +5,12 @@
 # 252+ reusable AI prompt patterns for analysis, extraction, summarization, code
 # review, and content transformation.
 #
-# Pinned to a specific release tag. Version bumps managed by Renovate via the
-# datasource annotation above the version string.
+# Version pinning lives in two places that MUST stay in sync:
+#   - lib/versions.nix `fabric = "X.Y.Z"` — Renovate customManager bumps this
+#     (datasource=github-releases, depName=danielmiessler/fabric)
+#   - flake.nix `fabric-src` flake input — Renovate's nix manager bumps this
+# scripts/check-fabric-version-sync.sh and the fabric-version-sync regression
+# check in lib/checks/fabric.nix assert that the two stay aligned.
 #
 # Naming: "fabric-ai" avoids collision with the unrelated Python `fabric` package
 # in nixpkgs (pythonic remote execution). Both can coexist on PATH since the
@@ -25,8 +29,7 @@
 
 buildGoModule rec {
   pname = "fabric-ai";
-  # managed by: renovate (datasource=github-releases depName=danielmiessler/fabric)
-  version = "1.4.444";
+  version = (import ../../lib/versions.nix).fabric;
 
   src = fabric-src;
 

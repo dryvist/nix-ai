@@ -13,8 +13,7 @@
 { python3Packages, pal-mcp-server }:
 
 let
-  # renovate: datasource=pypi depName=pal-mcp-server
-  version = "9.8.2";
+  version = (import ../../lib/versions.nix).palMcpServer;
 in
 python3Packages.buildPythonApplication {
   pname = "pal-mcp-server";

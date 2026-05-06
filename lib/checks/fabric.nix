@@ -141,6 +141,35 @@ in
       touch $out
     '';
 
+  # Assert the fabric version in lib/versions.nix matches the version tag of
+  # the fabric-src flake input in flake.nix. Renovate's nix manager bumps
+  # fabric-src; the customManager regex bumps lib/versions.nix.fabric. The
+  # vendorHash only validates the fetched Go source tree — it does NOT detect
+  # label drift. This is the Nix-native equivalent of
+  # scripts/check-fabric-version-sync.sh and runs in every `nix flake check`.
+  fabric-version-sync =
+    let
+      flakeSrc = builtins.readFile "${src}/flake.nix";
+      versions = import "${src}/lib/versions.nix";
+      flakeMatch = builtins.match ".*github:danielmiessler/fabric/v([0-9][^\"]*)\".*" flakeSrc;
+    in
+    assert pkgs.lib.assertMsg (
+      flakeMatch != null
+    ) "fabric-version-sync: could not parse fabric-src tag from flake.nix";
+    let
+      flakeVersion = builtins.elemAt flakeMatch 0;
+      pinVersion = versions.fabric or "";
+    in
+    assert pkgs.lib.assertMsg (
+      pinVersion != ""
+    ) "fabric-version-sync: lib/versions.nix has no `fabric` entry";
+    assert pkgs.lib.assertMsg (flakeVersion == pinVersion)
+      "fabric version drift: flake.nix fabric-src=v${flakeVersion} but lib/versions.nix.fabric=${pinVersion}";
+    pkgs.runCommand "check-fabric-version-sync" { } ''
+      echo "Fabric version sync: flake.nix v${flakeVersion} == lib/versions.nix.fabric ${pinVersion}"
+      touch $out
+    '';
+
   # Build the synthetic fabric-patterns marketplace and assert the SKILL.md
   # count matches the curated JSON entry count. Catches silent JSON edits.
   fabric-marketplace-build =

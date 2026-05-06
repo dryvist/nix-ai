@@ -29,11 +29,10 @@ let
     llamaSwapConfigFile
     llamaSwapRuntimeConfigPath
     ;
+  versions = import ../../lib/versions.nix;
   vllmMlxPin = "vllm-mlx==${vllmMlxVersion}";
-  # renovate: datasource=pypi depName=mlx-lm
-  mlxLmVersion = "0.31.3";
-  # renovate: datasource=pypi depName=lm-eval
-  lmEvalVersion = "0.4.11";
+  mlxLmVersion = versions.mlxLm;
+  lmEvalVersion = versions.lmEval;
 in
 {
   config = lib.mkIf cfg.enable {
