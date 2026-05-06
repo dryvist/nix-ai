@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.62.2](https://github.com/JacobPEvans/nix-ai/compare/v1.62.1...v1.62.2) (2026-05-06)
+
+
+### Bug Fixes
+
+* **claude:** scope project plugins per-repo + raise skill listing budget ([#721](https://github.com/JacobPEvans/nix-ai/issues/721)) ([e020c0c](https://github.com/JacobPEvans/nix-ai/commit/e020c0c43e87c5eb40bb297de7f4ec0fc968053b))
+
 ## [1.62.1](https://github.com/JacobPEvans/nix-ai/compare/v1.62.0...v1.62.1) (2026-05-04)
 
 
