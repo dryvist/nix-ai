@@ -6,9 +6,9 @@ How Claude Code plugins are partitioned between **user-level** (every session) a
 ## The problem
 
 Claude Code allocates a **skill listing budget** — by default, 1% of the context window
-(~2k tokens of 200k) for skill descriptions. With 45+ globally-enabled plugins generating
-~250 skills, descriptions overflow the budget and Claude Code silently drops most of them.
-`/doctor` reports lines like `237 skill descriptions dropped`.
+for skill descriptions. With many globally-enabled plugins generating hundreds of skills,
+descriptions overflow the budget and Claude Code silently drops most of them. `/doctor`
+reports them under "skill descriptions dropped".
 
 When descriptions are dropped, semantic skill discovery degrades — Claude can no longer
 match user requests to dropped skills because it cannot see what those skills do.
@@ -71,9 +71,10 @@ is gitignored and won't propagate to teammates or worktrees).
 ## Budget headroom
 
 `modules/claude/options.nix` sets `skillListingBudgetFraction = 0.03` (3%) — well above
-the 1% upstream default. This gives ~6k tokens for skill listings, comfortable headroom
-for the universal plugin set without dropping descriptions even if a few project plugins
-are also enabled per-repo.
+the 1% upstream default. The extra budget is comfortable headroom for the universal
+plugin set without dropping descriptions even if a few project plugins are also
+enabled per-repo. (3% of a 200k context window ≈ 6k tokens — adjust mental math
+if Claude Code's context window changes.)
 
 If `/doctor` ever reports drops again:
 
@@ -90,7 +91,7 @@ After changing user-level config in nix-ai:
 2. `darwin-rebuild switch` to deploy.
 3. Fresh Claude Code session in `~/git/nix-ai/main`:
    - `/doctor` → no "skill descriptions dropped" line.
-   - `/context` → Skills line ≤ 6k tokens.
+   - `/context` → Skills line within the configured budget fraction.
 
 After adding per-repo `.claude/settings.json` in a consumer repo:
 
