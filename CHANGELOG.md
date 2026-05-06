@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.63.0](https://github.com/JacobPEvans/nix-ai/compare/v1.62.2...v1.63.0) (2026-05-06)
+
+
+### Features
+
+* **ai-stack:** central registry, cecli, and Qwen Code module ([#719](https://github.com/JacobPEvans/nix-ai/issues/719)) ([542c262](https://github.com/JacobPEvans/nix-ai/commit/542c262ed8d4999e6118ff89d3960f3e515db2b3))
+
 ## [1.62.2](https://github.com/JacobPEvans/nix-ai/compare/v1.62.1...v1.62.2) (2026-05-06)
 
 
