@@ -39,8 +39,10 @@ in
   # ================================================================
   # Official Anthropic MCP Servers
   # ================================================================
-  # Versions are let-bound above with Renovate annotation comments for regex tracking.
-  # Archived servers remain unpinned unless a maintained replacement exists.
+  # Version pins live in lib/versions.nix where the Renovate annotations are
+  # tracked by the org-wide customManager regex; the let-bindings above are
+  # plain references. Archived servers remain unpinned unless a maintained
+  # replacement exists.
 
   everything = bunx [ "@modelcontextprotocol/server-everything@${mcpEverythingVersion}" ];
   fetch = bunx [ "@modelcontextprotocol/server-fetch" ]; # archived

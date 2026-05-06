@@ -58,8 +58,10 @@ fi
 
 # Extract fabric version from lib/versions.nix via nix eval.
 # The version is now an attrset entry, not a plain string in package.nix.
+# The path is wrapped in Nix string quotes so that checkouts under directories
+# with spaces (e.g. iCloud "Mobile Documents") still parse as a path literal.
 package_version=$(
-  nix eval --raw --impure --expr "(import ${versions_nix}).fabric" 2>/dev/null \
+  nix eval --raw --impure --expr "(import \"${versions_nix}\").fabric" 2>/dev/null \
     || true
 )
 

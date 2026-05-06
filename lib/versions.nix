@@ -85,8 +85,12 @@
   browserUse = "0.12.6";
 
   # Fabric Go CLI (github-releases)
-  # The flake input fabric-src is ALSO tracked by Renovate's nix manager.
-  # Both must be bumped together — CI catches mismatches via vendorHash.
+  # The flake input fabric-src is ALSO tracked by Renovate's nix manager and
+  # must be bumped to the same tag. vendorHash only validates the fetched Go
+  # source tree — it does NOT detect label drift between this pin and the
+  # fabric-src input. The fabric-version-sync regression check in
+  # lib/checks/fabric.nix (and scripts/check-fabric-version-sync.sh for
+  # pre-commit / manual runs) compares the two and fails on drift.
   # renovate: datasource=github-releases depName=danielmiessler/fabric
   fabric = "1.4.444";
 }
