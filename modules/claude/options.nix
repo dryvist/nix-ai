@@ -335,6 +335,21 @@ in
         '';
       };
 
+      # Skill listing budget
+      skillListingBudgetFraction = lib.mkOption {
+        type = lib.types.float;
+        default = 0.02;
+        description = ''
+          Fraction of the context window reserved for skill descriptions in
+          every session. Claude Code's upstream default is 0.01 (1%), which
+          drops descriptions when many plugins are enabled.
+
+          Default 0.02 (2%) doubles the upstream allocation — enough headroom
+          for the universal plugin set without dropping descriptions. Raise
+          further only if /doctor still reports "skill descriptions dropped".
+        '';
+      };
+
       # Permissions
       permissions = {
         allow = lib.mkOption {

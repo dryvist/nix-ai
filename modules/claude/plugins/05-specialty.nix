@@ -1,8 +1,11 @@
 # Tier 5 — Niche, specialty, and synthetic marketplaces (superseded by all higher tiers).
-# Tier 5 — Niche / specialty
 #
 # Duplicate Resolution Rule:
 #   Plugins in this file are SUPERSEDED by ALL higher tiers (1, 2, 3, 4).
+#
+# Per-repo overrides:
+#   Disabled globally but can be re-enabled in consumer repos via
+#   `.claude/settings.json`. See docs/architecture/plugin-scoping.md.
 #
 # Marketplaces in this tier (sorted by relevance to user's stack, not stars —
 # stars are unreliable for niche-classification because some upstreams like
@@ -28,17 +31,14 @@ _:
     # ========================================================================
     # lunar-claude — basher83/lunar-claude (Proxmox + Ansible)
     # ========================================================================
-    # Useful for the user's Proxmox + Ansible stack. Re-enable in non-infra
-    # repos only if their per-repo .claude/settings.json doesn't override.
-    "proxmox-infrastructure@lunar-claude" = true;
-    "ansible-workflows@lunar-claude" = true;
+    "proxmox-infrastructure@lunar-claude" = false;
+    "ansible-workflows@lunar-claude" = false;
 
     # ========================================================================
     # claude-code-plugins-plus — jeremylongshore/claude-code-plugins-plus
     # ========================================================================
-    # Used in terraform-* repos. Re-enable per-repo where applicable.
-    "infrastructure-as-code-generator@claude-code-plugins-plus" = true;
-    "terraform-module-builder@claude-code-plugins-plus" = true;
+    "infrastructure-as-code-generator@claude-code-plugins-plus" = false;
+    "terraform-module-builder@claude-code-plugins-plus" = false;
 
     # ========================================================================
     # bitwarden-marketplace — bitwarden/ai-plugins

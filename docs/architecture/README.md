@@ -61,6 +61,16 @@ notes covering tool-call parser compatibility, idle eviction, and MoE vs dense t
 **Read when**: Adding a new MLX tool, debugging a model loading or tool-calling issue,
 or understanding why the 35B model is preloaded vs the 122B MoE.
 
+### [plugin-scoping.md](plugin-scoping.md)
+
+The two-layer model partitioning Claude Code plugins between user-level (every session)
+and per-repo (only inside specific worktrees). Covers the skill listing budget, the
+`enabledPlugins` deep-merge mechanism, and the mapping of project-specific plugins to
+consumer repos.
+
+**Read when**: `/doctor` reports "skill descriptions dropped", adding a new plugin to nix-ai,
+or enabling a project-specific plugin in a consumer repo.
+
 ## ADRs
 
 [`docs/adr/`](../adr/README.md) contains the decisions behind non-obvious design choices.

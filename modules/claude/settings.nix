@@ -78,7 +78,7 @@ let
   # Build the settings object
   settings = {
     "$schema" = cfg.settings.schemaUrl;
-    inherit (cfg.settings) alwaysThinkingEnabled cleanupPeriodDays;
+    inherit (cfg.settings) alwaysThinkingEnabled cleanupPeriodDays skillListingBudgetFraction;
     inherit (cfg)
       autoUpdatesChannel
       teammateMode
