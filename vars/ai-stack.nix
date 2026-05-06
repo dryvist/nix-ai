@@ -19,8 +19,9 @@
 # Adding new fields:
 #   - Pure data only. If you reach for `lib.mkOption` or `let ... in`, you're
 #     in the wrong file.
-#   - Update the schema doc in modules/ai-stack/seed-readme.md (or wherever
-#     the README lives) so the JSON shape stays self-explanatory.
+#   - Update the README at the consumer of this file (e.g.,
+#     docs/architecture/per-agent-flakes.md) when the schema changes,
+#     so the JSON shape stays self-explanatory.
 {
   # Capability-class registry. Stable consumer-facing names mapped to
   # currently-preferred physical mlx-community/* model IDs. Physical IDs
@@ -54,15 +55,18 @@
     cribl_edge_ui = 30910;
   };
 
-  # CLI tool versions for non-nix-managed installs (uvx / brew / npm).
-  # Renovate updates each entry via the comment hint immediately above it.
-  # Per nix-package-placement: nixpkgs first, then brew, then uvx/npm —
-  # entries here are tools that fall to brew or uvx because nixpkgs is
-  # missing or broken on darwin.
+  # CLI tool version pins. Renovate updates each entry via the comment
+  # hint immediately above it. Used as Renovate-tracked sources of truth
+  # for non-nix-managed tools (currently: brew formulae) and as
+  # informational pins for tools managed by this flake's own derivations
+  # (currently: cecli, where modules/cecli/package.nix has its own
+  # renovate-managed version constant).
   cliVersions = {
     # cecli — actively maintained Aider fork. PyPI distribution name is
-    # `cecli-dev`; entry-point binary is `cecli`. uvx-installed because
-    # neither nixpkgs nor homebrew package it.
+    # `cecli-dev`; entry-point binary is `cecli`. Built locally via
+    # modules/cecli/package.nix (buildPythonApplication). This pin is
+    # informational only — package.nix has its own renovate-managed
+    # version constant.
     # renovate: datasource=pypi depName=cecli-dev
     cecli = "0.99.10";
 

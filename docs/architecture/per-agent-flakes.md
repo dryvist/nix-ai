@@ -31,12 +31,13 @@ modules/<agent>/
 Reference implementations:
 
 - `modules/cecli/` — Python derivation built from PyPI sdist via
-  `python3Packages.buildPythonApplication`. Three transitive deps
-  missing from nixpkgs-25.11 (`tree-sitter-language-pack`,
-  `py-cymbal`, `diff-match-patch`) plus an `mcp` ≥1.24.0 override are
-  packaged inline in `package.nix` as `let` bindings. Six version
-  pins relaxed via `postPatch` against `requirements/requirements.in`
-  (the gap closes when nixpkgs refreshes).
+  `python3Packages.buildPythonApplication`. Six inline derivations
+  cover transitive deps missing from nixpkgs-25.11 (four tree-sitter
+  pieces, `py-cymbal`, `diff-match-patch`); a seventh inline override
+  ships `mcp` 1.24.0 because nixpkgs has 1.15. Five version pins
+  relaxed via `postPatch` against `requirements/requirements.in` (the
+  gap closes when nixpkgs refreshes). See `modules/cecli/package.nix`
+  for the full list.
 - `modules/qwen-code/` — brew-only install on darwin. The formula is
   declared by nix-darwin's `homebrew.brews`, sourced from this
   flake's `lib.brewFormulae` output. A `buildNpmPackage` derivation
@@ -118,9 +119,12 @@ derivation in `modules/<agent>/package.nix`. Use
 3. `# renovate: datasource=pypi depName=<pkg>` annotation on the
    version pin so Renovate manages bumps automatically.
 4. Inline `let`-bound mini-derivations for transitive deps that
-   nixpkgs lacks. cecli currently overrides four packages in this
-   pattern: three tree-sitter language modules (wheels) and `mcp`
-   1.24.0+ (sdist override of nixpkgs's older 1.15).
+   nixpkgs lacks or ships at incompatible versions. cecli currently
+   overrides seven packages in this pattern (see
+   `modules/cecli/package.nix` for the full list): four tree-sitter
+   pieces (three language wheels plus `tree-sitter-language-pack`
+   0.13.0), `py-cymbal`, `diff-match-patch`, and `mcp` 1.24.0
+   (sdist override of nixpkgs's older 1.15).
 5. `postPatch` to relax `>=` lower bounds on deps that nixpkgs ships
    at slightly older versions (functionally compatible, the bounds
    reflect upstream's "latest known good" tracking, not hard

@@ -12,14 +12,14 @@
 # is opt-in via the `d-cecli` shell alias (Doppler-injected) or by
 # switching programs.cecli.routing to "bifrost".
 #
-# Why uvx (not nixpkgs / brew):
+# Why a local Nix derivation (not nixpkgs / brew):
 #   - Not packaged in nixpkgs.
 #   - Not packaged in Homebrew.
-#   - cecli's transitive deps include sounddevice / soundfile / pydub
-#     whose tests get SIGKILLed by the macOS Nix sandbox. Building those
-#     in nix is a non-starter on darwin without overlay test-skip
-#     workarounds; uvx installs in user-space and avoids the sandbox
-#     entirely.
+#   - Per the install-order rule, tier 2 (local buildPythonApplication)
+#     applies. See modules/cecli/package.nix for the build definition,
+#     transitive overrides, and version pin. Tests are skipped via
+#     doCheck = false to avoid the macOS Nix sandbox SIGKILL on
+#     sounddevice/soundfile/pydub test phases.
 #
 {
   config,

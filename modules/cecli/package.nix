@@ -25,7 +25,7 @@
 # x86_64. The flake's supportedSystems covers aarch64-darwin +
 # x86_64-linux; adding linux aarch64 means two more conditional URLs.
 #
-# Six soft version pins are relaxed via postPatch against
+# Five soft version pins are relaxed via postPatch against
 # requirements/requirements.in — see the comment on postPatch below.
 #
 # Usage: pkgs.callPackage ./package.nix { }
@@ -230,7 +230,7 @@ python3Packages.buildPythonApplication {
   # 0.99.10 came out 2026-05-04, nixpkgs 25.11 froze in 2025-11).
   # Functionally the older versions work; the lower bounds reflect
   # cecli upstream's "latest known good" tracking, not hard breakage.
-  # Relax the bounds rather than carry six per-package overlay
+  # Relax the bounds rather than carry five per-package overlay
   # overrides. Bumping nixpkgs eventually closes this gap.
   #
   # cecli's pyproject.toml uses dynamic deps sourced from

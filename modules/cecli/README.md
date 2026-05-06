@@ -37,15 +37,16 @@ PyPI as a real derivation in `package.nix`. This keeps everything
 under Nix's deterministic graph — no `uv tool install` activation
 hooks, no `~/.local/bin` shims, just a normal `home.packages` entry.
 
-Four transitive deps required local packaging because nixpkgs-25.11
-doesn't ship them: three tree-sitter language modules
-(`tree-sitter-c-sharp`, `tree-sitter-embedded-template`,
-`tree-sitter-yaml`, all wheel-based) and `tree-sitter-language-pack`
-0.13.0 (the version cecli pins to, also wheel). An `mcp` 1.24.0+
-override is also inline because cecli imports a symbol added in
-1.24 that the nixpkgs 1.15 doesn't have.
+Seven transitive deps required local packaging because nixpkgs-25.11
+either doesn't ship them or ships an incompatible version. Six are
+inline derivations: four tree-sitter pieces (`tree-sitter-c-sharp`,
+`tree-sitter-embedded-template`, `tree-sitter-yaml`, and
+`tree-sitter-language-pack` 0.13.0 — all wheel-based; cecli pins
+tslp to <=0.13.0), plus `py-cymbal` (wheel) and `diff-match-patch`
+(sdist via flit-core). The seventh is an `mcp` 1.24.0 sdist override:
+nixpkgs ships 1.15, but cecli imports a symbol added in 1.24.
 
-Six version pins (`pypandoc>=1.15`, `litellm>=1.80.11`,
+Five version pins (`pypandoc>=1.15`, `litellm>=1.80.11`,
 `watchfiles>=1.1.0`, `tomlkit>=0.14.0`, `xxhash>=3.6.0`) are relaxed
 via `postPatch` against `requirements/requirements.in` — nixpkgs
 ships slightly older versions, functionally compatible. The gap

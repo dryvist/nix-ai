@@ -11,5 +11,4 @@ set -eu
 if ! command -v qwen >/dev/null 2>&1; then
   echo "WARNING: programs.qwen-code is enabled but \`qwen\` is not on PATH." >&2
   echo "  Add \"qwen-code\" to homebrew.brews in nix-darwin and rebuild." >&2
-  echo "  Or set programs.qwen-code.installVia = \"npm\" for a Nix-managed install." >&2
 fi

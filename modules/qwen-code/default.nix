@@ -14,15 +14,17 @@
 # Why brew (not nixpkgs / uvx):
 #   - Not packaged in nixpkgs.
 #   - Homebrew has a bottled formula (`qwen-code`) — this is the
-#     install-order rule's preferred path after nixpkgs.
-#   - npm fallback (`@qwen-code/qwen-code`) is implemented for
-#     non-darwin hosts.
+#     install-order rule's preferred path after nixpkgs and a local
+#     buildNpmPackage derivation. The npm-derivation path is deferred
+#     (qwen-code's workspace + cross-platform optionalDependencies
+#     need deeper packaging work; see modules/qwen-code/packages.nix).
 #
 # The brew install itself lives in nix-darwin (homebrew.brews is a
 # nix-darwin option, not a home-manager one). This module exposes the
 # required formula list via the lib.brewFormulae flake output for
-# nix-darwin to consume; the module itself only handles config + an
-# assertion that the binary is on PATH.
+# nix-darwin to consume; the module itself handles config, an
+# eval-time assertion that gates installVia="brew" to darwin, and a
+# soft activation-time warning when the binary is missing.
 #
 {
   config,
