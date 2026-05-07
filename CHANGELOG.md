@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.64.1](https://github.com/JacobPEvans/nix-ai/compare/v1.64.0...v1.64.1) (2026-05-07)
+
+
+### Bug Fixes
+
+* **flake:** replace prev.system with prev.stdenv.hostPlatform.system ([#728](https://github.com/JacobPEvans/nix-ai/issues/728)) ([a186a52](https://github.com/JacobPEvans/nix-ai/commit/a186a5263f033a399c1dd1bc1d5f873130c41f0a))
+
 ## [1.64.0](https://github.com/JacobPEvans/nix-ai/compare/v1.63.0...v1.64.0) (2026-05-07)
 
 
