@@ -322,9 +322,16 @@
       # modules reference pkgs.<name> (e.g. modules/cecli/packages.nix uses
       # pkgs.cecli). Any package added to `packages` above is automatically
       # available — consumers do not need to enumerate package names.
-      # The `prev ? system` guard makes the overlay safe to call with the
-      # empty attrsets the flake schema validator uses (`overlay {} {}`).
-      overlays.default = _final: prev: if prev ? system then self.packages.${prev.system} or { } else { };
+      #
+      # Use prev.stdenv.hostPlatform.system (not prev.system). The bare
+      # `system` attribute is a deprecated alias in nixpkgs whose
+      # warnAlias machinery triggers infinite recursion when evaluated
+      # inside an overlay during home-manager's _module.args.pkgs path.
+      # The hostPlatform check guards against the empty attrsets the
+      # flake schema validator passes (`overlay {} {}`).
+      overlays.default =
+        _final: prev:
+        if prev ? stdenv then self.packages.${prev.stdenv.hostPlatform.system} or { } else { };
 
       # Formatter
       formatter = forAllSystems (system: nixpkgs.legacyPackages.${system}.nixfmt-tree);
