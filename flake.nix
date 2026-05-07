@@ -315,6 +315,17 @@
         }
       );
 
+      # Default overlay — injects every flake-exported package into pkgs.
+      # Consumers register this via:
+      #   nixpkgs.overlays = [ nix-ai.overlays.default ];
+      # Required when importing this flake's homeManagerModules, since those
+      # modules reference pkgs.<name> (e.g. modules/cecli/packages.nix uses
+      # pkgs.cecli). Any package added to `packages` above is automatically
+      # available — consumers do not need to enumerate package names.
+      # The `prev ? system` guard makes the overlay safe to call with the
+      # empty attrsets the flake schema validator uses (`overlay {} {}`).
+      overlays.default = _final: prev: if prev ? system then self.packages.${prev.system} or { } else { };
+
       # Formatter
       formatter = forAllSystems (system: nixpkgs.legacyPackages.${system}.nixfmt-tree);
     };
