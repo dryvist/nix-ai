@@ -211,7 +211,7 @@ jobs:
           cat "${RUNNER_TEMP}/gh-aw/prompts/github_mcp_tools_with_safeoutputs_prompt.md"
           cat << 'GH_AW_PROMPT_a563c40b6964bd87_EOF'
           </system>
-          {{#runtime-import .github/aw/imports/githubnext/agentics/e8a4d8a2217966474ef08cedff70c92d65a7a1a5/workflows_daily-malicious-code-scan.md}}
+          {{#runtime-import .github/aw/imports/githubnext/agentics/fc4ab36dedc44e2a1cdc195cecce262f06c81230/workflows_daily-malicious-code-scan.md}}
           {{#runtime-import .github/workflows/daily-malicious-code-scan.md}}
           GH_AW_PROMPT_a563c40b6964bd87_EOF
           } > "$GH_AW_PROMPT"
