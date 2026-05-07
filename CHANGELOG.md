@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.64.2](https://github.com/JacobPEvans/nix-ai/compare/v1.64.1...v1.64.2) (2026-05-07)
+
+
+### Bug Fixes
+
+* **claude,cecli:** eliminate Python env conflicts in home-manager buildEnv ([#729](https://github.com/JacobPEvans/nix-ai/issues/729)) ([9703230](https://github.com/JacobPEvans/nix-ai/commit/97032307320d1e3b051948e495bb67bd60489e67))
+
 ## [1.64.1](https://github.com/JacobPEvans/nix-ai/compare/v1.64.0...v1.64.1) (2026-05-07)
 
 
