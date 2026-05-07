@@ -23,6 +23,29 @@
 
 let
   cfg = config.programs.claude;
+
+  # Bundle get-api-key.py + bws_helper.py into a single Nix store directory
+  # so Path(__file__).parent in get-api-key.py resolves bws_helper correctly.
+  apiKeyHelperSrc = pkgs.runCommand "claude-api-key-helper-src" { } ''
+    mkdir -p $out
+    cp ${./get-api-key.py} $out/get-api-key.py
+    cp ${./bws_helper.py} $out/bws_helper.py
+  '';
+
+  # Wrap get-api-key.py as a self-contained shell app.
+  # runtimeInputs injects python314+keyring into PATH only when the wrapper
+  # runs — this avoids adding a python3.withPackages env to home.packages,
+  # which conflicts with nix-home's python3-3.14-env in buildEnv.
+  apiKeyHelperBin = pkgs.writeShellApplication {
+    name = "claude-api-key-helper";
+    runtimeInputs = [
+      (pkgs.python314.withPackages (ps: [ ps.keyring ]))
+      pkgs.bws
+    ];
+    text = ''
+      exec python3 ${apiKeyHelperSrc}/get-api-key.py "$@"
+    '';
+  };
 in
 {
   imports = [
@@ -58,18 +81,12 @@ in
         '';
       }
       // lib.optionalAttrs cfg.apiKeyHelper.enable {
-        # API Key Helper script for headless authentication
-        # Configuration now comes from ~/.config/bws/.env (not Nix options)
+        # API Key Helper: symlink the wrapper binary to scriptPath so
+        # settings.json can reference it at its stable home-relative location.
+        # The wrapper has python314+keyring+bws in its closure via runtimeInputs
+        # (not in home.packages) to avoid Python env conflicts in buildEnv.
         "${cfg.apiKeyHelper.scriptPath}" = {
-          source = ./get-api-key.py; # Python script using bws_helper
-          executable = true;
-        };
-
-        # Shared BWS helper used by get-api-key.py to fetch CLAUDE_OAUTH_TOKEN
-        # from ~/.config/bws/.env (Bitwarden Secrets Manager backend).
-        # Deployed alongside get-api-key.py so Path(__file__).parent finds it.
-        "${builtins.dirOf cfg.apiKeyHelper.scriptPath}/bws_helper.py" = {
-          source = ./bws_helper.py;
+          source = "${apiKeyHelperBin}/bin/claude-api-key-helper";
           executable = true;
         };
 
@@ -79,10 +96,7 @@ in
         };
       };
 
-      packages = lib.optionals cfg.apiKeyHelper.enable [
-        (pkgs.python3.withPackages (ps: [ ps.keyring ]))
-        pkgs.bws
-      ];
+      packages = [ ];
 
       # Activation scripts for directory and config setup
       # NOTE: "local" marketplace setup removed - Claude Code doesn't use it by default.
