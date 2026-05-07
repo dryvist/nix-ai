@@ -327,7 +327,7 @@
       # `system` attribute is a deprecated alias in nixpkgs whose
       # warnAlias machinery triggers infinite recursion when evaluated
       # inside an overlay during home-manager's _module.args.pkgs path.
-      # The hostPlatform check guards against the empty attrsets the
+      # The stdenv check guards against the empty attrsets the
       # flake schema validator passes (`overlay {} {}`).
       overlays.default =
         _final: prev:
