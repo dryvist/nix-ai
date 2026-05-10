@@ -133,7 +133,7 @@ in
   # Override per-session via /model effort slider or "ultrathink" keyword.
   effortLevel = "high";
 
-  # autoUpdatesChannel — using upstream default: "latest" (options.nix)
+  autoUpdatesChannel = "stable"; # override (upstream default: "latest")
   # showTurnDuration — using upstream default: false (options.nix)
 
   # Enable Remote Control for all sessions (Feb 2026 feature).
@@ -218,7 +218,7 @@ in
     # Extended thinking enabled with token budget controlled via env vars
     alwaysThinkingEnabled = true;
 
-    # cleanupPeriodDays — using upstream default: 30 (options.nix)
+    cleanupPeriodDays = 180; # override (upstream default: 30)
 
     env = import ./claude/settings-env.nix;
 

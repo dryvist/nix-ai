@@ -128,7 +128,7 @@ in
         {
           name = "cleanupPeriodDays";
           actual = cfg.settings.cleanupPeriodDays;
-          expected = 30;
+          expected = 180;
         }
         {
           name = "skillListingBudgetFraction";
@@ -138,7 +138,7 @@ in
         {
           name = "autoUpdatesChannel";
           actual = cfg.autoUpdatesChannel;
-          expected = "latest";
+          expected = "stable";
         }
         {
           name = "teammateMode";
