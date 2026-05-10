@@ -12,6 +12,7 @@
   # CLAUDE_CODE_SUBAGENT_MODEL = "claude-haiku-4-5-20251001"; # Cost control for subagents
 
   # Explicit model versions (May 2026) - pin to known working versions if customization needed
+  # Note: Opus/Sonnet 4.x use dateless IDs; Haiku 4.5 retains a date suffix per the API versioning scheme.
   # ANTHROPIC_DEFAULT_OPUS_MODEL = "claude-opus-4-7";
   # ANTHROPIC_DEFAULT_SONNET_MODEL = "claude-sonnet-4-6";
   # ANTHROPIC_DEFAULT_HAIKU_MODEL = "claude-haiku-4-5-20251001";
