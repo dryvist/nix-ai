@@ -21,9 +21,16 @@
 {
   config = lib.mkIf pkgs.stdenv.isDarwin {
     # ============================================================================
-    # LaunchAgent for Auto-Start
+    # LaunchAgent (Manual Start)
     # ============================================================================
-    # Start Open WebUI server on login, backed by MLX inference server
+    # Does not auto-start at login. Start on demand:
+    #   launchctl kickstart -k gui/$(id -u)/app.open-webui
+    # Stop:
+    #   launchctl kill TERM gui/$(id -u)/app.open-webui
+    #
+    # WorkingDirectory is required: open-webui writes .webui_secret_key to
+    # Path.cwd() at startup; without it launchd defaults cwd to / (read-only
+    # SSV) and the process crashes immediately on every spawn.
     launchd.agents.open-webui = {
       enable = true;
       config = {
@@ -33,23 +40,27 @@
           "serve"
         ];
         EnvironmentVariables = {
-          # MLX vllm-mlx as the primary backend (OpenAI-compatible)
           OPENAI_API_BASE_URL = "http://127.0.0.1:11434/v1";
           OPENAI_API_KEY = "not-needed";
         };
-        RunAtLoad = true;
-        KeepAlive = true;
+        WorkingDirectory = "${config.home.homeDirectory}/.open-webui";
+        RunAtLoad = false;
+        KeepAlive = false;
+        ThrottleInterval = 60;
         StandardOutPath = "${config.home.homeDirectory}/Library/Logs/OpenWebUI/open-webui.log";
         StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/OpenWebUI/open-webui.error.log";
       };
     };
+
+    home.activation.createOpenWebUIDataDir = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      mkdir -p "$HOME/.open-webui" "$HOME/Library/Logs/OpenWebUI"
+    '';
     # ============================================================================
     # Notes
     # ============================================================================
     # - Web UI accessible at http://localhost:8080
     # - Connects to MLX vllm-mlx at http://127.0.0.1:11434/v1 (OpenAI-compatible)
-    # - Data stored at ~/.open-webui/ (not managed by Nix)
-    # - LaunchAgent starts on login (auto-restart if crashes)
+    # - Data stored at ~/.open-webui/ (created by activation if absent)
     # - Logs: ~/Library/Logs/OpenWebUI/open-webui.log
     # - Installed via `uv tool install open-webui --python 3.14` in home.activation
     # - Binary at ~/.local/bin/open-webui (uv tool bin directory)
