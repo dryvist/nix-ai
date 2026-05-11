@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.64.5](https://github.com/JacobPEvans/nix-ai/compare/v1.64.4...v1.64.5) (2026-05-11)
+
+
+### Bug Fixes
+
+* **ci:** opt out of --all-systems for nix-validate ([#754](https://github.com/JacobPEvans/nix-ai/issues/754)) ([8a6493c](https://github.com/JacobPEvans/nix-ai/commit/8a6493cdb9ee4614fdb6af95270e25632904067b))
+
 ## [1.64.4](https://github.com/JacobPEvans/nix-ai/compare/v1.64.3...v1.64.4) (2026-05-11)
 
 
