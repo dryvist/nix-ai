@@ -8,7 +8,7 @@ api="${MLX_API_URL:?}"
 # The process on $port is now the llama-swap proxy, not vllm-mlx.
 # Find the actual vllm-mlx backend for memory reporting.
 if lsof -ti :"$port" 2>/dev/null | head -1 > /dev/null; then
-  model=$(curl -sf "$api/models" | jq -r '.data[0].id // "unknown"' 2>/dev/null || echo "unknown")
+  model=$(curl -sf "${api%/v1}/running" 2>/dev/null | jq -r '.running[0].model // "(none loaded)"' 2>/dev/null || echo "unknown")
 
   # Get memory from the vllm-mlx child process (the real memory consumer).
   # Prefer the backend that is a child of the proxy bound to $port.

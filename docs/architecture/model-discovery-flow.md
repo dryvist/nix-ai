@@ -10,6 +10,32 @@ This is the document that would have prevented the 3-layer bug in PR #575
 
 _This document is part of [`docs/architecture/`](README.md)._
 
+## CRITICAL: Catalog vs. Load State
+
+> **`/v1/models` is the catalog. `/running` is load state. Never confuse them.**
+
+| Endpoint | Returns | Correct use |
+|----------|---------|-------------|
+| `GET /v1/models` | Full model catalog, **alphabetically sorted** | Catalog enrichment, capability queries, UI model pickers |
+| `GET /running` | `{"running":[{"model":"...","state":"ready"}]}` | Determine what is actually loaded right now |
+
+**Never do this:**
+
+```bash
+# WRONG — .data[0] is alphabetically first, not the loaded model
+curl http://127.0.0.1:11434/v1/models | jq -r '.data[0].id'
+```
+
+**Always do this:**
+
+```bash
+# CORRECT — /running is the only authoritative source of load state
+curl http://127.0.0.1:11434/running | jq -r '.running[0].model // "(none loaded)"'
+```
+
+The alphabetically-first model in the catalog almost never matches what is actually loaded.
+Indexing `.data[0]` silently lies about the running model regardless of which models are in the catalog.
+
 ## End-to-End Flow
 
 ```mermaid

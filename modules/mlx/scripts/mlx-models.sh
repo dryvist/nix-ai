@@ -12,7 +12,7 @@ total_gb=$(( total_bytes / 1073741824 ))
 available_gb=$(( total_gb - 20 ))
 
 # Get currently running model
-running_model=$(curl -sf "$api/models" 2>/dev/null | jq -r '.data[0].id // ""' 2>/dev/null || echo "")
+running_model=$(curl -sf "${api%/v1}/running" 2>/dev/null | jq -r '.running[0].model // ""' 2>/dev/null || echo "")
 
 # Load registered models from llama-swap config (if available)
 registered_models=""
