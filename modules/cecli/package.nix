@@ -68,7 +68,7 @@ let
   # nixpkgs version. This is one of the few pins we cannot relax via
   # postPatch because cecli imports a symbol that didn't exist yet.
   # renovate: datasource=pypi depName=mcp
-  mcpVersion = "1.24.0";
+  mcpVersion = "1.27.1";
   mcp = python3Packages.buildPythonPackage {
     pname = "mcp";
     version = mcpVersion;
