@@ -66,18 +66,19 @@ in
   agent-skills-home-files =
     let
       keepFile = hmConfig.config.home.file.".agents/.keep".text;
-      missingSkillFiles = builtins.filter (
-        n: !(builtins.pathExists "${hmConfig.config.home.file.${n}.source}/SKILL.md")
-      ) managedSkillEntries;
+      # SKILL.md presence used to be verified via builtins.pathExists on
+      # ${home.file.X.source}/SKILL.md, but that requires the wrap derivation
+      # to be realised, which is incompatible with the .github reusable
+      # workflow's `nix flake check --all-systems --no-build` (used to keep
+      # the linux runner from exhausting disk on cross-platform substitution).
+      # SKILL.md presence is guaranteed by the heredoc in
+      # modules/agent-skills/default.nix (wrappedSkillDir).
     in
     assert keepFile != "" || throw "Agent Skills .agents/.keep file is empty (module not loaded)";
     assert builtins.length managedSkillEntries > 0 || throw "No managed .agents skill entries found";
     assert
       legacySkillFileEntries == [ ]
       || throw "Agent Skills must deploy skill directories, not SKILL.md files: ${builtins.toJSON legacySkillFileEntries}";
-    assert
-      missingSkillFiles == [ ]
-      || throw "Agent Skills directory entries missing SKILL.md: ${builtins.toJSON missingSkillFiles}";
     pkgs.runCommand "check-agent-skills-home-files" { } ''
       echo "Agent Skills home.file wiring: ${toString (builtins.length managedSkillEntries)} managed skill entries"
       touch $out
