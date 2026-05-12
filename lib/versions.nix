@@ -73,8 +73,18 @@
   parakeetMlx = "0.5.1";
   # renovate: datasource=pypi depName=mlx-vlm
   mlxVlm = "0.5.0";
+  # Pinned to 0.31.1 — mlx 0.31.2 changed cross-thread stream registration
+  # semantics, making generation_stream (created at mlx_lm module import in the
+  # main thread) invisible to vllm-mlx's scheduler thread, causing every
+  # inference call to crash with "There is no Stream(gpu, N) in current thread."
+  # See nix-ai#751. Re-evaluate when vllm-mlx is updated to initialize
+  # generation_stream per-thread or MLX restores cross-thread stream visibility.
+  # renovate: datasource=pypi depName=mlx
+  mlx = "0.31.1";
+  # Pinned to 0.31.2 to stay compatible with mlx 0.31.1 (mlx_lm 0.31.3 was
+  # released alongside mlx 0.31.2 and requires it). See nix-ai#751.
   # renovate: datasource=pypi depName=mlx-lm
-  mlxLm = "0.31.3";
+  mlxLm = "0.31.2";
   # renovate: datasource=pypi depName=lm-eval
   lmEval = "0.4.11";
 

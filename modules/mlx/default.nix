@@ -47,8 +47,17 @@ let
   # Central vllm-mlx wrapper — single source of truth for the pinned version.
   # The LaunchAgent needs a Nix store path (not a PATH lookup), so the
   # derivation lives here. Also added to home.packages for CLI access.
+  #
+  # mlx==0.31.1 + mlx-lm==0.31.2 are pinned together because mlx 0.31.2 changed
+  # cross-thread stream registration semantics: generation_stream (created at
+  # mlx_lm module import in the main thread) is no longer visible to vllm-mlx's
+  # scheduler thread, causing "There is no Stream(gpu, N) in current thread" on
+  # every inference call. mlx_lm 0.31.3 was released alongside mlx 0.31.2, so
+  # both are rolled back together. See nix-ai#751.
+  mlxPin = "mlx==${versions.mlx}";
+  mlxLmPin = "mlx-lm==${versions.mlxLm}";
   vllmMlxPkg = pkgs.writeShellScriptBin "vllm-mlx" ''
-    exec ${pkgs.uv}/bin/uvx --from "vllm-mlx==${vllmMlxVersion}" vllm-mlx "$@"
+    exec ${pkgs.uv}/bin/uvx --from "vllm-mlx==${vllmMlxVersion}" --with "${mlxPin}" --with "${mlxLmPin}" vllm-mlx "$@"
   '';
 
   # llama-swap proxy package — sits on the API port, manages vllm-mlx child processes.
