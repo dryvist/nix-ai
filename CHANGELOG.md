@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.64.7](https://github.com/JacobPEvans/nix-ai/compare/v1.64.6...v1.64.7) (2026-05-12)
+
+
+### Bug Fixes
+
+* **mlx:** pin mlx==0.31.1 + mlx-lm==0.31.2 to restore inference ([#756](https://github.com/JacobPEvans/nix-ai/issues/756)) ([2934e52](https://github.com/JacobPEvans/nix-ai/commit/2934e52e2eae5b7f8c4d281ae0c58ba4d1d289c1))
+
 ## [1.64.6](https://github.com/JacobPEvans/nix-ai/compare/v1.64.5...v1.64.6) (2026-05-12)
 
 
