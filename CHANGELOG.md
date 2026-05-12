@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.64.6](https://github.com/JacobPEvans/nix-ai/compare/v1.64.5...v1.64.6) (2026-05-12)
+
+
+### Bug Fixes
+
+* **mlx:** query /running for load state, not /v1/models[0] ([#752](https://github.com/JacobPEvans/nix-ai/issues/752)) ([0c4236d](https://github.com/JacobPEvans/nix-ai/commit/0c4236dca8bbe7fed82d32abb8509e81a2d50b34))
+
 ## [1.64.5](https://github.com/JacobPEvans/nix-ai/compare/v1.64.4...v1.64.5) (2026-05-11)
 
 
