@@ -72,7 +72,7 @@
   # renovate: datasource=pypi depName=parakeet-mlx
   parakeetMlx = "0.5.1";
   # renovate: datasource=pypi depName=mlx-vlm
-  mlxVlm = "0.4.4";
+  mlxVlm = "0.5.0";
   # renovate: datasource=pypi depName=mlx-lm
   mlxLm = "0.31.3";
   # renovate: datasource=pypi depName=lm-eval
