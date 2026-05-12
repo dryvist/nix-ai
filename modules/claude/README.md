@@ -11,7 +11,7 @@ Two Claude Code binaries live side-by-side on this system:
 
 | Binary | Path | Channel | Managed by |
 | ------ | ---- | ------- | ---------- |
-| `claude` | `/opt/homebrew/bin/claude` | Stable (Homebrew) | nix-darwin `homebrew.brews` |
+| `claude` | `/opt/homebrew/bin/claude` | Stable (Homebrew Cask) | nix-darwin `homebrew.casks` |
 | `claude-latest` | `~/.local/bin/claude` | Bleeding edge (Anthropic installer) | [`modules/claude-latest.nix`](../claude-latest.nix) |
 
 `claude-latest` is bootstrapped once by a user-level LaunchAgent
@@ -23,6 +23,38 @@ first install. Run `claude-latest-install` by hand to force a reinstall.
 Shell aliases (`claude-latest`, `claude-d`, `claude-latest-d`, `d-claude`,
 `tf-claude`) live in [`../ai-aliases.zsh`](../ai-aliases.zsh), wired into
 `programs.zsh.initContent` by [`../ai-shell.nix`](../ai-shell.nix).
+
+### Upgrading to a specific release
+
+Both channels are self-managing: Homebrew's auto-updater bumps the cask and
+`claude update` advances the Anthropic install on the `autoUpdatesChannel`
+configured in `modules/claude-config.nix` (currently `"stable"`). Stable lags
+the `"latest"` channel by roughly one week.
+
+To pull a release that is available on Homebrew but hasn't arrived on stable yet,
+upgrade the Homebrew cask manually:
+
+```bash
+brew upgrade --cask claude-code
+```
+
+To force a fresh Anthropic-installer pull for `~/.local/bin/claude` (useful when
+`claude update` says it's already current but a new release exists), delete the
+symlink and re-run the module-provided installer wrapper:
+
+```bash
+rm -f ~/.local/bin/claude
+claude-latest-install
+```
+
+The `claude-latest-install` command is the managed wrapper from
+[`modules/claude-latest.nix`](../claude-latest.nix) (on PATH after a rebuild). It uses
+declared `runtimeInputs` and is the same script the LaunchAgent calls — it just
+has its idempotency check bypassed by removing the symlink first.
+
+Use `which claude` to confirm which binary `claude` resolves to. The `claude-latest`
+shell alias (from [`ai-aliases.zsh`](../ai-aliases.zsh)) always points directly to
+`~/.local/bin/claude` regardless of PATH order.
 
 ## Component Map
 
