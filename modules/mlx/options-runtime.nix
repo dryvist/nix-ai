@@ -42,7 +42,7 @@
         }
       );
       default = { };
-      description = "Additional models available for on-demand switching via llama-swap proxy. The defaultModel is always available with TTL 0.";
+      description = "Additional models available for on-demand switching via llama-swap proxy. All models (including the default-aliased one) share the uniform proxy.idleTtl unless overridden per-model.";
     };
 
     proxy = {

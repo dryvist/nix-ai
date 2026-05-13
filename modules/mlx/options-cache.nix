@@ -25,11 +25,10 @@
 {
   options.programs.mlx = {
     # cacheMemoryMb — Override the memory-aware cache size (--cache-memory-mb).
-    # Default: 32768 (32GB). Larger cache amortises prefix-cache reuse on
-    # multi-turn agentic workloads. With a 65GB model + 32GB cache the
-    # footprint sits at ~97GB, fitting within the 118GB wired ceiling set by
-    # nix-darwin's apple-silicon-tunables module. Lower to 16384 if reverting.
-    # Set to null to restore server auto-detect (~20% RAM = ~25.6GB).
+    # Default: 8192 (8 GB). Right-sized for maxNumSeqs=4 at maxTokens=8192 with
+    # prefix-cache headroom; see the file-header rationale (lines 11-22) for
+    # why the previous 32768 (32 GB) default was lowered.
+    # Set to null to restore server auto-detect (~20% RAM = ~25.6 GB on 128 GB).
     # Ref: https://github.com/ml-explore/mlx-lm/issues/883
     cacheMemoryMb = lib.mkOption {
       type = lib.types.nullOr lib.types.ints.positive;
