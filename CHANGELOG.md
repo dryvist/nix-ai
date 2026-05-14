@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.64.9](https://github.com/JacobPEvans/nix-ai/compare/v1.64.8...v1.64.9) (2026-05-14)
+
+
+### Bug Fixes
+
+* **flake:** scope checks to x86_64-linux; restore --all-systems default ([#774](https://github.com/JacobPEvans/nix-ai/issues/774)) ([18b1229](https://github.com/JacobPEvans/nix-ai/commit/18b12299407bab7b817470bf6fc8255c8651e56e))
+
 ## [1.64.8](https://github.com/JacobPEvans/nix-ai/compare/v1.64.7...v1.64.8) (2026-05-14)
 
 

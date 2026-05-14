@@ -96,13 +96,6 @@ jobs:
     needs: changes
     if: needs.changes.outputs.nix == 'true' && needs.changes.outputs.is-deps-only != 'true'
     uses: JacobPEvans/.github/.github/workflows/_nix-validate.yml@main
-    with:
-      # wrap-claude-command-*, gemini-policy, fabric-patterns-marketplace,
-      # maestro-cli, pal-mcp-server and the check-* derivations are
-      # platform-specific runCommand builds. --all-systems would try to
-      # build them on linux and fail with "platform mismatch". Evaluate
-      # the current system only.
-      all_systems: false
 
   markdown-lint:
     name: Markdown Lint
@@ -123,7 +116,6 @@ jobs:
     uses: JacobPEvans/.github/.github/workflows/_python-security.yml@main
     with:
       python-dirs: 'mlx-server orchestrator'
-    secrets: inherit
 
   osv-scan:
     name: OSV Scan

@@ -74,6 +74,6 @@
     # nix-darwin's homebrew.brews; this pin documents the expected
     # version so consumers can sanity-check what brew has.
     # renovate: datasource=github-releases depName=QwenLM/qwen-code
-    qwen-code = "0.15.9";
+    qwen-code = "0.15.10";
   };
 }

@@ -26,7 +26,7 @@
 
   # AI CLI tools (npm)
   # renovate: datasource=npm depName=@felixgeelhaar/cclint
-  cclint = "0.12.1";
+  cclint = "0.14.0";
   # renovate: datasource=npm depName=@githubnext/github-copilot-cli
   ghCopilot = "0.1.36";
   # renovate: datasource=npm depName=chatgpt-cli
@@ -100,5 +100,5 @@
   # lib/checks/fabric.nix (and scripts/check-fabric-version-sync.sh for
   # pre-commit / manual runs) compares the two and fails on drift.
   # renovate: datasource=github-releases depName=danielmiessler/fabric
-  fabric = "1.4.444";
+  fabric = "1.4.452";
 }
