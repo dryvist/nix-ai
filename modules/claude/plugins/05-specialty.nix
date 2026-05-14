@@ -87,10 +87,12 @@ _:
     # ========================================================================
     # obsidian-skills + axton-obsidian-visual-skills + visual-explainer
     # ========================================================================
-    # DISABLED globally — re-enable in Obsidian-vault repos via per-repo
-    # .claude/settings.json overrides when working on notes/canvas/diagrams.
+    # axton-obsidian-visual-skills enabled per user request — diagrams + visual
+    # explainers reach Claude, Codex, and Gemini via the agentskills module.
+    # obsidian@obsidian-skills disabled globally; re-enable in Obsidian-vault
+    # repos via per-repo .claude/settings.json when working on notes/canvas.
     "obsidian@obsidian-skills" = false;
-    "obsidian-visual-skills@axton-obsidian-visual-skills" = false;
+    "obsidian-visual-skills@axton-obsidian-visual-skills" = true;
     "visual-explainer@visual-explainer-marketplace" = false;
 
     # ========================================================================

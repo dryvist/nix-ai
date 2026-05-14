@@ -49,7 +49,6 @@ in
   filesystem = bunx [ "@modelcontextprotocol/server-filesystem@${mcpFilesystemVersion}" ];
   git = bunx [ "@modelcontextprotocol/server-git" ]; # archived
   memory = bunx [ "@modelcontextprotocol/server-memory@${mcpMemoryVersion}" ];
-  sequentialthinking = bunx [ "@modelcontextprotocol/server-sequential-thinking" ]; # archived
   time = {
     command = "uvx";
     args = [
@@ -68,7 +67,9 @@ in
   cloudflare = bunx [ "@modelcontextprotocol/server-cloudflare" ] // {
     disabled = true;
   }; # archived; Requires: CLOUDFLARE_API_TOKEN
-  aws = bunx [ "@modelcontextprotocol/server-aws-kb-retrieval@${mcpAwsVersion}" ]; # Requires: AWS credentials
+  aws = bunx [ "@modelcontextprotocol/server-aws-kb-retrieval@${mcpAwsVersion}" ] // {
+    disabled = true;
+  }; # Requires: AWS credentials; 0 calls in 3 months of history
 
   # ================================================================
   # Native nixpkgs packages

@@ -54,6 +54,10 @@ _:
     "pyright-lsp@claude-plugins-official" = true;
     "typescript-lsp@claude-plugins-official" = false; # Minimal TS usage
 
+    # Explicit denies — marketplace auto-installs, we lock them off.
+    # ralph-loop: 0 invocations in 3 months of session history.
+    "ralph-loop@claude-plugins-official" = false;
+
     # ========================================================================
     # anthropic-agent-skills — Anthropic-curated skill bundles
     # ========================================================================
