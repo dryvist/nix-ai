@@ -100,5 +100,5 @@
   # lib/checks/fabric.nix (and scripts/check-fabric-version-sync.sh for
   # pre-commit / manual runs) compares the two and fails on drift.
   # renovate: datasource=github-releases depName=danielmiessler/fabric
-  fabric = "1.4.444";
+  fabric = "1.4.452";
 }
