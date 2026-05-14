@@ -239,7 +239,7 @@ in
     # automatically.
     skillOverrides =
       let
-        file = "${ai-assistant-instructions}/agentsmd/permissions/skill-overrides.json";
+        file = "${ai-assistant-instructions}/agentsmd/settings/skill-overrides.json";
       in
       if builtins.pathExists file then (lib.importJSON file).skillOverrides else { };
 
