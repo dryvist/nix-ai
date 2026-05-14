@@ -283,23 +283,31 @@
         aiCommon = import ./modules/common;
       };
 
-      # Quality checks (formatting, linting, dead code, shellcheck, module-eval)
-      checks = forAllSystems (
-        system:
+      # Quality checks (formatting, linting, dead code, shellcheck, module-eval).
+      #
+      # Scoped to x86_64-linux only so `nix flake check --all-systems` succeeds
+      # from a single linux runner. All checks in lib/checks.nix are source-only
+      # or evaluation-wrapped — running once on the CI system is sufficient.
+      # Cross-platform breakage is still caught by `--all-systems` evaluating
+      # `packages.<system>`, `formatter.<system>`, and `overlays.default` on
+      # every declared system.
+      checks =
         let
+          system = "x86_64-linux";
           pkgs = nixpkgs.legacyPackages.${system};
         in
-        import ./lib/checks.nix {
-          inherit
-            pkgs
-            home-manager
-            pal-mcp-server
-            fabric-src
-            ;
-          src = ./.;
-          aiModule = self.homeManagerModules.default;
-        }
-      );
+        {
+          ${system} = import ./lib/checks.nix {
+            inherit
+              pkgs
+              home-manager
+              pal-mcp-server
+              fabric-src
+              ;
+            src = ./.;
+            aiModule = self.homeManagerModules.default;
+          };
+        };
 
       # Expose custom packages for nix-update automation
       packages = forAllSystems (
