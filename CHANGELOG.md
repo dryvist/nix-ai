@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.64.10](https://github.com/JacobPEvans/nix-ai/compare/v1.64.9...v1.64.10) (2026-05-15)
+
+
+### Bug Fixes
+
+* **cecli:** correct hashes and automate nix-update on Renovate pushes ([#778](https://github.com/JacobPEvans/nix-ai/issues/778)) ([e805936](https://github.com/JacobPEvans/nix-ai/commit/e80593664b8c4436a13b50b47839063b1ef03637))
+
 ## [1.64.9](https://github.com/JacobPEvans/nix-ai/compare/v1.64.8...v1.64.9) (2026-05-14)
 
 
