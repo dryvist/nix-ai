@@ -41,7 +41,9 @@ jobs:
   # ==========================================================================
   changes:
     name: Detect Changes
-    runs-on: ubuntu-latest
+    # Self-hosted RunsOn runner (terraform-runs-on). docs/migration-guide.md
+    # in JacobPEvans/terraform-runs-on documents the label format and rollback.
+    runs-on: "runs-on=${{ github.run_id }}/runner=2cpu-linux-x64"
     permissions:
       contents: read
       pull-requests: read
@@ -96,18 +98,26 @@ jobs:
     needs: changes
     if: needs.changes.outputs.nix == 'true' && needs.changes.outputs.is-deps-only != 'true'
     uses: JacobPEvans/.github/.github/workflows/_nix-validate.yml@main
+    with:
+      # `nix flake check --all-systems` needs disk/RAM for darwin source
+      # substitution; m7+c7 family with s3-cache fits.
+      runner_label: "runs-on=${{ github.run_id }}/cpu=4/ram=16/family=m7+c7/extras=s3-cache"
 
   markdown-lint:
     name: Markdown Lint
     needs: changes
     if: needs.changes.outputs.markdown == 'true'
     uses: JacobPEvans/.github/.github/workflows/_markdown-lint.yml@main
+    with:
+      runner_label: "runs-on=${{ github.run_id }}/runner=2cpu-linux-x64"
 
   file-size:
     name: File Size
     needs: changes
     if: needs.changes.outputs.nix == 'true' || needs.changes.outputs.markdown == 'true'
     uses: JacobPEvans/.github/.github/workflows/_file-size.yml@main
+    with:
+      runner_label: "runs-on=${{ github.run_id }}/runner=2cpu-linux-x64"
 
   python-security:
     name: Python Security
@@ -116,12 +126,15 @@ jobs:
     uses: JacobPEvans/.github/.github/workflows/_python-security.yml@main
     with:
       python-dirs: 'mlx-server orchestrator'
+      runner_label: "runs-on=${{ github.run_id }}/runner=2cpu-linux-x64"
 
   osv-scan:
     name: OSV Scan
     needs: changes
     if: always()
     uses: JacobPEvans/.github/.github/workflows/_osv-scan.yml@main
+    with:
+      runner_label: "runs-on=${{ github.run_id }}/runner=2cpu-linux-x64"
 
   # ==========================================================================
   # MERGE GATE - The ONLY required check in branch protection
@@ -130,7 +143,7 @@ jobs:
     name: Merge Gate
     needs: [changes, nix-validate, markdown-lint, file-size, python-security, osv-scan]
     if: ${{ !cancelled() }}
-    runs-on: ubuntu-latest
+    runs-on: "runs-on=${{ github.run_id }}/runner=2cpu-linux-x64"
     steps:
       - name: Check all results
         uses: re-actors/alls-green@release/v1

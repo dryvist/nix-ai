@@ -20,7 +20,8 @@ permissions:
 jobs:
   dispatch:
     if: github.event_name == 'issues' && github.event.label.name == 'ai:ready'
-    runs-on: ubuntu-latest
+    # Self-hosted RunsOn runner — see terraform-runs-on/docs/migration-guide.md
+    runs-on: "runs-on=${{ github.run_id }}/runner=2cpu-linux-x64"
     permissions:
       actions: write
       issues: write
