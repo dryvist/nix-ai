@@ -68,7 +68,7 @@
 
   # MLX inference stack (pypi)
   # renovate: datasource=pypi depName=vllm-mlx
-  vllmMlx = "0.2.9";
+  vllmMlx = "0.3.0";
   # renovate: datasource=pypi depName=parakeet-mlx
   parakeetMlx = "0.5.1";
   # renovate: datasource=pypi depName=mlx-vlm
