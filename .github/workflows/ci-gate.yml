@@ -39,11 +39,17 @@ jobs:
   # ==========================================================================
   # CHANGE DETECTION
   # ==========================================================================
+  # Fork-PR security guard:
+  # nix-ai is a PUBLIC repository, so `pull_request` from fork branches
+  # would otherwise execute fork-author-controlled code on our self-hosted
+  # RunsOn runners (and the underlying AWS account). The `runs-on:` expression
+  # routes same-repo PRs to RunsOn and falls back to `ubuntu-latest`
+  # (github-hosted, ephemeral, sandboxed) for fork PRs. Reusable workflow
+  # calls below carry the same expression through `runner_label`.
+  # Pattern reference: runs-on.com/configuration/job-labels (Fork PRs).
   changes:
     name: Detect Changes
-    # Self-hosted RunsOn runner (terraform-runs-on). docs/migration-guide.md
-    # in JacobPEvans/terraform-runs-on documents the label format and rollback.
-    runs-on: "runs-on=${{ github.run_id }}/runner=2cpu-linux-x64"
+    runs-on: ${{ github.event.pull_request.head.repo.full_name == github.repository && format('runs-on={0}/runner=2cpu-linux-x64', github.run_id) || 'ubuntu-latest' }}
     permissions:
       contents: read
       pull-requests: read
@@ -101,7 +107,8 @@ jobs:
     with:
       # `nix flake check --all-systems` needs disk/RAM for darwin source
       # substitution; m7+c7 family with s3-cache fits.
-      runner_label: "runs-on=${{ github.run_id }}/cpu=4/ram=16/family=m7+c7/extras=s3-cache"
+      # Fork PRs fall back to ubuntu-latest (see header comment on `changes`).
+      runner_label: ${{ github.event.pull_request.head.repo.full_name == github.repository && format('runs-on={0}/cpu=4/ram=16/family=m7+c7/extras=s3-cache', github.run_id) || 'ubuntu-latest' }}
 
   markdown-lint:
     name: Markdown Lint
@@ -109,7 +116,7 @@ jobs:
     if: needs.changes.outputs.markdown == 'true'
     uses: JacobPEvans/.github/.github/workflows/_markdown-lint.yml@main
     with:
-      runner_label: "runs-on=${{ github.run_id }}/runner=2cpu-linux-x64"
+      runner_label: ${{ github.event.pull_request.head.repo.full_name == github.repository && format('runs-on={0}/runner=2cpu-linux-x64', github.run_id) || 'ubuntu-latest' }}
 
   file-size:
     name: File Size
@@ -117,7 +124,7 @@ jobs:
     if: needs.changes.outputs.nix == 'true' || needs.changes.outputs.markdown == 'true'
     uses: JacobPEvans/.github/.github/workflows/_file-size.yml@main
     with:
-      runner_label: "runs-on=${{ github.run_id }}/runner=2cpu-linux-x64"
+      runner_label: ${{ github.event.pull_request.head.repo.full_name == github.repository && format('runs-on={0}/runner=2cpu-linux-x64', github.run_id) || 'ubuntu-latest' }}
 
   python-security:
     name: Python Security
@@ -126,7 +133,7 @@ jobs:
     uses: JacobPEvans/.github/.github/workflows/_python-security.yml@main
     with:
       python-dirs: 'mlx-server orchestrator'
-      runner_label: "runs-on=${{ github.run_id }}/runner=2cpu-linux-x64"
+      runner_label: ${{ github.event.pull_request.head.repo.full_name == github.repository && format('runs-on={0}/runner=2cpu-linux-x64', github.run_id) || 'ubuntu-latest' }}
 
   osv-scan:
     name: OSV Scan
@@ -134,7 +141,7 @@ jobs:
     if: always()
     uses: JacobPEvans/.github/.github/workflows/_osv-scan.yml@main
     with:
-      runner_label: "runs-on=${{ github.run_id }}/runner=2cpu-linux-x64"
+      runner_label: ${{ github.event.pull_request.head.repo.full_name == github.repository && format('runs-on={0}/runner=2cpu-linux-x64', github.run_id) || 'ubuntu-latest' }}
 
   # ==========================================================================
   # MERGE GATE - The ONLY required check in branch protection
@@ -143,7 +150,7 @@ jobs:
     name: Merge Gate
     needs: [changes, nix-validate, markdown-lint, file-size, python-security, osv-scan]
     if: ${{ !cancelled() }}
-    runs-on: "runs-on=${{ github.run_id }}/runner=2cpu-linux-x64"
+    runs-on: ${{ github.event.pull_request.head.repo.full_name == github.repository && format('runs-on={0}/runner=2cpu-linux-x64', github.run_id) || 'ubuntu-latest' }}
     steps:
       - name: Check all results
         uses: re-actors/alls-green@release/v1
