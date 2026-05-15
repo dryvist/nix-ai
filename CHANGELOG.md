@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.65.0](https://github.com/JacobPEvans/nix-ai/compare/v1.64.12...v1.65.0) (2026-05-15)
+
+
+### Features
+
+* **ci:** migrate Linux CI to self-hosted RunsOn runners ([#783](https://github.com/JacobPEvans/nix-ai/issues/783)) ([8858a94](https://github.com/JacobPEvans/nix-ai/commit/8858a94adcfd7c06a08ddd84a3dee4db8b68161f))
+
 ## [1.64.12](https://github.com/JacobPEvans/nix-ai/compare/v1.64.11...v1.64.12) (2026-05-15)
 
 
