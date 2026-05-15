@@ -42,6 +42,35 @@
       '';
     };
 
+    # Per-skill visibility overrides
+    skillOverrides = lib.mkOption {
+      type = lib.types.attrsOf (
+        lib.types.enum [
+          "on"
+          "name-only"
+          "user-invocable-only"
+          "off"
+        ]
+      );
+      default = { };
+      example = {
+        "django-pro" = "off";
+        "saga-orchestration" = "name-only";
+      };
+      description = ''
+        Per-skill visibility overrides written to ~/.claude/settings.json
+        for personal, project, and managed skills (not plugin skills — those
+        are controlled via /plugin). Keys are bare skill names. Values:
+          on                    — full description + /menu entry (default)
+          name-only             — name listed; description dropped from context
+          user-invocable-only   — hidden from Claude; only / invocation works
+          off                   — hidden everywhere; removed from context entirely
+
+        Loaded from agentsmd/settings/skill-overrides.json in
+        claude-config.nix; safe to leave empty.
+      '';
+    };
+
     # Permissions
     permissions = {
       allow = lib.mkOption {

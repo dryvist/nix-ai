@@ -231,6 +231,18 @@ in
       ask = formatters.claude.formatAsk permissions;
     };
 
+    # Per-skill visibility overrides loaded from ai-assistant-instructions.
+    # The JSON file ships as { "skillOverrides": { ... } } so we unwrap once
+    # here. Tolerate a missing file so this module evaluates even when the
+    # upstream input is pinned to a commit predating the JSON's introduction;
+    # once the input is bumped, the overrides flow into settings.json
+    # automatically.
+    skillOverrides =
+      let
+        file = "${ai-assistant-instructions}/agentsmd/settings/skill-overrides.json";
+      in
+      if builtins.pathExists file then (lib.importJSON file).skillOverrides or { } else { };
+
     # Consumed by modules/claude/settings.nix via cfg.settings.additionalDirectories.
     # lib/claude-settings.nix (CI-only) accepts a separate caller-provided parameter.
     additionalDirectories = import ./claude/settings-paths.nix;

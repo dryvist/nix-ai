@@ -106,6 +106,9 @@ let
 
     # Environment variables (user-defined + apiKeyHelper if enabled)
   }
+  // lib.optionalAttrs (cfg.settings.skillOverrides != { }) {
+    inherit (cfg.settings) skillOverrides;
+  }
   // lib.optionalAttrs (cfg.model != null) { inherit (cfg) model; }
   // lib.optionalAttrs (cfg.remoteControlAtStartup != null) { inherit (cfg) remoteControlAtStartup; }
   // lib.optionalAttrs (envAttrs != { }) { env = envAttrs; }

@@ -51,6 +51,7 @@ in
         "sandbox"
         "schemaUrl"
         "skillListingBudgetFraction"
+        "skillOverrides"
       ];
       actualSettingsOptions = builtins.attrNames cfg.settings;
       missingSettingsOptions = builtins.filter (
