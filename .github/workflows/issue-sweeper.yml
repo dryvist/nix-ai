@@ -12,5 +12,5 @@ permissions:
   pull-requests: read
 jobs:
   sweep:
-    uses: JacobPEvans/ai-workflows/.github/workflows/issue-sweeper.yml@v0.13
+    uses: JacobPEvans/ai-workflows/.github/workflows/issue-sweeper.yml@v0.14
     secrets: inherit # zizmor: ignore[secrets-inherit]
