@@ -88,6 +88,17 @@
           behaviour) shows only proxy-level events.
         '';
       };
+      concurrentRequests = lib.mkOption {
+        type = lib.types.ints.positive;
+        default = 1;
+        description = ''
+          Max in-flight requests forwarded per model to vllm-mlx. Default 1
+          serializes requests at the proxy layer — background pipes queue rather
+          than hitting vllm-mlx simultaneously, which caused finish_reason:error
+          crashes when two pipes fired at the same time (2026-05-15 incident).
+          Increase only if vllm-mlx concurrent batching is confirmed stable.
+        '';
+      };
     };
   };
 }

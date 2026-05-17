@@ -82,6 +82,11 @@ in
           expected = 3600;
         }
         {
+          name = "mlx.proxy.concurrentRequests";
+          actual = mlxCfg.proxy.concurrentRequests;
+          expected = 1;
+        }
+        {
           name = "mlx.prefillBatchSize";
           actual = mlxCfg.prefillBatchSize;
           expected = null;

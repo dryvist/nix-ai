@@ -147,6 +147,7 @@ let
     checkEndpoint = "/v1/models";
     aliases = roles;
     useModelName = physical;
+    concurrentRequests = cfg.proxy.concurrentRequests;
   }) rolesByPhysical;
 
   # Additional ad-hoc models from cfg.models (existing extension point).
@@ -161,6 +162,7 @@ let
       ttl = if modelCfg.ttl > 0 then modelCfg.ttl else cfg.proxy.idleTtl;
       env = [ "HF_HOME=${cfg.huggingFaceHome}" ];
       checkEndpoint = "/v1/models";
+      concurrentRequests = cfg.proxy.concurrentRequests;
     }
     // lib.optionalAttrs (modelCfg.aliases != [ ]) {
       inherit (modelCfg) aliases;
