@@ -2,6 +2,7 @@
   config,
   lib,
   pkgs,
+  nixpkgs-unstable,
   ...
 }:
 #
@@ -61,7 +62,9 @@ let
   '';
 
   # llama-swap proxy package — sits on the API port, manages vllm-mlx child processes.
-  llamaSwapPkg = pkgs.llama-swap;
+  # Sourced from nixpkgs-unstable: 25.11-darwin froze it at v165 on 2025-09-22
+  # with no backports while unstable kept moving (currently v211). See nix-ai#801.
+  llamaSwapPkg = nixpkgs-unstable.legacyPackages.${pkgs.stdenv.hostPlatform.system}.llama-swap;
 
   apiUrl = "http://${cfg.host}:${toString cfg.port}/v1";
   launchAgentLabel = "dev.vllm-mlx.server";

@@ -3,6 +3,9 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-25.11-darwin";
+    # Second nixpkgs only for llama-swap: 25.11-darwin froze it at v165 on
+    # 2025-09-22 with no backports. See nix-ai#801.
+    nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 
     home-manager = {
       url = "github:nix-community/home-manager/release-25.11";
@@ -135,6 +138,7 @@
     {
       self,
       nixpkgs,
+      nixpkgs-unstable,
       home-manager,
       claude-code-plugins,
       claude-cookbooks,
@@ -204,6 +208,7 @@
           claude-cookbooks
           pal-mcp-server
           fabric-src
+          nixpkgs-unstable
           ;
       };
 
