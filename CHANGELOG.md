@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.66.0](https://github.com/JacobPEvans/nix-ai/compare/v1.65.4...v1.66.0) (2026-05-19)
+
+
+### Features
+
+* **mlx:** pull llama-swap from nixpkgs-unstable ([#809](https://github.com/JacobPEvans/nix-ai/issues/809)) ([6161fa0](https://github.com/JacobPEvans/nix-ai/commit/6161fa0a658876cfbfd34f053d180ce26ab2e9eb)), closes [#801](https://github.com/JacobPEvans/nix-ai/issues/801)
+
+
+### Bug Fixes
+
+* **automation:** restore Mon+Thu lockFileMaintenance, fix renovate branch listener, drop dead palMcpServer pin ([#802](https://github.com/JacobPEvans/nix-ai/issues/802)) ([33380ea](https://github.com/JacobPEvans/nix-ai/commit/33380ea81a4de705f693ff90b417cedcf73753c2))
+
 ## [1.65.4](https://github.com/JacobPEvans/nix-ai/compare/v1.65.3...v1.65.4) (2026-05-19)
 
 
