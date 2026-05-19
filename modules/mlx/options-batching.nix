@@ -60,5 +60,24 @@
       default = null;
       description = "Default max tokens when client omits max_tokens. Null = vllm-mlx server default: 32768.";
     };
+
+    # maxRequestTokens — Hard cap on max_tokens accepted from API clients
+    # (--max-request-tokens). Server default: 32768.
+    #
+    # Unlike maxTokens, which only fills in a default when the client OMITS
+    # max_tokens, this option ENFORCES a ceiling on whatever value the client
+    # requests. If a client asks for max_tokens=100000, vllm-mlx clamps it to
+    # this value and returns finish_reason: "length" once the cap is hit.
+    #
+    # Left null by default — keeps the 32768 server ceiling intact so
+    # legitimate expensive generations remain possible. Set to a positive
+    # integer only when you specifically need to cap client-requested
+    # generation length (e.g. cost control on a shared environment, or
+    # bounding wasted compute on a pathologically misconfigured caller).
+    maxRequestTokens = lib.mkOption {
+      type = lib.types.nullOr lib.types.ints.positive;
+      default = null;
+      description = "Hard cap on max_tokens accepted from clients. Null = vllm-mlx server default: 32768.";
+    };
   };
 }

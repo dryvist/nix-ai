@@ -106,6 +106,10 @@ let
           "--max-tokens"
           (toString cfg.maxTokens)
         ]
+        ++ lib.optionals (cfg.maxRequestTokens != null) [
+          "--max-request-tokens"
+          (toString cfg.maxRequestTokens)
+        ]
         ++ lib.optionals cfg.enableAutoToolChoice [ "--enable-auto-tool-choice" ]
         ++ lib.optionals (cfg.enableAutoToolChoice && cfg.toolCallParser != null) [
           "--tool-call-parser"
@@ -140,19 +144,42 @@ let
   #   "The model `default` does not exist."
   # even though llama-swap routed the request correctly. With it, the alias
   # works end-to-end through the local proxy without needing Bifrost in front.
-  registryModels = lib.mapAttrs (physical: roles: {
-    cmd = mkVllmCmd physical;
-    ttl = cfg.proxy.idleTtl;
-    env = [ "HF_HOME=${cfg.huggingFaceHome}" ];
-    checkEndpoint = "/v1/models";
-    aliases = roles;
-    useModelName = physical;
-    inherit (cfg.proxy) concurrencyLimit;
-  }) rolesByPhysical;
+  # Default llama-swap filters applied to every model in the registry.
+  # See modules/mlx/options-filters.nix for the schema and reasoning.
+  # Filters run at the proxy layer BEFORE the request hits vllm-mlx, so they
+  # apply universally to every caller, every prompt, every model — including
+  # callers that explicitly send greedy-decoding parameters (setParams
+  # overrides client values per llama-swap's documented semantics).
+  inherit (cfg.proxy) defaultFilters;
+
+  registryModels = lib.mapAttrs (
+    physical: roles:
+    {
+      cmd = mkVllmCmd physical;
+      ttl = cfg.proxy.idleTtl;
+      env = [ "HF_HOME=${cfg.huggingFaceHome}" ];
+      checkEndpoint = "/v1/models";
+      aliases = roles;
+      useModelName = physical;
+      inherit (cfg.proxy) concurrencyLimit;
+    }
+    // lib.optionalAttrs (defaultFilters != { }) {
+      filters = defaultFilters;
+    }
+  ) rolesByPhysical;
 
   # Additional ad-hoc models from cfg.models (existing extension point).
+  # Per-model filters merge on top of the global default so an individual
+  # model can tighten one key without dropping siblings — e.g. setting
+  # cfg.models.foo.filters.setParams.top_p preserves the global
+  # frequency_penalty / presence_penalty defaults. Uses lib.recursiveUpdate
+  # so nested attrsets (setParams, future filter groups) merge key-by-key
+  # rather than wholesale-replacing each other.
   additionalModels = lib.mapAttrs (
     name: modelCfg:
+    let
+      mergedFilters = lib.recursiveUpdate defaultFilters (modelCfg.filters or { });
+    in
     {
       cmd =
         mkVllmCmd name
@@ -166,6 +193,9 @@ let
     }
     // lib.optionalAttrs (modelCfg.aliases != [ ]) {
       inherit (modelCfg) aliases;
+    }
+    // lib.optionalAttrs (mergedFilters != { }) {
+      filters = mergedFilters;
     }
   ) cfg.models;
 
@@ -203,6 +233,7 @@ in
     ./options-server.nix
     ./options-cache.nix
     ./options-batching.nix
+    ./options-filters.nix
     ./options-parsers.nix
     ./options-runtime.nix
     ./packages.nix

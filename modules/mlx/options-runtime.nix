@@ -38,6 +38,16 @@
               default = [ ];
               description = "Alternative model names that route to this model";
             };
+            filters = lib.mkOption {
+              type = lib.types.attrs;
+              default = { };
+              description = ''
+                Per-model llama-swap filters. Merged on top of
+                programs.mlx.proxy.defaultFilters, so this model entry can
+                tighten, loosen, or fully replace the global filter.
+                See modules/mlx/options-filters.nix for the schema.
+              '';
+            };
           };
         }
       );
