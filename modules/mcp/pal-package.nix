@@ -19,7 +19,8 @@ let
   # `# renovate: datasource=pypi depName=pal-mcp-server` annotation — pal-mcp-server
   # is not published on PyPI, so Renovate's lookup permanently failed and the
   # constant rotted out of sync with the input. See nix-ai#801.
-  version = (builtins.fromTOML (builtins.readFile "${pal-mcp-server}/pyproject.toml")).project.version;
+  version =
+    (builtins.fromTOML (builtins.readFile "${pal-mcp-server}/pyproject.toml")).project.version;
 in
 python3Packages.buildPythonApplication {
   pname = "pal-mcp-server";
