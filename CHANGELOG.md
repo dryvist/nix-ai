@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.65.3](https://github.com/JacobPEvans/nix-ai/compare/v1.65.2...v1.65.3) (2026-05-19)
+
+
+### Bug Fixes
+
+* **cecli:** refresh cecli_dev 0.99.12 source hash after upstream republish ([b78addc](https://github.com/JacobPEvans/nix-ai/commit/b78addc61ecc019de18cb32c7c1eb9cba0945722))
+
 ## [1.65.2](https://github.com/JacobPEvans/nix-ai/compare/v1.65.1...v1.65.2) (2026-05-19)
 
 
