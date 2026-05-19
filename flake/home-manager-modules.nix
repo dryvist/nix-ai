@@ -5,6 +5,7 @@
   claude-cookbooks,
   pal-mcp-server,
   fabric-src,
+  nixpkgs-unstable,
 }:
 {
   default = {
@@ -17,6 +18,7 @@
         claude-cookbooks
         pal-mcp-server
         fabric-src
+        nixpkgs-unstable
         ;
     };
   };
