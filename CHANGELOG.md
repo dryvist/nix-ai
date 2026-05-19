@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.65.2](https://github.com/JacobPEvans/nix-ai/compare/v1.65.1...v1.65.2) (2026-05-19)
+
+
+### Bug Fixes
+
+* **mlx:** add proxy.concurrencyLimit option (default 4) to bound runaway clients ([6e68d48](https://github.com/JacobPEvans/nix-ai/commit/6e68d486a047bc4a42959d7a7ea8d94a8beecccf))
+
 ## [1.65.1](https://github.com/JacobPEvans/nix-ai/compare/v1.65.0...v1.65.1) (2026-05-18)
 
 
