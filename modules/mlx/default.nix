@@ -150,7 +150,7 @@ let
   # apply universally to every caller, every prompt, every model — including
   # callers that explicitly send greedy-decoding parameters (setParams
   # overrides client values per llama-swap's documented semantics).
-  defaultFilters = cfg.proxy.defaultFilters;
+  inherit (cfg.proxy) defaultFilters;
 
   registryModels = lib.mapAttrs (
     physical: roles:
