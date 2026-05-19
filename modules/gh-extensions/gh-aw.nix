@@ -4,17 +4,17 @@
   fetchFromGitHub,
 }:
 
-# v0.74.3+ requires go >= 1.25.8; use go_1_26 which satisfies that constraint
+# v0.74.4+ requires go >= 1.25.8; use go_1_26 which satisfies that constraint
 (pkgs.buildGoModule.override { go = pkgs.go_1_26; }) rec {
   pname = "gh-aw";
   # managed by: nix-update (deps-update-flake.yml)
-  version = "0.74.3";
+  version = "0.74.4";
 
   src = fetchFromGitHub {
     owner = "github";
     repo = "gh-aw";
     rev = "v${version}"; # Use commit SHA if no tags exist
-    hash = "sha256-MHqFk9H/PIk3bP2H7TyJPqv9xpWUaHnKEDQ1FiCHYtk=";
+    hash = "sha256-7sgthC86Ul5Ai6gz7jgErSAEQ+tWRjSypVZixedT3GY=";
   };
 
   vendorHash = "sha256-TcWrx1ZPFAHZEx7Lc+nbyj0U6WwKZ4ylPgisqqEdwH8=";
