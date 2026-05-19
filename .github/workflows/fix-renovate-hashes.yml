@@ -12,7 +12,7 @@ name: Fix Renovate hash updates
 on:
   push:
     branches:
-      - "chore/renovate/**"
+      - "renovate/**"
 
 jobs:
   fix-hashes:
