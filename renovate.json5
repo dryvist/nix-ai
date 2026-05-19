@@ -7,10 +7,6 @@
   "nix": {
     "enabled": true,
   },
-  "lockFileMaintenance": {
-    "enabled": true,
-    "schedule": ["before 7am on Monday"],
-  },
   "packageRules": [
     {
       "description": "Group MLX Python packages into a single PR",

@@ -13,7 +13,15 @@
 { python3Packages, pal-mcp-server }:
 
 let
-  version = (import ../../lib/versions.nix).palMcpServer;
+  # Read the version directly from the flake input's pyproject.toml so the
+  # version label and the source rev never drift. This replaces a separate
+  # `palMcpServer = "..."` constant in lib/versions.nix that had a broken
+  # `# renovate: datasource=pypi depName=pal-mcp-server` annotation — pal-mcp-server
+  # is not published on PyPI, so Renovate's lookup permanently failed and the
+  # constant rotted out of sync with the input. See nix-ai#801.
+  inherit ((builtins.fromTOML (builtins.readFile "${pal-mcp-server}/pyproject.toml")).project)
+    version
+    ;
 in
 python3Packages.buildPythonApplication {
   pname = "pal-mcp-server";
