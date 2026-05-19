@@ -62,7 +62,7 @@
   # renovate: datasource=pypi depName=pal-mcp-server
   palMcpServer = "9.8.2";
   # renovate: datasource=pypi depName=fabric-mcp
-  fabricMcp = "1.1.0";
+  fabricMcp = "1.2.1";
   # renovate: datasource=pypi depName=google-workspace-mcp
   gwsMcp = "2.0.1";
 
