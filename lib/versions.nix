@@ -20,7 +20,7 @@
 
   # HuggingFace stack
   # renovate: datasource=pypi depName=huggingface-hub
-  huggingfaceHub = "1.14.0";
+  huggingfaceHub = "1.15.0";
   # renovate: datasource=pypi depName=huggingface-mcp-server
   hfMcpServer = "0.1.0";
 
