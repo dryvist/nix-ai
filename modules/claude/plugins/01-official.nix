@@ -89,8 +89,11 @@ _:
     # canvas-design, webapp-testing, mcp-builder, skill-creator,
     # doc-coauthoring, algorithmic-art, slack-gif-creator, internal-comms.
     # The last three (slack-gif-creator, algorithmic-art, internal-comms)
-    # are forced "off" via skillOverrides — see
-    # ai-assistant-instructions/agentsmd/settings/skill-overrides.json.
+    # will be quieted via skillOverrides once the ai-assistant-instructions
+    # input is bumped — keeps context lean in sessions unrelated to design
+    # work. skillOverrides targets bare skill names, so the bundled
+    # frontend-design above and the standalone frontend-design plugin
+    # both stay visible.
     "example-skills@anthropic-agent-skills" = true;
 
     # Claude API / SDK reference — useful for docs repos that document Claude
