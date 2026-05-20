@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.66.1](https://github.com/JacobPEvans/nix-ai/compare/v1.66.0...v1.66.1) (2026-05-20)
+
+
+### Bug Fixes
+
+* **security:** add osv-scanner.toml with tracked unfixable-vuln ignores ([#813](https://github.com/JacobPEvans/nix-ai/issues/813)) ([ee9cef9](https://github.com/JacobPEvans/nix-ai/commit/ee9cef989e2f04e8694fcdab3012c276e518a4f0))
+
 ## [1.66.0](https://github.com/JacobPEvans/nix-ai/compare/v1.65.4...v1.66.0) (2026-05-19)
 
 
