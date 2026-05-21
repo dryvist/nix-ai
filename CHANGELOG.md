@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.67.0](https://github.com/JacobPEvans/nix-ai/compare/v1.66.1...v1.67.0) (2026-05-21)
+
+
+### Features
+
+* **claude:** enable Anthropic frontend / design skill plugins ([#815](https://github.com/JacobPEvans/nix-ai/issues/815)) ([e2239bb](https://github.com/JacobPEvans/nix-ai/commit/e2239bb05cef0bfed7de9efea0db5f4a8085dee4))
+
 ## [1.66.1](https://github.com/JacobPEvans/nix-ai/compare/v1.66.0...v1.66.1) (2026-05-20)
 
 
