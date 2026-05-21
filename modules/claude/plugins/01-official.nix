@@ -16,7 +16,11 @@
 #       but are kept in 02-vendors.nix because their priority logic is
 #       "first-party AI/cloud vendor", not "Anthropic-authored plugin".
 #   - anthropic-agent-skills (anthropics/skills, 127235★)
-#       Anthropic-curated skill bundles (xlsx, docx, pptx, pdf).
+#       Anthropic-curated skill bundles: document-skills (xlsx/docx/pptx/pdf),
+#       example-skills (frontend-design, theme-factory, brand-guidelines,
+#       web-artifacts-builder, canvas-design, webapp-testing, mcp-builder,
+#       skill-creator, doc-coauthoring, algorithmic-art, slack-gif-creator,
+#       internal-comms), and claude-api (Anthropic SDK reference).
 
 _:
 
@@ -50,6 +54,21 @@ _:
     "claude-code-setup@claude-plugins-official" = true;
     "claude-md-management@claude-plugins-official" = true;
 
+    # Frontend Design — standalone single-skill plugin. The bundled variant
+    # ships in example-skills@anthropic-agent-skills below; description text
+    # differs slightly between sources, both kept per explicit request.
+    "frontend-design@claude-plugins-official" = true;
+
+    # Code transformation skills — refactoring + simplification for docs
+    # work and general code maintenance.
+    "code-modernization@claude-plugins-official" = true;
+    "code-simplifier@claude-plugins-official" = true;
+
+    # Dev kits — Agent SDK + MCP server scaffolding. Useful for docs sites
+    # that document or embed Claude/MCP integrations.
+    "agent-sdk-dev@claude-plugins-official" = true;
+    "mcp-server-dev@claude-plugins-official" = true;
+
     # Language Servers & Developer Tools
     "pyright-lsp@claude-plugins-official" = true;
     "typescript-lsp@claude-plugins-official" = false; # Minimal TS usage
@@ -64,5 +83,21 @@ _:
 
     # Document Skills (xlsx, docx, pptx, pdf) — universally useful
     "document-skills@anthropic-agent-skills" = true;
+
+    # Example Skills bundle — front-end / design / web-authoring skills:
+    # frontend-design, brand-guidelines, theme-factory, web-artifacts-builder,
+    # canvas-design, webapp-testing, mcp-builder, skill-creator,
+    # doc-coauthoring, algorithmic-art, slack-gif-creator, internal-comms.
+    # The last three (slack-gif-creator, algorithmic-art, internal-comms)
+    # will be quieted via skillOverrides once the ai-assistant-instructions
+    # input is bumped — keeps context lean in sessions unrelated to design
+    # work. skillOverrides targets bare skill names, so the bundled
+    # frontend-design above and the standalone frontend-design plugin
+    # both stay visible.
+    "example-skills@anthropic-agent-skills" = true;
+
+    # Claude API / SDK reference — useful for docs repos that document Claude
+    # integrations and for tuning prompt caching / model selection.
+    "claude-api@anthropic-agent-skills" = true;
   };
 }
