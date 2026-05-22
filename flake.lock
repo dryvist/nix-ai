@@ -3,11 +3,11 @@
     "ai-assistant-instructions": {
       "flake": false,
       "locked": {
-        "lastModified": 1779322216,
-        "narHash": "sha256-yROtj/3j6a3Izi/Hyt5z8UGGS7R++VM3OhdztQuxuOQ=",
+        "lastModified": 1779369989,
+        "narHash": "sha256-n5vDJfv1WZ2hDqayjyL+ZvjcJOyo+GSVwzmSX37PfBQ=",
         "owner": "JacobPEvans",
         "repo": "ai-assistant-instructions",
-        "rev": "52ffef57181f8b200d9251e3fa5f124f8ad6c0b8",
+        "rev": "2b6959c7fa0a1fdefce8247a9f2abc96db4d5b1e",
         "type": "github"
       },
       "original": {
@@ -131,11 +131,11 @@
     "claude-code-plugins": {
       "flake": false,
       "locked": {
-        "lastModified": 1779328305,
-        "narHash": "sha256-QXAi2lilpvLh2y29FifyptpkkU7qYitunrVJSFjUpFA=",
+        "lastModified": 1779412606,
+        "narHash": "sha256-5eadGqp0C1LyV75UxtfZ3v/fuUgDjGsJ6GA6Xrm2e1E=",
         "owner": "anthropics",
         "repo": "claude-code",
-        "rev": "1573399b48ff00e9dedf2ce898021dd2f48b6b97",
+        "rev": "2194e8e0904087b9f2afce41a2ec083cc71c0653",
         "type": "github"
       },
       "original": {
@@ -163,11 +163,11 @@
     "claude-code-workflows": {
       "flake": false,
       "locked": {
-        "lastModified": 1778978799,
-        "narHash": "sha256-2nHLCOsk9wsznp8cJtmbMincjLJC5FfeVPOXRJZzBnI=",
+        "lastModified": 1779393697,
+        "narHash": "sha256-4P/3O7Yi05e579k2LUS9OnbrP35WRjV7TVYW7ylo4I4=",
         "owner": "wshobson",
         "repo": "agents",
-        "rev": "08ded5e7b0fe57e7f40194775885eba539c3d8e7",
+        "rev": "4bb47e9eeb4e8564642eb23384ec8f7bf1855417",
         "type": "github"
       },
       "original": {
@@ -195,11 +195,11 @@
     "claude-plugins-official": {
       "flake": false,
       "locked": {
-        "lastModified": 1779313658,
-        "narHash": "sha256-ubFflEJckJZheiXZqGWbH6rrd4Vya6u4rjG6jUcrm3k=",
+        "lastModified": 1779396680,
+        "narHash": "sha256-UFlNhWQ5kz8zhOExXacgy+xNJ273dF3v3h1MKdPG5Jk=",
         "owner": "anthropics",
         "repo": "claude-plugins-official",
-        "rev": "d68033bd1a2574262d66b410f3dc1a44e3e70d13",
+        "rev": "1d5ba6426aa27bab9dcf69e89b2f119609ce0885",
         "type": "github"
       },
       "original": {
@@ -265,11 +265,11 @@
     "huggingface-skills": {
       "flake": false,
       "locked": {
-        "lastModified": 1779290327,
-        "narHash": "sha256-YwkISmpGwu68iH7+I7SpfTV6kP1++DHERmWH2DVRzoE=",
+        "lastModified": 1779366435,
+        "narHash": "sha256-cxE620PeDYvy01TWJ4MQmMYoLaNujB2qq2lIZRHbBls=",
         "owner": "huggingface",
         "repo": "skills",
-        "rev": "5e3b4d2226d1beaa6a8a4df3739b6f68bd36521b",
+        "rev": "6592035ef09a74249f2d60083c6a178960d267c6",
         "type": "github"
       },
       "original": {
@@ -281,11 +281,11 @@
     "jacobpevans-cc-plugins": {
       "flake": false,
       "locked": {
-        "lastModified": 1779226986,
-        "narHash": "sha256-uujY9iwXn/6wRUsmZ762w+agtk67QbPPkZ5EQ/2vU+g=",
+        "lastModified": 1779369264,
+        "narHash": "sha256-VkcEuFTNHLgmPA28Djseaj04fYNm9Q5HWoCvHb5QVhU=",
         "owner": "JacobPEvans",
         "repo": "claude-code-plugins",
-        "rev": "6e276a6ec9158f2982e0ce430a3b8636979c2b2e",
+        "rev": "eded00feb89a2d95e8cb46fbd0c584ccb15ee2a7",
         "type": "github"
       },
       "original": {
@@ -328,11 +328,11 @@
     },
     "nixpkgs-unstable": {
       "locked": {
-        "lastModified": 1778869304,
-        "narHash": "sha256-30sZNZoA1cqF5JNO9fVX+wgiQYjB7HJqqJ4ztCDeBZE=",
+        "lastModified": 1779259093,
+        "narHash": "sha256-7DKWmH23hL2eYdkxCKeqj2i+yljTKuU+3Nk1UPHOnxc=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "d233902339c02a9c334e7e593de68855ad26c4cb",
+        "rev": "d99b013d5d1931ad77fe3912ed218170dec5d9a4",
         "type": "github"
       },
       "original": {
@@ -425,11 +425,11 @@
     "superpowers-marketplace": {
       "flake": false,
       "locked": {
-        "lastModified": 1779147356,
-        "narHash": "sha256-VgLKQvDRS7A28gUJs0rbhth6aeusi5wqAsDcQCKuynY=",
+        "lastModified": 1779399076,
+        "narHash": "sha256-z9CJEGVIocueriQ9fqqHzdnsJMwSScdFbvbhVYQY6Kw=",
         "owner": "obra",
         "repo": "superpowers-marketplace",
-        "rev": "647ca50fc234330bc23cf27a556070af36f96a16",
+        "rev": "89e817bac876722a9e1a34f6c3919b8d27c231a1",
         "type": "github"
       },
       "original": {
