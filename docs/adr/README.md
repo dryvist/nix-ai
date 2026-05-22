@@ -9,6 +9,7 @@ Each record follows the format: **Context → Decision → Consequences**.
 |---|-------|--------|------|
 | [0001](0001-static-vs-dynamic-model-config.md) | Static vs dynamic model config files for PAL MCP | Accepted | 2026-04-18 |
 | [0002](0002-activation-merge-pattern.md) | Activation-time deep-merge instead of Nix store symlinks | Accepted | 2026-04-18 |
+| [0003](0003-galileo-ai-observability.md) | Galileo AI observability — fail-closed homelab integration | Accepted | 2026-05-22 |
 
 ## Format
 

@@ -54,6 +54,17 @@ in
         AbandonProcessGroup = false;
         EnvironmentVariables = {
           HF_HOME = cfg.huggingFaceHome;
+        }
+        // lib.optionalAttrs cfg.telemetry.enable {
+          # Standard OTel env vars inherited by llama-swap and its vllm-mlx children.
+          # The OTEL Collector at :30317 fans out to Cribl/Splunk and (optionally)
+          # to Galileo — see docs/adr/0003-galileo-ai-observability.md.
+          # Trace emission from vllm-mlx 0.2.9 is best-effort; the collector's
+          # routing connector is the primary gate, not the agent env.
+          OTEL_SERVICE_NAME = "vllm-mlx";
+          OTEL_EXPORTER_OTLP_ENDPOINT = cfg.telemetry.otlpEndpoint;
+          OTEL_EXPORTER_OTLP_PROTOCOL = "grpc";
+          OTEL_RESOURCE_ATTRIBUTES = "service.namespace=mlx,deployment.environment=homelab";
         };
         StandardOutPath = "${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx.log";
         StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx.error.log";

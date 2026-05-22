@@ -37,5 +37,18 @@
       default = "/Volumes/HuggingFace";
       description = "Path to HuggingFace model cache (dedicated APFS volume)";
     };
+
+    telemetry = {
+      enable = lib.mkEnableOption "OpenTelemetry trace export from the MLX inference stack";
+
+      otlpEndpoint = lib.mkOption {
+        type = lib.types.str;
+        default = "http://localhost:30317";
+        description = ''
+          gRPC OTLP endpoint for the OpenTelemetry Collector.
+          Matches the existing Claude Code telemetry pipeline endpoint.
+        '';
+      };
+    };
   };
 }
