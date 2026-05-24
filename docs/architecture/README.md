@@ -88,3 +88,11 @@ or enabling a project-specific plugin in a consumer repo.
 
 [`docs/adr/`](../adr/README.md) contains the decisions behind non-obvious design choices.
 If you find yourself wondering "why does it work this way?", the ADR index is the place to look.
+
+## Runbooks
+
+[`docs/runbooks/`](../runbooks/) contains operational guides for non-obvious workflows:
+
+| Runbook | Purpose |
+|---------|---------|
+| [galileo-onboarding.md](../runbooks/galileo-onboarding.md) | Galileo AI observability setup, daily use, denylist management, and kill switches |

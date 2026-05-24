@@ -5,6 +5,9 @@
 # default-model passthrough that ties this server to the ai-stack registry.
 #
 { config, lib, ... }:
+let
+  aiStackVars = import ../../vars/ai-stack.nix;
+in
 {
   options.programs.mlx = {
     enable = lib.mkEnableOption "MLX inference server via vllm-mlx";
@@ -36,6 +39,19 @@
       type = lib.types.str;
       default = "/Volumes/HuggingFace";
       description = "Path to HuggingFace model cache (dedicated APFS volume)";
+    };
+
+    telemetry = {
+      enable = lib.mkEnableOption "OpenTelemetry trace export from the MLX inference stack";
+
+      otlpEndpoint = lib.mkOption {
+        type = lib.types.str;
+        default = "http://localhost:${toString aiStackVars.nodeports.otel_grpc}";
+        description = ''
+          gRPC OTLP endpoint for the OpenTelemetry Collector.
+          Matches the existing Claude Code telemetry pipeline endpoint.
+        '';
+      };
     };
   };
 }

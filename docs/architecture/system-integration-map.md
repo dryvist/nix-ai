@@ -140,8 +140,32 @@ Enable by overriding `programs.aiMcp.servers.<name>.disabled` and adding the key
 | 9379 | LiteRT-LM classifier (Gemini CLI gemma router, opt-in) | HTTP | `modules/gemini/` |
 | 30080 | Bifrost AI gateway | HTTP | `orbstack-kubernetes` repo |
 | 30030 | Cribl MCP | HTTP | `orbstack-kubernetes` repo |
+| 30317 | OTEL Collector (gRPC receiver) | gRPC | `orbstack-kubernetes` repo |
+| 4317 | Cribl OTEL ingest | gRPC | `orbstack-kubernetes` repo |
 
 Reserved but avoid: **11435** (macOS app conflict, see PR #230).
+
+## Telemetry Pipeline
+
+```mermaid
+graph LR
+    CC["Claude Code\n(metrics + logs)"]
+    MLX["vllm-mlx\n(traces, when telemetry.enable=true)"]
+    OTEL["OTEL Collector\n:30317"]
+    CRIBL["Cribl Stream\n:4317"]
+    SPLUNK["Splunk HEC"]
+    GAL["Galileo SaaS\napi.galileo.ai/otel/traces"]
+
+    CC -->|grpc OTLP| OTEL
+    MLX -->|grpc OTLP| OTEL
+    OTEL -->|grpc OTLP| CRIBL
+    CRIBL --> SPLUNK
+    OTEL -->|"otlphttp (gated: X-Trace-Sink header\n+ content denylist)"| GAL
+```
+
+**Galileo gate:** only spans carrying `X-Trace-Sink: galileo` AND passing the
+content denylist (no Splunk/Cisco/client keywords) are forwarded to Galileo.
+All other spans flow only to Cribl/Splunk. See [ADR 0003](../adr/0003-galileo-ai-observability.md).
 
 ## Fabric's Four Integration Channels
 

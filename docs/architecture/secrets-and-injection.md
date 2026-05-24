@@ -101,6 +101,7 @@ This is the cleanest pattern: zero credential exposure outside the cluster bound
 | GitHub MCP | `GITHUB_PERSONAL_ACCESS_TOKEN` | Keychain → shell env | macOS Keychain |
 | Bifrost | Provider API keys | K8s Doppler Operator | OrbStack cluster |
 | Cribl | Provider credentials | K8s Doppler Operator | OrbStack cluster |
+| OTEL Collector (Galileo exporter) | `GALILEO_API_KEY` | K8s Doppler Operator | OrbStack cluster (`ai-ci-automation/prd`) |
 | WakaTime | `WAKATIME_API_KEY` | Activation-time Doppler fetch | Written to `~/.wakatime.cfg` at `darwin-rebuild switch` |
 
 ## What NOT to Do
