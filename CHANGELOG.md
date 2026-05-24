@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.68.0](https://github.com/JacobPEvans/nix-ai/compare/v1.67.1...v1.68.0) (2026-05-24)
+
+
+### Features
+
+* **mcp:** add apple-events server for Reminders and Calendar ([#826](https://github.com/JacobPEvans/nix-ai/issues/826)) ([58a4d82](https://github.com/JacobPEvans/nix-ai/commit/58a4d8264bc0448f6744bb0fd5113f3744dcd54b))
+* **mlx:** add Galileo observability scaffolding with fail-closed design ([#835](https://github.com/JacobPEvans/nix-ai/issues/835)) ([7b1a3a6](https://github.com/JacobPEvans/nix-ai/commit/7b1a3a627a19303fbe85a50d0b4cfad3a6f88445))
+
+
+### Bug Fixes
+
+* **ci-gate:** sync pip-audit ignore-vulns with osv-scanner.toml ([#832](https://github.com/JacobPEvans/nix-ai/issues/832)) ([9e3afbb](https://github.com/JacobPEvans/nix-ai/commit/9e3afbb652e8f786ef949eeabf20bce956aa1f6c))
+
 ## [1.67.1](https://github.com/JacobPEvans/nix-ai/compare/v1.67.0...v1.67.1) (2026-05-21)
 
 
