@@ -31,7 +31,7 @@ gcurl http://127.0.0.1:11434/v1/chat/completions \
 # Hit Bifrost with trace header (cloud model):
 gcurl http://127.0.0.1:30080/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -d '{"model":"anthropic/claude-opus-4-7","messages":[{"role":"user","content":"hello"}]}'
+  -d '{"model":"${MODEL_ID}","messages":[{"role":"user","content":"hello"}]}'
 
 # Check Galileo console:
 # app.galileo.ai → project: homelab → log stream: default
@@ -78,13 +78,13 @@ Free tier allows 5,000 traces per month. To check current usage:
 
 - `app.galileo.ai` → project settings → Usage shows the monthly trace count.
 
-If trending to exceed 5K at your current rate, add tail-sampling to the collector:
+If trending to exceed 5K at your current rate, add sampling to the collector:
 
 ```yaml
 processors:
   probabilistic_sampler:
     hash_seed: 42
-    sampling_percentage: 20   # 20% of MLX-internal traces; keep 100% CLI traces
+    sampling_percentage: 20   # 20% sampling for all traces in this pipeline
 ```
 
 Apply to the `traces/galileo` sub-pipeline only, not the Cribl/Splunk pipeline.
