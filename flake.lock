@@ -99,11 +99,11 @@
     "cc-dev-tools": {
       "flake": false,
       "locked": {
-        "lastModified": 1777301179,
-        "narHash": "sha256-mLJftGTU06SLQ98g2yqYdNAWj2OPwjxNhuvDnITr9vM=",
+        "lastModified": 1779687312,
+        "narHash": "sha256-G83sue12mUh78A/oe3wGMRIzUEB0eBbMmbSpzLJJTsM=",
         "owner": "Lucklyric",
         "repo": "cc-dev-tools",
-        "rev": "4503ef2ee3ee6ac5dcf58aea1ffe1148c81b9c87",
+        "rev": "8d60780c972c10a903b1a553ca29d5dbc71ea2f2",
         "type": "github"
       },
       "original": {
@@ -147,11 +147,11 @@
     "claude-code-plugins-plus": {
       "flake": false,
       "locked": {
-        "lastModified": 1779647122,
-        "narHash": "sha256-Bf/Bg/9jT6ss11Q047Kl7UOgZiqlJZN5SBPVV6vifOY=",
+        "lastModified": 1779672981,
+        "narHash": "sha256-NtuCu16Z9bpeybo6or7XS/65b8d3ii4rnbKL6c04rcY=",
         "owner": "jeremylongshore",
         "repo": "claude-code-plugins-plus",
-        "rev": "b45503d85d070035da0e9d21eb23565b840148f4",
+        "rev": "c2cae823174b4ed9830f3c4d0282aa7e54b9cb10",
         "type": "github"
       },
       "original": {
