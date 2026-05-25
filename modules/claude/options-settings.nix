@@ -128,11 +128,11 @@
         type = lib.types.listOf lib.types.str;
         default = [ "$defaults" ];
         description = ''
-          Trusted infrastructure entries. Prose strings, read as natural-
-          language rules. Include `"$defaults"` to inherit the built-in
-          entries (working repo plus configured remotes) and splice your
-          entries before/after. Omit `"$defaults"` to replace the entire
-          built-in list — rarely desired.
+          Trusted infrastructure entries. Prose strings, read as
+          natural-language rules. Include `"$defaults"` to inherit the
+          built-in entries (working repo plus configured remotes) and
+          splice your entries before/after. Omit `"$defaults"` to
+          replace the entire built-in list — rarely desired.
         '';
       };
       allow = lib.mkOption {
