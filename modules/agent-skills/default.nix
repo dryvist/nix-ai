@@ -145,8 +145,13 @@ let
   # that namespace their plugins under those subdirs — a common convention among
   # Claude marketplaces, expressed here generically without naming any specific input.
   # lib.optionals is used instead of if/then/else to keep this pure-Nix (not shell).
+  # rootDir lookup short-circuits when input is not a directory and verifies each
+  # subpath is itself a directory before recursing — readDir on a regular file throws.
   walkAllPatterns =
     input:
+    let
+      rootDir = if builtins.pathExists input then builtins.readDir input else { };
+    in
     discoverFlatSkills input
     ++ discoverDotClaudeSkills input
     ++ discoverSkills input
@@ -154,7 +159,7 @@ let
       lib.concatMap
         (
           sub:
-          lib.optionals (builtins.pathExists "${input}/${sub}") (
+          lib.optionals ((rootDir.${sub} or "") == "directory") (
             discoverSkills "${input}/${sub}" ++ discoverClaudeCommands "${input}/${sub}"
           )
         )
