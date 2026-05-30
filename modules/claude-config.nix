@@ -18,7 +18,6 @@
   claude-cookbooks,
   fabric-src,
   userConfig ? {
-    ai.claudeSchemaUrl = "https://json.schemastore.org/claude-code-settings.json";
     user.fullName = "JacobPEvans";
   },
   ...

@@ -12,7 +12,6 @@
   lib,
   ai-assistant-instructions,
   userConfig ? {
-    ai.claudeSchemaUrl = "https://json.schemastore.org/claude-code-settings.json";
     user.fullName = "JacobPEvans";
   },
   ...
@@ -87,10 +86,13 @@ in
 
       activation = {
         # Claude Code Settings Validation (post-rebuild)
+        # Schema URL inlined here — same constant nix-claude-code embeds in
+        # lib/to-settings-json.nix's "$schema" field, single source of truth
+        # is the file produced by nix-claude-code; this validates against it.
         validateClaudeSettings = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
           $DRY_RUN_CMD ${./scripts/validate-claude-settings.sh} \
             "${config.home.homeDirectory}/.claude/settings.json" \
-            "${userConfig.ai.claudeSchemaUrl}"
+            "https://json.schemastore.org/claude-code-settings.json"
         '';
 
         cleanupLegacyGeminiMd = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
