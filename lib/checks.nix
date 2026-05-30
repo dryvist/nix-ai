@@ -7,7 +7,6 @@
   home-manager,
   aiModule,
   pal-mcp-server,
-  fabric-src,
 }:
 let
   # Shared test module configuration — used by claude, mlx, and fabric regression checks
@@ -63,7 +62,6 @@ in
     pkgs
     hmConfig
     hmConfigFabricServer
-    fabric-src
     src
     ;
 })

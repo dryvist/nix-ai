@@ -1,10 +1,8 @@
 {
   ai-assistant-instructions,
   nix-claude-code,
-  claude-code-plugins,
   karpathy-skills,
   pal-mcp-server,
-  fabric-src,
   nixpkgs-unstable,
 }:
 let
@@ -40,9 +38,6 @@ let
       ;
     inherit karpathy-skills;
   };
-  # claude-cookbooks lives in nix-claude-code's inputs (not exposed via
-  # follows because nix-ai uses it for cookbook command/agent discovery).
-  inherit (nix-claude-code.inputs) claude-cookbooks;
 in
 {
   default = {

@@ -32,10 +32,12 @@
     # previously lived in nix-ai are now transitive inputs of this flake.
     nix-claude-code = {
       url = "github:dryvist/nix-claude-code";
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.home-manager.follows = "home-manager";
-      inputs.ai-assistant-instructions.follows = "ai-assistant-instructions";
-      inputs.claude-code-plugins.follows = "claude-code-plugins";
+      inputs = {
+        nixpkgs.follows = "nixpkgs";
+        home-manager.follows = "home-manager";
+        ai-assistant-instructions.follows = "ai-assistant-instructions";
+        claude-code-plugins.follows = "claude-code-plugins";
+      };
     };
 
     # Behavioral/workflow skills from Andrej Karpathy. Lives here (not in
@@ -71,7 +73,6 @@
       nixpkgs,
       nixpkgs-unstable,
       home-manager,
-      claude-code-plugins,
       ai-assistant-instructions,
       nix-claude-code,
       karpathy-skills,
@@ -91,10 +92,8 @@
         inherit
           ai-assistant-instructions
           nix-claude-code
-          claude-code-plugins
           karpathy-skills
           pal-mcp-server
-          fabric-src
           nixpkgs-unstable
           ;
       };
@@ -110,7 +109,7 @@
           # catalog and permission shape stay in one repo.
           claudeSettingsJson =
             let
-              lib = nixpkgs.lib;
+              inherit (nixpkgs) lib;
               ncc = nix-claude-code.lib;
               aiCommon = import ./modules/common {
                 inherit ai-assistant-instructions lib;
@@ -141,14 +140,12 @@
                   };
                 };
               };
-              extraKnownMarketplaces = lib.mapAttrs (
-                ncc.claudeRegistry.toClaudeMarketplaceFormat
-              ) augmentedCatalog;
+              extraKnownMarketplaces = lib.mapAttrs ncc.claudeRegistry.toClaudeMarketplaceFormat augmentedCatalog;
             in
             builtins.toJSON {
               "$schema" = "https://json.schemastore.org/claude-code-settings.json";
               alwaysThinkingEnabled = true;
-              enabledPlugins = pluginTiers.enabledPlugins;
+              inherit (pluginTiers) enabledPlugins;
               inherit extraKnownMarketplaces;
               permissions = {
                 allow = formatters.claude.formatAllowed permissions;
@@ -224,7 +221,6 @@
               pkgs
               home-manager
               pal-mcp-server
-              fabric-src
               ;
             src = ./.;
             aiModule = self.homeManagerModules.default;

@@ -6,7 +6,6 @@
   pkgs,
   hmConfig,
   hmConfigFabricServer,
-  fabric-src,
   src,
 }:
 let
