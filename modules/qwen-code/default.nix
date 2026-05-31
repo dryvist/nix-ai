@@ -17,14 +17,12 @@
 #     install-order rule's preferred path after nixpkgs and a local
 #     buildNpmPackage derivation. The npm-derivation path is deferred
 #     (qwen-code's workspace + cross-platform optionalDependencies
-#     need deeper packaging work; see modules/qwen-code/packages.nix).
+#     need deeper packaging work).
 #
 # The brew install itself lives in nix-darwin (homebrew.brews is a
 # nix-darwin option, not a home-manager one). This module exposes the
 # required formula list via the lib.brewFormulae flake output for
-# nix-darwin to consume; the module itself handles config plus a soft
-# activation-time warning when the binary is missing. Non-darwin
-# hosts get a silent no-op (see modules/qwen-code/packages.nix).
+# nix-darwin to consume; the module itself just handles config.
 #
 {
   config,
@@ -39,7 +37,6 @@ in
   imports = [
     ./options.nix
     ./settings.nix
-    ./packages.nix
   ];
 
   config = lib.mkIf cfg.enable {
