@@ -2,9 +2,11 @@
 # Managed by nix-ai's programs.zsh.initContent via modules/ai-shell.nix.
 # Single source of truth for Claude/Doppler AI-tool wrapper aliases.
 
-# Bleeding-edge native install managed by nix-ai's programs.claude-latest module.
-# `claude` (unaliased) resolves via PATH — whatever that points at is intentional.
-alias claude-latest="$HOME/.local/bin/claude"
+# `claude` (unaliased) resolves via PATH to ~/.local/bin/claude — the pinned
+# stable build maintained by Anthropic's claude.ai/install.sh.
+# `claude-latest` bypasses the local install and fetches the npm `latest`
+# dist-tag of @anthropic-ai/claude-code on every invocation.
+alias claude-latest="bunx @anthropic-ai/claude-code@latest"
 
 # --dangerously-skip-permissions variants (aliases chain at command start in zsh).
 alias claude-d="claude --dangerously-skip-permissions"
