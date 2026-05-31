@@ -11,6 +11,6 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    uses: JacobPEvans-personal/.github/.github/workflows/_release-please.yml@main
+    uses: dryvist/.github/.github/workflows/_release-please.yml@main
     secrets:
-      GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
+      GH_ACTION_RELEASE_PLEASE_PRIVATE_KEY: ${{ secrets.GH_ACTION_RELEASE_PLEASE_PRIVATE_KEY }}
