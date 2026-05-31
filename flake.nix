@@ -12,106 +12,39 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # Official Anthropic repositories
+    # Official Anthropic plugin marketplace source (also re-exposed via
+    # nix-claude-code). Kept here because nix-ai modules still reference it
+    # directly for cookbook command/agent discovery.
     claude-code-plugins = {
       url = "github:anthropics/claude-code";
       flake = false;
     };
 
-    claude-cookbooks = {
-      url = "github:anthropics/claude-cookbooks";
-      flake = false;
-    };
-
-    # AI Assistant Instructions - source of truth for AI agent configuration
+    # AI Assistant Instructions - source of truth for AI agent configuration.
     ai-assistant-instructions = {
       url = "github:JacobPEvans/ai-assistant-instructions";
       flake = false;
     };
 
-    # Marketplace Inputs
-    anthropic-agent-skills = {
-      url = "github:anthropics/skills";
-      flake = false;
-    };
-    bills-claude-skills = {
-      url = "github:BillChirico/bills-claude-skills";
-      flake = false;
-    };
-    bitwarden-marketplace = {
-      url = "github:bitwarden/ai-plugins";
-      flake = false;
-    };
-    cc-dev-tools = {
-      url = "github:Lucklyric/cc-dev-tools";
-      flake = false;
-    };
-    cc-marketplace = {
-      url = "github:ananddtyagi/cc-marketplace";
-      flake = false;
-    };
-    claude-code-plugins-plus = {
-      url = "github:jeremylongshore/claude-code-plugins-plus";
-      flake = false;
-    };
-    claude-code-workflows = {
-      url = "github:wshobson/agents";
-      flake = false;
-    };
-    claude-plugins-official = {
-      url = "github:anthropics/claude-plugins-official";
-      flake = false;
-    };
-    claude-skills = {
-      url = "github:secondsky/claude-skills";
-      flake = false;
-    };
-    jacobpevans-cc-plugins = {
-      url = "github:JacobPEvans/claude-code-plugins";
-      flake = false;
-    };
-    lunar-claude = {
-      url = "github:basher83/lunar-claude";
-      flake = false;
-    };
-    obsidian-skills = {
-      url = "github:kepano/obsidian-skills";
-      flake = false;
-    };
-    openai-codex = {
-      url = "github:openai/codex-plugin-cc";
-      flake = false;
-    };
-    axton-obsidian-visual-skills = {
-      url = "github:axtonliu/axton-obsidian-visual-skills";
-      flake = false;
-    };
-    superpowers-marketplace = {
-      url = "github:obra/superpowers-marketplace";
-      flake = false;
-    };
-    visual-explainer-marketplace = {
-      url = "github:nicobailon/visual-explainer";
-      flake = false;
-    };
-    wakatime = {
-      url = "github:wakatime/claude-code-wakatime";
-      flake = false;
+    # Declarative Claude Code module. Owns programs.claude.* schema,
+    # marketplace catalog, synthetic marketplace derivations, lib helpers,
+    # and the byte-equivalence CI fixture. The 20 marketplace inputs that
+    # previously lived in nix-ai are now transitive inputs of this flake.
+    nix-claude-code = {
+      url = "github:dryvist/nix-claude-code";
+      inputs = {
+        nixpkgs.follows = "nixpkgs";
+        home-manager.follows = "home-manager";
+        ai-assistant-instructions.follows = "ai-assistant-instructions";
+        claude-code-plugins.follows = "claude-code-plugins";
+      };
     };
 
-    # Hugging Face Skills marketplace - hf-cli, datasets, papers, models, gradio, etc.
-    huggingface-skills = {
-      url = "github:huggingface/skills";
-      flake = false;
-    };
-
-    # Skill-only repos (no marketplace structure — wrapped via synthetic derivation)
-    browser-use-skills = {
-      url = "github:browser-use/browser-use";
-      flake = false;
-    };
-    vct-cribl-pack-validator-skills = {
-      url = "github:VisiCore/vct-cribl-pack-validator";
+    # Behavioral/workflow skills from Andrej Karpathy. Lives here (not in
+    # nix-claude-code) because it's a nix-ai-specific addition that landed
+    # on main after PR3 started; promote upstream when convenient.
+    karpathy-skills = {
+      url = "github:forrestchang/andrej-karpathy-skills";
       flake = false;
     };
 
@@ -140,29 +73,9 @@
       nixpkgs,
       nixpkgs-unstable,
       home-manager,
-      claude-code-plugins,
-      claude-cookbooks,
       ai-assistant-instructions,
-      anthropic-agent-skills,
-      bills-claude-skills,
-      bitwarden-marketplace,
-      cc-dev-tools,
-      cc-marketplace,
-      claude-code-plugins-plus,
-      claude-code-workflows,
-      claude-plugins-official,
-      claude-skills,
-      jacobpevans-cc-plugins,
-      lunar-claude,
-      obsidian-skills,
-      openai-codex,
-      axton-obsidian-visual-skills,
-      superpowers-marketplace,
-      visual-explainer-marketplace,
-      wakatime,
-      huggingface-skills,
-      browser-use-skills,
-      vct-cribl-pack-validator-skills,
+      nix-claude-code,
+      karpathy-skills,
       pal-mcp-server,
       fabric-src,
       ...
@@ -173,41 +86,14 @@
         "x86_64-linux"
       ];
       forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
-
-      marketplaceInputs = {
-        inherit
-          anthropic-agent-skills
-          bills-claude-skills
-          bitwarden-marketplace
-          browser-use-skills
-          huggingface-skills
-          vct-cribl-pack-validator-skills
-          cc-dev-tools
-          cc-marketplace
-          claude-code-plugins-plus
-          claude-code-workflows
-          claude-plugins-official
-          claude-skills
-          jacobpevans-cc-plugins
-          lunar-claude
-          obsidian-skills
-          openai-codex
-          axton-obsidian-visual-skills
-          superpowers-marketplace
-          visual-explainer-marketplace
-          wakatime
-          ;
-      };
     in
     {
       homeManagerModules = import ./flake/home-manager-modules.nix {
         inherit
           ai-assistant-instructions
-          marketplaceInputs
-          claude-code-plugins
-          claude-cookbooks
+          nix-claude-code
+          karpathy-skills
           pal-mcp-server
-          fabric-src
           nixpkgs-unstable
           ;
       };
@@ -215,35 +101,65 @@
       # CI-friendly outputs
       lib = {
         ci = {
+          # Render the same settings.json shape nix-ai's pre-PR3 fixture
+          # produced (top-level $schema, alwaysThinkingEnabled,
+          # enabledPlugins, extraKnownMarketplaces, permissions{allow,
+          # ask,deny,additionalDirectories,defaultMode}, statusLine).
+          # Built from nix-claude-code.lib helpers so the marketplace
+          # catalog and permission shape stay in one repo.
           claudeSettingsJson =
             let
+              inherit (nixpkgs) lib;
+              ncc = nix-claude-code.lib;
               aiCommon = import ./modules/common {
-                inherit ai-assistant-instructions;
-                inherit (nixpkgs) lib;
+                inherit ai-assistant-instructions lib;
                 config = {
                   home.homeDirectory = "/home/user";
                 };
               };
               inherit (aiCommon) permissions formatters;
-            in
-            builtins.toJSON (
-              import ./lib/claude-settings.nix {
-                inherit (nixpkgs) lib;
-                homeDir = "/home/user";
-                schemaUrl = "https://json.schemastore.org/claude-code-settings.json";
-                permissions = {
-                  allow = formatters.claude.formatAllowed permissions;
-                  deny = formatters.claude.formatDenied permissions;
-                  ask = [ ];
+              pluginTiers = import ./modules/claude/plugins {
+                inherit lib;
+                marketplaceInputs = nix-claude-code.inputs;
+              };
+              # nix-claude-code's catalog lacks jacobpevans-cc-plugins
+              # (PR2 oversight) and karpathy-skills (added on main after
+              # PR3 started). Splice them in to keep nix-ai's CI output
+              # in lockstep with pre-PR3 behavior.
+              augmentedCatalog = ncc.marketplaceCatalog.marketplaces // {
+                "jacobpevans-cc-plugins" = {
+                  source = {
+                    type = "github";
+                    url = "JacobPEvans/claude-code-plugins";
+                  };
                 };
-                plugins =
-                  (import ./modules/claude-plugins.nix {
-                    inherit (nixpkgs) lib;
-                    inherit marketplaceInputs claude-cookbooks;
-                  }).pluginConfig;
-                additionalDirectories = [ "~/.claude/" ]; # CI fixture — real list in modules/claude-config.nix
-              }
-            );
+                "karpathy-skills" = {
+                  source = {
+                    type = "github";
+                    url = "forrestchang/andrej-karpathy-skills";
+                  };
+                };
+              };
+              extraKnownMarketplaces = lib.mapAttrs ncc.claudeRegistry.toClaudeMarketplaceFormat augmentedCatalog;
+            in
+            builtins.toJSON {
+              "$schema" = "https://json.schemastore.org/claude-code-settings.json";
+              alwaysThinkingEnabled = true;
+              inherit (pluginTiers) enabledPlugins;
+              inherit extraKnownMarketplaces;
+              permissions = {
+                allow = formatters.claude.formatAllowed permissions;
+                deny = formatters.claude.formatDenied permissions;
+                ask = [ ];
+                additionalDirectories = [ "~/.claude/" ];
+                defaultMode = "auto";
+              };
+              statusLine = {
+                type = "command";
+                command = "/home/user/.claude/statusline-command.sh";
+              };
+            };
+
           codexRules =
             let
               aiCommon = import ./modules/common {
@@ -258,9 +174,7 @@
             formatters.codex.formatRulesFile permissions;
         };
 
-        # Expose lib functions
-        claude-settings = import ./lib/claude-settings.nix;
-        claude-registry = import ./lib/claude-registry.nix;
+        # Versions registry (Renovate-managed pin source-of-truth)
         versions = import ./lib/versions.nix;
 
         # Role-name → physical mlx-community/* model ID registry.
@@ -307,7 +221,6 @@
               pkgs
               home-manager
               pal-mcp-server
-              fabric-src
               ;
             src = ./.;
             aiModule = self.homeManagerModules.default;

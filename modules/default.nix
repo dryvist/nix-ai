@@ -11,31 +11,13 @@
   pkgs,
   lib,
   ai-assistant-instructions,
-  marketplaceInputs,
-  claude-cookbooks,
-  claude-code-plugins,
-  fabric-src,
   userConfig ? {
-    ai.claudeSchemaUrl = "https://json.schemastore.org/claude-code-settings.json";
+    user.fullName = "JacobPEvans";
   },
   ...
 }:
 
 let
-  # Claude Code configuration values
-  claudeConfig = import ./claude-config.nix {
-    inherit
-      config
-      pkgs
-      lib
-      ai-assistant-instructions
-      marketplaceInputs
-      claude-cookbooks
-      fabric-src
-      browserUseVersion
-      ;
-  };
-
   # AgentsMD symlinks from ai-assistant-instructions flake input
   agentsMdSymlinks = {
     "CLAUDE.md" = {
@@ -77,8 +59,12 @@ in
     ./ai-stack
     ./agent-skills
     ./cecli
-    ./claude
-    ./claude-latest.nix
+    # User-facing claude values (model, marketplaces, hooks, settings.*).
+    # The option schema + settings.json renderer comes from
+    # `nix-claude-code.homeModules.claude`, imported by
+    # `flake/home-manager-modules.nix` (not here, to avoid `imports`
+    # depending on `_module.args.nix-claude-code` — infinite recursion).
+    ./claude-config.nix
     ./codex
     ./gemini
     ./fabric
@@ -100,10 +86,13 @@ in
 
       activation = {
         # Claude Code Settings Validation (post-rebuild)
+        # Schema URL inlined here — same constant nix-claude-code embeds in
+        # lib/to-settings-json.nix's "$schema" field, single source of truth
+        # is the file produced by nix-claude-code; this validates against it.
         validateClaudeSettings = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
           $DRY_RUN_CMD ${./scripts/validate-claude-settings.sh} \
             "${config.home.homeDirectory}/.claude/settings.json" \
-            "${userConfig.ai.claudeSchemaUrl}"
+            "https://json.schemastore.org/claude-code-settings.json"
         '';
 
         cleanupLegacyGeminiMd = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
@@ -130,23 +119,12 @@ in
 
     # Programs configuration
     programs = {
-      # Claude Code declarative configuration
-      claude = claudeConfig;
-
-      # Claude Code statusline — ccstatusline active; others dormant for rollback
-      claudeStatusline.enable = false;
-      claudeStatuslineDaniel3303.enable = false;
-      claudeStatuslineCcstatusline.enable = true;
-
       # cecli — actively maintained Aider fork (settings handled by modules/cecli/)
       cecli = {
         enable = true;
       };
 
       # Qwen Code — Alibaba's CLI agent (settings handled by modules/qwen-code/)
-      # Brew-only (see modules/qwen-code/packages.nix for rationale).
-      # The module short-circuits on non-darwin so enabling it on Linux
-      # is a no-op rather than an eval-time failure.
       qwen-code = {
         enable = true;
       };
@@ -169,19 +147,15 @@ in
       # MLX inference server (vllm-mlx on port 11434)
       mlx = {
         enable = true;
-        # Some local consumers omit max_tokens. Cap the server fallback so
-        # uncapped runs cannot expand to vllm-mlx's 32768-token default.
         maxTokens = 8192;
       };
 
       # Fabric — 252+ AI prompt patterns + CLI (defaults to MLX backend)
-      # REST API server is opt-in via programs.fabric.enableServer
       fabric.enable = true;
 
-      # Bleeding-edge Claude Code at ~/.local/bin/claude via the official installer.
-      # Coexists with Homebrew's stable `claude`. See modules/ai-aliases.zsh for
-      # alias definitions (claude-latest, claude-d, claude-latest-d).
-      claude-latest.enable = true;
+      # Bleeding-edge Claude Code at ~/.local/bin/claude via the upstream
+      # opt-in module (nix-claude-code owns programs.claude.latest).
+      claude.latest.enable = true;
 
       # GitHub CLI extension for AI workflows
       gh.extensions = [ ghExtensions.gh-aw ];

@@ -1,4 +1,10 @@
-# Claude module regression tests and pure generators
+# Claude module regression tests
+#
+# The option schema and settings.json renderer live in nix-claude-code as
+# of PR3. Byte-equivalence and settings-json structural validation are
+# covered by `nix-claude-code/flake/checks.nix`. The checks here exercise
+# nix-ai's user-facing claude-config.nix to catch drift on the values we
+# actually override.
 { pkgs, hmConfig }:
 let
   cfg = hmConfig.config.programs.claude;
@@ -11,8 +17,8 @@ in
     ''
   );
 
-  # Verify all expected option paths exist in the evaluated module.
-  # Catches accidentally dropped options (e.g., from refactoring with lib;).
+  # Verify expected option paths exist (catches accidentally dropped
+  # options from the nix-claude-code-provided schema).
   options-regression =
     let
       expectedClaudeOptions = [
@@ -33,7 +39,7 @@ in
         "settings"
         "showTurnDuration"
         "skills"
-        "statusLine"
+        "statusline"
         "teammateMode"
         "trustedProjectDirs"
       ];
@@ -43,13 +49,11 @@ in
       ) expectedClaudeOptions;
 
       expectedSettingsOptions = [
-        "additionalDirectories"
         "alwaysThinkingEnabled"
         "cleanupPeriodDays"
         "env"
         "permissions"
         "sandbox"
-        "schemaUrl"
         "skillListingBudgetFraction"
         "skillOverrides"
       ];
@@ -69,27 +73,6 @@ in
       ];
       actualHookOptions = builtins.attrNames cfg.hooks;
       missingHookOptions = builtins.filter (h: !(builtins.elem h actualHookOptions)) expectedHookOptions;
-
-      expectedPermissionOptions = [
-        "allow"
-        "ask"
-        "defaultMode"
-        "deny"
-      ];
-      actualPermissionOptions = builtins.attrNames cfg.settings.permissions;
-      missingPermissionOptions = builtins.filter (
-        p: !(builtins.elem p actualPermissionOptions)
-      ) expectedPermissionOptions;
-
-      expectedSandboxOptions = [
-        "autoAllowBashIfSandboxed"
-        "enabled"
-        "excludedCommands"
-      ];
-      actualSandboxOptions = builtins.attrNames cfg.settings.sandbox;
-      missingSandboxOptions = builtins.filter (
-        s: !(builtins.elem s actualSandboxOptions)
-      ) expectedSandboxOptions;
     in
     assert
       missingClaudeOptions == [ ]
@@ -99,20 +82,13 @@ in
       || throw "Missing settings options: ${builtins.toJSON missingSettingsOptions}";
     assert
       missingHookOptions == [ ] || throw "Missing hook options: ${builtins.toJSON missingHookOptions}";
-    assert
-      missingPermissionOptions == [ ]
-      || throw "Missing permission options: ${builtins.toJSON missingPermissionOptions}";
-    assert
-      missingSandboxOptions == [ ]
-      || throw "Missing sandbox options: ${builtins.toJSON missingSandboxOptions}";
     pkgs.runCommand "check-options-regression" { } ''
-      echo "Option regression: ${toString (builtins.length expectedClaudeOptions)} Claude, ${toString (builtins.length expectedSettingsOptions)} settings, ${toString (builtins.length expectedHookOptions)} hooks, ${toString (builtins.length expectedPermissionOptions)} permissions, ${toString (builtins.length expectedSandboxOptions)} sandbox options verified"
+      echo "Option regression: ${toString (builtins.length expectedClaudeOptions)} Claude, ${toString (builtins.length expectedSettingsOptions)} settings, ${toString (builtins.length expectedHookOptions)} hooks verified"
       touch $out
     '';
 
   # Verify evaluated config values match expected values.
-  # Tests the FULL module output (options.nix defaults + claude-config.nix overrides).
-  # Catches unintended changes to either file.
+  # Tests claude-config.nix overrides against the schema's defaults.
   defaults-regression =
     let
       checks = [
@@ -132,24 +108,9 @@ in
           expected = 180;
         }
         {
-          name = "skillListingBudgetFraction";
-          actual = cfg.settings.skillListingBudgetFraction;
-          expected = 0.02;
-        }
-        {
           name = "autoUpdatesChannel";
           actual = cfg.autoUpdatesChannel;
           expected = "stable";
-        }
-        {
-          name = "teammateMode";
-          actual = cfg.teammateMode;
-          expected = "auto";
-        }
-        {
-          name = "showTurnDuration";
-          actual = cfg.showTurnDuration;
-          expected = false;
         }
         {
           name = "model";
@@ -167,29 +128,9 @@ in
           expected = false;
         }
         {
-          name = "sandbox.autoAllowBashIfSandboxed";
-          actual = cfg.settings.sandbox.autoAllowBashIfSandboxed;
-          expected = true;
-        }
-        {
-          name = "statusLine.enable";
-          actual = cfg.statusLine.enable;
-          expected = true;
-        }
-        {
-          name = "schemaUrl";
-          actual = cfg.settings.schemaUrl;
-          expected = "https://json.schemastore.org/claude-code-settings.json";
-        }
-        {
           name = "plugins.allowRuntimeInstall";
           actual = cfg.plugins.allowRuntimeInstall;
           expected = true;
-        }
-        {
-          name = "features.pluginSchemaVersion";
-          actual = cfg.features.pluginSchemaVersion;
-          expected = 1;
         }
         {
           name = "remoteControlAtStartup";
@@ -200,11 +141,6 @@ in
           name = "apiKeyHelper.enable";
           actual = cfg.apiKeyHelper.enable;
           expected = true;
-        }
-        {
-          name = "settings.permissions.defaultMode";
-          actual = cfg.settings.permissions.defaultMode;
-          expected = "auto";
         }
       ];
       failures = builtins.filter (c: c.actual != c.expected) checks;
@@ -220,71 +156,8 @@ in
       touch $out
     '';
 
-  # Validate the pure settings JSON generator (lib/claude-settings.nix).
-  # Verifies structure, required keys, types, and value correctness.
-  settings-json =
-    let
-      ciSettings = import ../claude-settings.nix {
-        inherit (pkgs) lib;
-        homeDir = "/home/test-user";
-        schemaUrl = "https://json.schemastore.org/claude-code-settings.json";
-        permissions = {
-          allow = [
-            "Read"
-            "Write"
-          ];
-          deny = [ "Bash(rm -rf /)" ];
-          ask = [ ];
-        };
-        plugins = {
-          marketplaces = { };
-          enabledPlugins = { };
-        };
-        additionalDirectories = [ "~/.claude/" ]; # CI fixture — real list in modules/claude-config.nix
-      };
-    in
-    pkgs.runCommand "check-settings-json"
-      {
-        nativeBuildInputs = [ pkgs.jq ];
-        passAsFile = [ "json" ];
-        json = builtins.toJSON ciSettings;
-      }
-      ''
-        echo "Validating settings JSON structure..."
-
-        # Verify required keys exist
-        jq -e 'has("$schema")' "$jsonPath" > /dev/null || { echo "FAIL: missing \$schema"; exit 1; }
-        jq -e 'has("alwaysThinkingEnabled")' "$jsonPath" > /dev/null || { echo "FAIL: missing alwaysThinkingEnabled"; exit 1; }
-        jq -e 'has("permissions")' "$jsonPath" > /dev/null || { echo "FAIL: missing permissions"; exit 1; }
-        jq -e 'has("extraKnownMarketplaces")' "$jsonPath" > /dev/null || { echo "FAIL: missing extraKnownMarketplaces"; exit 1; }
-        jq -e 'has("enabledPlugins")' "$jsonPath" > /dev/null || { echo "FAIL: missing enabledPlugins"; exit 1; }
-        jq -e 'has("statusLine")' "$jsonPath" > /dev/null || { echo "FAIL: missing statusLine"; exit 1; }
-
-        # Verify permission structure
-        jq -e '.permissions | has("allow")' "$jsonPath" > /dev/null || { echo "FAIL: missing permissions.allow"; exit 1; }
-        jq -e '.permissions | has("deny")' "$jsonPath" > /dev/null || { echo "FAIL: missing permissions.deny"; exit 1; }
-        jq -e '.permissions | has("ask")' "$jsonPath" > /dev/null || { echo "FAIL: missing permissions.ask"; exit 1; }
-        jq -e '.permissions | has("additionalDirectories")' "$jsonPath" > /dev/null || { echo "FAIL: missing permissions.additionalDirectories"; exit 1; }
-        jq -e '.permissions.defaultMode == "auto"' "$jsonPath" > /dev/null || { echo "FAIL: permissions.defaultMode not \"auto\""; exit 1; }
-
-        # Verify types (only for fields without a value assertion)
-        jq -e '.permissions.additionalDirectories | type == "array"' "$jsonPath" > /dev/null || { echo "FAIL: additionalDirectories not array"; exit 1; }
-        jq -e '.extraKnownMarketplaces | type == "object"' "$jsonPath" > /dev/null || { echo "FAIL: extraKnownMarketplaces not object"; exit 1; }
-
-        # Verify values
-        jq -e '."$schema" == "https://json.schemastore.org/claude-code-settings.json"' "$jsonPath" > /dev/null || { echo "FAIL: wrong schema URL"; exit 1; }
-        jq -e '.alwaysThinkingEnabled == true' "$jsonPath" > /dev/null || { echo "FAIL: alwaysThinkingEnabled should be true"; exit 1; }
-        jq -e '.permissions.allow | length == 2' "$jsonPath" > /dev/null || { echo "FAIL: expected 2 allow entries"; exit 1; }
-        jq -e '.permissions.deny | length == 1' "$jsonPath" > /dev/null || { echo "FAIL: expected 1 deny entry"; exit 1; }
-        jq -e '.permissions.ask | length == 0' "$jsonPath" > /dev/null || { echo "FAIL: expected 0 ask entries"; exit 1; }
-        jq -e '.statusLine.type == "command"' "$jsonPath" > /dev/null || { echo "FAIL: statusLine.type should be command"; exit 1; }
-
-        echo "Settings JSON: 6 keys, 5 permission fields, 2 type checks, 6 value checks passed"
-        touch $out
-      '';
-
   # Validate the maestro-cli script extraction produces correct output.
-  # Builds the script via pkgs.substituteAll and verifies content integrity.
+  # (Kept here for historical reasons — moves to maestro module checks long-term.)
   maestro-script =
     let
       testScript = pkgs.replaceVars ../../modules/maestro/scripts/maestro-cli.sh {

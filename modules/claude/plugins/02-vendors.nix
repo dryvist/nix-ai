@@ -58,7 +58,14 @@ _:
     "laravel-boost@claude-plugins-official" = false;
 
     # Communication
-    "slack@claude-plugins-official" = true; # Requires Slack OAuth
+    # DISABLED — redundant with the claude_ai_Slack MCP server, which
+    # exposes 28 tools covering search, read, send, reactions, canvas,
+    # scheduling, etc. The slash-command skills bundled here are
+    # wrappers around the same Slack API and are reachable via natural
+    # language against the MCP server. Drop them to remove 5 skill
+    # registrations + the plugin_slack_slack auth tools from every
+    # session.
+    "slack@claude-plugins-official" = false; # MCP covers the surface
 
     # Other
     "serena@claude-plugins-official" = false; # Requires Serena API key

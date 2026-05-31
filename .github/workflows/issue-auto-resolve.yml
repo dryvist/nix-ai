@@ -55,7 +55,7 @@ jobs:
 
   run-triage:
     if: github.event_name == 'workflow_dispatch'
-    uses: JacobPEvans/ai-workflows/.github/workflows/issue-triage.yml@v0
+    uses: dryvist/ai-workflows/.github/workflows/issue-triage.yml@v0
     secrets: inherit
     with:
       issue_number: ${{ inputs.issue_number }}
@@ -66,7 +66,7 @@ jobs:
       always() &&
       github.event_name == 'workflow_dispatch' &&
       (needs.run-triage.result == 'success' || needs.run-triage.result == 'skipped')
-    uses: JacobPEvans/ai-workflows/.github/workflows/issue-resolver.yml@v0
+    uses: dryvist/ai-workflows/.github/workflows/issue-resolver.yml@v0
     secrets: inherit
     with:
       repo_context: "Nix AI tools configuration using home-manager modules"

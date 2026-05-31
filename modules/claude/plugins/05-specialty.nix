@@ -17,6 +17,7 @@
 #   - cc-dev-tools (Lucklyric/cc-dev-tools, 29★)            — community Codex/Gemini wrappers
 #   - fabric-patterns (danielmiessler/fabric, 41428★ upstream, synthetic)
 #   - huggingface-skills (huggingface/skills, 10371★)       — HF Hub ops
+#   - karpathy-skills (forrestchang/andrej-karpathy-skills, 113639★) — behavioral guidelines
 #   - obsidian-skills (kepano/obsidian-skills, 28277★)
 #   - axton-obsidian-visual-skills (axtonliu/..., 2651★)
 #   - visual-explainer-marketplace (nicobailon/..., 7816★)
@@ -83,6 +84,15 @@ _:
     # Kept for hf CLI Hub operations (download/upload models, manage repos) —
     # user actively does HF model ops in nix-ai (MLX work).
     "hf-cli@huggingface-skills" = true;
+
+    # ========================================================================
+    # karpathy-skills — forrestchang/andrej-karpathy-skills (113639★)
+    # ========================================================================
+    # Single skill: karpathy-guidelines. Behavioral rules for LLM coding:
+    # Think Before Coding, Simplicity First, Surgical Changes, Goal-Driven Execution.
+    # Complements Tier 1 code-review; focuses on pre-coding discipline rather than review.
+    # Also flows to ~/.agents/skills/ automatically via agent-skills auto-discovery.
+    "andrej-karpathy-skills@karpathy-skills" = true;
 
     # ========================================================================
     # obsidian-skills + axton-obsidian-visual-skills + visual-explainer

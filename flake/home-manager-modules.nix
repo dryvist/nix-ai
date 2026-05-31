@@ -1,23 +1,66 @@
 {
   ai-assistant-instructions,
-  marketplaceInputs,
-  claude-code-plugins,
-  claude-cookbooks,
+  nix-claude-code,
+  karpathy-skills,
   pal-mcp-server,
-  fabric-src,
   nixpkgs-unstable,
 }:
+let
+  # Marketplace flake inputs now live inside nix-claude-code. Surface the
+  # full set here so non-Claude consumers (agent-skills, codex, gemini) can
+  # still discover plugins/skills without each consumer having to reach into
+  # `nix-claude-code.inputs` themselves. The catalog of marketplace names
+  # is owned by nix-claude-code; this attrset just selects what nix-ai
+  # still needs. `karpathy-skills` lives in nix-ai (not yet promoted to
+  # nix-claude-code) so it's spliced in directly.
+  marketplaceInputs = {
+    inherit (nix-claude-code.inputs)
+      anthropic-agent-skills
+      bills-claude-skills
+      bitwarden-marketplace
+      browser-use-skills
+      huggingface-skills
+      vct-cribl-pack-validator-skills
+      cc-dev-tools
+      cc-marketplace
+      claude-code-plugins-plus
+      claude-code-workflows
+      claude-plugins-official
+      claude-skills
+      jacobpevans-cc-plugins
+      lunar-claude
+      obsidian-skills
+      openai-codex
+      axton-obsidian-visual-skills
+      superpowers-marketplace
+      visual-explainer-marketplace
+      wakatime
+      ;
+    inherit karpathy-skills;
+  };
+in
 {
   default = {
-    imports = [ ../modules/default.nix ];
+    imports = [
+      # programs.claude.* option schema + settings.json renderer (canonical
+      # owner is dryvist/nix-claude-code). Imported here (not from
+      # modules/default.nix) so the import list resolves without depending
+      # on `_module.args.nix-claude-code` — module imports run before args
+      # are wired, which would otherwise cause infinite recursion.
+      #
+      # nix-claude-code wraps its homeModules with its own marketplaceArgs
+      # (ai-assistant-instructions, claude-cookbooks, claude-code-plugins,
+      # fabric-src, plus the 20 marketplace inputs). Those args are
+      # transitively available to nix-ai modules — we only set args
+      # unique to nix-ai here.
+      nix-claude-code.homeModules.claude
+      ../modules/default.nix
+    ];
     _module.args = {
       inherit
-        ai-assistant-instructions
+        nix-claude-code
         marketplaceInputs
-        claude-code-plugins
-        claude-cookbooks
         pal-mcp-server
-        fabric-src
         nixpkgs-unstable
         ;
     };
@@ -25,18 +68,24 @@
 
   claude = {
     imports = [
-      ../modules/claude
+      # Delegate the option set and settings.json renderer to nix-claude-code.
+      # nix-claude-code already injects ai-assistant-instructions,
+      # claude-code-plugins, claude-cookbooks, and fabric-src as module
+      # args — don't re-set them here or home-manager errors on "defined
+      # multiple times".
+      nix-claude-code.homeModules.claude
       # PAL/MCP runtime previously lived in modules/claude/pal-models.nix;
       # now sourced from the MCP sub-flake module so it's available even
       # when Claude is the only homeManagerModule a consumer imports.
       ../modules/mcp/module.nix
+      # User-facing values (model, marketplaces, hooks, settings.*) live in
+      # this module — nix-claude-code only declares the option schema.
+      ../modules/claude-config.nix
     ];
     _module.args = {
       inherit
-        ai-assistant-instructions
+        nix-claude-code
         marketplaceInputs
-        claude-code-plugins
-        claude-cookbooks
         pal-mcp-server
         ;
     };

@@ -6,7 +6,6 @@
   pkgs,
   hmConfig,
   hmConfigFabricServer,
-  fabric-src,
   src,
 }:
 let
@@ -170,40 +169,7 @@ in
       touch $out
     '';
 
-  # Build the synthetic fabric-patterns marketplace and assert the SKILL.md
-  # count matches the curated JSON entry count. Catches silent JSON edits.
-  fabric-marketplace-build =
-    let
-      curated = builtins.fromJSON (
-        builtins.readFile "${src}/modules/claude/fabric-curated-patterns.json"
-      );
-      expectedCount = builtins.length curated.patterns;
-      # Derive version from the package (same source of truth as claude-config.nix)
-      fabricVersion =
-        (pkgs.callPackage "${src}/modules/fabric/package.nix" {
-          inherit fabric-src;
-        }).version;
-      overrides = import "${src}/modules/claude/marketplace-overrides.nix" {
-        inherit pkgs fabric-src fabricVersion;
-        inherit (pkgs) lib;
-        # The browser-use and jacobpevans wrappers also live in this file but
-        # are unused by the fabric check — pass nulls to satisfy module args.
-        browserUseVersion = null;
-        marketplaceInputs = {
-          browser-use-skills = null;
-          jacobpevans-cc-plugins = null;
-        };
-      };
-      mp = overrides.fabricMarketplace;
-    in
-    pkgs.runCommand "check-fabric-marketplace-build" { } ''
-      actual_count=$(find ${mp}/fabric-patterns/skills -name SKILL.md | wc -l | tr -d ' ')
-      expected_count=${toString expectedCount}
-      if [ "$actual_count" != "$expected_count" ]; then
-        echo "Fabric marketplace SKILL.md count mismatch: actual=$actual_count expected=$expected_count" >&2
-        exit 1
-      fi
-      echo "Fabric marketplace build: $actual_count SKILL.md files (matches curated JSON)"
-      touch $out
-    '';
+  # fabric-marketplace-build moved to nix-claude-code/flake/checks.nix as
+  # part of PR3 — the synthetic fabric-patterns marketplace derivation and
+  # its curated-patterns JSON now live in nix-claude-code.
 }

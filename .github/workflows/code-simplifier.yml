@@ -17,5 +17,5 @@ concurrency:
 
 jobs:
   simplify:
-    uses: JacobPEvans/ai-workflows/.github/workflows/code-simplifier.yml@v0.16
+    uses: dryvist/ai-workflows/.github/workflows/code-simplifier.yml@v0.16
     secrets: inherit # zizmor: ignore[secrets-inherit]

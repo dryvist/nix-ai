@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   ci-suite:
-    uses: JacobPEvans/ai-workflows/.github/workflows/suite-ci.yml@v0
+    uses: dryvist/ai-workflows/.github/workflows/suite-ci.yml@v0
     with:
       repo_context: "Nix home-manager modules for AI CLI tools (Claude, Gemini, Copilot, MCP servers)"
       ci_structure: "ci-gate.yml (dorny/paths-filter + nix-check + markdown-lint + alls-green gate)"

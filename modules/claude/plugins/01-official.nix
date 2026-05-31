@@ -16,11 +16,17 @@
 #       but are kept in 02-vendors.nix because their priority logic is
 #       "first-party AI/cloud vendor", not "Anthropic-authored plugin".
 #   - anthropic-agent-skills (anthropics/skills, 127235★)
-#       Anthropic-curated skill bundles: document-skills (xlsx/docx/pptx/pdf),
-#       example-skills (frontend-design, theme-factory, brand-guidelines,
-#       web-artifacts-builder, canvas-design, webapp-testing, mcp-builder,
-#       skill-creator, doc-coauthoring, algorithmic-art, slack-gif-creator,
-#       internal-comms), and claude-api (Anthropic SDK reference).
+#       Anthropic-curated skill bundles. The marketplace exposes three
+#       plugins (document-skills, example-skills, claude-api) whose
+#       manifests declare partitioned `skills` arrays — but each plugin
+#       checks out the FULL anthropics/skills repo, so every plugin
+#       loads the SAME 17 skills (algorithmic-art, brand-guidelines,
+#       canvas-design, claude-api, doc-coauthoring, docx, frontend-design,
+#       internal-comms, mcp-builder, pdf, pptx, skill-creator,
+#       slack-gif-creator, theme-factory, web-artifacts-builder,
+#       webapp-testing, xlsx). Enabling more than one = duplicate
+#       registrations for zero added coverage. Verified 2026-05-27 on
+#       disk against the cache checkouts. Keep ONE; disable the rest.
 
 _:
 
@@ -54,9 +60,12 @@ _:
     "claude-code-setup@claude-plugins-official" = true;
     "claude-md-management@claude-plugins-official" = true;
 
-    # Frontend Design — standalone single-skill plugin. The bundled variant
-    # ships in example-skills@anthropic-agent-skills below; description text
-    # differs slightly between sources, both kept per explicit request.
+    # Frontend Design — standalone single-skill plugin. The bundled
+    # variant inside anthropic-agent-skills now ships under the kept
+    # document-skills plugin only (example-skills disabled below). This
+    # standalone is retained because its description text differs from
+    # the bundled variant; loaders that match on description benefit
+    # from both being present.
     "frontend-design@claude-plugins-official" = true;
 
     # Code transformation skills — refactoring + simplification for docs
@@ -79,25 +88,28 @@ _:
 
     # ========================================================================
     # anthropic-agent-skills — Anthropic-curated skill bundles
+    #
+    # All three plugins in this marketplace check out the entire
+    # anthropics/skills repo and expose the SAME 17 skills, ignoring
+    # the manifest's per-plugin skill array. See the marketplace
+    # comment above for the full list and verification details.
+    # Enabling more than one yields duplicate registrations for zero
+    # added coverage. Keep ONE; disable the rest.
+    #
+    # Keeper: document-skills (most generic name, clearest mental
+    # model for the bundle). Re-evaluate if upstream ever honors the
+    # manifest split.
     # ========================================================================
 
-    # Document Skills (xlsx, docx, pptx, pdf) — universally useful
     "document-skills@anthropic-agent-skills" = true;
 
-    # Example Skills bundle — front-end / design / web-authoring skills:
-    # frontend-design, brand-guidelines, theme-factory, web-artifacts-builder,
-    # canvas-design, webapp-testing, mcp-builder, skill-creator,
-    # doc-coauthoring, algorithmic-art, slack-gif-creator, internal-comms.
-    # The last three (slack-gif-creator, algorithmic-art, internal-comms)
-    # will be quieted via skillOverrides once the ai-assistant-instructions
-    # input is bumped — keeps context lean in sessions unrelated to design
-    # work. skillOverrides targets bare skill names, so the bundled
-    # frontend-design above and the standalone frontend-design plugin
-    # both stay visible.
-    "example-skills@anthropic-agent-skills" = true;
+    # DISABLED — duplicates document-skills (identical 17 skills on
+    # disk). The skill set previously credited to this plugin is now
+    # served via document-skills:* namespace.
+    "example-skills@anthropic-agent-skills" = false;
 
-    # Claude API / SDK reference — useful for docs repos that document Claude
-    # integrations and for tuning prompt caching / model selection.
-    "claude-api@anthropic-agent-skills" = true;
+    # DISABLED — duplicates document-skills. The claude-api skill is
+    # still reachable via document-skills:claude-api.
+    "claude-api@anthropic-agent-skills" = false;
   };
 }

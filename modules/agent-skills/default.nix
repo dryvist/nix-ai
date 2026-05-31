@@ -139,18 +139,41 @@ let
       source = "${skillsPath}/${name}/SKILL.md";
     }) (lib.filterAttrs (name: _: builtins.pathExists "${skillsPath}/${name}/SKILL.md") skillDirs);
 
-  # Skills from JacobPEvans/claude-code-plugins (tool-agnostic markdown)
-  # Plus VisiCore cribl-pack-validator (bare .claude/skills/ layout)
-  # Plus Hugging Face Hub skills (flat skills/<n>/SKILL.md layout)
-  # Plus official Claude plugin skills and translated commands
-  sharedSkills =
-    discoverSkills marketplaceInputs.jacobpevans-cc-plugins
-    ++ discoverDotClaudeSkills marketplaceInputs.vct-cribl-pack-validator-skills
-    ++ discoverFlatSkills marketplaceInputs.huggingface-skills
-    ++ discoverSkills "${marketplaceInputs.claude-plugins-official}/plugins"
-    ++ discoverSkills "${marketplaceInputs.claude-plugins-official}/external_plugins"
-    ++ discoverClaudeCommands "${marketplaceInputs.claude-plugins-official}/plugins"
-    ++ discoverClaudeCommands "${marketplaceInputs.claude-plugins-official}/external_plugins";
+  # Applies all known SKILL.md discovery patterns to one input path.
+  # Each pattern short-circuits (via pathExists) when the layout is absent.
+  # The one-level subpath walk ("plugins", "external_plugins") handles inputs
+  # that namespace their plugins under those subdirs — a common convention among
+  # Claude marketplaces, expressed here generically without naming any specific input.
+  # lib.optionals is used instead of if/then/else to keep this pure-Nix (not shell).
+  # rootDir lookup short-circuits when input is not a directory and verifies each
+  # subpath is itself a directory before recursing — readDir on a regular file throws.
+  walkAllPatterns =
+    input:
+    let
+      rootDir = if builtins.pathExists input then builtins.readDir input else { };
+    in
+    discoverFlatSkills input
+    ++ discoverDotClaudeSkills input
+    ++ discoverSkills input
+    ++
+      lib.concatMap
+        (
+          sub:
+          lib.optionals ((rootDir.${sub} or "") == "directory") (
+            discoverSkills "${input}/${sub}" ++ discoverClaudeCommands "${input}/${sub}"
+          )
+        )
+        [
+          "plugins"
+          "external_plugins"
+        ];
+
+  # Auto-discovers skills from every input this module receives, by trying all
+  # known SKILL.md layouts. No marketplace names are hardcoded here — the module
+  # is decoupled from Claude's registry and operates on a generic set of input
+  # paths supplied by the consumer flake. When this module is split into its own
+  # flake, the consumer decides which inputs to pass; the walker stays unchanged.
+  sharedSkills = lib.concatMap walkAllPatterns (lib.attrValues marketplaceInputs);
 in
 {
   imports = [
