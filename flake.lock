@@ -225,13 +225,20 @@
       }
     },
     "dryvist-github": {
-      "flake": false,
+      "inputs": {
+        "git-hooks": "git-hooks",
+        "nixpkgs": [
+          "nix-claude-code",
+          "nixpkgs"
+        ],
+        "treefmt-nix": "treefmt-nix"
+      },
       "locked": {
-        "lastModified": 1780060417,
-        "narHash": "sha256-pPb5ZJzFK3v/wfqR5KO2TptoVedakes9mKDExwdmZ4k=",
+        "lastModified": 1780244578,
+        "narHash": "sha256-wsNxWB6MfwFXBgHXxvByqWwDB2OgN4fBUaJ0YgbEGXU=",
         "owner": "dryvist",
         "repo": ".github",
-        "rev": "218b9a5d1b408c3be06ac732f978208027ed510f",
+        "rev": "de34cfea46962c8abee3878005ed120731c4c45a",
         "type": "github"
       },
       "original": {
@@ -316,6 +323,7 @@
         "gitignore": "gitignore",
         "nixpkgs": [
           "nix-claude-code",
+          "dryvist-github",
           "nixpkgs"
         ]
       },
@@ -337,6 +345,7 @@
       "inputs": {
         "nixpkgs": [
           "nix-claude-code",
+          "dryvist-github",
           "git-hooks",
           "nixpkgs"
         ]
@@ -479,7 +488,6 @@
         "dryvist-github": "dryvist-github",
         "fabric-src": "fabric-src_2",
         "flake-parts": "flake-parts",
-        "git-hooks": "git-hooks",
         "home-manager": [
           "home-manager"
         ],
@@ -493,17 +501,16 @@
         "obsidian-skills": "obsidian-skills",
         "openai-codex": "openai-codex",
         "superpowers-marketplace": "superpowers-marketplace",
-        "treefmt-nix": "treefmt-nix",
         "vct-cribl-pack-validator-skills": "vct-cribl-pack-validator-skills",
         "visual-explainer-marketplace": "visual-explainer-marketplace",
         "wakatime": "wakatime"
       },
       "locked": {
-        "lastModified": 1780195187,
-        "narHash": "sha256-IsYx/jkCLyaWkJXZYYogjumtyg0lusFAmAs+suhzGq0=",
+        "lastModified": 1780252245,
+        "narHash": "sha256-o4MJY2zde9IJbiTVN5kV00sSdqGvdKbnMbO1v5O7e68=",
         "owner": "dryvist",
         "repo": "nix-claude-code",
-        "rev": "9fe7a2e86265a96d69f97e6514a5a3e012743b9c",
+        "rev": "628dd6fac218e65ce32b1adca7eb6605c1510e1a",
         "type": "github"
       },
       "original": {
@@ -625,15 +632,16 @@
       "inputs": {
         "nixpkgs": [
           "nix-claude-code",
+          "dryvist-github",
           "nixpkgs"
         ]
       },
       "locked": {
-        "lastModified": 1775636079,
-        "narHash": "sha256-pc20NRoMdiar8oPQceQT47UUZMBTiMdUuWrYu2obUP0=",
+        "lastModified": 1780220602,
+        "narHash": "sha256-eynAfOmbmxJnkp7YewvCEbShNnnYJ9gLLqkzsYtBPeM=",
         "owner": "numtide",
         "repo": "treefmt-nix",
-        "rev": "790751ff7fd3801feeaf96d7dc416a8d581265ba",
+        "rev": "db947814a175b7ca6ded66e21383d938df01c227",
         "type": "github"
       },
       "original": {
