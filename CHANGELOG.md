@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.69.0](https://github.com/dryvist/nix-ai/compare/v1.68.1...v1.69.0) (2026-06-01)
+
+
+### Features
+
+* **agent-skills:** add karpathy-skills + auto-discover all marketplaces ([#831](https://github.com/dryvist/nix-ai/issues/831)) ([ab45a6c](https://github.com/dryvist/nix-ai/commit/ab45a6cf9c0c5d612a886cd47fc0179d2fc81e52))
+* **claude-config:** move host MCP overrides + playwright disable from nix-darwin ([#853](https://github.com/dryvist/nix-ai/issues/853)) ([110a4a6](https://github.com/dryvist/nix-ai/commit/110a4a6bcc925e19134dcdbf359ad28769a6b9f1))
+* **claude:** expose programs.claude.settings.autoMode configuration ([#838](https://github.com/dryvist/nix-ai/issues/838)) ([54a0492](https://github.com/dryvist/nix-ai/commit/54a04924053a3c2f92e21c71849d11833fd7226f))
+
+
+### Bug Fixes
+
+* **ci:** repoint release-please caller to org-native reusable workflow ([#859](https://github.com/dryvist/nix-ai/issues/859)) ([1ed2fc8](https://github.com/dryvist/nix-ai/commit/1ed2fc83a14c08add79f32cb86d6e8209ca9d1e8))
+* **claude:** rewire claude-latest to bunx @anthropic-ai/claude-code@latest ([#858](https://github.com/dryvist/nix-ai/issues/858)) ([63949ed](https://github.com/dryvist/nix-ai/commit/63949ed3722d862c0ac0b276de8409d28919cadf))
+* **claude:** use kernel-spec commit trailer format ([#847](https://github.com/dryvist/nix-ai/issues/847)) ([aebe9c1](https://github.com/dryvist/nix-ai/commit/aebe9c1f3475e60f6b90d757bd3f996601055e34))
+* **qwen-code:** drop the soft install-check script ([#863](https://github.com/dryvist/nix-ai/issues/863)) ([f35bdca](https://github.com/dryvist/nix-ai/commit/f35bdca64c713ae8ca33cf03dfc60a223961f7bb))
+
 ## [1.68.1](https://github.com/JacobPEvans/nix-ai/compare/v1.68.0...v1.68.1) (2026-05-25)
 
 
