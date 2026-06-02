@@ -1,0 +1,36 @@
+# Receiver: bump a flake input on repository_dispatch
+#
+# Called by upstream repos (e.g. nix-claude-code) after they publish a
+# release. Delegates to the shared reusable workflow in dryvist/.github.
+# Also available as workflow_dispatch for manual one-off bumps.
+#
+# Chain: nix-claude-code release → dispatch here → update nix-claude-code
+# input → push to main → dispatch-to-nix-darwin.yml fires.
+name: Update flake input
+
+on:
+  repository_dispatch:
+    types: [update-flake-input]
+  workflow_dispatch:
+    inputs:
+      input_name:
+        description: Flake input to update (default: nix-claude-code)
+        type: string
+        default: nix-claude-code
+
+permissions: {}
+
+jobs:
+  update:
+    uses: dryvist/.github/.github/workflows/_update-flake-input.yml@main
+    with:
+      # client_payload.input from repository_dispatch; falls back to
+      # workflow_dispatch input, then to the default.
+      input_name: >-
+        ${{
+          github.event.client_payload.input
+          || inputs.input_name
+          || 'nix-claude-code'
+        }}
+    secrets:
+      GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
