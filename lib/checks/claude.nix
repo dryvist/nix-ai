@@ -110,7 +110,12 @@ in
         {
           name = "autoUpdatesChannel";
           actual = cfg.autoUpdatesChannel;
-          expected = "stable";
+          expected = "latest";
+        }
+        {
+          name = "autoUpdates";
+          actual = cfg.autoUpdates;
+          expected = true;
         }
         {
           name = "model";
