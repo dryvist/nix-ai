@@ -11,7 +11,7 @@
 # - .github/workflows/nixos-release-check.yml - automated update notifications
 # - .github/workflows/ci-eol-check.yml - end-of-life validation
 {
-  stableVersion = "25.11";
+  stableVersion = "26.05";
 
   # Package version pins — single source of truth for cross-module shared deps.
   # Each pin entry (below) must have a `# renovate:` annotation immediately above

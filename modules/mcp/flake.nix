@@ -2,7 +2,7 @@
   description = "MCP runtime + server definitions for AI CLI tools (sub-flake of nix-ai)";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-25.11-darwin";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-26.05-darwin";
 
     pal-mcp-server = {
       url = "github:BeehiveInnovations/pal-mcp-server";

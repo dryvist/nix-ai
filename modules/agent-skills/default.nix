@@ -181,32 +181,13 @@ in
     ./components.nix
 
     # Legacy option paths (kept for compatibility during migration).
-    (lib.mkRenamedOptionModule
-      [
-        "programs"
-        "codex"
-        "skills"
-        "fromFlakeInputs"
-      ]
-      [
-        "programs"
-        "agentSkills"
-        "fromFlakeInputs"
-      ]
-    )
-    (lib.mkRenamedOptionModule
-      [
-        "programs"
-        "codex"
-        "skills"
-        "local"
-      ]
-      [
-        "programs"
-        "agentSkills"
-        "local"
-      ]
-    )
+    #
+    # The codex aliases that previously lived here were removed: home-manager
+    # 26.05 introduced a native `programs.codex.skills` leaf option (codex-only,
+    # deploys to ~/.codex/skills), so child aliases under that path collided with
+    # it ("type ... does not support nested options"). nix-ai's cross-tool feature
+    # is `programs.agentSkills.*` (deploys to ~/.agents/skills); nothing in this
+    # repo set the legacy codex paths, so dropping them loses no configuration.
     (lib.mkRenamedOptionModule
       [
         "programs"
