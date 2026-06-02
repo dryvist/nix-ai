@@ -119,47 +119,5 @@
         '';
       };
     };
-
-    watchdog = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = true;
-        description = ''
-          Periodic watchdog (LaunchAgent + shell script) that kicks the
-          vllm-mlx LaunchAgent when worker memory pressure crosses
-          thresholds OR a worker sits past its configured TTL by more than
-          `ttlGraceMult` ×. Defensive layer against the upstream
-          mostlygeek/llama-swap lifecycle race at proxy/process.go:280-289
-          (`panic: sync: WaitGroup is reused before previous Wait has
-          returned`) — see nix-ai#801 and the docs-starlight architecture
-          page at `d/hosts/local-llm-stack`.
-
-          Bug has been observed firing 5+ times on the reference host
-          (M4 Max 128 GB). The watchdog acts as defense in depth: even if
-          upstream stays broken, the host self-recovers within the
-          watchdog's polling interval.
-        '';
-      };
-      intervalSeconds = lib.mkOption {
-        type = lib.types.ints.positive;
-        default = 300;
-        description = "How often the watchdog runs (LaunchAgent `StartInterval`). Default 5 min — short enough to catch a stuck worker before it dominates compressor + swap, long enough to avoid spawning chatter at idle.";
-      };
-      swapThresholdPct = lib.mkOption {
-        type = lib.types.ints.between 1 99;
-        default = 75;
-        description = "If `vm.swapusage` used / total exceeds this percentage, the watchdog kicks the LaunchAgent. Default 75 — below the 90 % saturation seen in the 2026-05-19 and 2026-06-02 incidents but well above normal operating headroom.";
-      };
-      rssThresholdPct = lib.mkOption {
-        type = lib.types.ints.between 1 99;
-        default = 50;
-        description = "If any single `vllm-mlx serve` worker's RSS exceeds this percentage of physical RAM, the watchdog kicks. Default 50 — on a 128 GB host that means 64 GB single-process; the 2026-06-02 incident peaked at 55 % (71 GB).";
-      };
-      ttlGraceMult = lib.mkOption {
-        type = lib.types.ints.positive;
-        default = 2;
-        description = "Multiplier applied to a model's configured `ttl` to set the watchdog's stuck-worker threshold. A worker still resident past `ttl * ttlGraceMult` seconds triggers a kick. Default 2 — catches the `nix-ai#801` race fingerprint without false positives during legitimate long-tail inference.";
-      };
-    };
   };
 }

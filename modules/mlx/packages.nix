@@ -118,20 +118,6 @@ in
           text = builtins.readFile ./scripts/mlx-preflight.sh;
         })
 
-        # mlx-watchdog — periodic kick-LaunchAgent-on-pressure defense
-        # against nix-ai#801 + multi-day uptime memory accumulation.
-        # Wired into launchd via cfg.watchdog.enable (default true).
-        (pkgs.writeShellApplication {
-          name = "mlx-watchdog";
-          runtimeInputs = with pkgs; [
-            coreutils
-            gawk
-            gnused
-            jq
-          ];
-          text = builtins.readFile ./scripts/mlx-watchdog.sh;
-        })
-
         # ======================================================================
         # Benchmark Suite
         # ======================================================================
