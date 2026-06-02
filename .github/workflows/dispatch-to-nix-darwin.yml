@@ -1,0 +1,19 @@
+# Dispatch: notify consumers after flake.lock changes on main
+#
+# Target repos are read from the DISPATCH_CONSUMERS repository variable
+# (JSON array, e.g. '["nix-darwin"]'). Add a new consumer there without
+# touching this file.
+name: Dispatch lock update to consumers
+
+on:
+  push:
+    branches: [main]
+    paths: [flake.lock]
+
+permissions: {}
+
+jobs:
+  dispatch:
+    uses: dryvist/.github/.github/workflows/_dispatch-flake-consumers.yml@main
+    # source_input defaults to the calling repo name (nix-ai).
+    secrets: inherit
