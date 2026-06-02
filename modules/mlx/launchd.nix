@@ -71,6 +71,55 @@ in
       };
     };
 
+    # ==========================================================================
+    # Watchdog LaunchAgent — defense in depth against nix-ai#801
+    # ==========================================================================
+    # Periodic check (default every 5 min) that kicks the vllm-mlx LaunchAgent
+    # when any of:
+    #   - A vllm-mlx serve worker has been alive longer than ttlGraceMult ×
+    #     its configured ttl (stuck-past-TTL — the upstream llama-swap
+    #     proxy/process.go:280-289 race fingerprint).
+    #   - vm.swapusage used / total > swapThresholdPct.
+    #   - Any single worker RSS > rssThresholdPct % of physical RAM.
+    # The "kick" is `launchctl kickstart -k <label>` which forces a clean
+    # restart through the existing KeepAlive + 120 s ThrottleInterval — no
+    # graceful-shutdown ladder, no orphaned workers.
+    # See programs.mlx.watchdog.* options for tuning.
+    launchd.agents.vllm-mlx-watchdog = lib.mkIf cfg.watchdog.enable {
+      enable = true;
+      config = {
+        Label = "${launchAgentLabel}.watchdog";
+        ProgramArguments = [
+          (lib.getExe (
+            pkgs.writeShellApplication {
+              name = "mlx-watchdog";
+              runtimeInputs = with pkgs; [
+                coreutils
+                gawk
+                gnused
+                jq
+              ];
+              text = builtins.readFile ./scripts/mlx-watchdog.sh;
+            }
+          ))
+        ];
+        RunAtLoad = false;
+        StartInterval = cfg.watchdog.intervalSeconds;
+        ProcessType = "Background";
+        AbandonProcessGroup = false;
+        EnvironmentVariables = {
+          MLX_LAUNCHD_LABEL = launchAgentLabel;
+          MLX_WATCHDOG_LOG = "${config.home.homeDirectory}/Library/Logs/vllm-mlx/watchdog.log";
+          MLX_WATCHDOG_CONFIG = llamaSwapRuntimeConfigPath;
+          MLX_WATCHDOG_SWAP_PCT = toString cfg.watchdog.swapThresholdPct;
+          MLX_WATCHDOG_RSS_PCT = toString cfg.watchdog.rssThresholdPct;
+          MLX_WATCHDOG_TTL_MULT = toString cfg.watchdog.ttlGraceMult;
+        };
+        StandardOutPath = "${config.home.homeDirectory}/Library/Logs/vllm-mlx/watchdog.stdout.log";
+        StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/vllm-mlx/watchdog.error.log";
+      };
+    };
+
     home = {
       # ==========================================================================
       # Log Rotation (closes #255)
@@ -82,6 +131,8 @@ in
         # logfilename                                                                [owner:group]  mode  count  size  when  flags
         ${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx.error.log        :              644   3      10240 *     J
         ${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx.log              :              644   3      10240 *     J
+        ${config.home.homeDirectory}/Library/Logs/vllm-mlx/watchdog.log              :              644   3      1024  *     J
+        ${config.home.homeDirectory}/Library/Logs/vllm-mlx/watchdog.error.log        :              644   3      1024  *     J
       '';
 
       # ==========================================================================
