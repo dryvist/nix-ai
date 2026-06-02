@@ -14,28 +14,6 @@ permissions: {}
 
 jobs:
   dispatch:
-    name: Notify ${{ matrix.repo }}
-    strategy:
-      matrix:
-        repo: ${{ fromJSON(vars.DISPATCH_CONSUMERS) }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      contents: read
-    steps:
-      - name: Generate GitHub App Token
-        id: app-token
-        uses: actions/create-github-app-token@v3
-        with:
-          client-id: ${{ vars.GH_APP_CLIENT_ID }}
-          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
-          repositories: ${{ matrix.repo }}
-
-      - name: Dispatch update-flake-input
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          TARGET_REPO: ${{ matrix.repo }}
-        run: |
-          gh api "repos/dryvist/${TARGET_REPO}/dispatches" \
-            -f event_type=update-flake-input \
-            -f 'client_payload[input]=nix-ai'
+    uses: dryvist/.github/.github/workflows/_dispatch-flake-consumers.yml@main
+    # source_input defaults to the calling repo name (nix-ai).
+    secrets: inherit
