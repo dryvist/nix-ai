@@ -122,6 +122,12 @@ in
   programs.claude = {
     enable = true;
 
+    # Binary comes from Homebrew (claude-code@latest cask in nix-darwin);
+    # Nix manages config only. Claude's native updater (latest channel)
+    # overlays the newest build at ~/.local/bin/claude on top of the brew
+    # baseline. See nix-claude-code core.nix: package = null skips home.packages.
+    package = null;
+
     # API Key Helper for headless authentication (cron jobs, CI/CD)
     # Uses Bitwarden Secrets Manager to securely fetch OAuth token
     # Configuration: ~/.config/bws/.env (see bws-env.example)
@@ -136,7 +142,8 @@ in
     # Effort: high — maximize reasoning quality by default.
     effortLevel = "high";
 
-    autoUpdatesChannel = "stable"; # override (upstream default: "latest")
+    autoUpdatesChannel = "latest"; # newest releases (matches upstream default)
+    autoUpdates = true; # keep the native (~/.local) build self-updating on the latest channel
 
     # Enable Remote Control for all sessions (Feb 2026 feature).
     remoteControlAtStartup = true;
