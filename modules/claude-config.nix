@@ -312,6 +312,10 @@ in
 
     statusline = {
       enable = true;
+      # ccstatusline (sirmalloc/ccstatusline) — the statusline that was active
+      # in nix-ai before the nix-claude-code migration. Pinned explicitly so it
+      # does not fall back to nix-claude-code's powerline default.
+      theme = "ccstatusline";
     };
 
     # Hooks: Event-driven automation for Claude Code.
