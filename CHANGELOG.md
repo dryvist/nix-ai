@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.71.1](https://github.com/dryvist/nix-ai/compare/v1.71.0...v1.71.1) (2026-06-04)
+
+
+### Bug Fixes
+
+* **ci:** drop stale claude.autoUpdates options + bump aiohttp past CVEs ([#882](https://github.com/dryvist/nix-ai/issues/882)) ([3b4d126](https://github.com/dryvist/nix-ai/commit/3b4d12682691cc574d97b365f4c58478afa05723))
+
 ## [1.71.0](https://github.com/dryvist/nix-ai/compare/v1.70.0...v1.71.0) (2026-06-04)
 
 
