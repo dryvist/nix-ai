@@ -23,17 +23,30 @@
 #     docs/architecture/per-agent-flakes.md) when the schema changes,
 #     so the JSON shape stays self-explanatory.
 {
-  # Capability-class registry. Stable consumer-facing names mapped to
-  # currently-preferred physical mlx-community/* model IDs. Physical IDs
-  # change when we re-benchmark or upstream ships a better quant.
+  # Capability-class registry. The role NAMES are the stable taxonomy
+  # consumers depend on. The role VALUES are populated at evaluation time
+  # by modules/ai-stack/default.nix from `services.aiStack.defaultLocalModelId`
+  # (sourced by the consuming configuration from the dryvist
+  # `AI_MODEL_LOCAL_LLM` org variable / Doppler secret / macOS no-password
+  # automation keychain — never hardcoded in this repo).
+  #
+  # Every role currently resolves to the same physical model id: the
+  # locally-installed default. That is the deliberate posture — one model
+  # resident, every alias pointing at it, swap-thrash impossible. To
+  # introduce per-role differentiation later, change the population logic
+  # in modules/ai-stack/default.nix.
+  #
+  # Reading these `null` values directly (without going through the
+  # services.aiStack.models option) will surface as obvious nulls in
+  # downstream config — the option layer is the only correct read path.
   models = {
-    default = "mlx-community/Qwen3.6-35B-A3B-mxfp4";
-    quickest = "mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit";
-    tool-calling = "mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit";
-    coding = "mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit";
-    large-context = "mlx-community/Qwen3-Next-80B-A3B-Instruct-4bit";
-    most-capable = "mlx-community/Qwen3.5-122B-A10B-4bit";
-    oss = "mlx-community/gpt-oss-120b-4bit";
+    default = null;
+    quickest = null;
+    tool-calling = null;
+    coding = null;
+    large-context = null;
+    most-capable = null;
+    oss = null;
   };
 
   # Well-known local endpoints. Filled in over Phase 2 as drift sites get

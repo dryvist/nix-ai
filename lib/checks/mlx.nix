@@ -2,9 +2,6 @@
 { pkgs, hmConfig }:
 let
   mlxCfg = hmConfig.config.programs.mlx;
-  # Read the canonical capability-class registry so this regression test
-  # tracks the var file instead of duplicating the model ID.
-  registry = import ../../vars/ai-stack.nix;
 in
 {
   # Verify all expected MLX option paths exist.
@@ -52,9 +49,13 @@ in
           expected = true;
         }
         {
-          name = "mlx.defaultModel";
-          actual = mlxCfg.defaultModel;
-          expected = registry.models.default;
+          # Presence-only check — the actual model id is parameterized via
+          # services.aiStack.defaultLocalModelId and not hardcoded in this
+          # repo. Verifying it's a non-empty string is enough; the consumer
+          # owns the value.
+          name = "mlx.defaultModel-populated";
+          actual = mlxCfg.defaultModel != null && mlxCfg.defaultModel != "";
+          expected = true;
         }
         {
           name = "mlx.port";
