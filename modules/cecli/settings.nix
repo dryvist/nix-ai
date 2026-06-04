@@ -80,7 +80,7 @@ let
 
   yamlConf = yamlFormat.generate "cecli-conf.yml" configAttrs;
 
-  # Model metadata — cecli uses LiteLLM. Unknown models fall back to GPT-4
+  # Model metadata — cecli uses LiteLLM. Unknown models fall back to GPT
   # limits which may be wrong. Generate entries for both naming conventions:
   #   - openai/<role>            used with llama-swap routing
   #   - openai/mlx-local/<id>    used with Bifrost routing

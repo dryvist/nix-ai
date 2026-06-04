@@ -107,14 +107,17 @@ in
           expected = 180;
         }
         {
+          # Intentionally unset → null → Claude Code uses the account-tier
+          # default. The literal "default" is invalid and Claude Code rejects it.
           name = "model";
           actual = cfg.model;
-          expected = "default";
+          expected = null;
         }
         {
+          # Intentionally unset → null → Claude Code uses the upstream default.
           name = "effortLevel";
           actual = cfg.effortLevel;
-          expected = "high";
+          expected = null;
         }
         {
           name = "sandbox.enabled";
