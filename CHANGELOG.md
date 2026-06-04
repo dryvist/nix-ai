@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.71.2](https://github.com/dryvist/nix-ai/compare/v1.71.1...v1.71.2) (2026-06-04)
+
+
+### Bug Fixes
+
+* **mcp:** remove PAL custom health checks entirely ([#884](https://github.com/dryvist/nix-ai/issues/884)) ([1f61165](https://github.com/dryvist/nix-ai/commit/1f6116580308805df9c10a20727e6cc532e83ae4))
+
 ## [1.71.1](https://github.com/dryvist/nix-ai/compare/v1.71.0...v1.71.1) (2026-06-04)
 
 
