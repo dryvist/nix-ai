@@ -7,7 +7,7 @@
 # See: https://code.claude.com/docs/en/settings
 # See: https://code.claude.com/docs/en/model-config
 {
-  # Model: opusplan set above. Env var overrides available if needed.
+  # Model: default set above. Env var overrides available if needed.
   # ANTHROPIC_MODEL = "sonnet"; # Uncomment to override default model via env var
   # CLAUDE_CODE_SUBAGENT_MODEL = "claude-haiku-4-5-20251001"; # Cost control for subagents
 

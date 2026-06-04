@@ -136,8 +136,9 @@ in
       # scriptPath default: .local/bin/claude-api-key-helper
     };
 
-    # Model: opusplan — Opus for planning, Sonnet for execution (1M context).
-    model = "opusplan";
+    # Model: default — clears any override; reverts to the account tier's
+    # recommended model. Override manually via /model when needed.
+    model = "default";
 
     # Effort: high — maximize reasoning quality by default.
     effortLevel = "high";
