@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.71.0](https://github.com/dryvist/nix-ai/compare/v1.70.0...v1.71.0) (2026-06-04)
+
+
+### Features
+
+* **ai-stack:** parameterize default local model id; tighten mlx defaults ([#878](https://github.com/dryvist/nix-ai/issues/878)) ([67bd0d9](https://github.com/dryvist/nix-ai/commit/67bd0d900fa43060e1364467ef5399c7bdd533c4))
+
 ## [1.70.0](https://github.com/dryvist/nix-ai/compare/v1.69.0...v1.70.0) (2026-06-04)
 
 
