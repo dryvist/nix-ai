@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.70.0](https://github.com/dryvist/nix-ai/compare/v1.69.0...v1.70.0) (2026-06-04)
+
+
+### Features
+
+* **ci:** event-driven flake input updates ([#869](https://github.com/dryvist/nix-ai/issues/869)) ([d99a51a](https://github.com/dryvist/nix-ai/commit/d99a51a6f6301dbdc806c0b88ed6e1ded3c50aaa))
+* **mlx:** periodic watchdog kicks LaunchAgent under memory pressure (closes [#801](https://github.com/dryvist/nix-ai/issues/801) defensively) ([#873](https://github.com/dryvist/nix-ai/issues/873)) ([d43c1ce](https://github.com/dryvist/nix-ai/commit/d43c1cef39f5ae6d1b298d24858a303cec10242e))
+
+
+### Bug Fixes
+
+* **ci:** quote workflow_dispatch description to avoid YAML parse error ([#880](https://github.com/dryvist/nix-ai/issues/880)) ([f681e4f](https://github.com/dryvist/nix-ai/commit/f681e4f8f540ebf602e16a6f71aedbf072227f93))
+* **claude-code:** install via brew, latest channel, no nix binary ([#871](https://github.com/dryvist/nix-ai/issues/871)) ([7b6ee59](https://github.com/dryvist/nix-ai/commit/7b6ee59ddef68fefe61b3177826958f95b0a581a))
+* **claude:** restore ccstatusline statusline theme ([#875](https://github.com/dryvist/nix-ai/issues/875)) ([56e845c](https://github.com/dryvist/nix-ai/commit/56e845ce24fc24d620d61a704a75a6c667f25ee7))
+
 ## [1.69.0](https://github.com/dryvist/nix-ai/compare/v1.68.1...v1.69.0) (2026-06-01)
 
 
