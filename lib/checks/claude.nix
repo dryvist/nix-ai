@@ -109,7 +109,7 @@ in
         {
           name = "model";
           actual = cfg.model;
-          expected = "opusplan";
+          expected = "default";
         }
         {
           name = "effortLevel";
