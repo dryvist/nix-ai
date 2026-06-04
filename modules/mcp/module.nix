@@ -5,9 +5,9 @@
 #
 #   - pal-mcp wrapper (the binary referenced by `mcp/default.nix: command = "pal-mcp"`)
 #   - doppler-mcp wrapper (Doppler secret injection for any MCP server)
-#   - check-pal-mcp / splunk-mcp-connect helpers
+#   - splunk-mcp-connect helper
 #   - sync-mlx-models / sync-pal-cloud-models user CLI tools
-#   - palCustomModels / palCloudModels / palHealthCheck activations
+#   - palCustomModels / palCloudModels activations
 #
 # This module is the load-bearing piece for the MCP sub-flake's
 # self-containment guarantee: importing it (alone) gives a consumer a working
@@ -145,14 +145,6 @@ in
           text = builtins.readFile ./scripts/doppler-mcp.sh;
         })
 
-        # check-pal-mcp — verifies doppler-mcp can fetch PAL secrets.
-        # Run after `darwin-rebuild switch` to confirm PAL will start.
-        (pkgs.writeShellApplication {
-          name = "check-pal-mcp";
-          runtimeInputs = [ pkgs.doppler ];
-          text = builtins.readFile ./scripts/check-pal-mcp.sh;
-        })
-
         # splunk-mcp-connect — Splunk MCP App stdio proxy via mcp-remote.
         # Reads SPLUNK_MCP_ENDPOINT/SPLUNK_MCP_TOKEN injected by doppler-mcp.
         (pkgs.writeShellApplication {
@@ -197,23 +189,6 @@ in
             . ${./scripts/sync-pal-cloud-models.sh}
           fi
         '';
-
-        # Non-blocking health check — surfaces Doppler / secret issues
-        # right after activation. Always exits 0 (never blocks rebuild).
-        # Skipped on dry-run.
-        palHealthCheck =
-          lib.hm.dag.entryAfter
-            [
-              "writeBoundary"
-              "palCustomModels"
-              "palCloudModels"
-            ]
-            ''
-              if [ -z "''${DRY_RUN_CMD:-}" ]; then
-                export DOPPLER="${pkgs.doppler}/bin/doppler" PAL_MCP_BIN="${palPkg}/bin/pal-mcp-server" PAL_LOG_DIR="${palLogDir}"
-                . ${./scripts/check-pal-health.sh}
-              fi
-            '';
       };
     };
   };

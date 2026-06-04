@@ -285,7 +285,7 @@ natively by `doppler run` (exits non-zero with a clear error message).
    - Records commands only, not error details
    - Doppler auth errors go to stderr — re-run the logged command in a terminal to see them
 4. If Doppler auth expired: `doppler login`, then restart Claude Code
-5. Run `check-pal-mcp` for full diagnostics
+5. Verify registration: `claude mcp list | grep "^pal:"`
 
 **Mid-session recovery** (if server failed at startup but Doppler is now healthy):
 

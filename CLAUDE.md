@@ -56,7 +56,7 @@ inputs.nix-ai.inputs.home-manager.follows = "home-manager";
 - AI-specific GitHub CLI extensions (gh-aw)
 - AI tool configuration files (`.claude/`, `.gemini/`, `.copilot/`)
 - MLX inference server (vllm-mlx LaunchAgent + wrappers)
-- AI-specific shell utilities (sync-mlx-models, check-pal-mcp, hf CLI wrapper)
+- AI-specific shell utilities (sync-mlx-models, hf CLI wrapper)
 
 ### Package placement
 
