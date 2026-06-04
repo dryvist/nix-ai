@@ -76,8 +76,8 @@
     # bounding wasted compute on a pathologically misconfigured caller).
     maxRequestTokens = lib.mkOption {
       type = lib.types.nullOr lib.types.ints.positive;
-      default = null;
-      description = "Hard cap on max_tokens accepted from clients. Null = vllm-mlx server default: 32768.";
+      default = 8192;
+      description = "Hard cap on max_tokens accepted from clients. Null = vllm-mlx server default (32768). Default 8192 — rejects callers that request runaway generation lengths before they wait 5+ minutes for a `disconnect_guard` timeout. Tightened from `null` after the 2026-05-29 → 2026-06-03 pipe-timeout storm where pipes sending 80K-token prompts dominated the queue.";
     };
   };
 }

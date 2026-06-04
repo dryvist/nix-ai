@@ -27,20 +27,53 @@
 }:
 let
   registryAttrs = import ../../vars/ai-stack.nix;
-  registryJson = pkgs.writeText "ai-stack-registry.json" (builtins.toJSON registryAttrs);
+  # The populated registry replaces the var file's null-sentinel `models`
+  # block with the actual role → id map computed from
+  # services.aiStack.defaultLocalModelId. The JSON written to
+  # ~/.config/ai-stack/registry.json contains the materialized values so
+  # non-Nix consumers (orbstack-kubernetes, ansible, shell scripts) read a
+  # complete registry.
+  populatedRegistry = registryAttrs // {
+    models = config.services.aiStack.models;
+  };
+  registryJson = pkgs.writeText "ai-stack-registry.json" (builtins.toJSON populatedRegistry);
 in
 {
+  options.services.aiStack.defaultLocalModelId = lib.mkOption {
+    type = lib.types.str;
+    example = "mlx-community/<provider-tag>-<model-name>-<quant>";
+    description = ''
+      Local MLX physical model id used as the single resident model for
+      every role in `services.aiStack.models`. Sourced by the consuming
+      configuration (typically `nix-darwin`) from the dryvist
+      `AI_MODEL_LOCAL_LLM` org variable / Doppler secret / macOS
+      no-password automation keychain. **Never hardcoded in this repo.**
+
+      The deliberate posture: one model resident, every alias pointing
+      at it, swap-thrash impossible. To introduce per-role
+      differentiation later, override `services.aiStack.models` directly
+      or change the role-population logic in `modules/ai-stack/default.nix`.
+    '';
+  };
+
   options.services.aiStack.models = lib.mkOption {
     type = lib.types.attrsOf lib.types.str;
-    default = import ../../lib/ai-stack-models.nix;
+    default = import ../../lib/ai-stack-models.nix {
+      inherit (config.services.aiStack) defaultLocalModelId;
+    };
+    defaultText = lib.literalExpression ''
+      import ../../lib/ai-stack-models.nix {
+        inherit (config.services.aiStack) defaultLocalModelId;
+      }
+    '';
     description = ''
-      Role-name → physical mlx-community/* model ID. Each role becomes a
-      first-class llama-swap entry whose cmd runs `vllm-mlx serve <physical>`.
-      Physical names also remain queryable for direct curl / debugging.
+      Role-name → physical model ID map. Each role becomes a first-class
+      llama-swap entry whose cmd runs `vllm-mlx serve <physical>`.
 
-      The default reads from vars/ai-stack.nix. To change the registry,
-      edit that file. Override here only when a consumer needs a private
-      mapping that should not propagate to ~/.config/ai-stack/registry.json.
+      Default: every role resolves to `services.aiStack.defaultLocalModelId`
+      (read via `lib/ai-stack-models.nix`). Override here only when a
+      consumer needs a private mapping that should not propagate to
+      `~/.config/ai-stack/registry.json`.
     '';
   };
 

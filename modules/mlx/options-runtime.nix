@@ -63,8 +63,8 @@
       };
       idleTtl = lib.mkOption {
         type = lib.types.ints.unsigned;
-        default = 3600;
-        description = "Idle TTL in seconds applied uniformly to every model in the registry (including the default-aliased one). 0 = never auto-unload (escape hatch). Default 3600 s (1 hour) gives a long warm window without permanently wiring a model's weights.";
+        default = 1800;
+        description = "Idle TTL in seconds applied uniformly to every model in the registry (including the default-aliased one). 0 = never auto-unload (escape hatch). Default 1800 s (30 min) — a bounded warm window. Tightened from the prior 3600 s default after the recurring `nix-ai#801` stuck-past-TTL family of incidents; shorter windows mean less time exposed when the upstream `llama-swap` race fires during unload.";
       };
       logLevel = lib.mkOption {
         type = lib.types.enum [
@@ -100,22 +100,26 @@
       };
       concurrencyLimit = lib.mkOption {
         type = lib.types.ints.positive;
-        default = 4;
+        default = 2;
         description = ''
           Max in-flight requests llama-swap will forward to vllm-mlx per
           model. Maps directly to the YAML key llama-swap reads
           (`concurrencyLimit`); excess requests get HTTP 429.
 
-          Default 4 matches `maxNumSeqs = 4` so vllm-mlx continuous batching
-          stays fully utilized (1.5x–3x throughput on M4 Max 128 GB per
-          upstream benchmarks) while still bounding runaway callers so they
-          can't pile on faster than vllm-mlx can schedule. The 2026-05-15
-          finish_reason:error incident is tracked separately as a vllm-mlx
-          scheduler bug — a proxy-side cap is the safety valve, not the fix.
+          Default 2 — serializes bursts so a multi-pipe / multi-tool storm
+          can't fan out parallel calls that pile on faster than vllm-mlx
+          can schedule. Tightened from the prior 4 after the 2026-05-29
+          → 2026-06-03 pipe-timeout storm where bursts of concurrent
+          callers saturated the disconnect_guard window. The 2026-05-15
+          finish_reason:error incident remains tracked separately as a
+          vllm-mlx scheduler bug.
 
-          Setting this to 1 silently defeats continuous batching and is
-          almost never what you want; raise it only if vllm-mlx adds more
-          headroom (and bump `maxNumSeqs` in lockstep).
+          The trade-off: a value below `maxNumSeqs` slightly under-utilizes
+          continuous batching (1.5x–3x throughput peak). On this host the
+          stability win dominates. Bump only if you observe sustained
+          queue depth at the proxy without thrash.
+
+          Setting this to 1 silently defeats continuous batching.
         '';
       };
     };
