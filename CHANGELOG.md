@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.71.4](https://github.com/dryvist/nix-ai/compare/v1.71.3...v1.71.4) (2026-06-04)
+
+
+### Bug Fixes
+
+* **claude:** leave model and effort unset for account/upstream defaults ([c6575eb](https://github.com/dryvist/nix-ai/commit/c6575ebd74986ee7d976679075740d8b0f0ab855))
+
 ## [1.71.3](https://github.com/dryvist/nix-ai/compare/v1.71.2...v1.71.3) (2026-06-04)
 
 
