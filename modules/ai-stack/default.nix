@@ -44,10 +44,10 @@ in
     example = "mlx-community/<provider-tag>-<model-name>-<quant>";
     description = ''
       Local MLX physical model id used as the single resident model for
-      every role in `services.aiStack.models`. Sourced by the consuming
-      configuration (typically `nix-darwin`) from the dryvist
-      `AI_MODEL_LOCAL_LLM` org variable / Doppler secret / macOS
-      no-password automation keychain. **Never hardcoded in this repo.**
+      every role in `services.aiStack.models`. Supplied by the consuming
+      configuration (typically `nix-darwin`) — e.g. committed in the
+      consumer's user config, or injected via env/secret for CI.
+      **Never hardcoded in this repo.**
 
       The deliberate posture: one model resident, every alias pointing
       at it, swap-thrash impossible. To introduce per-role
