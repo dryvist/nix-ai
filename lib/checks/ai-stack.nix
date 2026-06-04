@@ -1,8 +1,10 @@
 # lib.aiStackModels regression tests
 # Verifies the role → physical-id registry that is exported as a public flake output.
-{ pkgs }:
+# ai-stack-models.nix is a function (parameterized by defaultLocalModelId); the
+# aggregator passes a placeholder test id so the registry can be materialized.
+{ pkgs, testLocalModelId }:
 let
-  models = import ../ai-stack-models.nix;
+  models = import ../ai-stack-models.nix { defaultLocalModelId = testLocalModelId; };
 
   expectedRoles = [
     "coding"
