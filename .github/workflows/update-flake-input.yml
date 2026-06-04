@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
     inputs:
       input_name:
-        description: Flake input to update (default: nix-claude-code)
+        description: "Flake input to update (default: nix-claude-code)"
         type: string
         default: nix-claude-code
 
