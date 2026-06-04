@@ -136,9 +136,10 @@ in
       # scriptPath default: .local/bin/claude-api-key-helper
     };
 
-    # Model: default — clears any override; reverts to the account tier's
-    # recommended model. Override manually via /model when needed.
-    model = "default";
+    # Model intentionally left unset: nix-claude-code defaults `model` to null,
+    # which Claude Code reads as the account-tier default. (The literal string
+    # "default" is NOT a valid model — Claude Code rejects it as missing.)
+    # Override per-session via /model, or via ANTHROPIC_MODEL in settings-env.nix.
 
     # Effort: high — maximize reasoning quality by default.
     effortLevel = "high";

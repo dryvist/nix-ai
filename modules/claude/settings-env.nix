@@ -7,15 +7,16 @@
 # See: https://code.claude.com/docs/en/settings
 # See: https://code.claude.com/docs/en/model-config
 {
-  # Model: default set above. Env var overrides available if needed.
-  # ANTHROPIC_MODEL = "sonnet"; # Uncomment to override default model via env var
-  # CLAUDE_CODE_SUBAGENT_MODEL = "claude-haiku-4-5-20251001"; # Cost control for subagents
+  # Model is intentionally left unset (see claude-config.nix), so Claude Code
+  # uses the account-tier default. Override per-session via /model, or here
+  # using a stable capability alias:
+  # ANTHROPIC_MODEL = "sonnet"; # aliases: opus / sonnet / haiku
+  # CLAUDE_CODE_SUBAGENT_MODEL = "haiku"; # cost control for subagents
 
-  # Explicit model versions (May 2026) - pin to known working versions if customization needed
-  # Note: Opus/Sonnet 4.x use dateless IDs; Haiku 4.5 retains a date suffix per the API versioning scheme.
-  # ANTHROPIC_DEFAULT_OPUS_MODEL = "claude-opus-4-7";
-  # ANTHROPIC_DEFAULT_SONNET_MODEL = "claude-sonnet-4-6";
-  # ANTHROPIC_DEFAULT_HAIKU_MODEL = "claude-haiku-4-5-20251001";
+  # To pin an exact model id instead of an alias, set the *_MODEL env vars below
+  # to full ids from the model-config docs. Exact ids are omitted here on purpose
+  # because they churn frequently: https://code.claude.com/docs/en/model-config
+  #   ANTHROPIC_DEFAULT_OPUS_MODEL / ANTHROPIC_DEFAULT_SONNET_MODEL / ANTHROPIC_DEFAULT_HAIKU_MODEL
 
   # MCP timeout settings (5 minutes) - required for PAL MCP
   MCP_TIMEOUT = "300000";
