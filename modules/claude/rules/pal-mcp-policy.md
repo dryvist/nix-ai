@@ -85,7 +85,7 @@ claude mcp list 2>/dev/null | grep "^pal:"
 | ------ | ------ |
 | `✓ Connected` | ToolSearch again for whichever tool is missing: `select:mcp__pal__clink` or `select:mcp__pal__consensus` |
 | `✗ Failed` | Go to Step 3 |
-| Not listed | Tell user: "PAL not registered. Run `check-pal-mcp` to diagnose." |
+| Not listed | PAL not registered — go to Step 3 to re-register |
 
 ### Step 3: Attempt reconnection
 
@@ -111,9 +111,9 @@ Tell user: "PAL reconnected but requires session restart to load tools."
 
 If PAL fails after the protocol:
 
-1. `check-pal-mcp` — full health check (Doppler auth, secrets, MCP status)
-2. `cat ~/.local/state/doppler-mcp.log` — recent invocation log
-3. `doppler me` — verify Doppler authentication
+1. `claude mcp list | grep "^pal:"` — verify PAL is registered and connected
+2. `doppler me` — verify Doppler authentication
+3. `cat ~/.local/state/doppler-mcp.log` — recent invocation log
 
 ## See also
 
