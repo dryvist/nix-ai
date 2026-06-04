@@ -25,7 +25,6 @@ in
         "agents"
         "apiKeyHelper"
         "attribution"
-        "autoUpdatesChannel"
         "commands"
         "effortLevel"
         "enable"
@@ -106,16 +105,6 @@ in
           name = "cleanupPeriodDays";
           actual = cfg.settings.cleanupPeriodDays;
           expected = 180;
-        }
-        {
-          name = "autoUpdatesChannel";
-          actual = cfg.autoUpdatesChannel;
-          expected = "latest";
-        }
-        {
-          name = "autoUpdates";
-          actual = cfg.autoUpdates;
-          expected = true;
         }
         {
           name = "model";

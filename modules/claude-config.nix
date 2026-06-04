@@ -142,9 +142,6 @@ in
     # Effort: high — maximize reasoning quality by default.
     effortLevel = "high";
 
-    autoUpdatesChannel = "latest"; # newest releases (matches upstream default)
-    autoUpdates = true; # keep the native (~/.local) build self-updating on the latest channel
-
     # Enable Remote Control for all sessions (Feb 2026 feature).
     remoteControlAtStartup = true;
 
