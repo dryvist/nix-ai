@@ -80,12 +80,12 @@ in
         {
           name = "mlx.proxy.idleTtl";
           actual = mlxCfg.proxy.idleTtl;
-          expected = 3600;
+          expected = 1800;
         }
         {
           name = "mlx.proxy.concurrencyLimit";
           actual = mlxCfg.proxy.concurrencyLimit;
-          expected = 4;
+          expected = 2;
         }
         {
           name = "mlx.prefillBatchSize";

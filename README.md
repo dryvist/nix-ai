@@ -64,14 +64,16 @@ nix-ai exports [home-manager](https://github.com/nix-community/home-manager) mod
 | `homeManagerModules.maestro` | Just Maestro orchestration |
 | `lib.ci.claudeSettingsJson` | Pure JSON for CI validation (no derivations needed) |
 | `lib.ci.codexRules` | Codex rules export for CI validation and downstream consumers |
-| `lib.aiStackModels` | Role-name → physical model ID registry (plain attrset, no module system needed) |
+| `lib.aiStackModels` | Role-name → physical model ID registry builder — a function `{ defaultLocalModelId }` (no module system needed) |
 
 ### Cross-repo consumption — `lib.aiStackModels`
 
-`lib.aiStackModels` is a plain attrset (no home-manager module system required) mapping stable
-capability-class names to physical `mlx-community/*` model IDs. Foreign consumers such as the
-orbstack-kubernetes Bifrost gateway can import it directly so `model: "default"` resolves
-prefix-free without duplicating the registry.
+`lib.aiStackModels` is a function `{ defaultLocalModelId }` (no home-manager module system
+required) that maps every stable capability-class name to the supplied physical
+`mlx-community/*` model ID. The caller provides `defaultLocalModelId` (sourced from the
+`AI_MODEL_LOCAL_LLM` org variable / Doppler secret — never hardcoded in this repo). Foreign
+consumers such as the orbstack-kubernetes Bifrost gateway can call it directly so
+`model: "default"` resolves prefix-free without duplicating the registry.
 
 ```nix
 inputs.nix-ai.url = "github:JacobPEvans/nix-ai";
@@ -79,7 +81,7 @@ inputs.nix-ai.url = "github:JacobPEvans/nix-ai";
 # Build Bifrost alias table from role names to mlx-local/ prefixed physical IDs
 aliases = lib.mapAttrs
   (_role: physical: "mlx-local/${physical}")
-  inputs.nix-ai.lib.aiStackModels;
+  (inputs.nix-ai.lib.aiStackModels { defaultLocalModelId = "mlx-community/<provider-tag>-<model-name>-<quant>"; });
 ```
 
 The module option `services.aiStack.models` remains the public API for nix-ai home-manager

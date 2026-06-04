@@ -9,6 +9,13 @@
   pal-mcp-server,
 }:
 let
+  # Placeholder physical model id for regression tests. The real value is
+  # sourced by consumers (nix-darwin) from AI_MODEL_LOCAL_LLM; tests only need
+  # a valid non-empty mlx-community/* string to populate services.aiStack and
+  # exercise lib/ai-stack-models.nix (a function since the role registry was
+  # parameterized).
+  testLocalModelId = "mlx-community/test-model";
+
   # Shared test module configuration — used by claude, mlx, and fabric regression checks
   hmConfig = home-manager.lib.homeManagerConfiguration {
     inherit pkgs;
@@ -18,6 +25,7 @@ let
         _module.args.userConfig = {
           user.fullName = "JacobPEvans";
         };
+        services.aiStack.defaultLocalModelId = testLocalModelId;
         home = {
           username = "test-user";
           homeDirectory = "/home/test-user";
@@ -37,6 +45,7 @@ let
         _module.args.userConfig = {
           user.fullName = "JacobPEvans";
         };
+        services.aiStack.defaultLocalModelId = testLocalModelId;
         home = {
           username = "test-user";
           homeDirectory = "/home/test-user";
@@ -48,7 +57,7 @@ let
   };
 in
 (import ./checks/lint.nix { inherit pkgs src; })
-// (import ./checks/ai-stack.nix { inherit pkgs; })
+// (import ./checks/ai-stack.nix { inherit pkgs testLocalModelId; })
 // (import ./checks/claude.nix { inherit pkgs hmConfig; })
 // (import ./checks/agent-skills.nix { inherit pkgs hmConfig; })
 // (import ./checks/codex.nix { inherit pkgs hmConfig; })
