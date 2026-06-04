@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.71.3](https://github.com/dryvist/nix-ai/compare/v1.71.2...v1.71.3) (2026-06-04)
+
+
+### Bug Fixes
+
+* **ci:** repair ai-stack & mlx regression checks after [#878](https://github.com/dryvist/nix-ai/issues/878) ([#887](https://github.com/dryvist/nix-ai/issues/887)) ([d062552](https://github.com/dryvist/nix-ai/commit/d0625526209a6d3c669a76b91f9b9e6f10c947e0))
+
 ## [1.71.2](https://github.com/dryvist/nix-ai/compare/v1.71.1...v1.71.2) (2026-06-04)
 
 
