@@ -174,8 +174,8 @@ in
       disallowedAntigravityFiles = builtins.filter (
         n:
         n == "GEMINI.md"
-        || builtins.match "^\\.gemini/antigravity-cli/skills(/.*)?$" n != null
-        || builtins.match "^\\.gemini/antigravity-cli/extensions/[^/]+/skills(/.*)?$" n != null
+        || builtins.match "^\\.gemini/antigravity-cli/skills/.+$" n != null
+        || builtins.match "^\\.gemini/antigravity-cli/extensions/[^/]+/skills/.+$" n != null
       ) homeFileNames;
     in
     assert keepFile != "" || throw "Antigravity .keep file is empty (module not loaded)";

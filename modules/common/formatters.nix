@@ -60,7 +60,7 @@ let
   geminiDenyMsg = "Command permanently blocked by security policy.";
 
 in
-{
+rec {
   # ============================================================================
   # CLAUDE CODE FORMATTER
   # ============================================================================
@@ -204,6 +204,8 @@ in
       map (cmd: "ShellTool(${cmd})") allCommands;
     getToolPermissions = permissions: permissions.toolSpecific.gemini.builtin or [ ];
   };
+
+  "antigravity-cli" = gemini;
 
   # ============================================================================
   # COPILOT CLI FORMATTER

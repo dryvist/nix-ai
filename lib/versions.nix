@@ -37,6 +37,8 @@
   gwsCli = "0.22.5";
 
   # MCP servers (npm)
+  # renovate: datasource=npm depName=@upstash/context7-mcp
+  context7Mcp = "3.1.0";
   # renovate: datasource=npm depName=@modelcontextprotocol/server-everything
   mcpEverything = "2026.1.26";
   # renovate: datasource=npm depName=@modelcontextprotocol/server-filesystem

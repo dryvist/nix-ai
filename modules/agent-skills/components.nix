@@ -62,6 +62,9 @@ in
         ".agents/.keep".text = ''
           # Managed by Nix - programs.agentSkills module
         '';
+        ".gemini/antigravity/skills".source = config.lib.file.mkOutOfStoreSymlink "${homeDir}/.agents/skills";
+        ".gemini/antigravity-cli/skills".source = config.lib.file.mkOutOfStoreSymlink "${homeDir}/.agents/skills";
+        ".gemini/config/skills".source = config.lib.file.mkOutOfStoreSymlink "${homeDir}/.agents/skills";
       }
       // mkSkillFiles cfg.fromFlakeInputs
       // mkLocalSkills cfg.local;

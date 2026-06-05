@@ -66,6 +66,7 @@ in
     # depending on `_module.args.nix-claude-code` — infinite recursion).
     ./claude-config.nix
     ./codex
+    ./antigravity-ide
     ./antigravity-cli
     ./fabric
     ./maestro
@@ -131,6 +132,11 @@ in
 
       # OpenAI Codex configuration (settings handled by modules/codex/)
       codex = {
+        enable = true;
+      };
+
+      # Antigravity IDE configuration (settings handled by modules/antigravity-ide/)
+      antigravity-ide = {
         enable = true;
       };
 

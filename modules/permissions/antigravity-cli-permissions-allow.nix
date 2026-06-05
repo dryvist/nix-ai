@@ -19,8 +19,8 @@ let
 in
 {
   # Policy Engine rules (primary)
-  allowRules = formatters.gemini.formatAllowRules permissions;
+  allowRules = formatters."antigravity-cli".formatAllowRules permissions;
 
   # Legacy format (kept for CI lib output and regression tests)
-  allowedTools = formatters.gemini.formatAllowedTools permissions;
+  allowedTools = formatters."antigravity-cli".formatAllowedTools permissions;
 }

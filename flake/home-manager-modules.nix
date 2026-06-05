@@ -130,6 +130,20 @@ in
     };
   };
 
+  antigravity-ide = {
+    imports = [
+      ../modules/mcp
+      ../modules/agent-skills
+      ../modules/antigravity-ide
+    ];
+    _module.args = {
+      inherit
+        ai-assistant-instructions
+        marketplaceInputs
+        ;
+    };
+  };
+
   cecli = {
     imports = [
       ../modules/ai-stack
