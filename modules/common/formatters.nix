@@ -207,6 +207,14 @@ rec {
 
   "antigravity-cli" = gemini;
 
+  "antigravity-ide" = {
+    formatAllowed = permissions:
+      let
+        allCommands = flattenCommands permissions.allow;
+      in
+      map (cmd: "command(${cmd})") allCommands;
+  };
+
   # ============================================================================
   # COPILOT CLI FORMATTER
   # ============================================================================
@@ -342,5 +350,22 @@ rec {
 
     # Get all categories from permissions
     getCategories = permissions: builtins.attrNames permissions;
+
+    # Normalize MCP server definition to Antigravity format
+    normalizeMcpServer = server:
+      if server.url != null then
+        # HTTP/SSE server
+        { httpUrl = server.url; } // lib.optionalAttrs (server.headers != { }) { inherit (server) headers; }
+      else
+        # stdio server
+        lib.filterAttrs (_name: value: value != null && value != [ ] && value != { }) {
+          inherit (server)
+            command
+            args
+            env
+            cwd
+            timeout
+            ;
+        };
   };
 }

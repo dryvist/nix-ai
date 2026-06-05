@@ -37,28 +37,8 @@ let
 
   mergedSandboxAllowedPaths = lib.unique (defaultSandboxAllowedPaths ++ cfg.sandboxAllowedPaths);
 
-  # Normalize MCP server for Antigravity format
-  # stdio: { command, args?, env?, cwd?, timeout? }
-  # HTTP/SSE: { httpUrl, headers? } (note: httpUrl not url)
-  normalizeAntigravityMcpServer =
-    server:
-    if server.url != null then
-      # HTTP/SSE server
-      { httpUrl = server.url; } // lib.optionalAttrs (server.headers != { }) { inherit (server) headers; }
-    else
-      # stdio server
-      lib.filterAttrs (_name: value: value != null && value != [ ] && value != { }) {
-        inherit (server)
-          command
-          args
-          env
-          cwd
-          timeout
-          ;
-      };
-
   mcpServers =
-    lib.mapAttrs' (name: server: lib.nameValuePair name (normalizeAntigravityMcpServer server))
+    lib.mapAttrs' (name: server: lib.nameValuePair name (formatters.utils.normalizeMcpServer server))
       (
         lib.filterAttrs (
           name: server: !(server.disabled or false) && !(lib.elem name cfg.excludedMcpServers)

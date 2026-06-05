@@ -19,31 +19,14 @@ let
   aiCommon = import ../common {
     inherit lib config ai-assistant-instructions;
   };
-  inherit (aiCommon) permissions;
+  inherit (aiCommon) permissions formatters;
 
   # Format permissions for Antigravity Desktop app (permissionGrants)
   # The format is "command(cmd)"
-  allowedCommands = map (cmd: "command(${cmd})") (lib.flatten (lib.mapAttrsToList (_: v: v.commands or [ ]) permissions.allow));
-
-  normalizeAntigravityMcpServer =
-    server:
-    if server.url != null then
-      # HTTP/SSE server
-      { httpUrl = server.url; } // lib.optionalAttrs (server.headers != { }) { inherit (server) headers; }
-    else
-      # stdio server
-      lib.filterAttrs (_name: value: value != null && value != [ ] && value != { }) {
-        inherit (server)
-          command
-          args
-          env
-          cwd
-          timeout
-          ;
-      };
+  allowedCommands = formatters."antigravity-ide".formatAllowed permissions;
 
   mcpServers =
-    lib.mapAttrs' (name: server: lib.nameValuePair name (normalizeAntigravityMcpServer server))
+    lib.mapAttrs' (name: server: lib.nameValuePair name (formatters.utils.normalizeMcpServer server))
       (
         lib.filterAttrs (
           name: server: !(server.disabled or false) && !(lib.elem name cfg.excludedMcpServers)
