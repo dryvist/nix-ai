@@ -208,7 +208,8 @@ rec {
   "antigravity-cli" = gemini;
 
   "antigravity-ide" = {
-    formatAllowed = permissions:
+    formatAllowed =
+      permissions:
       let
         allCommands = flattenCommands permissions.allow;
       in
@@ -352,7 +353,8 @@ rec {
     getCategories = permissions: builtins.attrNames permissions;
 
     # Normalize MCP server definition to Antigravity format
-    normalizeMcpServer = server:
+    normalizeMcpServer =
+      server:
       if server.url != null then
         # HTTP/SSE server
         { httpUrl = server.url; } // lib.optionalAttrs (server.headers != { }) { inherit (server) headers; }

@@ -37,7 +37,11 @@ let
 
   # Default paths the sandbox may write to. Merged with cfg.sandboxAllowedPaths
   # so every bare repo under ~/git/ can create worktrees without a denial.
-  defaultSandboxAllowedPaths = [ gitDir "${homeDir}/git/public" "${homeDir}/git/public/nix-darwin/.git" ];
+  defaultSandboxAllowedPaths = [
+    gitDir
+    "${homeDir}/git/public"
+    "${homeDir}/git/public/nix-darwin/.git"
+  ];
 
   mergedSandboxAllowedPaths = lib.unique (defaultSandboxAllowedPaths ++ cfg.sandboxAllowedPaths);
 

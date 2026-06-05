@@ -27,7 +27,8 @@ in
       actualOptions = builtins.attrNames cfg;
       missingOptions = builtins.filter (o: !(builtins.elem o actualOptions)) expectedOptions;
     in
-    assert missingOptions == [ ] || throw "Missing Antigravity options: ${builtins.toJSON missingOptions}";
+    assert
+      missingOptions == [ ] || throw "Missing Antigravity options: ${builtins.toJSON missingOptions}";
     pkgs.runCommand "check-antigravity-cli-options-regression" { } ''
       echo "Antigravity option regression: ${toString (builtins.length expectedOptions)} options verified"
       touch $out
