@@ -9,8 +9,3 @@
 defaults:
   warn: 6144
   error: 12288
-
-extended:
-  limit: 16384
-  files:
-    - formatters
