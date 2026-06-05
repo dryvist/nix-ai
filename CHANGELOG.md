@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.72.0](https://github.com/dryvist/nix-ai/compare/v1.71.5...v1.72.0) (2026-06-05)
+
+
+### Features
+
+* **antigravity-cli:** replace gemini module ([#895](https://github.com/dryvist/nix-ai/issues/895)) ([c561636](https://github.com/dryvist/nix-ai/commit/c5616364bd7fd0dd50880480c7cbe000091fdcb0))
+
 ## [1.71.5](https://github.com/dryvist/nix-ai/compare/v1.71.4...v1.71.5) (2026-06-05)
 
 
