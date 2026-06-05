@@ -1,0 +1,8 @@
+{
+  "tools": {
+    "sandboxAllowedPaths": [
+      "/Users/jevans/git/public",
+      "/Users/jevans/git/public/nix-darwin/.git"
+    ]
+  }
+}

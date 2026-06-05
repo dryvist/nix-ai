@@ -1,6 +1,6 @@
-# Gemini Components
+# Antigravity Components
 #
-# Manages custom commands for Gemini CLI.
+# Manages custom commands for Antigravity CLI.
 # Custom commands are auto-generated from shared Markdown definitions.
 {
   config,
@@ -10,7 +10,7 @@
 }:
 
 let
-  cfg = config.programs.gemini;
+  cfg = config.programs.antigravity-cli;
 
   # ── Commands (from flake inputs) ───────────────────────────────────
 
@@ -18,7 +18,7 @@ let
     components:
     builtins.listToAttrs (
       map (c: {
-        name = ".gemini/commands/${c.name}.toml";
+        name = ".gemini/antigravity-cli/commands/${c.name}.toml";
         value = {
           inherit (c) source;
           force = true;
@@ -30,7 +30,7 @@ let
     locals:
     lib.mapAttrs' (
       name: path:
-      lib.nameValuePair ".gemini/commands/${name}.toml" {
+      lib.nameValuePair ".gemini/antigravity-cli/commands/${name}.toml" {
         source = path;
         force = true;
       }
@@ -38,7 +38,7 @@ let
 
   # ── Auto-generated commands from shared Markdown definitions ───────
   # Reads from ai-assistant-instructions/agentsmd/commands/*.md
-  # and generates Gemini TOML command files.
+  # and generates Antigravity TOML command files.
 
   commandsDir = "${ai-assistant-instructions}/agentsmd/commands";
 
@@ -104,7 +104,7 @@ let
       outName = lib.replaceStrings [ ".md" ] [ ".toml" ] fileName;
     in
     {
-      name = ".gemini/commands/${outName}";
+      name = ".gemini/antigravity-cli/commands/${outName}";
       value = {
         text = tomlContent;
         force = true;

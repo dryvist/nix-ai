@@ -1,6 +1,6 @@
-# Gemini Module Options
+# Antigravity Module Options
 #
-# Declarative options for Google Gemini CLI configuration.
+# Declarative options for Google Antigravity CLI configuration.
 # Follows the same patterns as modules/claude/options.nix.
 { lib, ... }:
 
@@ -35,8 +35,8 @@ let
   };
 in
 {
-  options.programs.gemini = {
-    enable = lib.mkEnableOption "Gemini CLI configuration";
+  options.programs.antigravity-cli = {
+    enable = lib.mkEnableOption "Antigravity CLI configuration";
 
     # Commands
     commands = {
@@ -57,27 +57,27 @@ in
       beforeTool = lib.mkOption {
         type = hookType;
         default = null;
-        description = "Gemini BeforeTool hook";
+        description = "Antigravity BeforeTool hook";
       };
       afterTool = lib.mkOption {
         type = hookType;
         default = null;
-        description = "Gemini AfterTool hook";
+        description = "Antigravity AfterTool hook";
       };
       sessionStart = lib.mkOption {
         type = hookType;
         default = null;
-        description = "Gemini SessionStart hook";
+        description = "Antigravity SessionStart hook";
       };
       sessionEnd = lib.mkOption {
         type = hookType;
         default = null;
-        description = "Gemini SessionEnd hook";
+        description = "Antigravity SessionEnd hook";
       };
       notification = lib.mkOption {
         type = hookType;
         default = null;
-        description = "Gemini Notification hook";
+        description = "Antigravity Notification hook";
       };
     };
 
@@ -85,7 +85,7 @@ in
     extensions = lib.mkOption {
       type = lib.types.attrsOf extensionModule;
       default = { };
-      description = "Nix-managed Gemini extensions";
+      description = "Nix-managed Antigravity extensions";
     };
 
     # Trusted folders
@@ -99,7 +99,7 @@ in
       type = lib.types.listOf lib.types.str;
       readOnly = true;
       internal = true;
-      description = "Context file names emitted to Gemini settings.json; read-only.";
+      description = "Context file names emitted to Antigravity settings.json; read-only.";
     };
 
     # Sandbox allowed paths (merged with `~/git` default so worktree operations
@@ -148,7 +148,7 @@ in
         Enable automated Git worktree management for parallel work (experimental).
 
         Note: gemini-cli currently writes worktrees under
-        `<repo>/.gemini/worktrees/<branch>` (path is hardcoded upstream).
+        `<repo>/.gemini/antigravity-cli/worktrees/<branch>` (path is hardcoded upstream).
         Tracked at <https://github.com/google-gemini/gemini-cli> — once a
         configurable base path lands upstream, surface it here.
       '';
@@ -167,7 +167,7 @@ in
       description = ''
         Default approval mode for tool execution.
         "auto_edit" auto-approves file edits without prompting.
-        Null omits the key from settings.json (Gemini uses its built-in default).
+        Null omits the key from settings.json (Antigravity uses its built-in default).
       '';
     };
 
@@ -176,14 +176,14 @@ in
       type = lib.types.nullOr lib.types.str;
       default = null;
       description = ''
-        Pin Gemini CLI's default chat model (sets model.name in settings.json).
+        Pin Antigravity CLI's default chat model (sets model.name in settings.json).
         Accepts any value the upstream CLI accepts: tier aliases ("pro", "flash",
         "flash-lite"), "auto" family aliases, or explicit model IDs from the
         upstream registry. Prefer aliases over versioned IDs so this option
         does not go stale when upstream ships new models.
         See the in-CLI /model dialog or upstream settings.schema.json for
         the current accepted values.
-        null leaves Gemini CLI's own model resolution alone.
+        null leaves Antigravity CLI's own model resolution alone.
         NOTE: Google-hosted model values execute in Google's cloud. For
         on-device generation via local MLX inference, configure
         GOOGLE_GEMINI_BASE_URL to point at the Bifrost genai translator.
@@ -197,7 +197,7 @@ in
       autoStartServer = lib.mkOption {
         type = lib.types.bool;
         default = false;
-        description = "Automatically start the LiteRT-LM server when Gemini CLI starts.";
+        description = "Automatically start the LiteRT-LM server when Antigravity CLI starts.";
       };
 
       port = lib.mkOption {
@@ -221,7 +221,7 @@ in
       binaryPath = lib.mkOption {
         type = lib.types.str;
         default = "";
-        description = "Override path to the LiteRT-LM binary. Empty string uses Gemini CLI's default (~/.gemini/bin/litert/).";
+        description = "Override path to the LiteRT-LM binary. Empty string uses Antigravity CLI's default (~/.gemini/antigravity-cli/bin/litert/).";
       };
     };
 

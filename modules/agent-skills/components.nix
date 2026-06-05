@@ -55,7 +55,7 @@ in
 
         cleanup_skill_tree "${homeDir}/.agents/skills"
         cleanup_skill_tree "${homeDir}/.codex/skills"
-        cleanup_skill_tree "${homeDir}/.gemini/skills"
+        cleanup_skill_tree "${homeDir}/.antigravity-cli/skills"
       '';
 
       file = {

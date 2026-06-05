@@ -66,7 +66,7 @@ in
     # depending on `_module.args.nix-claude-code` — infinite recursion).
     ./claude-config.nix
     ./codex
-    ./gemini
+    ./antigravity-cli
     ./fabric
     ./maestro
     ./mcp
@@ -95,13 +95,13 @@ in
             "https://json.schemastore.org/claude-code-settings.json"
         '';
 
-        cleanupLegacyGeminiMd = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
-          gemini_md="${config.home.homeDirectory}/GEMINI.md"
-          if [ -L "$gemini_md" ]; then
-            target=$(readlink "$gemini_md")
+        cleanupLegacyAntigravityMd = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
+          antigravity_cli_md="${config.home.homeDirectory}/GEMINI.md"
+          if [ -L "$antigravity_cli_md" ]; then
+            target=$(readlink "$antigravity_cli_md")
             case "$target" in
               /nix/store/*)
-                $DRY_RUN_CMD rm "$gemini_md"
+                $DRY_RUN_CMD rm "$antigravity_cli_md"
                 ;;
             esac
           fi
@@ -134,14 +134,14 @@ in
         enable = true;
       };
 
-      # Gemini CLI configuration (settings handled by modules/gemini/)
-      gemini = {
+      # Antigravity CLI configuration (settings handled by module./antigravity-cli/)
+      antigravity-cli = {
         enable = true;
         worktrees = true;
         defaultApprovalMode = "auto_edit";
       };
 
-      # Shared skill deployment for Codex/Gemini compatibility layers.
+      # Shared skill deployment for Codex/Antigravity compatibility layers.
       agentSkills.enable = true;
 
       # MLX inference server (vllm-mlx on port 11434)
@@ -165,7 +165,7 @@ in
         enable = true;
         tasks.permission-sync = {
           prompt = builtins.readFile ./routines/prompts/permission-sync.md;
-          aiTool = "gemini";
+          aiTool = "antigravity-cli";
           schedule.times = [
             {
               hour = 6;

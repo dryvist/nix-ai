@@ -7,7 +7,7 @@
 }:
 let
   # Marketplace flake inputs now live inside nix-claude-code. Surface the
-  # full set here so non-Claude consumers (agent-skills, codex, gemini) can
+  # full set here so non-Claude consumers (agent-skills, codex, antigravity-cli) can
   # still discover plugins/skills without each consumer having to reach into
   # `nix-claude-code.inputs` themselves. The catalog of marketplace names
   # is owned by nix-claude-code; this attrset just selects what nix-ai
@@ -116,11 +116,11 @@ in
     };
   };
 
-  gemini = {
+  antigravity-cli = {
     imports = [
       ../modules/mcp
       ../modules/agent-skills
-      ../modules/gemini
+      ../modules/antigravity-cli
     ];
     _module.args = {
       inherit
