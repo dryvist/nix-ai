@@ -107,11 +107,9 @@ in
           expected = 180;
         }
         {
-          # Intentionally unset → null → Claude Code uses the account-tier
-          # default. The literal "default" is invalid and Claude Code rejects it.
           name = "model";
           actual = cfg.model;
-          expected = null;
+          expected = "opusplan";
         }
         {
           # Intentionally unset → null → Claude Code uses the upstream default.
