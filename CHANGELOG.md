@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.71.5](https://github.com/dryvist/nix-ai/compare/v1.71.4...v1.71.5) (2026-06-05)
+
+
+### Bug Fixes
+
+* **claude:** restore opusplan model, enable traces, clean up moot settings ([#893](https://github.com/dryvist/nix-ai/issues/893)) ([f6c3d08](https://github.com/dryvist/nix-ai/commit/f6c3d083fef75185562d479b58ea1063ede924e2))
+
 ## [1.71.4](https://github.com/dryvist/nix-ai/compare/v1.71.3...v1.71.4) (2026-06-04)
 
 
