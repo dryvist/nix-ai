@@ -127,11 +127,11 @@ in
               "read_file(${homeDir}/.antigravity)",
               "write_file(${homeDir}/.antigravity)",
               "read_file(${homeDir}/.config)",
-              "write_file(${homeDir}/.config)",
               "read_file(${homeDir}/.claude)",
-              "write_file(${homeDir}/.claude)"
+              "write_file(${homeDir}/.config/ai-stack)",
+              "write_file(${homeDir}/.config/pal-mcp)"
             ]' \
-            '.userSettings.globalPermissionGrants.allow = ((.userSettings.globalPermissionGrants.allow // []) + $new_grants | unique)' \
+            '.userSettings.globalPermissionGrants.allow = (((.userSettings.globalPermissionGrants.allow // []) + $new_grants | unique) - ["write_file(${homeDir}/.config)", "write_file(${homeDir}/.claude)"])' \
             "$gemini_config" > "$gemini_config.tmp" \
             && $DRY_RUN_CMD mv "$gemini_config.tmp" "$gemini_config"
         else
@@ -144,9 +144,9 @@ in
               "read_file(${homeDir}/.antigravity)",
               "write_file(${homeDir}/.antigravity)",
               "read_file(${homeDir}/.config)",
-              "write_file(${homeDir}/.config)",
               "read_file(${homeDir}/.claude)",
-              "write_file(${homeDir}/.claude)"
+              "write_file(${homeDir}/.config/ai-stack)",
+              "write_file(${homeDir}/.config/pal-mcp)"
             ]' \
             '{userSettings: {globalPermissionGrants: {allow: $new_grants}}}' > "$gemini_config"
         fi
