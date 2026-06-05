@@ -136,10 +136,8 @@ in
       # scriptPath default: .local/bin/claude-api-key-helper
     };
 
-    # Model intentionally left unset: nix-claude-code defaults `model` to null,
-    # which Claude Code reads as the account-tier default. (The literal string
-    # "default" is NOT a valid model — Claude Code rejects it as missing.)
-    # Override per-session via /model, or via ANTHROPIC_MODEL in settings-env.nix.
+    # Model: opusplan — Opus for planning, Sonnet for execution (1M context).
+    model = "opusplan";
 
     # Effort intentionally left unset: nix-claude-code defaults `effortLevel`
     # to null, which Claude Code reads as the upstream default. Override
@@ -148,8 +146,8 @@ in
     # Enable Remote Control for all sessions (Feb 2026 feature).
     remoteControlAtStartup = true;
 
-    # Auto-approve CLAUDE.md external imports for all repos discovered under ~/git/.
-    trustedProjectDirs = [ "~/git" ];
+    # Auto-approve CLAUDE.md external imports for all repos discovered under ~/git/public/.
+    trustedProjectDirs = [ "~/git/public/" ];
 
     # Commit trailer per https://docs.kernel.org/process/coding-assistants.html.
     attribution = {
@@ -251,11 +249,6 @@ in
 
       sandbox = {
         enabled = false;
-        excludedCommands = [
-          "git"
-          "nix"
-          "darwin-rebuild"
-        ];
       };
     };
 

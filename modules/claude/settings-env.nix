@@ -32,9 +32,6 @@
   # See: https://code.claude.com/docs/en/agent-teams
   CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = "1";
 
-  # Adaptive thinking for Opus/Sonnet (explicitly enabled)
-  CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING = "0";
-
   # DEFAULT VALUES (upstream) - reference only, do not uncomment unless tuning
   # MAX_THINKING_TOKENS = "31999";
   # CLAUDE_CODE_MAX_OUTPUT_TOKENS = "32000";
@@ -65,5 +62,5 @@
   OTEL_EXPORTER_OTLP_PROTOCOL = "grpc";
   OTEL_METRICS_EXPORTER = "otlp";
   OTEL_LOGS_EXPORTER = "otlp";
-  OTEL_TRACES_EXPORTER = "none"; # Only metrics + logs; no trace overhead
+  OTEL_TRACES_EXPORTER = "otlp";
 }
