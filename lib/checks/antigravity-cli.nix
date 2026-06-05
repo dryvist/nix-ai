@@ -1,12 +1,12 @@
-# Gemini module regression tests
+# Antigravity module regression tests
 { pkgs, hmConfig }:
 let
-  cfg = hmConfig.config.programs.gemini;
+  cfg = hmConfig.config.programs.antigravity-cli;
   homeFileNames = builtins.attrNames hmConfig.config.home.file;
 in
 {
-  # Verify all expected Gemini option paths exist.
-  gemini-options-regression =
+  # Verify all expected Antigravity option paths exist.
+  antigravity-cli-options-regression =
     let
       expectedOptions = [
         "commands"
@@ -27,103 +27,104 @@ in
       actualOptions = builtins.attrNames cfg;
       missingOptions = builtins.filter (o: !(builtins.elem o actualOptions)) expectedOptions;
     in
-    assert missingOptions == [ ] || throw "Missing Gemini options: ${builtins.toJSON missingOptions}";
-    pkgs.runCommand "check-gemini-options-regression" { } ''
-      echo "Gemini option regression: ${toString (builtins.length expectedOptions)} options verified"
+    assert
+      missingOptions == [ ] || throw "Missing Antigravity options: ${builtins.toJSON missingOptions}";
+    pkgs.runCommand "check-antigravity-cli-options-regression" { } ''
+      echo "Antigravity option regression: ${toString (builtins.length expectedOptions)} options verified"
       touch $out
     '';
 
   # Verify evaluated config values match expected defaults.
-  gemini-defaults-regression =
+  antigravity-cli-defaults-regression =
     let
       checks = [
         {
-          name = "gemini.enable";
+          name = "antigravity-cli.enable";
           actual = cfg.enable;
           expected = true;
         }
         {
-          name = "gemini.trustedFolders";
+          name = "antigravity-cli.trustedFolders";
           actual = cfg.trustedFolders;
           expected = [ ];
         }
         {
-          name = "gemini.contextFileNames";
+          name = "antigravity-cli.contextFileNames";
           actual = cfg.contextFileNames;
           expected = [ "AGENTS.md" ];
         }
         {
-          name = "gemini.excludedMcpServers.length";
+          name = "antigravity-cli.excludedMcpServers.length";
           actual = builtins.length cfg.excludedMcpServers;
           expected = 11;
         }
         {
-          name = "gemini.extensions";
+          name = "antigravity-cli.extensions";
           actual = cfg.extensions;
           expected = { };
         }
         {
-          name = "gemini.hooks.beforeTool";
+          name = "antigravity-cli.hooks.beforeTool";
           actual = cfg.hooks.beforeTool;
           expected = null;
         }
         {
-          name = "gemini.hooks.afterTool";
+          name = "antigravity-cli.hooks.afterTool";
           actual = cfg.hooks.afterTool;
           expected = null;
         }
         {
-          name = "gemini.commands.fromFlakeInputs";
+          name = "antigravity-cli.commands.fromFlakeInputs";
           actual = cfg.commands.fromFlakeInputs;
           expected = [ ];
         }
         {
-          name = "gemini.commands.local";
+          name = "antigravity-cli.commands.local";
           actual = cfg.commands.local;
           expected = { };
         }
         {
-          name = "gemini.sandbox.enable";
+          name = "antigravity-cli.sandbox.enable";
           actual = cfg.sandbox.enable;
           expected = true;
         }
         {
-          name = "gemini.sandbox.profile";
+          name = "antigravity-cli.sandbox.profile";
           actual = cfg.sandbox.profile;
           expected = null;
         }
         {
-          name = "gemini.sandboxAllowedPaths";
+          name = "antigravity-cli.sandboxAllowedPaths";
           actual = cfg.sandboxAllowedPaths;
           expected = [ ];
         }
         {
-          name = "gemini.defaultModel";
+          name = "antigravity-cli.defaultModel";
           actual = cfg.defaultModel;
           expected = null;
         }
         {
-          name = "gemini.gemmaModelRouter.enable";
+          name = "antigravity-cli.gemmaModelRouter.enable";
           actual = cfg.gemmaModelRouter.enable;
           expected = false;
         }
         {
-          name = "gemini.gemmaModelRouter.autoStartServer";
+          name = "antigravity-cli.gemmaModelRouter.autoStartServer";
           actual = cfg.gemmaModelRouter.autoStartServer;
           expected = false;
         }
         {
-          name = "gemini.gemmaModelRouter.port";
+          name = "antigravity-cli.gemmaModelRouter.port";
           actual = cfg.gemmaModelRouter.port;
           expected = 9379;
         }
         {
-          name = "gemini.gemmaModelRouter.binaryPath";
+          name = "antigravity-cli.gemmaModelRouter.binaryPath";
           actual = cfg.gemmaModelRouter.binaryPath;
           expected = "";
         }
         {
-          name = "gemini.gemmaModelRouter.classifierModel";
+          name = "antigravity-cli.gemmaModelRouter.classifierModel";
           actual = cfg.gemmaModelRouter.classifierModel;
           expected = "gemma3-1b-gpu-custom";
         }
@@ -135,16 +136,16 @@ in
         ) failures
       );
     in
-    assert failures == [ ] || throw "Gemini default value regression:\n${failureMsg}";
-    pkgs.runCommand "check-gemini-defaults-regression" { } ''
-      echo "Gemini defaults regression: ${toString (builtins.length checks)} critical defaults verified"
+    assert failures == [ ] || throw "Antigravity default value regression:\n${failureMsg}";
+    pkgs.runCommand "check-antigravity-cli-defaults-regression" { } ''
+      echo "Antigravity defaults regression: ${toString (builtins.length checks)} critical defaults verified"
       touch $out
     '';
 
   # Validate activation package builds (forces settings.json generation).
-  gemini-settings-json = builtins.seq hmConfig.activationPackage (
-    pkgs.runCommand "check-gemini-settings-json" { } ''
-      echo "Gemini settings: activation package builds successfully (settings.json generation verified)"
+  antigravity-cli-settings-json = builtins.seq hmConfig.activationPackage (
+    pkgs.runCommand "check-antigravity-cli-settings-json" { } ''
+      echo "Antigravity settings: activation package builds successfully (settings.json generation verified)"
       touch $out
     ''
   );
@@ -153,44 +154,44 @@ in
   # default (what actually lands in `tools.sandboxAllowedPaths` in settings.json).
   # Reads the read-only `sandboxAllowedPathsMerged` option the settings module
   # populates, so a broken merge fails the check at eval time.
-  gemini-sandbox-default-paths =
+  antigravity-cli-sandbox-default-paths =
     let
       expected = "${hmConfig.config.home.homeDirectory}/git";
-      merged = hmConfig.config.programs.gemini.sandboxAllowedPathsMerged;
+      merged = hmConfig.config.programs.antigravity-cli.sandboxAllowedPathsMerged;
       hasGitDir = builtins.elem expected merged;
     in
     assert
       hasGitDir
-      || throw "Gemini sandboxAllowedPathsMerged missing ${expected}: ${builtins.toJSON merged}";
-    pkgs.runCommand "check-gemini-sandbox-default-paths" { } ''
-      echo "Gemini sandbox default: ${expected} is present in merged settings"
+      || throw "Antigravity sandboxAllowedPathsMerged missing ${expected}: ${builtins.toJSON merged}";
+    pkgs.runCommand "check-antigravity-cli-sandbox-default-paths" { } ''
+      echo "Antigravity sandbox default: ${expected} is present in merged settings"
       touch $out
     '';
 
-  # Validate the .gemini/.keep directory marker is created (proves module loaded).
-  gemini-module-loaded =
+  # Validate the .gemini/antigravity-cli/.keep directory marker is created (proves module loaded).
+  antigravity-cli-module-loaded =
     let
-      keepFile = hmConfig.config.home.file.".gemini/.keep".text;
-      disallowedGeminiFiles = builtins.filter (
+      keepFile = hmConfig.config.home.file.".gemini/antigravity-cli/.keep".text;
+      disallowedAntigravityFiles = builtins.filter (
         n:
         n == "GEMINI.md"
-        || builtins.match "^\\.gemini/skills(/.*)?$" n != null
-        || builtins.match "^\\.gemini/extensions/[^/]+/skills(/.*)?$" n != null
+        || builtins.match "^\\.gemini/antigravity-cli/skills/.+$" n != null
+        || builtins.match "^\\.gemini/antigravity-cli/extensions/[^/]+/skills/.+$" n != null
       ) homeFileNames;
     in
-    assert keepFile != "" || throw "Gemini .keep file is empty (module not loaded)";
+    assert keepFile != "" || throw "Antigravity .keep file is empty (module not loaded)";
     assert
-      disallowedGeminiFiles == [ ]
-      || throw "Gemini must not deploy skills or GEMINI.md: ${builtins.toJSON disallowedGeminiFiles}";
-    pkgs.runCommand "check-gemini-module-loaded" { } ''
-      echo "Gemini module: .keep file present, module loaded successfully"
+      disallowedAntigravityFiles == [ ]
+      || throw "Antigravity must not deploy skills or GEMINI.md: ${builtins.toJSON disallowedAntigravityFiles}";
+    pkgs.runCommand "check-antigravity-cli-module-loaded" { } ''
+      echo "Antigravity module: .keep file present, module loaded successfully"
       touch $out
     '';
 
   # Validate Policy Engine TOML is deployed and settings.json uses policyPaths.
-  gemini-policy-engine =
+  antigravity-cli-policy-engine =
     let
-      policyFileEntry = hmConfig.config.home.file.".gemini/policies/nix-managed.toml";
+      policyFileEntry = hmConfig.config.home.file.".gemini/antigravity-cli/policies/nix-managed.toml";
       policyContent = builtins.readFile policyFileEntry.source;
       inherit (pkgs) lib;
     in
@@ -206,8 +207,8 @@ in
       || throw "No run_shell_command rules found";
     assert
       lib.hasInfix ''commandPrefix = "git"'' policyContent || throw "Missing git commandPrefix rule";
-    pkgs.runCommand "check-gemini-policy-engine" { } ''
-      echo "Gemini Policy Engine: TOML structure verified (8 assertions: non-empty, [[rule]], 3 decision types, tool mappings, git rule)"
+    pkgs.runCommand "check-antigravity-cli-policy-engine" { } ''
+      echo "Antigravity Policy Engine: TOML structure verified (8 assertions: non-empty, [[rule]], 3 decision types, tool mappings, git rule)"
       touch $out
     '';
 }

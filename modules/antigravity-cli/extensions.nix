@@ -1,11 +1,11 @@
-# Gemini Extension Management
+# Antigravity Extension Management
 #
-# Deploys Nix-managed extensions to ~/.gemini/extensions/<name>/.
-# Each extension gets a gemini-extension.json manifest and optional commands.
+# Deploys Nix-managed extensions to ~/.gemini/antigravity-cli/extensions/<name>/.
+# Each extension gets a antigravity-extension.json manifest and optional commands.
 { config, lib, ... }:
 
 let
-  cfg = config.programs.gemini;
+  cfg = config.programs.antigravity-cli;
 
   # Generate file entries for a single extension
   mkExtensionFiles =
@@ -18,14 +18,14 @@ let
       };
       commandFiles = lib.mapAttrs' (
         cmdName: path:
-        lib.nameValuePair ".gemini/extensions/${name}/commands/${cmdName}.toml" {
+        lib.nameValuePair ".gemini/antigravity-cli/extensions/${name}/commands/${cmdName}.toml" {
           source = path;
           force = true;
         }
       ) ext.commands;
     in
     {
-      ".gemini/extensions/${name}/gemini-extension.json" = {
+      ".gemini/antigravity-cli/extensions/${name}/antigravity-extension.json" = {
         text = manifest;
         force = true;
       };

@@ -22,6 +22,7 @@ let
   # ================================================================
 
   mcpEverythingVersion = versions.mcpEverything;
+  context7McpVersion = versions.context7Mcp;
   mcpFilesystemVersion = versions.mcpFilesystem;
   mcpMemoryVersion = versions.mcpMemory;
   mcpAwsVersion = versions.mcpAws;
@@ -92,8 +93,8 @@ in
   # Third-party npm packages
   # ================================================================
 
-  # Context7 - provided by context7@claude-plugins-official plugin.
-  # Do NOT define here - the plugin manages its own MCP server lifecycle.
+  # Context7 - real-time documentation retrieval MCP server
+  context7 = bunx [ "@upstash/context7-mcp@${context7McpVersion}" ];
 
   # ================================================================
   # PAL MCP - Multi-model orchestration

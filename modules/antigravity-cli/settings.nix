@@ -1,10 +1,10 @@
-# Gemini Settings Generation
+# Antigravity Settings Generation
 #
 # Generates settings.json and a Policy Engine TOML file.
-# settings.json is NOT a read-only symlink — Gemini writes auth tokens
+# settings.json is NOT a read-only symlink — Antigravity writes auth tokens
 # and runtime state to this file.
 #
-# POLICY ENGINE (Gemini CLI v0.36+):
+# POLICY ENGINE (Antigravity CLI v0.36+):
 # Replaces deprecated tools.allowed and tools.exclude with TOML policy rules.
 # Rules use commandPrefix for shell commands and toolName for built-in tools.
 # Docs: https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/policy-engine.md
@@ -17,7 +17,7 @@
 }:
 
 let
-  cfg = config.programs.gemini;
+  cfg = config.programs.antigravity-cli;
   homeDir = config.home.homeDirectory;
   gitDir = "${homeDir}/git";
 
@@ -28,37 +28,25 @@ let
 
   defaultTrustedFolders = [
     "${homeDir}/.config/nix"
+    "${homeDir}/.config"
+    "${homeDir}/.gemini"
+    "${homeDir}/.antigravity"
+    "${homeDir}/.claude"
     gitDir
   ];
 
   # Default paths the sandbox may write to. Merged with cfg.sandboxAllowedPaths
   # so every bare repo under ~/git/ can create worktrees without a denial.
-  defaultSandboxAllowedPaths = [ gitDir ];
+  defaultSandboxAllowedPaths = [
+    gitDir
+    "${homeDir}/git/public"
+    "${homeDir}/git/public/nix-darwin/.git"
+  ];
 
   mergedSandboxAllowedPaths = lib.unique (defaultSandboxAllowedPaths ++ cfg.sandboxAllowedPaths);
 
-  # Normalize MCP server for Gemini format
-  # stdio: { command, args?, env?, cwd?, timeout? }
-  # HTTP/SSE: { httpUrl, headers? } (note: httpUrl not url)
-  normalizeGeminiMcpServer =
-    server:
-    if server.url != null then
-      # HTTP/SSE server
-      { httpUrl = server.url; } // lib.optionalAttrs (server.headers != { }) { inherit (server) headers; }
-    else
-      # stdio server
-      lib.filterAttrs (_name: value: value != null && value != [ ] && value != { }) {
-        inherit (server)
-          command
-          args
-          env
-          cwd
-          timeout
-          ;
-      };
-
   mcpServers =
-    lib.mapAttrs' (name: server: lib.nameValuePair name (normalizeGeminiMcpServer server))
+    lib.mapAttrs' (name: server: lib.nameValuePair name (formatters.utils.normalizeMcpServer server))
       (
         lib.filterAttrs (
           name: server: !(server.disabled or false) && !(lib.elem name cfg.excludedMcpServers)
@@ -67,16 +55,16 @@ let
 
   # Policy Engine: generate TOML rules from shared permissions
   policyRules =
-    formatters.gemini.formatAllowRules permissions
-    ++ formatters.gemini.formatDenyRules permissions
-    ++ formatters.gemini.formatAskRules permissions;
+    formatters."antigravity-cli".formatAllowRules permissions
+    ++ formatters."antigravity-cli".formatDenyRules permissions
+    ++ formatters."antigravity-cli".formatAskRules permissions;
 
-  policyToml = (pkgs.formats.toml { }).generate "gemini-policy.toml" {
+  policyToml = (pkgs.formats.toml { }).generate "antigravity-policy.toml" {
     rule = policyRules;
   };
 
   # Path where the policy file will be deployed (must be absolute for policyPaths)
-  policyPath = "${homeDir}/.gemini/policies/nix-managed.toml";
+  policyPath = "${homeDir}/.gemini/antigravity-cli/policies/nix-managed.toml";
 
   settings = {
     "$schema" =
@@ -132,7 +120,7 @@ let
   };
 
   settingsJson =
-    pkgs.runCommand "gemini-settings.json"
+    pkgs.runCommand "antigravity-settings.json"
       {
         nativeBuildInputs = [ pkgs.jq ];
         json = builtins.toJSON settings;
@@ -145,24 +133,24 @@ in
 {
   config = lib.mkMerge [
     # Read-only introspection options set unconditionally so module evaluation
-    # succeeds even when programs.gemini.enable = false. Values are derived from
+    # succeeds even when programs.antigravity-cli.enable = false. Values are derived from
     # pure Nix expressions (no activation-time side effects).
     {
-      programs.gemini.contextFileNames = settings.context.fileName;
-      programs.gemini.sandboxAllowedPathsMerged = mergedSandboxAllowedPaths;
+      programs.antigravity-cli.contextFileNames = settings.context.fileName;
+      programs.antigravity-cli.sandboxAllowedPathsMerged = mergedSandboxAllowedPaths;
     }
     (lib.mkIf cfg.enable {
       home = {
-        # Deploy the Policy Engine TOML file (read-only is fine — Gemini only reads it)
+        # Deploy the Policy Engine TOML file (read-only is fine — Antigravity only reads it)
         file."${lib.removePrefix "${homeDir}/" policyPath}".source = policyToml;
 
-        activation.mergeGeminiSettings = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        activation.mergeAntigravitySettings = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
           export PATH="${pkgs.jq}/bin:$PATH"
           $DRY_RUN_CMD ${../scripts/merge-json-settings.sh} \
             "${settingsJson}" \
-            "${homeDir}/.gemini/settings.json"
-          $DRY_RUN_CMD ${../scripts/strip-deprecated-gemini-keys.sh} \
-            "${homeDir}/.gemini/settings.json"
+            "${homeDir}/.gemini/antigravity-cli/settings.json"
+          $DRY_RUN_CMD ${../scripts/strip-deprecated-antigravity-cli-keys.sh} \
+            "${homeDir}/.gemini/antigravity-cli/settings.json"
         '';
       };
     })

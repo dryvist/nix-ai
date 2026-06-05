@@ -19,5 +19,5 @@ let
 in
 {
   # Policy Engine rules (primary)
-  askRules = formatters.gemini.formatAskRules permissions;
+  askRules = formatters."antigravity-cli".formatAskRules permissions;
 }

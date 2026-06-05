@@ -191,7 +191,7 @@ in
     (lib.mkRenamedOptionModule
       [
         "programs"
-        "gemini"
+        "antigravity-cli"
         "skills"
         "fromFlakeInputs"
       ]
@@ -204,7 +204,7 @@ in
     (lib.mkRenamedOptionModule
       [
         "programs"
-        "gemini"
+        "antigravity-cli"
         "skills"
         "local"
       ]

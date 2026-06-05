@@ -32,10 +32,10 @@
 
             aiTool = lib.mkOption {
               type = lib.types.enum [
-                "gemini"
+                "antigravity-cli"
                 "claude"
               ];
-              default = "gemini";
+              default = "antigravity-cli";
               description = "AI CLI to use for this task";
             };
 
