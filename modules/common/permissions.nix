@@ -111,6 +111,8 @@ in
       "${homeDir}/.dotfiles"
       "${homeDir}/.config"
       "${homeDir}/.claude"
+      "${homeDir}/.gemini"
+      "${homeDir}/.antigravity"
     ];
 
     home = [ homeDir ];

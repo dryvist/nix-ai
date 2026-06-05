@@ -28,6 +28,10 @@ let
 
   defaultTrustedFolders = [
     "${homeDir}/.config/nix"
+    "${homeDir}/.config"
+    "${homeDir}/.gemini"
+    "${homeDir}/.antigravity"
+    "${homeDir}/.claude"
     gitDir
   ];
 

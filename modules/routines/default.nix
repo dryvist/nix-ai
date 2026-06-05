@@ -36,8 +36,8 @@ let
       promptFile = "${promptsDir}/${name}.md";
       modelFlag = lib.optionalString (task.model != null) "--model ${lib.escapeShellArg task.model}";
     in
-    if task.aiTool == "gemini" then
-      "gemini -p \"$(cat '${promptFile}')\" ${modelFlag}"
+    if task.aiTool == "antigravity-cli" then
+      "agy -p \"$(cat '${promptFile}')\" ${modelFlag}"
     else
       # Claude: use --print flag for non-interactive output
       "claude --print ${modelFlag} < '${promptFile}'";

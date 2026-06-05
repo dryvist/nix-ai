@@ -116,6 +116,41 @@ in
           "${mcpConfigJson}" \
           "${homeDir}/.gemini/config/mcp_config.json"
 
+        # Merge globalPermissionGrants in ~/.gemini/config/config.json
+        gemini_config="${homeDir}/.gemini/config/config.json"
+        if [ -f "$gemini_config" ]; then
+          echo "-> Merging global permission grants in ~/.gemini/config/config.json..."
+          $DRY_RUN_CMD jq \
+            --argjson new_grants '[
+              "read_file(${homeDir}/.gemini)",
+              "write_file(${homeDir}/.gemini)",
+              "read_file(${homeDir}/.antigravity)",
+              "write_file(${homeDir}/.antigravity)",
+              "read_file(${homeDir}/.config)",
+              "write_file(${homeDir}/.config)",
+              "read_file(${homeDir}/.claude)",
+              "write_file(${homeDir}/.claude)"
+            ]' \
+            '.userSettings.globalPermissionGrants.allow = ((.userSettings.globalPermissionGrants.allow // []) + $new_grants | unique)' \
+            "$gemini_config" > "$gemini_config.tmp" \
+            && $DRY_RUN_CMD mv "$gemini_config.tmp" "$gemini_config"
+        else
+          echo "-> Creating ~/.gemini/config/config.json with global permission grants..."
+          $DRY_RUN_CMD mkdir -p "$(dirname "$gemini_config")"
+          $DRY_RUN_CMD jq -n \
+            --argjson new_grants '[
+              "read_file(${homeDir}/.gemini)",
+              "write_file(${homeDir}/.gemini)",
+              "read_file(${homeDir}/.antigravity)",
+              "write_file(${homeDir}/.antigravity)",
+              "read_file(${homeDir}/.config)",
+              "write_file(${homeDir}/.config)",
+              "read_file(${homeDir}/.claude)",
+              "write_file(${homeDir}/.claude)"
+            ]' \
+            '{userSettings: {globalPermissionGrants: {allow: $new_grants}}}' > "$gemini_config"
+        fi
+
         # Update all project config JSON files under ~/.gemini/config/projects/
         projects_dir="${homeDir}/.gemini/config/projects"
         if [ -d "$projects_dir" ]; then
