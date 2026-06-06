@@ -52,6 +52,19 @@ let
 
   versions = import ../lib/versions.nix;
   browserUseVersion = versions.browserUse;
+
+  homebrewCfg = import ../lib/homebrew.nix;
+
+  # ~/.homebrew/trust.json — macOS only. Homebrew 5.2.0/6.0.0 enforces
+  # HOMEBREW_REQUIRE_TAP_TRUST; pre-trust the AI-tool taps declared in
+  # lib/homebrew.nix so brew bundle keeps working when the default flips.
+  # Read-only Nix store symlink is intentional — add new taps in
+  # lib/homebrew.nix; never run brew trust directly.
+  brewTrustFiles = lib.optionalAttrs pkgs.stdenv.isDarwin {
+    ".homebrew/trust.json".text = builtins.toJSON {
+      trustedtaps = homebrewCfg.taps;
+    };
+  };
 in
 {
   imports = [
@@ -83,7 +96,7 @@ in
       # AI development tools (MCP servers, linters, CLI wrappers)
       inherit (import ./ai-tools.nix { inherit pkgs; }) packages;
 
-      file = copilotFiles // agentsMdSymlinks;
+      file = copilotFiles // agentsMdSymlinks // brewTrustFiles;
 
       activation = {
         # Claude Code Settings Validation (post-rebuild)

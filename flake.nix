@@ -86,6 +86,7 @@
         "x86_64-linux"
       ];
       forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
+      homebrewNix = import ./lib/homebrew.nix;
     in
     {
       homeManagerModules = import ./flake/home-manager-modules.nix {
@@ -193,6 +194,12 @@
         brewFormulae = [
           "qwen-code" # programs.qwen-code with installVia = "brew"
         ];
+
+        # AI-tool Homebrew taps and casks. nix-darwin merges these into
+        # homebrew.taps and homebrew.casks. Source of truth: lib/homebrew.nix
+        # (same file drives the trust.json written by the home-manager module).
+        homebrewTaps = homebrewNix.taps;
+        homebrewCasks = homebrewNix.casks;
 
         # Shared permission + formatter engine. Exposed for cross-flake consumers
         # (e.g., nix-ai-claude) so the source of truth for tool-agnostic command
