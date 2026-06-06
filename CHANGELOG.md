@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.73.0](https://github.com/dryvist/nix-ai/compare/v1.72.0...v1.73.0) (2026-06-06)
+
+
+### Features
+
+* declare AI-tool Homebrew taps/casks and trust.json in nix-ai ([#897](https://github.com/dryvist/nix-ai/issues/897)) ([72fc391](https://github.com/dryvist/nix-ai/commit/72fc3912fe2c10f27849e90facfc3280c01f31c3))
+
 ## [1.72.0](https://github.com/dryvist/nix-ai/compare/v1.71.5...v1.72.0) (2026-06-05)
 
 
