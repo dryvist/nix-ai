@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.73.2](https://github.com/dryvist/nix-ai/compare/v1.73.1...v1.73.2) (2026-06-07)
+
+
+### Bug Fixes
+
+* **homebrew:** drop nonexistent google/antigravity tap ([#907](https://github.com/dryvist/nix-ai/issues/907)) ([7147101](https://github.com/dryvist/nix-ai/commit/71471011bd7a2513eee58423091fc7c07d2e6c61))
+
 ## [1.73.1](https://github.com/dryvist/nix-ai/compare/v1.73.0...v1.73.1) (2026-06-07)
 
 
