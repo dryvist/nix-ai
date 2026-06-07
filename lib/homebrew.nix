@@ -9,7 +9,6 @@
 {
   taps = [
     "anthropics/tap" # claude-code@latest
-    "google/antigravity" # antigravity suite
   ];
 
   casks = [
@@ -17,6 +16,7 @@
       name = "claude-code@latest";
       greedy = true;
     }
+    # antigravity suite ships in the default homebrew-cask tap — no vendor tap needed
     {
       name = "antigravity";
       greedy = true;
