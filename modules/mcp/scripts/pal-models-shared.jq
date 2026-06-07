@@ -20,10 +20,11 @@
 # Lowercase + strip provider prefix + strip MLX quant suffix.
 # OpenRouter ids: "anthropic/claude-opus-4.7" → "claude-opus-4.7"
 # MLX ids:        "mlx-community/Qwen3.5-122B-A10B-4bit" → "qwen3.5-122b-a10b"
+#                 "mlx-community/Qwen3.6-35B-A3B-mxfp4"  → "qwen3.6-35b-a3b"
 def normalize_name:
   ascii_downcase
-  | sub("^[^/]+/"; "")           # strip "anthropic/", "mlx-community/", etc.
-  | sub("-[0-9]+bit$"; "");      # strip MLX quant suffix
+  | sub("^[^/]+/"; "")                        # strip "anthropic/", "mlx-community/", etc.
+  | sub("-(mxfp[0-9]+|[0-9]+bit)$"; "");      # strip MLX quant suffix (4bit, mxfp4/mxfp8)
 
 # Find the highest LMSYS rating among keys that start with $prefix.
 # Used as a fuzzy fallback for variants the leaderboard names differently:
@@ -34,8 +35,16 @@ def find_best_prefix_match($prefix):
   | [$r | to_entries[] | select(.key | startswith($prefix)) | .value]
   | if length > 0 then max else null end;
 
+# Proxy-rating aliases: a model not yet on the LMSYS leaderboard mapped to its
+# nearest rated sibling (normalized names). The resident MoE shares size and
+# architecture with its prior-generation sibling, so that Elo is a conservative
+# lower bound until the leaderboard lists the model directly. Keep this tiny.
+def rating_aliases: {
+  "qwen3.6-35b-a3b": "qwen3.5-35b-a3b"
+};
+
 # Look up an Elo rating from the slurped $ratings file.
-# Tries (in order): exact match, hyphenated form (Anthropic), prefix match.
+# Tries (in order): exact, hyphenated form (Anthropic), prefix match, proxy alias.
 # Returns null if nothing matches — caller MUST handle null (typically by
 # filtering the model out, never by inventing a fallback score).
 def lookup_rating($name):
@@ -46,7 +55,7 @@ def lookup_rating($name):
     // $r[$hyphenated]
     // find_best_prefix_match($base)
     // find_best_prefix_match($hyphenated)
-    // null;
+    // (rating_aliases[$base] as $alias | if $alias != null then $r[$alias] else null end);
 
 # Convert an Elo rating to PAL's 1-20 intelligence scale.
 # Uses half-up rounding so 1499 → 20 (not 19 with floor).
