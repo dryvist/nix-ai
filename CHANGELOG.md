@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.73.1](https://github.com/dryvist/nix-ai/compare/v1.73.0...v1.73.1) (2026-06-07)
+
+
+### Bug Fixes
+
+* **pal:** give the resident MLX model a proxy Elo so it lands in custom_models.json ([#904](https://github.com/dryvist/nix-ai/issues/904)) ([c8257b2](https://github.com/dryvist/nix-ai/commit/c8257b24a9d3dd8b57766939e28c582ae2f62ec5))
+
 ## [1.73.0](https://github.com/dryvist/nix-ai/compare/v1.72.0...v1.73.0) (2026-06-06)
 
 
