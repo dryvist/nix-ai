@@ -41,8 +41,8 @@
         services.aiStack.models. Routes through the local MLX stack at
         http://127.0.0.1:11434/v1.
 
-        Override to a cloud provider model name (e.g. "claude-3-5-sonnet-20241022",
-        "gpt-4o", "gemini-1.5-pro") but be aware fabric needs API keys
+        Override to a cloud provider model id (any Claude, Gemini, or GPT model
+        your provider exposes) but be aware fabric needs API keys
         configured in ~/.config/fabric/.env for those backends.
       '';
     };

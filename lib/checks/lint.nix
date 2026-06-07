@@ -44,4 +44,26 @@
     ' bash
     touch $out
   '';
+
+  # Guard: physical MLX model ids belong only in the runtime registry
+  # (services.aiStack.defaultLocalModelId, sourced from AI_MODEL_LOCAL_LLM).
+  # Every consumer references a capability role, never a hardcoded id — so a
+  # model swap touches only the registry. Allowed: the "mlx-community/<...>"
+  # placeholder in option examples and the "test-model" id in the check harness.
+  # lib/checks/* is excluded since it names the pattern itself.
+  no-hardcoded-model-id = pkgs.runCommand "check-no-hardcoded-model-id" { } ''
+    cd ${src}
+    bad=$(grep -rnoE 'mlx-community/[A-Za-z0-9][^[:space:]"]*' \
+      --include='*.nix' --include='*.sh' --include='*.md' \
+      --exclude-dir=.git --exclude-dir=result --exclude-dir=.direnv . \
+      | grep -vE 'lib/checks' \
+      | grep -vE 'mlx-community/test-model' || true)
+    if [ -n "$bad" ]; then
+      echo "ERROR: hardcoded physical MLX model id(s) found — use an ai-stack capability role instead:" >&2
+      echo "$bad" >&2
+      exit 1
+    fi
+    echo "no hardcoded mlx-community/* model ids outside the registry/SSOT"
+    touch $out
+  '';
 }
