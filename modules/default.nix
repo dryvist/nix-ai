@@ -62,11 +62,17 @@ let
   # lib/homebrew.nix; never run brew trust directly.
   brewTrustFiles = lib.optionalAttrs pkgs.stdenv.isDarwin {
     ".homebrew/trust.json".text = builtins.toJSON {
-      trustedtaps = homebrewCfg.taps;
+      trustedtaps = config.programs.ai-homebrew.trustedTaps;
     };
   };
 in
 {
+  options.programs.ai-homebrew.trustedTaps = lib.mkOption {
+    type = lib.types.listOf lib.types.str;
+    default = homebrewCfg.taps;
+    description = "List of trusted Homebrew taps. Defaults to AI taps but can be extended by other modules.";
+  };
+
   imports = [
     ./ai-shell.nix
     ./ai-stack
