@@ -9,6 +9,7 @@
 {
   taps = [
     "anthropics/tap" # claude-code@latest
+    "aws/tap"
   ];
 
   casks = [

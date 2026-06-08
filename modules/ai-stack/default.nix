@@ -34,7 +34,7 @@ let
   # non-Nix consumers (orbstack-kubernetes, ansible, shell scripts) read a
   # complete registry.
   populatedRegistry = registryAttrs // {
-    models = config.services.aiStack.models;
+    inherit (config.services.aiStack) models;
   };
   registryJson = pkgs.writeText "ai-stack-registry.json" (builtins.toJSON populatedRegistry);
 in
