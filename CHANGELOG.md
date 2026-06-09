@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.74.0](https://github.com/dryvist/nix-ai/compare/v1.73.2...v1.74.0) (2026-06-08)
+
+
+### Features
+
+* **homebrew:** expose programs.ai-homebrew.trustedTaps option ([#911](https://github.com/dryvist/nix-ai/issues/911)) ([a82ad48](https://github.com/dryvist/nix-ai/commit/a82ad4857ee1db469c83e6b23bf5199f2afe3487))
+
 ## [1.73.2](https://github.com/dryvist/nix-ai/compare/v1.73.1...v1.73.2) (2026-06-07)
 
 
