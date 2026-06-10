@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.74.1](https://github.com/dryvist/nix-ai/compare/v1.74.0...v1.74.1) (2026-06-10)
+
+
+### Bug Fixes
+
+* **mlx:** default launchd ProcessType to Interactive — Background QoS clamps Metal decode ~8x ([#916](https://github.com/dryvist/nix-ai/issues/916)) ([1218296](https://github.com/dryvist/nix-ai/commit/1218296db5a2f7587cf9735c6dc62c152168a574))
+
 ## [1.74.0](https://github.com/dryvist/nix-ai/compare/v1.73.2...v1.74.0) (2026-06-08)
 
 
