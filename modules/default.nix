@@ -11,6 +11,7 @@
   pkgs,
   lib,
   ai-assistant-instructions,
+  nix-claude-code,
   userConfig ? {
     user.fullName = "JacobPEvans";
   },
@@ -40,7 +41,7 @@ let
       config
       lib
       pkgs
-      ai-assistant-instructions
+      nix-claude-code
       ;
   };
 

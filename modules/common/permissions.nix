@@ -4,7 +4,7 @@
 # Each tool uses formatters to convert these to their specific format.
 #
 # STRUCTURE:
-# - allow: Auto-approved commands (from ai-assistant-instructions)
+# - allow: Auto-approved commands (from nix-claude-code data/permissions)
 # - deny: Permanently blocked, catastrophic operations
 # - directories: Shared directory trust configuration
 # - toolSpecific: Non-shell tool identifiers
@@ -18,8 +18,8 @@
 {
   lib,
   config,
-  ai-assistant-instructions,
-  excludeDenyFiles ? [ ],
+  nix-claude-code,
+  excludeDenyCategories ? [ ],
   excludeDenyCommands ? [ ],
   ...
 }:
@@ -27,73 +27,102 @@
 let
   homeDir = config.home.homeDirectory;
 
-  # Read all JSON files from a directory into an attribute set
-  # Returns {filename = parsed-json-content} for efficient reuse
-  readJsonsFromDir =
-    dir:
-    if builtins.pathExists dir then
-      let
-        files = builtins.readDir dir;
-        jsonFiles = lib.filterAttrs (n: v: v == "regular" && lib.hasSuffix ".json" n) files;
-      in
-      lib.mapAttrs' (
-        name: _:
-        let
-          filePath = "${dir}/${name}";
-          fileContents = builtins.readFile filePath;
-          parsed = builtins.tryEval (builtins.fromJSON fileContents);
-        in
-        if parsed.success then
-          lib.nameValuePair name parsed.value
-        else
-          throw "Invalid JSON in AI permission file: ${filePath}"
-      ) jsonFiles
-    else
-      { };
+  # Permission data vendored in nix-claude-code (data/permissions/*.nix,
+  # exposed as lib.permissions). Verified meaning-equivalent to the legacy
+  # ai-assistant-instructions/agentsmd/permissions JSON in
+  # dryvist/nix-claude-code#50 (Checkpoint 3, step 1).
+  sourcePermissions = nix-claude-code.lib.permissions;
 
-  # Paths to permission directories in ai-assistant-instructions
-  allowDir = "${ai-assistant-instructions}/agentsmd/permissions/allow";
-  denyDir = "${ai-assistant-instructions}/agentsmd/permissions/deny";
-  askDir = "${ai-assistant-instructions}/agentsmd/permissions/ask";
-  domainsFile = "${ai-assistant-instructions}/agentsmd/permissions/domains/webfetch.json";
+  # Deny categories that callers may exclude from the static deny list
+  # (excluded categories are handled by auto mode's AI classifier instead).
+  #
+  # The vendored deny list in nix-claude-code is flat, so the per-category
+  # split lives here. Keys are the legacy deny/*.json category names; values
+  # are snapshots of those files' command lists (derived once from
+  # ai-assistant-instructions deny/{shell,network}.json, which match the
+  # correspondingly commented blocks in nix-claude-code's
+  # data/permissions/deny.nix). Exclusion is by membership, so ordering here
+  # is irrelevant; entries are sorted for stable diffs.
+  denyCategoryCommands = {
+    # network: mutating HTTP verbs and inbound listeners
+    network = [
+      "curl --data"
+      "curl --request DELETE"
+      "curl --request PATCH"
+      "curl --request POST"
+      "curl --request PUT"
+      "curl -X DELETE"
+      "curl -X PATCH"
+      "curl -X POST"
+      "curl -X PUT"
+      "curl -d"
+      "nc -l"
+      "ncat -l"
+      "socat"
+    ];
 
-  # Read all permission files once to avoid redundant I/O
-  allowJsons = readJsonsFromDir allowDir;
-  denyJsons = readJsonsFromDir denyDir;
-  askJsons = readJsonsFromDir askDir;
+    # shell: inline interpreter execution and temp-file writes
+    shell = [
+      "bash -c"
+      "cat > /tmp/"
+      "cat >> /tmp/"
+      "dash -c"
+      "fish -c"
+      "ksh -c"
+      "node --eval"
+      "node -e"
+      "perl -c"
+      "perl -e"
+      "python -"
+      "python -c"
+      "python /dev/"
+      "python /tmp/"
+      "python <<"
+      "python3 -"
+      "python3 -c"
+      "python3 /dev/"
+      "python3 /tmp/"
+      "python3 <<"
+      "ruby --eval"
+      "ruby -e"
+      "sh -c"
+      "tee /tmp/"
+      "zsh -c"
+    ];
+  };
 
-  # Apply deny exclusions: drop entire files, then filter specific commands.
-  # Excluded categories are handled by auto mode's AI classifier instead.
-  filteredDenyJsons = lib.filterAttrs (name: _: !(builtins.elem name excludeDenyFiles)) denyJsons;
+  # Full set of deny commands to drop: whole excluded categories plus any
+  # individually excluded commands.
+  excludedDenyCommands =
+    excludeDenyCommands
+    ++ lib.concatMap (
+      category:
+      denyCategoryCommands.${category}
+        or (throw "Unknown deny category to exclude: ${category} (known: ${lib.concatStringsSep ", " (builtins.attrNames denyCategoryCommands)})")
+    ) excludeDenyCategories;
 
 in
 {
-  # Auto-approved commands from ai-assistant-instructions
-  allow = lib.flatten (lib.mapAttrsToList (_: v: v.commands or [ ]) allowJsons);
+  # Auto-approved commands from nix-claude-code
+  allow = sourcePermissions.allow.commands;
 
   # Denied commands with exclusions applied
-  deny = lib.filter (cmd: !(builtins.elem cmd excludeDenyCommands)) (
-    lib.flatten (lib.mapAttrsToList (_: v: v.commands or [ ]) filteredDenyJsons)
-  );
+  deny = lib.filter (cmd: !(builtins.elem cmd excludedDenyCommands)) sourcePermissions.deny.commands;
 
   # Commands that require explicit user confirmation
-  ask = lib.flatten (lib.mapAttrsToList (_: v: v.commands or [ ]) askJsons);
+  ask = sourcePermissions.ask.commands;
 
   # MCP tool permissions (non-shell, bare identifiers like mcp__plugin_*)
-  mcpAllow = lib.flatten (lib.mapAttrsToList (_: v: v.mcp or [ ]) allowJsons);
-  mcpDeny = lib.flatten (lib.mapAttrsToList (_: v: v.mcp or [ ]) filteredDenyJsons);
-  mcpAsk = lib.flatten (lib.mapAttrsToList (_: v: v.mcp or [ ]) askJsons);
+  mcpAllow = sourcePermissions.allow.mcp or [ ];
+  mcpDeny = sourcePermissions.deny.mcp or [ ];
+  mcpAsk = sourcePermissions.ask.mcp or [ ];
 
   # WebFetch domains
-  webfetchDomains =
-    if builtins.pathExists domainsFile then
-      (builtins.fromJSON (builtins.readFile domainsFile)).domains
-    else
-      [ ];
+  webfetchDomains = sourcePermissions.domains.webfetch;
 
   # File patterns to deny (for Claude Read tool)
-  # These come from dangerous.json's "patterns" field
-  denyPatterns = denyJsons."dangerous.json".patterns or [ ];
+  # These come from the deny data's "patterns" field (legacy dangerous.json)
+  denyPatterns = sourcePermissions.deny.patterns or [ ];
 
   # Trusted directories (local config)
   directories = {
@@ -153,7 +182,7 @@ in
         "TodoWrite"
       ];
 
-      # WebFetch with allowed domains (dynamically generated from ai-assistant-instructions)
+      # WebFetch with allowed domains (dynamically generated from nix-claude-code)
       # This will be populated by formatters.nix using webfetchDomains
 
       # Special read patterns
@@ -162,7 +191,7 @@ in
       ];
 
       # Deny patterns for sensitive files (Claude-specific Read tool)
-      # Populated from ai-assistant-instructions deny/dangerous.json patterns field
+      # Populated from nix-claude-code deny data's patterns field
       # This will be transformed by formatters.nix to Read(...) format
     };
   };
