@@ -7,7 +7,7 @@
   pkgs,
   config,
   lib,
-  ai-assistant-instructions,
+  nix-claude-code,
   ...
 }:
 
@@ -16,7 +16,7 @@ let
   homeDir = config.home.homeDirectory;
 
   aiCommon = import ../common {
-    inherit lib config ai-assistant-instructions;
+    inherit lib config nix-claude-code;
   };
   inherit (aiCommon) permissions formatters;
 

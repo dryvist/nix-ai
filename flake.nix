@@ -113,7 +113,7 @@
               inherit (nixpkgs) lib;
               ncc = nix-claude-code.lib;
               aiCommon = import ./modules/common {
-                inherit ai-assistant-instructions lib;
+                inherit nix-claude-code lib;
                 config = {
                   home.homeDirectory = "/home/user";
                 };
@@ -164,7 +164,7 @@
           codexRules =
             let
               aiCommon = import ./modules/common {
-                inherit ai-assistant-instructions;
+                inherit nix-claude-code;
                 inherit (nixpkgs) lib;
                 config = {
                   home.homeDirectory = "/home/user";
@@ -204,7 +204,7 @@
         # Shared permission + formatter engine. Exposed for cross-flake consumers
         # (e.g., nix-ai-claude) so the source of truth for tool-agnostic command
         # permissions stays in this flake. Callers pass { lib, config,
-        # ai-assistant-instructions, excludeDenyFiles?, excludeDenyCommands? }
+        # nix-claude-code, excludeDenyCategories?, excludeDenyCommands? }
         # and receive { permissions, formatters } — see modules/common/default.nix.
         aiCommon = import ./modules/common;
       };

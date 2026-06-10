@@ -17,13 +17,13 @@
 {
   config,
   lib,
-  ai-assistant-instructions,
+  nix-claude-code,
   ...
 }:
 
 let
   # Import unified permissions and formatters
-  aiCommon = import ../common { inherit lib config ai-assistant-instructions; };
+  aiCommon = import ../common { inherit lib config nix-claude-code; };
   inherit (aiCommon) permissions formatters;
 
 in

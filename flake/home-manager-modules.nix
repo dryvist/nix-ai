@@ -111,6 +111,7 @@ in
     _module.args = {
       inherit
         ai-assistant-instructions
+        nix-claude-code
         marketplaceInputs
         ;
     };
@@ -125,6 +126,7 @@ in
     _module.args = {
       inherit
         ai-assistant-instructions
+        nix-claude-code
         marketplaceInputs
         ;
     };
@@ -138,7 +140,7 @@ in
     ];
     _module.args = {
       inherit
-        ai-assistant-instructions
+        nix-claude-code
         marketplaceInputs
         ;
     };

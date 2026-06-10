@@ -25,15 +25,15 @@
 
 let
   # Permission engine still lives in nix-ai's `modules/common` because it's
-  # also consumed by Codex/Gemini formatters. The data behind it
-  # (allow/ask/deny/domains/tool-specific) is mirrored in
-  # `nix-claude-code.lib.permissions` for Checkpoint-3 cutover; today we
-  # source from the local engine to preserve the formatter API.
+  # also consumed by Codex/Gemini formatters. The raw permission data
+  # (allow/ask/deny/domains) now comes from `nix-claude-code.lib.permissions`
+  # (Checkpoint 3, step 2; data true-up verified in dryvist/nix-claude-code#50);
+  # only the formatter API stays local.
   aiCommon = import ./common {
-    inherit lib config ai-assistant-instructions;
-    excludeDenyFiles = [
-      "shell.json"
-      "network.json"
+    inherit lib config nix-claude-code;
+    excludeDenyCategories = [
+      "shell"
+      "network"
     ];
     excludeDenyCommands = [
       "npm run"

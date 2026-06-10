@@ -5,7 +5,7 @@
 #
 # USAGE:
 #   let
-#     aiCommon = import ./common { inherit lib config ai-assistant-instructions; };
+#     aiCommon = import ./common { inherit lib config nix-claude-code; };
 #     geminiAllowedTools = aiCommon.formatters.gemini.formatAllowedTools aiCommon.permissions;
 #   in { ... }
 #
@@ -22,8 +22,8 @@
 {
   lib,
   config,
-  ai-assistant-instructions,
-  excludeDenyFiles ? [ ],
+  nix-claude-code,
+  excludeDenyCategories ? [ ],
   excludeDenyCommands ? [ ],
   ...
 }:
@@ -34,8 +34,8 @@
     inherit
       lib
       config
-      ai-assistant-instructions
-      excludeDenyFiles
+      nix-claude-code
+      excludeDenyCategories
       excludeDenyCommands
       ;
   };

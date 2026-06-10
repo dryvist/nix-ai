@@ -12,7 +12,7 @@
   pkgs,
   config,
   lib,
-  ai-assistant-instructions,
+  nix-claude-code,
   ...
 }:
 
@@ -22,7 +22,7 @@ let
   gitDir = "${homeDir}/git";
 
   aiCommon = import ../common {
-    inherit lib config ai-assistant-instructions;
+    inherit lib config nix-claude-code;
   };
   inherit (aiCommon) permissions formatters;
 
