@@ -2,8 +2,12 @@
 # MLX Module — Runtime safety + model-swap proxy options
 #
 # OOM PREVENTION (2026-03-21 incident: 171.9 GB on 128 GB RAM):
-# ProcessType=Background makes vllm-mlx Jetsam-eligible; HardResourceLimits
-# sets a kernel-enforced RSS ceiling. KeepAlive auto-restarts after Jetsam kill.
+# HardResourceLimits sets a kernel-enforced RSS ceiling; KeepAlive auto-restarts
+# after a kill. ProcessType=Background was originally part of this mitigation
+# (Jetsam eligibility), but Background QoS clamps Metal GPU work ~8x on Apple
+# Silicon — measured 11 -> 87 tok/s decode on the same model when switching to
+# Interactive (2026-06-09). The RSS hard limit alone is the OOM backstop now;
+# see the processType option below.
 #
 # MODEL SWITCHING (llama-swap proxy):
 # llama-swap sits on the API port and manages vllm-mlx backends as child
@@ -17,6 +21,25 @@
       type = lib.types.ints.positive;
       default = 100;
       description = "Hard RSS limit in GB. Kernel kills process above this. Leaves 28GB for OS + apps on 128GB systems.";
+    };
+
+    processType = lib.mkOption {
+      type = lib.types.enum [
+        "Background"
+        "Standard"
+        "Adaptive"
+        "Interactive"
+      ];
+      default = "Interactive";
+      description = ''
+        launchd ProcessType for the llama-swap proxy (inherited by vllm-mlx
+        children). Background makes the tree Jetsam-eligible but its QoS clamp
+        throttles Metal decode roughly 8x (11 -> 87 tok/s measured 2026-06-09
+        on an M4 Max). Interactive restores full GPU performance; OOM
+        protection remains via memoryHardLimitGb (HardResourceLimits) and
+        KeepAlive restart. Set back to Background only if Jetsam eligibility
+        matters more than inference speed.
+      '';
     };
 
     models = lib.mkOption {
