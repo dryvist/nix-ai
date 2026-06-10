@@ -47,8 +47,10 @@ in
         KeepAlive = true;
         # 2 min throttle — 70GB model loads take 20-60s, prevents rapid crash-restart loops (closes #256)
         ThrottleInterval = 120;
-        # Background = Jetsam-eligible (applies to proxy; vllm-mlx children inherit separately).
-        ProcessType = "Background";
+        # Interactive by default — Background QoS clamps Metal decode ~8x
+        # (see options-runtime.nix processType). OOM backstop is the RSS
+        # hard limit, not Jetsam eligibility.
+        ProcessType = cfg.processType;
         # Do not abandon the process group; ensure child vllm-mlx processes
         # are terminated when launchd stops the proxy.
         AbandonProcessGroup = false;
