@@ -41,6 +41,15 @@ in
       description = "Path to HuggingFace model cache (dedicated APFS volume)";
     };
 
+    # enableMetrics — Native Prometheus metrics endpoint (--enable-metrics).
+    # Exposes /metrics on each worker for scrape-based monitoring (Cribl Edge
+    # has a built-in Prometheus input). No custom collectors required.
+    enableMetrics = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Expose the native Prometheus /metrics endpoint on each vllm-mlx worker (--enable-metrics).";
+    };
+
     telemetry = {
       enable = lib.mkEnableOption "OpenTelemetry trace export from the MLX inference stack";
 

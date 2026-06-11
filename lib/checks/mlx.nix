@@ -9,6 +9,7 @@ in
   mlx-options-regression =
     let
       expectedOptions = [
+        "autoUnloadIdleSeconds"
         "cacheMemoryMb"
         "chunkedPrefillTokens"
         "completionBatchSize"
@@ -16,7 +17,9 @@ in
         "defaultModel"
         "enable"
         "enableAutoToolChoice"
+        "enableMetrics"
         "enablePrefixCaching"
+        "gpuMemoryUtilization"
         "host"
         "huggingFaceHome"
         "maxTokens"
@@ -76,6 +79,21 @@ in
           name = "mlx.cacheMemoryMb";
           actual = mlxCfg.cacheMemoryMb;
           expected = 8192;
+        }
+        {
+          name = "mlx.gpuMemoryUtilization";
+          actual = mlxCfg.gpuMemoryUtilization;
+          expected = 0.5;
+        }
+        {
+          name = "mlx.autoUnloadIdleSeconds";
+          actual = mlxCfg.autoUnloadIdleSeconds;
+          expected = 1800;
+        }
+        {
+          name = "mlx.enableMetrics";
+          actual = mlxCfg.enableMetrics;
+          expected = true;
         }
         {
           name = "mlx.proxy.idleTtl";

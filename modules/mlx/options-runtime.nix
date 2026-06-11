@@ -1,13 +1,17 @@
 #
 # MLX Module — Runtime safety + model-swap proxy options
 #
-# OOM PREVENTION (2026-03-21 incident: 171.9 GB on 128 GB RAM):
-# HardResourceLimits sets a kernel-enforced RSS ceiling; KeepAlive auto-restarts
-# after a kill. ProcessType=Background was originally part of this mitigation
-# (Jetsam eligibility), but Background QoS clamps Metal GPU work ~8x on Apple
-# Silicon — measured 11 -> 87 tok/s decode on the same model when switching to
-# Interactive (2026-06-09). The RSS hard limit alone is the OOM backstop now;
-# see the processType option below.
+# OOM PREVENTION:
+# The enforced per-worker memory bound is programs.mlx.gpuMemoryUtilization
+# (options-cache.nix) — a Metal allocation ceiling applied inside each
+# vllm-mlx worker, where the memory actually lives. launchd
+# HardResourceLimits is NOT serialized into the plist: it would only cap the
+# llama-swap proxy, and macOS does not reliably enforce RSS rlimits (see
+# launchd.nix). memoryHardLimitGb below is therefore declarative intent, not
+# an enforced kernel limit. autoUnloadIdleSeconds adds a worker-side idle
+# failsafe. ProcessType=Background was once part of the mitigation (Jetsam
+# eligibility) but its QoS clamp throttles Metal decode ~8x — see the
+# processType option below.
 #
 # MODEL SWITCHING (llama-swap proxy):
 # llama-swap sits on the API port and manages vllm-mlx backends as child
@@ -20,7 +24,18 @@
     memoryHardLimitGb = lib.mkOption {
       type = lib.types.ints.positive;
       default = 100;
-      description = "Hard RSS limit in GB. Kernel kills process above this. Leaves 28GB for OS + apps on 128GB systems.";
+      description = "Declared RSS budget in GB for the LLM stack (documentation/dashboards). NOT kernel-enforced: launchd HardResourceLimits would only cap the proxy process and macOS does not reliably enforce RSS rlimits. The enforced per-worker bound is gpuMemoryUtilization.";
+    };
+
+    # autoUnloadIdleSeconds — Worker-side idle self-unload (--auto-unload-idle-seconds).
+    # Defense in depth alongside llama-swap's proxy.idleTtl: the worker frees its
+    # own model weights after this many idle seconds even if the proxy loses
+    # track of it (upstream lifecycle race, see nix-ai#801). Keep LONGER than
+    # proxy.idleTtl so the proxy remains the primary eviction path.
+    autoUnloadIdleSeconds = lib.mkOption {
+      type = lib.types.ints.unsigned;
+      default = 1800;
+      description = "Worker self-unloads its model after this many idle seconds (vllm-mlx --auto-unload-idle-seconds). 0 = disabled. Keep greater than proxy.idleTtl; this is the failsafe when the proxy cannot evict.";
     };
 
     processType = lib.mkOption {
@@ -36,9 +51,9 @@
         children). Background makes the tree Jetsam-eligible but its QoS clamp
         throttles Metal decode roughly 8x (11 -> 87 tok/s measured 2026-06-09
         on an M4 Max). Interactive restores full GPU performance; OOM
-        protection remains via memoryHardLimitGb (HardResourceLimits) and
-        KeepAlive restart. Set back to Background only if Jetsam eligibility
-        matters more than inference speed.
+        protection comes from gpuMemoryUtilization (per-worker Metal ceiling)
+        and KeepAlive restart. Set back to Background only if Jetsam
+        eligibility matters more than inference speed.
       '';
     };
 
