@@ -65,6 +65,14 @@
       flake = false;
     };
 
+    # DashMotion - animated technical diagram skill (flowcharts + architecture
+    # diagrams as self-contained HTML+SVG files using stroke-dashoffset +
+    # animateMotion; no external dependencies).
+    dashmotion = {
+      url = "github:csthink/dashmotion";
+      flake = false;
+    };
+
   };
 
   outputs =
@@ -78,6 +86,7 @@
       karpathy-skills,
       pal-mcp-server,
       fabric-src,
+      dashmotion,
       ...
     }:
     let
@@ -96,6 +105,7 @@
           karpathy-skills
           pal-mcp-server
           nixpkgs-unstable
+          dashmotion
           ;
       };
 

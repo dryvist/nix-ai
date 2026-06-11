@@ -4,6 +4,7 @@
   karpathy-skills,
   pal-mcp-server,
   nixpkgs-unstable,
+  dashmotion,
 }:
 let
   # Marketplace flake inputs now live inside nix-claude-code. Surface the
@@ -37,6 +38,7 @@ let
       wakatime
       ;
     inherit karpathy-skills;
+    inherit dashmotion;
   };
 in
 {
