@@ -80,7 +80,7 @@ in
         {
           name = "mlx.proxy.idleTtl";
           actual = mlxCfg.proxy.idleTtl;
-          expected = 1800;
+          expected = 900;
         }
         {
           name = "mlx.proxy.concurrencyLimit";
