@@ -253,10 +253,10 @@ in
     };
 
     # Auto-mode classifier configuration (top-level `autoMode` in settings.json).
-    # The environment list contains prose strings that describe the user's
-    # trusted infrastructure footprint so the classifier doesn't block
-    # routine cross-repo/cross-org actions as exfiltration.
-    autoMode.environment = import ./claude/automode-environment.nix {
+    # Prose rules describing trusted infrastructure (environment) plus the
+    # classifier allow/soft_deny overrides, so routine internal actions
+    # aren't flagged and destructive ones still ask. See ./claude/automode.nix.
+    autoMode = import ./claude/automode.nix {
       inherit lib;
       userConfig = userConfig // {
         user = (userConfig.user or { }) // {
