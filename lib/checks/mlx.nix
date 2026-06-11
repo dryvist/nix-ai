@@ -246,19 +246,21 @@ in
   # Verify OOM prevention: ProcessType in LaunchAgent.
   # HardResourceLimits is intentionally absent — it would only cap the llama-swap
   # proxy process, not the vllm-mlx child processes where the actual memory lives.
-  # Jetsam eligibility via ProcessType=Background still applies to the proxy.
+  # ProcessType defaults to Interactive since #916: Background's QoS clamp
+  # throttles Metal decode ~8x; the OOM backstop is the RSS hard limit
+  # (programs.mlx.memoryHardLimitGb), not Jetsam eligibility.
   mlx-launchd-memory-safety =
     let
       launchdCfg = hmConfig.config.launchd.agents.vllm-mlx.config;
     in
     assert
-      launchdCfg.ProcessType == "Background"
-      || throw "ProcessType must be \"Background\" for Jetsam eligibility";
+      launchdCfg.ProcessType == "Interactive"
+      || throw "ProcessType default must be \"Interactive\" — Background QoS clamps Metal decode ~8x (#916)";
     assert
       (!(launchdCfg ? HardResourceLimits) || launchdCfg.HardResourceLimits == null)
       || throw "HardResourceLimits must NOT be set on the llama-swap proxy (only constrains proxy, not vllm-mlx children)";
     pkgs.runCommand "check-mlx-launchd-memory-safety" { } ''
-      echo "MLX LaunchAgent memory safety: ProcessType=Background verified; HardResourceLimits correctly absent from proxy"
+      echo "MLX LaunchAgent memory safety: ProcessType=Interactive verified; HardResourceLimits correctly absent from proxy"
       touch $out
     '';
 
