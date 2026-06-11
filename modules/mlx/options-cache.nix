@@ -2,8 +2,10 @@
 # MLX Module — KV cache and prefill options
 #
 # vllm-mlx 0.2.9 PERFORMANCE TUNING.
-# Sizing target: M4 Max 128 GB. Effective wired ceiling 118 GB (from
-# nix-darwin's apple-silicon-tunables module via iogpu.wired_limit_mb=118000).
+# Sizing target: M4 Max 128 GB. Effective wired ceiling 104 GB (from
+# nix-darwin's apple-silicon-tunables module via iogpu.wired_limit_mb=104000;
+# lowered from 118000 on 2026-06-10 to guarantee 24 GB pageable headroom —
+# see nix-mac-performance RC14).
 #
 # vllm-mlx 0.2.9 adds Paged KV Cache + prefix sharing on top of the
 # memory-aware cache that auto-sizes based on available RAM.

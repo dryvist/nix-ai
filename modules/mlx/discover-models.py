@@ -159,7 +159,7 @@ def main() -> None:
 
     model_env = default_entry.get("env", [])
     check_endpoint = default_entry.get("checkEndpoint", "/v1/models")
-    idle_ttl = current_config.get("idleTtl", 1800)
+    idle_ttl = current_config.get("idleTtl", 900)
     # Propagate concurrencyLimit from the default entry so auto-discovered
     # models inherit the same proxy-side cap (default: 4, matches
     # maxNumSeqs=4). Without this, discovered models would fall back to
