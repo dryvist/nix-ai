@@ -25,6 +25,13 @@ let
   cfg = config.programs.antigravity-cli;
 in
 {
+  # home-manager release-26.05 gained its own programs.antigravity-cli
+  # module (added between 4eb4fec and d899b01); its `commands` option is
+  # typed attrsOf (submodule str) and cannot coexist with this module's
+  # nested commands.{fromFlakeInputs,local} options. This module predates
+  # and supersedes the upstream one — shadow it.
+  disabledModules = [ "programs/antigravity-cli.nix" ];
+
   imports = [
     ./options.nix
     ./settings.nix
