@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.75.0](https://github.com/dryvist/nix-ai/compare/v1.74.1...v1.75.0) (2026-06-11)
+
+
+### Features
+
+* **mlx:** tighten idleTtl default to 900s to cut idle-weight dwell ([#920](https://github.com/dryvist/nix-ai/issues/920)) ([f47fe18](https://github.com/dryvist/nix-ai/commit/f47fe18c1ea972904d5d7c6fd9ac137fc576a741))
+
 ## [1.74.1](https://github.com/dryvist/nix-ai/compare/v1.74.0...v1.74.1) (2026-06-10)
 
 
