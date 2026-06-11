@@ -38,6 +38,22 @@
       description = "KV cache reservation in MB (vllm-mlx --cache-memory-mb). Null = server auto-detect. Default 8 GB right-sized for maxNumSeqs=4 and maxTokens=8192; raise per-host if a workload needs more.";
     };
 
+    # gpuMemoryUtilization — Per-worker Metal allocation ceiling (--gpu-memory-utilization).
+    # Fraction of device memory each vllm-mlx worker may allocate via Metal; the
+    # server also uses it as the emergency cache-clear threshold. The upstream
+    # default is 0.90, which on a 128 GB host lets a single worker reach ~115 GB
+    # before any native bound engages. 0.50 bounds each worker to half of device
+    # memory — comfortably above a healthy worker's working set while keeping the
+    # host responsive if a worker's allocator grows under sustained load.
+    # This is the per-worker enforcement layer that HardResourceLimits could not
+    # provide (see launchd.nix) because it acts inside the worker process itself.
+    # Ref: https://github.com/ml-explore/mlx-lm/issues/883
+    gpuMemoryUtilization = lib.mkOption {
+      type = lib.types.nullOr (lib.types.numbers.between 0.05 1.0);
+      default = 0.5;
+      description = "Fraction of device memory each worker may allocate via Metal (vllm-mlx --gpu-memory-utilization). Null = upstream default (0.90). Also the worker's emergency cache-clear threshold.";
+    };
+
     # enablePrefixCaching — Enable prefix sharing across requests (--enable-prefix-cache).
     # Eliminates re-prefill of unchanged conversation context — the single
     # biggest speed win for multi-turn tool-calling workloads.

@@ -28,9 +28,12 @@ in
     # llama-swap proxy listens on the API port and manages vllm-mlx child
     # processes on ephemeral ports (startPort = 11436+). HardResourceLimits
     # is omitted — it would only cap the proxy process, not the vllm-mlx
-    # children where the actual memory lives. As a result, programs.mlx.memoryHardLimitGb
-    # is not enforced under the llama-swap architecture; primary OOM protection
-    # is --cache-memory-mb on each vllm-mlx backend (set in the generated config).
+    # children where the actual memory lives (and macOS does not reliably
+    # enforce RSS rlimits). Per-worker OOM protection is native and inside
+    # each worker: --gpu-memory-utilization (Metal allocation ceiling +
+    # emergency cache clear; programs.mlx.gpuMemoryUtilization) plus
+    # --cache-memory-mb and --auto-unload-idle-seconds (set in the generated
+    # config). programs.mlx.memoryHardLimitGb remains declarative intent only.
     launchd.agents.vllm-mlx = {
       enable = true;
       config = {

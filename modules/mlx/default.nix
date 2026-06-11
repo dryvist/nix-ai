@@ -90,6 +90,15 @@ let
           "--prefill-batch-size"
           (toString cfg.prefillBatchSize)
         ]
+        ++ lib.optionals (cfg.gpuMemoryUtilization != null) [
+          "--gpu-memory-utilization"
+          (toString cfg.gpuMemoryUtilization)
+        ]
+        ++ lib.optionals (cfg.autoUnloadIdleSeconds != 0) [
+          "--auto-unload-idle-seconds"
+          (toString cfg.autoUnloadIdleSeconds)
+        ]
+        ++ lib.optionals cfg.enableMetrics [ "--enable-metrics" ]
         ++ lib.optionals cfg.continuousBatching [ "--continuous-batching" ]
         ++ lib.optionals cfg.enablePrefixCaching [ "--enable-prefix-cache" ]
         ++ lib.optionals cfg.pagedKvCache [ "--use-paged-cache" ]
