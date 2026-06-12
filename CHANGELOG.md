@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.76.2](https://github.com/dryvist/nix-ai/compare/v1.76.1...v1.76.2) (2026-06-12)
+
+
+### Bug Fixes
+
+* **ci:** grant actions read to retrigger-pr-checks caller ([#940](https://github.com/dryvist/nix-ai/issues/940)) ([d8414e4](https://github.com/dryvist/nix-ai/commit/d8414e489c84feaad78a8399ffb130e1e40e57d5))
+
 ## [1.76.1](https://github.com/dryvist/nix-ai/compare/v1.76.0...v1.76.1) (2026-06-12)
 
 
