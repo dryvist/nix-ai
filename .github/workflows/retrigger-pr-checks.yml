@@ -12,6 +12,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: read # callee inspects ci-gate.yml runs; omitting startup-fails the run
   contents: read
   pull-requests: read
 
