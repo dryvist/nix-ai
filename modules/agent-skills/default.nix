@@ -139,6 +139,18 @@ let
       source = "${skillsPath}/${name}/SKILL.md";
     }) (lib.filterAttrs (name: _: builtins.pathExists "${skillsPath}/${name}/SKILL.md") skillDirs);
 
+  # Discovers a SKILL.md at the repo root (single-skill repo pattern).
+  # Pattern: <repo>/SKILL.md
+  # Used for repos like dashmotion that ship exactly one skill at the root
+  # alongside supporting resources (references/, resources/) in the same tree.
+  # The entire repo directory is deployed so relative paths inside SKILL.md resolve.
+  discoverRootSkill =
+    name: input:
+    lib.optional (builtins.pathExists "${input}/SKILL.md") {
+      inherit name;
+      source = "${input}/SKILL.md";
+    };
+
   # Applies all known SKILL.md discovery patterns to one input path.
   # Each pattern short-circuits (via pathExists) when the layout is absent.
   # The one-level subpath walk ("plugins", "external_plugins") handles inputs
@@ -173,7 +185,10 @@ let
   # is decoupled from Claude's registry and operates on a generic set of input
   # paths supplied by the consumer flake. When this module is split into its own
   # flake, the consumer decides which inputs to pass; the walker stays unchanged.
-  sharedSkills = lib.concatMap walkAllPatterns (lib.attrValues marketplaceInputs);
+  # discoverRootSkill runs separately (it needs the input name, which attrValues discards).
+  sharedSkills =
+    lib.concatMap walkAllPatterns (lib.attrValues marketplaceInputs)
+    ++ lib.concatLists (lib.mapAttrsToList discoverRootSkill marketplaceInputs);
 in
 {
   imports = [
