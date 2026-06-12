@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.76.1](https://github.com/dryvist/nix-ai/compare/v1.76.0...v1.76.1) (2026-06-12)
+
+
+### Bug Fixes
+
+* **ci:** repoint reusable workflows from JacobPEvans-personal to dryvist hub ([#936](https://github.com/dryvist/nix-ai/issues/936)) ([3fb20c3](https://github.com/dryvist/nix-ai/commit/3fb20c3916199ba53c3e1d78e4223f7c673580f9))
+
 ## [1.76.0](https://github.com/dryvist/nix-ai/compare/v1.75.0...v1.76.0) (2026-06-12)
 
 
