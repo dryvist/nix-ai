@@ -1,6 +1,6 @@
 {
-  // Inherits org-wide defaults from .github/configs/.markdownlint-cli2.yaml in CI.
-  // This file provides local overrides only where nix-ai differs from the org config.
+  // Canonical org-wide config: .markdownlint-cli2.yaml at the root of dryvist/.github.
+  // This file deliberately diverges from it; local overrides below document each delta.
   "config": {
     "default": true,
     // MD013: org uses heading 80, code_block 80, tables true.
