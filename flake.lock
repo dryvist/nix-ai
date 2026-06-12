@@ -3,11 +3,11 @@
     "ai-assistant-instructions": {
       "flake": false,
       "locked": {
-        "lastModified": 1781129501,
-        "narHash": "sha256-C8VZdU4hjN47QPXZrxGZ16H8ODY/cXqr1XK+WjNVxUw=",
+        "lastModified": 1781223972,
+        "narHash": "sha256-oVIydOhpbeN5E/BExbHYKc925N1x4h/9mbuRMO6Pp/E=",
         "owner": "JacobPEvans",
         "repo": "ai-assistant-instructions",
-        "rev": "ab1db663dbd394965b98b6ad7e4358b41d7db6ba",
+        "rev": "036dd32a19a0e4c00c60bab7a13c96b6da30fdea",
         "type": "github"
       },
       "original": {
@@ -131,11 +131,11 @@
     "claude-code-plugins": {
       "flake": false,
       "locked": {
-        "lastModified": 1781156508,
-        "narHash": "sha256-k0+P4a2/VU7luqD3UYAPQm3hQeu9ZqrBZfh/tztk18A=",
+        "lastModified": 1781226990,
+        "narHash": "sha256-Gb+rMbtfaQfuThsV4gKpPLCBdikm6lI/PjCU0ys0NTs=",
         "owner": "anthropics",
         "repo": "claude-code",
-        "rev": "3a7c736101edbd00426fce4615e80b937f6467df",
+        "rev": "5754a8bd4fd286e798d9d29658b10f29832ad177",
         "type": "github"
       },
       "original": {
@@ -221,6 +221,22 @@
       "original": {
         "owner": "secondsky",
         "repo": "claude-skills",
+        "type": "github"
+      }
+    },
+    "dashmotion": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1781234071,
+        "narHash": "sha256-clEB94cikg/o/VGtS7psPRk+rQBbKrPmqW8zqsekiVg=",
+        "owner": "csthink",
+        "repo": "dashmotion",
+        "rev": "fb50fb0ef48ce992120cd66d215cfdec3fd73d99",
+        "type": "github"
+      },
+      "original": {
+        "owner": "csthink",
+        "repo": "dashmotion",
         "type": "github"
       }
     },
@@ -506,11 +522,11 @@
         "wakatime": "wakatime"
       },
       "locked": {
-        "lastModified": 1781181498,
-        "narHash": "sha256-yMmGqYMU4Zqr4wcP+wpuuRC10uVARj2X7Q4lMIWZ9Jg=",
+        "lastModified": 1781223526,
+        "narHash": "sha256-laEoMDM3zoScMLrmcSo860/ktV4mAuytgpLAuMmX7Gg=",
         "owner": "dryvist",
         "repo": "nix-claude-code",
-        "rev": "217095d615537d12795461feccae67c058a2ab8b",
+        "rev": "99c52c6166485a0a10d2e600015b2fed79fd3914",
         "type": "github"
       },
       "original": {
@@ -537,11 +553,11 @@
     },
     "nixpkgs-unstable": {
       "locked": {
-        "lastModified": 1781141223,
-        "narHash": "sha256-Eye4UQJjC4TLobclolFCMl6MrjgiF6Bk1cOI5x8SH00=",
+        "lastModified": 1781173989,
+        "narHash": "sha256-fnzKKPvS+oieI/pTzotA5tkoM47EB1NpaBcgk4R97hE=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "b503dde361500433ca25a32e8f4d218bf58fb659",
+        "rev": "8c91a71d13451abc40eb9dae8910f972f979852f",
         "type": "github"
       },
       "original": {
@@ -603,6 +619,7 @@
       "inputs": {
         "ai-assistant-instructions": "ai-assistant-instructions",
         "claude-code-plugins": "claude-code-plugins",
+        "dashmotion": "dashmotion",
         "fabric-src": "fabric-src",
         "home-manager": "home-manager",
         "karpathy-skills": "karpathy-skills",
