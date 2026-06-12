@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.76.0](https://github.com/dryvist/nix-ai/compare/v1.75.0...v1.76.0) (2026-06-12)
+
+
+### Features
+
+* **agent-skills:** integrate dashmotion animated diagram skill ([#932](https://github.com/dryvist/nix-ai/issues/932)) ([b204ebc](https://github.com/dryvist/nix-ai/commit/b204ebc1e7493da2971b8203624a27370f15173d))
+* **claude:** add auto-mode classifier allow/soft_deny so rm is governed by intent ([#927](https://github.com/dryvist/nix-ai/issues/927)) ([cff83a3](https://github.com/dryvist/nix-ai/commit/cff83a373d88e142a8c76be47477362792afa9cf))
+* **mlx:** native per-worker memory bounds via vllm-mlx flags ([#924](https://github.com/dryvist/nix-ai/issues/924)) ([3edd9e0](https://github.com/dryvist/nix-ai/commit/3edd9e08d4cc38e065690d0df60b67c02a1550f1))
+
+
+### Bug Fixes
+
+* **antigravity:** shadow home-manager's new antigravity-cli module ([#929](https://github.com/dryvist/nix-ai/issues/929)) ([4b1c297](https://github.com/dryvist/nix-ai/commit/4b1c2975191084a5079c3e165a8dace29a11d04e))
+* **deps:** bump transitive jacobpevans-cc-plugins pin to v4.2.0 era ([#928](https://github.com/dryvist/nix-ai/issues/928)) ([5e0378d](https://github.com/dryvist/nix-ai/commit/5e0378d840ca4d9c6b9768762de848fb657c27b2))
+
 ## [1.75.0](https://github.com/dryvist/nix-ai/compare/v1.74.1...v1.75.0) (2026-06-11)
 
 
