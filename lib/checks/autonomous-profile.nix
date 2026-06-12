@@ -1,10 +1,12 @@
 # Autonomous-profile render checks
 #
 # Asserts the container-image configs produced by
-# modules/common/render-autonomous.nix carry the expected postures:
-# Claude bypassPermissions + residual deny, Codex never/danger-full-access,
-# Gemini yolo with its own sandbox disabled. Guards against a refactor
-# silently weakening (or accidentally host-deploying) the autonomous profile.
+# modules/common/render-autonomous.nix carry the expected postures —
+# Claude bypassPermissions, Codex never/danger-full-access, Gemini yolo
+# with its own sandbox disabled — and that ALL THREE tools inherit the
+# same residualDeny list in their native formats. Guards against a
+# refactor silently weakening (or accidentally host-deploying) the
+# autonomous profile.
 { pkgs }:
 
 let
@@ -15,7 +17,7 @@ in
     pkgs.runCommand "autonomous-profile-render"
       {
         nativeBuildInputs = [ pkgs.jq ];
-        inherit (render) codexRules;
+        inherit (render) codexRules geminiPolicyToml;
         claudeSettings = render.claudeSettingsJson;
         codexConfig = render.codexConfigToml;
         geminiSettings = render.geminiSettingsJson;
@@ -24,6 +26,7 @@ in
           "codexConfig"
           "codexRules"
           "geminiSettings"
+          "geminiPolicyToml"
         ];
       }
       ''
@@ -41,9 +44,22 @@ in
         grep -q '"forbidden"' "$codexRulesPath"
         grep -Fq '["gh","repo","delete"]' "$codexRulesPath"
 
-        # Gemini: yolo recorded, own sandbox disabled (container replaces it)
-        jq -e '.defaultApprovalMode == "yolo"' "$geminiSettingsPath"
+        # Gemini: yolo under general, own sandbox disabled, policy referenced
+        jq -e '.general.defaultApprovalMode == "yolo"' "$geminiSettingsPath"
         jq -e '.tools.sandbox == false' "$geminiSettingsPath"
+        jq -e '.policyPaths | length == 1' "$geminiSettingsPath"
+
+        # Gemini Policy Engine TOML: deny rules from the same shared list
+        grep -q 'commandPrefix = "gh repo delete"' "$geminiPolicyTomlPath"
+        grep -q 'decision = "deny"' "$geminiPolicyTomlPath"
+        grep -q 'priority = 200' "$geminiPolicyTomlPath"
+
+        # Single-list inheritance: each tool's output carries the SAME
+        # number of deny entries as the shared residualDeny list.
+        n=${toString (builtins.length render.residualDeny)}
+        jq -e ".permissions.deny | length == $n" "$claudeSettingsPath"
+        [ "$(grep -c '"forbidden"' "$codexRulesPath")" -eq "$n" ]
+        [ "$(grep -c 'decision = "deny"' "$geminiPolicyTomlPath")" -eq "$n" ]
 
         touch "$out"
       '';
