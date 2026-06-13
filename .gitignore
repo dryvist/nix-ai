@@ -3,3 +3,11 @@ result
 .devenv
 __pycache__
 .pytest_cache
+
+# Git worktrees created inside the clone. `.claude/worktrees/` is Claude Code's
+# native EnterWorktree location; `.claude-wt/` was an ad-hoc manual base. Both
+# are nested worktrees that git reports as untracked — ignore them so they never
+# pollute `git status`. Feature worktrees should live here (or as a sibling of
+# the clone), never loose in the repo root. See modules/claude/automode.nix.
+.claude/worktrees/
+.claude-wt/

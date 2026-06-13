@@ -18,6 +18,7 @@
 #   - fabric-patterns (danielmiessler/fabric, 41428★ upstream, synthetic)
 #   - huggingface-skills (huggingface/skills, 10371★)       — HF Hub ops
 #   - karpathy-skills (forrestchang/andrej-karpathy-skills, 113639★) — behavioral guidelines
+#   - ponytail (DietrichGebert/ponytail) — minimalism / YAGNI behavioral mode
 #   - obsidian-skills (kepano/obsidian-skills, 28277★)
 #   - axton-obsidian-visual-skills (axtonliu/..., 2651★)
 #   - visual-explainer-marketplace (nicobailon/..., 7816★)
@@ -93,6 +94,17 @@ _:
     # Complements Tier 1 code-review; focuses on pre-coding discipline rather than review.
     # Also flows to ~/.agents/skills/ automatically via agent-skills auto-discovery.
     "andrej-karpathy-skills@karpathy-skills" = true;
+
+    # ========================================================================
+    # ponytail — DietrichGebert/ponytail (minimalism / YAGNI behavioral mode)
+    # ========================================================================
+    # "Lazy senior dev mode": forces the simplest, shortest solution that works
+    # (YAGNI, stdlib-first, no unrequested abstractions). Its SessionStart hook
+    # auto-activates the mode every session. Enabled globally per user request.
+    # Native .claude-plugin/ marketplace (no synthetic wrapper). Its three flat
+    # skills (ponytail, ponytail-review, ponytail-help) also flow to
+    # ~/.agents/skills/ via agent-skills auto-discovery (Gemini/Codex).
+    "ponytail@ponytail" = true;
 
     # ========================================================================
     # obsidian-skills + axton-obsidian-visual-skills + visual-explainer

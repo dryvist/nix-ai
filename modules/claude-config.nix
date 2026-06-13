@@ -201,6 +201,14 @@ in
             };
             flakeInput = marketplaceInputs.karpathy-skills;
           };
+          # ponytail lives in nix-ai (input + tier file), same as karpathy-skills.
+          "ponytail" = {
+            source = {
+              type = "github";
+              url = "DietrichGebert/ponytail";
+            };
+            flakeInput = marketplaceInputs.ponytail;
+          };
         };
 
       enabled = enabledPlugins // {
