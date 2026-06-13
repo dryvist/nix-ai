@@ -167,7 +167,7 @@ jobs:
     runs-on: ${{ github.event.pull_request.head.repo.full_name == github.repository && format('runs-on={0}/runner=2cpu-linux-x64', github.run_id) || 'ubuntu-latest' }}
     steps:
       - name: Check all results
-        uses: re-actors/alls-green@release/v1
+        uses: re-actors/alls-green@05ac9388f0aebcb5727afa17fcccfecd6f8ec5fe # release/v1
         with:
           allowed-skips: nix-validate, markdown-lint, file-size, python-security
           jobs: ${{ toJSON(needs) }}
