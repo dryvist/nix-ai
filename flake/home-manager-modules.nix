@@ -5,6 +5,7 @@
   pal-mcp-server,
   nixpkgs-unstable,
   dashmotion,
+  ponytail,
 }:
 let
   # Marketplace flake inputs now live inside nix-claude-code. Surface the
@@ -39,6 +40,7 @@ let
       ;
     inherit karpathy-skills;
     inherit dashmotion;
+    inherit ponytail;
   };
 in
 {

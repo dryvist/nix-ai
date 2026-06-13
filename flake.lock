@@ -615,6 +615,22 @@
         "type": "github"
       }
     },
+    "ponytail": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1781315012,
+        "narHash": "sha256-a5MkMW4G6/UQ+WeA2A3ACnnI2nRvAByZkFPOzxDKUm8=",
+        "owner": "DietrichGebert",
+        "repo": "ponytail",
+        "rev": "93f3ac1d76e09b7e258fe79802e36d7335b1d7dd",
+        "type": "github"
+      },
+      "original": {
+        "owner": "DietrichGebert",
+        "repo": "ponytail",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "ai-assistant-instructions": "ai-assistant-instructions",
@@ -626,7 +642,8 @@
         "nix-claude-code": "nix-claude-code",
         "nixpkgs": "nixpkgs",
         "nixpkgs-unstable": "nixpkgs-unstable",
-        "pal-mcp-server": "pal-mcp-server"
+        "pal-mcp-server": "pal-mcp-server",
+        "ponytail": "ponytail"
       }
     },
     "superpowers-marketplace": {

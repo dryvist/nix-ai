@@ -73,6 +73,15 @@
       flake = false;
     };
 
+    # Ponytail - "lazy senior dev mode" behavioral skill (YAGNI, stdlib-first,
+    # no unrequested abstractions). Dual-channel: a flat skills/<name>/SKILL.md
+    # layout (consumed cross-tool by agent-skills) AND a native .claude-plugin/
+    # marketplace (consumed by Claude). Wired like karpathy-skills.
+    ponytail = {
+      url = "github:DietrichGebert/ponytail";
+      flake = false;
+    };
+
   };
 
   outputs =
@@ -87,6 +96,7 @@
       pal-mcp-server,
       fabric-src,
       dashmotion,
+      ponytail,
       ...
     }:
     let
@@ -106,6 +116,7 @@
           pal-mcp-server
           nixpkgs-unstable
           dashmotion
+          ponytail
           ;
       };
 
@@ -148,6 +159,12 @@
                   source = {
                     type = "github";
                     url = "forrestchang/andrej-karpathy-skills";
+                  };
+                };
+                "ponytail" = {
+                  source = {
+                    type = "github";
+                    url = "DietrichGebert/ponytail";
                   };
                 };
               };
