@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.78.0](https://github.com/dryvist/nix-ai/compare/v1.77.1...v1.78.0) (2026-06-13)
+
+
+### Features
+
+* **claude:** auto-load ponytail skill everywhere + fix worktree placement ([#946](https://github.com/dryvist/nix-ai/issues/946)) ([eef66b0](https://github.com/dryvist/nix-ai/commit/eef66b01c04f50fa5c04ccb47b3e32771c96381e))
+
 ## [1.77.1](https://github.com/dryvist/nix-ai/compare/v1.77.0...v1.77.1) (2026-06-13)
 
 
