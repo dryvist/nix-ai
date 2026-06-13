@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.78.1](https://github.com/dryvist/nix-ai/compare/v1.78.0...v1.78.1) (2026-06-13)
+
+
+### Bug Fixes
+
+* **ci:** pin untrusted re-actors/alls-green action to commit SHA ([#944](https://github.com/dryvist/nix-ai/issues/944)) ([aa2f97d](https://github.com/dryvist/nix-ai/commit/aa2f97d7ceaa0a4fee612daed24c38c879743a89))
+
 ## [1.78.0](https://github.com/dryvist/nix-ai/compare/v1.77.1...v1.78.0) (2026-06-13)
 
 
