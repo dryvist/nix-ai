@@ -22,8 +22,8 @@ def _atomic_write(target: Path, content: bytes) -> None:
 
     shutil.copy2 would preserve the read-only mode of the Nix-store source,
     making the runtime config un-overwritable on the next activation. Using
-    tmp + os.replace gives us atomicity, an explicit 0o644 mode, and clear
-    swap semantics even when the target already exists.
+    tmp + os.replace gives us atomicity, an explicit owner-only (0o600) mode,
+    and clear swap semantics even when the target already exists.
     """
     fd, tmp = tempfile.mkstemp(
         dir=target.parent, prefix=target.name + ".", suffix=".tmp"
@@ -31,7 +31,9 @@ def _atomic_write(target: Path, content: bytes) -> None:
     try:
         with os.fdopen(fd, "wb") as f:
             f.write(content)
-        os.chmod(tmp, 0o644)
+        # Owner-only: this is a per-user runtime config under ~/.config/mlx,
+        # read only by the user's own llama-swap LaunchAgent.
+        os.chmod(tmp, 0o600)
         os.replace(tmp, target)
     except Exception:
         if os.path.exists(tmp):
@@ -58,7 +60,7 @@ def main() -> None:
     # Atomically create runtime config if it doesn't exist (avoids TOCTOU race
     # with concurrent darwin-rebuild or LaunchAgent startup).
     try:
-        fd = os.open(str(runtime), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
+        fd = os.open(str(runtime), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
         with os.fdopen(fd, "wb") as f:
             f.write(base_content)
         marker.write_text(base_hash + "\n")
