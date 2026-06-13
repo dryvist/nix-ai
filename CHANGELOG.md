@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.77.0](https://github.com/dryvist/nix-ai/compare/v1.76.2...v1.77.0) (2026-06-13)
+
+
+### Features
+
+* **profiles:** autonomy profiles + container-image config renderers ([#939](https://github.com/dryvist/nix-ai/issues/939)) ([4d9eaec](https://github.com/dryvist/nix-ai/commit/4d9eaec4cc47745018184f55b6eda40c8f7c29ba))
+
 ## [1.76.2](https://github.com/dryvist/nix-ai/compare/v1.76.1...v1.76.2) (2026-06-12)
 
 
