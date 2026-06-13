@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.77.1](https://github.com/dryvist/nix-ai/compare/v1.77.0...v1.77.1) (2026-06-13)
+
+
+### Bug Fixes
+
+* **mlx:** tighten seeded runtime config to owner-only perms (0o600) ([#942](https://github.com/dryvist/nix-ai/issues/942)) ([d7580b7](https://github.com/dryvist/nix-ai/commit/d7580b75a227e4956f32dfff83d2c44211a62c9c))
+
 ## [1.77.0](https://github.com/dryvist/nix-ai/compare/v1.76.2...v1.77.0) (2026-06-13)
 
 
