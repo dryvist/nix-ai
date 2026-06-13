@@ -217,6 +217,17 @@
         # nix-claude-code, excludeDenyCategories?, excludeDenyCommands? }
         # and receive { permissions, formatters } — see modules/common/default.nix.
         aiCommon = import ./modules/common;
+
+        # Autonomy profiles (interactive / autonomous / ci) — tool-agnostic
+        # deployment postures. See modules/common/profiles.nix for the model.
+        profiles = import ./modules/common/profiles.nix { inherit (nixpkgs) lib; };
+
+        # Autonomous-profile config renderers for agent container images
+        # (dryvist/nix-agent-sandbox). Pure strings, never written to a host
+        # filesystem by any home-manager code path.
+        renderAutonomous = import ./modules/common/render-autonomous.nix {
+          inherit (nixpkgs) lib;
+        };
       };
 
       # Quality checks (formatting, linting, dead code, shellcheck, module-eval).
