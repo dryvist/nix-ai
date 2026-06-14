@@ -227,11 +227,11 @@
     "dashmotion": {
       "flake": false,
       "locked": {
-        "lastModified": 1781343214,
-        "narHash": "sha256-O0fdPkZc5GB9V2AuEAHnwOtveN48vRtXM7132kgurl4=",
+        "lastModified": 1781411149,
+        "narHash": "sha256-h8amZPmMIZtI+oMqRtxwTX4FjaSfqjwSYqTgAYOyz9M=",
         "owner": "csthink",
         "repo": "dashmotion",
-        "rev": "b9babbe2a5ea7aa03430ae10e4e9c2028243ec55",
+        "rev": "f343ae10e6005f9c61e06af18446ad90ecbafea7",
         "type": "github"
       },
       "original": {
@@ -553,11 +553,11 @@
     },
     "nixpkgs-unstable": {
       "locked": {
-        "lastModified": 1781268102,
-        "narHash": "sha256-Zn5KTggEmUB3lXn/ccERNcBdddE6IaOFber9dWViWDg=",
+        "lastModified": 1781328464,
+        "narHash": "sha256-j9uBlHI0eJ9zWU9IlF6SlBBPdeJu30hcvar31IRKHpw=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "49a4bd0573c376468dd7996ddb6f9fa31d8c4d97",
+        "rev": "5a722a7155bfc9fbe657f28d26b71860d95324bc",
         "type": "github"
       },
       "original": {
