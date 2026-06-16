@@ -227,11 +227,11 @@
     "dashmotion": {
       "flake": false,
       "locked": {
-        "lastModified": 1781411149,
-        "narHash": "sha256-h8amZPmMIZtI+oMqRtxwTX4FjaSfqjwSYqTgAYOyz9M=",
+        "lastModified": 1781429879,
+        "narHash": "sha256-0Ug4eH+I36lyCWHDL6H5ztgMVC8JM/k35IKy3QcStrA=",
         "owner": "csthink",
         "repo": "dashmotion",
-        "rev": "f343ae10e6005f9c61e06af18446ad90ecbafea7",
+        "rev": "4f5a882cb4f797ac10aef787f51baf74896b6f08",
         "type": "github"
       },
       "original": {
@@ -553,11 +553,11 @@
     },
     "nixpkgs-unstable": {
       "locked": {
-        "lastModified": 1781328464,
-        "narHash": "sha256-j9uBlHI0eJ9zWU9IlF6SlBBPdeJu30hcvar31IRKHpw=",
+        "lastModified": 1781359544,
+        "narHash": "sha256-iUuzKQcyXvopYDDzFpMK5eQKP3WIJExYny2kJtbgUcE=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "5a722a7155bfc9fbe657f28d26b71860d95324bc",
+        "rev": "9f11f828c213641c2369a9f1fa31fe31557e3156",
         "type": "github"
       },
       "original": {
@@ -618,11 +618,11 @@
     "ponytail": {
       "flake": false,
       "locked": {
-        "lastModified": 1781353122,
-        "narHash": "sha256-+cWfki10COPyTXG6E095IvSVBr/PLXDqyzycwW4n5Xc=",
+        "lastModified": 1781454441,
+        "narHash": "sha256-ycv8D5VO8EEqGXyvphwovJUJxuNsJoJ8IGLBbt3uhu4=",
         "owner": "DietrichGebert",
         "repo": "ponytail",
-        "rev": "0882e2d256fd953c6a3e90b946f68ce4f9f35153",
+        "rev": "16319c7bc91b098975d2bfb2e351398ff8aae3e7",
         "type": "github"
       },
       "original": {
