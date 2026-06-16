@@ -10,50 +10,25 @@
 #   3. Document the reason and the actual exploitability surface.
 #
 # This is per-CVE acknowledgement, not a blanket disable. New findings still
-# fail the build.
-
-# ============================================================================
-# transformers 5.8.1 — Hugging Face Transformers model-parsing RCE chain
-# ============================================================================
-# Lockfiles: mlx-server/uv.lock, orchestrator/uv.lock
-# Local AV — requires loading a malicious model file (deserialization-on-load).
-# Exposure: the default model registry (vars/ai-stack.nix) pulls only from
-# mlx-community/* on Hugging Face, but orchestrator skills (CECLI, LiteLLM
-# proxies, user-supplied skill configs) CAN reference arbitrary model IDs.
-# Mitigation today is operational: the user controls which models are loaded;
-# nothing in nix-ai auto-loads attacker-controlled identifiers. Anyone running
-# this on their own machine with their own configs accepts the same trust
-# boundary they accept for any locally-installed Python ML stack.
-# Upstream status (2026-05-20): no fix; OSV reports introduced=0 / no fixed
-# event for every version, including the brand-new 5.9.0.
-# Tracked in: https://github.com/JacobPEvans/nix-ai/issues/812
-
-
-
-
-
-
-
-
+# fail the build. Keep this list in lockstep with the `ignore-vulns` input of
+# the python-security job in .github/workflows/ci-gate.yml.
+#
+# Previously this file also suppressed transformers (PYSEC-2025-211..218),
+# torch (PYSEC-2025-189..197, 210), joblib (PYSEC-2024-277), and nltk
+# (PYSEC-2026-97). OSV no longer reports those IDs for the locked versions
+# (verified: OSV Scan + pip-audit pass with the entries below removed, while
+# their ignoreUntil dates were still in the future), so the dead entries were
+# dropped. Re-add with rationale + tracking issue if any resurface.
 
 # ============================================================================
 # torch 2.10.0 — PyTorch deserialization chain (pt2 loading handler)
 # ============================================================================
 # Lockfile: orchestrator/uv.lock
-# Local AV — same threat model as transformers (we only load files we control).
-# Upstream PR for CVE-2026-4538 is pending; remaining CVEs have no fix.
-# Latest published torch is 2.12.0 (2026-05-13); all versions still affected.
+# Local AV — requires loading a malicious model file (deserialization-on-load).
+# We only load model files we control; nothing in nix-ai auto-loads
+# attacker-controlled identifiers. Latest published torch is 2.12.0
+# (2026-05-13); all versions still affected.
 # Tracked in: https://github.com/JacobPEvans/nix-ai/issues/812
-
-
-
-
-
-
-
-
-
-
 
 [[IgnoredVulns]]
 id = "PYSEC-2026-139"
@@ -64,20 +39,6 @@ pt2 Loading Handler deserialization. Local AV. Upstream PR is pending
 but no release as of 2026-05-20.
 Tracked in JacobPEvans/nix-ai#812.
 """
-
-# ============================================================================
-# joblib 1.5.3 — deserialization in Memory.cache
-# ============================================================================
-# Lockfile: orchestrator/uv.lock
-# Already on latest published (1.5.3). No upstream fix exists.
-
-
-# ============================================================================
-# nltk 3.9.4 — local file load
-# ============================================================================
-# Lockfile: orchestrator/uv.lock
-# Already on latest published (3.9.4). No upstream fix exists.
-
 
 [[IgnoredVulns]]
 id = "GHSA-rrmf-rvhw-rf47"

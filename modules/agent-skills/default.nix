@@ -22,7 +22,24 @@ let
     }) (builtins.filter (name: enabledPlugins.${name}) (builtins.attrNames enabledPlugins))
   );
 
-  isMarketplaceEnabled = marketplaceName: enabledMarketplaces.${marketplaceName} or false;
+  # Every marketplace named anywhere in the plugin tiers — enabled OR explicitly
+  # disabled. A marketplace input absent from this set was never gated as a Claude
+  # marketplace; it is a skill-only cross-tool input (e.g. dashmotion, which ships
+  # skills/<name>/SKILL.md but has no .claude-plugin/ and is never registered with
+  # Claude). Such inputs must still be discovered — gating them on Claude-plugin
+  # enablement would silently drop their skills.
+  gatedMarketplaces = lib.listToAttrs (
+    map (name: {
+      name = lib.last (lib.splitString "@" name);
+      value = true;
+    }) (builtins.attrNames enabledPlugins)
+  );
+
+  # A marketplace contributes skills when it has at least one enabled plugin, or
+  # when it was never gated at all (a skill-only input the consumer wired in).
+  isMarketplaceEnabled =
+    marketplaceName:
+    enabledMarketplaces.${marketplaceName} or (!(gatedMarketplaces.${marketplaceName} or false));
 
   # Discovers SKILL.md files from plugin repos.
   # Pattern: <plugin>/skills/<skill-name>/SKILL.md

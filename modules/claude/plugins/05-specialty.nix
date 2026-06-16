@@ -85,6 +85,11 @@ _:
     # Kept for hf CLI Hub operations (download/upload models, manage repos) —
     # user actively does HF model ops in nix-ai (MLX work).
     "hf-cli@huggingface-skills" = true;
+    # DISABLED explicitly — hf-cli (above) already covers Hub operations, and
+    # the Hugging Face MCP server is wired separately in modules/mcp, so a
+    # standalone MCP-usage guidance skill is redundant. Flip to `true` to
+    # surface it cross-tool (~/.agents/skills) if that changes.
+    "hf-mcp@huggingface-skills" = false;
 
     # ========================================================================
     # karpathy-skills — forrestchang/andrej-karpathy-skills (113639★)
