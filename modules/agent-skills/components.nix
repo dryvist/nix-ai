@@ -67,6 +67,7 @@ in
         ".gemini/antigravity-cli/skills".source =
           config.lib.file.mkOutOfStoreSymlink "${homeDir}/.agents/skills";
         ".gemini/config/skills".source = config.lib.file.mkOutOfStoreSymlink "${homeDir}/.agents/skills";
+        ".codex/skills".source = config.lib.file.mkOutOfStoreSymlink "${homeDir}/.agents/skills";
       }
       // mkSkillFiles cfg.fromFlakeInputs
       // mkLocalSkills cfg.local;
