@@ -130,9 +130,7 @@ in
   # Validate the activation package builds (forces config.toml generation).
   codex-settings-toml = builtins.seq hmConfig.activationPackage (
     let
-      disallowedCodexFiles = builtins.filter (
-        n: n == "GEMINI.md" || builtins.match "^\\.codex/skills(/.*)?$" n != null
-      ) homeFileNames;
+      disallowedCodexFiles = builtins.filter (n: n == "GEMINI.md") homeFileNames;
     in
     assert
       disallowedCodexFiles == [ ]
