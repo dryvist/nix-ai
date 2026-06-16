@@ -36,7 +36,7 @@ in
         cleanup_skill_tree() {
           root="$1"
 
-          [ -d "$root" ] || return 0
+          [ -d "$root" ] && [ ! -L "$root" ] || return 0
 
           find "$root" -mindepth 1 -maxdepth 1 -type d -print0 | while IFS= read -r -d $'\0' skill_dir; do
             skill_file="$skill_dir/SKILL.md"

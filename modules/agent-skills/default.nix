@@ -15,11 +15,14 @@ let
   };
   inherit (pluginTiers) enabledPlugins;
 
-  isMarketplaceEnabled =
-    marketplaceName:
-    lib.any (name: lib.hasSuffix "@${marketplaceName}" name && enabledPlugins.${name}) (
-      builtins.attrNames enabledPlugins
-    );
+  enabledMarketplaces = lib.listToAttrs (
+    map (name: {
+      name = lib.last (lib.splitString "@" name);
+      value = true;
+    }) (builtins.filter (name: enabledPlugins.${name}) (builtins.attrNames enabledPlugins))
+  );
+
+  isMarketplaceEnabled = marketplaceName: enabledMarketplaces.${marketplaceName} or false;
 
   # Discovers SKILL.md files from plugin repos.
   # Pattern: <plugin>/skills/<skill-name>/SKILL.md
