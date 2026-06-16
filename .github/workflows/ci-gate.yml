@@ -136,17 +136,9 @@ jobs:
       # MUST mirror osv-scanner.toml `[[IgnoredVulns]]`. Each ID is documented
       # there (rationale, tracking issue #812, `ignoreUntil` review date).
       # New advisories must be added to BOTH files in lockstep.
-      #   PYSEC-2025-211..218 — transformers 5.8.1 deserialization chain.
-      #   PYSEC-2025-189..197, 210, PYSEC-2026-139 — torch 2.10.0 chain.
-      #   PYSEC-2024-277 — joblib 1.5.3 Memory.cache deserialization.
-      #   PYSEC-2026-97  — nltk 3.9.4 local file load.
+      #   PYSEC-2026-139, CVE-2025-3000, GHSA-rrmf-rvhw-rf47 — torch 2.10.0 chain.
       ignore-vulns: >-
-        PYSEC-2024-277 PYSEC-2025-189 PYSEC-2025-190 PYSEC-2025-191
-        PYSEC-2025-192 PYSEC-2025-193 PYSEC-2025-194 PYSEC-2025-195
-        PYSEC-2025-196 PYSEC-2025-197 PYSEC-2025-210 PYSEC-2025-211
-        PYSEC-2025-212 PYSEC-2025-213 PYSEC-2025-214 PYSEC-2025-215
-        PYSEC-2025-216 PYSEC-2025-217 PYSEC-2025-218 PYSEC-2026-97
-        PYSEC-2026-139
+        PYSEC-2026-139 CVE-2025-3000 GHSA-rrmf-rvhw-rf47
       runner_label: ${{ github.event.pull_request.head.repo.full_name == github.repository && format('runs-on={0}/runner=2cpu-linux-x64', github.run_id) || 'ubuntu-latest' }}
 
   osv-scan:

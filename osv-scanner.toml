@@ -86,3 +86,11 @@ reason = """
 torch 2.10.0 (CVSS 5.3) — newly surfaced vulnerability.
 Local AV. No upstream fix. Tracked in JacobPEvans/nix-ai#812.
 """
+
+[[IgnoredVulns]]
+id = "CVE-2025-3000"
+ignoreUntil = 2026-08-20
+reason = """
+torch 2.10.0 (CVSS 5.3) — newly surfaced vulnerability.
+Same as GHSA-rrmf-rvhw-rf47. Local AV. No upstream fix. Tracked in JacobPEvans/nix-ai#812.
+"""
