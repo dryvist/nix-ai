@@ -13,12 +13,13 @@
 # fail the build. Keep this list in lockstep with the `ignore-vulns` input of
 # the python-security job in .github/workflows/ci-gate.yml.
 #
-# Previously this file also suppressed transformers (PYSEC-2025-211..218),
-# torch (PYSEC-2025-189..197, 210), joblib (PYSEC-2024-277), and nltk
-# (PYSEC-2026-97). OSV no longer reports those IDs for the locked versions
-# (verified: OSV Scan + pip-audit pass with the entries below removed, while
-# their ignoreUntil dates were still in the future), so the dead entries were
-# dropped. Re-add with rationale + tracking issue if any resurface.
+# NOTE on advisory churn: OSV re-aliases advisories over time, so the same
+# underlying vuln can change IDs. The transformers (PYSEC-2025-211..218),
+# torch (PYSEC-2025-189..197, 210), and joblib (PYSEC-2024-277) entries that
+# previously lived here are no longer reported by OSV for the locked versions
+# and were dropped. The nltk advisory resurfaced under a new GHSA id and is
+# re-added below. Re-add any of the others (under their current id) with
+# rationale + tracking issue if OSV starts reporting them again.
 
 # ============================================================================
 # torch 2.10.0 — PyTorch deserialization chain (pt2 loading handler)
@@ -54,4 +55,21 @@ ignoreUntil = 2026-08-20
 reason = """
 torch 2.10.0 (CVSS 5.3) — newly surfaced vulnerability.
 Same as GHSA-rrmf-rvhw-rf47. Local AV. No upstream fix. Tracked in JacobPEvans/nix-ai#812.
+"""
+
+# ============================================================================
+# nltk 3.9.4 — local file load
+# ============================================================================
+# Lockfile: orchestrator/uv.lock
+# Local AV — already on the latest published nltk (3.9.4); no upstream fix.
+# OSV reclassified the original PYSEC-2026-97 advisory under the GHSA id below.
+# Tracked in: https://github.com/JacobPEvans/nix-ai/issues/812
+
+[[IgnoredVulns]]
+id = "GHSA-p4gq-832x-fm9v"
+ignoreUntil = 2026-08-20
+reason = """
+nltk 3.9.4 (CVSS 7.5) — local file load (alias of the withdrawn PYSEC-2026-97).
+Local AV. Already on latest published version; no upstream fix exists.
+Tracked in JacobPEvans/nix-ai#812.
 """
