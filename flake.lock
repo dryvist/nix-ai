@@ -3,11 +3,11 @@
     "ai-assistant-instructions": {
       "flake": false,
       "locked": {
-        "lastModified": 1781393930,
-        "narHash": "sha256-DB44S5EiWt4mB1Peoszbew0K30KqlZp959NaLiQGx+k=",
+        "lastModified": 1781567553,
+        "narHash": "sha256-5wlljm/GfRCQ33eKnAXRxVS9N4vQFwI5X34BACi5f4Y=",
         "owner": "JacobPEvans",
         "repo": "ai-assistant-instructions",
-        "rev": "998cc626c250163ddc14ed90b4d82008337f5150",
+        "rev": "f221f405ba45ed512fb7ec181f2e74cc51aecc12",
         "type": "github"
       },
       "original": {
@@ -131,11 +131,11 @@
     "claude-code-plugins": {
       "flake": false,
       "locked": {
-        "lastModified": 1781301202,
-        "narHash": "sha256-ZizJ5+rkRiCGHc5FrluWD1lUnvS/rE0mDTpmp1sD4xM=",
+        "lastModified": 1781559348,
+        "narHash": "sha256-Uec+yA/kFLJ2SIm0Pa87FDSITo85mdEgs1HP4FbdLZA=",
         "owner": "anthropics",
         "repo": "claude-code",
-        "rev": "ca9f6045fc90c8244f9e787fb57d54b380f9a27c",
+        "rev": "64ceb97caab3fb898ece9a1b61e337470f805550",
         "type": "github"
       },
       "original": {
@@ -227,11 +227,11 @@
     "dashmotion": {
       "flake": false,
       "locked": {
-        "lastModified": 1781429879,
-        "narHash": "sha256-0Ug4eH+I36lyCWHDL6H5ztgMVC8JM/k35IKy3QcStrA=",
+        "lastModified": 1781614569,
+        "narHash": "sha256-rHiKaUm5sKSch5XR78lxAP4cxKLIh+Xdh6lodsRXDs4=",
         "owner": "csthink",
         "repo": "dashmotion",
-        "rev": "4f5a882cb4f797ac10aef787f51baf74896b6f08",
+        "rev": "ae2fe4f28c60caa53da8b15fa3537f4ea576f4ad",
         "type": "github"
       },
       "original": {
@@ -553,11 +553,11 @@
     },
     "nixpkgs-unstable": {
       "locked": {
-        "lastModified": 1781359544,
-        "narHash": "sha256-iUuzKQcyXvopYDDzFpMK5eQKP3WIJExYny2kJtbgUcE=",
+        "lastModified": 1781454065,
+        "narHash": "sha256-d2xfDjnfRuf/xYGdu9VVRHiav/2w5hDL/5cw2TuVAXw=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "9f11f828c213641c2369a9f1fa31fe31557e3156",
+        "rev": "9eac87a12312b8f60dd52e1c6e1a265f6fc7f5fc",
         "type": "github"
       },
       "original": {
@@ -618,11 +618,11 @@
     "ponytail": {
       "flake": false,
       "locked": {
-        "lastModified": 1781454441,
-        "narHash": "sha256-ycv8D5VO8EEqGXyvphwovJUJxuNsJoJ8IGLBbt3uhu4=",
+        "lastModified": 1781626342,
+        "narHash": "sha256-nB8NuYJw4fgUQ51T7j4Az6Z+SnH4j0P+uqTL9BkukUY=",
         "owner": "DietrichGebert",
         "repo": "ponytail",
-        "rev": "16319c7bc91b098975d2bfb2e351398ff8aae3e7",
+        "rev": "99139a25d07e3523d3f6871419798dda600db49a",
         "type": "github"
       },
       "original": {
