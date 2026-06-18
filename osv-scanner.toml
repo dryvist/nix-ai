@@ -10,184 +10,26 @@
 #   3. Document the reason and the actual exploitability surface.
 #
 # This is per-CVE acknowledgement, not a blanket disable. New findings still
-# fail the build.
-
-# ============================================================================
-# transformers 5.8.1 — Hugging Face Transformers model-parsing RCE chain
-# ============================================================================
-# Lockfiles: mlx-server/uv.lock, orchestrator/uv.lock
-# Local AV — requires loading a malicious model file (deserialization-on-load).
-# Exposure: the default model registry (vars/ai-stack.nix) pulls only from
-# mlx-community/* on Hugging Face, but orchestrator skills (CECLI, LiteLLM
-# proxies, user-supplied skill configs) CAN reference arbitrary model IDs.
-# Mitigation today is operational: the user controls which models are loaded;
-# nothing in nix-ai auto-loads attacker-controlled identifiers. Anyone running
-# this on their own machine with their own configs accepts the same trust
-# boundary they accept for any locally-installed Python ML stack.
-# Upstream status (2026-05-20): no fix; OSV reports introduced=0 / no fixed
-# event for every version, including the brand-new 5.9.0.
-# Tracked in: https://github.com/JacobPEvans/nix-ai/issues/812
-
-[[IgnoredVulns]]
-id = "PYSEC-2025-211"
-ignoreUntil = 2026-08-20
-reason = """
-transformers 5.8.1 (CVSS 7.8) — CVE-2025-14920 / ZDI-CAN-25423.
-Perceiver Model deserialization RCE. Local AV.
-No upstream fix. Tracked in JacobPEvans/nix-ai#812.
-"""
-
-[[IgnoredVulns]]
-id = "PYSEC-2025-212"
-ignoreUntil = 2026-08-20
-reason = """
-transformers 5.8.1 (CVSS 7.8) — CVE-2025-14921.
-Model-parsing deserialization RCE (same ZDI advisory family as PYSEC-2025-211).
-Local AV. No upstream fix. Tracked in JacobPEvans/nix-ai#812.
-"""
-
-[[IgnoredVulns]]
-id = "PYSEC-2025-213"
-ignoreUntil = 2026-08-20
-reason = """
-transformers 5.8.1 (CVSS 7.8) — CVE-2025-14922.
-Model-parsing deserialization RCE.
-Local AV. No upstream fix. Tracked in JacobPEvans/nix-ai#812.
-"""
-
-[[IgnoredVulns]]
-id = "PYSEC-2025-214"
-ignoreUntil = 2026-08-20
-reason = """
-transformers 5.8.1 (CVSS 7.8) — CVE-2025-14923.
-Model-parsing deserialization RCE.
-Local AV. No upstream fix. Tracked in JacobPEvans/nix-ai#812.
-"""
-
-[[IgnoredVulns]]
-id = "PYSEC-2025-215"
-ignoreUntil = 2026-08-20
-reason = """
-transformers 5.8.1 (CVSS 7.8) — CVE-2025-14924.
-Model-parsing deserialization RCE.
-Local AV. No upstream fix. Tracked in JacobPEvans/nix-ai#812.
-"""
-
-[[IgnoredVulns]]
-id = "PYSEC-2025-216"
-ignoreUntil = 2026-08-20
-reason = """
-transformers 5.8.1 (CVSS 7.8) — CVE-2025-14925.
-Model-parsing deserialization RCE.
-Local AV. No upstream fix. Tracked in JacobPEvans/nix-ai#812.
-"""
-
-[[IgnoredVulns]]
-id = "PYSEC-2025-217"
-ignoreUntil = 2026-08-20
-reason = """
-transformers 5.8.1 (CVSS 7.8) — CVE-2025-14926.
-Model-parsing deserialization RCE.
-Local AV. No upstream fix. Tracked in JacobPEvans/nix-ai#812.
-"""
-
-[[IgnoredVulns]]
-id = "PYSEC-2025-218"
-ignoreUntil = 2026-08-20
-reason = """
-transformers 5.8.1 (CVSS 7.8) — CVE-2025-14927.
-Model-parsing deserialization RCE.
-Local AV. No upstream fix. Tracked in JacobPEvans/nix-ai#812.
-"""
+# fail the build. Keep this list in lockstep with the `ignore-vulns` input of
+# the python-security job in .github/workflows/ci-gate.yml.
+#
+# NOTE on advisory churn: OSV re-aliases advisories over time, so the same
+# underlying vuln can change IDs. The transformers (PYSEC-2025-211..218),
+# torch (PYSEC-2025-189..197, 210), and joblib (PYSEC-2024-277) entries that
+# previously lived here are no longer reported by OSV for the locked versions
+# and were dropped. The nltk advisory resurfaced under a new GHSA id and is
+# re-added below. Re-add any of the others (under their current id) with
+# rationale + tracking issue if OSV starts reporting them again.
 
 # ============================================================================
 # torch 2.10.0 — PyTorch deserialization chain (pt2 loading handler)
 # ============================================================================
 # Lockfile: orchestrator/uv.lock
-# Local AV — same threat model as transformers (we only load files we control).
-# Upstream PR for CVE-2026-4538 is pending; remaining CVEs have no fix.
-# Latest published torch is 2.12.0 (2026-05-13); all versions still affected.
+# Local AV — requires loading a malicious model file (deserialization-on-load).
+# We only load model files we control; nothing in nix-ai auto-loads
+# attacker-controlled identifiers. Latest published torch is 2.12.0
+# (2026-05-13); all versions still affected.
 # Tracked in: https://github.com/JacobPEvans/nix-ai/issues/812
-
-[[IgnoredVulns]]
-id = "PYSEC-2025-189"
-ignoreUntil = 2026-08-20
-reason = """
-torch 2.10.0 (CVSS 7.5) — model-load deserialization.
-Local AV. No upstream fix. Tracked in JacobPEvans/nix-ai#812.
-"""
-
-[[IgnoredVulns]]
-id = "PYSEC-2025-190"
-ignoreUntil = 2026-08-20
-reason = """
-torch 2.10.0 (CVSS 2.0) — low-severity follow-on of PYSEC-2025-189.
-Local AV. No upstream fix. Tracked in JacobPEvans/nix-ai#812.
-"""
-
-[[IgnoredVulns]]
-id = "PYSEC-2025-191"
-ignoreUntil = 2026-08-20
-reason = """
-torch 2.10.0 (CVSS 5.5) — model-loader family.
-Local AV. No upstream fix. Tracked in JacobPEvans/nix-ai#812.
-"""
-
-[[IgnoredVulns]]
-id = "PYSEC-2025-192"
-ignoreUntil = 2026-08-20
-reason = """
-torch 2.10.0 (CVSS 4.8) — model-loader family.
-Local AV. No upstream fix. Tracked in JacobPEvans/nix-ai#812.
-"""
-
-[[IgnoredVulns]]
-id = "PYSEC-2025-193"
-ignoreUntil = 2026-08-20
-reason = """
-torch 2.10.0 (CVSS 4.8) — model-loader family.
-Local AV. No upstream fix. Tracked in JacobPEvans/nix-ai#812.
-"""
-
-[[IgnoredVulns]]
-id = "PYSEC-2025-194"
-ignoreUntil = 2026-08-20
-reason = """
-torch 2.10.0 (CVSS 4.8) — model-loader family.
-Local AV. No upstream fix. Tracked in JacobPEvans/nix-ai#812.
-"""
-
-[[IgnoredVulns]]
-id = "PYSEC-2025-195"
-ignoreUntil = 2026-08-20
-reason = """
-torch 2.10.0 (CVSS 4.8) — model-loader family.
-Local AV. No upstream fix. Tracked in JacobPEvans/nix-ai#812.
-"""
-
-[[IgnoredVulns]]
-id = "PYSEC-2025-196"
-ignoreUntil = 2026-08-20
-reason = """
-torch 2.10.0 (CVSS 5.5) — model-loader family.
-Local AV. No upstream fix. Tracked in JacobPEvans/nix-ai#812.
-"""
-
-[[IgnoredVulns]]
-id = "PYSEC-2025-197"
-ignoreUntil = 2026-08-20
-reason = """
-torch 2.10.0 (CVSS 4.8) — model-loader family.
-Local AV. No upstream fix. Tracked in JacobPEvans/nix-ai#812.
-"""
-
-[[IgnoredVulns]]
-id = "PYSEC-2025-210"
-ignoreUntil = 2026-08-20
-reason = """
-torch 2.10.0 (CVSS 3.3) — low-severity follow-on.
-Local AV. No upstream fix. Tracked in JacobPEvans/nix-ai#812.
-"""
 
 [[IgnoredVulns]]
 id = "PYSEC-2026-139"
@@ -199,32 +41,35 @@ but no release as of 2026-05-20.
 Tracked in JacobPEvans/nix-ai#812.
 """
 
-# ============================================================================
-# joblib 1.5.3 — deserialization in Memory.cache
-# ============================================================================
-# Lockfile: orchestrator/uv.lock
-# Already on latest published (1.5.3). No upstream fix exists.
-
 [[IgnoredVulns]]
-id = "PYSEC-2024-277"
+id = "GHSA-rrmf-rvhw-rf47"
 ignoreUntil = 2026-08-20
 reason = """
-joblib 1.5.3 (CVSS 7.5) — deserialization in Memory.cache results.
-Local AV. Already on latest published version; no upstream fix exists.
-Tracked in JacobPEvans/nix-ai#812.
+torch 2.10.0 (CVSS 5.3) — newly surfaced vulnerability.
+Local AV. No upstream fix. Tracked in JacobPEvans/nix-ai#812.
+"""
+
+[[IgnoredVulns]]
+id = "CVE-2025-3000"
+ignoreUntil = 2026-08-20
+reason = """
+torch 2.10.0 (CVSS 5.3) — newly surfaced vulnerability.
+Same as GHSA-rrmf-rvhw-rf47. Local AV. No upstream fix. Tracked in JacobPEvans/nix-ai#812.
 """
 
 # ============================================================================
 # nltk 3.9.4 — local file load
 # ============================================================================
 # Lockfile: orchestrator/uv.lock
-# Already on latest published (3.9.4). No upstream fix exists.
+# Local AV — already on the latest published nltk (3.9.4); no upstream fix.
+# OSV reclassified the original PYSEC-2026-97 advisory under the GHSA id below.
+# Tracked in: https://github.com/JacobPEvans/nix-ai/issues/812
 
 [[IgnoredVulns]]
-id = "PYSEC-2026-97"
+id = "GHSA-p4gq-832x-fm9v"
 ignoreUntil = 2026-08-20
 reason = """
-nltk 3.9.4 (CVSS 7.5) — local file load issue.
+nltk 3.9.4 (CVSS 7.5) — local file load (alias of the withdrawn PYSEC-2026-97).
 Local AV. Already on latest published version; no upstream fix exists.
 Tracked in JacobPEvans/nix-ai#812.
 """

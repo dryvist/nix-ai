@@ -10,92 +10,129 @@
 }:
 
 let
+  pluginTiers = import ../claude/plugins {
+    inherit lib marketplaceInputs;
+  };
+  inherit (pluginTiers) enabledPlugins;
+
+  enabledMarketplaces = lib.listToAttrs (
+    map (name: {
+      name = lib.last (lib.splitString "@" name);
+      value = true;
+    }) (builtins.filter (name: enabledPlugins.${name}) (builtins.attrNames enabledPlugins))
+  );
+
+  # Every marketplace named anywhere in the plugin tiers — enabled OR explicitly
+  # disabled. A marketplace input absent from this set was never gated as a Claude
+  # marketplace; it is a skill-only cross-tool input (e.g. dashmotion, which ships
+  # skills/<name>/SKILL.md but has no .claude-plugin/ and is never registered with
+  # Claude). Such inputs must still be discovered — gating them on Claude-plugin
+  # enablement would silently drop their skills.
+  gatedMarketplaces = lib.listToAttrs (
+    map (name: {
+      name = lib.last (lib.splitString "@" name);
+      value = true;
+    }) (builtins.attrNames enabledPlugins)
+  );
+
+  # A marketplace contributes skills when it has at least one enabled plugin, or
+  # when it was never gated at all (a skill-only input the consumer wired in).
+  isMarketplaceEnabled =
+    marketplaceName:
+    enabledMarketplaces.${marketplaceName} or (!(gatedMarketplaces.${marketplaceName} or false));
+
   # Discovers SKILL.md files from plugin repos.
   # Pattern: <plugin>/skills/<skill-name>/SKILL.md
   discoverSkills =
-    input:
+    marketplaceName: input:
     let
       topDirs = lib.filterAttrs (_: type: type == "directory") (builtins.readDir input);
       pluginSkills =
         pluginName:
-        let
-          skillsPath = "${input}/${pluginName}/skills";
-          hasSkills = builtins.pathExists skillsPath;
-          skillDirs =
-            if hasSkills then
-              lib.filterAttrs (_: type: type == "directory") (builtins.readDir skillsPath)
-            else
-              { };
-        in
-        lib.mapAttrsToList
-          (skillName: _: {
-            name = skillName;
-            source = "${skillsPath}/${skillName}/SKILL.md";
-          })
-          (
-            lib.filterAttrs (skillName: _: builtins.pathExists "${skillsPath}/${skillName}/SKILL.md") skillDirs
-          );
+        if enabledPlugins."${pluginName}@${marketplaceName}" or false then
+          let
+            skillsPath = "${input}/${pluginName}/skills";
+            hasSkills = builtins.pathExists skillsPath;
+            skillDirs =
+              if hasSkills then
+                lib.filterAttrs (_: type: type == "directory") (builtins.readDir skillsPath)
+              else
+                { };
+          in
+          lib.mapAttrsToList
+            (skillName: _: {
+              name = skillName;
+              source = "${skillsPath}/${skillName}/SKILL.md";
+            })
+            (
+              lib.filterAttrs (skillName: _: builtins.pathExists "${skillsPath}/${skillName}/SKILL.md") skillDirs
+            )
+        else
+          [ ];
     in
     lib.concatMap pluginSkills (builtins.attrNames topDirs);
 
   # Translates Claude commands (commands/*.md) dynamically into Agent Skills (SKILL.md).
   # Pattern: <plugin>/commands/<command-name>.md
   discoverClaudeCommands =
-    input:
+    marketplaceName: input:
     let
       topDirs = lib.filterAttrs (_: type: type == "directory") (builtins.readDir input);
       pluginCommands =
         pluginName:
-        let
-          commandsPath = "${input}/${pluginName}/commands";
-          hasCommands = builtins.pathExists commandsPath;
-          commandFiles =
-            if hasCommands then
-              lib.filterAttrs (name: type: type == "regular" && lib.hasSuffix ".md" name) (
-                builtins.readDir commandsPath
-              )
-            else
-              { };
-        in
-        lib.mapAttrsToList (
-          fileName: _:
+        if enabledPlugins."${pluginName}@${marketplaceName}" or false then
           let
-            commandName = lib.removeSuffix ".md" fileName;
-            skillName = "${pluginName}-${commandName}";
-            originalFile = "${commandsPath}/${fileName}";
-
-            wrappedSkillDir = pkgs.runCommand "wrap-claude-command-${skillName}" { } ''
-              mkdir -p $out
-              cat << 'EOF' > $out/SKILL.md
-              ---
-              name: ${skillName}
-              description: Claude plugin command imported from ${pluginName}/${commandName}.
-              ---
-
-              # `${skillName}`
-
-              This skill was automatically imported from the Claude command `${pluginName}:${commandName}`.
-
-              <instructions>
-              Please read the following original Claude command specification and fulfill its intent.
-              If the specification contains syntax like `!` followed by a shell command (e.g. `!git status`), you MUST execute that command using your bash/shell tools to gather the necessary context before proceeding.
-
-              <original_command>
-              EOF
-
-              cat ${originalFile} >> $out/SKILL.md
-
-              cat << 'EOF' >> $out/SKILL.md
-              </original_command>
-              </instructions>
-              EOF
-            '';
+            commandsPath = "${input}/${pluginName}/commands";
+            hasCommands = builtins.pathExists commandsPath;
+            commandFiles =
+              if hasCommands then
+                lib.filterAttrs (name: type: type == "regular" && lib.hasSuffix ".md" name) (
+                  builtins.readDir commandsPath
+                )
+              else
+                { };
           in
-          {
-            name = skillName;
-            source = "${wrappedSkillDir}/SKILL.md";
-          }
-        ) commandFiles;
+          lib.mapAttrsToList (
+            fileName: _:
+            let
+              commandName = lib.removeSuffix ".md" fileName;
+              skillName = "${pluginName}-${commandName}";
+              originalFile = "${commandsPath}/${fileName}";
+
+              wrappedSkillDir = pkgs.runCommand "wrap-claude-command-${skillName}" { } ''
+                mkdir -p $out
+                cat << 'EOF' > $out/SKILL.md
+                ---
+                name: ${skillName}
+                description: Claude plugin command imported from ${pluginName}/${commandName}.
+                ---
+
+                # `${skillName}`
+
+                This skill was automatically imported from the Claude command `${pluginName}:${commandName}`.
+
+                <instructions>
+                Please read the following original Claude command specification and fulfill its intent.
+                If the specification contains syntax like `!` followed by a shell command (e.g. `!git status`), you MUST execute that command using your bash/shell tools to gather the necessary context before proceeding.
+
+                <original_command>
+                EOF
+
+                cat ${originalFile} >> $out/SKILL.md
+
+                cat << 'EOF' >> $out/SKILL.md
+                </original_command>
+                </instructions>
+                EOF
+              '';
+            in
+            {
+              name = skillName;
+              source = "${wrappedSkillDir}/SKILL.md";
+            }
+          ) commandFiles
+        else
+          [ ];
     in
     lib.concatMap pluginCommands (builtins.attrNames topDirs);
 
@@ -103,41 +140,47 @@ let
   # Pattern: <repo>/skills/<skill-name>/SKILL.md
   # Used for marketplaces like huggingface/skills that store skills at the top level.
   discoverFlatSkills =
-    input:
-    let
-      skillsPath = "${input}/skills";
-    in
-    if builtins.pathExists skillsPath then
-      lib.mapAttrsToList
-        (name: _: {
-          inherit name;
-          source = "${skillsPath}/${name}/SKILL.md";
-        })
-        (
-          lib.filterAttrs (
-            name: type: type == "directory" && builtins.pathExists "${skillsPath}/${name}/SKILL.md"
-          ) (builtins.readDir skillsPath)
-        )
+    marketplaceName: input:
+    if isMarketplaceEnabled marketplaceName then
+      let
+        skillsPath = "${input}/skills";
+      in
+      if builtins.pathExists skillsPath then
+        lib.mapAttrsToList
+          (name: _: {
+            inherit name;
+            source = "${skillsPath}/${name}/SKILL.md";
+          })
+          (
+            lib.filterAttrs (
+              name: type: type == "directory" && builtins.pathExists "${skillsPath}/${name}/SKILL.md"
+            ) (builtins.readDir skillsPath)
+          )
+      else
+        [ ]
     else
       [ ];
 
   # Discovers SKILL.md files from a bare .claude/skills/ directory.
   # Pattern: <repo>/.claude/skills/<skill-name>/SKILL.md
   discoverDotClaudeSkills =
-    input:
-    let
-      skillsPath = "${input}/.claude/skills";
-      hasSkills = builtins.pathExists skillsPath;
-      skillDirs =
-        if hasSkills then
-          lib.filterAttrs (_: type: type == "directory") (builtins.readDir skillsPath)
-        else
-          { };
-    in
-    lib.mapAttrsToList (name: _: {
-      inherit name;
-      source = "${skillsPath}/${name}/SKILL.md";
-    }) (lib.filterAttrs (name: _: builtins.pathExists "${skillsPath}/${name}/SKILL.md") skillDirs);
+    marketplaceName: input:
+    if isMarketplaceEnabled marketplaceName then
+      let
+        skillsPath = "${input}/.claude/skills";
+        hasSkills = builtins.pathExists skillsPath;
+        skillDirs =
+          if hasSkills then
+            lib.filterAttrs (_: type: type == "directory") (builtins.readDir skillsPath)
+          else
+            { };
+      in
+      lib.mapAttrsToList (name: _: {
+        inherit name;
+        source = "${skillsPath}/${name}/SKILL.md";
+      }) (lib.filterAttrs (name: _: builtins.pathExists "${skillsPath}/${name}/SKILL.md") skillDirs)
+    else
+      [ ];
 
   # Discovers a SKILL.md at the repo root (single-skill repo pattern).
   # Pattern: <repo>/SKILL.md
@@ -145,11 +188,14 @@ let
   # alongside supporting resources (references/, resources/) in the same tree.
   # The entire repo directory is deployed so relative paths inside SKILL.md resolve.
   discoverRootSkill =
-    name: input:
-    lib.optional (builtins.pathExists "${input}/SKILL.md") {
-      inherit name;
-      source = "${input}/SKILL.md";
-    };
+    marketplaceName: input:
+    if isMarketplaceEnabled marketplaceName then
+      lib.optional (builtins.pathExists "${input}/SKILL.md") {
+        name = marketplaceName;
+        source = "${input}/SKILL.md";
+      }
+    else
+      [ ];
 
   # Applies all known SKILL.md discovery patterns to one input path.
   # Each pattern short-circuits (via pathExists) when the layout is absent.
@@ -160,19 +206,20 @@ let
   # rootDir lookup short-circuits when input is not a directory and verifies each
   # subpath is itself a directory before recursing — readDir on a regular file throws.
   walkAllPatterns =
-    input:
+    marketplaceName: input:
     let
       rootDir = if builtins.pathExists input then builtins.readDir input else { };
     in
-    discoverFlatSkills input
-    ++ discoverDotClaudeSkills input
-    ++ discoverSkills input
+    discoverFlatSkills marketplaceName input
+    ++ discoverDotClaudeSkills marketplaceName input
+    ++ discoverSkills marketplaceName input
     ++
       lib.concatMap
         (
           sub:
           lib.optionals ((rootDir.${sub} or "") == "directory") (
-            discoverSkills "${input}/${sub}" ++ discoverClaudeCommands "${input}/${sub}"
+            discoverSkills marketplaceName "${input}/${sub}"
+            ++ discoverClaudeCommands marketplaceName "${input}/${sub}"
           )
         )
         [
@@ -187,7 +234,7 @@ let
   # flake, the consumer decides which inputs to pass; the walker stays unchanged.
   # discoverRootSkill runs separately (it needs the input name, which attrValues discards).
   sharedSkills =
-    lib.concatMap walkAllPatterns (lib.attrValues marketplaceInputs)
+    lib.concatLists (lib.mapAttrsToList walkAllPatterns marketplaceInputs)
     ++ lib.concatLists (lib.mapAttrsToList discoverRootSkill marketplaceInputs);
 in
 {
