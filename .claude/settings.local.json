@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(claude auto-mode:*)",
+      "Skill(update-config)",
+      "Bash(/nix/store/gb1qmdkp2ny11jjc0dfxjszcxnxvljzj-home-manager-generation/activate)",
+      "Read(//Users/jevans/git/nix-darwin/refactor/cribl-edge-packaging/**)",
+      "Read(//Users/jevans/.agents/**)",
+      "Read(//Users/jevans/git/nix-ai/feature/context-token-optimization/**)",
+      "Read(//Users/jevans/git/nix-ai/feature/registry-file/**)",
+      "Read(//Users/jevans/git/nix-ai/feat/renovate-stabilize-mlx/**)",
+      "Read(//Users/jevans/git/nix-claude-code/feat/initial-scaffolding/**)",
+      "Read(//Users/jevans/.local/share/claude/versions/**)",
+      "Bash(claude-latest-install)"
+    ]
+  }
+}
