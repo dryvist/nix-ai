@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.78.2](https://github.com/dryvist/nix-ai/compare/v1.78.1...v1.78.2) (2026-06-18)
+
+
+### Bug Fixes
+
+* **agent-skills:** align codex and agy skill loading and fix CI ([#953](https://github.com/dryvist/nix-ai/issues/953)) ([724f3a2](https://github.com/dryvist/nix-ai/commit/724f3a20494e2eb1220f7d8d92700e3c31ece508))
+
 ## [1.78.1](https://github.com/dryvist/nix-ai/compare/v1.78.0...v1.78.1) (2026-06-13)
 
 
