@@ -66,19 +66,19 @@ nix-ai exports [home-manager](https://github.com/nix-community/home-manager) mod
 | `lib.ci.codexRules` | Codex rules export for CI validation and downstream consumers |
 | `lib.aiStackModels` | Role-name → physical model ID registry builder — a function `{ defaultLocalModelId }` (no module system needed) |
 
-### Cross-repo consumption — `lib.aiStackModels`
+### Foreign consumption — `lib.aiStackModels`
 
 `lib.aiStackModels` is a function `{ defaultLocalModelId }` (no home-manager module system
 required) that maps every stable capability-class name to the supplied physical
 `mlx-community/*` model ID. The caller provides `defaultLocalModelId` (sourced from the
-`AI_MODEL_LOCAL_LLM` org variable / Doppler secret — never hardcoded in this repo). Foreign
-consumers such as the orbstack-kubernetes Bifrost gateway can call it directly so
-`model: "default"` resolves prefix-free without duplicating the registry.
+`AI_MODEL_LOCAL_LLM` org variable / Doppler secret — never hardcoded in this repo). Any
+external flake can call it directly so `model: "default"` resolves prefix-free without
+duplicating the registry — for example, to build a model-gateway alias table:
 
 ```nix
 inputs.nix-ai.url = "github:JacobPEvans/nix-ai";
 # ...
-# Build Bifrost alias table from role names to mlx-local/ prefixed physical IDs
+# Map role names to mlx-local/ prefixed physical IDs
 aliases = lib.mapAttrs
   (_role: physical: "mlx-local/${physical}")
   (inputs.nix-ai.lib.aiStackModels { defaultLocalModelId = "mlx-community/<provider-tag>-<model-name>-<quant>"; });
@@ -154,16 +154,10 @@ lib/                  # Key lib files (not full listing)
 └── claude-registry.nix    # Marketplace format functions
 ```
 
-## Part of a trio
-
-This repo is one of three that work together:
-
-| Repo | What it does |
-| ---- | ------------ |
-| **nix-ai** (you are here) | AI coding tools |
-| [nix-home](https://github.com/JacobPEvans/nix-home) | Dev environment (git, zsh, VS Code, tmux) |
-| [nix-darwin](https://github.com/JacobPEvans/nix-darwin) | macOS system config (consumes both) |
-
 ## License
 
 MIT
+
+---
+
+> Part of a [larger ecosystem of ~40 repos](https://docs.jacobpevans.com) — see how it all fits together.
