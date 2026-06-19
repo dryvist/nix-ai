@@ -30,7 +30,7 @@ One command rebuilds everything, identically, every time.
 - [home-manager](https://github.com/nix-community/home-manager)
 - Compatible platform: `aarch64-darwin` or `x86_64-linux`
 
-## Quick start
+## Installation
 
 Add to your Nix flake:
 
@@ -98,7 +98,7 @@ inputs.home-manager.follows = "home-manager";
 
 No AI-specific inputs to wire up. No extra configuration. It just works.
 
-## Available module options
+## Usage
 
 Key enable toggles exposed by the default module:
 
