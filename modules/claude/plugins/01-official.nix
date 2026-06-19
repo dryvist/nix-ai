@@ -70,13 +70,15 @@ _:
 
     # Code transformation skills — refactoring + simplification for docs
     # work and general code maintenance.
-    "code-modernization@claude-plugins-official" = true;
+    # code-modernization: DISABLED (legacy/mainframe uplift; 0 real use per
+    # Splunk). Import per-repo via packs.nix `modernization` when needed.
+    "code-modernization@claude-plugins-official" = false;
     "code-simplifier@claude-plugins-official" = true;
 
-    # Dev kits — Agent SDK + MCP server scaffolding. Useful for docs sites
-    # that document or embed Claude/MCP integrations.
-    "agent-sdk-dev@claude-plugins-official" = true;
-    "mcp-server-dev@claude-plugins-official" = true;
+    # Dev kits — Agent SDK + MCP server scaffolding. DISABLED (0 real use per
+    # Splunk). Import per-repo via packs.nix `mcp-dev` when building MCP/SDK apps.
+    "agent-sdk-dev@claude-plugins-official" = false;
+    "mcp-server-dev@claude-plugins-official" = false;
 
     # Language Servers & Developer Tools
     "pyright-lsp@claude-plugins-official" = true;

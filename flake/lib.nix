@@ -94,6 +94,13 @@
   # Versions registry (Renovate-managed pin source-of-truth)
   versions = import ../lib/versions.nix;
 
+  # Named project-scoped plugin packs (api, terraform, proxmox, obsidian, …).
+  # Pure attrset so foreign consumers can read the groupings without the module
+  # system. The home module (modules/claude/skill-packs.nix) renders these to
+  # ~/.config/ai-packs/<name>.json for the `ai-pack` importer. Single source of
+  # truth: modules/claude/plugins/packs.nix. See docs/architecture/plugin-scoping.md.
+  skillPacks = import ../modules/claude/plugins/packs.nix;
+
   # Role-name → physical mlx-community/* model ID registry.
   # Exported as a plain attrset so foreign consumers (e.g.
   # orbstack-kubernetes Bifrost config) can consume it without

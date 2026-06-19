@@ -31,7 +31,8 @@ _:
     #                           code-review covers most security review needs),
     #         tdd-orchestrator (KEEPER for this role at Tier 4),
     #         temporal-python-pro, test-automator (DUP — keeper unit-testing).
-    "backend-development@claude-code-workflows" = true;
+    # DISABLED (0 real use per Splunk) — import per-repo via packs.nix `api`.
+    "backend-development@claude-code-workflows" = false;
 
     # Agents: django-pro, fastapi-pro, python-pro (all unique).
     "python-development@claude-code-workflows" = true;
@@ -104,14 +105,16 @@ _:
     # Official source for claudecodecommands.directory plugins.
 
     # Essential issue analysis + worktree creation utilities (unique to this marketplace).
-    "analyze-issue@cc-marketplace" = true;
+    # analyze-issue: DISABLED (0 real use per Splunk) — packs.nix `devtools`.
+    "analyze-issue@cc-marketplace" = false;
     "create-worktrees@cc-marketplace" = true;
 
     # User actively uses Python — kept for python-expert agent (unique).
     "python-expert@cc-marketplace" = true;
 
     # CI/CD, cloud infra, monitoring, deployment automation (unique).
-    "devops-automator@cc-marketplace" = true;
+    # DISABLED (0 real use per Splunk) — import per-repo via packs.nix `devtools`.
+    "devops-automator@cc-marketplace" = false;
 
     # NOT enabled: double-check (unnecessary), infrastructure-maintainer (too generic),
     # monitoring-observability-specialist (Splunk repos don't need this),
@@ -124,12 +127,12 @@ _:
     # Disable plugins that aren't in the user's day-to-day stack — re-enable
     # per-repo via committed .claude/settings.json overrides when relevant.
 
-    # API design (general utility — KEEP)
-    "api-design-principles@claude-skills" = true;
-    "rest-api-design@claude-skills" = true;
+    # API design — DISABLED (0 real use per Splunk) — packs.nix `api`.
+    "api-design-principles@claude-skills" = false;
+    "rest-api-design@claude-skills" = false;
 
-    # Authentication (KEEP one — better-auth covers OAuth flows too)
-    "better-auth@claude-skills" = true;
+    # Authentication — DISABLED (0 real use per Splunk) — packs.nix `api`.
+    "better-auth@claude-skills" = false;
     "oauth-implementation@claude-skills" = false; # Superseded by better-auth above.
 
     # DISABLED — not in user's stack (no JS/web app dev, no GraphQL, no WS,
