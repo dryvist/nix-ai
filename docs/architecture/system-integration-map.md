@@ -18,7 +18,6 @@ graph TD
     end
 
     subgraph Orchestration["Orchestration Layer"]
-        PAL["PAL MCP\n(stdio)"]
         MAE["Maestro\n(scheduled sessions)"]
     end
 
@@ -43,15 +42,11 @@ graph TD
         GGL["Google AI"]
     end
 
-    CC -->|stdio MCP| PAL
     CC -->|stdio MCP| FAB_MCP["fabric-mcp"]
     CC -->|HTTP MCP| BIF
     CC -->|HTTP MCP| CRIBL["Cribl MCP\n:30030"]
-    GEM -->|stdio MCP| PAL
-    CDX -->|stdio MCP| PAL
     MAE -->|claude subprocess| CC
 
-    PAL -->|HTTP /v1| BIF
     FAB_MCP -->|reads patterns| FAB
 
     BIF -->|HTTP /v1| LS
@@ -77,7 +72,6 @@ graph TD
 | Gemini CLI | `modules/gemini/` | CLI | Google AI assistant | `~/.gemini/settings.json` |
 | Codex CLI | `modules/codex/` | CLI | OpenAI coding assistant | `~/.codex/config.toml` |
 | GitHub Copilot CLI | `modules/copilot.nix` | CLI | Trusted folder configuration | `~/.copilot/config.json` |
-| PAL MCP | `modules/claude/pal-models.nix` | stdio → HTTP | Multi-model orchestration | `~/.config/pal-mcp/custom_models.json` |
 | Bifrost | `orbstack-kubernetes` repo | HTTP :30080 | Multi-provider AI gateway | K8s secrets (Doppler Operator) |
 | MLX / llama-swap | `modules/mlx/` | HTTP :11434 | Local Apple Silicon inference | `~/.config/mlx/llama-swap.json` |
 | Fabric | `modules/fabric/` | CLI + HTTP :8180 | 252+ AI prompt patterns | `~/.config/fabric/` |
@@ -108,7 +102,6 @@ graph LR
 | `time` | stdio (uvx) | None | Official maintained Python server |
 | `aws` | stdio (bunx) | IAM/STS env vars | AWS KB retrieval |
 | `terraform` | stdio (binary) | None | nixpkgs binary |
-| `pal` | stdio (wrapper) | Doppler | Multi-model orchestration |
 | `bifrost` | HTTP :30080 | None (K8s internal) | AI gateway |
 | `cribl` | HTTP :30030 | None (K8s internal) | Log pipeline |
 

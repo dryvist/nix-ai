@@ -2,7 +2,7 @@
 #
 # cecli (cecli-dev on PyPI) is the maintained fork of Aider. Built from
 # the PyPI sdist via buildPythonApplication. Mirrors the shape of
-# modules/mcp/pal-package.nix.
+# modules/fabric/package.nix.
 #
 # Two inline let-bound mini-derivations remain for transitive deps that
 # nixpkgs-25.11 either ships at an incompatible version or doesn't ship

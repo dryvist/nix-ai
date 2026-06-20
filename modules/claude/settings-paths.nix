@@ -13,6 +13,5 @@
   "~/.config/git/"
   "~/.config/mlx/"
   "~/.config/nix/"
-  "~/.config/pal-mcp/"
   "/tmp/"
 ]

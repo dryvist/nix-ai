@@ -10,7 +10,7 @@
   options.programs.mlx = {
     # enableAutoToolChoice — Activate model-specific tool call parsing (--enable-auto-tool-choice).
     # No-op when request has no `tools` parameter, so safe to leave on.
-    # Default: true — primary use case is tool calling via PAL MCP.
+    # Default: true — primary use case is tool calling via MCP.
     enableAutoToolChoice = lib.mkOption {
       type = lib.types.bool;
       default = true;

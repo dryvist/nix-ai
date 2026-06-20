@@ -48,12 +48,6 @@
       flake = false;
     };
 
-    # PAL MCP server - pinned for supply-chain safety; auto-bumped by deps-update-flake.yml
-    pal-mcp-server = {
-      url = "github:BeehiveInnovations/pal-mcp-server";
-      flake = false;
-    };
-
     # Fabric - Daniel Miessler's 252+ AI prompt pattern framework (Go CLI).
     # Source of both the fabric binary and the pattern library. The flake input
     # tag and lib/versions.nix.fabric must stay in sync — Renovate opens separate
@@ -104,7 +98,6 @@
       ai-assistant-instructions,
       nix-claude-code,
       karpathy-skills,
-      pal-mcp-server,
       fabric-src,
       dashmotion,
       ponytail,
@@ -125,7 +118,6 @@
           ai-assistant-instructions
           nix-claude-code
           karpathy-skills
-          pal-mcp-server
           nixpkgs-unstable
           dashmotion
           ponytail
@@ -156,7 +148,6 @@
             inherit
               pkgs
               home-manager
-              pal-mcp-server
               ;
             src = ./.;
             aiModule = self.homeManagerModules.default;
@@ -172,7 +163,6 @@
         in
         {
           gh-aw = pkgs.callPackage ./modules/gh-extensions/gh-aw.nix { };
-          pal-mcp-server = pkgs.callPackage ./modules/mcp/pal-package.nix { inherit pal-mcp-server; };
           fabric-ai = pkgs.callPackage ./modules/fabric/package.nix { inherit fabric-src; };
           cecli = cecliPkg;
           inherit (cecliPkg.passthru) mcp;

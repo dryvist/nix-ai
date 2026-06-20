@@ -1,9 +1,8 @@
 # MCP module README — subdirectory documentation, not a top-level project README.
 required_sections:
-  - PAL MCP Tools
-optional_sections:
   - Transports
+  - Secrets Management
+optional_sections:
   - Adding New Servers
   - Enabling / Disabling Servers
-  - Secrets Management
   - Troubleshooting

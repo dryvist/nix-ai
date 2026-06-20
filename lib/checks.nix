@@ -1,12 +1,10 @@
 # Nix quality checks - thin aggregator
 # Individual check groups live in lib/checks/{lint,claude,agent-skills,codex,antigravity-cli,mlx,fabric}.nix
-# PAL package/script checks live in the MCP sub-flake (modules/mcp/checks.nix).
 {
   pkgs,
   src,
   home-manager,
   aiModule,
-  pal-mcp-server,
 }:
 let
   # Placeholder physical model id for regression tests. The real value is
@@ -64,7 +62,6 @@ in
 // (import ./checks/antigravity-cli.nix { inherit pkgs hmConfig; })
 // (import ./checks/autonomous-profile.nix { inherit pkgs; })
 // (import ./checks/mlx.nix { inherit pkgs hmConfig; })
-// (import ../modules/mcp/checks.nix { inherit pkgs pal-mcp-server; })
 // (import ./checks/fabric.nix {
   inherit
     pkgs

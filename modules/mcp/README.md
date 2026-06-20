@@ -104,13 +104,12 @@ For servers whose secrets live in Doppler (project `ai-ci-automation`, config `p
 set `command = "doppler-mcp"` and shift the original command into `args[0]`:
 
 ```nix
-pal = {
+google-workspace = {
   command = "doppler-mcp";
-  args = [ "uvx" "--from" "git+https://..." "pal-mcp-server" ];
+  args = [ "uvx" "--from" "google-workspace-mcp" "workspace-mcp" ];
   env = {
-    DISABLED_TOOLS = "";   # non-secret config → Nix
     LOG_LEVEL = "INFO";    # non-secret config → Nix
-    # GEMINI_API_KEY → injected by Doppler at runtime
+    # GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET → injected by Doppler at runtime
   };
 };
 ```
@@ -136,63 +135,6 @@ conflicts on startup.
 | Plugin | Server |
 |--------|--------|
 | `context7@claude-plugins-official` | context7 |
-
-## PAL MCP Tools
-
-The PAL server exposes 16 tools for multi-model AI orchestration.
-The last 6 are disabled upstream by default; `DISABLED_TOOLS = ""` enables all of them.
-
-| Tool | Description |
-|------|-------------|
-| `chat` | Single-model conversation |
-| `thinkdeep` | Extended reasoning with chain-of-thought |
-| `planner` | Architecture and design planning |
-| `codereview` | Multi-model code review |
-| `precommit` | Pre-commit review |
-| `debug` | Systematic debugging |
-| `apilookup` | API documentation lookup |
-| `challenge` | Devil's advocate reasoning |
-| `clink` | Multi-model parallel query |
-| `consensus` | Multi-model consensus debate |
-| `analyze` | Code analysis |
-| `refactor` | Code refactoring |
-| `testgen` | Test generation |
-| `secaudit` | Security audit |
-| `docgen` | Documentation generation |
-| `tracer` | Execution tracing |
-
-### Prerequisites for `clink`
-
-`clink` bridges to other AI CLIs. These must be installed and on `PATH`:
-
-- `gemini` — Homebrew brew: `gemini-cli`
-- `claude` — Homebrew cask: `claude-code`
-
-## PAL MLX Model Discovery
-
-> For the full cross-module trace (Nix options → llama-swap → jq transform → PAL),
-> see [`docs/architecture/model-discovery-flow.md`](../../docs/architecture/model-discovery-flow.md).
-
-PAL's model registry (`custom_models.json`) is generated automatically from the MLX
-vllm-mlx `/v1/models` endpoint during every `darwin-rebuild switch`. This keeps PAL's
-model list in sync with the running MLX model without manual configuration.
-
-### How it works
-
-1. `claude/pal-models.nix` adds a `palCustomModels` activation script and injects
-   `CUSTOM_MODELS_CONFIG_PATH=~/.config/pal-mcp/custom_models.json` into the PAL server env.
-2. The activation script uses `mcp/scripts/pal-models-mlx.jq` (via `jq --from-file`) to
-   transform the MLX `/v1/models` JSON into a registry entry for each model.
-3. PAL reads the registry at startup. All MLX models appear under **Custom/Local API**.
-
-If MLX is not running at rebuild time the existing file is kept unchanged (no error).
-
-### Refreshing models
-
-```bash
-sync-mlx-models             # Regenerate registry (no rebuild required)
-# Restart Claude Code to pick up the new models
-```
 
 ## HuggingFace MCP
 
@@ -319,17 +261,17 @@ natively by `doppler run` (exits non-zero with a clear error message).
 **If you still see failures after the fix:**
 
 1. Verify Doppler auth: `doppler me`
-2. Test the wrapper manually: `pal-mcp` (Ctrl-C to stop)
+2. Test the wrapper manually: `doppler-mcp <server-command>` (Ctrl-C to stop)
 3. Check the invocation log: `cat ~/.local/state/doppler-mcp.log`
    - Records commands only, not error details
    - Doppler auth errors go to stderr — re-run the logged command in a terminal to see them
 4. If Doppler auth expired: `doppler login`, then restart Claude Code
-5. Verify registration: `claude mcp list | grep "^pal:"`
+5. Verify registration: `claude mcp list | grep "^<server>:"`
 
-**Mid-session recovery** (if server failed at startup but Doppler is now healthy):
+**Mid-session recovery** (if a server failed at startup but Doppler is now healthy):
 
 ```bash
-claude mcp remove pal -s user && claude mcp add pal -s user -- pal-mcp
+claude mcp remove <server> -s user && claude mcp add <server> -s user -- <command>
 ```
 
 This reconnects the server, but tools won't appear in the current session's ToolSearch.

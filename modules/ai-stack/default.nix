@@ -4,15 +4,14 @@
 # IDs. Role names are stable and consumer-facing; physical model IDs change
 # whenever we re-benchmark or upstream ships a better quant.
 #
-# All consumers (llama-swap, fabric, pal-mcp, screenpipe presets, zsh
-# aliases) reference roles, not physical names. Swapping a role's model is
-# then one Nix attr edit + a darwin-rebuild switch — no consumer-side change
-# is required.
+# All consumers (llama-swap, fabric, zsh aliases) reference roles, not physical
+# names. Swapping a role's model is then one Nix attr edit + a darwin-rebuild
+# switch — no consumer-side change is required.
 #
-# The role names mirror the screenpipe preset taxonomy (default, quickest,
-# tool-calling, coding, large-context, most-capable) plus oss for explicit
-# Apache-2/MIT model preference. Add new roles here; do not embed physical
-# names in consumer modules.
+# The role names (default, quickest, tool-calling, coding, large-context,
+# most-capable) plus oss for explicit Apache-2/MIT model preference are stable
+# and consumer-facing. Add new roles here; do not embed physical names in
+# consumer modules.
 #
 # vars/ai-stack.nix is the data file (models + endpoints + nodeports). The
 # home-manager activation below serializes it to ~/.config/ai-stack/registry.json
