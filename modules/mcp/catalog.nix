@@ -88,7 +88,7 @@ in
   };
 
   # GitHub - github-mcp-server from nixpkgs.
-  # Requires: GITHUB_PERSONAL_ACCESS_TOKEN env var (not yet in Doppler).
+  # Requires: GITHUB_PERSONAL_ACCESS_TOKEN — inject at runtime (see .env.example).
   github = {
     command = "github-mcp-server";
     disabled = true;
@@ -109,7 +109,7 @@ in
   # HuggingFace MCP - Model/dataset/paper search and documentation
   # ================================================================
   # Community stdio package: https://github.com/shreyaskarnik/huggingface-mcp-server
-  # Requires: HF_TOKEN env var (from macOS Keychain via nix-darwin shell init).
+  # Requires: HF_TOKEN — inject at runtime (see .env.example).
   huggingface = {
     command = "uvx";
     args = [
@@ -209,11 +209,11 @@ in
   # UniFi Network - local UniFi gateway/controller management
   # ================================================================
   # Source: https://github.com/enuno/unifi-mcp-server (PyPI: unifi-mcp-server)
-  # stdio server that talks to the UniFi gateway on the LAN. Requires env vars
-  # (inherited from the shell; inject via Keychain/Doppler like HF_TOKEN):
-  #   UNIFI_API_KEY     — API key from unifi.ui.com (secret)
-  #   UNIFI_LOCAL_HOST  — gateway IP, e.g. 192.168.1.1 (machine-specific)
-  # UNIFI_API_TYPE is non-secret config and is pinned to "local" here.
+  # stdio server that talks to the UniFi gateway on the LAN. Requires (inject at
+  # runtime — see .env.example): UNIFI_API_KEY (secret, unifi.ui.com) and
+  # UNIFI_LOCAL_HOST (gateway IP, e.g. 192.168.0.1 — real value is topology; keep
+  # it in the no-password secret store, never committed). UNIFI_API_TYPE is
+  # non-secret config and is pinned to "local" here.
   unifi = {
     command = "uvx";
     args = [
