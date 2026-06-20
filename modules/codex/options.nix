@@ -1,7 +1,8 @@
 # Codex Module Options
 #
 # Declarative options for OpenAI Codex CLI configuration.
-# Follows the same patterns as modules/claude/options.nix.
+# Follows the same per-agent option patterns as the other agent modules
+# (see docs/architecture/per-agent-flakes.md).
 { lib, ... }:
 
 let

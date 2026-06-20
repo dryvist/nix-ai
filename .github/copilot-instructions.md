@@ -1,47 +1,52 @@
-# GitHub Copilot Instructions — terraform-proxmox
+# GitHub Copilot Instructions — nix-ai
 
 ## Repository Purpose
 
-Infrastructure as code for provisioning VMs and containers on Proxmox VE using
-OpenTofu + Terragrunt. Downstream repos (ansible-proxmox-apps, ansible-splunk) consume
-the outputs.
+nix-ai is an AI CLI ecosystem (Claude Code, Antigravity, Codex, Copilot, MCP
+servers, MLX inference) delivered as Nix home-manager modules. It exports
+modules consumed by `nix-darwin`; this repo holds the module definitions, not a
+deployed system.
 
-## CRITICAL: OpenTofu, Not Terraform
+## Critical Constraints
 
-This repo uses **OpenTofu** (`tofu`), not Terraform. Never generate `terraform` CLI commands.
-The binary is `tofu`. All HCL is OpenTofu-compatible.
+- **Flakes-only.** Never generate `nix-env` or other imperative Nix commands.
+- **Module args injection.** Flake inputs reach modules via `_module.args`, not
+  function parameters.
+- **No direct main commits.** Always work on a feature branch in a worktree.
 
-## Running Commands
+## Validation
 
-All commands must be wrapped with aws-vault and Doppler:
-
-```bash
-aws-vault exec terraform -- doppler run -- terragrunt <COMMAND>
-```
-
-For plan/apply:
+Static checks run on every change:
 
 ```bash
-aws-vault exec terraform -- doppler run -- terragrunt plan
-aws-vault exec terraform -- doppler run -- terragrunt apply
+nix flake check    # formatting, statix, deadnix, regression tests
+nix fmt            # auto-fix formatting
 ```
 
-## Technology Stack
+Runtime changes (plugins, hooks, settings, activations, MCP servers) also need a
+real rebuild and a fresh Claude Code session — static checks validate Nix
+evaluation, not runtime behavior:
 
-- **OpenTofu** (not Terraform) — IaC engine
-- **Terragrunt** — wrapper for DRY config and remote state
-- **Doppler** — secrets management (runtime env vars)
-- **aws-vault** — AWS credentials
-- **SOPS/age** — encrypted secrets in repo (`terraform.sops.json`)
+```bash
+sudo darwin-rebuild switch --flake "$HOME/git/nix-darwin/main" \
+  --override-input nix-ai "$HOME/git/nix-ai/<worktree>"
+```
 
-## HCL Conventions
+## Conventions
 
-- Module inputs in `variables.tf`, outputs in `outputs.tf`, providers in `providers.tf`
-- Use `deployment.json` for environment-specific non-secret config
-- Use `terraform.sops.json` for encrypted secrets (edit with `sops terraform.sops.json`)
-- Terragrunt config in `terragrunt.hcl` at each module root
+- Scripts longer than a few lines live in `scripts/*.sh`, never inline in `.nix`.
+- Never hardcode model IDs, endpoints, or version strings — read them from
+  `vars/ai-stack.nix` (the central registry).
+- Never put secrets in Nix expressions or `env:` blocks; they end up in the
+  world-readable Nix store. Use Doppler or the macOS Keychain.
 
-## CI
+## Key Files
 
-The `Terraform CI` workflow validates HCL syntax and runs `tofu validate`.
-Fix all validation errors before merging.
+- `modules/default.nix` — module entry point
+- `modules/mcp/catalog.nix` — shared MCP server catalog
+- `modules/mlx/` — local Apple Silicon inference (vllm-mlx LaunchAgent)
+- `vars/ai-stack.nix` — model/endpoint/version registry
+- `lib/checks/` — per-domain regression tests
+
+See [`CLAUDE.md`](../CLAUDE.md) and [`docs/architecture/`](../docs/architecture/README.md)
+for the full architecture.

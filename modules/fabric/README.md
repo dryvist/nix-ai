@@ -1,8 +1,8 @@
 # Fabric Module
 
 Daniel Miessler's [Fabric](https://github.com/danielmiessler/fabric) — a Go CLI
-providing 252+ reusable AI prompt patterns — packaged as a Nix home-manager
-module for the nix-ai ecosystem.
+providing a large library of reusable AI prompt patterns — packaged as a Nix
+home-manager module for the nix-ai ecosystem.
 
 ## What it manages
 
@@ -10,8 +10,8 @@ This module owns the entire fabric runtime on a host:
 
 - The `fabric` Go binary (built from source via `buildGoModule`, pinned to a
   release tag, Renovate-managed via the annotation in `package.nix`)
-- The 252-pattern library symlinked read-only from the `fabric-src` flake input
-  to `~/.config/fabric/patterns/`
+- The upstream pattern library symlinked read-only from the `fabric-src` flake
+  input to `~/.config/fabric/patterns/`
 - A user-managed custom patterns directory at
   `~/.config/fabric/custom-patterns/` (created on activation, exported as
   `FABRIC_CUSTOM_PATTERNS_DIR`)
@@ -33,11 +33,11 @@ What it does NOT manage:
 | Capability | How |
 | --- | --- |
 | `fabric` CLI on PATH | `home.packages` (built from source via `buildGoModule`) |
-| 252 patterns at `~/.config/fabric/patterns/` | Nix-managed read-only symlink |
+| Pattern library at `~/.config/fabric/patterns/` | Nix-managed read-only symlink |
 | User-managed custom patterns directory | `programs.fabric.customPatternsDir` (default `~/.config/fabric/custom-patterns`) |
 | YouTube/multimedia extraction | `yt-dlp` added to `home.packages` |
 | Optional REST API server (LaunchAgent) | `programs.fabric.enableServer = true` (port 8180) |
-| 32 curated patterns as Claude Code skills | Synthetic marketplace at `modules/claude/marketplace-overrides.nix` |
+| Curated patterns as Claude Code skills | Synthetic marketplace (derivation lives in the `nix-claude-code` flake input) |
 | Fabric MCP server in Claude Code | `modules/mcp/catalog.nix` (community-maintained) |
 
 ## One-time runtime setup
@@ -135,13 +135,11 @@ Two paths exist:
 
 ### Path A: As Claude Code skills (always-on, auto-discovery)
 
-The synthetic marketplace at `modules/claude/marketplace-overrides.nix` wraps 32 curated
-fabric patterns as Claude Code skills via `modules/claude/fabric-curated-patterns.json`.
-Claude Code auto-loads them based on description matching when relevant to the user's task.
-
-To add or remove curated patterns: edit the JSON file. The
-`fabric-marketplace-build` regression check in `lib/checks/fabric.nix` will assert that
-the SKILL.md count matches the JSON entry count after the next `nix flake check`.
+A synthetic marketplace wraps a curated subset of fabric patterns as Claude Code
+skills. Claude Code auto-loads them based on description matching when relevant to
+the user's task. The marketplace derivation and its curated-patterns JSON live in
+the `nix-claude-code` flake input, along with the `fabric-marketplace-build`
+regression check that asserts the SKILL.md count matches the JSON entry count.
 
 ### Path B: As MCP tools (explicit invocation)
 
@@ -154,8 +152,8 @@ unmaintained, an alternative MCP wrapper will be needed.
 
 The fabric version is pinned in two places that MUST stay in sync:
 
-1. `flake.nix` input pin: `url = "github:danielmiessler/fabric/v1.4.444";`
-2. `lib/versions.nix`: `fabric = "1.4.444";` (read by `package.nix`)
+1. `flake.nix` input pin: `url = "github:danielmiessler/fabric/v<version>";`
+2. `lib/versions.nix`: `fabric = "<version>";` (read by `package.nix`)
 
 `package.nix` derives `version` from `lib/versions.nix`, and the marketplace
 metadata version is derived from the same package at Nix eval time — no
@@ -198,18 +196,14 @@ ports are reserved by other services.
 
 ### Marketplace SKILL.md count mismatch in `nix flake check`
 
-The `fabric-marketplace-build` check failed because the curated JSON
-(`modules/claude/fabric-curated-patterns.json`) was edited but the synthetic marketplace
-wasn't rebuilt. Just re-run `nix flake check` — the regression test recomputes the
-expected count from the JSON.
+The `fabric-marketplace-build` check failed because the curated-patterns JSON was
+edited but the synthetic marketplace wasn't rebuilt. The marketplace derivation,
+its JSON, and this check now live in the `nix-claude-code` flake input — re-run
+`nix flake check` there to recompute the expected count.
 
 ## See also
 
 - Upstream: <https://github.com/danielmiessler/fabric>
 - Pattern library: <https://github.com/danielmiessler/fabric/tree/main/data/patterns>
-- Curated subset: `modules/claude/fabric-curated-patterns.json`
+- Curated subset + synthetic marketplace: `nix-claude-code` flake input
 - Regression tests: `lib/checks/fabric.nix`
-- Follow-up issues: #442 (enable MCP), #443 (this README + completions), #444 (regression tests),
-  #445 (auth + Doppler), #446 (expand patterns), #447 (nix-devenv), #451 (SecLists),
-  #452 (decision tree docs), #453 (orchestrator cleanup), #454 (Renovate verification),
-  #455 (LaunchAgent enable on macbook-m4)

@@ -1,6 +1,7 @@
 # nix-ai - AI Agent Instructions
 
-AI CLI ecosystem for Claude, Gemini, Copilot, MCP servers via Nix home-manager modules.
+AI CLI ecosystem for Claude, Antigravity, Codex, Copilot, and MCP servers via
+Nix home-manager modules.
 
 ## Critical Constraints
 
@@ -51,12 +52,12 @@ inputs.nix-ai.inputs.home-manager.follows = "home-manager";
 
 ### What belongs here (nix-ai)
 
-- AI CLI tools (Claude Code, Gemini, Copilot, Codex, block-goose)
+- AI CLI tools (Claude Code, Antigravity, Codex, Copilot, qwen-code, cecli)
 - MCP servers and wrappers (github-mcp-server, terraform-mcp-server, doppler-mcp, etc.)
 - AI-specific GitHub CLI extensions (gh-aw)
 - AI tool configuration files (`.claude/`, `.gemini/`, `.copilot/`)
 - MLX inference server (vllm-mlx LaunchAgent + wrappers)
-- AI-specific shell utilities (doppler-mcp, hf CLI wrapper)
+- AI-specific shell utilities (hf CLI wrapper, Doppler-wrapped aliases)
 
 ### Package placement
 
@@ -75,12 +76,12 @@ secrets-and-injection, mlx-stack. Design decisions in [`docs/adr/`](docs/adr/REA
 ## Key Files
 
 - `modules/default.nix` — Module entry point
-- `modules/claude/` — Claude Code module ([README](modules/claude/README.md))
-- `modules/mcp/` — MCP server definitions
+- `modules/claude-config.nix` — Claude Code config (settings/permissions/marketplace catalog come from the `nix-claude-code` flake input)
+- `modules/claude/plugins/` — Plugin tier files ([README](modules/claude/plugins/README.md))
+- `modules/mcp/catalog.nix` — MCP server definitions
 - `modules/mlx/` — MLX inference server (vllm-mlx LaunchAgent, CLI tools)
 - `modules/common/` — Shared permission engine and formatters
-- `lib/claude-settings.nix` — Pure settings generator (CI-only; deployment uses `modules/claude/settings.nix`)
-- `lib/claude-registry.nix` — Marketplace format functions
+- `vars/ai-stack.nix` — Central model/endpoint/version registry
 - `lib/checks/` — Per-domain regression tests (lint, claude, mlx)
 
 ## MLX Ecosystem
