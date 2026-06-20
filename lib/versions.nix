@@ -71,6 +71,8 @@
   fabricMcp = "1.2.1";
   # renovate: datasource=pypi depName=google-workspace-mcp
   gwsMcp = "2.0.1";
+  # renovate: datasource=pypi depName=unifi-mcp-server
+  unifiMcpServer = "0.2.5";
 
   # MLX inference stack (pypi)
   # renovate: datasource=pypi depName=vllm-mlx

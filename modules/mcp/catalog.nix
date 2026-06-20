@@ -36,6 +36,7 @@ let
   hfMcpServerVersion = versions.hfMcpServer;
   fabricMcpVersion = versions.fabricMcp;
   gwsMcpVersion = versions.gwsMcp;
+  unifiMcpServerVersion = versions.unifiMcpServer;
 in
 {
   # ================================================================
@@ -200,6 +201,38 @@ in
   sentry = bunx [ "@modelcontextprotocol/server-sentry" ] // {
     disabled = true;
   }; # archived
+
+  # ================================================================
+  # UniFi Network - local UniFi gateway/controller management
+  # ================================================================
+  # Source: https://github.com/enuno/unifi-mcp-server (PyPI: unifi-mcp-server)
+  # stdio server that talks to the UniFi gateway on the LAN. Requires env vars
+  # (inherited from the shell; inject via Keychain/Doppler like HF_TOKEN):
+  #   UNIFI_API_KEY     — API key from unifi.ui.com (secret)
+  #   UNIFI_LOCAL_HOST  — gateway IP, e.g. 192.168.1.1 (machine-specific)
+  # UNIFI_API_TYPE is non-secret config and is pinned to "local" here.
+  unifi = {
+    command = "uvx";
+    args = [
+      "--from"
+      "unifi-mcp-server==${unifiMcpServerVersion}"
+      "unifi-mcp-server"
+    ];
+    env = {
+      UNIFI_API_TYPE = "local";
+    };
+  };
+
+  # ================================================================
+  # Monarch Money - personal finance (official hosted MCP connector)
+  # ================================================================
+  # Source: https://help.monarch.com/hc/en-us/articles/50207234679956
+  # Remote Streamable-HTTP endpoint. Auth is browser OAuth handled by the MCP
+  # client on first connect — no token or header is stored in this config.
+  monarch = {
+    type = "http";
+    url = "https://api.monarch.com/mcp";
+  };
 
   # ================================================================
   # Cribl MCP - OrbStack kubernetes-monitoring stack

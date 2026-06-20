@@ -208,6 +208,45 @@ security add-generic-password -U -s HF_TOKEN -a "ai-cli-coder" -w "your-hf-token
 
 **Available tools:** search models, datasets, spaces, and papers; get model/dataset info; compare models.
 
+## UniFi Network MCP
+
+The `unifi` server ([enuno/unifi-mcp-server](https://github.com/enuno/unifi-mcp-server),
+installed via `uvx`) manages a local UniFi gateway/controller. It is **local-only** —
+it talks to the gateway on the LAN, so it only works on a machine with network access
+to that gateway.
+
+`UNIFI_API_TYPE` is pinned to `local` in the catalog. The remaining variables are
+inherited from the shell environment (inject via macOS Keychain, same pattern as
+`HF_TOKEN`):
+
+| Variable | Purpose |
+|----------|---------|
+| `UNIFI_API_KEY` | API key from unifi.ui.com (secret) |
+| `UNIFI_LOCAL_HOST` | Gateway IP, e.g. `192.168.1.1` (machine-specific) |
+
+**One-time Keychain setup (secret):**
+
+```bash
+security add-generic-password -U -s UNIFI_API_KEY -a "ai-cli-coder" -w "your-key-here" automation.keychain-db
+```
+
+Then export both in the nix-darwin shell init (the gateway IP is not secret):
+
+```nix
+export UNIFI_API_KEY=${UNIFI_API_KEY:-"$(_get_keychain_secret 'UNIFI_API_KEY' 'ai-cli-coder')"}
+export UNIFI_LOCAL_HOST="192.168.1.1"
+```
+
+## Monarch Money MCP
+
+The `monarch` server is Monarch's official hosted connector — a remote
+Streamable-HTTP endpoint at `https://api.monarch.com/mcp`
+([setup guide](https://help.monarch.com/hc/en-us/articles/50207234679956-Monarch-MCP-Connector)).
+
+Authentication is **browser OAuth handled by the MCP client** on first connect: the
+client opens Monarch in the browser to authorize access. No token, password, or header
+is stored in the Nix config — there is nothing to put in Doppler or Keychain.
+
 ## MLX Inference (Local Apple Silicon)
 
 Two CLI tools work together for local MLX model workflows:
