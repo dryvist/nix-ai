@@ -6,6 +6,7 @@
   nixpkgs-unstable,
   dashmotion,
   ponytail,
+  last30days-skill,
 }:
 let
   # Marketplace flake inputs now live inside nix-claude-code. Surface the
@@ -41,6 +42,7 @@ let
     inherit karpathy-skills;
     inherit dashmotion;
     inherit ponytail;
+    inherit last30days-skill;
   };
 in
 {

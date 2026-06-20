@@ -34,8 +34,12 @@ dev = [
 # Security: LiteLLM 1.82.7 and 1.82.8 contained a supply-chain backdoor
 # (credential stealer by TeamPCP, discovered 2026-03-24).
 # Block compromised versions; allow future patched releases.
+#
+# Security: langsmith < 0.8.18 is affected by GHSA-f4xh-w4cj-qxq8 (CVSS 7.7).
+# Pulled in transitively via langchain-core. Tracked in JacobPEvans/nix-ai#812.
 constraint-dependencies = [
   "litellm!=1.82.7,!=1.82.8",
+  "langsmith>=0.8.18",
 ]
 
 [build-system]
