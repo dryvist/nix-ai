@@ -32,7 +32,7 @@ activation scripts via Nix store paths baked into the derivation at evaluation t
 **Examples:**
 
 - `modules/mlx/default.nix` → `pkgs.writeText "llama-swap-config.json"` (process management config)
-- `modules/claude/settings.nix` → JSON derivation for settings merge
+- `modules/claude-config.nix` (+ `nix-claude-code` flake input) → JSON derivation for settings merge
 - `modules/codex/settings.nix` → TOML derivation for config merge
 
 **Constraint**: The MLX model list in `llama-swap.json` is seeded from `programs.mlx.models`
@@ -65,13 +65,12 @@ All `home.activation` entries and their targets:
 
 | Activation Name | Source File | Target File | What It Does |
 |----------------|-------------|-------------|-------------|
-| `claudeJsonMerge` | `modules/claude/settings.nix` | `~/.claude.json` | MCP servers, project trust, remoteControl |
-| `claudeSettingsMerge` | `modules/claude/settings.nix` | `~/.claude/settings.json` | Permissions, plugins, hooks, model, sandbox |
-| `knownMarketplacesMerge` | `modules/claude/settings.nix` | `~/.claude/plugins/known_marketplaces.json` | Synthetic marketplace registry |
-| `mergeGeminiSettings` | `modules/gemini/settings.nix` | `~/.gemini/settings.json` | MCP servers, policies, folder trust |
+| Claude settings merge | `nix-claude-code` flake input (wired via `modules/claude-config.nix`) | `~/.claude.json`, `~/.claude/settings.json` | MCP servers, project trust, permissions, plugins, hooks, model, sandbox |
+| `knownMarketplacesMerge` | `modules/default.nix` | `~/.claude/plugins/known_marketplaces.json` | Synthetic marketplace registry |
+| `mergeAntigravitySettings` | `modules/antigravity-cli/settings.nix` | `~/.gemini/antigravity-cli/settings.json` | MCP servers, policies, folder trust |
 | `codexConfigMerge` | `modules/codex/settings.nix` | `~/.codex/config.toml` | Model, MCP servers, approval policy |
 | `seedLlamaSwapConfig` | `modules/mlx/launchd.nix` | `~/.config/mlx/llama-swap.json` | Copies Nix-generated seed; preserves runtime models |
-| `wakaTimeConfig` | `modules/claude/default.nix` | `~/.wakatime.cfg` | Injects WakaTime API key from Doppler |
+| `discoverMlxModels` | `modules/mlx/launchd.nix` | `~/.config/mlx/llama-swap.json` | Extends the seed with locally available MLX models |
 
 ## Config File Patterns
 
@@ -81,12 +80,12 @@ consuming tool writes to its own config file at runtime.
 | Pattern | Mechanism | Used When | Examples |
 |---------|-----------|-----------|---------|
 | **Nix store symlink** | `home.file` | Tool is read-only toward config | Plugin dirs, patterns, playbooks, copilot trusted folders |
-| **Activation deep-merge** | `home.activation` + shell script | Tool writes runtime state to config | `~/.claude.json`, `~/.gemini/settings.json`, `~/.codex/config.toml` |
+| **Activation deep-merge** | `home.activation` + shell script | Tool writes runtime state to config | `~/.claude.json`, `~/.gemini/antigravity-cli/settings.json`, `~/.codex/config.toml` |
 | **Activation seed + runtime extension** | `seed-config.py` + `mlx-discover` | Config is both Nix-seeded and runtime-extensible | `~/.config/mlx/llama-swap.json` |
 
-### Why `home.file` Symlinks Break for Claude/Gemini/Codex
+### Why `home.file` Symlinks Break for Claude/Antigravity/Codex
 
-Claude Code, Gemini, and Codex all write to their config files at runtime:
+Claude Code, Antigravity, and Codex all write to their config files at runtime:
 authentication tokens, session state, user preferences set via `claude config set`, etc.
 
 A `home.file` symlink points into `/nix/store/` which is world-readable but **not

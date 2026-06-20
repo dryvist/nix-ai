@@ -16,7 +16,7 @@ This directory contains cross-cutting architecture views for nix-ai's AI tool ec
 
 ### [system-integration-map.md](system-integration-map.md)
 
-Full integration diagram showing all 10 AI products and how they connect. Start here for
+Full integration diagram showing every AI product and how they connect. Start here for
 an overview of what talks to what, which ports are used, and which MCP servers are shared
 across tools vs product-specific.
 
@@ -60,7 +60,7 @@ flake. Reference implementations: `modules/cecli/` (`buildPythonApplication`) an
 `modules/qwen-code/` (brew). Includes a "Why not uv2nix" trade-off analysis.
 
 **Read when**: Adding a new AI agent CLI to nix-ai, refactoring one of the existing
-modules (Claude/Gemini/Codex/fabric) to the uniform layout, or extracting a module
+modules (Claude/Antigravity/Codex/fabric) to the uniform layout, or extracting a module
 into a standalone flake.
 
 ### [plugin-scoping.md](plugin-scoping.md)

@@ -8,7 +8,7 @@ When to use which tool for AI-assisted tasks in the nix-ai ecosystem.
 | --- | --- | --- |
 | One-shot text transformation in a shell pipeline | `fabric --pattern X` | Pipe-based, no Claude Code needed |
 | YouTube video processing | `fabric -y URL --pattern summarize` | Built-in yt-dlp + Jina extraction |
-| Want Claude Code to auto-invoke a pattern | Fabric skills (synthetic marketplace) | 32 curated patterns auto-loaded by description match |
+| Want Claude Code to auto-invoke a pattern | Fabric skills (synthetic marketplace) | Curated patterns auto-loaded by description match |
 | Want to explicitly call a pattern from Claude Code | Fabric MCP server | Pattern appears as a callable MCP tool |
 | Single external model call | Bifrost (`localhost:30080`) | OpenAI-compatible, multi-provider |
 | Writing Python/Go code that calls an LLM | Anthropic SDK / OpenAI SDK | Direct API, no middleware |
@@ -42,7 +42,7 @@ Use when:
 
 Best for: **letting Claude Code pick the right pattern automatically**
 
-32 curated patterns are registered as Claude Code skills via the synthetic
+A curated subset of patterns is registered as Claude Code skills via the synthetic
 marketplace. Claude Code loads them based on description matching — you don't
 need to ask for a specific pattern.
 
@@ -55,7 +55,7 @@ Use when:
 Not for:
 
 - Tasks that need a specific pattern — use the CLI or MCP server instead
-- Patterns not in the curated 32 — use CLI or expand the set (#446)
+- Patterns outside the curated subset — use the CLI or expand the set
 
 ## When to Use Fabric MCP Server
 

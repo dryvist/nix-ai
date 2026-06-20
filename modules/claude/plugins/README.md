@@ -2,7 +2,8 @@
 
 Reference for all plugin marketplaces and enabled plugins managed by this module.
 
-Parent doc: [`modules/claude/README.md`](../README.md)
+Related: [`docs/architecture/plugin-scoping.md`](../../../docs/architecture/plugin-scoping.md)
+— user-level vs per-repo plugin partitioning.
 
 ## How Plugins Work
 
@@ -41,8 +42,11 @@ reorganizing tiers.
 
 ## Marketplaces
 
-All registered marketplaces, defined in [`marketplaces.nix`](marketplaces.nix). The
-"Tier" column matches the priority system above.
+All registered marketplaces. The catalog (names + source URLs) and the
+synthetic-marketplace derivations live in the `nix-claude-code` flake input
+(`lib.marketplaceCatalog`, `lib.marketplaceOverrides`); the tier files here only
+toggle which `plugin@marketplace` pairs are enabled. The "Tier" column matches the
+priority system above.
 
 | Key | GitHub | Stars (2026-05-02) | Tier |
 | --- | ------ | -----------------: | ---- |
@@ -102,8 +106,8 @@ at a glance.
 
 ```text
 plugins/
-├── default.nix          # imports + merge (5 tier files)
-├── marketplaces.nix     # marketplace definitions (one entry per repo)
+├── default.nix          # imports + merge (5 tier files); catalog comes from nix-claude-code
+├── packs.nix            # reusable plugin bundles (ai-pack)
 ├── README.md            # this file
 │
 ├── 01-official.nix      # Anthropic Official (claude-plugins-official core, anthropic-agent-skills)
@@ -115,8 +119,9 @@ plugins/
 
 ## Adding a New Marketplace
 
-1. Add the marketplace entry to [`marketplaces.nix`](marketplaces.nix) with the
-   key matching the `name` field from the repo's `.claude-plugin/marketplace.json`.
+1. Add the marketplace entry to the `nix-claude-code` catalog
+   (`lib.marketplaceCatalog`) with the key matching the `name` field from the
+   repo's `.claude-plugin/marketplace.json`.
 2. Verify popularity: `gh repo view <owner>/<repo> --json stargazerCount`.
 3. Decide tier:
    - Anthropic official → Tier 1 (`01-official.nix`)
@@ -139,14 +144,15 @@ plugins/
 
 ## Synthetic Marketplaces
 
-Three marketplaces lack native `.claude-plugin/` structure in their upstream repos.
-Nix wraps them via derivations in [`marketplace-overrides.nix`](../marketplace-overrides.nix):
+Some marketplaces lack native `.claude-plugin/` structure in their upstream repos.
+Nix wraps them via derivations (the marketplace-overrides derivation lives in the
+`nix-claude-code` flake input):
 
 | Marketplace | Upstream Repo | Wrapping Strategy |
 | ----------- | ------------- | ----------------- |
 | `browser-use-skills` | `browser-use/browser-use` | Wraps upstream skills directory |
 | `vct-cribl-pack-validator-skills` | `VisiCore/vct-cribl-pack-validator` | Wraps bare `.claude/skills/` layout |
-| `fabric-patterns` | `danielmiessler/fabric` | Wraps curated subset of 252+ patterns as individual skills |
+| `fabric-patterns` | `danielmiessler/fabric` | Wraps a curated subset of patterns as individual skills |
 | `jacobpevans-cc-plugins` | `JacobPEvans/claude-code-plugins` | Auto-generates `marketplace.json` from discovered `plugin.json` files |
 
 ## Token-Cost Awareness
@@ -163,6 +169,5 @@ load. **Reduce per-session overhead** by:
    [`modules/claude-config.nix`](../../claude-config.nix) (env block) so MCP
    schemas defer until needed.
 
-See [`docs/architecture/token-optimization.md`](../../../docs/architecture/token-optimization.md)
-for the full rationale and per-session measurements (if it exists; otherwise consult
-the user-level plan file at `~/.claude/plans/`).
+See [`docs/architecture/plugin-scoping.md`](../../../docs/architecture/plugin-scoping.md)
+for the skill listing budget and per-repo scoping rationale.

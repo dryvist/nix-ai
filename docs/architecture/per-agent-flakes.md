@@ -2,7 +2,7 @@
 
 ## Why this exists
 
-nix-ai grew organically: Claude, Gemini, Codex, fabric, and (formerly)
+nix-ai grew organically: Claude, Antigravity, Codex, fabric, and (formerly)
 Aider all live as sibling modules under `modules/`. Each has its own
 shape, its own opinions about install source, its own depth of
 configuration. Adding a new agent means re-deciding all of that.
@@ -45,7 +45,7 @@ Reference implementations:
   `optionalDependencies` need deeper packaging work and that path is
   deferred.
 
-Existing modules (`modules/claude/`, `modules/gemini/`, `modules/codex/`,
+Existing modules (`modules/claude/`, `modules/antigravity-cli/`, `modules/codex/`,
 `modules/fabric/`) predate this pattern. They work fine and are not
 being refactored in the same PR — that's a follow-up sweep tracked
 separately.
@@ -197,7 +197,7 @@ one of these triggers fires.
 
 ## Migration checklist for existing modules
 
-When refactoring `modules/claude/`, `modules/gemini/`, `modules/codex/`,
+When refactoring `modules/claude/`, `modules/antigravity-cli/`, `modules/codex/`,
 or `modules/fabric/` to this pattern:
 
 - [ ] Split `default.nix` into the 4-5 standard sub-files.
