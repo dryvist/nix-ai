@@ -40,6 +40,11 @@ in
 {
   options.services.aiStack.defaultLocalModelId = lib.mkOption {
     type = lib.types.str;
+    # Empty default so `homeManagerModules.default` evaluates with zero consumer
+    # config — local MLX inference is simply inert until a real id is set. The
+    # maintainer's nix-darwin sets it from AI_MODEL_LOCAL_LLM. Never hardcode a
+    # physical model id in this repo.
+    default = "";
     example = "mlx-community/<provider-tag>-<model-name>-<quant>";
     description = ''
       Local MLX physical model id used as the single resident model for
