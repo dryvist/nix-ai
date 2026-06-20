@@ -41,9 +41,10 @@ copy only — the Nix-generated seed stays fixed until the next rebuild.
 
 ### Phase 2: Activation Time (darwin-rebuild switch)
 
-`home.activation` scripts run during `home-manager activate`. They have full system access
-and **can query live APIs** — this is how `llama-swap.json` stays current with the locally
-available MLX models without baking model IDs into the Nix expression.
+`home.activation` scripts run during `home-manager activate` with full system access. While
+they _can_ query live APIs, `llama-swap.json` specifically uses a **seed-and-extend** pattern:
+the activation script copies a Nix-generated seed, and the runtime `mlx-discover` tool handles
+dynamic local-model discovery — so model IDs never have to be baked into the Nix expression.
 
 The dominant pattern is **deep-merge**: the activation script overlays Nix-managed keys
 onto the existing mutable file, preserving any keys Nix does not manage (auth tokens,
