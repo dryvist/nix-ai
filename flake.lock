@@ -3,11 +3,11 @@
     "ai-assistant-instructions": {
       "flake": false,
       "locked": {
-        "lastModified": 1781567553,
-        "narHash": "sha256-5wlljm/GfRCQ33eKnAXRxVS9N4vQFwI5X34BACi5f4Y=",
+        "lastModified": 1781920629,
+        "narHash": "sha256-2XbwTYFMCvTIQx9hsjUKWZwfzGT0fCjrU12HpJodXCc=",
         "owner": "JacobPEvans",
         "repo": "ai-assistant-instructions",
-        "rev": "f221f405ba45ed512fb7ec181f2e74cc51aecc12",
+        "rev": "529b4d2b65cce870bd1ca32cbf1e6826a9f69061",
         "type": "github"
       },
       "original": {
@@ -131,11 +131,11 @@
     "claude-code-plugins": {
       "flake": false,
       "locked": {
-        "lastModified": 1781749544,
-        "narHash": "sha256-+6Mb9AVShdEyooKKn5O2JSBbi8YpHYAJJKF8hV2cThE=",
+        "lastModified": 1781832044,
+        "narHash": "sha256-60Fzzr25NiOa09uPD0YiDL4HgPlbjPo+lHU9ZDJg9gQ=",
         "owner": "anthropics",
         "repo": "claude-code",
-        "rev": "423563cfe38c90fdf3b428cff0ee7f51cfec3ca7",
+        "rev": "c487902a53fc25aea01ddfdf2bf002e82d0cad45",
         "type": "github"
       },
       "original": {
@@ -522,11 +522,11 @@
         "wakatime": "wakatime"
       },
       "locked": {
-        "lastModified": 1781298353,
-        "narHash": "sha256-khxsejJ/PrNbFtqLIXrLAKMzq2gRqkUexPkWXRAJDV8=",
+        "lastModified": 1781921627,
+        "narHash": "sha256-Bhc1DRiDB5Wcw+Q0j5DjFqG2yhSVo9FU6Y79BcmN6vo=",
         "owner": "dryvist",
         "repo": "nix-claude-code",
-        "rev": "fac932d113a1de55e761b6eae361e47126f0d276",
+        "rev": "aceddc2d90fd65e9817ceca5f81c9800d6325a89",
         "type": "github"
       },
       "original": {
@@ -618,11 +618,11 @@
     "ponytail": {
       "flake": false,
       "locked": {
-        "lastModified": 1781663722,
-        "narHash": "sha256-BAwav7tf6RuHZ/A7TF/1k1TXWhYAdshlsYB3LbdgUD8=",
+        "lastModified": 1781859055,
+        "narHash": "sha256-YoFsjwAoQ4RDqT3dxrlLY2q4jALZPCydvvzKDi7OUwU=",
         "owner": "DietrichGebert",
         "repo": "ponytail",
-        "rev": "45f7d2f83fb430a65fd512a98ad7b14d79e06636",
+        "rev": "0403c4dd50ee6d0db2c3ec70b2be6655f9cb65a9",
         "type": "github"
       },
       "original": {
