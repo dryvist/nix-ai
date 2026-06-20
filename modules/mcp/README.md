@@ -80,7 +80,7 @@ The config does NOT store any secrets — it only references commands and URLs.
 For tokens that are not in Doppler, the established pattern in nix-darwin injects them
 from the macOS Keychain via `_get_keychain_secret` in the shell init:
 
-```nix
+```bash
 # In nix-darwin hosts/macbook-m4/home.nix:
 export HF_TOKEN=${HF_TOKEN:-"$(_get_keychain_secret 'HF_TOKEN' 'ai-cli-coder')"}
 ```
