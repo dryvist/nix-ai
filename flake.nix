@@ -84,6 +84,15 @@
       flake = false;
     };
 
+    # Last30Days - multi-source social research skill. Aggregates Reddit, X,
+    # YouTube, TikTok, Hacker News, Polymarket, GitHub, and web results ranked
+    # by engagement. Flat skills/<name>/SKILL.md layout; skill-only cross-tool
+    # input (no .claude-plugin/).
+    last30days-skill = {
+      url = "github:mvanhorn/last30days-skill";
+      flake = false;
+    };
+
   };
 
   outputs =
@@ -99,6 +108,7 @@
       fabric-src,
       dashmotion,
       ponytail,
+      last30days-skill,
       ...
     }:
     let
@@ -119,6 +129,7 @@
           nixpkgs-unstable
           dashmotion
           ponytail
+          last30days-skill
           ;
       };
 
