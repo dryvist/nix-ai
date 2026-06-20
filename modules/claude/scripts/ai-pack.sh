@@ -36,9 +36,23 @@ if [[ "$1" == "--list" || "$1" == "-l" ]]; then
   exit 0
 fi
 
+# Pack names are simple identifiers. Reject anything with path separators or
+# traversal so "$1" can never escape "$PACK_DIR".
+if [[ ! "$1" =~ ^[A-Za-z0-9._-]+$ ]]; then
+  echo "ai-pack: invalid pack name '$1' (allowed: letters, digits, . _ -)" >&2
+  exit 1
+fi
+
 PACK="$PACK_DIR/$1.json"
 if [[ ! -f "$PACK" ]]; then
   echo "ai-pack: unknown pack '$1'. Available: $(available)" >&2
+  exit 1
+fi
+
+# The merged settings are meant to be committed, so refuse to write outside a
+# git work tree (avoids stranding a stray .claude/settings.json).
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "ai-pack: not inside a git repository — run this from your project root" >&2
   exit 1
 fi
 

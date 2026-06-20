@@ -11,7 +11,11 @@ let
 
   ai-pack = pkgs.writeShellApplication {
     name = "ai-pack";
-    runtimeInputs = [ pkgs.jq ];
+    runtimeInputs = [
+      pkgs.jq
+      pkgs.git
+    ];
+    # ^ git: ai-pack.sh guards that it runs inside a work tree before writing.
     text = builtins.readFile ./scripts/ai-pack.sh;
   };
 in
