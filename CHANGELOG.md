@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.83.0](https://github.com/dryvist/nix-ai/compare/v1.82.0...v1.83.0) (2026-06-20)
+
+
+### Features
+
+* evaluate homeManagerModules.default with zero consumer config ([#979](https://github.com/dryvist/nix-ai/issues/979)) ([cacc266](https://github.com/dryvist/nix-ai/commit/cacc2669c855b20102c0c9ade7710be425a3f82e))
+
 ## [1.82.0](https://github.com/dryvist/nix-ai/compare/v1.81.0...v1.82.0) (2026-06-20)
 
 
