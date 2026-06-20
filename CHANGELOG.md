@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.79.0](https://github.com/dryvist/nix-ai/compare/v1.78.3...v1.79.0) (2026-06-20)
+
+
+### Features
+
+* add last30days-skill cross-tool agent skill ([#965](https://github.com/dryvist/nix-ai/issues/965)) ([9f8500d](https://github.com/dryvist/nix-ai/commit/9f8500d7866ffded40082706ab1573fc579d76c8))
+
 ## [1.78.3](https://github.com/dryvist/nix-ai/compare/v1.78.2...v1.78.3) (2026-06-20)
 
 
