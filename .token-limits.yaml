@@ -1,0 +1,15 @@
+# Token budgets for AI-read prose, enforced by the shared tiktoken counter
+# (dryvist/.github -> _token-limits.yml, wired in .github/workflows/ci-gate.yml).
+# First matching glob wins, so list specific patterns before general ones.
+# Pairs with the byte file-size gate, which skips any file matched here.
+limits:
+  # Always-loaded entry point — keep the per-session cost low.
+  CLAUDE.md: 2000
+
+  # Rule files an agent loads as background context.
+  .claude/rules/*.md: 2000
+  modules/claude/rules/*.md: 2000
+
+  # Module and architecture documentation.
+  modules/*/README.md: 3000
+  docs/*.md: 3000
