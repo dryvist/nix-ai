@@ -221,6 +221,9 @@ in
     env = {
       UNIFI_API_TYPE = "local";
     };
+    # Opt-in: ships disabled. It needs a reachable LAN gateway and personal
+    # credentials, so a consumer enables it deliberately.
+    disabled = true;
   };
 
   # ================================================================
@@ -232,6 +235,9 @@ in
   monarch = {
     type = "http";
     url = "https://api.monarch.com/mcp";
+    # Opt-in: ships disabled. It requires a personal Monarch account and
+    # browser OAuth, so a consumer enables it deliberately.
+    disabled = true;
   };
 
   # ================================================================
