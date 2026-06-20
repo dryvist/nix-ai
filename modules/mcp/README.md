@@ -232,7 +232,7 @@ security add-generic-password -U -s UNIFI_API_KEY -a "ai-cli-coder" -w "your-key
 
 Then export both in the nix-darwin shell init (the gateway IP is not secret):
 
-```nix
+```bash
 export UNIFI_API_KEY=${UNIFI_API_KEY:-"$(_get_keychain_secret 'UNIFI_API_KEY' 'ai-cli-coder')"}
 export UNIFI_LOCAL_HOST="192.168.1.1"
 ```
