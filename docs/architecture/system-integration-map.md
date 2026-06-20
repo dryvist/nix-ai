@@ -12,7 +12,7 @@ _This document is part of [`docs/architecture/`](README.md)._
 graph TD
     subgraph Clients["AI CLI Clients"]
         CC["Claude Code"]
-        GEM["Gemini CLI"]
+        GEM["Antigravity CLI"]
         CDX["Codex CLI"]
         COP["Copilot"]
     end
@@ -68,28 +68,28 @@ graph TD
 
 | Product | Module Path | Transport | Purpose | Key Config Files |
 |---------|------------|-----------|---------|-----------------|
-| Claude Code | `modules/claude/` | Desktop app | Primary AI coding assistant | `~/.claude/settings.json`, `~/.claude.json` |
-| Gemini CLI | `modules/gemini/` | CLI | Google AI assistant | `~/.gemini/settings.json` |
+| Claude Code | `modules/claude-config.nix` | Desktop app | Primary AI coding assistant | `~/.claude/settings.json`, `~/.claude.json` |
+| Antigravity CLI | `modules/antigravity-cli/` | CLI | Google Antigravity assistant | `~/.gemini/antigravity-cli/settings.json` |
 | Codex CLI | `modules/codex/` | CLI | OpenAI coding assistant | `~/.codex/config.toml` |
 | GitHub Copilot CLI | `modules/copilot.nix` | CLI | Trusted folder configuration | `~/.copilot/config.json` |
 | Bifrost | `orbstack-kubernetes` repo | HTTP :30080 | Multi-provider AI gateway | K8s secrets (Doppler Operator) |
 | MLX / llama-swap | `modules/mlx/` | HTTP :11434 | Local Apple Silicon inference | `~/.config/mlx/llama-swap.json` |
-| Fabric | `modules/fabric/` | CLI + HTTP :8180 | 252+ AI prompt patterns | `~/.config/fabric/` |
+| Fabric | `modules/fabric/` | CLI + HTTP :8180 | AI prompt pattern library | `~/.config/fabric/` |
 | Open WebUI | `modules/open-webui.nix` | HTTP :8080 | Browser UI for MLX | None (queries MLX at runtime) |
 | Maestro | `modules/maestro/` | Cron → subprocess | Scheduled Claude sessions | `~/Maestro/Auto Run Docs/` |
 
 ## MCP Server Connectivity
 
 The MCP server catalog (`modules/mcp/catalog.nix`) is exposed by the dedicated
-MCP module as `programs.aiMcp.servers`. Claude, Gemini, and Codex each normalize
-that shared option differently via their own settings modules.
+MCP module as `programs.aiMcp.servers`. Claude, Antigravity, and Codex each
+normalize that shared option differently via their own settings modules.
 
 ```mermaid
 graph LR
     MCPCAT["modules/mcp/catalog.nix\nprograms.aiMcp.servers"]
 
-    MCPCAT -->|normalized for Claude| CSETTINGS["modules/claude/settings.nix\n→ ~/.claude.json"]
-    MCPCAT -->|normalized for Gemini| GSETTINGS["modules/gemini/settings.nix\n→ ~/.gemini/settings.json"]
+    MCPCAT -->|normalized for Claude| CSETTINGS["modules/claude-config.nix\n→ ~/.claude.json"]
+    MCPCAT -->|normalized for Antigravity| GSETTINGS["modules/antigravity-cli/settings.nix\n→ ~/.gemini/antigravity-cli/settings.json"]
     MCPCAT -->|normalized for Codex| DSETTINGS["modules/codex/settings.nix\n→ ~/.codex/config.toml"]
 ```
 
@@ -130,7 +130,7 @@ Enable by overriding `programs.aiMcp.servers.<name>.disabled` and adding the key
 | 11436+ | vllm-mlx backends | HTTP (managed by llama-swap) | `modules/mlx/` |
 | 8080 | Open WebUI | HTTP | `modules/open-webui.nix` |
 | 8180 | Fabric REST API (opt-in) | HTTP + Swagger UI | `modules/fabric/` |
-| 9379 | LiteRT-LM classifier (Gemini CLI gemma router, opt-in) | HTTP | `modules/gemini/` |
+| 9379 | LiteRT-LM classifier (Antigravity CLI gemma router, opt-in) | HTTP | `modules/antigravity-cli/` |
 | 30080 | Bifrost AI gateway | HTTP | `orbstack-kubernetes` repo |
 | 30030 | Cribl MCP | HTTP | `orbstack-kubernetes` repo |
 | 30317 | OTEL Collector (gRPC receiver) | gRPC | `orbstack-kubernetes` repo |
@@ -171,7 +171,7 @@ graph LR
     MLX["MLX :11434"]
 
     CC -->|"1. stdio MCP\n(fabric-mcp server)"| FAB
-    CC -->|"2. Skills marketplace\n(32 curated patterns as SKILL.md)"| FAB
+    CC -->|"2. Skills marketplace\n(curated patterns as SKILL.md)"| FAB
     FAB -->|"3. CLI pipeline\n(fabric | claude)"| CC
     FAB -->|"4. REST API :8180\n(programmatic access)"| EXTERNAL["External tools"]
     FAB -->|routes to| MLX
@@ -180,6 +180,6 @@ graph LR
 | Channel | How | Use Case |
 |---------|-----|---------|
 | stdio MCP | `fabric-mcp` uvx server | Direct pattern execution from Claude |
-| Skills marketplace | `fabric-patterns` plugin, 32 SKILL.md files | Auto-discovery by description match |
+| Skills marketplace | `fabric-patterns` plugin, curated SKILL.md files | Auto-discovery by description match |
 | CLI pipeline | Shell: `fabric -p pattern \| claude` | Ad-hoc pipeline composition |
 | REST API | `fabric --serve` LaunchAgent on :8180 | Programmatic external access |

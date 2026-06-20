@@ -2,7 +2,7 @@
 
 MCP server definitions are owned by the `modules/mcp` Home Manager module. The
 shared catalog lives in `catalog.nix` and is exposed as `programs.aiMcp.servers`.
-Claude, Codex, and Gemini consume that option and render it into their own
+Claude, Codex, and Antigravity consume that option and render it into their own
 configuration formats during every `darwin-rebuild switch`.
 
 **Nix is the sole manager of user-scoped MCP servers.** Any entries added manually

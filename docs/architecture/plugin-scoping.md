@@ -104,16 +104,18 @@ level, so the per-repo override works without a rebuild.
 
 ## Budget headroom
 
-`modules/claude/options.nix` sets `skillListingBudgetFraction = 0.02` (2%) — double
-the 1% upstream default. The extra budget is headroom for the universal plugin set
-without dropping descriptions even if a few project plugins are also enabled per-repo.
+The `skillListingBudgetFraction` option (schema and default provided by the
+`nix-claude-code` flake input) controls how much of the context window Claude
+Code reserves for skill descriptions. Raising it above the upstream default gives
+headroom for the universal plugin set without dropping descriptions even if a few
+project plugins are also enabled per-repo.
 
 If `/doctor` ever reports drops again:
 
 1. Check whether new universal-tier plugins were added (Tier 1–4) — prefer pruning over
    raising the budget.
-2. If pruning is not viable, raise `skillListingBudgetFraction` in
-   `modules/claude/options.nix`.
+2. If pruning is not viable, set a higher `skillListingBudgetFraction` in
+   `modules/claude-config.nix`.
 
 ## Verification
 
@@ -134,6 +136,5 @@ After adding per-repo `.claude/settings.json` in a consumer repo:
 ## Related
 
 - `modules/claude/plugins/05-specialty.nix` — globally disabled project-specific plugins
-- `modules/claude/options.nix` — `skillListingBudgetFraction` option
-- `modules/claude/settings.nix` — settings.json generator
+- `modules/claude-config.nix` — Claude config wiring (`skillListingBudgetFraction`, plugin enables)
 - `.claude/rules/plugin-cache-architecture.md` — read/write boundaries for plugin cache

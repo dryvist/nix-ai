@@ -3,9 +3,8 @@ description: Marketplace symlinks vs cache, never delete cache mid-session, neve
 paths:
   - "**/.claude/plugins/**"
   - "**/modules/claude/**"
-  - "**/plugins.nix"
+  - "**/claude-config.nix"
   - "**/plugins/*.nix"
-  - "**/orphan-cleanup.nix"
 ---
 
 # Plugin Cache Architecture
@@ -15,7 +14,7 @@ paths:
 Marketplace directories (`~/.claude/plugins/marketplaces/`) are single directory symlinks
 to the Nix store, NOT recursive per-file symlinks.
 
-**Never use `recursive = true` or `force = true` in `plugins.nix`:**
+**Never use `recursive = true` or `force = true` when symlinking marketplaces:**
 
 - `recursive = true` creates per-file symlinks, which allows `.backup` file pollution
 - `force = true` causes home-manager to rename existing files to `.backup`, polluting
@@ -53,8 +52,8 @@ call fails, including the Stop hook, creating an unbreakable error loop.
 The correct mechanism is:
 
 - **Nix-managed marketplace symlinks** update the store path on rebuild
-- **`verify-cache-integrity.sh`** (in `orphan-cleanup.nix`) detects stale caches via hash comparison
-  and purges only when the store path actually changed
+- **Cache-integrity verification** (in the `nix-claude-code` flake input) detects stale
+  caches via hash comparison and purges only when the store path actually changed
 - **Claude Code detects marketplace changes on new session start** — no forced re-index needed
 
 Commit `edba1ad` (2026-03-19) introduced an `updateClaudePlugins` activation script that violated
@@ -76,11 +75,5 @@ Additionally, Claude Code discovers marketplaces via `~/.claude/plugins/known_ma
 (its actual registry), NOT directly from `extraKnownMarketplaces` in `settings.json`. Entries
 propagate from `extraKnownMarketplaces` only when Claude Code can successfully fetch the
 marketplace from the declared GitHub source. Synthetic marketplaces fail this fetch (no upstream
-structure), so the `knownMarketplacesMerge` activation in `settings.nix` ensures the local
-`installLocation` is registered directly.
-
-## Migration Path
-
-Phase 1 of `orphan-cleanup.nix` handles the one-time migration from `recursive = true`
-(real directories with per-file symlinks) to directory symlinks. After the first rebuild,
-marketplace paths are already symlinks and the migration code is a no-op.
+structure), so the `knownMarketplacesMerge` activation in `modules/default.nix` ensures the
+local `installLocation` is registered directly.
