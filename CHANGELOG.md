@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.80.0](https://github.com/dryvist/nix-ai/compare/v1.79.0...v1.80.0) (2026-06-20)
+
+
+### Features
+
+* **mcp:** add UniFi Network and Monarch Money MCP servers ([#966](https://github.com/dryvist/nix-ai/issues/966)) ([13b162f](https://github.com/dryvist/nix-ai/commit/13b162fd598bde5e43be142f9c1dcf28673d675f))
+
 ## [1.79.0](https://github.com/dryvist/nix-ai/compare/v1.78.3...v1.79.0) (2026-06-20)
 
 
