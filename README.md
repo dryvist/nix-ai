@@ -76,7 +76,7 @@ that merge into your existing configuration:
 ### Self-contained design
 
 The module injects its own dependencies via `_module.args`. Your consuming flake
-only needs two follows lines:
+only needs two `follows` lines:
 
 ```nix
 inputs.nixpkgs.follows = "nixpkgs";
