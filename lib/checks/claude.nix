@@ -201,4 +201,22 @@ in
       echo "Maestro script: substitution, shebang, strict mode, exec, error handling verified"
       touch $out
     '';
+
+  # Skill packs (modules/claude/plugins/packs.nix) must be a non-empty attrset of
+  # non-empty attrsets whose leaves are all booleans. Guards against typos that
+  # would break the `ai-pack` importer. (ai-pack.sh itself is shellchecked by
+  # writeShellApplication in modules/claude/skill-packs.nix.)
+  skill-packs =
+    let
+      packs = import ../../modules/claude/plugins/packs.nix;
+      packList = builtins.attrValues packs;
+      nonEmpty = packs != { } && builtins.all (p: p != { }) packList;
+      allBool = builtins.all (p: builtins.all builtins.isBool (builtins.attrValues p)) packList;
+    in
+    assert nonEmpty || throw "skill packs must be non-empty attrsets";
+    assert allBool || throw "skill pack leaf values must all be booleans";
+    pkgs.runCommand "check-skill-packs" { } ''
+      echo "Skill packs: ${toString (builtins.length packList)} packs verified"
+      touch $out
+    '';
 }

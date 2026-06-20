@@ -36,6 +36,7 @@ let
   hfMcpServerVersion = versions.hfMcpServer;
   fabricMcpVersion = versions.fabricMcp;
   gwsMcpVersion = versions.gwsMcp;
+  unifiMcpServerVersion = versions.unifiMcpServer;
 in
 {
   # ================================================================
@@ -50,7 +51,11 @@ in
   fetch = bunx [ "@modelcontextprotocol/server-fetch" ]; # archived
   filesystem = bunx [ "@modelcontextprotocol/server-filesystem@${mcpFilesystemVersion}" ];
   git = bunx [ "@modelcontextprotocol/server-git" ]; # archived
-  memory = bunx [ "@modelcontextprotocol/server-memory@${mcpMemoryVersion}" ];
+  # memory: DISABLED — the file-based MEMORY.md system is the real memory store;
+  # this knowledge-graph server is redundant (11 calls all-time per Splunk).
+  memory = bunx [ "@modelcontextprotocol/server-memory@${mcpMemoryVersion}" ] // {
+    disabled = true;
+  };
   time = {
     command = "uvx";
     args = [
@@ -94,7 +99,11 @@ in
   # ================================================================
 
   # Context7 - real-time documentation retrieval MCP server
-  context7 = bunx [ "@upstash/context7-mcp@${context7McpVersion}" ];
+  # DISABLED — duplicates the context7 *plugin*'s MCP (569x vs 48x per Splunk).
+  # Keep the plugin (mcp__plugin_context7_context7); drop this catalog server.
+  context7 = bunx [ "@upstash/context7-mcp@${context7McpVersion}" ] // {
+    disabled = true;
+  };
 
   # ================================================================
   # PAL MCP - Multi-model orchestration
@@ -175,6 +184,8 @@ in
   };
   # Google Workspace - Gmail, Drive, Calendar integration.
   # Source: https://github.com/taylorwilsdon/google_workspace_mcp
+  # DISABLED but kept defined — "available in case we ever need it". Was leaking
+  # enabled (no flag) despite 0 use; this restores the intended off state.
   google-workspace = {
     command = "doppler-mcp";
     args = [
@@ -187,6 +198,7 @@ in
       "drive"
       "calendar"
     ];
+    disabled = true;
   };
   google-maps = bunx [ "@modelcontextprotocol/server-google-maps@${mcpGoogleMapsVersion}" ] // {
     disabled = true;
@@ -200,6 +212,44 @@ in
   sentry = bunx [ "@modelcontextprotocol/server-sentry" ] // {
     disabled = true;
   }; # archived
+
+  # ================================================================
+  # UniFi Network - local UniFi gateway/controller management
+  # ================================================================
+  # Source: https://github.com/enuno/unifi-mcp-server (PyPI: unifi-mcp-server)
+  # stdio server that talks to the UniFi gateway on the LAN. Requires env vars
+  # (inherited from the shell; inject via Keychain/Doppler like HF_TOKEN):
+  #   UNIFI_API_KEY     — API key from unifi.ui.com (secret)
+  #   UNIFI_LOCAL_HOST  — gateway IP, e.g. 192.168.1.1 (machine-specific)
+  # UNIFI_API_TYPE is non-secret config and is pinned to "local" here.
+  unifi = {
+    command = "uvx";
+    args = [
+      "--from"
+      "unifi-mcp-server==${unifiMcpServerVersion}"
+      "unifi-mcp-server"
+    ];
+    env = {
+      UNIFI_API_TYPE = "local";
+    };
+    # Opt-in: ships disabled. It needs a reachable LAN gateway and personal
+    # credentials, so a consumer enables it deliberately.
+    disabled = true;
+  };
+
+  # ================================================================
+  # Monarch Money - personal finance (official hosted MCP connector)
+  # ================================================================
+  # Source: https://help.monarch.com/hc/en-us/articles/50207234679956
+  # Remote Streamable-HTTP endpoint. Auth is browser OAuth handled by the MCP
+  # client on first connect — no token or header is stored in this config.
+  monarch = {
+    type = "http";
+    url = "https://api.monarch.com/mcp";
+    # Opt-in: ships disabled. It requires a personal Monarch account and
+    # browser OAuth, so a consumer enables it deliberately.
+    disabled = true;
+  };
 
   # ================================================================
   # Cribl MCP - OrbStack kubernetes-monitoring stack

@@ -85,6 +85,7 @@ in
     # `flake/home-manager-modules.nix` (not here, to avoid `imports`
     # depending on `_module.args.nix-claude-code` — infinite recursion).
     ./claude-config.nix
+    ./claude/skill-packs.nix
     ./codex
     ./antigravity-ide
     ./antigravity-cli
