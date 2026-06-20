@@ -68,6 +68,40 @@ Add to a repo:
 Commit to `.claude/settings.json` (not `.claude/settings.local.json` — the `.local` variant
 is gitignored and won't propagate to teammates or worktrees).
 
+## Skill packs (one-command import)
+
+Hand-listing plugins per repo is error-prone and duplicates the grouping everywhere it is
+used. **Packs** name a reusable bundle once and let a repo import the whole set:
+
+```bash
+cd ~/git/<repo>/<worktree>
+ai-pack terraform     # merges the pack's enabledPlugins into ./.claude/settings.json
+git add .claude/settings.json && git commit -m "chore: enable terraform skill pack"
+ai-pack --list        # show all packs
+```
+
+Packs are defined once in [`modules/claude/plugins/packs.nix`](../../modules/claude/plugins/packs.nix)
+(also exported as `nix-ai.lib.skillPacks`) and rendered by Nix to `~/.config/ai-packs/<name>.json`.
+`ai-pack <name>` deep-merges the chosen pack into the repo's committed `.claude/settings.json`.
+
+| Pack | Plugins | Typical repos |
+| --- | --- | --- |
+| `terraform` | terraform-module-builder, infrastructure-as-code-generator | `terraform-*`, `tf-*` |
+| `proxmox` | `terraform` + proxmox-infrastructure | `terraform-proxmox`, `ansible-proxmox*` |
+| `ansible` | ansible-workflows | `ansible-*` |
+| `cribl` | cribl-pack-validator | `cribl`, `cc-edge-*`, `cc-stream-*` |
+| `obsidian` | obsidian, obsidian-visual-skills, visual-explainer | Obsidian-vault repos |
+| `browser` | browser-use | Browser-automation repos |
+| `api` | api-design-principles, rest-api-design, better-auth, backend-development | API/backend repos |
+| `mcp-dev` | mcp-server-dev, agent-sdk-dev | Repos building MCP servers / SDK apps |
+| `modernization` | code-modernization | Legacy-uplift repos |
+| `devtools` | analyze-issue, devops-automator | Ad-hoc, when needed |
+
+The last four packs hold plugins that were globally enabled until they showed **zero real use
+across all Splunk session history** — now globally disabled (Tier 1/4) and imported per-repo.
+A pack only re-enables a plugin *inside* the importing repo; the plugin stays installed at user
+level, so the per-repo override works without a rebuild.
+
 ## Budget headroom
 
 `modules/claude/options.nix` sets `skillListingBudgetFraction = 0.02` (2%) — double

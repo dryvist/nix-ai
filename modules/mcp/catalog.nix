@@ -51,7 +51,11 @@ in
   fetch = bunx [ "@modelcontextprotocol/server-fetch" ]; # archived
   filesystem = bunx [ "@modelcontextprotocol/server-filesystem@${mcpFilesystemVersion}" ];
   git = bunx [ "@modelcontextprotocol/server-git" ]; # archived
-  memory = bunx [ "@modelcontextprotocol/server-memory@${mcpMemoryVersion}" ];
+  # memory: DISABLED — the file-based MEMORY.md system is the real memory store;
+  # this knowledge-graph server is redundant (11 calls all-time per Splunk).
+  memory = bunx [ "@modelcontextprotocol/server-memory@${mcpMemoryVersion}" ] // {
+    disabled = true;
+  };
   time = {
     command = "uvx";
     args = [
@@ -95,7 +99,11 @@ in
   # ================================================================
 
   # Context7 - real-time documentation retrieval MCP server
-  context7 = bunx [ "@upstash/context7-mcp@${context7McpVersion}" ];
+  # DISABLED — duplicates the context7 *plugin*'s MCP (569x vs 48x per Splunk).
+  # Keep the plugin (mcp__plugin_context7_context7); drop this catalog server.
+  context7 = bunx [ "@upstash/context7-mcp@${context7McpVersion}" ] // {
+    disabled = true;
+  };
 
   # ================================================================
   # PAL MCP - Multi-model orchestration
@@ -176,6 +184,8 @@ in
   };
   # Google Workspace - Gmail, Drive, Calendar integration.
   # Source: https://github.com/taylorwilsdon/google_workspace_mcp
+  # DISABLED but kept defined — "available in case we ever need it". Was leaking
+  # enabled (no flag) despite 0 use; this restores the intended off state.
   google-workspace = {
     command = "doppler-mcp";
     args = [
@@ -188,6 +198,7 @@ in
       "drive"
       "calendar"
     ];
+    disabled = true;
   };
   google-maps = bunx [ "@modelcontextprotocol/server-google-maps@${mcpGoogleMapsVersion}" ] // {
     disabled = true;
