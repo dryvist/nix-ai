@@ -465,6 +465,22 @@
         "type": "github"
       }
     },
+    "last30days-skill": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1781763931,
+        "narHash": "sha256-fi0If7pRbnzMfd+zmVAPmSzabhUo+F/QXzyZW7nfzZY=",
+        "owner": "mvanhorn",
+        "repo": "last30days-skill",
+        "rev": "3fa91fce9009731ed68e2e8a14ce9683253720e8",
+        "type": "github"
+      },
+      "original": {
+        "owner": "mvanhorn",
+        "repo": "last30days-skill",
+        "type": "github"
+      }
+    },
     "lunar-claude": {
       "flake": false,
       "locked": {
@@ -639,6 +655,7 @@
         "fabric-src": "fabric-src",
         "home-manager": "home-manager",
         "karpathy-skills": "karpathy-skills",
+        "last30days-skill": "last30days-skill",
         "nix-claude-code": "nix-claude-code",
         "nixpkgs": "nixpkgs",
         "nixpkgs-unstable": "nixpkgs-unstable",
