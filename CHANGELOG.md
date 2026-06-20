@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.82.0](https://github.com/dryvist/nix-ai/compare/v1.81.0...v1.82.0) (2026-06-20)
+
+
+### Features
+
+* remove the PAL MCP server and its model-discovery sync ([#974](https://github.com/dryvist/nix-ai/issues/974)) ([87d6f5a](https://github.com/dryvist/nix-ai/commit/87d6f5a422a08a464bdbc60ce915a7c584778796))
+
 ## [1.81.0](https://github.com/dryvist/nix-ai/compare/v1.80.0...v1.81.0) (2026-06-20)
 
 
