@@ -173,11 +173,10 @@ in
     # ==========================================================================
     # MCP Runtime Wrappers — moved to modules/mcp/module.nix (sub-flake)
     # ==========================================================================
-    # The doppler-mcp, splunk-mcp-connect, sync-mlx-models, and
-    # sync-pal-cloud-models wrappers are now provided by the MCP sub-flake's
-    # home-manager module (modules/mcp/module.nix). This keeps all MCP runtime
-    # infrastructure self-contained inside the sub-flake so it can be consumed
-    # cross-flake without a hidden dependency on this file.
+    # The doppler-mcp and splunk-mcp-connect wrappers are now provided by the
+    # MCP sub-flake's home-manager module (modules/mcp/module.nix). This keeps
+    # all MCP runtime infrastructure self-contained inside the sub-flake so it
+    # can be consumed cross-flake without a hidden dependency on this file.
 
     # ==========================================================================
     # HuggingFace Hub CLI

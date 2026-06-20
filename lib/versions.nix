@@ -63,10 +63,6 @@
   # MCP servers (pypi)
   # renovate: datasource=pypi depName=mcp-server-time
   mcpServerTime = "2026.1.26";
-  # pal-mcp-server lives on GitHub (not PyPI). Version is derived from the
-  # flake input's pyproject.toml at build time in modules/mcp/pal-package.nix
-  # so the version label and the source rev stay locked together — see
-  # nix-ai#801 for the duplicate-source-of-truth issue this replaces.
   # renovate: datasource=pypi depName=fabric-mcp
   fabricMcp = "1.2.1";
   # renovate: datasource=pypi depName=google-workspace-mcp

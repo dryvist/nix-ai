@@ -41,9 +41,10 @@ copy only — the Nix-generated seed stays fixed until the next rebuild.
 
 ### Phase 2: Activation Time (darwin-rebuild switch)
 
-`home.activation` scripts run during `home-manager activate`. They have full system access
-and **can query live APIs** — this is how `custom_models.json` stays current with the running
-MLX server without baking model IDs into the Nix expression.
+`home.activation` scripts run during `home-manager activate` with full system access. While
+they _can_ query live APIs, `llama-swap.json` specifically uses a **seed-and-extend** pattern:
+the activation script copies a Nix-generated seed, and the runtime `mlx-discover` tool handles
+dynamic local-model discovery — so model IDs never have to be baked into the Nix expression.
 
 The dominant pattern is **deep-merge**: the activation script overlays Nix-managed keys
 onto the existing mutable file, preserving any keys Nix does not manage (auth tokens,
@@ -56,7 +57,7 @@ for why deep-merge is used instead of `home.file` symlinks.
 
 CLI tools refresh specific config files without requiring a full `darwin-rebuild switch`.
 These exist for configs that derive from live data that changes more frequently than
-the Nix config itself (running MLX models, OpenRouter model catalog).
+the Nix config itself (locally available MLX models).
 
 ## Activation Scripts Reference
 
@@ -69,8 +70,6 @@ All `home.activation` entries and their targets:
 | `knownMarketplacesMerge` | `modules/claude/settings.nix` | `~/.claude/plugins/known_marketplaces.json` | Synthetic marketplace registry |
 | `mergeGeminiSettings` | `modules/gemini/settings.nix` | `~/.gemini/settings.json` | MCP servers, policies, folder trust |
 | `codexConfigMerge` | `modules/codex/settings.nix` | `~/.codex/config.toml` | Model, MCP servers, approval policy |
-| `palCustomModels` | `modules/claude/pal-models.nix` | `~/.config/pal-mcp/custom_models.json` | Queries MLX `/v1/models`, runs jq enrichment |
-| `palCloudModels` | `modules/claude/pal-models.nix` | `~/.config/pal-mcp/openrouter_models.json` | Queries OpenRouter public API, runs jq |
 | `seedLlamaSwapConfig` | `modules/mlx/launchd.nix` | `~/.config/mlx/llama-swap.json` | Copies Nix-generated seed; preserves runtime models |
 | `wakaTimeConfig` | `modules/claude/default.nix` | `~/.wakatime.cfg` | Injects WakaTime API key from Doppler |
 
@@ -83,7 +82,6 @@ consuming tool writes to its own config file at runtime.
 |---------|-----------|-----------|---------|
 | **Nix store symlink** | `home.file` | Tool is read-only toward config | Plugin dirs, patterns, playbooks, copilot trusted folders |
 | **Activation deep-merge** | `home.activation` + shell script | Tool writes runtime state to config | `~/.claude.json`, `~/.gemini/settings.json`, `~/.codex/config.toml` |
-| **Activation API-sourced** | `home.activation` + curl + jq | Config derives from live API data | `~/.config/pal-mcp/custom_models.json`, `openrouter_models.json` |
 | **Activation seed + runtime extension** | `seed-config.py` + `mlx-discover` | Config is both Nix-seeded and runtime-extensible | `~/.config/mlx/llama-swap.json` |
 
 ### Why `home.file` Symlinks Break for Claude/Gemini/Codex
@@ -105,13 +103,8 @@ These tools refresh specific files between rebuilds:
 
 | Command | Refreshes | Trigger |
 |---------|-----------|---------|
-| `sync-mlx-models` | `~/.config/pal-mcp/custom_models.json` | After `mlx-switch` changes the active MLX model |
-| `sync-pal-cloud-models` | `~/.config/pal-mcp/openrouter_models.json` | Periodically to pick up new OpenRouter models |
 | `mlx-discover` | `~/.config/mlx/llama-swap.json` | After downloading a new model to `/Volumes/HuggingFace` |
 | `mlx-switch <model>` | triggers `mlx-discover` if needed | Hot-swap active MLX model without restart |
-
-After running any of these, **restart Claude Code** for the PAL MCP server to reload
-its config. PAL reads `custom_models.json` once at startup, not on every request.
 
 ## Diagram: Full File Ownership Map
 
@@ -127,15 +120,12 @@ graph TD
         A1["seedLlamaSwapConfig\n→ ~/.config/mlx/llama-swap.json"]
         A2["claudeJsonMerge\n→ ~/.claude.json"]
         A3["claudeSettingsMerge\n→ ~/.claude/settings.json"]
-        A4["palCustomModels\n→ ~/.config/pal-mcp/custom_models.json"]
-        A5["palCloudModels\n→ ~/.config/pal-mcp/openrouter_models.json"]
     end
 
     subgraph Runtime["Runtime — mutable user files"]
         R1["~/.config/mlx/llama-swap.json\n(mlx-discover extends)"]
         R2["~/.claude.json\n(Claude Code writes session state)"]
         R3["~/.claude/settings.json\n(Claude Code writes preferences)"]
-        R4["~/.config/pal-mcp/custom_models.json\n(sync-mlx-models refreshes)"]
     end
 
     subgraph Symlinks["home.file Symlinks — read-only"]
@@ -152,5 +142,4 @@ graph TD
     NS3 --> S2
     NS3 --> S3
     NS3 --> S4
-    A4 --> R4
 ```

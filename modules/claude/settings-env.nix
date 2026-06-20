@@ -18,7 +18,7 @@
   # because they churn frequently: https://code.claude.com/docs/en/model-config
   #   ANTHROPIC_DEFAULT_OPUS_MODEL / ANTHROPIC_DEFAULT_SONNET_MODEL / ANTHROPIC_DEFAULT_HAIKU_MODEL
 
-  # MCP timeout settings (5 minutes) - required for PAL MCP
+  # MCP timeout settings (5 minutes) - required for slow MCP servers
   MCP_TIMEOUT = "300000";
   MCP_TOOL_TIMEOUT = "300000";
 

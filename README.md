@@ -19,9 +19,9 @@ One command rebuilds everything, identically, every time.
 | **Gemini CLI** | Settings, custom commands, permission rules |
 | **GitHub Copilot** | Configuration, permissions |
 | **OpenAI Codex** | Settings |
-| **MCP Servers** | 15+ servers — GitHub, Terraform, Context7, PAL, filesystem, memory, and more |
+| **MCP Servers** | 15+ servers — GitHub, Terraform, Context7, filesystem, memory, and more |
 | **Plugin Marketplace** | [Curated marketplaces](modules/claude/plugins/README.md) with Nix-pinned flake inputs |
-| **AI Dev Tools** | cclint, doppler-mcp, claude-flow, sync-mlx-models |
+| **AI Dev Tools** | cclint, doppler-mcp, claude-flow, splunk-mcp-connect |
 | **MLX** | Local Apple Silicon inference via vllm-mlx with macOS launchd integration |
 
 ## Prerequisites

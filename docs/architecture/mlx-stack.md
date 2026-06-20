@@ -82,4 +82,3 @@ tasks. Cold-start overhead: preloaded 35B adds ~1.5s; 122B MoE from disk adds ~8
 ## Related
 
 - [system-integration-map.md](system-integration-map.md) — Port allocation table, full topology
-- [model-discovery-flow.md](model-discovery-flow.md) — How model data flows from Nix → llama-swap → PAL

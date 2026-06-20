@@ -56,7 +56,7 @@ inputs.nix-ai.inputs.home-manager.follows = "home-manager";
 - AI-specific GitHub CLI extensions (gh-aw)
 - AI tool configuration files (`.claude/`, `.gemini/`, `.copilot/`)
 - MLX inference server (vllm-mlx LaunchAgent + wrappers)
-- AI-specific shell utilities (sync-mlx-models, hf CLI wrapper)
+- AI-specific shell utilities (doppler-mcp, hf CLI wrapper)
 
 ### Package placement
 
@@ -69,7 +69,7 @@ constraints and on-demand patterns.
 ## Architecture Documentation
 
 Cross-cutting views live in [`docs/architecture/`](docs/architecture/README.md):
-system-integration-map (topology + ports), model-discovery-flow, config-lifecycle,
+system-integration-map (topology + ports), config-lifecycle,
 secrets-and-injection, mlx-stack. Design decisions in [`docs/adr/`](docs/adr/README.md).
 
 ## Key Files

@@ -615,22 +615,6 @@
         "type": "github"
       }
     },
-    "pal-mcp-server": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1765818451,
-        "narHash": "sha256-N10TLndisNT48NVT8OZs7hZFf4D6j8ekPU7RfqwkqY0=",
-        "owner": "BeehiveInnovations",
-        "repo": "pal-mcp-server",
-        "rev": "7afc7c1cc96e23992c8f105f960132c657883bb1",
-        "type": "github"
-      },
-      "original": {
-        "owner": "BeehiveInnovations",
-        "repo": "pal-mcp-server",
-        "type": "github"
-      }
-    },
     "ponytail": {
       "flake": false,
       "locked": {
@@ -659,7 +643,6 @@
         "nix-claude-code": "nix-claude-code",
         "nixpkgs": "nixpkgs",
         "nixpkgs-unstable": "nixpkgs-unstable",
-        "pal-mcp-server": "pal-mcp-server",
         "ponytail": "ponytail"
       }
     },

@@ -36,7 +36,7 @@ graph TD
 
 ## Pattern 1: Doppler Subprocess Wrapper
 
-**Used by**: PAL MCP, Google Workspace MCP, Splunk MCP
+**Used by**: Google Workspace MCP, Splunk MCP
 
 The `doppler-mcp` shell script wraps the real binary:
 
@@ -52,15 +52,13 @@ accidentally committed.
 
 **Doppler project**: `ai-ci-automation`, config `prd`
 
-**Secrets injected for PAL**: `GEMINI_API_KEY`, `OPENAI_API_KEY`, `OPENROUTER_API_KEY`
-
 **Fallback cache**: An encrypted local file used when Doppler is unreachable (offline work).
 The fallback is stored under `$XDG_STATE_HOME` (e.g. `~/.local/state/doppler-mcp-fallback.enc`),
 so it resides in a user-writable local state directory rather than the Nix store.
 
-**Why no preflight check**: PAL's startup is fast and runs in parallel with ~17 other MCP
-servers at Claude Code launch. A Doppler connectivity check before each launch would add
-latency. The encrypted fallback handles offline scenarios.
+**Why no preflight check**: MCP servers start in parallel at Claude Code launch. A Doppler
+connectivity check before each launch would add latency to every server's stdio handshake.
+The encrypted fallback handles offline scenarios.
 
 ## Pattern 2: macOS Keychain via Shell Init
 
@@ -94,7 +92,6 @@ This is the cleanest pattern: zero credential exposure outside the cluster bound
 
 | Product | Secret | Pattern | Where Configured |
 |---------|--------|---------|-----------------|
-| PAL MCP | `GEMINI_API_KEY`, `OPENAI_API_KEY`, `OPENROUTER_API_KEY` | Doppler subprocess | `ai-ci-automation/prd` Doppler project |
 | Google Workspace MCP | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Doppler subprocess | `ai-ci-automation/prd` Doppler project |
 | Splunk MCP | `SPLUNK_MCP_ENDPOINT`, `SPLUNK_MCP_TOKEN` | Doppler subprocess | `ai-ci-automation/prd` Doppler project |
 | HuggingFace MCP | `HF_TOKEN` | Keychain → shell env | macOS Keychain (`huggingface-token`) |

@@ -10,7 +10,6 @@ When to use which tool for AI-assisted tasks in the nix-ai ecosystem.
 | YouTube video processing | `fabric -y URL --pattern summarize` | Built-in yt-dlp + Jina extraction |
 | Want Claude Code to auto-invoke a pattern | Fabric skills (synthetic marketplace) | 32 curated patterns auto-loaded by description match |
 | Want to explicitly call a pattern from Claude Code | Fabric MCP server | Pattern appears as a callable MCP tool |
-| Multi-model consensus or routing | PAL MCP `clink` / `consensus` | Routes across providers |
 | Single external model call | Bifrost (`localhost:30080`) | OpenAI-compatible, multi-provider |
 | Writing Python/Go code that calls an LLM | Anthropic SDK / OpenAI SDK | Direct API, no middleware |
 
@@ -75,20 +74,17 @@ Not for:
 - Shell pipelines (use CLI — faster, no MCP overhead)
 - Auto-discovery (use skills — MCP requires explicit invocation)
 
-## When to Use Bifrost / PAL MCP
+## When to Use Bifrost
 
-Best for: **multi-model routing and external model calls**
+Best for: **external model calls and multi-provider routing**
 
 | Tool | Use Case |
 | --- | --- |
 | Bifrost (`localhost:30080`) | Single model call via OpenAI-compatible API |
-| PAL `clink` | Multi-model parallel (research, exploration) |
-| PAL `consensus` | Multi-model agreement (critical decisions) |
 
 Use when:
 
 - You need a non-Claude model (Gemini, OpenRouter, local MLX)
-- You need multi-model consensus for a decision
 - You're building a workflow that routes across providers
 
 ## Anti-Patterns
@@ -99,4 +95,3 @@ Use when:
 | Manually invoke fabric skills from Claude Code | Let auto-discovery match by description |
 | Use fabric for multi-step automated workflows | Use the orchestrator (when it has consumers) |
 | Route through Bifrost for a task fabric handles | Use fabric directly — it already talks to MLX |
-| Use PAL for single-model calls | Use Bifrost directly — lower overhead |

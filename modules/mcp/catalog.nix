@@ -106,14 +106,6 @@ in
   };
 
   # ================================================================
-  # PAL MCP - Multi-model orchestration
-  # ================================================================
-  # Transport: stdio, launched via pal-mcp wrapper (modules/claude/pal-models.nix).
-  pal = {
-    command = "pal-mcp";
-  };
-
-  # ================================================================
   # HuggingFace MCP - Model/dataset/paper search and documentation
   # ================================================================
   # Community stdio package: https://github.com/shreyaskarnik/huggingface-mcp-server
