@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.78.3](https://github.com/dryvist/nix-ai/compare/v1.78.2...v1.78.3) (2026-06-20)
+
+
+### Bug Fixes
+
+* **orchestrator:** bump langsmith to 0.8.18 (GHSA-f4xh-w4cj-qxq8) ([#967](https://github.com/dryvist/nix-ai/issues/967)) ([5d4a44b](https://github.com/dryvist/nix-ai/commit/5d4a44b456a43f9f2176ad07a41d5c22802e2038))
+
 ## [1.78.2](https://github.com/dryvist/nix-ai/compare/v1.78.1...v1.78.2) (2026-06-18)
 
 
