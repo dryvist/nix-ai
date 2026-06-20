@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.81.0](https://github.com/dryvist/nix-ai/compare/v1.80.0...v1.81.0) (2026-06-20)
+
+
+### Features
+
+* **claude:** importable skill packs; disable unused plugins and MCP servers ([#962](https://github.com/dryvist/nix-ai/issues/962)) ([be94eff](https://github.com/dryvist/nix-ai/commit/be94eff467bd69e40e924936bdd0ae63baddba75))
+
 ## [1.80.0](https://github.com/dryvist/nix-ai/compare/v1.79.0...v1.80.0) (2026-06-20)
 
 
