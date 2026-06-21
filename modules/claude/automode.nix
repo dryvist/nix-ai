@@ -22,11 +22,7 @@
 let
   ghUser = userConfig.user.fullName;
   trustedOrgs = userConfig.user.trustedOrgs or [ ];
-  homelab =
-    userConfig.homelab or {
-      enable = false;
-      environmentRules = [ ];
-    };
+  homelab = userConfig.homelab or { };
   orgsClause = lib.concatMapStringsSep " and " (org: "github.com/${org}/*") (
     [ ghUser ] ++ trustedOrgs
   );
@@ -36,7 +32,7 @@ in
     "$defaults"
     "Source control: GitHub orgs ${orgsClause}. All public repos under these are trusted to clone, push, branch, and PR-mutate against. Force-push to feature branches is routine; force-push to main is off-limits."
   ]
-  ++ lib.optionals homelab.enable homelab.environmentRules;
+  ++ lib.optionals (homelab.enable or false) (homelab.environmentRules or [ ]);
 
   allow = [
     "$defaults"
