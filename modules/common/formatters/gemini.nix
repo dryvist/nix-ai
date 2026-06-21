@@ -67,7 +67,6 @@ rec {
 
   # Legacy formatters (kept for regression tests and CI lib output)
   formatShellCommand = cmd: "ShellTool(${cmd})";
-  formatShellCommands = cmds: map (cmd: "ShellTool(${cmd})") cmds;
   formatAllowedTools =
     permissions:
     let

@@ -9,8 +9,8 @@
 #   - lib/versions.nix `fabric = "X.Y.Z"` — Renovate customManager bumps this
 #     (datasource=github-releases, depName=danielmiessler/fabric)
 #   - flake.nix `fabric-src` flake input — Renovate's nix manager bumps this
-# scripts/check-fabric-version-sync.sh and the fabric-version-sync regression
-# check in lib/checks/fabric.nix assert that the two stay aligned.
+# The fabric-version-sync regression check in lib/checks/fabric.nix asserts
+# that the two stay aligned.
 #
 # Naming: "fabric-ai" avoids collision with the unrelated Python `fabric` package
 # in nixpkgs (pythonic remote execution). Both can coexist on PATH since the

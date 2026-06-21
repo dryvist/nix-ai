@@ -31,9 +31,6 @@ rec {
   # Format a single shell command for Claude
   formatShellCommand = cmd: "Bash(${cmd} *)";
 
-  # Format a list of shell commands
-  formatShellCommands = cmds: map formatShellCommand cmds;
-
   # Format all allowed commands from permissions (shell + tool-specific + MCP)
   # Note: Tool-specific permissions are placed before shell permissions.
   # This ordering matches formatDenied and ensures consistent evaluation by Claude Code.
