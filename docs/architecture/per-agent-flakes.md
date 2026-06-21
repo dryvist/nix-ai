@@ -172,7 +172,7 @@ with no behavior change. The graduation recipe:
 1. `git mv modules/<agent>/ ../nix-ai-<agent>/` into a new repo.
 2. Add a minimal `flake.nix` that exports `homeManagerModules.default`
    from `default.nix`.
-3. Declare `inputs.nix-ai.url = "github:JacobPEvans/nix-ai"` so the
+3. Declare `inputs.nix-ai.url = "github:dryvist/nix-ai"` so the
    extracted flake still consumes `vars/ai-stack.nix` as the central
    registry.
 4. In nix-ai's `flake.nix`, replace the in-tree import with the new

@@ -3,10 +3,10 @@
 # Imported as a plain list by claude-config.nix into
 # `programs.claude.settings.additionalDirectories`. Keeping this in its own
 # file means adding a new trusted path is a one-line PR with no surrounding
-# config noise.
+# config noise. Personal paths belong in `userConfig.extraTrustedPaths`
+# (maintainer profile), which claude-config.nix appends to this base set.
 [
   "~/.claude/"
-  "~/.claude/skills/retrospecting/reports/"
   "~/.config/direnv/"
   "~/.config/fabric/"
   "~/.config/gh/"

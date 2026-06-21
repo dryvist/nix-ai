@@ -1,11 +1,12 @@
 # Claude Code — environment variables for the deployed `programs.claude.settings.env`.
 #
-# Imported as a plain attrset by claude-config.nix. Anything that needs to
-# reach into config or pkgs stays in claude-config.nix; pure key/value pairs
-# live here so the parent module reads as a high-level overview.
+# A function of { lib, userConfig }: the static key/value pairs below, plus the
+# opt-in OpenTelemetry block merged in when userConfig.telemetry.enable is set.
+# Keeping the env build here lets claude-config.nix stay a high-level overview.
 #
 # See: https://code.claude.com/docs/en/settings
 # See: https://code.claude.com/docs/en/model-config
+{ lib, userConfig }:
 {
   # Model is intentionally left unset (see claude-config.nix), so Claude Code
   # uses the account-tier default. Override per-session via /model, or here
@@ -53,12 +54,15 @@
   # Auto-compact threshold — using upstream default (~95% of context window)
   # CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = "95";
 
-  # ===== OpenTelemetry — OrbStack k8s OTEL Collector =====
-  # Pipeline: Claude Code → OTEL Collector (:30317) → Cribl Stream (:4317) → Splunk HEC
-  # Requires: OrbStack k8s running with OTEL collector deployed.
-  # Source: orbstack-kubernetes/k8s/monitoring/otel-collector/service-external.yaml
+}
+# OpenTelemetry — opt-in via userConfig.telemetry (maintainer profile). Off by
+# default so a fresh consumer emits no telemetry. Endpoint falls back to the
+# registry port so flipping telemetry.enable alone reaches the local collector.
+// lib.optionalAttrs (userConfig.telemetry.enable or false) {
   CLAUDE_CODE_ENABLE_TELEMETRY = "1";
-  OTEL_EXPORTER_OTLP_ENDPOINT = "http://localhost:30317";
+  OTEL_EXPORTER_OTLP_ENDPOINT =
+    userConfig.telemetry.otlpEndpoint
+      or "http://localhost:${toString (import ../../vars/ai-stack.nix).nodeports.otel_grpc}";
   OTEL_EXPORTER_OTLP_PROTOCOL = "grpc";
   OTEL_METRICS_EXPORTER = "otlp";
   OTEL_LOGS_EXPORTER = "otlp";
