@@ -4,6 +4,14 @@ result
 __pycache__
 .pytest_cache
 
+# Local secrets / overrides. `.env.example` is the committed template; real .env
+# files and the local agent runbook are never committed (see .env.example +
+# AGENTS.local.md — secrets are direct-injected, not stored on disk).
+.env
+.env.*
+!.env.example
+AGENTS.local.md
+
 # Git worktrees created inside the clone. `.claude/worktrees/` is Claude Code's
 # native EnterWorktree location; `.claude-wt/` was an ad-hoc manual base. Both
 # are nested worktrees that git reports as untracked — ignore them so they never

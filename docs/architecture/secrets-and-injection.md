@@ -3,6 +3,14 @@
 Three distinct patterns handle secrets across the AI tool ecosystem. Each enforces
 a different trust boundary and serves a different use case.
 
+**Governing principle — direct injection, no secret on disk.** Credentials are
+injected into each CLI/process at launch (`doppler run …`, `aws-vault exec …`,
+inline Keychain reads) and are never written to a committed or persisted file.
+The variable catalog (required vs optional, purpose, source) is
+[`.env.example`](../../.env.example); the local injection runbook is
+`AGENTS.local.md` (gitignored). A real `.env` on disk is an opt-in convenience
+only — prefer direct injection.
+
 ## Documents in This Directory
 
 _This document is part of [`docs/architecture/`](README.md)._
@@ -108,7 +116,10 @@ This is the cleanest pattern: zero credential exposure outside the cluster bound
   the Nix store derivation (world-readable at `/nix/store/`).
 - **Never hardcode API keys in Nix expressions.** Even in a private repo, they end up
   in the Nix store. Use Doppler or Keychain.
-- **Never commit `.env` files** containing real keys. The `~/.config/fabric/.env` file
-  (for Fabric's cloud providers) is user-created and gitignored; it is not managed by Nix.
+- **Never commit `.env` files** containing real keys. The repo's [`.env.example`](../../.env.example)
+  is the committed template; real `.env` files are gitignored (`.env`, `.env.*`).
+  Prefer direct injection over creating a `.env` at all.
 
-For the full MCP-specific secrets reference, see `modules/mcp/README.md` → Secrets Management.
+For the variable catalog see [`.env.example`](../../.env.example), the local
+injection runbook see `AGENTS.local.md` (gitignored), and the MCP-specific
+reference see `modules/mcp/README.md` → Secrets Management.
