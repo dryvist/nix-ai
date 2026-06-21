@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.84.0](https://github.com/dryvist/nix-ai/compare/v1.83.0...v1.84.0) (2026-06-21)
+
+
+### Features
+
+* **secrets:** add .env.example + direnv dotenv; relocate inline secret docs ([#986](https://github.com/dryvist/nix-ai/issues/986)) ([adf0e2e](https://github.com/dryvist/nix-ai/commit/adf0e2e6d38e5a5143bcfe8ed74737aa5ec8d21a))
+
 ## [1.83.0](https://github.com/dryvist/nix-ai/compare/v1.82.0...v1.83.0) (2026-06-20)
 
 
