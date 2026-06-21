@@ -152,8 +152,12 @@ in
     trustedProjectDirs = userConfig.trustedProjectDirs or [ ];
 
     # Commit trailer per https://docs.kernel.org/process/coding-assistants.html.
+    # sessionUrl = false omits the claude.ai session link from commits and PRs:
+    # in a public single-dev workspace the traceability is moot, while the link
+    # writes a permanent session-id pointer into immutable public git history.
     attribution = {
       commit = "Assisted-by: Claude:{model}";
+      sessionUrl = false;
     };
 
     plugins = {
