@@ -240,21 +240,7 @@ in
     settings = {
       alwaysThinkingEnabled = true;
       cleanupPeriodDays = 180;
-      env =
-        (import ./claude/settings-env.nix)
-        // lib.optionalAttrs (userConfig.telemetry.enable or false) {
-          # OpenTelemetry — opt-in via userConfig.telemetry (maintainer profile).
-          # Endpoint falls back to the registry port so a consumer that only
-          # flips telemetry.enable still gets the well-known local collector.
-          CLAUDE_CODE_ENABLE_TELEMETRY = "1";
-          OTEL_EXPORTER_OTLP_ENDPOINT =
-            userConfig.telemetry.otlpEndpoint
-              or "http://localhost:${toString (import ../vars/ai-stack.nix).nodeports.otel_grpc}";
-          OTEL_EXPORTER_OTLP_PROTOCOL = "grpc";
-          OTEL_METRICS_EXPORTER = "otlp";
-          OTEL_LOGS_EXPORTER = "otlp";
-          OTEL_TRACES_EXPORTER = "otlp";
-        };
+      env = import ./claude/settings-env.nix { inherit lib userConfig; };
 
       permissions = {
         allow = formatters.claude.formatAllowed permissions;
