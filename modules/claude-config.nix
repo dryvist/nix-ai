@@ -154,6 +154,7 @@ in
     # Commit trailer per https://docs.kernel.org/process/coding-assistants.html.
     attribution = {
       commit = "Assisted-by: Claude:{model}";
+      sessionUrl = false;
     };
 
     plugins = {
