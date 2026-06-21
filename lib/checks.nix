@@ -15,44 +15,34 @@ let
   testLocalModelId = "mlx-community/test-model";
 
   # Shared test module configuration — used by claude, mlx, and fabric regression checks
-  hmConfig = home-manager.lib.homeManagerConfiguration {
-    inherit pkgs;
-    modules = [
-      aiModule
-      {
-        _module.args.userConfig = {
-          user.fullName = "JacobPEvans";
-        };
-        services.aiStack.defaultLocalModelId = testLocalModelId;
-        home = {
-          username = "test-user";
-          homeDirectory = "/home/test-user";
-          stateVersion = "25.11";
-        };
-      }
-    ];
+  baseTestModule = {
+    _module.args.userConfig = {
+      user.fullName = "JacobPEvans";
+    };
+    services.aiStack.defaultLocalModelId = testLocalModelId;
+    home = {
+      username = "test-user";
+      homeDirectory = "/home/test-user";
+      stateVersion = "25.11";
+    };
   };
+
+  mkHmConfig =
+    extraModules:
+    home-manager.lib.homeManagerConfiguration {
+      inherit pkgs;
+      modules = [
+        aiModule
+        baseTestModule
+      ]
+      ++ extraModules;
+    };
+
+  hmConfig = mkHmConfig [ ];
 
   # Second evaluation with fabric REST API LaunchAgent enabled — used by the
   # fabric-launchd positive check (default eval has enableServer = false).
-  hmConfigFabricServer = home-manager.lib.homeManagerConfiguration {
-    inherit pkgs;
-    modules = [
-      aiModule
-      {
-        _module.args.userConfig = {
-          user.fullName = "JacobPEvans";
-        };
-        services.aiStack.defaultLocalModelId = testLocalModelId;
-        home = {
-          username = "test-user";
-          homeDirectory = "/home/test-user";
-          stateVersion = "25.11";
-        };
-        programs.fabric.enableServer = true;
-      }
-    ];
-  };
+  hmConfigFabricServer = mkHmConfig [ { programs.fabric.enableServer = true; } ];
 in
 (import ./checks/lint.nix { inherit pkgs src; })
 // (import ./checks/ai-stack.nix { inherit pkgs testLocalModelId; })

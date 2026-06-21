@@ -1,22 +1,9 @@
-# NixOS version tracking
-# Used by GitHub Actions workflows for version monitoring
+# Package version pins — single source of truth for cross-module shared deps.
 #
-# stableVersion: Latest stable NixOS release branch
-# Format: "YY.MM" (e.g., "24.05" for May 2024 release, "25.11" for November 2025)
-#
-# Note: This repo uses nixpkgs-unstable in flake.nix for cutting-edge packages.
-# This field tracks the latest stable release for informational purposes only.
-#
-# Used by:
-# - .github/workflows/nixos-release-check.yml - automated update notifications
-# - .github/workflows/ci-eol-check.yml - end-of-life validation
+# Each pin entry (below) must have a `# renovate:` annotation immediately above
+# it so the org-wide customManager regex tracks it (datasource= depName= on one
+# line).
 {
-  stableVersion = "26.05";
-
-  # Package version pins — single source of truth for cross-module shared deps.
-  # Each pin entry (below) must have a `# renovate:` annotation immediately above
-  # it so the org-wide customManager regex tracks it (datasource= depName= on one
-  # line). `stableVersion` above is informational and not tracked by Renovate.
 
   # HuggingFace stack
   # renovate: datasource=pypi depName=huggingface-hub
@@ -101,8 +88,7 @@
   # must be bumped to the same tag. vendorHash only validates the fetched Go
   # source tree — it does NOT detect label drift between this pin and the
   # fabric-src input. The fabric-version-sync regression check in
-  # lib/checks/fabric.nix (and scripts/check-fabric-version-sync.sh for
-  # pre-commit / manual runs) compares the two and fails on drift.
+  # lib/checks/fabric.nix compares the two and fails on drift.
   # renovate: datasource=github-releases depName=danielmiessler/fabric
   fabric = "1.4.452";
 }

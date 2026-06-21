@@ -6,9 +6,6 @@
   # Format a single shell command for Copilot
   formatShellCommand = cmd: "shell(${cmd})";
 
-  # Format a list of shell commands
-  formatShellCommands = cmds: map (cmd: "shell(${cmd})") cmds;
-
   # Get trusted directories
   getTrustedFolders =
     permissions:

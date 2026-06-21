@@ -52,8 +52,8 @@
     # Source of both the fabric binary and the pattern library. The flake input
     # tag and lib/versions.nix.fabric must stay in sync — Renovate opens separate
     # PRs for each (nix manager for this URL, custom.regex for the version).
-    # scripts/check-fabric-version-sync.sh catches label drift; vendorHash
-    # catches source changes that weren't accompanied by a version bump.
+    # The fabric-version-sync check (lib/checks/fabric.nix) catches label drift;
+    # vendorHash catches source changes that weren't accompanied by a version bump.
     fabric-src = {
       url = "github:danielmiessler/fabric/v1.4.452";
       flake = false;

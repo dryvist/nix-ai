@@ -160,9 +160,7 @@ metadata version is derived from the same package at Nix eval time — no
 separate sync needed. Renovate manages bumps via the `# renovate:` annotation
 above the entry in `lib/versions.nix` (custom regex manager) and the `nix`
 manager for the flake input. The fabric-version-sync regression check in
-`lib/checks/fabric.nix` (and the equivalent
-`scripts/check-fabric-version-sync.sh` for pre-commit / manual runs) asserts
-both stay in sync.
+`lib/checks/fabric.nix` (run by `nix flake check`) asserts both stay in sync.
 
 To bump manually: edit both values to the new version, run `nix build .#fabric-ai`,
 copy the new `vendorHash` from the error message, paste it into `package.nix`, and re-build.

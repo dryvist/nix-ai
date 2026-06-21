@@ -144,8 +144,7 @@ in
   # the fabric-src flake input in flake.nix. Renovate's nix manager bumps
   # fabric-src; the customManager regex bumps lib/versions.nix.fabric. The
   # vendorHash only validates the fetched Go source tree — it does NOT detect
-  # label drift. This is the Nix-native equivalent of
-  # scripts/check-fabric-version-sync.sh and runs in every `nix flake check`.
+  # label drift. This check runs in every `nix flake check`.
   fabric-version-sync =
     let
       flakeSrc = builtins.readFile "${src}/flake.nix";
