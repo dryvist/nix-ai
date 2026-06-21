@@ -146,8 +146,10 @@ in
     # Enable Remote Control for all sessions (Feb 2026 feature).
     remoteControlAtStartup = true;
 
-    # Auto-approve CLAUDE.md external imports for all repos discovered under ~/git/public/.
-    trustedProjectDirs = [ "~/git/public/" ];
+    # Auto-approve CLAUDE.md external imports under the consumer's workspace
+    # roots (userConfig.trustedProjectDirs, maintainer profile). Empty default
+    # so a fresh consumer is prompted; the maintainer sets their own roots.
+    trustedProjectDirs = userConfig.trustedProjectDirs or [ ];
 
     # Commit trailer per https://docs.kernel.org/process/coding-assistants.html.
     attribution = {
@@ -238,7 +240,17 @@ in
     settings = {
       alwaysThinkingEnabled = true;
       cleanupPeriodDays = 180;
-      env = import ./claude/settings-env.nix;
+      env =
+        (import ./claude/settings-env.nix)
+        // lib.optionalAttrs (userConfig.telemetry.enable or false) {
+          # OpenTelemetry — opt-in via userConfig.telemetry (maintainer profile).
+          CLAUDE_CODE_ENABLE_TELEMETRY = "1";
+          OTEL_EXPORTER_OTLP_ENDPOINT = userConfig.telemetry.otlpEndpoint;
+          OTEL_EXPORTER_OTLP_PROTOCOL = "grpc";
+          OTEL_METRICS_EXPORTER = "otlp";
+          OTEL_LOGS_EXPORTER = "otlp";
+          OTEL_TRACES_EXPORTER = "otlp";
+        };
 
       permissions = {
         allow = formatters.claude.formatAllowed permissions;
@@ -252,7 +264,8 @@ in
         in
         if builtins.pathExists file then (lib.importJSON file).skillOverrides or { } else { };
 
-      additionalDirectories = import ./claude/settings-paths.nix;
+      additionalDirectories =
+        (import ./claude/settings-paths.nix) ++ (userConfig.extraTrustedPaths or [ ]);
 
       sandbox = {
         enabled = false;

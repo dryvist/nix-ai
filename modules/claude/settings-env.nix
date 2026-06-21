@@ -53,14 +53,7 @@
   # Auto-compact threshold — using upstream default (~95% of context window)
   # CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = "95";
 
-  # ===== OpenTelemetry — OrbStack k8s OTEL Collector =====
-  # Pipeline: Claude Code → OTEL Collector (:30317) → Cribl Stream (:4317) → Splunk HEC
-  # Requires: OrbStack k8s running with OTEL collector deployed.
-  # Source: orbstack-kubernetes/k8s/monitoring/otel-collector/service-external.yaml
-  CLAUDE_CODE_ENABLE_TELEMETRY = "1";
-  OTEL_EXPORTER_OTLP_ENDPOINT = "http://localhost:30317";
-  OTEL_EXPORTER_OTLP_PROTOCOL = "grpc";
-  OTEL_METRICS_EXPORTER = "otlp";
-  OTEL_LOGS_EXPORTER = "otlp";
-  OTEL_TRACES_EXPORTER = "otlp";
+  # OpenTelemetry is opt-in via the maintainer profile
+  # (userConfig.telemetry.enable); claude-config.nix merges the OTLP env when
+  # enabled. Kept out of this static set so a fresh consumer emits no telemetry.
 }

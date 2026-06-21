@@ -75,7 +75,7 @@ in
   };
 
   imports = [
-    ./user-defaults.nix
+    ./maintainer-profile.nix
     ./ai-shell.nix
     ./ai-stack
     ./agent-skills
