@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.85.0](https://github.com/dryvist/nix-ai/compare/v1.84.0...v1.85.0) (2026-06-21)
+
+
+### Features
+
+* **profile:** centralize maintainer-specific values into one overridable profile ([#987](https://github.com/dryvist/nix-ai/issues/987)) ([b599e99](https://github.com/dryvist/nix-ai/commit/b599e99cd0fddc6d80c69c478c112d1fd515fa59))
+
 ## [1.84.0](https://github.com/dryvist/nix-ai/compare/v1.83.0...v1.84.0) (2026-06-21)
 
 
