@@ -1,74 +1,50 @@
-name: Issue Auto-Resolve
+# Autonomous issue resolution. New/reopened issue -> Claude triage labels it
+# (type/size/priority, and ai:ready when auto-resolvable) -> if ai:ready, Claude (Opus)
+# opens a PR that fully resolves it. A human adding ai:ready, or workflow_dispatch with an
+# issue_number, are the manual paths. Canonical caller: dryvist/ai-workflows
+# examples/issue-auto-resolve-caller.yml.
+
+name: Issue Auto-Resolve (Claude)
 
 on:
+  issues:
+    types: [opened, reopened, labeled]
   workflow_dispatch:
     inputs:
       issue_number:
         description: "Issue number to resolve"
         required: true
         type: string
-  issues:
-    types: [labeled]
 
 permissions:
-  actions: write
   contents: write
   id-token: write
   issues: write
   pull-requests: write
 
+concurrency:
+  group: issue-auto-resolve-${{ github.event.issue.number || inputs.issue_number }}
+  cancel-in-progress: false
+
 jobs:
-  dispatch:
-    if: github.event_name == 'issues' && github.event.label.name == 'ai:ready'
-    # Self-hosted RunsOn runner — see terraform-runs-on/docs/migration-guide.md
-    runs-on: "runs-on=${{ github.run_id }}/runner=2cpu-linux-x64"
-    permissions:
-      actions: write
-      issues: write
-    steps:
-      - name: Dispatch as workflow_dispatch
-        env:
-          GH_TOKEN: ${{ github.token }}
-          WORKFLOW_NAME: ${{ github.workflow }}
-          REPO: ${{ github.repository }}
-          ISSUE_NUM: ${{ github.event.issue.number }}
-        run: |
-          # Daily dispatch limit (cost control safety valve)
-          TODAY=$(date -u +%Y-%m-%d)
-          COUNT=$(gh run list \
-            --workflow "$WORKFLOW_NAME" \
-            --repo "$REPO" \
-            --event workflow_dispatch \
-            --created ">=$TODAY" \
-            --json databaseId --jq 'length')
-          if [[ "$COUNT" -ge 5 ]]; then
-            echo "Daily dispatch limit reached ($COUNT/5) — skipping"
-            exit 0
-          fi
-
-          # Remove ai:ready label so it can be re-applied to re-trigger
-          gh issue edit "$ISSUE_NUM" --repo "$REPO" --remove-label "ai:ready" || true
-
-          gh workflow run "$WORKFLOW_NAME" \
-            --repo "$REPO" \
-            -f issue_number="$ISSUE_NUM"
-
-  run-triage:
-    if: github.event_name == 'workflow_dispatch'
+  triage:
+    if: >-
+      github.event_name == 'issues' &&
+      (github.event.action == 'opened' || github.event.action == 'reopened')
     uses: dryvist/ai-workflows/.github/workflows/issue-triage.yml@v0
     secrets: inherit
-    with:
-      issue_number: ${{ inputs.issue_number }}
 
-  resolve-issue:
-    needs: [run-triage]
+  resolve:
+    needs: [triage]
     if: >-
       always() &&
-      github.event_name == 'workflow_dispatch' &&
-      (needs.run-triage.result == 'success' || needs.run-triage.result == 'skipped')
-    uses: dryvist/ai-workflows/.github/workflows/issue-resolver.yml@v0
+      (needs.triage.result == 'success' || needs.triage.result == 'skipped') &&
+      !(github.event_name == 'issues' &&
+        github.event.action == 'labeled' &&
+        github.event.label.name != 'ai:ready')
+    uses: dryvist/ai-workflows/.github/workflows/cc-issue-resolver.yml@v0
     secrets: inherit
     with:
-      repo_context: "Nix AI tools configuration using home-manager modules"
-      extra_tools: "Bash(nix *)"
-      issue_number: ${{ inputs.issue_number }}
+      repo_context: "Nix AI tools configuration using home-manager modules (Nix flakes)."
+      extra_tools: "Bash(nix:*)"
+      issue_number: ${{ github.event.issue.number || inputs.issue_number || '0' }}
