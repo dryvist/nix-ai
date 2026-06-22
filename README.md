@@ -105,6 +105,7 @@ the MCP catalog is documented in [`modules/mcp/README.md`](modules/mcp/README.md
 ```bash
 nix flake check   # nixfmt, statix, deadnix, shellcheck, and full module evaluation
 nix fmt           # auto-fix formatting
+bun test          # JavaScript test suite (bun:test is built-in — no install needed)
 ```
 
 ## Repository structure
