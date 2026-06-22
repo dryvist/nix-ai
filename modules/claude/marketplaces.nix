@@ -15,9 +15,12 @@
   nix-claude-code,
 }:
 let
-  # Derive versions from packages and lib (single source of truth for Renovate)
-  fabricVersion = (pkgs.callPackage ../fabric/package.nix { inherit fabric-src; }).version;
-  browserUseVersion = (import ../../lib/versions.nix).browserUse;
+  # Versions come from lib/versions.nix (single source of truth for Renovate).
+  # fabric/package.nix reads its version from the same file, so this avoids
+  # evaluating the full fabric-ai derivation just to extract a version string.
+  versions = import ../../lib/versions.nix;
+  fabricVersion = versions.fabric;
+  browserUseVersion = versions.browserUse;
 
   # Catalog defines names + source URLs; overrides build the four synthetic
   # derivations (browser-use, cribl, jacobpevans, fabric).
