@@ -65,31 +65,6 @@ let
 
   inherit (pluginTiers) enabledPlugins;
 
-  # Derive versions from packages and lib (single source of truth for Renovate)
-  fabricVersion = (pkgs.callPackage ./fabric/package.nix { inherit fabric-src; }).version;
-  browserUseVersion = (import ../lib/versions.nix).browserUse;
-
-  # Marketplace catalog and synthetic-marketplace derivations come from
-  # nix-claude-code. Catalog defines names + source URLs; overrides build
-  # the four synthetic derivations (browser-use, cribl, jacobpevans, fabric).
-  inherit (nix-claude-code.lib) marketplaceCatalog;
-  marketplaceOverrides = nix-claude-code.lib.marketplaceOverrides {
-    inherit
-      pkgs
-      lib
-      marketplaceInputs
-      fabric-src
-      fabricVersion
-      browserUseVersion
-      ;
-  };
-  inherit (marketplaceOverrides)
-    browserUseMarketplace
-    criblPackValidatorMarketplace
-    jacobpevansMarketplace
-    fabricMarketplace
-    ;
-
   # Helper to build command/agent entries from discovered names
   mkSourceEntries =
     sourcePath: names:
@@ -161,58 +136,17 @@ in
       # Marketplace catalog comes from nix-claude-code; we overlay each entry
       # with the resolved flakeInput (synthetic for the four wrapper
       # derivations; raw marketplace input otherwise).
-      marketplaces =
-        let
-          base = lib.mapAttrs (
-            name: marketplace:
-            marketplace
-            // {
-              flakeInput = marketplaceInputs.${name} or null;
-            }
-          ) (marketplaceCatalog.marketplaces or marketplaceCatalog);
-        in
-        base
-        // {
-          "browser-use-skills" = (base."browser-use-skills" or { }) // {
-            flakeInput = browserUseMarketplace;
-          };
-          "vct-cribl-pack-validator-skills" = (base."vct-cribl-pack-validator-skills" or { }) // {
-            flakeInput = criblPackValidatorMarketplace;
-          };
-          # jacobpevans-cc-plugins isn't in nix-claude-code's catalog yet;
-          # register it directly with the synthetic wrapper derivation.
-          "jacobpevans-cc-plugins" = {
-            source = {
-              type = "github";
-              url = "JacobPEvans/claude-code-plugins";
-            };
-            flakeInput = jacobpevansMarketplace;
-          };
-          "fabric-patterns" = {
-            source = {
-              type = "github";
-              url = "danielmiessler/fabric";
-            };
-            flakeInput = fabricMarketplace;
-          };
-          # karpathy-skills lives in nix-ai (input + tier file).
-          # nix-claude-code's catalog doesn't include it.
-          "karpathy-skills" = {
-            source = {
-              type = "github";
-              url = "forrestchang/andrej-karpathy-skills";
-            };
-            flakeInput = marketplaceInputs.karpathy-skills;
-          };
-          # ponytail lives in nix-ai (input + tier file), same as karpathy-skills.
-          "ponytail" = {
-            source = {
-              type = "github";
-              url = "DietrichGebert/ponytail";
-            };
-            flakeInput = marketplaceInputs.ponytail;
-          };
-        };
+      # Full marketplace registry lives in ./claude/marketplaces.nix (extracted
+      # to keep this file under its file-size cap).
+      marketplaces = import ./claude/marketplaces.nix {
+        inherit
+          lib
+          pkgs
+          marketplaceInputs
+          fabric-src
+          nix-claude-code
+          ;
+      };
 
       enabled = enabledPlugins // {
         # Host-specific opinion (was nix-darwin hosts/macbook-m4/home.nix):
