@@ -13,6 +13,11 @@ on:
   push:
     branches:
       - "renovate/**"
+    # Only the package file holding the cecli/mcp version+hash strings needs
+    # re-hashing. lockFileMaintenance / flake-input renovate PRs don't touch it,
+    # so they no longer trigger this job (which would otherwise fail on them).
+    paths:
+      - "modules/cecli/package.nix"
 
 jobs:
   fix-hashes:
