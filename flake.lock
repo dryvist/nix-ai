@@ -468,11 +468,11 @@
     "last30days-skill": {
       "flake": false,
       "locked": {
-        "lastModified": 1782352465,
-        "narHash": "sha256-RlYPpI9S7/jb+y3YYtYcH/txYhrqZOPGgG4yuDITiLE=",
+        "lastModified": 1782367395,
+        "narHash": "sha256-k3Kk1eJdgFuIkT9j9qUGNR/kh7iEihy47E3aZWYIfpQ=",
         "owner": "mvanhorn",
         "repo": "last30days-skill",
-        "rev": "945f11d048023b52a1f946e76069c3ab398c0d84",
+        "rev": "287327df60f06edbec86cbdfdc9dcf75161a0ab3",
         "type": "github"
       },
       "original": {
@@ -553,11 +553,11 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1782041437,
-        "narHash": "sha256-QxQvXkDqx7DrzQSGRzh7Lv08t2fCCnLICQvap3WVzQQ=",
+        "lastModified": 1782185013,
+        "narHash": "sha256-MMIaAyu3HWrWUBTWEGjhSw3CxfAOVfgqdWv4hcx/+Fs=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "ea68a74f45ad6311f4bff62b865932ac195d46a7",
+        "rev": "9a54db6898b38a6beded82ce6890b46a0a517d72",
         "type": "github"
       },
       "original": {
