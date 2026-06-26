@@ -127,9 +127,11 @@ in
     trustedProjectDirs = userConfig.trustedProjectDirs or [ ];
 
     # Commit trailer per https://docs.kernel.org/process/coding-assistants.html.
+    # Only `commit`/`pr` are valid attribution keys in Claude Code's settings
+    # schema; a `sessionUrl` toggle does not exist (the session link is just
+    # text inside the trailer string, omitted by leaving it out here).
     attribution = {
       commit = "Assisted-by: Claude:{model}";
-      sessionUrl = false;
     };
 
     plugins = {
