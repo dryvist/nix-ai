@@ -1,0 +1,94 @@
+# Refresh uv lockfiles to clear FIXABLE transitive PyPI vulnerabilities.
+#
+# Renovate cannot remediate these: they are transitive deps not declared in
+# pyproject.toml, GitHub Dependabot raises no alert, and Renovate's OSV path
+# reports "no CVEs found" (dependency dashboard). Plain `uv lock` preserves
+# stale transitive pins; only `uv lock --upgrade` moves them. Without this, the
+# required OSV gate (ci-gate.yml -> osv-scan, `if: always()`) accumulates
+# fixable findings and blocks EVERY PR — including unrelated lock-file
+# maintenance PRs that only touch flake.lock.
+#
+# Runs twice weekly (matching Renovate's lockFileMaintenance cadence) and
+# auto-merges when CI is green. Renovate's own uv/pep621 lockFileMaintenance is
+# disabled in renovate.json5 so the two never open competing uv.lock PRs.
+# Logic lives in .github/scripts/uv-lock-upgrade.sh per the repo script rule.
+name: Refresh uv lockfiles
+
+on:
+  schedule:
+    - cron: "0 12 * * 1" # Monday 12:00 UTC (7am CDT / 6am CST)
+    - cron: "0 12 * * 4" # Thursday 12:00 UTC (7am CDT / 6am CST)
+  workflow_dispatch:
+
+concurrency:
+  group: uv-lock-upgrade
+  cancel-in-progress: false
+
+jobs:
+  upgrade:
+    name: Refresh uv lockfiles
+    # Self-hosted RunsOn runner — see deps-update-flake.yml.
+    runs-on: "runs-on=${{ github.run_id }}/runner=2cpu-linux-x64"
+    environment: automation
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Generate GitHub App Token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.GH_APP_CLIENT_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+
+      - name: Refresh uv lockfiles
+        run: .github/scripts/uv-lock-upgrade.sh
+
+      - name: Check for changes
+        id: diff
+        run: |
+          if git diff --quiet -- mlx-server/uv.lock orchestrator/uv.lock; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create Pull Request
+        id: cpr
+        if: steps.diff.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          sign-commits: true
+          branch: chore/uv-lock-upgrade
+          delete-branch: true
+          commit-message: "chore(deps): refresh uv lockfiles (security)"
+          title: "chore(deps): refresh uv lockfiles (security)"
+          body: |
+            Automated `uv lock --upgrade` of `mlx-server/uv.lock` and
+            `orchestrator/uv.lock`.
+
+            Keeps transitive PyPI dependencies current so the OSV gate has no
+            fixable vulnerabilities to flag. Renovate cannot remediate these
+            (transitive, no Dependabot alert, "no CVEs" on its OSV path), so
+            this workflow owns uv.lock — see `.github/scripts/uv-lock-upgrade.sh`.
+
+            pyproject constraints guard the resolve: mlx stays on the 0.31.1
+            line (nix-ai#751) and the litellm/langsmith security floors hold.
+          labels: dependencies
+
+      - name: Enable auto-merge
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR: ${{ steps.cpr.outputs.pull-request-number }}
+        run: |
+          [ -n "$PR" ] && gh pr merge "$PR" --auto --squash || true
