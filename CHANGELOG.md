@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.85.2](https://github.com/dryvist/nix-ai/compare/v1.85.1...v1.85.2) (2026-06-26)
+
+
+### Bug Fixes
+
+* drop invalid attribution.sessionUrl and conflicting antigravity-cli cask ([#1027](https://github.com/dryvist/nix-ai/issues/1027)) ([3649ddf](https://github.com/dryvist/nix-ai/commit/3649ddf8704fdf1dad30868936df7c3c8c3a15ea))
+
 ## [1.85.1](https://github.com/dryvist/nix-ai/compare/v1.85.0...v1.85.1) (2026-06-25)
 
 
