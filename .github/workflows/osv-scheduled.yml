@@ -1,0 +1,30 @@
+# Scheduled full-tree OSV scan of the default branch.
+#
+# The PR gate (ci-gate.yml -> osv-scan) is DIFFERENTIAL: it fails only on
+# vulnerabilities a PR introduces, so pre-existing/transitive debt never blocks
+# unrelated PRs. This weekly full scan is the complement — it surfaces drift on
+# main (new advisories landing against unchanged deps) as a failed run the
+# maintainer is notified about. uv.lock drift is normally auto-remediated by
+# uv-lock-upgrade.yml; this is the backstop for everything else.
+#
+# Reuses the same org workflow as the PR gate; on a non-PR trigger it runs the
+# full-scan mode (fail on any finding), honoring the repo-local osv-scanner.toml.
+name: OSV Scan (scheduled)
+
+on:
+  schedule:
+    - cron: "17 11 * * 1" # Weekly Monday 11:17 UTC (off-peak minute)
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    uses: dryvist/.github/.github/workflows/_osv-scan.yml@main
+    with:
+      runner_label: ubuntu-latest
