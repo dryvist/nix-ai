@@ -19,8 +19,14 @@ if [ "${#projects[@]}" -eq 0 ]; then
   projects=(mlx-server orchestrator)
 fi
 
+# ::group:: / ::endgroup:: are GitHub Actions workflow commands. Emit them only
+# under Actions so local runs (a developer manually refreshing lockfiles) get
+# clean output instead of literal "::group::" noise.
+group() { if [ -n "${GITHUB_ACTIONS:-}" ]; then echo "::group::$*"; else echo "$*"; fi; }
+endgroup() { if [ -n "${GITHUB_ACTIONS:-}" ]; then echo "::endgroup::"; fi; }
+
 for project in "${projects[@]}"; do
-  echo "::group::uv lock --upgrade ${project}"
+  group "uv lock --upgrade ${project}"
   uv lock --upgrade --directory "${project}"
-  echo "::endgroup::"
+  endgroup
 done
