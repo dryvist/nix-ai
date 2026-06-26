@@ -115,5 +115,22 @@
       "allowedVersions": "!/^0\\.31\\.3$/",
       "automerge": false,
     },
+    {
+      "description": [
+        "uv.lock maintenance is owned by .github/workflows/uv-lock-upgrade.yml,",
+        "which runs `uv lock --upgrade` twice weekly so the FIXABLE transitive PyPI",
+        "CVEs the OSV gate flags get cleared. Renovate cannot remediate them: they",
+        "are transitive deps absent from pyproject.toml, GitHub Dependabot raises no",
+        "alert, and Renovate's OSV path reports 'no CVEs found' (dependency",
+        "dashboard). Plain `uv lock` — what Renovate's lockFileMaintenance runs —",
+        "preserves stale transitive pins, so it cannot fix them and would only open",
+        "competing uv.lock PRs. Disable Renovate lockFileMaintenance for the",
+        "uv/pep621 manager so the workflow has sole ownership of uv.lock. flake.lock",
+        "(nix manager) maintenance is unaffected, and normal pep621 dependency",
+        "version PRs still run.",
+      ],
+      "matchManagers": ["pep621"],
+      "lockFileMaintenance": { "enabled": false },
+    },
   ],
 }
