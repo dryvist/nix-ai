@@ -16,13 +16,12 @@
       name = "claude-code@latest";
       greedy = true;
     }
-    # antigravity suite ships in the default homebrew-cask tap — no vendor tap needed
+    # antigravity suite ships in the default homebrew-cask tap — no vendor tap needed.
+    # `antigravity` (umbrella) already ships the `agy` CLI binary, so the separate
+    # `antigravity-cli` cask is omitted — both target /opt/homebrew/bin/agy and
+    # collide ("already a Binary at '/opt/homebrew/bin/agy'") during brew bundle.
     {
       name = "antigravity";
-      greedy = true;
-    }
-    {
-      name = "antigravity-cli";
       greedy = true;
     }
     {
