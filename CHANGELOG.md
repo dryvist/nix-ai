@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.85.3](https://github.com/dryvist/nix-ai/compare/v1.85.2...v1.85.3) (2026-06-28)
+
+
+### Bug Fixes
+
+* **ci:** point code-simplifier caller at renamed reusable workflow ([#1036](https://github.com/dryvist/nix-ai/issues/1036)) ([d95b474](https://github.com/dryvist/nix-ai/commit/d95b47468c0215b6c4687784c87364c3505c0df0))
+
 ## [1.85.2](https://github.com/dryvist/nix-ai/compare/v1.85.1...v1.85.2) (2026-06-26)
 
 
