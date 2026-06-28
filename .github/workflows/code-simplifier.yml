@@ -7,15 +7,16 @@ on:
   #   - cron: "0 4 * * 0,3,6"
   # --- END DISABLED ---
 permissions:
+  actions: read
   contents: write
   id-token: write
   pull-requests: write
 
 concurrency:
   group: code-simplifier
-  cancel-in-progress: true
+  cancel-in-progress: false  # Never cancel — queue instead to avoid wasting AI tokens
 
 jobs:
   simplify:
-    uses: dryvist/ai-workflows/.github/workflows/code-simplifier.yml@v0.16
+    uses: dryvist/ai-workflows/.github/workflows/cc-code-simplifier.yml@v0
     secrets: inherit # zizmor: ignore[secrets-inherit]
