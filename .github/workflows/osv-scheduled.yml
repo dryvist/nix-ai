@@ -1,0 +1,30 @@
+# Scheduled full-tree OSV scan of the default branch.
+#
+# The PR gate (ci-gate.yml -> osv-scan) is DIFFERENTIAL: it fails only on
+# vulnerabilities a PR introduces, so pre-existing/transitive debt never blocks
+# unrelated PRs. The flip side is that debt accumulating on main would otherwise
+# go unseen — this weekly full scan is the safety net, surfacing it as a failed
+# run. Fixable transitive uv.lock debt is auto-remediated by Renovate's native
+# pep621 lockFileMaintenance (`uv lock --upgrade`); this catches the rest.
+#
+# Thin caller of the org reusable workflow (same pattern as docs/osv-scan.yml);
+# on a non-PR trigger it runs the full-scan mode and honors osv-scanner.toml.
+name: OSV Scan (scheduled)
+
+on:
+  schedule:
+    - cron: "17 11 * * 1" # Weekly Monday 11:17 UTC (off-peak minute)
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    uses: dryvist/.github/.github/workflows/_osv-scan.yml@main
+    with:
+      runner_label: ubuntu-latest
