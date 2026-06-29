@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.85.6](https://github.com/dryvist/nix-ai/compare/v1.85.5...v1.85.6) (2026-06-29)
+
+
+### Bug Fixes
+
+* **ci:** clear OSV-flagged uv.lock CVEs; rely on native Renovate lockFileMaintenance ([#1033](https://github.com/dryvist/nix-ai/issues/1033)) ([7c0e211](https://github.com/dryvist/nix-ai/commit/7c0e2115b1c505762043d6ec37aa2089f4d8fe8c))
+
 ## [1.85.5](https://github.com/dryvist/nix-ai/compare/v1.85.4...v1.85.5) (2026-06-29)
 
 
