@@ -70,16 +70,10 @@ rec {
   formatAllowedTools =
     permissions:
     let
-      allCommands = flattenCommands permissions.allow;
-      shellTools = map (cmd: "ShellTool(${cmd})") allCommands;
       builtinTools = permissions.toolSpecific.gemini.builtin or [ ];
     in
-    builtinTools ++ shellTools;
+    builtinTools ++ map formatShellCommand (flattenCommands permissions.allow);
   formatExcludeTools =
-    permissions:
-    let
-      allCommands = flattenCommands permissions.deny;
-    in
-    map (cmd: "ShellTool(${cmd})") allCommands;
+    permissions: map formatShellCommand (flattenCommands permissions.deny);
   getToolPermissions = permissions: permissions.toolSpecific.gemini.builtin or [ ];
 }

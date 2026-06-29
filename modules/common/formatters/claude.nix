@@ -15,16 +15,9 @@ let
     (claudePerms.builtin or [ ]) ++ webfetchPerms ++ (claudePerms.read or [ ]);
 
   # Claude-specific helper: Get tool-specific deny permissions
+  # Patterns are used as provided; tilde (~) expansion must be done upstream.
   getClaudeDenyPermissions =
-    permissions:
-    let
-      # Deny patterns from ai-assistant-instructions (file patterns for the Read tool)
-      denyPatterns = permissions.denyPatterns or [ ];
-      # Convert patterns to Read(...) format for Claude's deny list.
-      # Note: patterns are used as provided; any tilde (~) expansion must be done upstream.
-      denyReadPatterns = map (p: "Read(${p})") denyPatterns;
-    in
-    denyReadPatterns;
+    permissions: map (p: "Read(${p})") (permissions.denyPatterns or [ ]);
 
 in
 rec {
