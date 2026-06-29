@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.85.4](https://github.com/dryvist/nix-ai/compare/v1.85.3...v1.85.4) (2026-06-29)
+
+
+### Bug Fixes
+
+* **ci:** repin code-simplifier caller to [@main](https://github.com/main) (pre-[#274](https://github.com/dryvist/nix-ai/issues/274) v0 silently discards work) ([#1041](https://github.com/dryvist/nix-ai/issues/1041)) ([d12d1cd](https://github.com/dryvist/nix-ai/commit/d12d1cd5a890c841540bf20b251fc37ab29173b6))
+
 ## [1.85.3](https://github.com/dryvist/nix-ai/compare/v1.85.2...v1.85.3) (2026-06-28)
 
 
