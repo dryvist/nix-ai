@@ -6,8 +6,11 @@
 {
 
   # HuggingFace stack
+  # >=1.21.0 required: adds click>=8.4.0 as a direct dep and caps typer<0.26.0.
+  # Older pins left typer unbounded (>=0.20.0), floating to 0.26.x which vendored
+  # click and dropped the external dep the hf CLI imports → ModuleNotFoundError.
   # renovate: datasource=pypi depName=huggingface-hub
-  huggingfaceHub = "1.15.0";
+  huggingfaceHub = "1.21.0";
   # renovate: datasource=pypi depName=huggingface-mcp-server
   hfMcpServer = "0.1.0";
 
