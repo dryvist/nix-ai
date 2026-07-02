@@ -61,24 +61,26 @@
   unifiMcpServer = "0.2.5";
 
   # MLX inference stack (pypi)
+  # 0.4.0 adds GPT-OSS/harmony prompt rendering for tool calls (required to
+  # serve gpt-oss models with working tool calling) and requires
+  # mlx-lm>=0.31.3, which forces the mlx/mlx-lm pins below forward together.
   # renovate: datasource=pypi depName=vllm-mlx
-  vllmMlx = "0.3.0";
+  vllmMlx = "0.4.0";
   # renovate: datasource=pypi depName=parakeet-mlx
   parakeetMlx = "0.5.1";
   # renovate: datasource=pypi depName=mlx-vlm
   mlxVlm = "0.5.0";
-  # Pinned to 0.31.1 — mlx 0.31.2 changed cross-thread stream registration
-  # semantics, making generation_stream (created at mlx_lm module import in the
-  # main thread) invisible to vllm-mlx's scheduler thread, causing every
-  # inference call to crash with "There is no Stream(gpu, N) in current thread."
-  # See nix-ai#751. Re-evaluate when vllm-mlx is updated to initialize
-  # generation_stream per-thread or MLX restores cross-thread stream visibility.
+  # The nix-ai#751 hold at mlx 0.31.1 is RESOLVED: vllm-mlx 0.4.0 is built
+  # against mlx 0.31.2 / mlx-lm 0.31.3 (it requires mlx-lm>=0.31.3), and the
+  # cross-thread stream crash ("There is no Stream(gpu, N) in current thread")
+  # no longer reproduces — validated 2026-07-02 on jevans-mbp with three
+  # concurrent completions against Qwen3-30B-A3B-Instruct-2507-4bit under
+  # continuous batching + paged KV cache: zero errors. Keep mlx and mlx-lm
+  # pinned as a pair; they move in lockstep.
   # renovate: datasource=pypi depName=mlx
-  mlx = "0.31.1";
-  # Pinned to 0.31.2 to stay compatible with mlx 0.31.1 (mlx_lm 0.31.3 was
-  # released alongside mlx 0.31.2 and requires it). See nix-ai#751.
+  mlx = "0.31.2";
   # renovate: datasource=pypi depName=mlx-lm
-  mlxLm = "0.31.2";
+  mlxLm = "0.31.3";
   # renovate: datasource=pypi depName=lm-eval
   lmEval = "0.4.11";
 
