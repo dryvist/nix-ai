@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.86.0](https://github.com/dryvist/nix-ai/compare/v1.85.7...v1.86.0) (2026-07-02)
+
+
+### Features
+
+* add throttled issue-backlog-sweep to drain the backlog ([b2048ed](https://github.com/dryvist/nix-ai/commit/b2048ed20f566e2a553d9f35227484875c199452))
+
 ## [1.85.7](https://github.com/dryvist/nix-ai/compare/v1.85.6...v1.85.7) (2026-07-02)
 
 
