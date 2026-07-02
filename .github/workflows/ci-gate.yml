@@ -157,7 +157,12 @@ jobs:
     needs: changes
     if: always()
     uses: dryvist/.github/.github/workflows/_osv-scan.yml@main
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
     with:
+      config_file: osv-scanner.toml
       runner_label: ${{ github.event.pull_request.head.repo.full_name == github.repository && format('runs-on={0}/runner=2cpu-linux-x64', github.run_id) || 'ubuntu-latest' }}
 
   # ==========================================================================
