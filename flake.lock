@@ -131,11 +131,11 @@
     "claude-code-plugins": {
       "flake": false,
       "locked": {
-        "lastModified": 1782842190,
-        "narHash": "sha256-uFfwj0w6tKlWXkvG1BK1LxWqeAd5E1M6fhr0jvx1nAw=",
+        "lastModified": 1782938729,
+        "narHash": "sha256-5ubOnXBa8oFii+gbi3vBksb34I7CW2UWRPD3JFn45JY=",
         "owner": "anthropics",
         "repo": "claude-code",
-        "rev": "a56ff02e8592fb2ad056e60d6f4fa231724deabb",
+        "rev": "75709eacf1334051ea293fb87a0e88a1e6812f94",
         "type": "github"
       },
       "original": {
@@ -618,11 +618,11 @@
     "ponytail": {
       "flake": false,
       "locked": {
-        "lastModified": 1782777888,
-        "narHash": "sha256-1WxdKKGcPjxLMVN2HYErs0uG3Rhy6lZ3Qrf434lWnmo=",
+        "lastModified": 1782948630,
+        "narHash": "sha256-Pn6gPg0luOO0/I3dP4DzdvFn4Z7rjrK4Bbxf+4VBiYo=",
         "owner": "DietrichGebert",
         "repo": "ponytail",
-        "rev": "16f6cbf4b87792938e47b0f8c650b6d80fcbc98c",
+        "rev": "40e50d9e03242aa5dd53ac771950f9127362b25f",
         "type": "github"
       },
       "original": {
