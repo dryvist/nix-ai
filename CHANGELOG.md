@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.85.7](https://github.com/dryvist/nix-ai/compare/v1.85.6...v1.85.7) (2026-07-02)
+
+
+### Bug Fixes
+
+* point callers at renamed cc- reusable workflows ([3fa18fa](https://github.com/dryvist/nix-ai/commit/3fa18fa8b67112320b0343b6a9aa6073eb31241b))
+
 ## [1.85.6](https://github.com/dryvist/nix-ai/compare/v1.85.5...v1.85.6) (2026-06-29)
 
 
