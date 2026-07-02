@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.86.3](https://github.com/dryvist/nix-ai/compare/v1.86.2...v1.86.3) (2026-07-02)
+
+
+### Bug Fixes
+
+* drop actions:read from backlog-sweep caller ([c10156c](https://github.com/dryvist/nix-ai/commit/c10156c942ad2710bed40b5ef3468a9586aeb91d))
+
 ## [1.86.2](https://github.com/dryvist/nix-ai/compare/v1.86.1...v1.86.2) (2026-07-02)
 
 
