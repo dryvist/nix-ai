@@ -78,61 +78,71 @@ let
   llamaSwapRuntimeConfigPath = "${config.home.homeDirectory}/.config/mlx/llama-swap.json";
 
   # Build the vllm-mlx serve command string for a given model ID.
+  # Global option values may be replaced per physical model via
+  # modelFlagOverrides; every override key must name an existing programs.mlx
+  # option so a typo fails the eval instead of silently keeping the global.
   # NOTE: \${PORT} is a llama-swap template macro — must be escaped to prevent
   # Nix string interpolation from consuming it before the config is written.
   mkVllmCmd =
     modelId:
     let
-      baseCmd = "${lib.getExe vllmMlxPkg} serve ${modelId} --port \${PORT} --host ${cfg.host}";
+      overrides = cfg.modelFlagOverrides.${modelId} or { };
+      unknown = lib.filter (k: !(cfg ? ${k})) (lib.attrNames overrides);
+      c =
+        if unknown == [ ] then
+          cfg // overrides
+        else
+          throw "programs.mlx.modelFlagOverrides.\"${modelId}\": unknown option name(s): ${lib.concatStringsSep ", " unknown}";
+      baseCmd = "${lib.getExe vllmMlxPkg} serve ${modelId} --port \${PORT} --host ${c.host}";
       flags = lib.concatStringsSep " " (
-        lib.optionals (cfg.cacheMemoryMb != null) [
+        lib.optionals (c.cacheMemoryMb != null) [
           "--cache-memory-mb"
-          (toString cfg.cacheMemoryMb)
+          (toString c.cacheMemoryMb)
         ]
-        ++ lib.optionals (cfg.prefillBatchSize != null) [
+        ++ lib.optionals (c.prefillBatchSize != null) [
           "--prefill-batch-size"
-          (toString cfg.prefillBatchSize)
+          (toString c.prefillBatchSize)
         ]
-        ++ lib.optionals (cfg.gpuMemoryUtilization != null) [
+        ++ lib.optionals (c.gpuMemoryUtilization != null) [
           "--gpu-memory-utilization"
-          (toString cfg.gpuMemoryUtilization)
+          (toString c.gpuMemoryUtilization)
         ]
-        ++ lib.optionals (cfg.autoUnloadIdleSeconds != 0) [
+        ++ lib.optionals (c.autoUnloadIdleSeconds != 0) [
           "--auto-unload-idle-seconds"
-          (toString cfg.autoUnloadIdleSeconds)
+          (toString c.autoUnloadIdleSeconds)
         ]
-        ++ lib.optionals cfg.enableMetrics [ "--enable-metrics" ]
-        ++ lib.optionals cfg.continuousBatching [ "--continuous-batching" ]
-        ++ lib.optionals cfg.enablePrefixCaching [ "--enable-prefix-cache" ]
-        ++ lib.optionals cfg.pagedKvCache [ "--use-paged-cache" ]
-        ++ lib.optionals (cfg.maxNumSeqs != null) [
+        ++ lib.optionals c.enableMetrics [ "--enable-metrics" ]
+        ++ lib.optionals c.continuousBatching [ "--continuous-batching" ]
+        ++ lib.optionals c.enablePrefixCaching [ "--enable-prefix-cache" ]
+        ++ lib.optionals c.pagedKvCache [ "--use-paged-cache" ]
+        ++ lib.optionals (c.maxNumSeqs != null) [
           "--max-num-seqs"
-          (toString cfg.maxNumSeqs)
+          (toString c.maxNumSeqs)
         ]
-        ++ lib.optionals (cfg.chunkedPrefillTokens != null) [
+        ++ lib.optionals (c.chunkedPrefillTokens != null) [
           "--chunked-prefill-tokens"
-          (toString cfg.chunkedPrefillTokens)
+          (toString c.chunkedPrefillTokens)
         ]
-        ++ lib.optionals (cfg.completionBatchSize != null) [
+        ++ lib.optionals (c.completionBatchSize != null) [
           "--completion-batch-size"
-          (toString cfg.completionBatchSize)
+          (toString c.completionBatchSize)
         ]
-        ++ lib.optionals (cfg.maxTokens != null) [
+        ++ lib.optionals (c.maxTokens != null) [
           "--max-tokens"
-          (toString cfg.maxTokens)
+          (toString c.maxTokens)
         ]
-        ++ lib.optionals (cfg.maxRequestTokens != null) [
+        ++ lib.optionals (c.maxRequestTokens != null) [
           "--max-request-tokens"
-          (toString cfg.maxRequestTokens)
+          (toString c.maxRequestTokens)
         ]
-        ++ lib.optionals cfg.enableAutoToolChoice [ "--enable-auto-tool-choice" ]
-        ++ lib.optionals (cfg.enableAutoToolChoice && cfg.toolCallParser != null) [
+        ++ lib.optionals c.enableAutoToolChoice [ "--enable-auto-tool-choice" ]
+        ++ lib.optionals (c.enableAutoToolChoice && c.toolCallParser != null) [
           "--tool-call-parser"
-          cfg.toolCallParser
+          c.toolCallParser
         ]
-        ++ lib.optionals (cfg.reasoningParser != null) [
+        ++ lib.optionals (c.reasoningParser != null) [
           "--reasoning-parser"
-          cfg.reasoningParser
+          c.reasoningParser
         ]
       );
     in
