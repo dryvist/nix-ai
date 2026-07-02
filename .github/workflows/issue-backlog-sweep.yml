@@ -1,0 +1,44 @@
+# Backlog activation. On a slow schedule (and on demand), Claude judges the
+# oldest UNTRIAGED open issues and labels the auto-resolvable ones `ai:ready`
+# via the App token, which fires issue-auto-resolve.yml (issues: labeled) to
+# open the resolving PR. This is how the pre-existing backlog shrinks.
+#
+# The schedule is deliberate: a backlog is static state, not an event, so there
+# is nothing to trigger on. Keep the cadence slow — it only tops up the
+# ai:ready queue as the resolver drains it.
+#
+# Throttling: max_issues caps labels per run; the resolver's own PR ceiling
+# (5 bot PRs / 24h) is the hard backstop on PRs actually opened.
+
+name: Issue Backlog Sweep
+
+on:
+  workflow_dispatch:
+    inputs:
+      max_issues:
+        description: "Max backlog issues to label this run"
+        type: string
+        default: "5"
+  schedule:
+    - cron: "0 9 * * 1" # Mondays 09:00 UTC — top up the ai:ready queue weekly
+
+permissions:
+  actions: read
+  contents: read
+  id-token: write
+  issues: write
+  pull-requests: read
+
+concurrency:
+  group: issue-backlog-sweep-${{ github.repository }}
+  cancel-in-progress: false # Never cancel — queue instead to avoid wasting AI tokens
+
+jobs:
+  sweep:
+    uses: dryvist/ai-workflows/.github/workflows/issue-backlog-sweep.yml@v0
+    # Pass exactly the two secrets the reusable declares — not `secrets: inherit`.
+    secrets:
+      GH_ACTION_AI_API_KEY: ${{ secrets.GH_ACTION_AI_API_KEY }}
+      GH_APP_CLAUDE_BOT_PRIVATE_KEY: ${{ secrets.GH_APP_CLAUDE_BOT_PRIVATE_KEY }}
+    with:
+      max_issues: ${{ inputs.max_issues || '5' }}
