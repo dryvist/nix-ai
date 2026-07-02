@@ -1,0 +1,12 @@
+name: zz-test-backlog-reusable
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+  issues: write
+  pull-requests: read
+jobs:
+  sweep:
+    uses: dryvist/ai-workflows/.github/workflows/issue-backlog-sweep.yml@v0
+    secrets: inherit # zizmor: ignore[secrets-inherit]
