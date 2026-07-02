@@ -98,6 +98,12 @@ in
         };
       };
 
+      # launchd does not create StandardOutPath/StandardErrorPath parent
+      # directories — without this the agent fails to start on a fresh host.
+      home.activation.createOpenWebuiLogDir = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        run mkdir -p "${config.home.homeDirectory}/Library/Logs/open-webui"
+      '';
+
       # Log rotation via newsyslog (follows mlx/launchd.nix pattern)
       home.file.".config/newsyslog.d/open-webui.conf".text = ''
         # logfilename                                                              [owner:group]  mode  count  size  when  flags
