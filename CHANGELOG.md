@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.86.1](https://github.com/dryvist/nix-ai/compare/v1.86.0...v1.86.1) (2026-07-02)
+
+
+### Bug Fixes
+
+* **deps:** refresh gh-aw action SHA pins [aw:gh-aw-pin-refresh] ([#1069](https://github.com/dryvist/nix-ai/issues/1069)) ([b5991c0](https://github.com/dryvist/nix-ai/commit/b5991c07210020cf75727a101c8956e647cefecb))
+
 ## [1.86.0](https://github.com/dryvist/nix-ai/compare/v1.85.7...v1.86.0) (2026-07-02)
 
 
