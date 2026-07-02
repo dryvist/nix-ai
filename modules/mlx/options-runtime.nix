@@ -93,7 +93,32 @@
       description = "Additional models available for on-demand switching via llama-swap proxy. All models (including the default-aliased one) share the uniform proxy.idleTtl unless overridden per-model.";
     };
 
+    # preload — llama-swap hooks.on_startup.preload entries. Role names (or
+    # physical ids) loaded at proxy startup so the first request never pays a
+    # cold start. Multi-resident hosts list every role they keep warm, e.g.
+    # [ "default" "coding" ]; each extra entry costs its full weight footprint
+    # until the idle TTL evicts it.
+    preload = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ "default" ];
+      description = "Models (role aliases or physical ids) llama-swap preloads at startup. Every entry occupies memory concurrently until its idle TTL — size the list against the host's wired-memory budget.";
+    };
+
     proxy = {
+      # groupSwap — llama-swap `groups.mlx-models.swap`. true (default) keeps
+      # the one-resident-model posture: loading any model evicts the previous
+      # one, so swap-thrash is impossible on RAM-constrained workstations.
+      # false lets multiple registry models stay resident concurrently
+      # (server-class hosts serving e.g. a large default plus a coder model);
+      # the memory bound then falls to gpuMemoryUtilization/cacheMemoryMb per
+      # worker, which the host must size so the sum of resident workers fits
+      # its wired-memory budget.
+      groupSwap = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "Whether llama-swap unloads the resident model before loading another (groups.mlx-models.swap). Set false on hosts with the memory headroom to keep several models resident at once.";
+      };
+
       healthCheckTimeout = lib.mkOption {
         type = lib.types.ints.positive;
         default = 180;

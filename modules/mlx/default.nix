@@ -224,14 +224,14 @@ let
     models = allModels;
 
     groups.mlx-models = {
-      swap = true;
+      swap = cfg.proxy.groupSwap;
       exclusive = true;
       members = builtins.attrNames allModels;
     };
 
     # Preload by role, not physical name. llama-swap resolves "default"
     # via the alias table on the registryModels entry.
-    hooks.on_startup.preload = [ "default" ];
+    hooks.on_startup.preload = cfg.preload;
   };
 
   # Use pkgs.writeText (not builtins.toFile) because content references store paths
