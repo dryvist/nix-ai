@@ -1,8 +1,8 @@
-# OSV Scanner config — local override for JacobPEvans/nix-ai.
+# OSV Scanner config — local override for dryvist/nix-ai.
 #
-# The reusable workflow at JacobPEvans/.github/.github/workflows/_osv-scan.yml
-# auto-applies this file when present (otherwise it falls back to the org-wide
-# default at JacobPEvans/.github/osv-scanner.toml).
+# The ci-gate and scheduled OSV workflows pass this file to the dryvist/.github
+# reusable workflow with `config_file: osv-scanner.toml`, which applies these
+# exceptions to every recursively scanned lockfile.
 #
 # Each ignored vulnerability MUST:
 #   1. Link to the umbrella tracking issue (#812).
