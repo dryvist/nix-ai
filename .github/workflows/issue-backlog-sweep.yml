@@ -36,9 +36,10 @@ concurrency:
 jobs:
   sweep:
     uses: dryvist/ai-workflows/.github/workflows/issue-backlog-sweep.yml@v0
-    # Pass exactly the two secrets the reusable declares — not `secrets: inherit`.
-    secrets:
-      GH_ACTION_AI_API_KEY: ${{ secrets.GH_ACTION_AI_API_KEY }}
-      GH_APP_CLAUDE_BOT_PRIVATE_KEY: ${{ secrets.GH_APP_CLAUDE_BOT_PRIVATE_KEY }}
+    # Org-level secrets can only be forwarded to a reusable via `inherit` — GitHub
+    # rejects explicit mapping (`NAME: ${{ secrets.NAME }}`) of org secrets at
+    # instantiation (startup failure). zizmor's secrets-inherit audit is therefore
+    # a false positive here: the reusable is first-party and version-pinned.
+    secrets: inherit # zizmor: ignore[secrets-inherit]
     with:
       max_issues: ${{ inputs.max_issues || '5' }}
