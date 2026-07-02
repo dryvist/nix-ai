@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.86.4](https://github.com/dryvist/nix-ai/compare/v1.86.3...v1.86.4) (2026-07-02)
+
+
+### Bug Fixes
+
+* drop caller concurrency that collided with reusable ([8ef38a4](https://github.com/dryvist/nix-ai/commit/8ef38a4bb4764efb2274cf6e8f317e52109ecdcf))
+
 ## [1.86.3](https://github.com/dryvist/nix-ai/compare/v1.86.2...v1.86.3) (2026-07-02)
 
 
