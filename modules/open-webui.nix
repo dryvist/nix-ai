@@ -77,9 +77,15 @@ in
           KeepAlive = true;
           ThrottleInterval = 30;
           ProcessType = "Background";
+          # Without a WorkingDirectory launchd spawns at "/" and Open WebUI
+          # crash-loops writing its relative-path secret key there
+          # ("Read-only file system: '/.webui_secret_key'", jevans-ms
+          # 2026-07-02). Pin both the cwd and the key file into dataDir.
+          WorkingDirectory = cfg.dataDir;
           EnvironmentVariables = {
             HOME = config.home.homeDirectory;
             DATA_DIR = cfg.dataDir;
+            WEBUI_SECRET_KEY_FILE = "${cfg.dataDir}/.webui_secret_key";
             OPENAI_API_BASE_URL = cfg.openaiApiBaseUrl;
             # The local llama-swap endpoint is unauthenticated on loopback but
             # Open WebUI requires a non-empty key when the OpenAI API is on.
@@ -99,9 +105,10 @@ in
       };
 
       # launchd does not create StandardOutPath/StandardErrorPath parent
-      # directories — without this the agent fails to start on a fresh host.
+      # directories, and a missing WorkingDirectory prevents the agent from
+      # spawning at all — create both up front on fresh hosts.
       home.activation.createOpenWebuiLogDir = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-        run mkdir -p "${config.home.homeDirectory}/Library/Logs/open-webui"
+        run mkdir -p "${config.home.homeDirectory}/Library/Logs/open-webui" "${cfg.dataDir}"
       '';
 
       # Log rotation via newsyslog (follows mlx/launchd.nix pattern)
