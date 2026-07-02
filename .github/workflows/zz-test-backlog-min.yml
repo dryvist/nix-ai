@@ -1,0 +1,14 @@
+name: zz-test-backlog-min
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+  issues: write
+  pull-requests: read
+jobs:
+  sweep:
+    uses: dryvist/ai-workflows/.github/workflows/issue-backlog-sweep.yml@v0
+    secrets: inherit # zizmor: ignore[secrets-inherit]
+    with:
+      max_issues: "1"
