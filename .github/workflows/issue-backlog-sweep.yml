@@ -23,7 +23,6 @@ on:
     - cron: "0 9 * * 1" # Mondays 09:00 UTC — top up the ai:ready queue weekly
 
 permissions:
-  actions: read
   contents: read
   id-token: write
   issues: write
