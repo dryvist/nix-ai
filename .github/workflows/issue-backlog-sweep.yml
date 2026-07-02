@@ -7,18 +7,18 @@
 # is nothing to trigger on. Keep the cadence slow — it only tops up the
 # ai:ready queue as the resolver drains it.
 #
-# Throttling: max_issues caps labels per run; the resolver's own PR ceiling
-# (5 bot PRs / 24h) is the hard backstop on PRs actually opened.
+# Throttling: the reusable's max_issues (default 5) caps labels per run; the
+# resolver's own PR ceiling (5 bot PRs / 24h) is the hard backstop on PRs opened.
+#
+# No `with: max_issues` / workflow_dispatch input here: referencing the `inputs`
+# context in a reusable-call `with:` while a `schedule` trigger is present makes
+# GitHub startup-fail every run (`inputs` is undefined for scheduled events). The
+# reusable's default (5) is used for both the weekly run and manual dispatches.
 
 name: Issue Backlog Sweep
 
 on:
   workflow_dispatch:
-    inputs:
-      max_issues:
-        description: "Max backlog issues to label this run"
-        type: string
-        default: "5"
   schedule:
     - cron: "0 9 * * 1" # Mondays 09:00 UTC — top up the ai:ready queue weekly
 
@@ -41,5 +41,3 @@ jobs:
     # instantiation (startup failure). zizmor's secrets-inherit audit is therefore
     # a false positive here: the reusable is first-party and version-pinned.
     secrets: inherit # zizmor: ignore[secrets-inherit]
-    with:
-      max_issues: ${{ inputs.max_issues || '5' }}
