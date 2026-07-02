@@ -174,8 +174,7 @@ let
     in
     {
       cmd =
-        mkVllmCmd physical
-        + lib.optionalString (extraArgs != [ ]) (" " + lib.concatStringsSep " " extraArgs);
+        mkVllmCmd physical + lib.optionalString (extraArgs != [ ]) (" " + lib.escapeShellArgs extraArgs);
       ttl = cfg.proxy.idleTtl;
       env = [ "HF_HOME=${cfg.huggingFaceHome}" ];
       checkEndpoint = "/v1/models";
