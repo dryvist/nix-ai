@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.86.2](https://github.com/dryvist/nix-ai/compare/v1.86.1...v1.86.2) (2026-07-02)
+
+
+### Bug Fixes
+
+* pass backlog-sweep secrets via inherit (org secrets can't be mapped) ([3f89484](https://github.com/dryvist/nix-ai/commit/3f894843a19f566c9f571985e3bc9e5ac165287e))
+
 ## [1.86.1](https://github.com/dryvist/nix-ai/compare/v1.86.0...v1.86.1) (2026-07-02)
 
 
