@@ -22,11 +22,17 @@ let
   cfg = config.programs.cecli;
   homeDir = config.home.homeDirectory;
 
-  endpointBase = "http://127.0.0.1:11434/v1";
+  # Endpoint follows services.aiStack.llmEndpoint. Local (llama-swap) is an
+  # open loopback hop, so the dummy key below satisfies LiteLLM. The router is
+  # bearer-gated: omit the key so cecli reads OPENAI_API_KEY from the process
+  # env, which ai-stack exports at shell init from llmEndpointTokenFile (never
+  # baked into the Nix store).
+  endpointBase = resolvedLlmEndpoint;
+  isLocalEndpoint = llmEndpoint == "mlx_local";
 
   # Model names are openai/<role>; llama-swap resolves each role to the
   # physical HF id via useModelName (see services.aiStack.models).
-  inherit (config.services.aiStack) models;
+  inherit (config.services.aiStack) models resolvedLlmEndpoint llmEndpoint;
 
   yamlFormat = pkgs.formats.yaml { };
 
@@ -38,7 +44,6 @@ let
 
   configAttrs = {
     openai-api-base = endpointBase;
-    openai-api-key = "dummy"; # llama-swap authenticates upstream; local hop is open
     inherit (cfg) model;
     weak-model = cfg.weakModel;
     editor-model = cfg.editorModel;
@@ -62,6 +67,9 @@ let
     "llm-history-file" = pathLlmHistory;
     "model-metadata-file" = pathModelMeta;
     "model-settings-file" = pathModelSettings;
+  }
+  // lib.optionalAttrs isLocalEndpoint {
+    openai-api-key = "dummy"; # llama-swap authenticates upstream; local hop is open
   }
   // cfg.extraConfig;
 

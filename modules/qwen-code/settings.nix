@@ -26,9 +26,16 @@
 
 let
   cfg = config.programs.qwen-code;
-  inherit (config.services.aiStack) models;
+  inherit (config.services.aiStack) models resolvedLlmEndpoint llmEndpoint;
 
-  endpointBase = "http://127.0.0.1:11434/v1";
+  # Endpoint + API-key source both follow services.aiStack.llmEndpoint. Local
+  # (llama-swap) is an open loopback hop, so a dummy key satisfies the schema.
+  # The router is bearer-gated: point qwen-code's envKey at OPENAI_API_KEY,
+  # which ai-stack exports at shell init from llmEndpointTokenFile (never in
+  # the Nix store), and drop the literal so the real token is read from env.
+  endpointBase = resolvedLlmEndpoint;
+  isLocalEndpoint = llmEndpoint == "mlx_local";
+  apiKeyEnvVar = if isLocalEndpoint then "QWEN_LOCAL_DUMMY_KEY" else "OPENAI_API_KEY";
   providerKey = "mlx-local-llama-swap";
 
   # llama-swap routes capability-class aliases (default, coding, ...). The
@@ -47,15 +54,16 @@ let
         name = providerKey;
         protocol = "openai";
         baseUrl = endpointBase;
-        # llama-swap authenticates upstream; the local hop is open. envKey
-        # points at a name that won't be set, so qwen-code falls through
-        # to the literal "dummy" in env below.
-        envKey = "QWEN_LOCAL_DUMMY_KEY";
+        # Local: envKey points at a name only set to the "dummy" literal
+        # below (llama-swap's local hop is open). Router: envKey is
+        # OPENAI_API_KEY, left out of the env block so qwen-code reads the
+        # real bearer from the process environment.
+        envKey = apiKeyEnvVar;
         models = modelEntries;
       }
     ];
 
-    env = {
+    env = lib.optionalAttrs isLocalEndpoint {
       QWEN_LOCAL_DUMMY_KEY = "dummy";
     };
 

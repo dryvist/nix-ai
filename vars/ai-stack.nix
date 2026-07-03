@@ -49,10 +49,17 @@
     oss = null;
   };
 
-  # Well-known local endpoints. Filled in over Phase 2 as drift sites get
-  # migrated from hardcoded literals to registry reads.
+  # Well-known LLM endpoints. Each value is a complete OpenAI-compatible
+  # `/v1` base URL, read verbatim (no path munging) by whichever entry
+  # `services.aiStack.llmEndpoint` selects — see modules/ai-stack/default.nix.
+  #
+  # Only the loopback default lives here. The cluster-hosted `router` entry
+  # (the LiteLLM proxy fronting the whole fabric) is injected at evaluation
+  # time by the module from `services.aiStack.llmRouterEndpoint`, so this
+  # public data file never commits the internal serving FQDN — the consumer
+  # composes it from its own domain var (e.g. nix-darwin's baseDomain).
   endpoints = {
-    mlx_local = "http://localhost:11434";
+    mlx_local = "http://127.0.0.1:11434/v1";
   };
 
   # OrbStack NodePort allocations. Authoritative source for any consumer

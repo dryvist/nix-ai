@@ -25,19 +25,33 @@
   ...
 }:
 let
+  cfg = config.services.aiStack;
   registryAttrs = import ../../vars/ai-stack.nix;
+
+  # Effective endpoint map = the committed loopback entries plus the
+  # consumer-injected `router` (kept out of the public data file because it
+  # carries the internal serving FQDN — the consumer composes it from its own
+  # domain var and passes it in via `llmRouterEndpoint`).
+  effectiveEndpoints =
+    registryAttrs.endpoints
+    // lib.optionalAttrs (cfg.llmRouterEndpoint != "") { router = cfg.llmRouterEndpoint; };
+
   # The populated registry replaces the var file's null-sentinel `models`
   # block with the actual role → id map computed from
-  # services.aiStack.defaultLocalModelId. The JSON written to
+  # services.aiStack.defaultLocalModelId, and swaps in the effective endpoint
+  # map (with the injected router). The JSON written to
   # ~/.config/ai-stack/registry.json contains the materialized values so
   # non-Nix consumers (orbstack-kubernetes, ansible, shell scripts) read a
   # complete registry.
   populatedRegistry = registryAttrs // {
-    inherit (config.services.aiStack) models;
+    inherit (cfg) models;
+    endpoints = effectiveEndpoints;
   };
   registryJson = pkgs.writeText "ai-stack-registry.json" (builtins.toJSON populatedRegistry);
 in
 {
+  imports = [ ./endpoint.nix ];
+
   options.services.aiStack = {
     defaultLocalModelId = lib.mkOption {
       type = lib.types.str;
