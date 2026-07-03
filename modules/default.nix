@@ -130,7 +130,7 @@ in
         '';
 
         # browser-use: CLI for browser automation (not in nixpkgs)
-        installBrowserUse = lib.hm.dag.entryAfter [ "writeBoundary" "knownMarketplacesMerge" ] ''
+        installBrowserUse = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
           if ! ${lib.getExe pkgs.uv} tool list 2>/dev/null | grep -q "^browser-use"; then
             echo "-> Installing browser-use via uv..."
             $DRY_RUN_CMD ${lib.getExe pkgs.uv} tool install "browser-use==${browserUseVersion}"
