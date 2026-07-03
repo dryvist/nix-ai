@@ -7,7 +7,7 @@
 # v0.82.1+ requires go >= 1.25.8; use go_1_26 which satisfies that constraint
 (pkgs.buildGoModule.override { go = pkgs.go_1_26; }) rec {
   pname = "gh-aw";
-  # managed by: nix-update (deps-update-flake.yml)
+  # renovate: datasource=github-releases depName=github/gh-aw
   version = "0.82.1";
 
   src = fetchFromGitHub {
