@@ -31,8 +31,6 @@ graph TD
         FAB["Fabric\nCLI + REST :8180"]
     end
 
-    HOMELAB["Bifrost multi-provider gateway\n(Proxmox homelab — external)\nbifrost.pve.jacobpevans.com"]
-
     CC -->|stdio MCP| FAB_MCP["fabric-mcp"]
     CC -->|HTTP MCP| CRIBL["Cribl MCP\n:30030"]
     MAE -->|claude subprocess| CC
