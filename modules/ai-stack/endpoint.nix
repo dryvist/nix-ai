@@ -85,8 +85,9 @@ in
         message = "services.aiStack.llmEndpoint = \"router\" requires services.aiStack.llmRouterEndpoint (the consumer must supply the router /v1 base URL).";
       }
       {
-        assertion = cfg.llmEndpoint == "router" -> cfg.llmEndpointTokenFile != null;
-        message = "services.aiStack.llmEndpoint = \"router\" requires services.aiStack.llmEndpointTokenFile (the bearer the router demands).";
+        assertion =
+          cfg.llmEndpoint == "router" -> (cfg.llmEndpointTokenFile != null && cfg.llmEndpointTokenFile != "");
+        message = "services.aiStack.llmEndpoint = \"router\" requires services.aiStack.llmEndpointTokenFile to be a non-empty path to the bearer token file.";
       }
     ];
 
@@ -95,11 +96,20 @@ in
     # (cecli, qwen-code, fabric) authenticate to the router. Only the path is
     # in the Nix store; the secret is read at runtime (HF_TOKEN pattern). The
     # loopback default sets nothing — its hop is unauthenticated.
+    #
+    # zsh only, deliberately: this repo's shell layer is zsh (see ai-shell.nix,
+    # the only other shell-init here). The path is escapeShellArg'd, and the
+    # empty-string guard keeps a misconfigured `""` from running `cat` with no
+    # argument (which would block on stdin) — belt-and-suspenders with the
+    # non-empty assertion above.
     programs.zsh.initContent =
-      lib.mkIf (cfg.llmEndpoint != "mlx_local" && cfg.llmEndpointTokenFile != null)
+      lib.mkIf
+        (
+          cfg.llmEndpoint != "mlx_local" && cfg.llmEndpointTokenFile != null && cfg.llmEndpointTokenFile != ""
+        )
         (
           lib.mkAfter ''
-            export OPENAI_API_KEY="$(cat ${cfg.llmEndpointTokenFile} 2>/dev/null || echo "")"
+            export OPENAI_API_KEY="$(cat ${lib.escapeShellArg cfg.llmEndpointTokenFile} 2>/dev/null || echo "")"
           ''
         );
   };
