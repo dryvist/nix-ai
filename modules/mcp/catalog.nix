@@ -250,12 +250,4 @@ in
     type = "http";
     url = "http://localhost:30030/mcp";
   };
-
-  # ================================================================
-  # Bifrost AI Gateway - OrbStack kubernetes monitoring stack
-  # ================================================================
-  bifrost = {
-    type = "http";
-    url = "http://localhost:30080/mcp";
-  };
 }

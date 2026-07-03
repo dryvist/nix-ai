@@ -3,6 +3,13 @@
 **Status**: Accepted
 **Date**: 2026-05-22
 
+> **Update 2026-07-03:** The Bifrost gateway is being relocated off the OrbStack k8s
+> cluster to the Proxmox homelab (nix-ai clients now call local MLX directly). The
+> Bifrost-side pending work below therefore moves to the homelab IaC repos, and the
+> Galileo pipeline now spans two hosts (OTEL Collector stays in `orbstack-kubernetes`;
+> Bifrost's exporter lands on Proxmox). This integration is still Pending and should be
+> re-scoped against the new topology before it ships.
+
 ## Documents in This Directory
 
 _This ADR is part of [`docs/adr/`](README.md)._
@@ -80,7 +87,7 @@ self-contained. The remaining work:
 |------|--------|--------|
 | `nix-ai` | `programs.mlx.telemetry.enable` option + LaunchAgent env | Done (this PR) |
 | `orbstack-kubernetes` | OTEL Collector: `otlphttp/galileo` exporter, routing connector, content denylist processor | Pending |
-| `orbstack-kubernetes` | Bifrost: OTel exporter + header→span-attr mapping for `X-Trace-Sink` | Pending |
+| `ansible-proxmox-apps` (homelab) | Bifrost: OTel exporter + header→span-attr mapping for `X-Trace-Sink` | Pending (moved off `orbstack-kubernetes` with the relocation) |
 | `nix-home` | `galileo-on` zsh function + `gcurl` wrapper + `~/.config/galileo/allowlist.toml` | Pending |
 | `orbstack-kubernetes` | Doppler Operator: `GALILEO_API_KEY` in `ai-ci-automation/prd` | Pending (manual Doppler config) |
 

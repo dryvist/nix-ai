@@ -28,32 +28,18 @@ let
   cfg = config.programs.qwen-code;
   inherit (config.services.aiStack) models;
 
-  isBifrost = cfg.routing == "bifrost";
-  endpointBase = if isBifrost then "http://localhost:30080/v1" else "http://127.0.0.1:11434/v1";
-  providerKey = if isBifrost then "bifrost" else "mlx-local-llama-swap";
+  endpointBase = "http://127.0.0.1:11434/v1";
+  providerKey = "mlx-local-llama-swap";
 
-  # llama-swap routes capability-class aliases (default, coding, ...);
-  # Bifrost requires the mlx-local/ prefix on physical IDs. Generate the
-  # provider's model list to match the routing target. The qwen-code
-  # model schema only accepts `name` and `description` — routing is
-  # implicit in the provider's baseUrl, not a per-model field.
-  modelEntries =
-    if isBifrost then
-      lib.mapAttrsToList (role: physical: {
-        name = "mlx-local/${physical}";
-        description = "${role} → ${physical} via Bifrost";
-      }) models
-    else
-      lib.mapAttrsToList (role: physical: {
-        name = role;
-        description = "${role} → ${physical} via llama-swap";
-      }) models;
+  # llama-swap routes capability-class aliases (default, coding, ...). The
+  # qwen-code model schema only accepts `name` and `description` — routing
+  # is implicit in the provider's baseUrl, not a per-model field.
+  modelEntries = lib.mapAttrsToList (role: physical: {
+    name = role;
+    description = "${role} → ${physical} via llama-swap";
+  }) models;
 
-  defaultModelName =
-    let
-      r = cfg.model;
-    in
-    if isBifrost then "mlx-local/${models.${r} or r}" else r;
+  defaultModelName = cfg.model;
 
   baseSettings = {
     modelProviders = [
@@ -61,9 +47,9 @@ let
         name = providerKey;
         protocol = "openai";
         baseUrl = endpointBase;
-        # llama-swap and Bifrost authenticate upstream; the local hop is
-        # open. envKey points at a name that won't be set, so qwen-code
-        # falls through to the literal "dummy" in env below.
+        # llama-swap authenticates upstream; the local hop is open. envKey
+        # points at a name that won't be set, so qwen-code falls through
+        # to the literal "dummy" in env below.
         envKey = "QWEN_LOCAL_DUMMY_KEY";
         models = modelEntries;
       }

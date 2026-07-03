@@ -7,10 +7,9 @@
 # point — while shipping bug fixes and new features.
 #
 # Routes through the local MLX stack (llama-swap at
-# http://127.0.0.1:11434/v1) by default so it works with open-source
-# models (Qwen3-Coder, Gemma, etc.) without cloud API keys. Cloud access
-# is opt-in via the `d-cecli` shell alias (Doppler-injected) or by
-# switching programs.cecli.routing to "bifrost".
+# http://127.0.0.1:11434/v1) so it works with open-source models
+# (Qwen3-Coder, Gemma, etc.) without cloud API keys. Cloud access is
+# opt-in via the `d-cecli` shell alias (Doppler-injected).
 #
 # Why a local Nix derivation (not nixpkgs / brew):
 #   - Not packaged in nixpkgs.

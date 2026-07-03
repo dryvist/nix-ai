@@ -53,13 +53,11 @@
   # migrated from hardcoded literals to registry reads.
   endpoints = {
     mlx_local = "http://localhost:11434";
-    bifrost_local = "http://localhost:30080";
   };
 
   # OrbStack NodePort allocations. Authoritative source for any consumer
   # that needs to know where a service listens.
   nodeports = {
-    bifrost = 30080;
     cribl_mcp = 30030;
     otel_grpc = 30317;
     otel_http = 30318;

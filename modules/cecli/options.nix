@@ -24,21 +24,6 @@ in
   options.programs.cecli = {
     enable = lib.mkEnableOption "cecli (maintained Aider fork) AI pair programming CLI";
 
-    routing = lib.mkOption {
-      type = lib.types.enum [
-        "llama-swap"
-        "bifrost"
-      ];
-      default = "llama-swap";
-      description = ''
-        Inference routing target.
-        - llama-swap: Direct to http://127.0.0.1:11434/v1 (local MLX, default).
-          Model names are openai/<role>; llama-swap resolves via useModelName.
-        - bifrost: Through http://localhost:30080/v1 (multi-provider gateway).
-          Model names gain the mlx-local/ prefix for local MLX routing.
-      '';
-    };
-
     model = lib.mkOption {
       type = lib.types.str;
       default = "openai/default";

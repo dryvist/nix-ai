@@ -10,8 +10,8 @@ OpenAI/Anthropic/Gemini-compatible endpoint. Apache-2.0.
   PATH (only fires on darwin). The actual brew install lives in
   nix-darwin's `homebrew.brews`, sourced from nix-ai's
   `lib.brewFormulae` flake output.
-- A generated `~/.qwen/settings.json` wired to local llama-swap (or
-  Bifrost) with one provider entry per capability-class alias from
+- A generated `~/.qwen/settings.json` wired to local llama-swap with
+  one provider entry per capability-class alias from
   `services.aiStack.models`. Default startup model is the `coding`
   class.
 - Doppler-wrapped `d-qwen` shell alias (declared in
@@ -37,15 +37,12 @@ optional-dep resolution properly.
 
 ## Routing
 
-Defaults to local MLX via llama-swap (`http://127.0.0.1:11434/v1`).
-Switch to Bifrost (`http://localhost:30080/v1`) by setting
-`programs.qwen-code.routing = "bifrost"`.
+Routes to local MLX via llama-swap (`http://127.0.0.1:11434/v1`).
 
 ```nix
 programs.qwen-code = {
   enable = true;
-  routing = "llama-swap";  # default
-  model = "coding";        # capability-class alias
+  model = "coding";  # capability-class alias
 };
 ```
 

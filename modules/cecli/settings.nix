@@ -22,24 +22,11 @@ let
   cfg = config.programs.cecli;
   homeDir = config.home.homeDirectory;
 
-  # Endpoint selection: llama-swap (default) or Bifrost
-  isBifrost = cfg.routing == "bifrost";
-  endpointBase = if isBifrost then "http://localhost:30080/v1" else "http://127.0.0.1:11434/v1";
+  endpointBase = "http://127.0.0.1:11434/v1";
 
-  # Model name resolution:
-  # llama-swap routing: keep openai/<role> - llama-swap resolves via useModelName.
-  # Bifrost routing: convert to openai/mlx-local/<physical-hf-id> - Bifrost
-  # requires the mlx-local/ prefix to route to the local MLX stack.
+  # Model names are openai/<role>; llama-swap resolves each role to the
+  # physical HF id via useModelName (see services.aiStack.models).
   inherit (config.services.aiStack) models;
-
-  prefixModel =
-    m:
-    let
-      n = lib.removePrefix "openai/" m;
-    in
-    if isBifrost then "openai/mlx-local/" + (models.${n} or n) else m;
-
-  prefixedWeakModel = prefixModel cfg.weakModel;
 
   yamlFormat = pkgs.formats.yaml { };
 
@@ -51,10 +38,10 @@ let
 
   configAttrs = {
     openai-api-base = endpointBase;
-    openai-api-key = "dummy"; # llama-swap/Bifrost authenticate upstream; local hop is open
-    model = prefixModel cfg.model;
-    weak-model = prefixedWeakModel;
-    editor-model = prefixModel cfg.editorModel;
+    openai-api-key = "dummy"; # llama-swap authenticates upstream; local hop is open
+    inherit (cfg) model;
+    weak-model = cfg.weakModel;
+    editor-model = cfg.editorModel;
     auto-commits = cfg.autoCommits;
     dirty-commits = cfg.dirtyCommits;
     attribute-author = cfg.attributeAuthor;
@@ -81,9 +68,7 @@ let
   yamlConf = yamlFormat.generate "cecli-conf.yml" configAttrs;
 
   # Model metadata — cecli uses LiteLLM. Unknown models fall back to GPT
-  # limits which may be wrong. Generate entries for both naming conventions:
-  #   - openai/<role>            used with llama-swap routing
-  #   - openai/mlx-local/<id>    used with Bifrost routing
+  # limits which may be wrong. Generate an entry per openai/<role> alias.
   metadataEntry = {
     max_input_tokens = 32768;
     max_output_tokens = 8192;
@@ -91,23 +76,11 @@ let
     output_cost_per_token = 0;
   };
 
-  roleAliasMetadata = lib.mapAttrs' (
-    role: _: lib.nameValuePair "openai/${role}" metadataEntry
-  ) models;
-
-  physicalIdMetadata = lib.mapAttrs' (
-    _: physicalId: lib.nameValuePair "openai/mlx-local/${physicalId}" metadataEntry
-  ) models;
-
-  modelMetadata = roleAliasMetadata // physicalIdMetadata;
+  modelMetadata = lib.mapAttrs' (role: _: lib.nameValuePair "openai/${role}" metadataEntry) models;
 
   metadataJson = pkgs.writeText "cecli-model-metadata.json" (builtins.toJSON modelMetadata);
 
-  # Per-model edit format and streaming overrides. Entries for:
-  #   - each role alias (llama-swap routing)
-  #   - each physical HF id with mlx-local/ prefix (Bifrost routing)
-  # A catch-all regex entry covers additional openai/mlx-local/* variants
-  # that might appear if the user extends services.aiStack.models later.
+  # Per-model edit format and streaming overrides — one entry per role alias.
   codeRoles = [
     "default"
     "coding"
@@ -124,23 +97,13 @@ let
     in
     {
       inherit name;
-      weak_model_name = prefixedWeakModel;
+      weak_model_name = cfg.weakModel;
       use_repo_map = true;
       streaming = cfg.stream;
     }
     // lib.optionalAttrs (selectedFormat != null) { edit_format = selectedFormat; };
 
-  roleAliasSettings = lib.mapAttrsToList (role: _: makeSettingsEntry "openai/${role}" role) models;
-
-  physicalIdSettings = lib.mapAttrsToList (
-    role: physicalId: makeSettingsEntry "openai/mlx-local/${physicalId}" role
-  ) models;
-
-  # Regex catch-all for any mlx-local/* model not explicitly listed above;
-  # "default" is a codeRole so this entry correctly inherits editFormat.
-  catchAllEntry = makeSettingsEntry "openai/mlx-local/.*" "default";
-
-  modelSettings = roleAliasSettings ++ physicalIdSettings ++ [ catchAllEntry ];
+  modelSettings = lib.mapAttrsToList (role: _: makeSettingsEntry "openai/${role}" role) models;
 
   modelSettingsYaml = yamlFormat.generate "cecli-model-settings.yml" modelSettings;
 
