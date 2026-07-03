@@ -13,6 +13,7 @@
 }:
 let
   inherit (fabricShared) cfg fabricPkg;
+  inherit (config.services.aiStack) resolvedLlmEndpoint llmEndpoint;
 
   # Single source of truth for the patterns symlink location. The relative
   # path (patternsKey) is used as the home.file attribute key; the absolute
@@ -53,6 +54,17 @@ in
       }
       // lib.optionalAttrs (cfg.customPatternsDir != null) {
         FABRIC_CUSTOM_PATTERNS_DIR = cfg.customPatternsDir;
+      }
+      # Point fabric at the router when services.aiStack.llmEndpoint = "router".
+      # LIMITATION: fabric's endpoint/keys canonically live in the user-managed
+      # ~/.config/fabric/.env (via `fabric --setup`), which Nix does not own, so
+      # this cannot be a per-tool setting — OPENAI_BASE_URL is a home-wide
+      # sessionVariable. It is exported only in router mode (local mode leaves
+      # fabric on its .env value, unchanged); godotenv does not override an
+      # already-set env var, so this shell export wins over any OPENAI_BASE_URL
+      # in .env, but vendor selection and API keys in .env stay authoritative.
+      // lib.optionalAttrs (llmEndpoint != "mlx_local") {
+        OPENAI_BASE_URL = resolvedLlmEndpoint;
       };
 
       activation = lib.optionalAttrs (cfg.customPatternsDir != null) {

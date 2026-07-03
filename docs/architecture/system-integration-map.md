@@ -27,7 +27,6 @@ graph TD
     end
 
     subgraph WebTools["Web & Pattern Tools"]
-        OWU["Open WebUI\n:8080"]
         FAB["Fabric\nCLI + REST :8180"]
     end
 
@@ -37,16 +36,20 @@ graph TD
 
     FAB_MCP -->|reads patterns| FAB
 
-    OWU -->|HTTP /v1| LS
     FAB -->|HTTP /v1| LS
 
     LS -->|manages processes| VLLM
 ```
 
-Local nix-ai clients (qwen-code, cecli, Open WebUI, Fabric) call llama-swap
-directly at `:11434` — there is no local gateway hop. Multi-provider cloud
-fan-out lives in the Bifrost gateway, which relocated off this machine's
-OrbStack k8s cluster to the Proxmox homelab (see the homelab IaC repos).
+Local nix-ai clients (qwen-code, cecli, Fabric) call llama-swap directly at
+`:11434` by default — there is no local gateway hop. Setting
+`services.aiStack.llmEndpoint = "router"` repoints those OpenAI-compatible
+consumers at the cluster-hosted LiteLLM router instead (bearer-gated via
+`services.aiStack.llmEndpointTokenFile`). The chat UI is no longer local: the
+former on-host Open WebUI has been removed in favour of the single
+cluster-hosted Open WebUI. Multi-provider cloud fan-out lives in the Bifrost
+gateway, which relocated off this machine's OrbStack k8s cluster to the
+Proxmox homelab (see the homelab IaC repos).
 
 ## Product Responsibility Table
 
@@ -59,7 +62,6 @@ OrbStack k8s cluster to the Proxmox homelab (see the homelab IaC repos).
 | Bifrost | Proxmox homelab (`ansible-proxmox-apps`, relocating) | HTTPS (Traefik) | Multi-provider AI gateway | Doppler (provider keys) |
 | MLX / llama-swap | `modules/mlx/` | HTTP :11434 | Local Apple Silicon inference | `~/.config/mlx/llama-swap.json` |
 | Fabric | `modules/fabric/` | CLI + HTTP :8180 | AI prompt pattern library | `~/.config/fabric/` |
-| Open WebUI | `modules/open-webui.nix` | HTTP :8080 | Browser UI for MLX | None (queries MLX at runtime) |
 | Maestro | `modules/maestro/` | Cron → subprocess | Scheduled Claude sessions | `~/Maestro/Auto Run Docs/` |
 
 ## MCP Server Connectivity
@@ -111,7 +113,6 @@ Enable by overriding `programs.aiMcp.servers.<name>.disabled` and adding the key
 |------|---------|----------|--------|
 | 11434 | llama-swap proxy | HTTP (OpenAI-compatible) | `modules/mlx/` |
 | 11436+ | vllm-mlx backends | HTTP (managed by llama-swap) | `modules/mlx/` |
-| 8080 | Open WebUI | HTTP | `modules/open-webui.nix` |
 | 8180 | Fabric REST API (opt-in) | HTTP + Swagger UI | `modules/fabric/` |
 | 9379 | LiteRT-LM classifier (Antigravity CLI gemma router, opt-in) | HTTP | `modules/antigravity-cli/` |
 | 30030 | Cribl MCP | HTTP | `orbstack-kubernetes` repo |

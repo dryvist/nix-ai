@@ -26,7 +26,7 @@ in
     port = lib.mkOption {
       type = lib.types.port;
       default = 11434;
-      description = "Port for the vllm-mlx API server (avoids conflict with 8080 used by Open WebUI)";
+      description = "Port for the vllm-mlx API server";
     };
 
     host = lib.mkOption {

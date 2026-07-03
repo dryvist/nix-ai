@@ -23,7 +23,6 @@
         Port for the fabric REST API server.
 
         Default 8180 avoids conflicts with:
-        - 8080: Open WebUI
         - 11434: llama-swap proxy (MLX stack)
         - 11436: vllm-mlx backend
         - 27124: Obsidian Local REST API

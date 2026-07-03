@@ -95,7 +95,6 @@ in
     ./mcp
     ./mcp/module.nix
     ./mlx
-    ./open-webui.nix
     ./qwen-code
   ];
 
