@@ -5,7 +5,9 @@
 # every push to a Renovate branch, re-runs nix-update for the affected
 # packages, and commits corrected hashes back before CI runs.
 #
-# Packages covered: cecli, mcp (via cecli passthru)
+# Packages covered: cecli, mcp (via cecli passthru), gh-aw
+# gh-aw is a buildGoModule package with two hash fields (hash + vendorHash);
+# nix-update corrects both after Renovate bumps its version string.
 # Add new packages here and to the packages output in flake.nix when needed.
 name: Fix Renovate hash updates
 
@@ -43,6 +45,9 @@ jobs:
 
       - name: Update cecli hash
         run: nix run nixpkgs#nix-update -- --flake cecli --version="$(nix eval --raw .#cecli.version)"
+
+      - name: Update gh-aw hash
+        run: nix run nixpkgs#nix-update -- --flake gh-aw --version="$(nix eval --raw .#gh-aw.version)"
 
       - name: Commit hash fixes
         run: .github/scripts/commit-hash-fixes.sh
