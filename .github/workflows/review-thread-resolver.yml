@@ -1,0 +1,29 @@
+# Review Thread Resolver caller.
+#
+# Instantly resolves stale/failed bot review threads (gemini, Copilot) on PR
+# events, so the org `required_review_thread_resolution` rule stops blocking
+# merges. Only touches bot-only threads that are outdated or failure notices;
+# substantive human/bot feedback is never resolved.
+#
+# Permissions are job-scoped and the App key is passed explicitly (zizmor:
+# excessive-permissions, secrets-inherit). contents: write is required by the
+# resolveReviewThread GraphQL mutation. No concurrency block on purpose: a
+# caller sharing the reusable workflow's exact concurrency group causes an
+# opaque 0-job startup_failure.
+
+name: Review Thread Resolver
+
+on:
+  pull_request:
+    types: [synchronize]
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  resolve:
+    permissions:
+      contents: write
+      pull-requests: write
+    uses: dryvist/ai-workflows/.github/workflows/review-thread-resolver.yml@main
+    secrets:
+      GH_APP_CLAUDE_BOT_PRIVATE_KEY: ${{ secrets.GH_APP_CLAUDE_BOT_PRIVATE_KEY }}
