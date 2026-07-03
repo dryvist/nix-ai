@@ -1,0 +1,37 @@
+# AI PR care: dependency risk review + release highlights.
+#
+# - cc-dep-review: one AI risk-assessment comment on Renovate major/minor PRs.
+# - cc-release-notes: sticky AI highlights comment on release-please PRs,
+#   refreshed per head SHA.
+#
+# Gates in the reusable workflows keep non-matching PRs at github-script cost.
+# Permissions are job-scoped and the secret is passed explicitly (zizmor:
+# excessive-permissions, secrets-inherit). No concurrency block on purpose: a
+# caller sharing the reusable workflow's exact concurrency group causes an
+# opaque 0-job startup_failure.
+
+name: AI PR Care
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  dep-review:
+    if: github.event.action == 'opened'
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+    uses: dryvist/ai-workflows/.github/workflows/cc-dep-review.yml@main
+    secrets:
+      GH_ACTION_AI_API_KEY: ${{ secrets.GH_ACTION_AI_API_KEY }}
+
+  release-notes:
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+    uses: dryvist/ai-workflows/.github/workflows/cc-release-notes.yml@main
+    secrets:
+      GH_ACTION_AI_API_KEY: ${{ secrets.GH_ACTION_AI_API_KEY }}
