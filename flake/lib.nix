@@ -102,9 +102,9 @@
   skillPacks = import ../modules/claude/plugins/packs.nix;
 
   # Role-name → physical mlx-community/* model ID registry.
-  # Exported as a plain attrset so foreign consumers (e.g.
-  # orbstack-kubernetes Bifrost config) can consume it without
-  # importing the home-manager module system. The module at
+  # Exported as a plain attrset so foreign consumers (e.g. the homelab
+  # Bifrost gateway config) can consume it without importing the
+  # home-manager module system. The module at
   # modules/ai-stack/default.nix uses this same file as its option
   # default — one source of truth.
   aiStackModels = import ../lib/ai-stack-models.nix;

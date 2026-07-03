@@ -8,7 +8,7 @@ This directory contains cross-cutting architecture views for nix-ai's AI tool ec
 |----------|----------|--------|
 | `CLAUDE.md` (repo root) | Developers | **How to develop** in this repo — critical constraints, validation commands, key files, module separation rules |
 | `modules/mcp/README.md` | MCP users | **Per-module reference** — MCP transports, secrets, troubleshooting |
-| `docs/ai-tool-decision-tree.md` | Users | **When to use what** — Fabric vs Bifrost |
+| `docs/ai-tool-decision-tree.md` | Users | **When to use what** — Fabric vs local MLX vs delegation |
 | `docs/architecture/` (here) | Architects, AI assistants | **How the system works** — integration topology, data flows, design decisions |
 | `docs/adr/` | Decision-makers | **Why things are the way they are** — architectural decision records |
 

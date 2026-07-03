@@ -185,9 +185,9 @@ in
         See the in-CLI /model dialog or upstream settings.schema.json for
         the current accepted values.
         null leaves Antigravity CLI's own model resolution alone.
-        NOTE: Google-hosted model values execute in Google's cloud. For
-        on-device generation via local MLX inference, configure
-        GOOGLE_GEMINI_BASE_URL to point at the Bifrost genai translator.
+        NOTE: Google-hosted model values execute in Google's cloud. To
+        route generation elsewhere, point GOOGLE_GEMINI_BASE_URL at a
+        Gemini-compatible endpoint (e.g. the homelab Bifrost gateway).
       '';
     };
 

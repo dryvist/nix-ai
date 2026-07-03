@@ -23,19 +23,6 @@
       '';
     };
 
-    routing = lib.mkOption {
-      type = lib.types.enum [
-        "llama-swap"
-        "bifrost"
-      ];
-      default = "llama-swap";
-      description = ''
-        Inference routing target.
-        - llama-swap: Direct to http://127.0.0.1:11434/v1 (local MLX, default).
-        - bifrost: Through http://localhost:30080/v1 (multi-provider gateway).
-      '';
-    };
-
     model = lib.mkOption {
       type = lib.types.str;
       default = "coding";

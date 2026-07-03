@@ -21,10 +21,6 @@ graph TD
         MAE["Maestro\n(scheduled sessions)"]
     end
 
-    subgraph Gateway["AI Gateway — K8s :30080"]
-        BIF["Bifrost\n(multi-provider router)"]
-    end
-
     subgraph LocalInference["Local Inference — Apple Silicon"]
         LS["llama-swap proxy\n:11434"]
         VLLM["vllm-mlx backends\n:11436+"]
@@ -35,34 +31,22 @@ graph TD
         FAB["Fabric\nCLI + REST :8180"]
     end
 
-    subgraph Cloud["Cloud Providers (via Bifrost)"]
-        OR["OpenRouter"]
-        OAI["OpenAI"]
-        ANT["Anthropic"]
-        GGL["Google AI"]
-    end
-
     CC -->|stdio MCP| FAB_MCP["fabric-mcp"]
-    CC -->|HTTP MCP| BIF
     CC -->|HTTP MCP| CRIBL["Cribl MCP\n:30030"]
     MAE -->|claude subprocess| CC
 
     FAB_MCP -->|reads patterns| FAB
-
-    BIF -->|HTTP /v1| LS
-    BIF -->|HTTPS| OR
-    BIF -->|HTTPS| OAI
-    BIF -->|HTTPS| ANT
-    BIF -->|HTTPS| GGL
-
-    OR -->|unified API| OAI
-    OR -->|unified API| ANT
 
     OWU -->|HTTP /v1| LS
     FAB -->|HTTP /v1| LS
 
     LS -->|manages processes| VLLM
 ```
+
+Local nix-ai clients (qwen-code, cecli, Open WebUI, Fabric) call llama-swap
+directly at `:11434` — there is no local gateway hop. Multi-provider cloud
+fan-out lives in the Bifrost gateway, which relocated off this machine's
+OrbStack k8s cluster to the Proxmox homelab (see the homelab IaC repos).
 
 ## Product Responsibility Table
 
@@ -72,7 +56,7 @@ graph TD
 | Antigravity CLI | `modules/antigravity-cli/` | CLI | Google Antigravity assistant | `~/.gemini/antigravity-cli/settings.json` |
 | Codex CLI | `modules/codex/` | CLI | OpenAI coding assistant | `~/.codex/config.toml` |
 | GitHub Copilot CLI | `modules/copilot.nix` | CLI | Trusted folder configuration | `~/.copilot/config.json` |
-| Bifrost | `orbstack-kubernetes` repo | HTTP :30080 | Multi-provider AI gateway | K8s secrets (Doppler Operator) |
+| Bifrost | Proxmox homelab (`ansible-proxmox-apps`, relocating) | HTTPS (Traefik) | Multi-provider AI gateway | Doppler (provider keys) |
 | MLX / llama-swap | `modules/mlx/` | HTTP :11434 | Local Apple Silicon inference | `~/.config/mlx/llama-swap.json` |
 | Fabric | `modules/fabric/` | CLI + HTTP :8180 | AI prompt pattern library | `~/.config/fabric/` |
 | Open WebUI | `modules/open-webui.nix` | HTTP :8080 | Browser UI for MLX | None (queries MLX at runtime) |
@@ -102,7 +86,6 @@ graph LR
 | `time` | stdio (uvx) | None | Official maintained Python server |
 | `aws` | stdio (bunx) | IAM/STS env vars | AWS KB retrieval |
 | `terraform` | stdio (binary) | None | nixpkgs binary |
-| `bifrost` | HTTP :30080 | None (K8s internal) | AI gateway |
 | `cribl` | HTTP :30030 | None (K8s internal) | Log pipeline |
 
 ### Claude-Only MCP Servers
@@ -131,7 +114,6 @@ Enable by overriding `programs.aiMcp.servers.<name>.disabled` and adding the key
 | 8080 | Open WebUI | HTTP | `modules/open-webui.nix` |
 | 8180 | Fabric REST API (opt-in) | HTTP + Swagger UI | `modules/fabric/` |
 | 9379 | LiteRT-LM classifier (Antigravity CLI gemma router, opt-in) | HTTP | `modules/antigravity-cli/` |
-| 30080 | Bifrost AI gateway | HTTP | `orbstack-kubernetes` repo |
 | 30030 | Cribl MCP | HTTP | `orbstack-kubernetes` repo |
 | 30317 | OTEL Collector (gRPC receiver) | gRPC | `orbstack-kubernetes` repo |
 | 4317 | Cribl OTEL ingest | gRPC | `orbstack-kubernetes` repo |

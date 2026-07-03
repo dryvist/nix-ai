@@ -11,8 +11,9 @@ reach Galileo. Check each before assuming the pipeline is live:
 1. `programs.mlx.telemetry.enable = true` in your nix-darwin config (this repo).
 2. `orbstack-kubernetes`: OTEL Collector has `otlphttp/galileo` exporter, routing
    connector, and content denylist processor deployed.
-3. `orbstack-kubernetes`: Bifrost emits OTel spans and maps `X-Trace-Sink` header
-   to `trace.sink` span attribute.
+3. `ansible-proxmox-apps` (homelab): Bifrost emits OTel spans and maps `X-Trace-Sink`
+   header to `trace.sink` span attribute. (Bifrost relocated from `orbstack-kubernetes`
+   to the Proxmox homelab — see [ADR 0003](../adr/0003-galileo-ai-observability.md).)
 4. `nix-home`: `galileo-on` zsh function and `gcurl` wrapper are activated.
 5. Doppler (`ai-ci-automation/prd`): `GALILEO_API_KEY` is set, Doppler Operator
    has synced it to the OTEL Collector pod.
@@ -28,8 +29,8 @@ gcurl http://127.0.0.1:11434/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{"model":"default","messages":[{"role":"user","content":"hello"}]}'
 
-# Hit Bifrost with trace header (cloud model):
-gcurl http://127.0.0.1:30080/v1/chat/completions \
+# Hit Bifrost with trace header (cloud model) — now on the Proxmox homelab:
+gcurl https://bifrost.pve.jacobpevans.com/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{"model":"${MODEL_ID}","messages":[{"role":"user","content":"hello"}]}'
 

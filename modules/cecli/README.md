@@ -60,13 +60,12 @@ closes the next time we bump nixpkgs.
 
 ## Routing
 
-Defaults to local MLX via llama-swap (`http://127.0.0.1:11434/v1`),
+Routes to local MLX via llama-swap (`http://127.0.0.1:11434/v1`),
 no API keys required.
 
 ```nix
 programs.cecli = {
   enable = true;
-  routing = "llama-swap";   # default; alternative: "bifrost"
   model = "openai/default"; # capability-class alias from services.aiStack.models
 };
 ```

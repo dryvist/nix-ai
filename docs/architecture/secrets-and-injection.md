@@ -36,8 +36,8 @@ graph TD
     subgraph P3["Pattern 3: Kubernetes Doppler Operator"]
         DOP["Doppler (cloud)"]
         K8S["K8s Doppler Operator\n(in-cluster)"]
-        SEC["K8s Secrets\n(provider API keys)"]
-        POD["Bifrost / Cribl pods"]
+        SEC["K8s Secrets\n(Cribl credentials)"]
+        POD["Cribl pods"]
         DOP --> K8S --> SEC --> POD
     end
 ```
@@ -83,18 +83,22 @@ variable is exported by checking `env | grep HF_TOKEN` in a Claude session.
 
 ## Pattern 3: Kubernetes Doppler Operator (In-Cluster)
 
-**Used by**: Bifrost AI gateway, Cribl MCP (both in `orbstack-kubernetes` repo)
+**Used by**: Cribl MCP (in `orbstack-kubernetes` repo)
 
 The [Doppler Kubernetes Operator](https://docs.doppler.com/docs/kubernetes-operator)
 syncs secrets from Doppler into native Kubernetes Secrets objects inside the OrbStack
-cluster. The provider API keys (OpenAI, Anthropic, Gemini, OpenRouter) are injected
-directly into the Bifrost and Cribl pods at runtime.
+cluster, injected directly into the Cribl pods at runtime.
 
-**These secrets never reach the MCP client process.** Claude Code connects to Bifrost
-at `http://localhost:30080/mcp` — Bifrost authenticates to upstream providers using its
-own in-cluster credentials. The client only needs network access to :30080.
+**These secrets never reach the MCP client process.** Claude Code connects to Cribl MCP
+at `http://localhost:30030/mcp` — the pod authenticates upstream using its own in-cluster
+credentials. The client only needs network access to :30030.
 
 This is the cleanest pattern: zero credential exposure outside the cluster boundary.
+
+The Bifrost gateway previously used this same in-cluster pattern for its provider API
+keys (OpenAI, Gemini, OpenRouter). It relocated to the Proxmox homelab; its keys now
+follow the homelab's Doppler injection convention (`doppler run -- ansible-playbook …`),
+not the k8s operator.
 
 ## Secrets by Product
 
@@ -104,7 +108,7 @@ This is the cleanest pattern: zero credential exposure outside the cluster bound
 | Splunk MCP | `SPLUNK_MCP_ENDPOINT`, `SPLUNK_MCP_TOKEN` | Doppler subprocess | `ai-ci-automation/prd` Doppler project |
 | HuggingFace MCP | `HF_TOKEN` | Keychain → shell env | macOS Keychain (`huggingface-token`) |
 | GitHub MCP | `GITHUB_PERSONAL_ACCESS_TOKEN` | Keychain → shell env | macOS Keychain |
-| Bifrost | Provider API keys | K8s Doppler Operator | OrbStack cluster |
+| Bifrost | Provider API keys | Homelab Doppler (`doppler run`) | Proxmox homelab (`ansible-proxmox-apps`) |
 | Cribl | Provider credentials | K8s Doppler Operator | OrbStack cluster |
 | OTEL Collector (Galileo exporter) | `GALILEO_API_KEY` | K8s Doppler Operator | OrbStack cluster (`ai-ci-automation/prd`) |
 | WakaTime | `WAKATIME_API_KEY` | Activation-time Doppler fetch | Written to `~/.wakatime.cfg` at `darwin-rebuild switch` |

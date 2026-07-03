@@ -190,7 +190,7 @@ let
   # using a capability-class alias (e.g. `model: "default"`) hit
   #   "The model `default` does not exist."
   # even though llama-swap routed the request correctly. With it, the alias
-  # works end-to-end through the local proxy without needing Bifrost in front.
+  # works end-to-end through the local proxy.
   # Default llama-swap filters applied to every model in the registry.
   # See modules/mlx/options-filters.nix for the schema and reasoning.
   # Filters run at the proxy layer BEFORE the request hits vllm-mlx, so they
