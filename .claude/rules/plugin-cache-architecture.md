@@ -75,5 +75,16 @@ Additionally, Claude Code discovers marketplaces via `~/.claude/plugins/known_ma
 (its actual registry), NOT directly from `extraKnownMarketplaces` in `settings.json`. Entries
 propagate from `extraKnownMarketplaces` only when Claude Code can successfully fetch the
 marketplace from the declared GitHub source. Synthetic marketplaces fail this fetch (no upstream
-structure), so the `knownMarketplacesMerge` activation in `modules/default.nix` ensures the
-local `installLocation` is registered directly.
+structure), so the `knownMarketplacesMerge` activation ensures the local `installLocation` is
+registered directly. That activation lives in the `nix-claude-code` flake input
+(`modules/settings.nix`), not in this repo — nix-ai only supplies the marketplace catalog and
+`enabled` set; `nix-claude-code` owns the activation that renders and merges them.
+
+## Runtime Registry Reconciliation
+
+`installed_plugins.json` is a separate Claude-owned runtime registry recording each plugin's
+version and `installPath`. When a marketplace's Nix store path changes, `verify-cache-integrity`
+purges the stale cache dir, which orphans those `installPath`s; the `marketplace-refresh`
+sessionStart hook then has Claude natively reinstall the affected enabled plugins so the registry
+is re-pointed. Both live in `nix-claude-code`. Never edit `installed_plugins.json` from an
+activation script while Claude may be running.
