@@ -69,11 +69,11 @@
     # requests. If a client asks for max_tokens=100000, vllm-mlx clamps it to
     # this value and returns finish_reason: "length" once the cap is hit.
     #
-    # Left null by default — keeps the 32768 server ceiling intact so
-    # legitimate expensive generations remain possible. Set to a positive
-    # integer only when you specifically need to cap client-requested
-    # generation length (e.g. cost control on a shared environment, or
-    # bounding wasted compute on a pathologically misconfigured caller).
+    # Default 8192 — bounds runaway client-requested generation lengths
+    # before they wait out a disconnect_guard timeout (tightened from null
+    # after the 2026-05/06 pipe-timeout storm; see description). Set null to
+    # restore the 32768 server ceiling when legitimately expensive
+    # generations matter more than bounding a misconfigured caller.
     maxRequestTokens = lib.mkOption {
       type = lib.types.nullOr lib.types.ints.positive;
       default = 8192;

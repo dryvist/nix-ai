@@ -79,20 +79,42 @@ let
 
   # Build the vllm-mlx serve command string for a given model ID.
   # Global option values may be replaced per physical model via
-  # modelFlagOverrides; every override key must name an existing programs.mlx
-  # option so a typo fails the eval instead of silently keeping the global.
+  # modelFlagOverrides; every override key must appear in overridableFlags —
+  # the serve options this builder reads below. Guarding against that list
+  # (not against programs.mlx as a whole) means a typo AND a real-but-unread
+  # option name (e.g. huggingFaceHome, preload) both fail the eval instead of
+  # silently keeping the global value.
   # NOTE: \${PORT} is a llama-swap template macro — must be escaped to prevent
   # Nix string interpolation from consuming it before the config is written.
+  overridableFlags = [
+    "host"
+    "cacheMemoryMb"
+    "prefillBatchSize"
+    "gpuMemoryUtilization"
+    "autoUnloadIdleSeconds"
+    "enableMetrics"
+    "continuousBatching"
+    "enablePrefixCaching"
+    "pagedKvCache"
+    "maxNumSeqs"
+    "chunkedPrefillTokens"
+    "completionBatchSize"
+    "maxTokens"
+    "maxRequestTokens"
+    "enableAutoToolChoice"
+    "toolCallParser"
+    "reasoningParser"
+  ];
   mkVllmCmd =
     modelId:
     let
       overrides = cfg.modelFlagOverrides.${modelId} or { };
-      unknown = lib.filter (k: !(cfg ? ${k})) (lib.attrNames overrides);
+      unknown = lib.filter (k: !(lib.elem k overridableFlags)) (lib.attrNames overrides);
       c =
         if unknown == [ ] then
           cfg // overrides
         else
-          throw "programs.mlx.modelFlagOverrides.\"${modelId}\": unknown option name(s): ${lib.concatStringsSep ", " unknown}";
+          throw "programs.mlx.modelFlagOverrides.\"${modelId}\": not overridable serve option(s): ${lib.concatStringsSep ", " unknown}";
       baseCmd = "${lib.getExe vllmMlxPkg} serve ${modelId} --port \${PORT} --host ${c.host}";
       flags = lib.concatStringsSep " " (
         lib.optionals (c.cacheMemoryMb != null) [
@@ -158,7 +180,7 @@ let
   # One entry per unique physical model. Every model — including the entry
   # owning the "default" alias — inherits the uniform proxy idle TTL.
   # The default model is still preloaded on startup via hooks.on_startup.preload
-  # below, so the first request never pays a cold-start cost; after one hour
+  # below, so the first request never pays a cold-start cost; after proxy.idleTtl
   # of idle it unloads and the next request reloads it (~15-30 s).
   #
   # useModelName makes llama-swap rewrite the OpenAI-compatible request body's
