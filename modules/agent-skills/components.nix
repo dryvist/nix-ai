@@ -50,6 +50,14 @@ in
             fi
           done
 
+          # Prune per-skill symlinks whose store target no longer exists. A skill
+          # removed from the flake input set between generations leaves a dangling
+          # link here: it is a symlink (not a -type d), so the legacy sweep above
+          # skips it, and home-manager's generation diff does not remove it either.
+          find "$root" -mindepth 1 -maxdepth 1 -type l -print0 | while IFS= read -r -d $'\0' link; do
+            [ -e "$link" ] || $DRY_RUN_CMD rm -f "$link"
+          done
+
           $DRY_RUN_CMD rmdir "$root" 2>/dev/null || true
         }
 
