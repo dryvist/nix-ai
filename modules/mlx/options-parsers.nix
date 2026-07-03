@@ -75,52 +75,5 @@
       description = "Reasoning content extraction parser. Disabled by default — conflicts with tool-call-parser in streaming mode (vllm-mlx bug).";
     };
 
-    # modelExtraArgs — extra vllm-mlx serve args for REGISTRY models, keyed by
-    # physical model id. The role registry (services.aiStack.models) builds one
-    # backend per unique physical model with uniform global flags; this is the
-    # per-backend escape hatch for flags that genuinely differ per model —
-    # e.g. a host serving gpt-oss (--tool-call-parser harmony) alongside a
-    # Qwen coder (--tool-call-parser qwen3_coder) sets the global
-    # toolCallParser to null and pins one parser per physical id here.
-    # (cfg.models.*.extraArgs already covers ad-hoc non-registry models.)
-    modelExtraArgs = lib.mkOption {
-      type = lib.types.attrsOf (lib.types.listOf lib.types.str);
-      default = { };
-      example = lib.literalExpression ''
-        {
-          "mlx-community/<large-model>" = [
-            "--tool-call-parser"
-            "harmony"
-          ];
-        }
-      '';
-      description = "Additional vllm-mlx serve arguments per physical registry model id, appended after the global flags.";
-    };
-
-    # modelFlagOverrides — per-physical-id overrides of the GLOBAL serve
-    # options. modelExtraArgs can only APPEND flags; it cannot retract a
-    # default-on boolean like pagedKvCache, whose --use-paged-cache flag has
-    # no CLI negation. Keys must be existing programs.mlx option names — the
-    # command builder rejects unknown keys at eval time so typos fail the
-    # build instead of silently keeping the global value.
-    # Motivating case (vllm-mlx 0.4.0): the paged KV cache is incompatible
-    # with gpt-oss's alternating sliding-window attention — generation fails
-    # with "[broadcast_shapes] Shapes (1,8,64,64) and (1,8,115,64) cannot be
-    # broadcast" (paged-cache block size 64 vs. prompt length). Disabling
-    # pagedKvCache + enablePrefixCaching for that one model fixes it while
-    # sibling models keep prefix caching.
-    modelFlagOverrides = lib.mkOption {
-      type = lib.types.attrsOf (lib.types.attrsOf lib.types.raw);
-      default = { };
-      example = lib.literalExpression ''
-        {
-          "mlx-community/<sliding-window-model>" = {
-            pagedKvCache = false;
-            enablePrefixCaching = false;
-          };
-        }
-      '';
-      description = "Per-physical-model overrides of programs.mlx serve options (e.g. pagedKvCache, enablePrefixCaching), merged over the global values when building that model's vllm-mlx command.";
-    };
   };
 }
