@@ -22,6 +22,25 @@
     },
     {
       "description": [
+        "Batch all custom-regex version pins in lib/versions.nix into ONE scheduled,",
+        "auto-merged PR instead of one-PR-per-package. Renovate defaults to one PR per",
+        "dependency; without this, low-priority custom-regex pins (huggingface-hub,",
+        "browser-use, qwen-code, cclint, fabric, ...) each need their own branch/PR slot",
+        "and lose the twice-weekly window race to lock-file maintenance, starving for",
+        "weeks (huggingface-hub stuck at 1.15.0 from 2026-05 to 2026-07, which broke the",
+        "hf CLI). The mlx trio is re-grouped into 'mlx-core' by the rule below (later",
+        "packageRule wins on groupName), preserving its interlock and automerge:false.",
+        "Schedule is inherited from the org preset's Mon/Thu custom.regex rule; majors",
+        "are excluded so they still open individually under the 30-day major-default hold.",
+      ],
+      "matchManagers": ["custom.regex"],
+      "matchFileNames": ["lib/versions.nix"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "nix tool version pins",
+      "automerge": true,
+    },
+    {
+      "description": [
         "Force the mlx core trio (mlx, mlx-lm, mlx-metal) to upgrade as a single PR",
         "regardless of which manager surfaced the bump (pep621 in mlx-server/, custom",
         "regex in lib/versions.nix). These packages have hard version interlocks:",
