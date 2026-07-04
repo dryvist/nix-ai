@@ -28,7 +28,7 @@ in
     programs.codex = {
       # nix-darwin installs Codex via Homebrew for stable TCC paths.
       package = lib.mkDefault null;
-      custom-instructions = lib.mkDefault (builtins.readFile "${ai-assistant-instructions}/AGENTS.md");
+      context = lib.mkDefault (builtins.readFile "${ai-assistant-instructions}/AGENTS.md");
       # config.toml is managed via home.activation — do NOT set settings here.
     };
 
