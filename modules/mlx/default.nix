@@ -34,10 +34,13 @@ let
   # ("There is no Stream(gpu, N) in current thread", nix-ai#751); vllm-mlx
   # 0.4.0 is built against mlx 0.31.2 / mlx-lm 0.31.3 and the crash no longer
   # reproduces under concurrent continuous batching (validated 2026-07-02).
+  # transformers is pinned too: 5.13.0 broke mlx-lm's import at tokenizer
+  # registration (see lib/versions.nix for the incident note).
   mlxPin = "mlx==${versions.mlx}";
   mlxLmPin = "mlx-lm==${versions.mlxLm}";
+  transformersPin = "transformers==${versions.transformers}";
   vllmMlxPkg = pkgs.writeShellScriptBin "vllm-mlx" ''
-    exec ${pkgs.uv}/bin/uvx --from "vllm-mlx==${vllmMlxVersion}" --with "${mlxPin}" --with "${mlxLmPin}" vllm-mlx "$@"
+    exec ${pkgs.uv}/bin/uvx --from "vllm-mlx==${vllmMlxVersion}" --with "${mlxPin}" --with "${mlxLmPin}" --with "${transformersPin}" vllm-mlx "$@"
   '';
 
   # llama-swap proxy package — sits on the API port, manages vllm-mlx child processes.

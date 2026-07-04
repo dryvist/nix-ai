@@ -132,9 +132,11 @@ in
           exec ${pkgs.uv}/bin/uvx --from "${vllmMlxPin}" vllm-mlx bench "$@"
         '')
 
-        # mlx-bench-raw — raw MLX prefill + decode (no vllm-mlx overhead)
+        # mlx-bench-raw — raw MLX prefill + decode (no vllm-mlx overhead).
+        # transformers pinned for the same mlx-lm import break as the server
+        # wrapper (lib/versions.nix incident note).
         (pkgs.writeShellScriptBin "mlx-bench-raw" ''
-          exec ${pkgs.uv}/bin/uvx --from "mlx-lm==${mlxLmVersion}" mlx_lm.benchmark "$@"
+          exec ${pkgs.uv}/bin/uvx --from "mlx-lm==${mlxLmVersion}" --with "transformers==${versions.transformers}" mlx_lm.benchmark "$@"
         '')
 
         # mlx-eval — accuracy evaluation against the live vllm-mlx server API

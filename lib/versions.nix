@@ -81,6 +81,14 @@
   mlx = "0.31.2";
   # renovate: datasource=pypi depName=mlx-lm
   mlxLm = "0.31.3";
+  # transformers 5.13.0 (released 2026-07-04) broke mlx-lm 0.31.3's import:
+  # AutoTokenizer.register("NewlineTokenizer", ...) passes a string key and
+  # 5.13.0's register() calls key.__module__ on it -> AttributeError at
+  # module import, killing every vllm-mlx worker on both hosts (fleet-wide
+  # serving outage, 2026-07-04). Pin until mlx-lm registers a class (or
+  # transformers restores string keys); bump together with mlxLm.
+  # renovate: datasource=pypi depName=transformers
+  transformers = "5.12.0";
   # renovate: datasource=pypi depName=lm-eval
   lmEval = "0.4.11";
 
