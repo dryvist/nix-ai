@@ -468,11 +468,11 @@
     "last30days-skill": {
       "flake": false,
       "locked": {
-        "lastModified": 1783118743,
-        "narHash": "sha256-f8BOVnv1kHbVNn5lc651kEDRVtCF+IZUPRXiB7nXcew=",
+        "lastModified": 1783143644,
+        "narHash": "sha256-F2MLVi80uObf8TqhLvVFinMKgpRfy56OOHqRCBuCgHQ=",
         "owner": "mvanhorn",
         "repo": "last30days-skill",
-        "rev": "784624c002b294b4c32281fd5867e13bccd03ac7",
+        "rev": "6318f7449ed77d096b33b561d0efcb339a8ba901",
         "type": "github"
       },
       "original": {
