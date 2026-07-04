@@ -20,7 +20,7 @@ name: Issue Backlog Sweep
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 9 * * 1" # Mondays 09:00 UTC — top up the ai:ready queue weekly
+    - cron: "0 5 * * 0" # Sundays 05:00 UTC (Sat night ~01:00 EDT) — weekly ai:ready top-up
 
 permissions:
   contents: read
