@@ -5,30 +5,6 @@
   nixpkgs-unstable,
   ...
 }:
-#
-# MLX Inference Server Module (vllm-mlx, pinned in lib/versions.nix, + llama-swap proxy)
-#
-# Manages the MLX inference stack as a macOS LaunchAgent for Apple Silicon.
-# MLX is ~2x faster than llama.cpp for token generation on M4 Max with ~50% less memory.
-#
-# Architecture:
-#   - llama-swap proxy listens on the API port (11434) and manages vllm-mlx backends
-#   - vllm-mlx child processes start on ephemeral ports (11436+)
-#   - Model switching is transparent: send model: "X" and the proxy handles the swap
-#   - Default model is preloaded at startup; additional models load on demand
-#
-# Features:
-#   - Always-on LaunchAgent with llama-swap proxy managing vllm-mlx backends
-#   - Transparent model switching (no process management required)
-#   - CLI tools for quick prompts (mlx) and interactive chat (mlx-chat)
-#   - Benchmark suite: throughput (mlx-bench), engine (mlx-bench-engine),
-#     raw MLX (mlx-bench-raw), accuracy evaluation (mlx-eval)
-#   - OpenAI-compatible API at http://127.0.0.1:11434/v1
-#
-# Models stored on dedicated APFS volume: /Volumes/HuggingFace
-#
-# Parameter reference: vllm-mlx 0.4.0 `serve --help` output (captured from local binary).
-#
 let
   cfg = config.programs.mlx;
   versions = import ../../lib/versions.nix;
