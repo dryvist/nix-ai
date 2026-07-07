@@ -42,6 +42,9 @@ let
   vllmMlxPkg = pkgs.writeShellScriptBin "vllm-mlx" ''
     exec ${pkgs.uv}/bin/uvx --from "vllm-mlx==${vllmMlxVersion}" --with "${mlxPin}" --with "${mlxLmPin}" --with "${transformersPin}" vllm-mlx "$@"
   '';
+  mlxWarmupPkg = pkgs.writeShellScriptBin "mlx-warmup" ''
+    exec ${pkgs.python3}/bin/python3 ${./scripts/mlx-warmup.py} "$@"
+  '';
 
   # llama-swap proxy package — sits on the API port, manages vllm-mlx child processes.
   # Sourced from nixpkgs-unstable: 25.11-darwin froze it at v165 on 2025-09-22
@@ -199,12 +202,9 @@ let
   ) rolesByPhysical;
 
   # Additional ad-hoc models from cfg.models (existing extension point).
-  # Per-model filters merge on top of the global default so an individual
-  # model can tighten one key without dropping siblings — e.g. setting
-  # cfg.models.foo.filters.setParams.top_p preserves the global
-  # frequency_penalty / presence_penalty defaults. Uses lib.recursiveUpdate
-  # so nested attrsets (setParams, future filter groups) merge key-by-key
-  # rather than wholesale-replacing each other.
+  # These form the non-resident swap tier. They can be loaded on demand
+  # without evicting the resident registry models, and they can carry their
+  # own TTLs/aliases/filters.
   additionalModels = lib.mapAttrs (
     name: modelCfg:
     let
@@ -229,7 +229,9 @@ let
     }
   ) cfg.models;
 
-  allModels = registryModels // additionalModels;
+  residentModels = registryModels;
+  swapModels = additionalModels;
+  allModels = residentModels // swapModels;
 
   llamaSwapConfigAttrs = {
     inherit (cfg.proxy) healthCheckTimeout logLevel logToStdout;
@@ -244,8 +246,19 @@ let
     groups.mlx-models = {
       swap = cfg.proxy.groupSwap;
       exclusive = true;
-      members = builtins.attrNames allModels;
+      persistent = true;
+      members = builtins.attrNames residentModels;
     };
+  }
+  // lib.optionalAttrs (swapModels != { }) {
+    groups.mlx-swap-models = {
+      swap = true;
+      exclusive = false;
+      persistent = false;
+      members = builtins.attrNames swapModels;
+    };
+  }
+  // {
 
     # Preload by role, not physical name. llama-swap resolves "default"
     # via the alias table on the registryModels entry.
@@ -275,6 +288,7 @@ in
     inherit
       cfg
       vllmMlxPkg
+      mlxWarmupPkg
       vllmMlxVersion
       parakeetMlxVersion
       mlxVlmVersion

@@ -20,6 +20,7 @@ let
   inherit (mlxShared)
     cfg
     vllmMlxPkg
+    mlxWarmupPkg
     vllmMlxVersion
     parakeetMlxVersion
     mlxVlmVersion
@@ -43,6 +44,8 @@ in
       sessionVariables = {
         MLX_API_URL = apiUrl;
         MLX_DEFAULT_MODEL = cfg.defaultModel;
+        MLX_PRELOAD_MODELS = lib.concatStringsSep " " cfg.preload;
+        MLX_PRELOAD_MODELS_JSON = builtins.toJSON cfg.preload;
         MLX_PORT = toString cfg.port;
         MLX_HOST = cfg.host;
         MLX_HF_HOME = cfg.huggingFaceHome;
@@ -84,6 +87,9 @@ in
           runtimeInputs = [ ];
           text = builtins.readFile ./scripts/mlx-default.sh;
         })
+
+        # mlx-warmup — fault the declared preload list into resident memory
+        mlxWarmupPkg
 
         # llama-swap — proxy binary on PATH for direct invocation and mlx-default
         llamaSwapPkg

@@ -90,7 +90,7 @@
         }
       );
       default = { };
-      description = "Additional models available for on-demand switching via llama-swap proxy. All models (including the default-aliased one) share the uniform proxy.idleTtl unless overridden per-model.";
+      description = "Additional non-resident models available for on-demand switching via llama-swap proxy. These form the swap tier; they are loaded only when requested and can carry their own TTLs, aliases, filters, and serve-flag overrides.";
     };
 
     # modelExtraArgs — extra vllm-mlx serve args for REGISTRY models, keyed by
@@ -149,7 +149,7 @@
     preload = lib.mkOption {
       type = lib.types.listOf lib.types.str;
       default = [ "default" ];
-      description = "Models (role aliases or physical ids) llama-swap preloads at startup. Every entry occupies memory concurrently until its idle TTL — size the list against the host's wired-memory budget.";
+      description = "Resident models (role aliases or physical ids) llama-swap preloads at startup. Every entry occupies memory concurrently until its idle TTL — size the list against the host's wired-memory budget. Swap-tier models belong in programs.mlx.models instead.";
     };
 
     proxy = {
