@@ -231,13 +231,11 @@ def main() -> None:
         sys.exit(0)
 
     current_config.setdefault("models", {}).update(new_models)
-    existing_members = (
-        current_config.get("groups", {}).get("mlx-models", {}).get("members", [])
-    )
+    groups = current_config.setdefault("groups", {})
+    group_name = "mlx-swap-models" if "mlx-swap-models" in groups else "mlx-models"
+    existing_members = groups.get(group_name, {}).get("members", [])
     merged_members = sorted(set(existing_members + new_members))
-    current_config.setdefault("groups", {}).setdefault("mlx-models", {})[
-        "members"
-    ] = merged_members
+    groups.setdefault(group_name, {})["members"] = merged_members
 
     # Write atomically
     config_dir = config_path.parent

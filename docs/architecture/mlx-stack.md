@@ -75,12 +75,18 @@ format errors despite correct reasoning. To use non-Qwen models for tool calling
 the worker's `autoUnloadIdleSeconds` failsafe fires at 30 min). The next request pays a
 full reload — seconds for a small MoE, ~60-120s for a 120B model.
 
-**Multi-resident serving**: the defaults keep one model resident (`proxy.groupSwap = true`
-evicts on switch). Server-class hosts with the wired-memory headroom keep several models
-warm by setting `groupSwap = false`, listing each role in `preload`, and disabling
-eviction (`proxy.idleTtl = 0`, `autoUnloadIdleSeconds = 0`); per-model serve flags that
-must differ from the globals ride `modelExtraArgs` (append-only) or `modelFlagOverrides`
-(replaces a global option value, e.g. turning `pagedKvCache` off for one model).
+**Resident vs swap tiers**: the resident registry comes from `services.aiStack.models`
+and the `preload` list. Server-class hosts keep several resident models warm by setting
+`groupSwap = false`, listing each resident role in `preload`, and disabling eviction
+for that tier (`proxy.idleTtl = 0`, `autoUnloadIdleSeconds = 0`). The separate
+`programs.mlx.models` map is the non-resident swap tier: those models are not
+preloaded, can carry their own TTLs and per-model flags, and are loaded only when
+requested. Runtime-discovered HF models are appended to the swap tier when that group
+exists. A small `mlx-warmup` LaunchAgent faults the resident preload list at boot with
+1-token requests so the first user request does not pay the cold-start page-in cost.
+Per-model serve flags that must differ from the globals ride `modelExtraArgs`
+(append-only) or `modelFlagOverrides` (replaces a global option value, e.g. turning
+`pagedKvCache` off for one model).
 
 **MoE vs dense throughput** (M4 Max, 128GB): 122B MoE models achieve ~24 tok/s; dense models
 of similar parameter count (~123B) top out at ~6.6 tok/s. Prefer MoE for throughput-sensitive

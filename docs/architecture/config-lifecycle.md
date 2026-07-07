@@ -45,6 +45,8 @@ copy only — the Nix-generated seed stays fixed until the next rebuild.
 they _can_ query live APIs, `llama-swap.json` specifically uses a **seed-and-extend** pattern:
 the activation script copies a Nix-generated seed, and the runtime `mlx-discover` tool handles
 dynamic local-model discovery — so model IDs never have to be baked into the Nix expression.
+The separate `mlx-warmup` LaunchAgent runs after the proxy is ready and faults the
+resident preload list into memory with 1-token requests.
 
 The dominant pattern is **deep-merge**: the activation script overlays Nix-managed keys
 onto the existing mutable file, preserving any keys Nix does not manage (auth tokens,
@@ -70,7 +72,7 @@ All `home.activation` entries and their targets:
 | `mergeAntigravitySettings` | `modules/antigravity-cli/settings.nix` | `~/.gemini/antigravity-cli/settings.json` | MCP servers, policies, folder trust |
 | `codexConfigMerge` | `modules/codex/settings.nix` | `~/.codex/config.toml` | Model, MCP servers, approval policy |
 | `seedLlamaSwapConfig` | `modules/mlx/launchd.nix` | `~/.config/mlx/llama-swap.json` | Copies Nix-generated seed; preserves runtime models |
-| `discoverMlxModels` | `modules/mlx/launchd.nix` | `~/.config/mlx/llama-swap.json` | Extends the seed with locally available MLX models |
+| `discoverMlxModels` | `modules/mlx/launchd.nix` | `~/.config/mlx/llama-swap.json` | Extends the seed with locally available MLX models (swap tier when configured) |
 
 ## Config File Patterns
 
@@ -103,6 +105,7 @@ These tools refresh specific files between rebuilds:
 | Command | Refreshes | Trigger |
 |---------|-----------|---------|
 | `mlx-discover` | `~/.config/mlx/llama-swap.json` | After downloading a new model to `/Volumes/HuggingFace` |
+| `mlx-warmup` | resident model pages | After startup or when manually faulting the preload list |
 | `mlx-switch <model>` | triggers `mlx-discover` if needed | Hot-swap active MLX model without restart |
 
 ## Diagram: Full File Ownership Map

@@ -9,18 +9,8 @@ let
   cfg = config.programs.mlx;
   versions = import ../../lib/versions.nix;
 
-  # Version history for vllm-mlx (canonical pin in lib/versions.nix):
-  #   - 0.2.6: stable baseline.
-  #   - 0.2.7: regressed vllm_mlx/utils/tokenizer.py::load_model_with_fallback
-  #     (the success path forgot to return, yielding None implicitly).
-  #   - 0.2.8: fixed that regression but mis-detected Qwen3.5 as MLLM and its
-  #     MLLM continuous-batching path failed parallel text requests.
-  #   - 0.2.9: ships Paged KV Cache + prefix sharing + continuous batching
-  #     (MLLM-detection bug fixed). Loads gemma-4-e4b architectures.
-  #   - 0.3.0: stable baseline after the 0.2.x line.
-  #   - 0.4.0: GPT-OSS/harmony prompt rendering for tool calls (required to
-  #     serve gpt-oss models with working tool calling); parser roster grows
-  #     to 17 tool + 7 reasoning parsers; requires mlx-lm>=0.31.3.
+  # vllm-mlx version history and compatibility notes live in lib/versions.nix.
+  # This module only keeps the pinning and scheduler-specific glue.
   vllmMlxVersion = versions.vllmMlx;
   parakeetMlxVersion = versions.parakeetMlx;
   mlxVlmVersion = versions.mlxVlm;
@@ -30,17 +20,16 @@ let
   # derivation lives here. Also added to home.packages for CLI access.
   #
   # mlx + mlx-lm are pinned together as a lockstep pair (see lib/versions.nix).
-  # History: mlx 0.31.2 originally broke vllm-mlx 0.2.9's scheduler thread
-  # ("There is no Stream(gpu, N) in current thread", nix-ai#751); vllm-mlx
-  # 0.4.0 is built against mlx 0.31.2 / mlx-lm 0.31.3 and the crash no longer
-  # reproduces under concurrent continuous batching (validated 2026-07-02).
-  # transformers is pinned too: 5.13.0 broke mlx-lm's import at tokenizer
-  # registration (see lib/versions.nix for the incident note).
+  # Pin mlx and transformers together with vllm-mlx; see lib/versions.nix for
+  # the compatibility history behind these versions.
   mlxPin = "mlx==${versions.mlx}";
   mlxLmPin = "mlx-lm==${versions.mlxLm}";
   transformersPin = "transformers==${versions.transformers}";
   vllmMlxPkg = pkgs.writeShellScriptBin "vllm-mlx" ''
     exec ${pkgs.uv}/bin/uvx --from "vllm-mlx==${vllmMlxVersion}" --with "${mlxPin}" --with "${mlxLmPin}" --with "${transformersPin}" vllm-mlx "$@"
+  '';
+  mlxWarmupPkg = pkgs.writeShellScriptBin "mlx-warmup" ''
+    exec ${pkgs.python3}/bin/python3 ${./scripts/mlx-warmup.py} "$@"
   '';
 
   # llama-swap proxy package — sits on the API port, manages vllm-mlx child processes.
@@ -199,12 +188,9 @@ let
   ) rolesByPhysical;
 
   # Additional ad-hoc models from cfg.models (existing extension point).
-  # Per-model filters merge on top of the global default so an individual
-  # model can tighten one key without dropping siblings — e.g. setting
-  # cfg.models.foo.filters.setParams.top_p preserves the global
-  # frequency_penalty / presence_penalty defaults. Uses lib.recursiveUpdate
-  # so nested attrsets (setParams, future filter groups) merge key-by-key
-  # rather than wholesale-replacing each other.
+  # These form the non-resident swap tier. They can be loaded on demand
+  # without evicting the resident registry models, and they can carry their
+  # own TTLs/aliases/filters.
   additionalModels = lib.mapAttrs (
     name: modelCfg:
     let
@@ -229,7 +215,9 @@ let
     }
   ) cfg.models;
 
-  allModels = registryModels // additionalModels;
+  residentModels = registryModels;
+  swapModels = additionalModels;
+  allModels = residentModels // swapModels;
 
   llamaSwapConfigAttrs = {
     inherit (cfg.proxy) healthCheckTimeout logLevel logToStdout;
@@ -244,8 +232,19 @@ let
     groups.mlx-models = {
       swap = cfg.proxy.groupSwap;
       exclusive = true;
-      members = builtins.attrNames allModels;
+      persistent = true;
+      members = builtins.attrNames residentModels;
     };
+  }
+  // lib.optionalAttrs (swapModels != { }) {
+    groups.mlx-swap-models = {
+      swap = true;
+      exclusive = false;
+      persistent = false;
+      members = builtins.attrNames swapModels;
+    };
+  }
+  // {
 
     # Preload by role, not physical name. llama-swap resolves "default"
     # via the alias table on the registryModels entry.
@@ -275,6 +274,7 @@ in
     inherit
       cfg
       vllmMlxPkg
+      mlxWarmupPkg
       vllmMlxVersion
       parakeetMlxVersion
       mlxVlmVersion
