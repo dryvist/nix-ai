@@ -82,7 +82,7 @@ in
       # One-shot warmup job: wait for the proxy to answer, then fault each
       # preloaded model with a 1-token chat completion so the weights are
       # resident at boot instead of on first user request.
-      user.agents.vllm-mlx-warmup = {
+      agents.vllm-mlx-warmup = {
         enable = true;
         config = {
           Label = "dev.vllm-mlx.warmup";

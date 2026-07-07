@@ -9,18 +9,8 @@ let
   cfg = config.programs.mlx;
   versions = import ../../lib/versions.nix;
 
-  # Version history for vllm-mlx (canonical pin in lib/versions.nix):
-  #   - 0.2.6: stable baseline.
-  #   - 0.2.7: regressed vllm_mlx/utils/tokenizer.py::load_model_with_fallback
-  #     (the success path forgot to return, yielding None implicitly).
-  #   - 0.2.8: fixed that regression but mis-detected Qwen3.5 as MLLM and its
-  #     MLLM continuous-batching path failed parallel text requests.
-  #   - 0.2.9: ships Paged KV Cache + prefix sharing + continuous batching
-  #     (MLLM-detection bug fixed). Loads gemma-4-e4b architectures.
-  #   - 0.3.0: stable baseline after the 0.2.x line.
-  #   - 0.4.0: GPT-OSS/harmony prompt rendering for tool calls (required to
-  #     serve gpt-oss models with working tool calling); parser roster grows
-  #     to 17 tool + 7 reasoning parsers; requires mlx-lm>=0.31.3.
+  # vllm-mlx version history and compatibility notes live in lib/versions.nix.
+  # This module only keeps the pinning and scheduler-specific glue.
   vllmMlxVersion = versions.vllmMlx;
   parakeetMlxVersion = versions.parakeetMlx;
   mlxVlmVersion = versions.mlxVlm;
@@ -30,12 +20,8 @@ let
   # derivation lives here. Also added to home.packages for CLI access.
   #
   # mlx + mlx-lm are pinned together as a lockstep pair (see lib/versions.nix).
-  # History: mlx 0.31.2 originally broke vllm-mlx 0.2.9's scheduler thread
-  # ("There is no Stream(gpu, N) in current thread", nix-ai#751); vllm-mlx
-  # 0.4.0 is built against mlx 0.31.2 / mlx-lm 0.31.3 and the crash no longer
-  # reproduces under concurrent continuous batching (validated 2026-07-02).
-  # transformers is pinned too: 5.13.0 broke mlx-lm's import at tokenizer
-  # registration (see lib/versions.nix for the incident note).
+  # Pin mlx and transformers together with vllm-mlx; see lib/versions.nix for
+  # the compatibility history behind these versions.
   mlxPin = "mlx==${versions.mlx}";
   mlxLmPin = "mlx-lm==${versions.mlxLm}";
   transformersPin = "transformers==${versions.transformers}";
