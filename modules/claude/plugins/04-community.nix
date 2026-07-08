@@ -89,6 +89,10 @@ _:
     # Core enhancement suite — keep the canonical plugin.
     "superpowers@superpowers-marketplace" = true;
 
+    # Strunk & White writing skills (writing-clearly-and-concisely) — prose
+    # quality for docs, PRs, status reports.
+    "elements-of-style@superpowers-marketplace" = true;
+
     # DISABLED — niche experiments not in active use.
     "superpowers-lab@superpowers-marketplace" = false;
 
