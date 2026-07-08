@@ -7,6 +7,7 @@
 # actually override.
 { pkgs, hmConfig }:
 let
+  helpers = import ./helpers.nix { inherit pkgs; };
   cfg = hmConfig.config.programs.claude;
 in
 {
@@ -88,68 +89,58 @@ in
 
   # Verify evaluated config values match expected values.
   # Tests claude-config.nix overrides against the schema's defaults.
-  defaults-regression =
-    let
-      checks = [
-        {
-          name = "enable";
-          actual = cfg.enable;
-          expected = true;
-        }
-        {
-          name = "alwaysThinkingEnabled";
-          actual = cfg.settings.alwaysThinkingEnabled;
-          expected = true;
-        }
-        {
-          name = "cleanupPeriodDays";
-          actual = cfg.settings.cleanupPeriodDays;
-          expected = 180;
-        }
-        {
-          name = "model";
-          actual = cfg.model;
-          expected = "opusplan";
-        }
-        {
-          # Intentionally unset → null → Claude Code uses the upstream default.
-          name = "effortLevel";
-          actual = cfg.effortLevel;
-          expected = null;
-        }
-        {
-          name = "sandbox.enabled";
-          actual = cfg.settings.sandbox.enabled;
-          expected = false;
-        }
-        {
-          name = "plugins.allowRuntimeInstall";
-          actual = cfg.plugins.allowRuntimeInstall;
-          expected = true;
-        }
-        {
-          name = "remoteControlAtStartup";
-          actual = cfg.remoteControlAtStartup;
-          expected = true;
-        }
-        {
-          name = "apiKeyHelper.enable";
-          actual = cfg.apiKeyHelper.enable;
-          expected = true;
-        }
-      ];
-      failures = builtins.filter (c: c.actual != c.expected) checks;
-      failureMsg = builtins.concatStringsSep "\n" (
-        map (
-          c: "  ${c.name}: expected ${builtins.toJSON c.expected}, got ${builtins.toJSON c.actual}"
-        ) failures
-      );
-    in
-    assert failures == [ ] || throw "Default value regression:\n${failureMsg}";
-    pkgs.runCommand "check-defaults-regression" { } ''
-      echo "Defaults regression: ${toString (builtins.length checks)} critical defaults verified"
-      touch $out
-    '';
+  defaults-regression = helpers.mkDefaultsRegression {
+    label = "Claude";
+    checkName = "check-defaults-regression";
+    checks = [
+      {
+        name = "enable";
+        actual = cfg.enable;
+        expected = true;
+      }
+      {
+        name = "alwaysThinkingEnabled";
+        actual = cfg.settings.alwaysThinkingEnabled;
+        expected = true;
+      }
+      {
+        name = "cleanupPeriodDays";
+        actual = cfg.settings.cleanupPeriodDays;
+        expected = 180;
+      }
+      {
+        name = "model";
+        actual = cfg.model;
+        expected = "opusplan";
+      }
+      {
+        # Intentionally unset → null → Claude Code uses the upstream default.
+        name = "effortLevel";
+        actual = cfg.effortLevel;
+        expected = null;
+      }
+      {
+        name = "sandbox.enabled";
+        actual = cfg.settings.sandbox.enabled;
+        expected = false;
+      }
+      {
+        name = "plugins.allowRuntimeInstall";
+        actual = cfg.plugins.allowRuntimeInstall;
+        expected = true;
+      }
+      {
+        name = "remoteControlAtStartup";
+        actual = cfg.remoteControlAtStartup;
+        expected = true;
+      }
+      {
+        name = "apiKeyHelper.enable";
+        actual = cfg.apiKeyHelper.enable;
+        expected = true;
+      }
+    ];
+  };
 
   # Validate the maestro-cli script extraction produces correct output.
   # (Kept here for historical reasons — moves to maestro module checks long-term.)
@@ -215,8 +206,5 @@ in
     in
     assert nonEmpty || throw "skill packs must be non-empty attrsets";
     assert allBool || throw "skill pack leaf values must all be booleans";
-    pkgs.runCommand "check-skill-packs" { } ''
-      echo "Skill packs: ${toString (builtins.length packList)} packs verified"
-      touch $out
-    '';
+    helpers.mkMarker "check-skill-packs" "Skill packs: ${toString (builtins.length packList)} packs verified";
 }

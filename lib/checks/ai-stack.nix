@@ -4,6 +4,7 @@
 # aggregator passes a placeholder test id so the registry can be materialized.
 { pkgs, testLocalModelId }:
 let
+  helpers = import ./helpers.nix { inherit pkgs; };
   models = import ../ai-stack-models.nix { defaultLocalModelId = testLocalModelId; };
 
   expectedRoles = [
@@ -28,10 +29,7 @@ in
     assert
       actualRoles == expectedRoles
       || throw "lib.aiStackModels role set changed: expected ${builtins.toJSON expectedRoles}, got ${builtins.toJSON actualRoles}";
-    pkgs.runCommand "check-ai-stack-models-keys" { } ''
-      echo "lib.aiStackModels: ${toString (builtins.length expectedRoles)} roles verified"
-      touch $out
-    '';
+    helpers.mkMarker "check-ai-stack-models-keys" "lib.aiStackModels: ${toString (builtins.length expectedRoles)} roles verified";
 
   # Verify all physical IDs are non-empty mlx-community/ strings.
   ai-stack-models-physical-ids =
@@ -49,8 +47,5 @@ in
     assert
       invalidEntries == [ ]
       || throw "lib.aiStackModels physical IDs invalid for roles: ${builtins.toJSON invalidEntries}";
-    pkgs.runCommand "check-ai-stack-models-physical-ids" { } ''
-      echo "lib.aiStackModels: ${toString (builtins.length (builtins.attrNames models))} physical IDs verified as mlx-community/* strings"
-      touch $out
-    '';
+    helpers.mkMarker "check-ai-stack-models-physical-ids" "lib.aiStackModels: ${toString (builtins.length (builtins.attrNames models))} physical IDs verified as mlx-community/* strings";
 }

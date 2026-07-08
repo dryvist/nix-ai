@@ -1,204 +1,190 @@
 # MLX module regression tests and LaunchAgent validation
 { pkgs, hmConfig }:
 let
+  helpers = import ./helpers.nix { inherit pkgs; };
   mlxCfg = hmConfig.config.programs.mlx;
 in
 {
   # Verify all expected MLX option paths exist.
   # Flat structure — no nested backend settings (vllm-mlx only since v0.2.6).
-  mlx-options-regression =
-    let
-      expectedOptions = [
-        "autoUnloadIdleSeconds"
-        "cacheMemoryMb"
-        "chunkedPrefillTokens"
-        "completionBatchSize"
-        "continuousBatching"
-        "defaultModel"
-        "enable"
-        "enableAutoToolChoice"
-        "enableMetrics"
-        "enablePrefixCaching"
-        "gpuMemoryUtilization"
-        "host"
-        "huggingFaceHome"
-        "maxTokens"
-        "maxNumSeqs"
-        "memoryHardLimitGb"
-        "models"
-        "pagedKvCache"
-        "port"
-        "prefillBatchSize"
-        "proxy"
-        "reasoningParser"
-        "toolCallParser"
-      ];
-      actualOptions = builtins.attrNames mlxCfg;
-      missingOptions = builtins.filter (o: !(builtins.elem o actualOptions)) expectedOptions;
-    in
-    assert missingOptions == [ ] || throw "Missing MLX options: ${builtins.toJSON missingOptions}";
-    pkgs.runCommand "check-mlx-options-regression" { } ''
-      echo "MLX option regression: ${toString (builtins.length expectedOptions)} options verified"
-      touch $out
-    '';
+  mlx-options-regression = helpers.mkOptionsRegression {
+    label = "MLX";
+    checkName = "check-mlx-options-regression";
+    cfg = mlxCfg;
+    expectedOptions = [
+      "autoUnloadIdleSeconds"
+      "cacheMemoryMb"
+      "chunkedPrefillTokens"
+      "completionBatchSize"
+      "continuousBatching"
+      "defaultModel"
+      "enable"
+      "enableAutoToolChoice"
+      "enableMetrics"
+      "enablePrefixCaching"
+      "gpuMemoryUtilization"
+      "host"
+      "huggingFaceHome"
+      "maxTokens"
+      "maxNumSeqs"
+      "memoryHardLimitGb"
+      "models"
+      "pagedKvCache"
+      "port"
+      "prefillBatchSize"
+      "proxy"
+      "reasoningParser"
+      "toolCallParser"
+    ];
+  };
 
   # Verify MLX evaluated config values match expected defaults.
-  mlx-defaults-regression =
-    let
-      checks = [
-        {
-          name = "mlx.enable";
-          actual = mlxCfg.enable;
-          expected = true;
-        }
-        {
-          # Presence-only check — the actual model id is parameterized via
-          # services.aiStack.defaultLocalModelId and not hardcoded in this
-          # repo. Verifying it's a non-empty string is enough; the consumer
-          # owns the value.
-          name = "mlx.defaultModel-populated";
-          actual = mlxCfg.defaultModel != null && mlxCfg.defaultModel != "";
-          expected = true;
-        }
-        {
-          name = "mlx.port";
-          actual = mlxCfg.port;
-          expected = 11434;
-        }
-        {
-          name = "mlx.host";
-          actual = mlxCfg.host;
-          expected = "127.0.0.1";
-        }
-        {
-          name = "mlx.huggingFaceHome";
-          actual = mlxCfg.huggingFaceHome;
-          expected = "/Volumes/HuggingFace";
-        }
-        {
-          name = "mlx.cacheMemoryMb";
-          actual = mlxCfg.cacheMemoryMb;
-          expected = 8192;
-        }
-        {
-          name = "mlx.gpuMemoryUtilization";
-          actual = mlxCfg.gpuMemoryUtilization;
-          expected = 0.8;
-        }
-        {
-          name = "mlx.autoUnloadIdleSeconds";
-          actual = mlxCfg.autoUnloadIdleSeconds;
-          expected = 1800;
-        }
-        {
-          name = "mlx.enableMetrics";
-          actual = mlxCfg.enableMetrics;
-          expected = true;
-        }
-        {
-          name = "mlx.proxy.idleTtl";
-          actual = mlxCfg.proxy.idleTtl;
-          expected = 900;
-        }
-        {
-          name = "mlx.proxy.concurrencyLimit";
-          actual = mlxCfg.proxy.concurrencyLimit;
-          expected = 2;
-        }
-        {
-          name = "mlx.prefillBatchSize";
-          actual = mlxCfg.prefillBatchSize;
-          expected = null;
-        }
-        {
-          name = "mlx.continuousBatching";
-          actual = mlxCfg.continuousBatching;
-          expected = true;
-        }
-        {
-          name = "mlx.maxNumSeqs";
-          actual = mlxCfg.maxNumSeqs;
-          expected = 4;
-        }
-        {
-          name = "mlx.enablePrefixCaching";
-          actual = mlxCfg.enablePrefixCaching;
-          expected = true;
-        }
-        {
-          name = "mlx.pagedKvCache";
-          actual = mlxCfg.pagedKvCache;
-          expected = true;
-        }
-        {
-          name = "mlx.chunkedPrefillTokens";
-          actual = mlxCfg.chunkedPrefillTokens;
-          expected = null;
-        }
-        {
-          name = "mlx.completionBatchSize";
-          actual = mlxCfg.completionBatchSize;
-          expected = null;
-        }
-        {
-          name = "mlx.maxTokens";
-          actual = mlxCfg.maxTokens;
-          expected = 8192;
-        }
-        {
-          name = "mlx.memoryHardLimitGb";
-          actual = mlxCfg.memoryHardLimitGb;
-          expected = 100;
-        }
-        {
-          name = "mlx.enableAutoToolChoice";
-          actual = mlxCfg.enableAutoToolChoice;
-          expected = true;
-        }
-        {
-          name = "mlx.toolCallParser";
-          actual = mlxCfg.toolCallParser;
-          expected = "hermes";
-        }
-        {
-          name = "mlx.reasoningParser";
-          actual = mlxCfg.reasoningParser;
-          expected = null;
-        }
-        # Environment variables
-        {
-          name = "mlx.env.MLX_DEFAULT_MODEL";
-          actual = hmConfig.config.home.sessionVariables.MLX_DEFAULT_MODEL;
-          expected = mlxCfg.defaultModel;
-        }
-        {
-          name = "mlx.env.MLX_API_URL";
-          actual = hmConfig.config.home.sessionVariables.MLX_API_URL;
-          expected = "http://127.0.0.1:11434/v1";
-        }
-        {
-          name = "mlx.env.MLX_PORT";
-          actual = hmConfig.config.home.sessionVariables.MLX_PORT;
-          expected = "11434";
-        }
-        {
-          name = "mlx.env.MLX_HOST";
-          actual = hmConfig.config.home.sessionVariables.MLX_HOST;
-          expected = "127.0.0.1";
-        }
-      ];
-      failures = builtins.filter (c: c.actual != c.expected) checks;
-      failureMsg = builtins.concatStringsSep "\n" (
-        map (
-          c: "  ${c.name}: expected ${builtins.toJSON c.expected}, got ${builtins.toJSON c.actual}"
-        ) failures
-      );
-    in
-    assert failures == [ ] || throw "MLX default value regression:\n${failureMsg}";
-    pkgs.runCommand "check-mlx-defaults-regression" { } ''
-      echo "MLX defaults regression: ${toString (builtins.length checks)} critical defaults verified"
-      touch $out
-    '';
+  mlx-defaults-regression = helpers.mkDefaultsRegression {
+    label = "MLX";
+    checkName = "check-mlx-defaults-regression";
+    checks = [
+      {
+        name = "mlx.enable";
+        actual = mlxCfg.enable;
+        expected = true;
+      }
+      {
+        # Presence-only check — the actual model id is parameterized via
+        # services.aiStack.defaultLocalModelId and not hardcoded in this
+        # repo. Verifying it's a non-empty string is enough; the consumer
+        # owns the value.
+        name = "mlx.defaultModel-populated";
+        actual = mlxCfg.defaultModel != null && mlxCfg.defaultModel != "";
+        expected = true;
+      }
+      {
+        name = "mlx.port";
+        actual = mlxCfg.port;
+        expected = 11434;
+      }
+      {
+        name = "mlx.host";
+        actual = mlxCfg.host;
+        expected = "127.0.0.1";
+      }
+      {
+        name = "mlx.huggingFaceHome";
+        actual = mlxCfg.huggingFaceHome;
+        expected = "/Volumes/HuggingFace";
+      }
+      {
+        name = "mlx.cacheMemoryMb";
+        actual = mlxCfg.cacheMemoryMb;
+        expected = 8192;
+      }
+      {
+        name = "mlx.gpuMemoryUtilization";
+        actual = mlxCfg.gpuMemoryUtilization;
+        expected = 0.8;
+      }
+      {
+        name = "mlx.autoUnloadIdleSeconds";
+        actual = mlxCfg.autoUnloadIdleSeconds;
+        expected = 1800;
+      }
+      {
+        name = "mlx.enableMetrics";
+        actual = mlxCfg.enableMetrics;
+        expected = true;
+      }
+      {
+        name = "mlx.proxy.idleTtl";
+        actual = mlxCfg.proxy.idleTtl;
+        expected = 900;
+      }
+      {
+        name = "mlx.proxy.concurrencyLimit";
+        actual = mlxCfg.proxy.concurrencyLimit;
+        expected = 2;
+      }
+      {
+        name = "mlx.prefillBatchSize";
+        actual = mlxCfg.prefillBatchSize;
+        expected = null;
+      }
+      {
+        name = "mlx.continuousBatching";
+        actual = mlxCfg.continuousBatching;
+        expected = true;
+      }
+      {
+        name = "mlx.maxNumSeqs";
+        actual = mlxCfg.maxNumSeqs;
+        expected = 4;
+      }
+      {
+        name = "mlx.enablePrefixCaching";
+        actual = mlxCfg.enablePrefixCaching;
+        expected = true;
+      }
+      {
+        name = "mlx.pagedKvCache";
+        actual = mlxCfg.pagedKvCache;
+        expected = true;
+      }
+      {
+        name = "mlx.chunkedPrefillTokens";
+        actual = mlxCfg.chunkedPrefillTokens;
+        expected = null;
+      }
+      {
+        name = "mlx.completionBatchSize";
+        actual = mlxCfg.completionBatchSize;
+        expected = null;
+      }
+      {
+        name = "mlx.maxTokens";
+        actual = mlxCfg.maxTokens;
+        expected = 8192;
+      }
+      {
+        name = "mlx.memoryHardLimitGb";
+        actual = mlxCfg.memoryHardLimitGb;
+        expected = 100;
+      }
+      {
+        name = "mlx.enableAutoToolChoice";
+        actual = mlxCfg.enableAutoToolChoice;
+        expected = true;
+      }
+      {
+        name = "mlx.toolCallParser";
+        actual = mlxCfg.toolCallParser;
+        expected = "hermes";
+      }
+      {
+        name = "mlx.reasoningParser";
+        actual = mlxCfg.reasoningParser;
+        expected = null;
+      }
+      # Environment variables
+      {
+        name = "mlx.env.MLX_DEFAULT_MODEL";
+        actual = hmConfig.config.home.sessionVariables.MLX_DEFAULT_MODEL;
+        expected = mlxCfg.defaultModel;
+      }
+      {
+        name = "mlx.env.MLX_API_URL";
+        actual = hmConfig.config.home.sessionVariables.MLX_API_URL;
+        expected = "http://127.0.0.1:11434/v1";
+      }
+      {
+        name = "mlx.env.MLX_PORT";
+        actual = hmConfig.config.home.sessionVariables.MLX_PORT;
+        expected = "11434";
+      }
+      {
+        name = "mlx.env.MLX_HOST";
+        actual = hmConfig.config.home.sessionVariables.MLX_HOST;
+        expected = "127.0.0.1";
+      }
+    ];
+  };
 
   # Validate MLX LaunchAgent ProgramArguments use llama-swap proxy,
   # and that the generated llama-swap config JSON contains required fields.
@@ -256,10 +242,7 @@ in
       missingRequired == [ ]
       || throw "Missing required llama-swap proxy flags in ProgramArguments: ${builtins.toJSON missingRequired}";
     assert configArgPresent || throw "ProgramArguments has --config but no following path argument";
-    pkgs.runCommand "check-mlx-launchd" { } ''
-      echo "MLX LaunchAgent: llama-swap proxy args verified (--config ${configFileArg} --watch-config --listen present)"
-      touch $out
-    '';
+    helpers.mkMarker "check-mlx-launchd" "MLX LaunchAgent: llama-swap proxy args verified (--config ${configFileArg} --watch-config --listen present)";
 
   # Verify OOM prevention: ProcessType in LaunchAgent.
   # HardResourceLimits is intentionally absent — it would only cap the llama-swap
@@ -277,10 +260,7 @@ in
     assert
       (!(launchdCfg ? HardResourceLimits) || launchdCfg.HardResourceLimits == null)
       || throw "HardResourceLimits must NOT be set on the llama-swap proxy (only constrains proxy, not vllm-mlx children)";
-    pkgs.runCommand "check-mlx-launchd-memory-safety" { } ''
-      echo "MLX LaunchAgent memory safety: ProcessType=Interactive verified; HardResourceLimits correctly absent from proxy"
-      touch $out
-    '';
+    helpers.mkMarker "check-mlx-launchd-memory-safety" "MLX LaunchAgent memory safety: ProcessType=Interactive verified; HardResourceLimits correctly absent from proxy";
 
   # Negative test: verify the banned-flag detection logic actually catches bad flags.
   # Without this, a regex typo in mlx-launchd could silently pass banned flags through.
@@ -337,8 +317,5 @@ in
       || throw "Negative test failed — banned flags NOT detected: ${
         builtins.toJSON (map (tc: tc.bannedFlag) undetected)
       }";
-    pkgs.runCommand "check-mlx-launchd-negative" { } ''
-      echo "MLX LaunchAgent negative: ${toString (builtins.length testCases)} banned flag patterns verified detectable"
-      touch $out
-    '';
+    helpers.mkMarker "check-mlx-launchd-negative" "MLX LaunchAgent negative: ${toString (builtins.length testCases)} banned flag patterns verified detectable";
 }

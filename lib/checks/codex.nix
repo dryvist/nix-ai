@@ -1,131 +1,117 @@
 # Codex module regression tests
 { pkgs, hmConfig }:
 let
+  helpers = import ./helpers.nix { inherit pkgs; };
   cfg = hmConfig.config.programs.codex;
   homeFileNames = builtins.attrNames hmConfig.config.home.file;
 in
 {
   # Verify all expected Codex option paths exist.
-  codex-options-regression =
-    let
-      expectedOptions = [
-        "approvalPolicy"
-        "enable"
-        "excludedMcpServers"
-        "features"
-        "hooks"
-        "model"
-        "modelProvider"
-        "modelReasoningEffort"
-        "modelVerbosity"
-        "planModeReasoningEffort"
-        "projectDocFallbackFilenames"
-        "reviewModel"
-        "serviceTier"
-        "trustedProjectDirs"
-        "webSearch"
-      ];
-      actualOptions = builtins.attrNames cfg;
-      missingOptions = builtins.filter (o: !(builtins.elem o actualOptions)) expectedOptions;
-    in
-    assert missingOptions == [ ] || throw "Missing Codex options: ${builtins.toJSON missingOptions}";
-    pkgs.runCommand "check-codex-options-regression" { } ''
-      echo "Codex option regression: ${toString (builtins.length expectedOptions)} options verified"
-      touch $out
-    '';
+  codex-options-regression = helpers.mkOptionsRegression {
+    label = "Codex";
+    checkName = "check-codex-options-regression";
+    inherit cfg;
+    expectedOptions = [
+      "approvalPolicy"
+      "enable"
+      "excludedMcpServers"
+      "features"
+      "hooks"
+      "model"
+      "modelProvider"
+      "modelReasoningEffort"
+      "modelVerbosity"
+      "planModeReasoningEffort"
+      "projectDocFallbackFilenames"
+      "reviewModel"
+      "serviceTier"
+      "trustedProjectDirs"
+      "webSearch"
+    ];
+  };
 
   # Verify evaluated config values match expected defaults.
-  codex-defaults-regression =
-    let
-      checks = [
-        {
-          name = "codex.enable";
-          actual = cfg.enable;
-          expected = true;
-        }
-        {
-          name = "codex.approvalPolicy";
-          actual = cfg.approvalPolicy;
-          expected = "untrusted";
-        }
-        {
-          name = "codex.features";
-          actual = cfg.features;
-          expected = { };
-        }
-        {
-          name = "codex.model";
-          actual = cfg.model;
-          expected = null;
-        }
-        {
-          name = "codex.modelProvider";
-          actual = cfg.modelProvider;
-          expected = null;
-        }
-        {
-          name = "codex.modelReasoningEffort";
-          actual = cfg.modelReasoningEffort;
-          expected = "medium";
-        }
-        {
-          name = "codex.modelVerbosity";
-          actual = cfg.modelVerbosity;
-          expected = "medium";
-        }
-        {
-          name = "codex.planModeReasoningEffort";
-          actual = cfg.planModeReasoningEffort;
-          expected = "high";
-        }
-        {
-          name = "codex.reviewModel";
-          actual = cfg.reviewModel;
-          expected = null;
-        }
-        {
-          name = "codex.serviceTier";
-          actual = cfg.serviceTier;
-          expected = null;
-        }
-        {
-          name = "codex.webSearch";
-          actual = cfg.webSearch;
-          expected = null;
-        }
-        {
-          name = "codex.excludedMcpServers.length";
-          actual = builtins.length cfg.excludedMcpServers;
-          expected = 11;
-        }
-        {
-          name = "codex.trustedProjectDirs";
-          actual = cfg.trustedProjectDirs;
-          expected = [ ];
-        }
-        {
-          name = "codex.projectDocFallbackFilenames";
-          actual = cfg.projectDocFallbackFilenames;
-          expected = [ "AGENTS.md" ];
-        }
-        {
-          name = "codex.hooks.notification";
-          actual = cfg.hooks.notification;
-          expected = null;
-        }
-      ];
-      failures = builtins.filter (c: c.actual != c.expected) checks;
-      failureMsg = builtins.concatStringsSep "\n" (
-        map (
-          c: "  ${c.name}: expected ${builtins.toJSON c.expected}, got ${builtins.toJSON c.actual}"
-        ) failures
-      );
-    in
-    assert failures == [ ] || throw "Codex default value regression:\n${failureMsg}";
-    pkgs.runCommand "check-codex-defaults-regression" { } ''
-      echo "Codex defaults regression: ${toString (builtins.length checks)} critical defaults verified"
-      touch $out
-    '';
+  codex-defaults-regression = helpers.mkDefaultsRegression {
+    label = "Codex";
+    checkName = "check-codex-defaults-regression";
+    checks = [
+      {
+        name = "codex.enable";
+        actual = cfg.enable;
+        expected = true;
+      }
+      {
+        name = "codex.approvalPolicy";
+        actual = cfg.approvalPolicy;
+        expected = "untrusted";
+      }
+      {
+        name = "codex.features";
+        actual = cfg.features;
+        expected = { };
+      }
+      {
+        name = "codex.model";
+        actual = cfg.model;
+        expected = null;
+      }
+      {
+        name = "codex.modelProvider";
+        actual = cfg.modelProvider;
+        expected = null;
+      }
+      {
+        name = "codex.modelReasoningEffort";
+        actual = cfg.modelReasoningEffort;
+        expected = "medium";
+      }
+      {
+        name = "codex.modelVerbosity";
+        actual = cfg.modelVerbosity;
+        expected = "medium";
+      }
+      {
+        name = "codex.planModeReasoningEffort";
+        actual = cfg.planModeReasoningEffort;
+        expected = "high";
+      }
+      {
+        name = "codex.reviewModel";
+        actual = cfg.reviewModel;
+        expected = null;
+      }
+      {
+        name = "codex.serviceTier";
+        actual = cfg.serviceTier;
+        expected = null;
+      }
+      {
+        name = "codex.webSearch";
+        actual = cfg.webSearch;
+        expected = null;
+      }
+      {
+        name = "codex.excludedMcpServers.length";
+        actual = builtins.length cfg.excludedMcpServers;
+        expected = 11;
+      }
+      {
+        name = "codex.trustedProjectDirs";
+        actual = cfg.trustedProjectDirs;
+        expected = [ ];
+      }
+      {
+        name = "codex.projectDocFallbackFilenames";
+        actual = cfg.projectDocFallbackFilenames;
+        expected = [ "AGENTS.md" ];
+      }
+      {
+        name = "codex.hooks.notification";
+        actual = cfg.hooks.notification;
+        expected = null;
+      }
+    ];
+  };
 
   # Validate the activation package builds (forces config.toml generation).
   codex-settings-toml = builtins.seq hmConfig.activationPackage (
@@ -135,10 +121,7 @@ in
     assert
       disallowedCodexFiles == [ ]
       || throw "Codex must not deploy tool-specific shared skills or GEMINI.md: ${builtins.toJSON disallowedCodexFiles}";
-    pkgs.runCommand "check-codex-settings-toml" { } ''
-      echo "Codex settings: activation package builds successfully (config.toml generation verified)"
-      touch $out
-    ''
+    helpers.mkMarker "check-codex-settings-toml" "Codex settings: activation package builds successfully (config.toml generation verified)"
   );
 
   # Validate permissions pipeline produces non-empty rules via home.file output.
