@@ -41,6 +41,37 @@ in
       description = "Path to HuggingFace model cache (dedicated APFS volume)";
     };
 
+    # Dynamic tier — mlx-lm's own OpenAI server with NO model argument: it
+    # natively lists the entire HF cache at /v1/models and loads any requested
+    # cached model id on demand. The cache is the single source of truth for
+    # exposure (download = servable, delete = gone) — no per-model config, no
+    # discovery scanner, no blocklist. The llama-swap registry above remains
+    # the tuned resident tier; this serves everything else.
+    dynamicTier = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = ''
+          Run the zero-config dynamic model tier (mlx_lm.server over the whole
+          HF cache). On by default: every mlx-enabled host exposes everything
+          it has downloaded, with no per-model configuration anywhere.
+
+          Known limit: mlx_lm.server has no memory preflight — an oversized
+          load fails at Metal's wired ceiling (contained per-request error)
+          instead of being politely queued/refused. The tracked upgrade is
+          vllm-mlx's models-config manager (memory_budget_gb +
+          wait_then_preempt) growing a dynamic HF-cache mode — see the
+          bump-check note on the vllmMlx pin in lib/versions.nix.
+        '';
+      };
+
+      port = lib.mkOption {
+        type = lib.types.port;
+        default = 11435;
+        description = "Port for the dynamic-tier mlx_lm.server (bound to programs.mlx.host).";
+      };
+    };
+
     # enableMetrics — Native Prometheus metrics endpoint (--enable-metrics).
     # Exposes /metrics on each worker for scrape-based monitoring (Cribl Edge
     # has a built-in Prometheus input). No custom collectors required.

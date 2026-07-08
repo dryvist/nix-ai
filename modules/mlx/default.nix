@@ -40,11 +40,6 @@ let
   apiUrl = "http://${cfg.host}:${toString cfg.port}/v1";
   launchAgentLabel = "dev.vllm-mlx.server";
 
-  # Mutable runtime config path — llama-swap reads this with --watch-config.
-  # mlx-discover merges auto-discovered models into this file at runtime.
-  # The Nix-generated llamaSwapConfigFile seeds this on first activation.
-  llamaSwapRuntimeConfigPath = "${config.home.homeDirectory}/.config/mlx/llama-swap.json";
-
   # Build the vllm-mlx serve command string for a given model ID.
   # Global option values may be replaced per physical model via
   # modelFlagOverrides; every override key must appear in overridableFlags —
@@ -283,8 +278,17 @@ in
       llamaSwapPkg
       llamaSwapConfigFile
       llamaSwapConfigAttrs
-      llamaSwapRuntimeConfigPath
       ;
+
+    # Dynamic-tier server: mlx-lm's own OpenAI-compatible server, started
+    # with NO model argument. Natively lists the whole HF cache at /v1/models
+    # and loads any requested cached model id on demand — the zero-config
+    # exposure tier (see launchd.nix agents mlx-lm-dynamic). Same pin +
+    # transformers companion as the other mlx-lm wrappers (lib/versions.nix
+    # incident note).
+    mlxLmServerPkg = pkgs.writeShellScriptBin "mlx-lm-server" ''
+      exec ${pkgs.uv}/bin/uvx --from "mlx-lm==${versions.mlxLm}" --with "transformers==${versions.transformers}" mlx_lm.server "$@"
+    '';
   };
 
   # Enforce documented option dependencies. Without these, vllm-mlx silently

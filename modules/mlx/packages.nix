@@ -28,7 +28,6 @@ let
     launchAgentLabel
     llamaSwapPkg
     llamaSwapConfigFile
-    llamaSwapRuntimeConfigPath
     ;
   versions = import ../../lib/versions.nix;
   vllmMlxPin = "vllm-mlx==${vllmMlxVersion}";
@@ -50,8 +49,12 @@ in
         MLX_HOST = cfg.host;
         MLX_HF_HOME = cfg.huggingFaceHome;
         MLX_LAUNCHD_LABEL = launchAgentLabel;
-        MLX_LLAMA_SWAP_CONFIG = llamaSwapRuntimeConfigPath;
-        MLX_LLAMA_SWAP_BASE_CONFIG = "${llamaSwapConfigFile}";
+        # The immutable Nix store config llama-swap actually runs with —
+        # read-only consumers (mlx-models/mlx-switch) inspect this file.
+        MLX_LLAMA_SWAP_CONFIG = "${llamaSwapConfigFile}";
+      }
+      // lib.optionalAttrs cfg.dynamicTier.enable {
+        MLX_DYNAMIC_API_URL = "http://${cfg.host}:${toString cfg.dynamicTier.port}/v1";
       };
 
       # ==========================================================================
@@ -207,11 +210,6 @@ in
           ];
           text = builtins.readFile ./scripts/mlx-models.sh;
         })
-
-        # mlx-discover — auto-discover downloaded models and register with llama-swap
-        (pkgs.writeShellScriptBin "mlx-discover" ''
-          exec ${pkgs.python3}/bin/python3 "${./discover-models.py}" "$@"
-        '')
 
         # ======================================================================
         # MLX Ecosystem — Ears & Eyes

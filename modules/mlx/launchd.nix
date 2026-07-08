@@ -7,7 +7,6 @@
 {
   config,
   lib,
-  pkgs,
   mlxShared,
   ...
 }:
@@ -19,7 +18,7 @@ let
     mlxWarmupPkg
     llamaSwapPkg
     llamaSwapConfigFile
-    llamaSwapRuntimeConfigPath
+    mlxLmServerPkg
     ;
 in
 {
@@ -37,69 +36,107 @@ in
       # emergency cache clear; programs.mlx.gpuMemoryUtilization) plus
       # --cache-memory-mb and --auto-unload-idle-seconds (set in the generated
       # config). programs.mlx.memoryHardLimitGb remains declarative intent only.
-      agents.vllm-mlx = {
-        enable = true;
-        config = {
-          Label = launchAgentLabel;
-          ProgramArguments = [
-            (lib.getExe llamaSwapPkg)
-            "--config"
-            llamaSwapRuntimeConfigPath
-            "--watch-config"
-            "--listen"
-            "${cfg.host}:${toString cfg.port}"
-          ];
-          RunAtLoad = true;
-          KeepAlive = true;
-          # 2 min throttle — 70GB model loads take 20-60s, prevents rapid crash-restart loops (closes #256)
-          ThrottleInterval = 120;
-          # Interactive by default — Background QoS clamps Metal decode ~8x
-          # (see options-runtime.nix processType). OOM backstop is the RSS
-          # hard limit, not Jetsam eligibility.
-          ProcessType = cfg.processType;
-          # Do not abandon the process group; ensure child vllm-mlx processes
-          # are terminated when launchd stops the proxy.
-          AbandonProcessGroup = false;
-          EnvironmentVariables = {
-            HF_HOME = cfg.huggingFaceHome;
-          }
-          // lib.optionalAttrs cfg.telemetry.enable {
-            # Standard OTel env vars inherited by llama-swap and its vllm-mlx children.
-            # The OTEL Collector at :30317 fans out to Cribl/Splunk and (optionally)
-            # to Galileo — see docs/adr/0003-galileo-ai-observability.md.
-            # Trace emission from vllm-mlx 0.2.9 is best-effort; the collector's
-            # routing connector is the primary gate, not the agent env.
-            OTEL_SERVICE_NAME = "vllm-mlx";
-            OTEL_EXPORTER_OTLP_ENDPOINT = cfg.telemetry.otlpEndpoint;
-            OTEL_EXPORTER_OTLP_PROTOCOL = "grpc";
-            OTEL_RESOURCE_ATTRIBUTES = "service.namespace=mlx,deployment.environment=homelab";
+      agents = {
+        vllm-mlx = {
+          enable = true;
+          config = {
+            Label = launchAgentLabel;
+            # The config is the immutable Nix store file — nothing mutates it at
+            # runtime (the old mutable-copy + --watch-config + discovery-scanner
+            # machinery is gone; non-registry models are served by the dynamic
+            # tier below). A config change is a darwin-rebuild, which restarts
+            # this agent with the new store path.
+            ProgramArguments = [
+              (lib.getExe llamaSwapPkg)
+              "--config"
+              "${llamaSwapConfigFile}"
+              "--listen"
+              "${cfg.host}:${toString cfg.port}"
+            ];
+            RunAtLoad = true;
+            KeepAlive = true;
+            # 2 min throttle — 70GB model loads take 20-60s, prevents rapid crash-restart loops (closes #256)
+            ThrottleInterval = 120;
+            # Interactive by default — Background QoS clamps Metal decode ~8x
+            # (see options-runtime.nix processType). OOM backstop is the RSS
+            # hard limit, not Jetsam eligibility.
+            ProcessType = cfg.processType;
+            # Do not abandon the process group; ensure child vllm-mlx processes
+            # are terminated when launchd stops the proxy.
+            AbandonProcessGroup = false;
+            EnvironmentVariables = {
+              HF_HOME = cfg.huggingFaceHome;
+            }
+            // lib.optionalAttrs cfg.telemetry.enable {
+              # Standard OTel env vars inherited by llama-swap and its vllm-mlx children.
+              # The OTEL Collector at :30317 fans out to Cribl/Splunk and (optionally)
+              # to Galileo — see docs/adr/0003-galileo-ai-observability.md.
+              # Trace emission from vllm-mlx 0.2.9 is best-effort; the collector's
+              # routing connector is the primary gate, not the agent env.
+              OTEL_SERVICE_NAME = "vllm-mlx";
+              OTEL_EXPORTER_OTLP_ENDPOINT = cfg.telemetry.otlpEndpoint;
+              OTEL_EXPORTER_OTLP_PROTOCOL = "grpc";
+              OTEL_RESOURCE_ATTRIBUTES = "service.namespace=mlx,deployment.environment=homelab";
+            };
+            StandardOutPath = "${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx.log";
+            StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx.error.log";
           };
-          StandardOutPath = "${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx.log";
-          StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx.error.log";
         };
-      };
 
-      # One-shot warmup job: wait for the proxy to answer, then fault each
-      # preloaded model with a 1-token chat completion so the weights are
-      # resident at boot instead of on first user request.
-      agents.vllm-mlx-warmup = {
-        enable = true;
-        config = {
-          Label = "dev.vllm-mlx.warmup";
-          ProgramArguments = [ (lib.getExe mlxWarmupPkg) ];
-          RunAtLoad = true;
-          KeepAlive = {
-            SuccessfulExit = false;
+        # Dynamic tier: mlx_lm.server started with NO model argument natively
+        # serves the ENTIRE HuggingFace cache — /v1/models lists every locally
+        # downloaded model, and any request may name any cached model id, which
+        # it loads on demand (mlx-lm's documented per-request ModelProvider
+        # behavior). The HF cache itself is the single source of truth for
+        # exposure: `hf download` a model and it is servable; delete it from the
+        # cache and it is gone. Zero per-model config, zero discovery scanners.
+        # The tuned resident tier (llama-swap + the Nix role registry above)
+        # keeps the performance path; this tier is for everything else.
+        mlx-lm-dynamic = lib.mkIf cfg.dynamicTier.enable {
+          enable = true;
+          config = {
+            Label = "dev.mlx-lm.dynamic";
+            ProgramArguments = [
+              (lib.getExe mlxLmServerPkg)
+              "--host"
+              cfg.host
+              "--port"
+              (toString cfg.dynamicTier.port)
+            ];
+            RunAtLoad = true;
+            KeepAlive = true;
+            ThrottleInterval = 120;
+            ProcessType = cfg.processType;
+            EnvironmentVariables = {
+              HF_HOME = cfg.huggingFaceHome;
+            };
+            StandardOutPath = "${config.home.homeDirectory}/Library/Logs/vllm-mlx/mlx-lm-dynamic.log";
+            StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/vllm-mlx/mlx-lm-dynamic.error.log";
           };
-          ThrottleInterval = 120;
-          ProcessType = "Background";
-          EnvironmentVariables = {
-            MLX_API_URL = apiUrl;
-            MLX_PRELOAD_MODELS = lib.concatStringsSep " " cfg.preload;
-            MLX_PRELOAD_MODELS_JSON = builtins.toJSON cfg.preload;
+        };
+
+        # One-shot warmup job: wait for the proxy to answer, then fault each
+        # preloaded model with a 1-token chat completion so the weights are
+        # resident at boot instead of on first user request.
+        vllm-mlx-warmup = {
+          enable = true;
+          config = {
+            Label = "dev.vllm-mlx.warmup";
+            ProgramArguments = [ (lib.getExe mlxWarmupPkg) ];
+            RunAtLoad = true;
+            KeepAlive = {
+              SuccessfulExit = false;
+            };
+            ThrottleInterval = 120;
+            ProcessType = "Background";
+            EnvironmentVariables = {
+              MLX_API_URL = apiUrl;
+              MLX_PRELOAD_MODELS = lib.concatStringsSep " " cfg.preload;
+              MLX_PRELOAD_MODELS_JSON = builtins.toJSON cfg.preload;
+            };
+            StandardOutPath = "${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx-warmup.log";
+            StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx-warmup.error.log";
           };
-          StandardOutPath = "${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx-warmup.log";
-          StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx-warmup.error.log";
         };
       };
     };
@@ -117,26 +154,8 @@ in
         ${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx.log              :              644   3      10240 *     J
         ${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx-warmup.error.log :              644   3      10240 *     J
         ${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx-warmup.log       :              644   3      10240 *     J
-      '';
-
-      # ==========================================================================
-      # Runtime Config Seeding and Model Discovery
-      # ==========================================================================
-      # On activation (darwin-rebuild switch), seed the mutable runtime config
-      # from the Nix-generated base config. Preserves runtime-discovered models
-      # by only overwriting when the base config has actually changed.
-      activation.seedLlamaSwapConfig = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-        run ${pkgs.python3}/bin/python3 "${./seed-config.py}" "${llamaSwapConfigFile}" "${llamaSwapRuntimeConfigPath}"
-      '';
-
-      # Auto-discover newly downloaded HF models and register them with llama-swap.
-      # Runs after seeding so the runtime config exists. The script exits 0 when
-      # the HF volume is absent (scan_models returns []), so no || true needed.
-      activation.discoverMlxModels = lib.hm.dag.entryAfter [ "seedLlamaSwapConfig" ] ''
-        export MLX_HF_HOME="${cfg.huggingFaceHome}"
-        export MLX_LLAMA_SWAP_CONFIG="${llamaSwapRuntimeConfigPath}"
-        export MLX_LLAMA_SWAP_BASE_CONFIG="${llamaSwapConfigFile}"
-        run ${pkgs.python3}/bin/python3 "${./discover-models.py}" --quiet
+        ${config.home.homeDirectory}/Library/Logs/vllm-mlx/mlx-lm-dynamic.log        :              644   3      10240 *     J
+        ${config.home.homeDirectory}/Library/Logs/vllm-mlx/mlx-lm-dynamic.error.log  :              644   3      10240 *     J
       '';
     };
 

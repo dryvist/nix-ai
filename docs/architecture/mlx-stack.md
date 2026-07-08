@@ -81,8 +81,9 @@ and the `preload` list. Server-class hosts keep several resident models warm by 
 for that tier (`proxy.idleTtl = 0`, `autoUnloadIdleSeconds = 0`). The separate
 `programs.mlx.models` map is the non-resident swap tier: those models are not
 preloaded, can carry their own TTLs and per-model flags, and are loaded only when
-requested. Runtime-discovered HF models are appended to the swap tier when that group
-exists. A small `mlx-warmup` LaunchAgent faults the resident preload list at boot with
+requested. Every other locally cached model is served on demand by the dynamic tier
+(`programs.mlx.dynamicTier` — an `mlx_lm.server` with no model argument that
+natively serves the whole HF cache). A small `mlx-warmup` LaunchAgent faults the resident preload list at boot with
 1-token requests so the first user request does not pay the cold-start page-in cost.
 Per-model serve flags that must differ from the globals ride `modelExtraArgs`
 (append-only) or `modelFlagOverrides` (replaces a global option value, e.g. turning

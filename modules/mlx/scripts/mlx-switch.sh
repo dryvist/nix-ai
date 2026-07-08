@@ -1,25 +1,27 @@
 #!/usr/bin/env bash
 # Switch the active MLX model via llama-swap proxy.
-# Auto-discovers and registers unregistered models before switching.
+# Registry (Nix-declared) models only — anything else in the HF cache is
+# served on demand by the dynamic tier (MLX_DYNAMIC_API_URL), no switch needed.
 # Usage: mlx-switch <model-id>
 
 model="${1:?Usage: mlx-switch <model>}"
 
 mlx-preflight "$model" || exit 1
 
-# Check if model is registered in llama-swap config; auto-discover if not
+# The config is the immutable Nix-generated file; a model missing from it is
+# not an error to repair at runtime — it is either served by the dynamic tier
+# or needs a Nix registry entry (one reviewed attr).
 config_path="${MLX_LLAMA_SWAP_CONFIG:-}"
 if [ -n "$config_path" ] && [ -f "$config_path" ]; then
   if ! jq -e --arg m "$model" '.models[$m]' "$config_path" > /dev/null 2>&1; then
-    echo "Model not in llama-swap config — running mlx-discover..."
-    mlx-discover --quiet
-    # Verify it was registered
-    if ! jq -e --arg m "$model" '.models[$m]' "$config_path" > /dev/null 2>&1; then
-      echo "ERROR: Model $model could not be auto-registered." >&2
-      echo "Is it downloaded? Check: mlx-models" >&2
-      exit 1
+    echo "ERROR: $model is not in the llama-swap registry (Nix-declared)." >&2
+    if [ -n "${MLX_DYNAMIC_API_URL:-}" ]; then
+      echo "Cached models are served on demand by the dynamic tier instead:" >&2
+      echo "  ${MLX_DYNAMIC_API_URL} (just name the model in the request)" >&2
+    else
+      echo "Add it to the Nix registry (services.aiStack / programs.mlx.models)." >&2
     fi
-    echo "Model registered. Proceeding with switch."
+    exit 1
   fi
 fi
 

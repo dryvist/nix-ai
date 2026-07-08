@@ -71,4 +71,4 @@ done
 echo ""
 echo "System: ${total_gb} GB total, 20 GB reserved, ${available_gb} GB available for models"
 echo "* = currently running | REG = registered in llama-swap config"
-echo "Run 'mlx-discover' to register unregistered models"
+echo "Unregistered cached models are served on demand by the dynamic tier (MLX_DYNAMIC_API_URL)"

@@ -36,7 +36,6 @@ Use **`home.file` symlinks** for config files that are read-only from the tool's
 | `~/.claude/plugins/known_marketplaces.json` | Plugin cache state, indexed marketplace entries |
 | `~/.gemini/settings.json` | Auth tokens, session preferences |
 | `~/.codex/config.toml` | Auth state from `codex login` |
-| `~/.config/mlx/llama-swap.json` | Runtime model discovery (`mlx-discover` appends entries) |
 
 **Files that use `home.file` symlinks** (tools only read these):
 

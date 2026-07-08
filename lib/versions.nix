@@ -64,6 +64,15 @@
   # 0.4.0 adds GPT-OSS/harmony prompt rendering for tool calls (required to
   # serve gpt-oss models with working tool calling) and requires
   # mlx-lm>=0.31.3, which forces the mlx/mlx-lm pins below forward together.
+  #
+  # ON EVERY BUMP, CHECK: does `vllm-mlx serve --models-config` now support a
+  # dynamic HF-cache mode (registry auto-populated from HF_HOME instead of a
+  # hand-listed YAML)? Its multi-model manager already has memory_budget_gb +
+  # contention_policy (wait_then_preempt) — exactly the memory-safe loading
+  # the dynamic tier (programs.mlx.dynamicTier, currently mlx_lm.server)
+  # lacks. The moment upstream can treat the cache as the model source, swap
+  # the dynamic tier's backend to it: zero-config exposure AND budget-aware
+  # graceful refusal/preemption, one launchd arg change.
   # renovate: datasource=pypi depName=vllm-mlx
   vllmMlx = "0.4.0";
   # renovate: datasource=pypi depName=parakeet-mlx

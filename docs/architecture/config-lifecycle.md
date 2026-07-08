@@ -35,16 +35,16 @@ activation scripts via Nix store paths baked into the derivation at evaluation t
 - `modules/claude-config.nix` (+ `nix-claude-code` flake input) → JSON derivation for settings merge
 - `modules/codex/settings.nix` → TOML derivation for config merge
 
-**Constraint**: The MLX model list in `llama-swap.json` is seeded from `programs.mlx.models`
-(declared in Nix). Models discovered at runtime by `mlx-discover` are added to the mutable
-copy only — the Nix-generated seed stays fixed until the next rebuild.
+**Constraint**: llama-swap runs directly against the immutable Nix store config —
+its model list is exactly the Nix-declared registry (`services.aiStack` roles +
+`programs.mlx.models`), and a registry change is a rebuild. Every other locally
+cached model is served on demand by the dynamic tier (`programs.mlx.dynamicTier`,
+an `mlx_lm.server` with no model argument that natively serves the whole HF
+cache) — no runtime config mutation exists.
 
 ### Phase 2: Activation Time (darwin-rebuild switch)
 
-`home.activation` scripts run during `home-manager activate` with full system access. While
-they _can_ query live APIs, `llama-swap.json` specifically uses a **seed-and-extend** pattern:
-the activation script copies a Nix-generated seed, and the runtime `mlx-discover` tool handles
-dynamic local-model discovery — so model IDs never have to be baked into the Nix expression.
+`home.activation` scripts run during `home-manager activate` with full system access.
 The separate `mlx-warmup` LaunchAgent runs after the proxy is ready and faults the
 resident preload list into memory with 1-token requests.
 
@@ -71,8 +71,6 @@ All `home.activation` entries and their targets:
 | `knownMarketplacesMerge` | `nix-claude-code` flake input (`modules/settings.nix`) | `~/.claude/plugins/known_marketplaces.json` | Synthetic marketplace registry (installLocation + source) |
 | `mergeAntigravitySettings` | `modules/antigravity-cli/settings.nix` | `~/.gemini/antigravity-cli/settings.json` | MCP servers, policies, folder trust |
 | `codexConfigMerge` | `modules/codex/settings.nix` | `~/.codex/config.toml` | Model, MCP servers, approval policy |
-| `seedLlamaSwapConfig` | `modules/mlx/launchd.nix` | `~/.config/mlx/llama-swap.json` | Copies Nix-generated seed; preserves runtime models |
-| `discoverMlxModels` | `modules/mlx/launchd.nix` | `~/.config/mlx/llama-swap.json` | Extends the seed with locally available MLX models (swap tier when configured) |
 
 ## Config File Patterns
 
@@ -83,7 +81,7 @@ consuming tool writes to its own config file at runtime.
 |---------|-----------|-----------|---------|
 | **Nix store symlink** | `home.file` | Tool is read-only toward config | Plugin dirs, patterns, playbooks, copilot trusted folders |
 | **Activation deep-merge** | `home.activation` + shell script | Tool writes runtime state to config | `~/.claude.json`, `~/.gemini/antigravity-cli/settings.json`, `~/.codex/config.toml` |
-| **Activation seed + runtime extension** | `seed-config.py` + `mlx-discover` | Config is both Nix-seeded and runtime-extensible | `~/.config/mlx/llama-swap.json` |
+| **Store path direct** | LaunchAgent arg | Tool never writes its config | llama-swap (`--config <store path>`) |
 
 ### Why `home.file` Symlinks Break for Claude/Antigravity/Codex
 
@@ -104,9 +102,12 @@ These tools refresh specific files between rebuilds:
 
 | Command | Refreshes | Trigger |
 |---------|-----------|---------|
-| `mlx-discover` | `~/.config/mlx/llama-swap.json` | After downloading a new model to `/Volumes/HuggingFace` |
 | `mlx-warmup` | resident model pages | After startup or when manually faulting the preload list |
-| `mlx-switch <model>` | triggers `mlx-discover` if needed | Hot-swap active MLX model without restart |
+| `mlx-switch <model>` | active registry model | Hot-swap active MLX model without restart |
+
+Newly downloaded models need no refresh step at all: the dynamic tier
+(`mlx_lm.server`) reads the HF cache per request, so a completed download is
+immediately listed and servable.
 
 ## Diagram: Full File Ownership Map
 
@@ -119,13 +120,12 @@ graph TD
     end
 
     subgraph Activation["Activation Time — darwin-rebuild switch"]
-        A1["seedLlamaSwapConfig\n→ ~/.config/mlx/llama-swap.json"]
         A2["claudeJsonMerge\n→ ~/.claude.json"]
         A3["claudeSettingsMerge\n→ ~/.claude/settings.json"]
     end
 
     subgraph Runtime["Runtime — mutable user files"]
-        R1["~/.config/mlx/llama-swap.json\n(mlx-discover extends)"]
+        R1["llama-swap\n(reads NS1 store path directly)"]
         R2["~/.claude.json\n(Claude Code writes session state)"]
         R3["~/.claude/settings.json\n(Claude Code writes preferences)"]
     end
@@ -137,7 +137,7 @@ graph TD
         S4["~/Maestro/ playbooks"]
     end
 
-    NS1 --> A1 --> R1
+    NS1 --> R1
     NS2 --> A2 --> R2
     NS2 --> A3 --> R3
     NS3 --> S1
