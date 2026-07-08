@@ -83,7 +83,7 @@ in
         {
           name = "mlx.gpuMemoryUtilization";
           actual = mlxCfg.gpuMemoryUtilization;
-          expected = 0.5;
+          expected = 0.8;
         }
         {
           name = "mlx.autoUnloadIdleSeconds";
