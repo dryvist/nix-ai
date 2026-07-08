@@ -9,6 +9,7 @@
   src,
 }:
 let
+  helpers = import ./helpers.nix { inherit pkgs; };
   cfg = hmConfig.config.programs.fabric;
 in
 {
@@ -16,7 +17,13 @@ in
   # an option — it is a computed constant in packages.nix (see that file for
   # rationale). This check also asserts patternsDir is NOT in the option set.
   fabric-options-regression =
-    let
+    assert
+      !(builtins.elem "patternsDir" (builtins.attrNames cfg))
+      || throw "patternsDir must NOT be a configurable option (it is a computed constant — see modules/fabric/packages.nix)";
+    helpers.mkOptionsRegression {
+      label = "Fabric";
+      checkName = "check-fabric-options-regression";
+      inherit cfg;
       expectedOptions = [
         "customPatternsDir"
         "defaultModel"
@@ -25,76 +32,55 @@ in
         "host"
         "port"
       ];
-      actualOptions = builtins.attrNames cfg;
-      missingOptions = builtins.filter (o: !(builtins.elem o actualOptions)) expectedOptions;
-      patternsDirIsOption = builtins.elem "patternsDir" actualOptions;
-    in
-    assert missingOptions == [ ] || throw "Missing fabric options: ${builtins.toJSON missingOptions}";
-    assert
-      !patternsDirIsOption
-      || throw "patternsDir must NOT be a configurable option (it is a computed constant — see modules/fabric/packages.nix)";
-    pkgs.runCommand "check-fabric-options-regression" { } ''
-      echo "Fabric option regression: ${toString (builtins.length expectedOptions)} options verified"
-      touch $out
-    '';
+    };
 
   # Verify fabric evaluated config values match expected defaults.
   # Pinning these so accidental drift breaks the build (port collisions, etc.).
-  fabric-defaults-regression =
-    let
-      checks = [
-        {
-          name = "fabric.enable";
-          actual = cfg.enable;
-          expected = true;
-        }
-        {
-          name = "fabric.enableServer";
-          actual = cfg.enableServer;
-          expected = false;
-        }
-        {
-          name = "fabric.host";
-          actual = cfg.host;
-          expected = "127.0.0.1";
-        }
-        {
-          name = "fabric.port";
-          actual = cfg.port;
-          expected = 8180;
-        }
-        {
-          name = "fabric.defaultModel";
-          actual = cfg.defaultModel;
-          expected = "default";
-        }
-        # Environment variables — FABRIC_PATTERNS_DIR is computed from
-        # config.home.homeDirectory + the fixed ".config/fabric/patterns"
-        # relative path (see modules/fabric/packages.nix). This check asserts
-        # the env var stays in sync with the home.file symlink location.
-        {
-          name = "fabric.env.FABRIC_PATTERNS_DIR";
-          actual = hmConfig.config.home.sessionVariables.FABRIC_PATTERNS_DIR;
-          expected = "${hmConfig.config.home.homeDirectory}/.config/fabric/patterns";
-        }
-        {
-          name = "fabric.env.FABRIC_DEFAULT_MODEL";
-          actual = hmConfig.config.home.sessionVariables.FABRIC_DEFAULT_MODEL;
-          expected = cfg.defaultModel;
-        }
-      ];
-      failures = builtins.filter (c: c.actual != c.expected) checks;
-      failureMsg = builtins.concatStringsSep "\n" (
-        map (
-          c: "  ${c.name}: expected ${builtins.toJSON c.expected}, got ${builtins.toJSON c.actual}"
-        ) failures
-      );
-    in
-    assert failures == [ ] || throw "Fabric default value regression:\n${failureMsg}";
-    pkgs.runCommand "check-fabric-defaults-regression" { } ''
-      echo "Fabric defaults regression: ${toString (builtins.length checks)} critical defaults verified"
-      touch $out
-    '';
+  fabric-defaults-regression = helpers.mkDefaultsRegression {
+    label = "Fabric";
+    checkName = "check-fabric-defaults-regression";
+    checks = [
+      {
+        name = "fabric.enable";
+        actual = cfg.enable;
+        expected = true;
+      }
+      {
+        name = "fabric.enableServer";
+        actual = cfg.enableServer;
+        expected = false;
+      }
+      {
+        name = "fabric.host";
+        actual = cfg.host;
+        expected = "127.0.0.1";
+      }
+      {
+        name = "fabric.port";
+        actual = cfg.port;
+        expected = 8180;
+      }
+      {
+        name = "fabric.defaultModel";
+        actual = cfg.defaultModel;
+        expected = "default";
+      }
+      # Environment variables — FABRIC_PATTERNS_DIR is computed from
+      # config.home.homeDirectory + the fixed ".config/fabric/patterns"
+      # relative path (see modules/fabric/packages.nix). This check asserts
+      # the env var stays in sync with the home.file symlink location.
+      {
+        name = "fabric.env.FABRIC_PATTERNS_DIR";
+        actual = hmConfig.config.home.sessionVariables.FABRIC_PATTERNS_DIR;
+        expected = "${hmConfig.config.home.homeDirectory}/.config/fabric/patterns";
+      }
+      {
+        name = "fabric.env.FABRIC_DEFAULT_MODEL";
+        actual = hmConfig.config.home.sessionVariables.FABRIC_DEFAULT_MODEL;
+        expected = cfg.defaultModel;
+      }
+    ];
+  };
 
   # Validate the fabric LaunchAgent (positive case): when enableServer = true,
   # ProgramArguments must contain --serve and the configured host:port.
@@ -122,10 +108,7 @@ in
     assert hasKeepAlive || throw "Fabric LaunchAgent must have KeepAlive = true";
     assert hasRunAtLoad || throw "Fabric LaunchAgent must have RunAtLoad = true";
     assert hasBackgroundType || throw "Fabric LaunchAgent must have ProcessType = \"Background\"";
-    pkgs.runCommand "check-fabric-launchd" { } ''
-      echo "Fabric LaunchAgent (enableServer=true): --serve --address ${expectedAddress} verified"
-      touch $out
-    '';
+    helpers.mkMarker "check-fabric-launchd" "Fabric LaunchAgent (enableServer=true): --serve --address ${expectedAddress} verified";
 
   # Validate the fabric LaunchAgent (negative case): when enableServer = false
   # (the default), no launchd.agents.fabric entry should exist.
@@ -135,10 +118,7 @@ in
     in
     assert
       !hasAgent || throw "Fabric LaunchAgent must NOT be defined when enableServer = false (default)";
-    pkgs.runCommand "check-fabric-launchd-negative" { } ''
-      echo "Fabric LaunchAgent negative: launchd.agents.fabric correctly absent when enableServer = false"
-      touch $out
-    '';
+    helpers.mkMarker "check-fabric-launchd-negative" "Fabric LaunchAgent negative: launchd.agents.fabric correctly absent when enableServer = false";
 
   # Assert the fabric version in lib/versions.nix matches the version tag of
   # the fabric-src flake input in flake.nix. Renovate's nix manager bumps
@@ -163,10 +143,7 @@ in
     ) "fabric-version-sync: lib/versions.nix has no `fabric` entry";
     assert pkgs.lib.assertMsg (flakeVersion == pinVersion)
       "fabric version drift: flake.nix fabric-src=v${flakeVersion} but lib/versions.nix.fabric=${pinVersion}";
-    pkgs.runCommand "check-fabric-version-sync" { } ''
-      echo "Fabric version sync: flake.nix v${flakeVersion} == lib/versions.nix.fabric ${pinVersion}"
-      touch $out
-    '';
+    helpers.mkMarker "check-fabric-version-sync" "Fabric version sync: flake.nix v${flakeVersion} == lib/versions.nix.fabric ${pinVersion}";
 
   # fabric-marketplace-build moved to nix-claude-code/flake/checks.nix as
   # part of PR3 — the synthetic fabric-patterns marketplace derivation and
