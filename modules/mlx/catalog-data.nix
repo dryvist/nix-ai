@@ -8,6 +8,7 @@
 #
 # Entry schema:
 #   model            physical Hugging Face id
+#   weightGb         4-bit weight footprint (co-residency budget accounting)
 #   args             family serve args, applied in every class
 #   classes.<class>  validated profile: { flags = modelFlagOverrides attrs }
 #     resident — preload-capable agent brain (host preload list still decides
@@ -49,6 +50,7 @@ in
   # HF JacobPEvans/mlx-benchmarks). Thinking ON is part of the verdict.
   qwen36-optiq = {
     model = "mlx-community/Qwen3.6-35B-A3B-OptiQ-4bit";
+    weightGb = 19.5;
     args =
       qwenMoeGeneralParser
       ++ [
@@ -78,6 +80,7 @@ in
 
   qwen3-coder-30b = {
     model = "mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit";
+    weightGb = 17.1;
     args = [
       "--tool-call-parser"
       "qwen3_coder"
@@ -97,6 +100,7 @@ in
   # bench on this variant. Thinking off by default (requests can opt in).
   qwen36-35b = {
     model = "mlx-community/Qwen3.6-35B-A3B-4bit";
+    weightGb = 19.4;
     args = [
       "--tool-call-parser"
       "qwen3_coder"
@@ -124,6 +128,7 @@ in
   # 256 is unvalidated on hybrid attention.
   qwen3-next-80b = {
     model = "mlx-community/Qwen3-Next-80B-A3B-Thinking-4bit";
+    weightGb = 42.0;
     args = qwenMoeGeneralParser ++ agentTimeout;
     classes = {
       swap.flags = swapFlags // {
@@ -139,6 +144,7 @@ in
   # vllm-mlx 0.4.0's paged cache.
   gpt-oss-120b = {
     model = "mlx-community/gpt-oss-120b-MXFP4-Q8";
+    weightGb = 63.3;
     args = [
       "--tool-call-parser"
       "harmony"
@@ -164,6 +170,7 @@ in
   # (nix-ai#915).
   qwen3-30b-2507 = {
     model = "mlx-community/Qwen3-30B-A3B-Instruct-2507-4bit";
+    weightGb = 17.5;
     args = [
       "--tool-call-parser"
       "hermes"

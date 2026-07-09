@@ -64,6 +64,7 @@ let
     "continuousBatching"
     "enablePrefixCaching"
     "pagedKvCache"
+    "pagedCacheBlockSize"
     "maxNumSeqs"
     "chunkedPrefillTokens"
     "completionBatchSize"
@@ -105,6 +106,10 @@ let
         ++ lib.optionals c.continuousBatching [ "--continuous-batching" ]
         ++ lib.optionals c.enablePrefixCaching [ "--enable-prefix-cache" ]
         ++ lib.optionals c.pagedKvCache [ "--use-paged-cache" ]
+        ++ lib.optionals (c.pagedKvCache && c.pagedCacheBlockSize != null) [
+          "--paged-cache-block-size"
+          (toString c.pagedCacheBlockSize)
+        ]
         ++ lib.optionals (c.maxNumSeqs != null) [
           "--max-num-seqs"
           (toString c.maxNumSeqs)
@@ -269,6 +274,7 @@ in
     ./options-server.nix
     ./options-cache.nix
     ./options-batching.nix
+    ./options-catalog.nix
     ./options-filters.nix
     ./options-parsers.nix
     ./options-runtime.nix
