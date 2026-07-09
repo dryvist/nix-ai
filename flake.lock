@@ -280,22 +280,6 @@
         "type": "github"
       }
     },
-    "fabric-src_2": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1777933126,
-        "narHash": "sha256-2O/g0DC0ptxzEzXA1NYZWfdnUeIVFuLWNyw1uct2XyM=",
-        "owner": "danielmiessler",
-        "repo": "fabric",
-        "rev": "6a9b55a096361d368368fa8119f7dd3b8bf2673b",
-        "type": "github"
-      },
-      "original": {
-        "owner": "danielmiessler",
-        "repo": "fabric",
-        "type": "github"
-      }
-    },
     "flake-compat": {
       "flake": false,
       "locked": {
@@ -518,7 +502,9 @@
         "claude-plugins-official": "claude-plugins-official",
         "claude-skills": "claude-skills",
         "dryvist-github": "dryvist-github",
-        "fabric-src": "fabric-src_2",
+        "fabric-src": [
+          "fabric-src"
+        ],
         "flake-parts": "flake-parts",
         "home-manager": [
           "home-manager"
