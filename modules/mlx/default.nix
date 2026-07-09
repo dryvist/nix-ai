@@ -229,22 +229,29 @@ let
 
     models = allModels;
 
-    groups.mlx-models = {
-      swap = cfg.proxy.groupSwap;
-      exclusive = true;
-      persistent = true;
-      members = builtins.attrNames residentModels;
+    # Merge the two group definitions INSIDE `groups` (disjoint keys), not via
+    # an outer `//` on the whole config set. `//` is a shallow update: two
+    # sibling `groups.<name>` paths in `a // b` make `b`'s `groups` replace
+    # `a`'s wholesale, so the persistent resident group would vanish whenever
+    # the swap tier is non-empty — collapsing coder/OptiQ/gpt-oss into
+    # llama-swap's implicit swap default and evicting a resident on every
+    # cross-model request.
+    groups = {
+      mlx-models = {
+        swap = cfg.proxy.groupSwap;
+        exclusive = true;
+        persistent = true;
+        members = builtins.attrNames residentModels;
+      };
+    }
+    // lib.optionalAttrs (swapModels != { }) {
+      mlx-swap-models = {
+        swap = true;
+        exclusive = false;
+        persistent = false;
+        members = builtins.attrNames swapModels;
+      };
     };
-  }
-  // lib.optionalAttrs (swapModels != { }) {
-    groups.mlx-swap-models = {
-      swap = true;
-      exclusive = false;
-      persistent = false;
-      members = builtins.attrNames swapModels;
-    };
-  }
-  // {
 
     # Preload by role, not physical name. llama-swap resolves "default"
     # via the alias table on the registryModels entry.
