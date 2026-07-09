@@ -10,7 +10,7 @@
   # Older pins left typer unbounded (>=0.20.0), floating to 0.26.x which vendored
   # click and dropped the external dep the hf CLI imports → ModuleNotFoundError.
   # renovate: datasource=pypi depName=huggingface-hub
-  huggingfaceHub = "1.21.0";
+  huggingfaceHub = "1.22.0";
   # renovate: datasource=pypi depName=huggingface-mcp-server
   hfMcpServer = "0.1.0";
 
@@ -88,7 +88,7 @@
   # serving outage, 2026-07-04). Pin until mlx-lm registers a class (or
   # transformers restores string keys); bump together with mlxLm.
   # renovate: datasource=pypi depName=transformers
-  transformers = "5.12.0";
+  transformers = "5.13.0";
   # renovate: datasource=pypi depName=lm-eval
   lmEval = "0.4.11";
 
