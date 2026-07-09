@@ -175,6 +175,7 @@ in
     };
 
     settings = {
+      advisorModel = "fable";
       alwaysThinkingEnabled = true;
       cleanupPeriodDays = 180;
       env = import ./claude/settings-env.nix { inherit lib userConfig; };
