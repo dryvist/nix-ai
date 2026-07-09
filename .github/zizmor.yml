@@ -28,6 +28,8 @@ rules:
     ignore:
       - ai-all.yml
       - ai-ci.yml
+      - ai-merge-gate.yml
+      - dispatch-to-nix-darwin.yml
       - issue-auto-resolve.yml
 
   # IGNORED: These workflows delegate to reusable workflows that require broad
