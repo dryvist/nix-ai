@@ -40,6 +40,16 @@ let
   apiUrl = "http://${cfg.host}:${toString cfg.port}/v1";
   launchAgentLabel = "dev.vllm-mlx.server";
 
+  # Per-worker env shared by every backend llama-swap spawns. The buffer-cache
+  # cap must ride the env (not a serve flag — vllm-mlx only reads it from
+  # MLX_BUFFER_CACHE_LIMIT); see options-cache.nix bufferCacheLimitGb.
+  workerEnv = [
+    "HF_HOME=${cfg.huggingFaceHome}"
+  ]
+  ++ lib.optionals (cfg.bufferCacheLimitGb != null) [
+    "MLX_BUFFER_CACHE_LIMIT=${toString (cfg.bufferCacheLimitGb * 1024 * 1024 * 1024)}"
+  ];
+
   # Mutable runtime config path — llama-swap reads this with --watch-config.
   # mlx-discover merges auto-discovered models into this file at runtime.
   # The Nix-generated llamaSwapConfigFile seeds this on first activation.
@@ -181,7 +191,7 @@ let
       cmd =
         mkVllmCmd physical + lib.optionalString (extraArgs != [ ]) (" " + lib.escapeShellArgs extraArgs);
       ttl = cfg.proxy.idleTtl;
-      env = [ "HF_HOME=${cfg.huggingFaceHome}" ];
+      env = workerEnv;
       checkEndpoint = "/v1/models";
       aliases = roles;
       useModelName = physical;
@@ -208,7 +218,7 @@ let
           " " + lib.concatStringsSep " " modelCfg.extraArgs
         );
       ttl = if modelCfg.ttl > 0 then modelCfg.ttl else cfg.proxy.idleTtl;
-      env = [ "HF_HOME=${cfg.huggingFaceHome}" ];
+      env = workerEnv;
       checkEndpoint = "/v1/models";
       inherit (cfg.proxy) concurrencyLimit;
     }

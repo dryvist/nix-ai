@@ -77,6 +77,24 @@
       description = "Fraction of device memory each worker may allocate via Metal (vllm-mlx --gpu-memory-utilization), which vllm-mlx also uses as the emergency cache-clear trip point at device_mem*(util+0.05). 0.80 keeps the trip point above a dual-model resident set yet under a ~92%-wired ceiling. Null = upstream default (0.90). Override DOWN only for a host that needs interactive desktop headroom.";
     };
 
+    # bufferCacheLimitGb — per-worker cap on MLX's RETAINED free-buffer cache
+    # (MLX_BUFFER_CACHE_LIMIT env var; vllm-mlx 0.4.0 feeds it to
+    # mx.set_cache_limit at engine start). Unset, vllm-mlx uses a device-scaled
+    # default of max_recommended * gpuMemoryUtilization (~77 GB per worker on a
+    # 128 GB host). Bytes are not the problem — buffer COUNT is: every retained
+    # free buffer stays in the process ResidencySet and counts against Metal's
+    # ~499000 buffer-count ceiling ("[metal::malloc] Resource limit (499000)
+    # exceeded" at ~31 GB active with ~90 GB free, 2026-07-09). Multi-resident
+    # hosts multiply the retention. Capping the cache forces MLX to actually
+    # free buffers back to Metal, trading a little re-allocation latency for
+    # immunity headroom. 12 GB comfortably covers a resident brain's steady
+    # working-set churn (weights are NOT part of this cache).
+    bufferCacheLimitGb = lib.mkOption {
+      type = lib.types.nullOr lib.types.ints.positive;
+      default = 12;
+      description = "Per-worker MLX retained-buffer-cache cap in GB (MLX_BUFFER_CACHE_LIMIT). Null = vllm-mlx device-scaled default (~gpuMemoryUtilization of device memory), which hoards enough buffers on multi-resident hosts to trip Metal's buffer-count ceiling under concurrency.";
+    };
+
     # enablePrefixCaching — Enable prefix sharing across requests (--enable-prefix-cache).
     # Eliminates re-prefill of unchanged conversation context — the single
     # biggest speed win for multi-turn tool-calling workloads.
