@@ -152,6 +152,17 @@ in
         '';
       }
       {
+        # ttl is lifecycle for on-demand models; residents ignore it (they
+        # follow proxy.idleTtl), so a resident ttl tweak would be a silent
+        # no-op misconfiguration.
+        assertion = lib.all (name: residents.${name}.tweaks.ttl == null) (lib.attrNames residents);
+        message = ''
+          programs.mlx.catalog: tweaks.ttl is only meaningful on class = "swap"
+          entries — resident-class models follow programs.mlx.proxy.idleTtl.
+          Remove the ttl tweak from the resident entr(y/ies) or demote them.
+        '';
+      }
+      {
         assertion = cfg.gpuMemoryUtilization == null || cfg.gpuMemoryUtilization <= 0.85;
         message = ''
           programs.mlx.gpuMemoryUtilization must stay <= 0.85 on catalog hosts —
