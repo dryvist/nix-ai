@@ -162,10 +162,15 @@ in
   qwen-code = {
     imports = [
       ../modules/ai-stack
+      ../modules/mcp
+      ../modules/agent-skills
       ../modules/qwen-code
     ];
     _module.args = {
-      inherit ai-assistant-instructions;
+      inherit
+        ai-assistant-instructions
+        marketplaceInputs
+        ;
     };
   };
 

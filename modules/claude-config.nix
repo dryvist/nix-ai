@@ -214,41 +214,7 @@ in
 
     # MCP Servers - deployed to ~/.claude.json via home.activation.
     # Shared definitions are owned by modules/mcp and rendered per-client here.
-    # Per-host overrides (disables + splunk) were previously in
-    # nix-darwin/hosts/macbook-m4/home.nix; moved here as part of the
-    # nix-claude-code migration so Claude config lives in nix-ai.
-    mcpServers =
-      let
-        fromCatalog = lib.mapAttrs (_: normalizeClaudeMcpServer) config.programs.aiMcp.servers;
-        # Disable MCP servers that duplicate built-in tools, are demo/test,
-        # or are project-specific. Definitions stay (for type validation);
-        # disabled = true excludes them from ~/.claude.json. Project-specific
-        # servers re-enable per-project via .mcp.json.
-        disabledServers = lib.genAttrs [
-          "everything" # Demo/test — not useful in production
-          "filesystem" # Duplicates built-in Read/Write/Glob/Edit tools
-          "fetch" # Duplicates built-in WebFetch tool
-          "git" # Duplicates built-in git via Bash(git:*)
-          "github" # Duplicates github@claude-plugins-official plugin
-          "cribl" # Project-specific — re-enable per-project
-          "terraform" # Project-specific — re-enable per-project
-          "cloudflare" # Not actively used — disable until needed
-          "exa" # Not actively used — disable until needed
-          "firecrawl" # Not actively used — disable until needed
-          "docker" # Not actively used — disable until needed
-        ] (name: (fromCatalog.${name} or { }) // { disabled = true; });
-      in
-      fromCatalog
-      // disabledServers
-      // {
-        # Splunk MCP via doppler-mcp wrapper (TLS bypass for self-signed cert
-        # is scoped inside splunk-mcp-connect, not here, to avoid leaking
-        # NODE_TLS_REJECT_UNAUTHORIZED to doppler-mcp).
-        splunk = {
-          command = "doppler-mcp";
-          args = [ "splunk-mcp-connect" ];
-        };
-      };
+    mcpServers = lib.mapAttrs (_: normalizeClaudeMcpServer) config.programs.aiMcp.enabledServers;
 
     statusline = {
       enable = true;

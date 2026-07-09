@@ -1,5 +1,5 @@
 # Nix quality checks - thin aggregator
-# Individual check groups live in lib/checks/{lint,claude,agent-skills,codex,antigravity-cli,mlx,fabric}.nix
+# Individual check groups live in lib/checks/{lint,claude,agent-skills,codex,antigravity-cli,mcp,mlx,fabric}.nix
 {
   pkgs,
   src,
@@ -50,6 +50,7 @@ in
 // (import ./checks/agent-skills.nix { inherit pkgs hmConfig; })
 // (import ./checks/codex.nix { inherit pkgs hmConfig; })
 // (import ./checks/antigravity-cli.nix { inherit pkgs hmConfig; })
+// (import ./checks/mcp.nix { inherit pkgs hmConfig; })
 // (import ./checks/autonomous-profile.nix { inherit pkgs; })
 // (import ./checks/mlx.nix { inherit pkgs hmConfig; })
 // (import ./checks/fabric.nix {

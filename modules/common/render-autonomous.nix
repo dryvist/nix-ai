@@ -27,7 +27,7 @@ let
   formatters = import ./formatters.nix { inherit lib; };
   inherit (profiles.autonomous) residualDeny;
 
-  # The one permission set all three tools inherit from.
+  # The one permission set all autonomous renderers inherit from.
   residualDenyPermissions = {
     allow = [ ];
     ask = [ ];

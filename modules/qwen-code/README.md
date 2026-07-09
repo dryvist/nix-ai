@@ -14,6 +14,12 @@ OpenAI/Anthropic/Gemini-compatible endpoint. Apache-2.0.
   one provider entry per capability-class alias from
   `services.aiStack.models`. Default startup model is the `coding`
   class.
+- MCP servers rendered from the shared `programs.aiMcp.enabledServers`
+  profile, with `programs.qwen-code.excludedMcpServers` reserved for
+  Qwen-only compatibility gaps.
+- Shared skills linked from `~/.agents/skills` into `~/.qwen/skills`,
+  matching Codex and Antigravity rather than maintaining a separate
+  skill tree.
 - Doppler-wrapped `d-qwen` shell alias (declared in
   `modules/ai-aliases.zsh`) for sessions that need cloud-provider keys
   (Dashscope, OpenRouter, OpenAI, etc.).

@@ -2,8 +2,9 @@
 
 MCP server definitions are owned by the `modules/mcp` Home Manager module. The
 shared catalog lives in `catalog.nix` and is exposed as `programs.aiMcp.servers`.
-Claude, Codex, and Antigravity consume that option and render it into their own
-configuration formats during every `darwin-rebuild switch`.
+The default cross-agent profile is `programs.aiMcp.enabledServers`. Claude,
+Codex, Antigravity, and Qwen consume that one option and render it into their
+own configuration formats during every `darwin-rebuild switch`.
 
 **Nix is the sole manager of user-scoped MCP servers.** Any entries added manually
 through client CLIs may be overwritten on the next rebuild.
@@ -48,18 +49,37 @@ my-server = {
 };
 ```
 
-## Enabling / Disabling Servers
+## Global Profile / Per-Agent Exclusions
 
-All servers are enabled by default (`disabled = false` is the module system
-default). To disable a server, set `disabled = true`:
+The catalog is intentionally wider than the default profile. Servers stay out of
+the cross-agent profile when either:
+
+- `programs.aiMcp.servers.<name>.disabled = true`
+- `<name>` is listed in `programs.aiMcp.excludedServers`
+
+To disable a server everywhere, prefer the shared profile:
 
 ```nix
-programs.aiMcp.servers.postgresql.disabled = true;
+programs.aiMcp.excludedServers = [ "postgresql" ];
 ```
 
-To enable a disabled server without editing `catalog.nix`, override via the
-module system. Because the catalog uses plain assignments (priority 100), the
-override must use `lib.mkForce` to win the merge:
+To keep a server in the shared profile but omit it from one renderer, use that
+agent's `excludedMcpServers` option:
+
+```nix
+programs.codex.excludedMcpServers = [ "postgresql" ];
+programs.antigravity-cli.excludedMcpServers = [ "postgresql" ];
+programs.antigravity-ide.excludedMcpServers = [ "postgresql" ];
+programs.qwen-code.excludedMcpServers = [ "postgresql" ];
+```
+
+Use per-agent exclusions only for client incompatibility. Routine policy belongs
+in `programs.aiMcp.excludedServers` so Claude, Codex, Antigravity, Qwen, and
+future clients stay aligned.
+
+To enable a catalog-disabled server without editing `catalog.nix`, override via
+the module system. Because the catalog uses plain assignments (priority 100),
+the override must use `lib.mkForce` to win the merge:
 
 ```nix
 programs.aiMcp.servers.postgresql.disabled = lib.mkForce false;
@@ -166,20 +186,30 @@ Both tools are `uvx` wrappers defined in `ai-tools.nix` — no separate installa
    - Remote SSE/HTTP endpoint → inline attribute set with `type` and `url`
    - Plugin-managed → do NOT add here; let the plugin manage it
 
-2. New servers are enabled by default. Add `// { disabled = true; }` to start disabled.
+2. New servers are enabled by default unless `disabled = true` or listed in
+   `programs.aiMcp.excludedServers`.
 
 3. Run `darwin-rebuild switch --flake .` to deploy.
 
-4. Verify: `cat ~/.claude.json | jq .mcpServers`
+4. Verify rendered server names:
+
+```bash
+jq '.mcpServers | keys' ~/.claude.json
+rg '^\[mcp_servers\.' ~/.codex/config.toml
+jq '.mcpServers | keys' ~/.gemini/antigravity-cli/settings.json
+jq '.mcpServers | keys' ~/.gemini/config/mcp_config.json
+jq '.mcpServers | keys' ~/.qwen/settings.json
+```
 
 ## Troubleshooting
 
-### Server not appearing in Claude Code
+### Server not appearing in an agent
 
-1. Check `disabled` is not set to `true` in `programs.aiMcp.servers`
-2. Run `darwin-rebuild switch --flake .`
-3. Restart Claude Code
-4. Check `~/.claude.json` contains the server: `jq .mcpServers ~/.claude.json`
+1. Check it is in `programs.aiMcp.enabledServerNames`
+2. Check it is not listed in that agent's `excludedMcpServers`
+3. Run `darwin-rebuild switch --flake .`
+4. Restart the agent
+5. Check the rendered config contains the server
 
 ### SSE server shows connection error
 

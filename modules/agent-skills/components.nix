@@ -64,6 +64,7 @@ in
         cleanup_skill_tree "${homeDir}/.agents/skills"
         cleanup_skill_tree "${homeDir}/.codex/skills"
         cleanup_skill_tree "${homeDir}/.antigravity-cli/skills"
+        cleanup_skill_tree "${homeDir}/.qwen/skills"
       '';
 
       file = {
@@ -76,6 +77,7 @@ in
           config.lib.file.mkOutOfStoreSymlink "${homeDir}/.agents/skills";
         ".gemini/config/skills".source = config.lib.file.mkOutOfStoreSymlink "${homeDir}/.agents/skills";
         ".codex/skills".source = config.lib.file.mkOutOfStoreSymlink "${homeDir}/.agents/skills";
+        ".qwen/skills".source = config.lib.file.mkOutOfStoreSymlink "${homeDir}/.agents/skills";
       }
       // mkSkillFiles cfg.fromFlakeInputs
       // mkLocalSkills cfg.local;

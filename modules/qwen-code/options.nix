@@ -43,5 +43,18 @@
         without forking the module.
       '';
     };
+
+    excludedMcpServers = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      description = "Additional MCP servers to exclude from the shared cross-agent profile for Qwen Code only.";
+    };
+
+    mcpServerNames = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      readOnly = true;
+      internal = true;
+      description = "Names of MCP servers emitted to Qwen settings.json.";
+    };
   };
 }
