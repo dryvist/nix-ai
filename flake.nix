@@ -37,6 +37,12 @@
         home-manager.follows = "home-manager";
         ai-assistant-instructions.follows = "ai-assistant-instructions";
         claude-code-plugins.follows = "claude-code-plugins";
+        # nix-claude-code injects fabric-src as the module arg that our
+        # fabric-ai package consumes in the composed home config. Pin it to
+        # our own fabric-src so the built source matches lib/versions.nix
+        # (and the vendorHash); otherwise nix-claude-code's independently
+        # pinned fabric-src drifts and the fabric-ai build fails.
+        fabric-src.follows = "fabric-src";
       };
     };
 
