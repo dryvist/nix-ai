@@ -2,9 +2,15 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
+      # gh-aw regenerates .lock.yml workflows and .github/aw/imports/ verbatim
+      # from upstream sources; the whitespace fixers must not rewrite generated
+      # artifacts or every repo-wide run (pre-push) modifies them and blocks
+      # the push. Scoped to these two hooks only — zizmor etc. still scan them.
       - id: trailing-whitespace
         args: [--markdown-linebreak-ext=md]
+        exclude: ^\.github/(workflows/.*\.lock\.yml|aw/imports/)
       - id: end-of-file-fixer
+        exclude: ^\.github/(workflows/.*\.lock\.yml|aw/imports/)
       - id: check-yaml
       - id: check-json
       - id: check-added-large-files
