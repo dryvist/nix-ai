@@ -41,5 +41,18 @@
       "groupName": "mlx-core",
       "groupSlug": "mlx-core",
     },
+    {
+      "description": [
+        "transformers 5.13.0 breaks mlx-lm 0.31.3 at import (register() calls",
+        "key.__module__ on the string key mlx-lm passes -> AttributeError),",
+        "killing every vllm-mlx worker (fleet-wide serving outage 2026-07-04,",
+        "re-confirmed by import test 2026-07-09 after #1144 re-landed it).",
+        "Allow anything except that exact release; drop this rule when mlx-lm",
+        "registers a class or transformers restores string keys.",
+      ],
+      "matchDatasources": ["pypi"],
+      "matchPackageNames": ["transformers"],
+      "allowedVersions": "!/^5\\.13\\.0$/",
+    },
   ],
 }

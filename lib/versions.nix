@@ -76,19 +76,24 @@
   # no longer reproduces — validated 2026-07-02 on jevans-mbp with three
   # concurrent completions against Qwen3-30B-A3B-Instruct-2507-4bit under
   # continuous batching + paged KV cache: zero errors. Keep mlx and mlx-lm
-  # pinned as a pair; they move in lockstep.
+  # pinned as a pair; they move in lockstep. mlx 0.32.0 with mlx-lm 0.31.3
+  # (satisfies its mlx>=0.31.2) import-validated 2026-07-09 alongside
+  # vllm-mlx 0.4.0 + transformers 5.12.0.
   # renovate: datasource=pypi depName=mlx
-  mlx = "0.31.2";
+  mlx = "0.32.0";
   # renovate: datasource=pypi depName=mlx-lm
   mlxLm = "0.31.3";
   # transformers 5.13.0 (released 2026-07-04) broke mlx-lm 0.31.3's import:
   # AutoTokenizer.register("NewlineTokenizer", ...) passes a string key and
   # 5.13.0's register() calls key.__module__ on it -> AttributeError at
   # module import, killing every vllm-mlx worker on both hosts (fleet-wide
-  # serving outage, 2026-07-04). Pin until mlx-lm registers a class (or
-  # transformers restores string keys); bump together with mlxLm.
+  # serving outage, 2026-07-04). Renovate re-bumped it to 5.13.0 in #1144
+  # anyway; the break re-confirmed by import test 2026-07-09, so this pin is
+  # re-reverted and renovate.json5 now blocks 5.13.0 via allowedVersions.
+  # Bump together with mlxLm once mlx-lm registers a class (or transformers
+  # restores string keys).
   # renovate: datasource=pypi depName=transformers
-  transformers = "5.13.0";
+  transformers = "5.12.0";
   # renovate: datasource=pypi depName=lm-eval
   lmEval = "0.4.12";
 
