@@ -33,8 +33,15 @@ buildGoModule rec {
 
   src = fabric-src;
 
+  # Fetch modules via the Go proxy into a module cache rather than materializing
+  # a vendor/ tree. Fabric's go.mod (go 1.25.1) produces a vendor/modules.txt
+  # whose `## explicit` markers are rejected as inconsistent by the newer Go
+  # toolchain during the build; proxyVendor sidesteps the vendor consistency
+  # check by building against the module cache instead.
+  proxyVendor = true;
+
   # Discover via: nix build .#fabric-ai 2>&1 | grep 'got:'
-  vendorHash = "sha256-DfI0SYMX1wfJ8V0tFYpjzCgqhR7H/0J1p5R3aNcrXTw=";
+  vendorHash = "sha256-fqIClsGuK24jOqSpdfc2j+S9pRkMewrNr6ld6a71Qtk=";
 
   # Build only the main fabric binary from cmd/fabric. Skip cmd/code2context,
   # cmd/generate_changelog, cmd/to_pdf — we only need the primary CLI.
