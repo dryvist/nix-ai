@@ -34,7 +34,7 @@ buildGoModule rec {
   src = fabric-src;
 
   # Discover via: nix build .#fabric-ai 2>&1 | grep 'got:'
-  vendorHash = "sha256-oSHrn2Oad6XuIFjrqeC4NGC/rasCu+49xADY15YNSbc=";
+  vendorHash = "sha256-DfI0SYMX1wfJ8V0tFYpjzCgqhR7H/0J1p5R3aNcrXTw=";
 
   # Build only the main fabric binary from cmd/fabric. Skip cmd/code2context,
   # cmd/generate_changelog, cmd/to_pdf — we only need the primary CLI.

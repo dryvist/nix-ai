@@ -266,16 +266,16 @@
     "fabric-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1777933126,
-        "narHash": "sha256-2O/g0DC0ptxzEzXA1NYZWfdnUeIVFuLWNyw1uct2XyM=",
+        "lastModified": 1781042236,
+        "narHash": "sha256-folZ+Y5l76SKo65RJAK7kZX6DJ/AL+iLkcV8NX+1DTA=",
         "owner": "danielmiessler",
         "repo": "fabric",
-        "rev": "6a9b55a096361d368368fa8119f7dd3b8bf2673b",
+        "rev": "a420eaf63c532094eb12bc90c91a227401e96c31",
         "type": "github"
       },
       "original": {
         "owner": "danielmiessler",
-        "ref": "v1.4.452",
+        "ref": "v1.4.455",
         "repo": "fabric",
         "type": "github"
       }
