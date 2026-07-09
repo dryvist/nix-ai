@@ -72,7 +72,8 @@ in
 // (import ./checks/codex.nix { inherit pkgs hmConfig; })
 // (import ./checks/antigravity-cli.nix { inherit pkgs hmConfig; })
 // (import ./checks/autonomous-profile.nix { inherit pkgs; })
-// (import ./checks/mlx.nix { inherit pkgs hmConfig hmConfigCatalog; })
+// (import ./checks/mlx.nix { inherit pkgs hmConfig; })
+// (import ./checks/mlx-catalog.nix { inherit pkgs hmConfigCatalog; })
 // (import ./checks/fabric.nix {
   inherit
     pkgs
