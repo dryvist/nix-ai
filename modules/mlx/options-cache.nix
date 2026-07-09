@@ -95,6 +95,19 @@
       description = "Use paged KV cache (--use-paged-cache). Required for prefix sharing.";
     };
 
+    # pagedCacheBlockSize — tokens per paged-KV block (--paged-cache-block-size).
+    # The engine default (64) shatters long-session KV into enough per-block
+    # Metal buffers to trip MLX's buffer-COUNT ceiling ("[metal::malloc]
+    # Resource limit (499000) exceeded" — not a byte OOM). 256 validated with a
+    # 113K-token request 2026-07-09 (nix-darwin#1609). Null = engine default.
+    # Only meaningful with pagedKvCache; leave null for hybrid-attention
+    # families (qwen3_next) where larger blocks are unvalidated.
+    pagedCacheBlockSize = lib.mkOption {
+      type = lib.types.nullOr lib.types.ints.positive;
+      default = null;
+      description = "Tokens per paged-KV-cache block (--paged-cache-block-size). Null = engine default (64). Larger blocks reduce Metal buffer count on long contexts.";
+    };
+
     # prefillBatchSize — Batch size for prompt prefill processing (--prefill-batch-size).
     # Default: null = server picks optimal value based on available memory.
     # Previously --prefill-step-size; renamed in v0.2.6.

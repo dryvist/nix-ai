@@ -43,6 +43,27 @@ let
   # Second evaluation with fabric REST API LaunchAgent enabled — used by the
   # fabric-launchd positive check (default eval has enableServer = false).
   hmConfigFabricServer = mkHmConfig [ { programs.fabric.enableServer = true; } ];
+
+  # Third evaluation exercising programs.mlx.catalog (lib/checks/mlx.nix
+  # mlx-catalog): a server-like selection plus one direct host override that
+  # must beat the catalog's mkDefault.
+  hmConfigCatalog = mkHmConfig [
+    {
+      programs.mlx = {
+        catalog = {
+          qwen36-optiq.class = "resident";
+          qwen3-coder-30b.class = "resident";
+          gpt-oss-120b.class = "swap";
+          qwen3-next-80b = {
+            class = "swap";
+            tweaks.ttl = 600;
+          };
+        };
+        # Direct host setting on a catalog-managed key must win over the catalog.
+        modelFlagOverrides."mlx-community/Qwen3.6-35B-A3B-OptiQ-4bit".cacheMemoryMb = 8192;
+      };
+    }
+  ];
 in
 (import ./checks/lint.nix { inherit pkgs src; })
 // (import ./checks/ai-stack.nix { inherit pkgs testLocalModelId; })
@@ -52,6 +73,7 @@ in
 // (import ./checks/antigravity-cli.nix { inherit pkgs hmConfig; })
 // (import ./checks/autonomous-profile.nix { inherit pkgs; })
 // (import ./checks/mlx.nix { inherit pkgs hmConfig; })
+// (import ./checks/mlx-catalog.nix { inherit pkgs hmConfigCatalog; })
 // (import ./checks/fabric.nix {
   inherit
     pkgs
