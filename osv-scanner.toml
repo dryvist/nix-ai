@@ -73,3 +73,12 @@ nltk 3.9.4 (CVSS 7.5) — local file load (alias of the withdrawn PYSEC-2026-97)
 Local AV. Already on latest published version; no upstream fix exists.
 Tracked in JacobPEvans/nix-ai#812.
 """
+
+[[IgnoredVulns]]
+id = "PYSEC-2026-597"
+ignoreUntil = 2026-08-20
+reason = """
+nltk 3.9.4 (CVSS 7.5) — local file load (alias of GHSA-p4gq-832x-fm9v).
+Local AV. Already on latest published version; no upstream fix exists.
+Tracked in JacobPEvans/nix-ai#812.
+"""
