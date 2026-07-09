@@ -22,8 +22,8 @@ in
       optiqFlags.cacheMemoryMb == 8192
       || throw "catalog: direct host override (8192) must beat the catalog default 16384, got ${toString optiqFlags.cacheMemoryMb}";
     assert
-      optiqFlags.pagedCacheBlockSize == 256 && optiqFlags.maxNumSeqs == 8
-      || throw "catalog: optiq resident profile (block 256 / maxNumSeqs 8) not compiled";
+      optiqFlags.pagedCacheBlockSize == 512 && optiqFlags.maxNumSeqs == 8
+      || throw "catalog: optiq resident profile (block 512 / maxNumSeqs 8) not compiled";
     assert
       builtins.match ".*--tool-call-parser hermes.*--reasoning-parser qwen3.*" optiqArgs != null
       || throw "catalog: optiq family parser args not compiled into modelExtraArgs: ${optiqArgs}";

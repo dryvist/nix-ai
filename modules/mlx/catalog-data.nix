@@ -31,12 +31,20 @@ let
     "--timeout"
     "3600"
   ];
-  # 256-token paged-cache blocks (default 64): long sessions shattered the KV
+  # Paged-cache block sizing (engine default 64): long sessions shatter the KV
   # into enough per-block Metal buffers to trip MLX's buffer-count limit
-  # ("Resource limit (499000) exceeded", not a byte OOM). Validated with a
-  # 113K-token request 2026-07-09 (nix-darwin#1609).
+  # ("Resource limit (499000) exceeded", not a byte OOM; nix-darwin#1609).
+  # Residents run 512: 256 (validated 113K single-stream) still tripped once
+  # under 2x ~50K-token concurrency + a 16K-token generation on 2026-07-09
+  # even with the MLX_BUFFER_CACHE_LIMIT cap — 512 halves the per-token block
+  # count again (worst case ~98K buffers at maxNumSeqs 8 x 65K window, deep
+  # under the ceiling). Swap tier stays 256: its 32K request cap keeps block
+  # counts low, and 512 is unvalidated there.
   block256 = {
     pagedCacheBlockSize = 256;
+  };
+  block512 = {
+    pagedCacheBlockSize = 512;
   };
   # Swap tier: on-demand, idle-unloaded, small caps.
   swapFlags = {
@@ -64,7 +72,7 @@ in
       # HIGH KV budget for 40-58K-token contexts; maxNumSeqs 8 = one
       # continuous batch. 65536 replaces the 32768 cap that fed the
       # truncation/retry death-loop.
-      resident.flags = block256 // {
+      resident.flags = block512 // {
         cacheMemoryMb = 16384;
         maxNumSeqs = 8;
         maxRequestTokens = 65536;
@@ -88,7 +96,7 @@ in
     ++ agentTimeout;
     classes = {
       # The global maxRequestTokens default is too low for agentic multi-turn.
-      resident.flags = block256 // {
+      resident.flags = block512 // {
         maxRequestTokens = 32768;
       };
       swap.flags = block256 // swapFlags;
