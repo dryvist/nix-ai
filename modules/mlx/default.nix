@@ -40,108 +40,22 @@ let
   apiUrl = "http://${cfg.host}:${toString cfg.port}/v1";
   launchAgentLabel = "dev.vllm-mlx.server";
 
+  # Shared per-backend env; the buffer-cache cap must ride the env
+  # (MLX_BUFFER_CACHE_LIMIT) — rationale in options-cache.nix.
+  workerEnv = [
+    "HF_HOME=${cfg.huggingFaceHome}"
+  ]
+  ++ lib.optionals (cfg.bufferCacheLimitGb != null) [
+    "MLX_BUFFER_CACHE_LIMIT=${toString (cfg.bufferCacheLimitGb * 1024 * 1024 * 1024)}"
+  ];
+
   # Mutable runtime config path — llama-swap reads this with --watch-config.
   # mlx-discover merges auto-discovered models into this file at runtime.
   # The Nix-generated llamaSwapConfigFile seeds this on first activation.
   llamaSwapRuntimeConfigPath = "${config.home.homeDirectory}/.config/mlx/llama-swap.json";
 
-  # Build the vllm-mlx serve command string for a given model ID.
-  # Global option values may be replaced per physical model via
-  # modelFlagOverrides; every override key must appear in overridableFlags —
-  # the serve options this builder reads below. Guarding against that list
-  # (not against programs.mlx as a whole) means a typo AND a real-but-unread
-  # option name (e.g. huggingFaceHome, preload) both fail the eval instead of
-  # silently keeping the global value.
-  # NOTE: \${PORT} is a llama-swap template macro — must be escaped to prevent
-  # Nix string interpolation from consuming it before the config is written.
-  overridableFlags = [
-    "host"
-    "cacheMemoryMb"
-    "prefillBatchSize"
-    "gpuMemoryUtilization"
-    "autoUnloadIdleSeconds"
-    "enableMetrics"
-    "continuousBatching"
-    "enablePrefixCaching"
-    "pagedKvCache"
-    "pagedCacheBlockSize"
-    "maxNumSeqs"
-    "chunkedPrefillTokens"
-    "completionBatchSize"
-    "maxTokens"
-    "maxRequestTokens"
-    "enableAutoToolChoice"
-    "toolCallParser"
-    "reasoningParser"
-  ];
-  mkVllmCmd =
-    modelId:
-    let
-      overrides = cfg.modelFlagOverrides.${modelId} or { };
-      unknown = lib.filter (k: !(lib.elem k overridableFlags)) (lib.attrNames overrides);
-      c =
-        if unknown == [ ] then
-          cfg // overrides
-        else
-          throw "programs.mlx.modelFlagOverrides.\"${modelId}\": not overridable serve option(s): ${lib.concatStringsSep ", " unknown}";
-      baseCmd = "${lib.getExe vllmMlxPkg} serve ${modelId} --port \${PORT} --host ${c.host}";
-      flags = lib.concatStringsSep " " (
-        lib.optionals (c.cacheMemoryMb != null) [
-          "--cache-memory-mb"
-          (toString c.cacheMemoryMb)
-        ]
-        ++ lib.optionals (c.prefillBatchSize != null) [
-          "--prefill-batch-size"
-          (toString c.prefillBatchSize)
-        ]
-        ++ lib.optionals (c.gpuMemoryUtilization != null) [
-          "--gpu-memory-utilization"
-          (toString c.gpuMemoryUtilization)
-        ]
-        ++ lib.optionals (c.autoUnloadIdleSeconds != 0) [
-          "--auto-unload-idle-seconds"
-          (toString c.autoUnloadIdleSeconds)
-        ]
-        ++ lib.optionals c.enableMetrics [ "--enable-metrics" ]
-        ++ lib.optionals c.continuousBatching [ "--continuous-batching" ]
-        ++ lib.optionals c.enablePrefixCaching [ "--enable-prefix-cache" ]
-        ++ lib.optionals c.pagedKvCache [ "--use-paged-cache" ]
-        ++ lib.optionals (c.pagedKvCache && c.pagedCacheBlockSize != null) [
-          "--paged-cache-block-size"
-          (toString c.pagedCacheBlockSize)
-        ]
-        ++ lib.optionals (c.maxNumSeqs != null) [
-          "--max-num-seqs"
-          (toString c.maxNumSeqs)
-        ]
-        ++ lib.optionals (c.chunkedPrefillTokens != null) [
-          "--chunked-prefill-tokens"
-          (toString c.chunkedPrefillTokens)
-        ]
-        ++ lib.optionals (c.completionBatchSize != null) [
-          "--completion-batch-size"
-          (toString c.completionBatchSize)
-        ]
-        ++ lib.optionals (c.maxTokens != null) [
-          "--max-tokens"
-          (toString c.maxTokens)
-        ]
-        ++ lib.optionals (c.maxRequestTokens != null) [
-          "--max-request-tokens"
-          (toString c.maxRequestTokens)
-        ]
-        ++ lib.optionals c.enableAutoToolChoice [ "--enable-auto-tool-choice" ]
-        ++ lib.optionals (c.enableAutoToolChoice && c.toolCallParser != null) [
-          "--tool-call-parser"
-          c.toolCallParser
-        ]
-        ++ lib.optionals (c.reasoningParser != null) [
-          "--reasoning-parser"
-          c.reasoningParser
-        ]
-      );
-    in
-    "${baseCmd}${lib.optionalString (flags != "") " ${flags}"}";
+  # Serve-command builder — split to vllm-cmd.nix (12KB file-size gate).
+  inherit (import ./vllm-cmd.nix { inherit lib cfg vllmMlxPkg; }) mkVllmCmd;
 
   # Role registry (services.aiStack.models): role-name -> physical model ID.
   # Single source of truth.
@@ -181,7 +95,7 @@ let
       cmd =
         mkVllmCmd physical + lib.optionalString (extraArgs != [ ]) (" " + lib.escapeShellArgs extraArgs);
       ttl = cfg.proxy.idleTtl;
-      env = [ "HF_HOME=${cfg.huggingFaceHome}" ];
+      env = workerEnv;
       checkEndpoint = "/v1/models";
       aliases = roles;
       useModelName = physical;
@@ -208,7 +122,7 @@ let
           " " + lib.concatStringsSep " " modelCfg.extraArgs
         );
       ttl = if modelCfg.ttl > 0 then modelCfg.ttl else cfg.proxy.idleTtl;
-      env = [ "HF_HOME=${cfg.huggingFaceHome}" ];
+      env = workerEnv;
       checkEndpoint = "/v1/models";
       inherit (cfg.proxy) concurrencyLimit;
     }

@@ -13,6 +13,7 @@ in
     cfg = mlxCfg;
     expectedOptions = [
       "autoUnloadIdleSeconds"
+      "bufferCacheLimitGb"
       "cacheMemoryMb"
       "chunkedPrefillTokens"
       "completionBatchSize"
@@ -86,6 +87,11 @@ in
         name = "mlx.autoUnloadIdleSeconds";
         actual = mlxCfg.autoUnloadIdleSeconds;
         expected = 1800;
+      }
+      {
+        name = "mlx.bufferCacheLimitGb";
+        actual = mlxCfg.bufferCacheLimitGb;
+        expected = 12;
       }
       {
         name = "mlx.enableMetrics";
