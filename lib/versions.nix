@@ -93,7 +93,7 @@
   # Bump together with mlxLm once mlx-lm registers a class (or transformers
   # restores string keys).
   # renovate: datasource=pypi depName=transformers
-  transformers = "5.12.0";
+  transformers = "5.12.1";
   # renovate: datasource=pypi depName=lm-eval
   lmEval = "0.4.12";
 
