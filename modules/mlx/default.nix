@@ -40,9 +40,8 @@ let
   apiUrl = "http://${cfg.host}:${toString cfg.port}/v1";
   launchAgentLabel = "dev.vllm-mlx.server";
 
-  # Per-worker env shared by every backend llama-swap spawns. The buffer-cache
-  # cap must ride the env (not a serve flag — vllm-mlx only reads it from
-  # MLX_BUFFER_CACHE_LIMIT); see options-cache.nix bufferCacheLimitGb.
+  # Shared per-backend env; the buffer-cache cap must ride the env
+  # (MLX_BUFFER_CACHE_LIMIT) — rationale in options-cache.nix.
   workerEnv = [
     "HF_HOME=${cfg.huggingFaceHome}"
   ]
