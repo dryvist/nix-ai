@@ -147,9 +147,9 @@ jobs:
       # there (rationale, tracking issue #812, `ignoreUntil` review date).
       # New advisories must be added to BOTH files in lockstep.
       #   PYSEC-2026-139, CVE-2025-3000, GHSA-rrmf-rvhw-rf47 — torch 2.10.0 chain.
-      #   GHSA-p4gq-832x-fm9v — nltk 3.9.4 local file load.
+      #   GHSA-p4gq-832x-fm9v, PYSEC-2026-597 — nltk 3.9.4 local file load.
       ignore-vulns: >-
-        PYSEC-2026-139 CVE-2025-3000 GHSA-rrmf-rvhw-rf47 GHSA-p4gq-832x-fm9v
+        PYSEC-2026-139 CVE-2025-3000 GHSA-rrmf-rvhw-rf47 GHSA-p4gq-832x-fm9v PYSEC-2026-597
       runner_label: ${{ github.event.pull_request.head.repo.full_name == github.repository && format('runs-on={0}/runner=2cpu-linux-x64', github.run_id) || 'ubuntu-latest' }}
 
   osv-scan:
