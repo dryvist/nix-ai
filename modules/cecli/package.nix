@@ -42,7 +42,7 @@
 
 let
   # renovate: datasource=pypi depName=py-cymbal
-  pyCymbalVersion = "0.1.24";
+  pyCymbalVersion = "0.2.1";
   py-cymbal = python3Packages.buildPythonPackage {
     pname = "py-cymbal";
     version = pyCymbalVersion;
@@ -68,7 +68,7 @@ let
   # nixpkgs version. This is one of the few pins we cannot relax via
   # postPatch because cecli imports a symbol that didn't exist yet.
   # renovate: datasource=pypi depName=mcp
-  mcpVersion = "1.27.1";
+  mcpVersion = "1.28.1";
   mcp = python3Packages.buildPythonPackage {
     pname = "mcp";
     version = mcpVersion;
@@ -102,7 +102,7 @@ let
   };
 
   # renovate: datasource=pypi depName=cecli-dev
-  version = "0.99.12";
+  version = "0.100.11";
 in
 python3Packages.buildPythonApplication {
   pname = "cecli";

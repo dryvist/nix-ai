@@ -16,25 +16,25 @@
 
   # AI CLI tools (npm)
   # renovate: datasource=npm depName=@felixgeelhaar/cclint
-  cclint = "0.14.0";
+  cclint = "0.15.1";
   # renovate: datasource=npm depName=@githubnext/github-copilot-cli
   ghCopilot = "0.1.36";
   # renovate: datasource=npm depName=chatgpt-cli
   chatgptCli = "3.3.0";
   # renovate: datasource=npm depName=claude-flow
-  claudeFlow = "3.6.30";
+  claudeFlow = "3.25.2";
   # renovate: datasource=npm depName=@googleworkspace/cli
   gwsCli = "0.22.5";
 
   # MCP servers (npm)
   # renovate: datasource=npm depName=@upstash/context7-mcp
-  context7Mcp = "3.1.0";
+  context7Mcp = "3.2.3";
   # renovate: datasource=npm depName=@modelcontextprotocol/server-everything
-  mcpEverything = "2026.1.26";
+  mcpEverything = "2026.7.4";
   # renovate: datasource=npm depName=@modelcontextprotocol/server-filesystem
-  mcpFilesystem = "2026.1.14";
+  mcpFilesystem = "2026.7.4";
   # renovate: datasource=npm depName=@modelcontextprotocol/server-memory
-  mcpMemory = "2026.1.26";
+  mcpMemory = "2026.7.4";
   # renovate: datasource=npm depName=@modelcontextprotocol/server-aws-kb-retrieval
   mcpAws = "0.6.2";
   # renovate: datasource=npm depName=@modelcontextprotocol/server-postgres
@@ -52,11 +52,11 @@
 
   # MCP servers (pypi)
   # renovate: datasource=pypi depName=mcp-server-time
-  mcpServerTime = "2026.1.26";
+  mcpServerTime = "2026.6.4";
   # renovate: datasource=pypi depName=fabric-mcp
   fabricMcp = "1.2.1";
   # renovate: datasource=pypi depName=google-workspace-mcp
-  gwsMcp = "2.0.1";
+  gwsMcp = "2.0.8";
   # renovate: datasource=pypi depName=unifi-mcp-server
   unifiMcpServer = "0.2.5";
 
@@ -67,9 +67,9 @@
   # renovate: datasource=pypi depName=vllm-mlx
   vllmMlx = "0.4.0";
   # renovate: datasource=pypi depName=parakeet-mlx
-  parakeetMlx = "0.5.1";
+  parakeetMlx = "0.5.2";
   # renovate: datasource=pypi depName=mlx-vlm
-  mlxVlm = "0.5.0";
+  mlxVlm = "0.6.3";
   # The nix-ai#751 hold at mlx 0.31.1 is RESOLVED: vllm-mlx 0.4.0 is built
   # against mlx 0.31.2 / mlx-lm 0.31.3 (it requires mlx-lm>=0.31.3), and the
   # cross-thread stream crash ("There is no Stream(gpu, N) in current thread")
@@ -90,11 +90,11 @@
   # renovate: datasource=pypi depName=transformers
   transformers = "5.13.0";
   # renovate: datasource=pypi depName=lm-eval
-  lmEval = "0.4.11";
+  lmEval = "0.4.12";
 
   # AI tools (pypi)
   # renovate: datasource=pypi depName=browser-use
-  browserUse = "0.12.6";
+  browserUse = "0.13.3";
 
   # Fabric Go CLI (github-releases)
   # The flake input fabric-src is ALSO tracked by Renovate's nix manager and
@@ -103,5 +103,5 @@
   # fabric-src input. The fabric-version-sync regression check in
   # lib/checks/fabric.nix compares the two and fails on drift.
   # renovate: datasource=github-releases depName=danielmiessler/fabric
-  fabric = "1.4.452";
+  fabric = "1.4.455";
 }
