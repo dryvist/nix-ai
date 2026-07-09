@@ -2,7 +2,12 @@
 #
 # This module is the single declarative source for MCP server definitions.
 # Client modules translate programs.aiMcp.servers into their own config format.
-{ config, lib, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 let
   mcpServerModule = lib.types.submodule {
@@ -137,7 +142,10 @@ in
 
   config.programs.aiMcp = {
     enabledServers = lib.filterAttrs (
-      name: server: !(server.disabled or false) && !(lib.elem name config.programs.aiMcp.excludedServers)
+      name: server:
+      !(server.disabled or false)
+      && !(lib.elem name config.programs.aiMcp.excludedServers)
+      && !(name == "apple-events" && !pkgs.stdenv.isDarwin)
     ) config.programs.aiMcp.servers;
     enabledServerNames = lib.attrNames config.programs.aiMcp.enabledServers;
   };

@@ -65,7 +65,11 @@ in
         n: !(builtins.hasAttr "source" hmConfig.config.home.file.${n})
       ) managedSkillEntries;
       skillFileSources = builtins.filter (
-        n: pkgs.lib.hasSuffix "/SKILL.md" (toString hmConfig.config.home.file.${n}.source)
+        n:
+        let
+          entry = hmConfig.config.home.file.${n};
+        in
+        entry ? source && pkgs.lib.hasSuffix "/SKILL.md" (toString entry.source)
       ) managedSkillEntries;
     in
     assert keepFile != "" || throw "Agent Skills .agents/.keep file is empty (module not loaded)";

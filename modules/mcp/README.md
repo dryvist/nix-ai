@@ -6,6 +6,10 @@ The default cross-agent profile is `programs.aiMcp.enabledServers`. Claude,
 Codex, Antigravity, and Qwen consume that one option and render it into their
 own configuration formats during every `darwin-rebuild switch`.
 
+Standalone consumers should import `modules/mcp/module.nix`, not
+`modules/mcp/default.nix`; the runtime module includes the shared option catalog
+and installs helper binaries such as `doppler-mcp` and `splunk-mcp-connect`.
+
 **Nix is the sole manager of user-scoped MCP servers.** Any entries added manually
 through client CLIs may be overwritten on the next rebuild.
 
@@ -56,6 +60,8 @@ the cross-agent profile when either:
 
 - `programs.aiMcp.servers.<name>.disabled = true`
 - `<name>` is listed in `programs.aiMcp.excludedServers`
+- the server is platform-specific and incompatible with the current host
+  (`apple-events` is Darwin-only)
 
 To disable a server everywhere, prefer the shared profile:
 

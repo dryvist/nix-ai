@@ -4,13 +4,13 @@ let
   helpers = import ./helpers.nix { inherit pkgs; };
   cfg = hmConfig.config.programs.aiMcp;
   expectedGlobalServers = [
-    "apple-events"
     "codex"
     "fabric"
     "huggingface"
     "splunk"
     "time"
-  ];
+  ]
+  ++ pkgs.lib.optional pkgs.stdenv.isDarwin "apple-events";
   missingGlobalServers = builtins.filter (
     name: !(builtins.elem name cfg.enabledServerNames)
   ) expectedGlobalServers;
