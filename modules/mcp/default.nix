@@ -103,8 +103,17 @@ in
   options.programs.aiMcp = {
     servers = lib.mkOption {
       type = lib.types.attrsOf mcpServerModule;
-      default = import ./catalog.nix;
-      description = "Shared MCP server definitions consumed by AI client modules.";
+      default = { };
+      description = ''
+        Shared MCP server definitions consumed by AI client modules. The shared
+        catalog is assigned below in `config` (a plain priority-100 definition)
+        rather than as this option's `default`, because an option default does
+        NOT merge with a partial definition: a consumer setting
+        `programs.aiMcp.servers.<name>.disabled = lib.mkForce false` would
+        otherwise discard the whole catalog and keep only that one entry. As a
+        config-level assignment the catalog merges per-server, so hosts can
+        override an individual server with `lib.mkForce`.
+      '';
     };
 
     excludedServers = lib.mkOption {
@@ -141,6 +150,9 @@ in
   };
 
   config.programs.aiMcp = {
+    # Plain (priority-100) assignment so per-server host overrides merge — see
+    # the `servers` option description above.
+    servers = import ./catalog.nix;
     enabledServers = lib.filterAttrs (
       name: server:
       !(server.disabled or false)
