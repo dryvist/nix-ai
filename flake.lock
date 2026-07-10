@@ -524,11 +524,11 @@
         "wakatime": "wakatime"
       },
       "locked": {
-        "lastModified": 1783656288,
-        "narHash": "sha256-pFa39OsPc+usyaGuZuM7qa1xgWCaT3bH1Y0eUaZU+kE=",
+        "lastModified": 1783699561,
+        "narHash": "sha256-Oc681A3Au311QturqPVhvwTCBsg8XEIITJy2iVJwyVI=",
         "owner": "dryvist",
         "repo": "nix-claude-code",
-        "rev": "1ab41d1a8bd001303561982504617a2b34cf2916",
+        "rev": "cc523447193a24bc32c623d4ece8dc0118b8c64b",
         "type": "github"
       },
       "original": {
