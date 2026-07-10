@@ -13,7 +13,7 @@ in
       watcher = agents.mlx-night-watcher.config;
       rankEnv = rank.EnvironmentVariables;
       watcherEnv = watcher.EnvironmentVariables;
-      rankCmd = builtins.concatStringsSep " " rank.ProgramArguments;
+      rankArgs = rank.ProgramArguments;
     in
     assert
       rankEnv.MLX_RANK == "0" || throw "night: coordinator must be rank 0, got ${rankEnv.MLX_RANK}";
@@ -24,12 +24,11 @@ in
       rankEnv.MLX_METAL_FAST_SYNCH == "1"
       || throw "night: MLX_METAL_FAST_SYNCH=1 missing from the rank env";
     assert
-      builtins.match ".*mlx_lm[.]server.*" rankCmd != null
-      && builtins.match ".*--pipeline.*" rankCmd != null
-      || throw "night: rank command must serve via mlx_lm.server --pipeline";
+      builtins.elem "mlx_lm.server" rankArgs && builtins.elem "--pipeline" rankArgs
+      || throw "night: rank ProgramArguments must serve via mlx_lm.server --pipeline";
     assert
-      builtins.match ".*GLM-4[.]7-4bit.*" rankCmd != null
-      || throw "night: default night model (GLM-4.7-4bit) not in the rank command";
+      builtins.elem "mlx-community/GLM-4.7-4bit" rankArgs
+      || throw "night: default night model (GLM-4.7-4bit) not in the rank ProgramArguments";
     assert
       rank.RunAtLoad == false && rank.KeepAlive == false
       || throw "night: the rank must be started only by the link watcher";
