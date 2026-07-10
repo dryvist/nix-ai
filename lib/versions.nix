@@ -49,6 +49,8 @@
   mcpSlack = "2025.4.25";
   # renovate: datasource=npm depName=mcp-server-apple-events
   mcpAppleEvents = "1.4.0";
+  # renovate: datasource=npm depName=@democratize-technology/vikunja-mcp
+  vikunjaMcp = "0.2.0";
 
   # MCP servers (pypi)
   # renovate: datasource=pypi depName=mcp-server-time
