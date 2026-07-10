@@ -141,15 +141,18 @@
       description = "Per-physical-model overrides of programs.mlx serve options (e.g. pagedKvCache, enablePrefixCaching), merged over the global values when building that model's vllm-mlx command.";
     };
 
-    # preload — llama-swap hooks.on_startup.preload entries. Role names (or
-    # physical ids) loaded at proxy startup so the first request never pays a
-    # cold start. Multi-resident hosts list every role they keep warm, e.g.
+    # preload — models the warmup agent (mlx-warmup.py, via
+    # MLX_PRELOAD_MODELS_JSON) faults in after every proxy (re)start, so the
+    # first request never pays a cold start. Deliberately NOT emitted as
+    # llama-swap hooks.on_startup.preload — that hook's request shape 404s
+    # vllm-mlx and llama-swap stops the worker on preload failure (#1175).
+    # Multi-resident hosts list every role they keep warm, e.g.
     # [ "default" "coding" ]; each extra entry costs its full weight footprint
     # until the idle TTL evicts it.
     preload = lib.mkOption {
       type = lib.types.listOf lib.types.str;
       default = [ "default" ];
-      description = "Resident models (role aliases or physical ids) llama-swap preloads at startup. Every entry occupies memory concurrently until its idle TTL — size the list against the host's wired-memory budget. Swap-tier models belong in programs.mlx.models instead.";
+      description = "Resident models (role aliases or physical ids) the warmup agent loads after proxy start. Every entry occupies memory concurrently until its idle TTL — size the list against the host's wired-memory budget. Swap-tier models belong in programs.mlx.models instead.";
     };
 
     proxy = {

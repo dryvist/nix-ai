@@ -15,6 +15,7 @@ let
   inherit (mlxShared)
     cfg
     launchAgentLabel
+    warmupAgentLabel
     apiUrl
     mlxWarmupPkg
     llamaSwapPkg
@@ -81,11 +82,14 @@ in
 
       # One-shot warmup job: wait for the proxy to answer, then fault each
       # preloaded model with a 1-token chat completion so the weights are
-      # resident at boot instead of on first user request.
+      # resident at boot instead of on first user request. Also kickstarted
+      # by mlx-default.sh after every proxy restart (via MLX_WARMUP_LABEL) —
+      # this is the ONLY preload path; llama-swap's hooks.on_startup.preload
+      # is deliberately not emitted (its request shape 404s vllm-mlx, #1175).
       agents.vllm-mlx-warmup = {
         enable = true;
         config = {
-          Label = "dev.vllm-mlx.warmup";
+          Label = warmupAgentLabel;
           ProgramArguments = [ (lib.getExe mlxWarmupPkg) ];
           RunAtLoad = true;
           KeepAlive = {
@@ -136,6 +140,7 @@ in
         export MLX_HF_HOME="${cfg.huggingFaceHome}"
         export MLX_LLAMA_SWAP_CONFIG="${llamaSwapRuntimeConfigPath}"
         export MLX_LLAMA_SWAP_BASE_CONFIG="${llamaSwapConfigFile}"
+        export MLX_PRELOAD_MODELS_JSON=${lib.escapeShellArg (builtins.toJSON cfg.preload)}
         run ${pkgs.python3}/bin/python3 "${./discover-models.py}" --quiet
       '';
     };

@@ -118,17 +118,19 @@ def main() -> None:
 
     # Extract default model and command template.
     # `preload` may reference a role alias (e.g. "default") rather than a
-    # physical model id, since `hooks.on_startup.preload = ["default"]`
-    # and llama-swap resolves the alias at lookup time. When that's the
-    # case, walk the aliases tables to find the physical entry, then
-    # update default_model so the cmd_template substitution below targets
-    # the right `serve <model>` token.
-    preload = (
-        current_config.get("hooks", {}).get("on_startup", {}).get("preload", [])
-    )
+    # physical model id; llama-swap resolves the alias at lookup time. When
+    # that's the case, walk the aliases tables to find the physical entry,
+    # then update default_model so the cmd_template substitution below
+    # targets the right `serve <model>` token. Sourced from
+    # MLX_PRELOAD_MODELS_JSON (the warmup agent's list) — the config no
+    # longer carries hooks.on_startup.preload (its request shape 404s
+    # vllm-mlx, #1175).
+    preload = json.loads(os.environ.get("MLX_PRELOAD_MODELS_JSON", "[]"))
     if not preload:
         print(
-            "ERROR: Could not determine default model from config", file=sys.stderr
+            "ERROR: Could not determine default model from "
+            "MLX_PRELOAD_MODELS_JSON",
+            file=sys.stderr,
         )
         sys.exit(1)
     default_model = preload[0]
