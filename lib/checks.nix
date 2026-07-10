@@ -64,6 +64,17 @@ let
       };
     }
   ];
+
+  # Fourth evaluation exercising programs.mlx.nightCluster as the coordinator
+  # (lib/checks/mlx-night.nix): rank env contract, watcher wiring, prefetch.
+  hmConfigNight = mkHmConfig [
+    {
+      programs.mlx.nightCluster = {
+        enable = true;
+        role = "coordinator";
+      };
+    }
+  ];
 in
 (import ./checks/lint.nix { inherit pkgs src; })
 // (import ./checks/ai-stack.nix { inherit pkgs testLocalModelId; })
@@ -75,6 +86,7 @@ in
 // (import ./checks/autonomous-profile.nix { inherit pkgs; })
 // (import ./checks/mlx.nix { inherit pkgs hmConfig; })
 // (import ./checks/mlx-catalog.nix { inherit pkgs hmConfigCatalog; })
+// (import ./checks/mlx-night.nix { inherit pkgs hmConfigNight; })
 // (import ./checks/fabric.nix {
   inherit
     pkgs

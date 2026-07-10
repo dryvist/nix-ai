@@ -194,6 +194,7 @@ in
     ./options-runtime.nix
     ./packages.nix
     ./launchd.nix
+    ./night-cluster.nix
   ];
 
   # Pass shared bindings to sub-modules via _module.args
