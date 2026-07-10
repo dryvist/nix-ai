@@ -38,8 +38,10 @@ let
   # under 2x ~50K-token concurrency + a 16K-token generation on 2026-07-09
   # even with the MLX_BUFFER_CACHE_LIMIT cap — 512 halves the per-token block
   # count again (worst case ~98K buffers at maxNumSeqs 8 x 65K window, deep
-  # under the ceiling). Swap tier stays 256: its 32K request cap keeps block
-  # counts low, and 512 is unvalidated there.
+  # under the ceiling). Small swap models keep 256 (their 32K request cap
+  # keeps block counts low); the 80B large brain runs 512 after 256 tripped
+  # the ceiling four times under 2-way large-phase load on 2026-07-10 (see
+  # its entry).
   block256 = {
     pagedCacheBlockSize = 256;
   };
