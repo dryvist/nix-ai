@@ -1,5 +1,42 @@
 # Changelog
 
+## [1.87.0](https://github.com/dryvist/nix-ai/compare/v1.86.4...v1.87.0) (2026-07-10)
+
+
+### Features
+
+* add AI PR care caller (dep review + release highlights) ([#1093](https://github.com/dryvist/nix-ai/issues/1093)) ([43fd4ee](https://github.com/dryvist/nix-ai/commit/43fd4eedd0e6f13c39eda6bad3e98da314b4330e))
+* add review-thread-resolver caller for instant bot-thread resolution ([#1103](https://github.com/dryvist/nix-ai/issues/1103)) ([9aec395](https://github.com/dryvist/nix-ai/commit/9aec395523b4fdf1ac57fe5730cedc8dd6ae4e66))
+* **ai-stack:** select LLM endpoint (local llama-swap or cluster router) ([#1113](https://github.com/dryvist/nix-ai/issues/1113)) ([6e6b654](https://github.com/dryvist/nix-ai/commit/6e6b6540cb380a0bf7d8364dedeaf5ef3f97a0e2))
+* **claude:** set advisorModel to fable-5 ([#1149](https://github.com/dryvist/nix-ai/issues/1149)) ([27f917d](https://github.com/dryvist/nix-ai/commit/27f917d7cd4e71fc538d116f29d3960dde342c9b))
+* enable elements-of-style writing skill plugin ([#1132](https://github.com/dryvist/nix-ai/issues/1132)) ([987c1bd](https://github.com/dryvist/nix-ai/commit/987c1bd3770f6c1a899544d7c449f699c9a09daa)), closes [#1131](https://github.com/dryvist/nix-ai/issues/1131)
+* **mlx:** add modelFlagOverrides for per-model serve-option overrides ([#1090](https://github.com/dryvist/nix-ai/issues/1090)) ([6180f2b](https://github.com/dryvist/nix-ai/commit/6180f2be2ae7e3007efe20f5b081f0731b53a301))
+* **mlx:** cap per-worker MLX retained-buffer cache (MLX_BUFFER_CACHE_LIMIT) ([#1160](https://github.com/dryvist/nix-ai/issues/1160)) ([9a9a698](https://github.com/dryvist/nix-ai/commit/9a9a6986bef736e469ce3ba1dcc70d5715564968))
+* **mlx:** programs.mlx.catalog — validated model catalog with typed host tweaks ([#1158](https://github.com/dryvist/nix-ai/issues/1158)) ([ba85cbe](https://github.com/dryvist/nix-ai/commit/ba85cbe76d146a5ceddd1361d794bbba4736c899))
+* multi-resident model serving prereqs + Open WebUI service ([#1082](https://github.com/dryvist/nix-ai/issues/1082)) ([999b874](https://github.com/dryvist/nix-ai/commit/999b87402dd6478745e23b3d8be52c936aa08ecc))
+* vllm-mlx 0.4.0 + mlx 0.31.2/mlx-lm 0.31.3, per-model registry args ([#1083](https://github.com/dryvist/nix-ai/issues/1083)) ([05a728a](https://github.com/dryvist/nix-ai/commit/05a728a7a340d4f9a2fe581ccb54d5f5155e3f27))
+* warm MLX preload models and split swap tier ([#1127](https://github.com/dryvist/nix-ai/issues/1127)) ([14c98bf](https://github.com/dryvist/nix-ai/commit/14c98bfb5d878efe2ef0a5f2b9634d0ac06a7a18))
+
+
+### Bug Fixes
+
+* **agent-skills:** prune orphaned skill symlinks on activation ([#1111](https://github.com/dryvist/nix-ai/issues/1111)) ([cbe914d](https://github.com/dryvist/nix-ai/commit/cbe914d6b36cb988428486ecdfdde5db563ebe0e))
+* **codex:** rename custom-instructions -&gt; context (upstream rename) ([#1117](https://github.com/dryvist/nix-ai/issues/1117)) ([0da468f](https://github.com/dryvist/nix-ai/commit/0da468fa398b044810b5c998e27ad2c96cdbc49d))
+* **deps:** ignore new alias PYSEC-2026-597 for nltk ([#1152](https://github.com/dryvist/nix-ai/issues/1152)) ([c760dea](https://github.com/dryvist/nix-ai/commit/c760dea13ca232515d5b6af4011c0dc7d87d7e08))
+* **deps:** refresh gh-aw action SHA pins [aw:gh-aw-pin-refresh] ([#1125](https://github.com/dryvist/nix-ai/issues/1125)) ([e03ec0c](https://github.com/dryvist/nix-ai/commit/e03ec0c2affee0b59b5c1f23b6d7978a4783f135))
+* **deps:** refresh gh-aw action SHA pins [aw:gh-aw-pin-refresh] ([#1148](https://github.com/dryvist/nix-ai/issues/1148)) ([1fedb0a](https://github.com/dryvist/nix-ai/commit/1fedb0a83f5e2c60f72cd9a9515b374c4a3210a8))
+* **deps:** update mlx-core ([#1143](https://github.com/dryvist/nix-ai/issues/1143)) ([4522766](https://github.com/dryvist/nix-ai/commit/4522766ca69171ca8073c1091700584865e08bd2))
+* drop the mlx 0.31.2/0.31.3 renovate hard-block (nix-ai[#751](https://github.com/dryvist/nix-ai/issues/751) resolved) ([#1086](https://github.com/dryvist/nix-ai/issues/1086)) ([49f3675](https://github.com/dryvist/nix-ai/commit/49f3675cc9c0eff080977d64acab1cde472cd75e)), closes [#762](https://github.com/dryvist/nix-ai/issues/762)
+* **fabric:** build fabric-ai via proxyVendor to fix inconsistent vendoring ([#1156](https://github.com/dryvist/nix-ai/issues/1156)) ([d6a6665](https://github.com/dryvist/nix-ai/commit/d6a6665b9a07c7d12249f2337c52e361468eb3ba))
+* **fabric:** pin nix-claude-code's fabric-src to ours to stop version skew ([#1159](https://github.com/dryvist/nix-ai/issues/1159)) ([a9ed4ee](https://github.com/dryvist/nix-ai/commit/a9ed4ee9394307f9dee0c907089eb61d1e5dc7c9))
+* **mlx:** keep resident group when swap tier is non-empty ([#1140](https://github.com/dryvist/nix-ai/issues/1140)) ([a25e85c](https://github.com/dryvist/nix-ai/commit/a25e85c77754ec74eb296ef0357935983864f188))
+* **mlx:** pin transformers 5.12.0 — 5.13.0 breaks mlx-lm import, fleet-wide outage ([d923607](https://github.com/dryvist/nix-ai/commit/d923607393b62db6afb92cfb5f934c0694078e14))
+* **mlx:** raise gpuMemoryUtilization default 0.5 → 0.80 to stop KV-cache death loop ([#1130](https://github.com/dryvist/nix-ai/issues/1130)) ([f6fa41f](https://github.com/dryvist/nix-ai/commit/f6fa41f5443ec5eb8db9ebecfef2f0f4071a9ab3))
+* **open-webui:** pin WorkingDirectory and secret-key file into dataDir ([#1088](https://github.com/dryvist/nix-ai/issues/1088)) ([9bc7828](https://github.com/dryvist/nix-ai/commit/9bc7828abb682ef93fdbf867d9d9a7897d20254a))
+* stop backlog-sweep caller startup-failing on schedule runs ([c8caecc](https://github.com/dryvist/nix-ai/commit/c8caecc78fea2e510ec74b3629e07cbf787d95c4))
+* **versions:** block transformers 5.13.0 regression, bump mlx 0.32.0 ([#1157](https://github.com/dryvist/nix-ai/issues/1157)) ([e7558f6](https://github.com/dryvist/nix-ai/commit/e7558f69f49a9edd4f0c85f362c117370a6962ad))
+* **versions:** bump huggingface-hub 1.15.0 -&gt; 1.21.0 to restore hf CLI ([#1081](https://github.com/dryvist/nix-ai/issues/1081)) ([56f1678](https://github.com/dryvist/nix-ai/commit/56f16781ffd1dd64d3ab148952082aca7fc1a74a))
+
 ## [1.86.4](https://github.com/dryvist/nix-ai/compare/v1.86.3...v1.86.4) (2026-07-02)
 
 
