@@ -223,7 +223,11 @@ in
   # breakers — built for autonomous agents. Requires (inject at runtime — see
   # .env.example): VIKUNJA_URL (instance API base, ends in /api/v1) and
   # VIKUNJA_API_TOKEN (a tk_ token minted in the Vikunja UI, per-agent).
-  vikunja = bunx [ "@democratize-technology/vikunja-mcp@${vikunjaMcpVersion}" ];
+  # Ships disabled — like unifi, it fails to start without its credentials, so a
+  # consumer enables it deliberately once the per-agent token is wired.
+  vikunja = bunx [ "@democratize-technology/vikunja-mcp@${vikunjaMcpVersion}" ] // {
+    disabled = true;
+  };
 
   # ================================================================
   # UniFi Network - local UniFi gateway/controller management
