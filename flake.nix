@@ -150,14 +150,25 @@
           pkgs = nixpkgs.legacyPackages.${system};
         in
         {
-          ${system} = import ./lib/checks.nix {
-            inherit
-              pkgs
-              home-manager
-              ;
-            src = ./.;
-            aiModule = self.homeManagerModules.default;
-          };
+          ${system} =
+            (import ./lib/checks.nix {
+              inherit
+                pkgs
+                home-manager
+                ;
+              src = ./.;
+              aiModule = self.homeManagerModules.default;
+            })
+            // {
+              # `nix flake check` only *evaluates* packages.<system> (reports
+              # "build skipped") — it never compiles them, so a stale fabric
+              # vendorHash after a fabric-src bump passes CI unnoticed (this
+              # happened twice: #1145, fixed by #1156/#1159). Aliasing the package
+              # as a check forces the Go build — and its vendorHash verification —
+              # to actually run. Scoped to the CI system (x86_64-linux) like every
+              # other check so a single linux runner covers it.
+              fabric-ai-build = self.packages.${system}.fabric-ai;
+            };
         };
 
       # Expose custom packages for nix-update automation
