@@ -39,7 +39,7 @@
 # ============================================================================
 #
 # NIXPKGS PACKAGES (from nixpkgs, available on stable 25.11):
-#   github-mcp-server, terraform-mcp-server, whisper-cpp, openai-whisper
+#   github-mcp-server, terraform-mcp-server, whisper-cpp, openai-whisper, entire
 #
 # HOMEBREW PACKAGES (from modules/darwin/homebrew.nix):
 #   codex: OpenAI Codex CLI (moved from nixpkgs to match claude/gemini pattern)
@@ -131,6 +131,13 @@ in
     # or the researcher agent workflow.
     # Source: https://github.com/yt-dlp/yt-dlp
     yt-dlp
+
+    # ==========================================================================
+    # entire — captures AI agent sessions alongside git commits
+    # ==========================================================================
+    # Records AI coding sessions and ties them to the commits they produced.
+    # Source: https://github.com/entireio/cli
+    entire
 
     # ==========================================================================
     # GitHub Copilot CLI
