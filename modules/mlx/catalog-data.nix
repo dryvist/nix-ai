@@ -124,17 +124,23 @@ in
   # LARGE rotation brain. Always-thinking variant (no chat-template switch).
   # Small cache keeps the on-demand swap-in under the memory trip (derivation
   # in mlx-benchmarks docs/RUNBOOK.md). prefixCaching off — unsupported for
-  # the qwen3_next hybrid-attention family. Paged block size stays default:
-  # 256 is unvalidated on hybrid attention.
+  # the qwen3_next hybrid-attention family. block256 on the full-attention
+  # layers: the engine-default 64 tripped the Metal buffer-count ceiling
+  # mid-digest at step 250880 on 2026-07-10 (active=67GB, running=2) — the
+  # hybrid's recurrent layers carry no KV blocks, so the paged block size
+  # only shapes its full-attention layers.
   qwen3-next-80b = {
     model = "mlx-community/Qwen3-Next-80B-A3B-Thinking-4bit";
     weightGb = 42.0;
     args = qwenMoeGeneralParser ++ agentTimeout;
     classes = {
-      swap.flags = swapFlags // {
-        cacheMemoryMb = 4096;
-        enablePrefixCaching = false;
-      };
+      swap.flags =
+        block256
+        // swapFlags
+        // {
+          cacheMemoryMb = 4096;
+          enablePrefixCaching = false;
+        };
     };
   };
 
