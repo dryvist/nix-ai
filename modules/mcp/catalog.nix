@@ -37,6 +37,7 @@ let
   fabricMcpVersion = versions.fabricMcp;
   gwsMcpVersion = versions.gwsMcp;
   unifiMcpServerVersion = versions.unifiMcpServer;
+  vikunjaMcpVersion = versions.vikunjaMcp;
 in
 {
   # ================================================================
@@ -211,6 +212,22 @@ in
   sentry = bunx [ "@modelcontextprotocol/server-sentry" ] // {
     disabled = true;
   }; # archived
+
+  # ================================================================
+  # Vikunja - self-hosted task management (docs-starlight#141)
+  # ================================================================
+  # Source: https://github.com/democratize-technology/vikunja-mcp (npm:
+  # @democratize-technology/vikunja-mcp). Chosen over the newer one-author
+  # forks: most contributors/stars by far and the widest tool surface (task/
+  # project/label CRUD, batch import, webhooks) with rate limiting + circuit
+  # breakers — built for autonomous agents. Requires (inject at runtime — see
+  # .env.example): VIKUNJA_URL (instance API base, ends in /api/v1) and
+  # VIKUNJA_API_TOKEN (a tk_ token minted in the Vikunja UI, per-agent).
+  # Ships disabled — like unifi, it fails to start without its credentials, so a
+  # consumer enables it deliberately once the per-agent token is wired.
+  vikunja = bunx [ "@democratize-technology/vikunja-mcp@${vikunjaMcpVersion}" ] // {
+    disabled = true;
+  };
 
   # ================================================================
   # UniFi Network - local UniFi gateway/controller management
