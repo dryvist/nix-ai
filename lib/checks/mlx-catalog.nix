@@ -44,5 +44,8 @@ in
       builtins.match ".*enable_thinking.*" (builtins.concatStringsSep " " c.models.${next80}.extraArgs)
       == null
       || throw "catalog: 80B (always-thinking variant) must not carry an enable_thinking kwarg";
+    assert
+      c.modelFlagOverrides.${next80}.pagedCacheBlockSize == 512
+      || throw "catalog: 80B must run 512-token paged blocks — 256 still tripped the Metal buffer-count ceiling under 2-way large-phase load (2026-07-10)";
     helpers.mkMarker "check-mlx-catalog" "MLX catalog: resident/swap compile, bounded tweak, ttl fan-out, and host-override precedence verified";
 }

@@ -132,18 +132,22 @@ in
   # LARGE rotation brain. Always-thinking variant (no chat-template switch).
   # Small cache keeps the on-demand swap-in under the memory trip (derivation
   # in mlx-benchmarks docs/RUNBOOK.md). prefixCaching off — unsupported for
-  # the qwen3_next hybrid-attention family. block256 on the full-attention
+  # the qwen3_next hybrid-attention family. block512 on the full-attention
   # layers: the engine-default 64 tripped the Metal buffer-count ceiling
-  # mid-digest at step 250880 on 2026-07-10 (active=67GB, running=2) — the
-  # hybrid's recurrent layers carry no KV blocks, so the paged block size
-  # only shapes its full-attention layers.
+  # mid-digest at step 250880 (active=67GB, running=2), and 256 STILL tripped
+  # it four times in the 2026-07-10 11:25-12:00 UTC large window (active
+  # ≈47.8GB, running=2 waiting=1, steps ~14K, 320s+ generations — crash,
+  # llama-swap reload on next request, crash again). The hybrid's recurrent
+  # layers carry no KV blocks, so the paged block size only shapes its
+  # full-attention layers; 512 halves the per-token buffer count again and is
+  # the same sizing the residents validated under 2x long-context concurrency.
   qwen3-next-80b = {
     model = "mlx-community/Qwen3-Next-80B-A3B-Thinking-4bit";
     weightGb = 42.0;
     args = qwenMoeGeneralParser ++ agentTimeout;
     classes = {
       swap.flags =
-        block256
+        block512
         // swapFlags
         // {
           cacheMemoryMb = 4096;
