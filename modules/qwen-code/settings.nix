@@ -26,6 +26,7 @@
 
 let
   cfg = config.programs.qwen-code;
+  homeDir = config.home.homeDirectory;
   inherit (config.services.aiStack) models resolvedLlmEndpoint llmEndpoint;
 
   # Endpoint + API-key source both follow services.aiStack.llmEndpoint. Local
@@ -48,7 +49,35 @@ let
 
   defaultModelName = cfg.model;
 
+  normalizeMcpServer =
+    server:
+    if server.url != null then
+      lib.filterAttrs (_name: value: value != null && value != [ ] && value != { }) (
+        {
+          inherit (server) headers timeout;
+        }
+        // (if server.type == "sse" then { inherit (server) url; } else { httpUrl = server.url; })
+      )
+    else
+      lib.filterAttrs (_name: value: value != null && value != [ ] && value != { }) {
+        inherit (server)
+          command
+          args
+          env
+          cwd
+          timeout
+          ;
+      };
+
+  mcpServers = lib.mapAttrs' (name: server: lib.nameValuePair name (normalizeMcpServer server)) (
+    lib.filterAttrs (
+      name: server: !(server.disabled or false) && !(lib.elem name cfg.excludedMcpServers)
+    ) config.programs.aiMcp.enabledServers
+  );
+
   baseSettings = {
+    inherit mcpServers;
+
     modelProviders = [
       {
         name = providerKey;
@@ -85,12 +114,25 @@ let
   settingsJson = pkgs.writeText "qwen-settings.json" (builtins.toJSON finalSettings);
 in
 {
-  config = lib.mkIf cfg.enable {
-    home.file.".qwen/settings.json".source = settingsJson;
-    # History dir keep-file; qwen-code writes session state here.
-    home.file.".qwen/.history-keep" = {
-      target = ".qwen/history/.keep";
-      text = "# Managed by Nix - programs.qwen-code\n";
-    };
-  };
+  config = lib.mkMerge [
+    {
+      programs.qwen-code.mcpServerNames = lib.attrNames mcpServers;
+    }
+    (lib.mkIf cfg.enable {
+      home = {
+        activation.qwenCodeSettingsMerge = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+          export PATH="${pkgs.jq}/bin:$PATH"
+          $DRY_RUN_CMD ${../scripts/merge-json-settings.sh} \
+            "${settingsJson}" \
+            "${homeDir}/.qwen/settings.json"
+        '';
+
+        # History dir keep-file; qwen-code writes session state here.
+        file.".qwen/.history-keep" = {
+          target = ".qwen/history/.keep";
+          text = "# Managed by Nix - programs.qwen-code\n";
+        };
+      };
+    })
+  ];
 }

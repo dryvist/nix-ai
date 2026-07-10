@@ -51,8 +51,25 @@ in
   agent-skills-home-files =
     let
       keepFile = hmConfig.config.home.file.".agents/.keep".text;
-      missingSkillFiles = builtins.filter (
-        n: !(builtins.pathExists "${hmConfig.config.home.file.${n}.source}/SKILL.md")
+      sharedSkillLinks = [
+        ".codex/skills"
+        ".gemini/antigravity/skills"
+        ".gemini/antigravity-cli/skills"
+        ".gemini/config/skills"
+        ".qwen/skills"
+      ];
+      missingSharedLinks = builtins.filter (
+        n: !(builtins.hasAttr n hmConfig.config.home.file)
+      ) sharedSkillLinks;
+      missingSkillSources = builtins.filter (
+        n: !(builtins.hasAttr "source" hmConfig.config.home.file.${n})
+      ) managedSkillEntries;
+      skillFileSources = builtins.filter (
+        n:
+        let
+          entry = hmConfig.config.home.file.${n};
+        in
+        entry ? source && pkgs.lib.hasSuffix "/SKILL.md" (toString entry.source)
       ) managedSkillEntries;
     in
     assert keepFile != "" || throw "Agent Skills .agents/.keep file is empty (module not loaded)";
@@ -61,7 +78,13 @@ in
       legacySkillFileEntries == [ ]
       || throw "Agent Skills must deploy skill directories, not SKILL.md files: ${builtins.toJSON legacySkillFileEntries}";
     assert
-      missingSkillFiles == [ ]
-      || throw "Agent Skills directory entries missing SKILL.md: ${builtins.toJSON missingSkillFiles}";
+      missingSkillSources == [ ]
+      || throw "Agent Skills directory entries missing source: ${builtins.toJSON missingSkillSources}";
+    assert
+      skillFileSources == [ ]
+      || throw "Agent Skills must source skill directories, not SKILL.md files: ${builtins.toJSON skillFileSources}";
+    assert
+      missingSharedLinks == [ ]
+      || throw "Agent Skills shared links missing: ${builtins.toJSON missingSharedLinks}";
     helpers.mkMarker "check-agent-skills-home-files" "Agent Skills home.file wiring: ${toString (builtins.length managedSkillEntries)} managed skill entries";
 }

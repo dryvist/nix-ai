@@ -120,20 +120,15 @@ in
     # MCP servers to exclude from shared definitions
     excludedMcpServers = lib.mkOption {
       type = lib.types.listOf lib.types.str;
-      default = [
-        "cloudflare"
-        "cribl"
-        "docker"
-        "everything"
-        "exa"
-        "fetch"
-        "filesystem"
-        "firecrawl"
-        "git"
-        "github"
-        "terraform"
-      ];
-      description = "MCP servers to exclude from the shared definitions";
+      default = [ ];
+      description = "Additional MCP servers to exclude from the shared cross-agent profile for Codex only.";
+    };
+
+    mcpServerNames = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      readOnly = true;
+      internal = true;
+      description = "Names of MCP servers emitted to Codex config.toml.";
     };
   };
 }

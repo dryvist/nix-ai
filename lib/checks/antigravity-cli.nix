@@ -21,6 +21,7 @@ in
       "extensions"
       "gemmaModelRouter"
       "hooks"
+      "mcpServerNames"
       "sandbox"
       "sandboxAllowedPaths"
       "sandboxAllowedPathsMerged"
@@ -52,7 +53,7 @@ in
       {
         name = "antigravity-cli.excludedMcpServers.length";
         actual = builtins.length cfg.excludedMcpServers;
-        expected = 11;
+        expected = 0;
       }
       {
         name = "antigravity-cli.extensions";

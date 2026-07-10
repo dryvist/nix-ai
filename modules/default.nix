@@ -92,7 +92,6 @@ in
     ./antigravity-cli
     ./fabric
     ./maestro
-    ./mcp
     ./mcp/module.nix
     ./mlx
     ./qwen-code

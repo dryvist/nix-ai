@@ -50,7 +50,7 @@ let
       (
         lib.filterAttrs (
           name: server: !(server.disabled or false) && !(lib.elem name cfg.excludedMcpServers)
-        ) config.programs.aiMcp.servers
+        ) config.programs.aiMcp.enabledServers
       );
 
   # Policy Engine: generate TOML rules from shared permissions
@@ -136,8 +136,11 @@ in
     # succeeds even when programs.antigravity-cli.enable = false. Values are derived from
     # pure Nix expressions (no activation-time side effects).
     {
-      programs.antigravity-cli.contextFileNames = settings.context.fileName;
-      programs.antigravity-cli.sandboxAllowedPathsMerged = mergedSandboxAllowedPaths;
+      programs.antigravity-cli = {
+        contextFileNames = settings.context.fileName;
+        mcpServerNames = lib.attrNames mcpServers;
+        sandboxAllowedPathsMerged = mergedSandboxAllowedPaths;
+      };
     }
     (lib.mkIf cfg.enable {
       home = {

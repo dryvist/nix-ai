@@ -102,12 +102,12 @@ in
   };
 
   mcp = {
-    imports = [ ../modules/mcp ];
+    imports = [ ../modules/mcp/module.nix ];
   };
 
   codex = {
     imports = [
-      ../modules/mcp
+      ../modules/mcp/module.nix
       ../modules/agent-skills
       ../modules/codex
     ];
@@ -122,7 +122,7 @@ in
 
   antigravity-cli = {
     imports = [
-      ../modules/mcp
+      ../modules/mcp/module.nix
       ../modules/agent-skills
       ../modules/antigravity-cli
     ];
@@ -137,7 +137,7 @@ in
 
   antigravity-ide = {
     imports = [
-      ../modules/mcp
+      ../modules/mcp/module.nix
       ../modules/agent-skills
       ../modules/antigravity-ide
     ];
@@ -162,10 +162,15 @@ in
   qwen-code = {
     imports = [
       ../modules/ai-stack
+      ../modules/mcp/module.nix
+      ../modules/agent-skills
       ../modules/qwen-code
     ];
     _module.args = {
-      inherit ai-assistant-instructions;
+      inherit
+        ai-assistant-instructions
+        marketplaceInputs
+        ;
     };
   };
 

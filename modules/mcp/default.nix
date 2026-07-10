@@ -2,7 +2,12 @@
 #
 # This module is the single declarative source for MCP server definitions.
 # Client modules translate programs.aiMcp.servers into their own config format.
-{ lib, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 let
   mcpServerModule = lib.types.submodule {
@@ -101,5 +106,47 @@ in
       default = import ./catalog.nix;
       description = "Shared MCP server definitions consumed by AI client modules.";
     };
+
+    excludedServers = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [
+        "cloudflare"
+        "cribl"
+        "docker"
+        "everything"
+        "exa"
+        "fetch"
+        "filesystem"
+        "firecrawl"
+        "git"
+        "github"
+        "terraform"
+      ];
+      description = "MCP servers excluded from the global cross-agent MCP profile.";
+    };
+
+    enabledServers = lib.mkOption {
+      type = lib.types.attrsOf mcpServerModule;
+      readOnly = true;
+      internal = true;
+      description = "Shared MCP servers enabled after applying global exclusions and disabled flags.";
+    };
+
+    enabledServerNames = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      readOnly = true;
+      internal = true;
+      description = "Names of shared MCP servers enabled after applying global exclusions and disabled flags.";
+    };
+  };
+
+  config.programs.aiMcp = {
+    enabledServers = lib.filterAttrs (
+      name: server:
+      !(server.disabled or false)
+      && !(lib.elem name config.programs.aiMcp.excludedServers)
+      && !(name == "apple-events" && !pkgs.stdenv.isDarwin)
+    ) config.programs.aiMcp.servers;
+    enabledServerNames = lib.attrNames config.programs.aiMcp.enabledServers;
   };
 }
