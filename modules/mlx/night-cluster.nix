@@ -28,7 +28,7 @@
   ...
 }:
 let
-  inherit (mlxShared) cfg;
+  inherit (mlxShared) cfg warmupAgentLabel;
   ncfg = cfg.nightCluster;
   versions = import ../../lib/versions.nix;
 
@@ -209,7 +209,7 @@ in
             NIGHT_ROLE = ncfg.role;
             NIGHT_PEER_IP = peerIp;
             NIGHT_RANK_LABEL = rankLabel;
-            NIGHT_WARMUP_LABEL = "dev.vllm-mlx.warmup";
+            NIGHT_WARMUP_LABEL = warmupAgentLabel;
             NIGHT_DAY_PROXY = "http://127.0.0.1:${toString cfg.port}";
             NIGHT_STATE_FILE = stateFile;
           }
