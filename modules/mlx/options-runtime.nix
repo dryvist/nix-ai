@@ -214,24 +214,31 @@
       };
       concurrencyLimit = lib.mkOption {
         type = lib.types.ints.positive;
-        default = 2;
+        default = 4;
         description = ''
           Max in-flight requests llama-swap will forward to vllm-mlx per
           model. Maps directly to the YAML key llama-swap reads
           (`concurrencyLimit`); excess requests get HTTP 429.
 
-          Default 2 — serializes bursts so a multi-pipe / multi-tool storm
-          can't fan out parallel calls that pile on faster than vllm-mlx
-          can schedule. Tightened from the prior 4 after the 2026-05-29
-          → 2026-06-03 pipe-timeout storm where bursts of concurrent
-          callers saturated the disconnect_guard window. The 2026-05-15
+          Default 4 — matches `maxNumSeqs` so continuous batching is
+          actually fed. Re-raised from 2 on 2026-07-11 after a measured
+          c1/c2/c4/c8 sweep on the MBP Coder-30B endpoint: within the
+          limit no request errors, and aggregate throughput reaches
+          1.6x (c2) to 2.3x (c4) single-stream when the batcher engages;
+          the worst case degrades to serialization (~1.0x), never below
+          it. The 2026-05-29 → 2026-06-03 pipe-timeout storm that forced
+          the prior tightening (4 → 2) predated the maxRequestTokens=8192
+          hardening that addressed its cause; the 2026-05-15
           finish_reason:error incident remains tracked separately as a
           vllm-mlx scheduler bug.
 
-          The trade-off: a value below `maxNumSeqs` slightly under-utilizes
-          continuous batching (1.5x–3x throughput peak). On this host the
-          stability win dominates. Bump only if you observe sustained
-          queue depth at the proxy without thrash.
+          Scheduling is bimodal: concurrent requests sometimes join one
+          continuous batch (big win) and sometimes serialize (no win) —
+          so treat >1x as opportunistic, and keep benchmark drivers
+          pinned to their documented concurrency (mlx-benchmarks
+          RUNBOOK). Above this limit callers get 429 — clients must cap
+          or retry with backoff; the llm_router tier absorbs 429s via
+          its retry policy.
 
           Setting this to 1 silently defeats continuous batching.
         '';
