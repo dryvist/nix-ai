@@ -24,11 +24,20 @@ in
       rankEnv.MLX_METAL_FAST_SYNCH == "1"
       || throw "night: MLX_METAL_FAST_SYNCH=1 missing from the rank env";
     assert
+      rankEnv.NIGHT_OWN_IP == "192.168.208.1"
+      || throw "night: coordinator rank must carry its own link ip for device detection, got ${rankEnv.NIGHT_OWN_IP}";
+    assert
       builtins.elem "mlx_lm.server" rankArgs && builtins.elem "--pipeline" rankArgs
       || throw "night: rank ProgramArguments must serve via mlx_lm.server --pipeline";
     assert
       builtins.elem "mlx-community/GLM-4.7-4bit" rankArgs
       || throw "night: default night model (GLM-4.7-4bit) not in the rank ProgramArguments";
+    assert
+      pkgs.lib.hasInfix "mlx-night-rank-launch" (builtins.head rankArgs)
+      || throw "night: rank ProgramArguments must run through the device-detecting launcher";
+    assert
+      !(rankEnv ? MLX_IBV_DEVICES)
+      || throw "night: MLX_IBV_DEVICES must be launcher-generated at runtime, not baked into the plist";
     assert
       rank.RunAtLoad == false && rank.KeepAlive == false
       || throw "night: the rank must be started only by the link watcher";

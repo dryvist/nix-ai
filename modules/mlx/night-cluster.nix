@@ -15,10 +15,13 @@
 # self-contained under launchd. --pipeline is required: the pinned mlx-lm
 # release ships PipelineMixin for glm4_moe but not tensor-parallel shard().
 #
-# RDMA prerequisites (documented in the runbook, not automatable here):
-# `rdma_ctl enable` from macOS Recovery on BOTH Macs, Thunderbolt bridge
-# membership disabled for the RDMA link, and manual link IPs assigned once
-# via networksetup. Verify devices with `ibv_devices`.
+# RDMA prerequisites: `rdma_ctl enable` on BOTH Macs (one-time). Bridge
+# detach and link-address assignment are automatic — the nix-darwin
+# night-link-prep daemon converges the role address onto whichever port the
+# cable is in, and the rank launcher below derives the RDMA device from that
+# interface at start. Moving the cable requires no config change anywhere.
+# JACCL rendezvous is IPv4-only (verified 2026-07-11: every IPv6 form fails
+# to parse), which is why the link keeps synthetic IPv4 addresses.
 #
 {
   config,
@@ -40,26 +43,17 @@ let
   isCoordinator = ncfg.role == "coordinator";
   peerIp = if isCoordinator then ncfg.linkIps.worker else ncfg.linkIps.coordinator;
 
-  # MLX_IBV_DEVICES matrix: entry [i][j] names the RDMA device node i uses to
-  # reach node j (null on the diagonal). UNVALIDATED until first plug-in —
-  # confirm the device name against `ibv_devices` / `mlx.distributed_config`
-  # on plug night and override rdmaDevice if the cable landed on another port.
-  ibvDevicesFile = pkgs.writeText "mlx-night-ibv-devices.json" (
-    builtins.toJSON [
-      [
-        null
-        ncfg.rdmaDevice
-      ]
-      [
-        ncfg.rdmaDevice
-        null
-      ]
-    ]
-  );
+  # Runtime launcher: detects the interface carrying this host's link
+  # address, writes the MLX_IBV_DEVICES matrix for its RDMA device, then
+  # execs the rank command (its argv). Keeps the serving invocation visible
+  # in ProgramArguments so lib/checks/mlx-night.nix still asserts it.
+  rankLaunchPkg = pkgs.writeShellApplication {
+    name = "mlx-night-rank-launch";
+    text = builtins.readFile ./scripts/night-rank-launch.sh;
+  };
 
-  # Inlined as ProgramArguments (no wrapper script) so lib/checks/mlx-night.nix
-  # can assert the exact serving invocation in pure eval.
   nightRankArgs = [
+    (lib.getExe rankLaunchPkg)
     "${pkgs.uv}/bin/uvx"
     "--from"
     "mlx-lm==${versions.mlxLm}"
@@ -128,12 +122,6 @@ in
       description = "Link addresses of the two ends of the Thunderbolt cable.";
     };
 
-    rdmaDevice = lib.mkOption {
-      type = lib.types.str;
-      default = "rdma_en2";
-      description = "RDMA device name for the Thunderbolt link (see `ibv_devices`; port-dependent).";
-    };
-
     extraServerArgs = lib.mkOption {
       type = lib.types.listOf lib.types.str;
       default = [ ];
@@ -186,7 +174,9 @@ in
             HF_HOME = cfg.huggingFaceHome;
             MLX_RANK = if isCoordinator then "0" else "1";
             MLX_JACCL_COORDINATOR = "${ncfg.linkIps.coordinator}:${toString ncfg.rendezvousPort}";
-            MLX_IBV_DEVICES = "${ibvDevicesFile}";
+            # MLX_IBV_DEVICES is generated at start by the rank launcher from
+            # the detected interface.
+            NIGHT_OWN_IP = if isCoordinator then ncfg.linkIps.coordinator else ncfg.linkIps.worker;
             # Faster GPU/CPU synchronization for distributed decode.
             MLX_METAL_FAST_SYNCH = "1";
           };
