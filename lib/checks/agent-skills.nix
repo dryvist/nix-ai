@@ -4,8 +4,9 @@ let
   helpers = import ./helpers.nix { inherit pkgs; };
   cfg = hmConfig.config.programs.agentSkills;
   homeFileNames = builtins.attrNames hmConfig.config.home.file;
+  # INDEX.md is the generated manifest, not a skill directory — exclude it.
   managedSkillEntries = builtins.filter (
-    n: builtins.match "^\\.agents/skills/[^/]+$" n != null
+    n: builtins.match "^\\.agents/skills/[^/]+$" n != null && n != ".agents/skills/INDEX.md"
   ) homeFileNames;
   legacySkillFileEntries = builtins.filter (
     n: builtins.match "^\\.agents/skills/.+/SKILL\\.md$" n != null
