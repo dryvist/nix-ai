@@ -20,31 +20,39 @@ let
   aiCommon = import ../common { inherit lib config nix-claude-code; };
   permission = aiCommon.formatters.opencode.formatPermission aiCommon.permissions;
 
-  mkCommandLinks =
+  settings = {
+    "$schema" = "https://opencode.ai/config.json";
+    inherit permission;
+  };
+
+  mdFiles =
     dir:
-    lib.mapAttrs' (
-      name: _:
-      lib.nameValuePair ".config/opencode/command/${name}" {
-        source = "${dir}/${name}";
-      }
-    ) (
-      lib.optionalAttrs (builtins.pathExists dir) (
-        lib.filterAttrs (name: type: type == "regular" && lib.hasSuffix ".md" name) (
-          builtins.readDir dir
-        )
+    lib.optionalAttrs (builtins.pathExists dir) (
+      lib.filterAttrs (name: type: type == "regular" && lib.hasSuffix ".md" name) (
+        builtins.readDir dir
       )
     );
+
+  mkCommandLinks =
+    dir:
+    lib.mapAttrs' (name: _: {
+      name = ".config/opencode/command/${name}";
+      value = {
+        source = "${dir}/${name}";
+      };
+    }) (mdFiles dir);
 in
 {
   imports = [ ./options.nix ];
 
+  # Shadow home-manager 26.05's upstream programs.opencode module — this
+  # module owns the option namespace (same pattern as antigravity-cli).
+  disabledModules = [ "programs/opencode.nix" ];
+
   config = lib.mkIf cfg.enable {
     home.file = {
       ".config/opencode/opencode.json".text = builtins.toJSON (
-        lib.recursiveUpdate {
-          "$schema" = "https://opencode.ai/config.json";
-          inherit permission;
-        } cfg.extraSettings
+        lib.recursiveUpdate settings cfg.extraSettings
       );
     }
     // lib.foldl' (acc: dir: acc // mkCommandLinks dir) { } cfg.commandDirs;
