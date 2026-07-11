@@ -16,19 +16,11 @@
 # release ships PipelineMixin for glm4_moe but not tensor-parallel shard().
 #
 # Link identity is ZERO-CONFIG: the cabled Thunderbolt port is auto-detected
-# at runtime, and the interface's automatic IPv6 link-local (fe80::) is the
-# address — no IP is written in any repo, so moving the cable to another
-# port needs no edit anywhere. The rank launcher discovers the peer via
-# all-nodes multicast (ff02::1 -> ndp) and derives the ibv device as
-# rdma_<iface>. GATE (unvalidated until a supervised cluster night): JACCL
-# accepting a scoped link-local rendezvous address; if it rejects it, flip
-# `linkDiscovery = "static"` (role-derived synthetic IPs, the documented
-# fallback — nix-darwin `system.rdmaLink.staticAddress` pins them).
-#
-# RDMA prerequisites (documented in the runbook, not automatable here):
-# `rdma_ctl enable` from macOS Recovery on BOTH Macs; nix-darwin's
-# `system.rdmaLink` detaches the cabled port from the Thunderbolt bridge at
-# activation. Verify devices with `ibv_devices`.
+# at runtime and its automatic IPv6 link-local (fe80::) is the address — no
+# IP is written in any repo (see the linkDiscovery option for the JACCL gate
+# + static fallback). RDMA prerequisites: `rdma_ctl enable` from Recovery on
+# BOTH Macs; nix-darwin `system.rdmaLink` detaches the cabled port from the
+# Thunderbolt bridge at activation. Verify devices with `ibv_devices`.
 #
 {
   config,
@@ -74,12 +66,14 @@ let
   nightWatcherPkg = pkgs.writeShellApplication {
     name = "mlx-night-link-watcher";
     runtimeInputs = [ pkgs.curl ];
-    text = builtins.readFile ./scripts/night-link-lib.sh + builtins.readFile ./scripts/night-link-watcher.sh;
+    text =
+      builtins.readFile ./scripts/night-link-lib.sh + builtins.readFile ./scripts/night-link-watcher.sh;
   };
 
   nightRankLauncherPkg = pkgs.writeShellApplication {
     name = "mlx-night-rank-launcher";
-    text = builtins.readFile ./scripts/night-link-lib.sh + builtins.readFile ./scripts/night-rank-launcher.sh;
+    text =
+      builtins.readFile ./scripts/night-link-lib.sh + builtins.readFile ./scripts/night-rank-launcher.sh;
   };
 in
 {
@@ -123,14 +117,11 @@ in
       ];
       default = "link-local";
       description = ''
-        How the two ends of the Thunderbolt cable address each other.
-        "link-local" (default): zero written IP — the cabled port is
-        auto-detected and its automatic IPv6 fe80:: is the identity; the peer
-        is discovered via all-nodes multicast. GATE: JACCL accepting a scoped
-        link-local rendezvous address is unvalidated until a supervised
-        cluster night. "static": the documented fallback — role-derived
-        synthetic IPs from `staticLinkIps` (pin them per host with
-        nix-darwin `system.rdmaLink.staticAddress`).
+        "link-local" (default): zero written IP — auto-detected port, IPv6
+        fe80:: identity, peer via all-nodes multicast. GATE: JACCL accepting
+        a scoped link-local rendezvous is unvalidated until a supervised
+        cluster night. "static": the fallback — role-derived synthetic IPs
+        from staticLinkIps (pin per host via rdmaLink.staticAddress).
       '';
     };
 
