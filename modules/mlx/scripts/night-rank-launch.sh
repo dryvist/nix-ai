@@ -22,7 +22,9 @@ if [ -z "$iface" ]; then
   exit 1
 fi
 
-ibv_file="${TMPDIR:-/tmp}/mlx-night-ibv-devices.json"
+# mktemp, not a predictable path: /tmp/<fixed-name> is symlink-attackable
+# (CWE-377) and the rank runs long enough for the file to matter.
+ibv_file="$(mktemp "${TMPDIR:-/tmp}/mlx-night-ibv-XXXXXX.json")"
 printf '[[null,"rdma_%s"],["rdma_%s",null]]' "$iface" "$iface" > "$ibv_file"
 export MLX_IBV_DEVICES="$ibv_file"
 echo "night-rank: iface=$iface rdma_device=rdma_$iface"
