@@ -1,29 +1,45 @@
 # Night-cluster link watcher — one state-machine tick per launchd interval.
 #
-# Detects the Thunderbolt point-to-point link by pinging the peer's link
-# address, then converges the night rank to match:
+# Detects the Thunderbolt point-to-point link by auto-detecting the cabled
+# port and discovering the peer's link-local address (or, in fallback mode,
+# pinging the static peer IP), then converges the night rank to match:
 #   link down -> up : quiesce day serving, start the night rank
 #   link up   -> up : ensure the rank is still running (crash recovery)
 #   link up -> down : stop the rank, restore day serving
 #
 # Consumed environment (set declaratively by the launchd agent):
-#   NIGHT_ROLE         coordinator | worker
-#   NIGHT_PEER_IP      link address of the other Mac
-#   NIGHT_RANK_LABEL   launchd label of the night rank agent
-#   NIGHT_WARMUP_LABEL launchd label of the day-serving warmup one-shot
-#   NIGHT_DAY_PROXY    day llama-swap base URL (coordinator only)
-#   NIGHT_STATE_FILE   where the last observed link state is kept
-#   NIGHT_QUIESCE_CMD  optional worker-side quiesce hook (run via sh -c)
-#   NIGHT_RESTORE_CMD  optional worker-side restore hook (run via sh -c)
+#   NIGHT_ROLE            coordinator | worker
+#   NIGHT_LINK_DISCOVERY  link-local (default) | static
+#   NIGHT_STATIC_PEER_IP  static-mode peer address (fallback mode only)
+#   NIGHT_IFACE_OVERRIDE  optional cabled-port override
+#   NIGHT_RANK_LABEL      launchd label of the night rank agent
+#   NIGHT_WARMUP_LABEL    launchd label of the day-serving warmup one-shot
+#   NIGHT_DAY_PROXY       day llama-swap base URL (coordinator only)
+#   NIGHT_STATE_FILE      where the last observed link state is kept
+#   NIGHT_QUIESCE_CMD     optional worker-side quiesce hook (run via sh -c)
+#   NIGHT_RESTORE_CMD     optional worker-side restore hook (run via sh -c)
+#
+# (night_detect_iface / night_peer_ll come from night-link-lib.sh, prepended
+# at build time.)
 
 mkdir -p "$(dirname "$NIGHT_STATE_FILE")"
 prev="down"
 [ -f "$NIGHT_STATE_FILE" ] && prev="$(cat "$NIGHT_STATE_FILE")"
 
-if /sbin/ping -c 1 -t 2 -q "$NIGHT_PEER_IP" > /dev/null 2>&1; then
-  cur="up"
-else
-  cur="down"
+cur="down"
+if iface="$(night_detect_iface)"; then
+  case "${NIGHT_LINK_DISCOVERY:-link-local}" in
+    static)
+      if /sbin/ping -c 1 -t 2 -q "$NIGHT_STATIC_PEER_IP" > /dev/null 2>&1; then
+        cur="up"
+      fi
+      ;;
+    *)
+      if [ -n "$(night_peer_ll "$iface")" ]; then
+        cur="up"
+      fi
+      ;;
+  esac
 fi
 
 uid="$(id -u)"
