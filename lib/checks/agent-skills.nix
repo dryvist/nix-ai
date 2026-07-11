@@ -51,13 +51,8 @@ in
   agent-skills-home-files =
     let
       keepFile = hmConfig.config.home.file.".agents/.keep".text;
-      sharedSkillLinks = [
-        ".codex/skills"
-        ".gemini/antigravity/skills"
-        ".gemini/antigravity-cli/skills"
-        ".gemini/config/skills"
-        ".qwen/skills"
-      ];
+      # Same registry the module fans out from — the check cannot drift.
+      sharedSkillLinks = builtins.attrValues (import ../../modules/agent-skills/harnesses.nix);
       missingSharedLinks = builtins.filter (
         n: !(builtins.hasAttr n hmConfig.config.home.file)
       ) sharedSkillLinks;
@@ -86,5 +81,8 @@ in
     assert
       missingSharedLinks == [ ]
       || throw "Agent Skills shared links missing: ${builtins.toJSON missingSharedLinks}";
+    assert
+      builtins.elem ".agents/skills/autoresearch" managedSkillEntries
+      || throw "autoresearch skill not discovered from its flake input";
     helpers.mkMarker "check-agent-skills-home-files" "Agent Skills home.file wiring: ${toString (builtins.length managedSkillEntries)} managed skill entries";
 }

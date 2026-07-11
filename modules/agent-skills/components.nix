@@ -8,6 +8,27 @@ let
   homeDir = config.home.homeDirectory;
   skillDir = source: builtins.dirOf source;
 
+  # Harness fan-out: one registry generates the symlinks, the cleanup sweep,
+  # and (via lib/checks/agent-skills.nix) the regression coverage.
+  harnessSkillDirs = builtins.attrValues (import ./harnesses.nix);
+  harnessSymlinks = lib.genAttrs harnessSkillDirs (_: {
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDir}/.agents/skills";
+  });
+
+  # Names-only manifest (descriptions would force IFD on wrapped-command
+  # skills). Harnesses without a native skill loader (Copilot, cecli) are
+  # pointed at this file from their instruction context, so any file-capable
+  # agent can discover and follow the shared skills.
+  skillIndex = ''
+    # Shared Agent Skills
+
+    Reusable skills live in `~/.agents/skills/<name>/SKILL.md`. When a task
+    matches a skill below, read its SKILL.md and follow it.
+
+    ${lib.concatMapStrings (n: "- ${n}\n") (
+      lib.unique (map (c: c.name) cfg.fromFlakeInputs ++ builtins.attrNames cfg.local)
+    )}'';
+
   mkSkillFiles =
     components:
     builtins.listToAttrs (
@@ -62,23 +83,20 @@ in
         }
 
         cleanup_skill_tree "${homeDir}/.agents/skills"
-        cleanup_skill_tree "${homeDir}/.codex/skills"
+        # Legacy pre-registry location (module once deployed here directly).
         cleanup_skill_tree "${homeDir}/.antigravity-cli/skills"
-        cleanup_skill_tree "${homeDir}/.qwen/skills"
+        ${lib.concatMapStrings (dir: ''
+          cleanup_skill_tree "${homeDir}/${dir}"
+        '') harnessSkillDirs}
       '';
 
       file = {
         ".agents/.keep".text = ''
           # Managed by Nix - programs.agentSkills module
         '';
-        ".gemini/antigravity/skills".source =
-          config.lib.file.mkOutOfStoreSymlink "${homeDir}/.agents/skills";
-        ".gemini/antigravity-cli/skills".source =
-          config.lib.file.mkOutOfStoreSymlink "${homeDir}/.agents/skills";
-        ".gemini/config/skills".source = config.lib.file.mkOutOfStoreSymlink "${homeDir}/.agents/skills";
-        ".codex/skills".source = config.lib.file.mkOutOfStoreSymlink "${homeDir}/.agents/skills";
-        ".qwen/skills".source = config.lib.file.mkOutOfStoreSymlink "${homeDir}/.agents/skills";
+        ".agents/skills/INDEX.md".text = skillIndex;
       }
+      // harnessSymlinks
       // mkSkillFiles cfg.fromFlakeInputs
       // mkLocalSkills cfg.local;
     };

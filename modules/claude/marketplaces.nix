@@ -93,4 +93,14 @@ base
     };
     flakeInput = marketplaceInputs.ponytail;
   };
+  # autoresearch lives in nix-ai (input + tier entry), same as ponytail.
+  # Ships a native .claude-plugin/marketplace.json; content is pinned via the
+  # flake input — the GitHub source here is registry identity metadata only.
+  "autoresearch" = {
+    source = {
+      type = "github";
+      url = "uditgoenka/autoresearch";
+    };
+    flakeInput = marketplaceInputs.autoresearch;
+  };
 }

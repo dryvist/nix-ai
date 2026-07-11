@@ -6,6 +6,7 @@
   dashmotion,
   ponytail,
   last30days-skill,
+  autoresearch,
 }:
 let
   # Marketplace flake inputs now live inside nix-claude-code. Surface the
@@ -42,6 +43,7 @@ let
     inherit dashmotion;
     inherit ponytail;
     inherit last30days-skill;
+    inherit autoresearch;
   };
 in
 {
@@ -169,6 +171,20 @@ in
     _module.args = {
       inherit
         ai-assistant-instructions
+        marketplaceInputs
+        ;
+    };
+  };
+
+  opencode = {
+    imports = [
+      ../modules/mcp/module.nix
+      ../modules/agent-skills
+      ../modules/opencode
+    ];
+    _module.args = {
+      inherit
+        nix-claude-code
         marketplaceInputs
         ;
     };
