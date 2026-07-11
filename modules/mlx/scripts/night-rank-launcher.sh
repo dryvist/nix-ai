@@ -15,14 +15,15 @@ iface="$(night_detect_iface)" || {
   exit 1
 }
 
-case "${NIGHT_LINK_DISCOVERY:-link-local}" in
+case "${NIGHT_LINK_DISCOVERY:-static}" in
   static)
     coord="$NIGHT_STATIC_COORDINATOR_IP"
     ;;
   *)
-    # GATE (unvalidated until a supervised cluster night): JACCL accepting a
-    # scoped link-local rendezvous address. If it rejects this, flip
-    # nightCluster.linkDiscovery to "static" — the documented fallback.
+    # GATE VALIDATED 2026-07-11 and REJECTED: the pinned mlx-lm's JACCL
+    # rendezvous parser is IPv4-only (even [::1]:port fails with "Can't
+    # parse address"), so this branch cannot work today. Kept for a future
+    # mlx-lm that learns IPv6 — fe80 reachability itself verified fine.
     if [ "$NIGHT_ROLE" = "coordinator" ]; then
       coord="$(night_own_ll "$iface")"
     else

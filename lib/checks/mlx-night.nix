@@ -21,8 +21,8 @@ in
       !(rankEnv ? MLX_JACCL_COORDINATOR)
       || throw "night: the JACCL rendezvous address is runtime-computed by the launcher, never baked into the env";
     assert
-      rankEnv.NIGHT_LINK_DISCOVERY == "link-local" && rankEnv.NIGHT_ROLE == "coordinator"
-      || throw "night: launcher inputs wrong (link discovery must default to link-local; role must reach the launcher)";
+      rankEnv.NIGHT_LINK_DISCOVERY == "static" && rankEnv.NIGHT_ROLE == "coordinator"
+      || throw "night: launcher inputs wrong (link discovery must default to static — JACCL rendezvous is IPv4-only, verified 2026-07-11; role must reach the launcher)";
     assert
       rankEnv.NIGHT_RENDEZVOUS_PORT == "11441"
       || throw "night: rendezvous port must reach the launcher env";
@@ -48,8 +48,11 @@ in
       watcher.StartInterval == 30 && watcher.RunAtLoad == true
       || throw "night: watcher must tick every 30s from load";
     assert
-      !(watcherEnv ? NIGHT_PEER_IP) && watcherEnv.NIGHT_LINK_DISCOVERY == "link-local"
-      || throw "night: watcher must use link-local peer discovery (no baked peer ip) by default";
+      !(watcherEnv ? NIGHT_PEER_IP) && watcherEnv.NIGHT_LINK_DISCOVERY == "static"
+      || throw "night: watcher must default to static link discovery (JACCL is IPv4-only) with the peer ip supplied as NIGHT_STATIC_PEER_IP";
+    assert
+      watcherEnv.NIGHT_STATIC_PEER_IP == "192.168.208.2"
+      || throw "night: coordinator watcher must ping the worker's static link ip, got ${watcherEnv.NIGHT_STATIC_PEER_IP}";
     assert
       watcherEnv.NIGHT_DAY_PROXY == "http://127.0.0.1:11434"
       || throw "night: watcher must quiesce the day proxy on its configured port";
