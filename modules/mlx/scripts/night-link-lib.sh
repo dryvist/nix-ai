@@ -12,8 +12,10 @@ night_detect_iface() {
     return 0
   fi
   local dev
+  # "Thunderbolt [0-9]" only: the virtual "Thunderbolt Bridge" port (device
+  # bridge0) also starts with "Thunderbolt" and must never be a candidate.
   for dev in $(/usr/sbin/networksetup -listallhardwareports \
-                | /usr/bin/awk '/^Hardware Port: Thunderbolt/{getline; print $2}'); do
+                | /usr/bin/awk '/^Hardware Port: Thunderbolt [0-9]/{getline; print $2}'); do
     if /sbin/ifconfig "$dev" 2>/dev/null | /usr/bin/grep -q "status: active"; then
       printf '%s\n' "$dev"
       return 0
@@ -34,7 +36,9 @@ night_peer_ll() {
   local iface="$1" own
   own="$(night_own_ll "$iface")"
   /sbin/ping6 -c 2 "ff02::1%$iface" > /dev/null 2>&1 || true
+  # Match the Netif column exactly — a substring test on %en2 would also
+  # match neighbors on en20/en21.
   /usr/sbin/ndp -an 2>/dev/null \
-    | /usr/bin/awk -v i="%$iface" -v own="$own" \
-        '$1 ~ /^fe80/ && index($1, i) && $1 != own { print $1; exit }'
+    | /usr/bin/awk -v iface="$iface" -v own="$own" \
+        '$1 ~ /^fe80/ && $3 == iface && $1 != own { print $1; exit }'
 }

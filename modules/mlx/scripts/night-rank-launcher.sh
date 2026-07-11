@@ -37,7 +37,9 @@ case "${NIGHT_LINK_DISCOVERY:-link-local}" in
 esac
 
 dev="${NIGHT_RDMA_DEVICE:-rdma_$iface}"
-matrix="$(/usr/bin/mktemp -t night-ibv)"
+# Deterministic path, not mktemp: exec replaces this shell, so nothing could
+# clean a fresh temp file per launch; one stable per-user file self-overwrites.
+matrix="${TMPDIR:-/tmp}/mlx-night-ibv-$(id -u).json"
 printf '[[null, "%s"], ["%s", null]]\n' "$dev" "$dev" > "$matrix"
 
 export MLX_JACCL_COORDINATOR="$coord:$NIGHT_RENDEZVOUS_PORT"
