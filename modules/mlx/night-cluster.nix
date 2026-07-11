@@ -140,6 +140,27 @@ in
       description = "FALLBACK (linkDiscovery = \"static\"): link addresses of the two cable ends.";
     };
 
+    maxKickstarts = lib.mkOption {
+      type = lib.types.int;
+      default = 3;
+      description = ''
+        Consecutive failed rank starts before the watcher halts kickstarts
+        and pages once. Every failed distributed init leaks a kernel RDMA
+        Protection Domain and exhaustion is reboot-only (ml-explore/mlx#3207),
+        so an unbounded crash loop forces a reboot.
+      '';
+    };
+
+    alertUrlFile = lib.mkOption {
+      type = lib.types.str;
+      default = "${config.home.homeDirectory}/.config/mlx-night/alert-url";
+      description = ''
+        Untracked local file holding the notification URL (ntfy-style POST
+        target) for the halt page. The URL names internal topology, so it is
+        seeded out-of-band and never committed. Missing file = no page.
+      '';
+    };
+
     interfaceOverride = lib.mkOption {
       type = lib.types.nullOr lib.types.str;
       default = null;
@@ -251,6 +272,8 @@ in
             NIGHT_WARMUP_LABEL = warmupAgentLabel;
             NIGHT_DAY_PROXY = "http://127.0.0.1:${toString cfg.port}";
             NIGHT_STATE_FILE = stateFile;
+            NIGHT_MAX_KICKSTARTS = toString ncfg.maxKickstarts;
+            NIGHT_ALERT_URL_FILE = ncfg.alertUrlFile;
           }
           // lib.optionalAttrs isStatic {
             NIGHT_STATIC_PEER_IP = staticPeerIp;
