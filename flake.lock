@@ -32,6 +32,22 @@
         "type": "github"
       }
     },
+    "autoresearch": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1782200080,
+        "narHash": "sha256-nrV6ZUo6Q7p2tzGWCLurur4X8QXuZfOu5ioOZTyaqNQ=",
+        "owner": "uditgoenka",
+        "repo": "autoresearch",
+        "rev": "870e9b8eca4fbe53cd6cb1247410373692e4aec3",
+        "type": "github"
+      },
+      "original": {
+        "owner": "uditgoenka",
+        "repo": "autoresearch",
+        "type": "github"
+      }
+    },
     "axton-obsidian-visual-skills": {
       "flake": false,
       "locked": {
@@ -620,6 +636,7 @@
     "root": {
       "inputs": {
         "ai-assistant-instructions": "ai-assistant-instructions",
+        "autoresearch": "autoresearch",
         "claude-code-plugins": "claude-code-plugins",
         "dashmotion": "dashmotion",
         "fabric-src": "fabric-src",

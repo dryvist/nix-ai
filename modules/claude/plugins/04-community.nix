@@ -11,11 +11,21 @@
 #   - superpowers-marketplace (obra/superpowers-marketplace, 925★)
 #   - cc-marketplace (ananddtyagi/cc-marketplace, 679★)
 #   - claude-skills (secondsky/claude-skills, 129★)         — single-skill specialty plugins
+#   - autoresearch (uditgoenka/autoresearch, 5300★)         — autonomous iteration engine
 
 _:
 
 {
   enabledPlugins = {
+    # ========================================================================
+    # autoresearch — uditgoenka/autoresearch (5300★)
+    # ========================================================================
+    # Autonomous modify→verify→iterate engine: 14 /autoresearch:* commands
+    # (plan, debug, fix, security, ship, evals, …) + 9 safety hooks. Enabling
+    # this also flips agent-skills discovery, fanning the autoresearch skill
+    # out to every harness in modules/agent-skills/harnesses.nix.
+    "autoresearch@autoresearch" = true;
+
     # ========================================================================
     # claude-code-workflows — wshobson/agents (34640★)
     # ========================================================================

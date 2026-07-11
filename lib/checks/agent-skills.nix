@@ -4,8 +4,9 @@ let
   helpers = import ./helpers.nix { inherit pkgs; };
   cfg = hmConfig.config.programs.agentSkills;
   homeFileNames = builtins.attrNames hmConfig.config.home.file;
+  # INDEX.md is the generated manifest, not a skill directory — exclude it.
   managedSkillEntries = builtins.filter (
-    n: builtins.match "^\\.agents/skills/[^/]+$" n != null
+    n: builtins.match "^\\.agents/skills/[^/]+$" n != null && n != ".agents/skills/INDEX.md"
   ) homeFileNames;
   legacySkillFileEntries = builtins.filter (
     n: builtins.match "^\\.agents/skills/.+/SKILL\\.md$" n != null
@@ -51,13 +52,8 @@ in
   agent-skills-home-files =
     let
       keepFile = hmConfig.config.home.file.".agents/.keep".text;
-      sharedSkillLinks = [
-        ".codex/skills"
-        ".gemini/antigravity/skills"
-        ".gemini/antigravity-cli/skills"
-        ".gemini/config/skills"
-        ".qwen/skills"
-      ];
+      # Same registry the module fans out from — the check cannot drift.
+      sharedSkillLinks = builtins.attrValues (import ../../modules/agent-skills/harnesses.nix);
       missingSharedLinks = builtins.filter (
         n: !(builtins.hasAttr n hmConfig.config.home.file)
       ) sharedSkillLinks;
@@ -86,5 +82,8 @@ in
     assert
       missingSharedLinks == [ ]
       || throw "Agent Skills shared links missing: ${builtins.toJSON missingSharedLinks}";
+    assert
+      builtins.elem ".agents/skills/autoresearch" managedSkillEntries
+      || throw "autoresearch skill not discovered from its flake input";
     helpers.mkMarker "check-agent-skills-home-files" "Agent Skills home.file wiring: ${toString (builtins.length managedSkillEntries)} managed skill entries";
 }

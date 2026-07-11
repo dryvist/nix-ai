@@ -84,6 +84,17 @@
       flake = false;
     };
 
+    # Autoresearch - autonomous goal-directed iteration engine (modify → verify
+    # → keep/discard loop) from uditgoenka/autoresearch. Dual-channel like
+    # ponytail: native .claude-plugin/ marketplace (14 /autoresearch:* commands
+    # + safety hooks for Claude) AND a self-contained .claude/skills/ skill
+    # (consumed cross-tool via agent-skills auto-discovery). Its .opencode/
+    # command files feed the opencode module directly.
+    autoresearch = {
+      url = "github:uditgoenka/autoresearch";
+      flake = false;
+    };
+
     # Last30Days - multi-source social research skill. Aggregates Reddit, X,
     # YouTube, TikTok, Hacker News, Polymarket, GitHub, and web results ranked
     # by engagement. Flat skills/<name>/SKILL.md layout; skill-only cross-tool
@@ -108,6 +119,7 @@
       dashmotion,
       ponytail,
       last30days-skill,
+      autoresearch,
       ...
     }:
     let
@@ -128,6 +140,7 @@
           dashmotion
           ponytail
           last30days-skill
+          autoresearch
           ;
       };
 
