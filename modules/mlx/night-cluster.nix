@@ -15,10 +15,20 @@
 # self-contained under launchd. --pipeline is required: the pinned mlx-lm
 # release ships PipelineMixin for glm4_moe but not tensor-parallel shard().
 #
+# Link identity is ZERO-CONFIG: the cabled Thunderbolt port is auto-detected
+# at runtime, and the interface's automatic IPv6 link-local (fe80::) is the
+# address — no IP is written in any repo, so moving the cable to another
+# port needs no edit anywhere. The rank launcher discovers the peer via
+# all-nodes multicast (ff02::1 -> ndp) and derives the ibv device as
+# rdma_<iface>. GATE (unvalidated until a supervised cluster night): JACCL
+# accepting a scoped link-local rendezvous address; if it rejects it, flip
+# `linkDiscovery = "static"` (role-derived synthetic IPs, the documented
+# fallback — nix-darwin `system.rdmaLink.staticAddress` pins them).
+#
 # RDMA prerequisites (documented in the runbook, not automatable here):
-# `rdma_ctl enable` from macOS Recovery on BOTH Macs, Thunderbolt bridge
-# membership disabled for the RDMA link, and manual link IPs assigned once
-# via networksetup. Verify devices with `ibv_devices`.
+# `rdma_ctl enable` from macOS Recovery on BOTH Macs; nix-darwin's
+# `system.rdmaLink` detaches the cabled port from the Thunderbolt bridge at
+# activation. Verify devices with `ibv_devices`.
 #
 {
   config,
@@ -38,27 +48,12 @@ let
   stateFile = "${config.home.homeDirectory}/Library/Application Support/mlx-night/link-state";
 
   isCoordinator = ncfg.role == "coordinator";
-  peerIp = if isCoordinator then ncfg.linkIps.worker else ncfg.linkIps.coordinator;
+  isStatic = ncfg.linkDiscovery == "static";
+  staticPeerIp = if isCoordinator then ncfg.staticLinkIps.worker else ncfg.staticLinkIps.coordinator;
 
-  # MLX_IBV_DEVICES matrix: entry [i][j] names the RDMA device node i uses to
-  # reach node j (null on the diagonal). UNVALIDATED until first plug-in —
-  # confirm the device name against `ibv_devices` / `mlx.distributed_config`
-  # on plug night and override rdmaDevice if the cable landed on another port.
-  ibvDevicesFile = pkgs.writeText "mlx-night-ibv-devices.json" (
-    builtins.toJSON [
-      [
-        null
-        ncfg.rdmaDevice
-      ]
-      [
-        ncfg.rdmaDevice
-        null
-      ]
-    ]
-  );
-
-  # Inlined as ProgramArguments (no wrapper script) so lib/checks/mlx-night.nix
-  # can assert the exact serving invocation in pure eval.
+  # The serve invocation stays a plain args list (appended after the launcher)
+  # so lib/checks/mlx-night.nix can assert it in pure eval; the launcher only
+  # computes MLX_JACCL_COORDINATOR / MLX_IBV_DEVICES at runtime and execs it.
   nightRankArgs = [
     "${pkgs.uv}/bin/uvx"
     "--from"
@@ -79,7 +74,12 @@ let
   nightWatcherPkg = pkgs.writeShellApplication {
     name = "mlx-night-link-watcher";
     runtimeInputs = [ pkgs.curl ];
-    text = builtins.readFile ./scripts/night-link-watcher.sh;
+    text = builtins.readFile ./scripts/night-link-lib.sh + builtins.readFile ./scripts/night-link-watcher.sh;
+  };
+
+  nightRankLauncherPkg = pkgs.writeShellApplication {
+    name = "mlx-night-rank-launcher";
+    text = builtins.readFile ./scripts/night-link-lib.sh + builtins.readFile ./scripts/night-rank-launcher.sh;
   };
 in
 {
@@ -116,22 +116,54 @@ in
       description = "JACCL coordinator rendezvous port (MLX_JACCL_COORDINATOR).";
     };
 
-    linkIps = lib.mkOption {
+    linkDiscovery = lib.mkOption {
+      type = lib.types.enum [
+        "link-local"
+        "static"
+      ];
+      default = "link-local";
+      description = ''
+        How the two ends of the Thunderbolt cable address each other.
+        "link-local" (default): zero written IP — the cabled port is
+        auto-detected and its automatic IPv6 fe80:: is the identity; the peer
+        is discovered via all-nodes multicast. GATE: JACCL accepting a scoped
+        link-local rendezvous address is unvalidated until a supervised
+        cluster night. "static": the documented fallback — role-derived
+        synthetic IPs from `staticLinkIps` (pin them per host with
+        nix-darwin `system.rdmaLink.staticAddress`).
+      '';
+    };
+
+    staticLinkIps = lib.mkOption {
       type = lib.types.attrsOf lib.types.str;
       default = {
         # Synthetic point-to-point net for the Thunderbolt cable itself —
-        # module-defined defaults, not site topology. Assigned once per Mac
-        # via networksetup (runbook step); override only on subnet clash.
+        # module-defined defaults, not site topology. Only meaningful with
+        # linkDiscovery = "static"; override only on subnet clash.
         coordinator = "192.168.208.1";
         worker = "192.168.208.2";
       };
-      description = "Link addresses of the two ends of the Thunderbolt cable.";
+      description = "FALLBACK (linkDiscovery = \"static\"): link addresses of the two cable ends.";
+    };
+
+    interfaceOverride = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      example = "en3";
+      description = ''
+        Cabled Thunderbolt port override. Default null = auto-detect (first
+        Thunderbolt port with an active link). Set only if more than one
+        Thunderbolt port is cabled and the wrong one wins.
+      '';
     };
 
     rdmaDevice = lib.mkOption {
-      type = lib.types.str;
-      default = "rdma_en2";
-      description = "RDMA device name for the Thunderbolt link (see `ibv_devices`; port-dependent).";
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = ''
+        RDMA device override (see `ibv_devices`). Default null = derived at
+        runtime as rdma_<detected interface>.
+      '';
     };
 
     extraServerArgs = lib.mkOption {
@@ -176,7 +208,10 @@ in
         enable = true;
         config = {
           Label = rankLabel;
-          ProgramArguments = nightRankArgs;
+          # Launcher first: it discovers the link at runtime (iface, addresses,
+          # ibv device), exports MLX_JACCL_COORDINATOR / MLX_IBV_DEVICES, and
+          # execs the serve args that follow it.
+          ProgramArguments = [ (lib.getExe nightRankLauncherPkg) ] ++ nightRankArgs;
           RunAtLoad = false;
           KeepAlive = false;
           ThrottleInterval = 60;
@@ -185,10 +220,20 @@ in
           EnvironmentVariables = {
             HF_HOME = cfg.huggingFaceHome;
             MLX_RANK = if isCoordinator then "0" else "1";
-            MLX_JACCL_COORDINATOR = "${ncfg.linkIps.coordinator}:${toString ncfg.rendezvousPort}";
-            MLX_IBV_DEVICES = "${ibvDevicesFile}";
+            NIGHT_ROLE = ncfg.role;
+            NIGHT_LINK_DISCOVERY = ncfg.linkDiscovery;
+            NIGHT_RENDEZVOUS_PORT = toString ncfg.rendezvousPort;
             # Faster GPU/CPU synchronization for distributed decode.
             MLX_METAL_FAST_SYNCH = "1";
+          }
+          // lib.optionalAttrs isStatic {
+            NIGHT_STATIC_COORDINATOR_IP = ncfg.staticLinkIps.coordinator;
+          }
+          // lib.optionalAttrs (ncfg.interfaceOverride != null) {
+            NIGHT_IFACE_OVERRIDE = ncfg.interfaceOverride;
+          }
+          // lib.optionalAttrs (ncfg.rdmaDevice != null) {
+            NIGHT_RDMA_DEVICE = ncfg.rdmaDevice;
           };
           StandardOutPath = "${logDir}/night-rank.log";
           StandardErrorPath = "${logDir}/night-rank.error.log";
@@ -207,11 +252,17 @@ in
           ProcessType = "Background";
           EnvironmentVariables = {
             NIGHT_ROLE = ncfg.role;
-            NIGHT_PEER_IP = peerIp;
+            NIGHT_LINK_DISCOVERY = ncfg.linkDiscovery;
             NIGHT_RANK_LABEL = rankLabel;
             NIGHT_WARMUP_LABEL = warmupAgentLabel;
             NIGHT_DAY_PROXY = "http://127.0.0.1:${toString cfg.port}";
             NIGHT_STATE_FILE = stateFile;
+          }
+          // lib.optionalAttrs isStatic {
+            NIGHT_STATIC_PEER_IP = staticPeerIp;
+          }
+          // lib.optionalAttrs (ncfg.interfaceOverride != null) {
+            NIGHT_IFACE_OVERRIDE = ncfg.interfaceOverride;
           }
           // lib.optionalAttrs (ncfg.quiesceCommand != null) {
             NIGHT_QUIESCE_CMD = ncfg.quiesceCommand;

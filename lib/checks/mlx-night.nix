@@ -18,8 +18,17 @@ in
     assert
       rankEnv.MLX_RANK == "0" || throw "night: coordinator must be rank 0, got ${rankEnv.MLX_RANK}";
     assert
-      rankEnv.MLX_JACCL_COORDINATOR == "192.168.208.1:11441"
-      || throw "night: JACCL rendezvous must point at the coordinator link ip:port, got ${rankEnv.MLX_JACCL_COORDINATOR}";
+      !(rankEnv ? MLX_JACCL_COORDINATOR)
+      || throw "night: the JACCL rendezvous address is runtime-computed by the launcher, never baked into the env";
+    assert
+      rankEnv.NIGHT_LINK_DISCOVERY == "link-local" && rankEnv.NIGHT_ROLE == "coordinator"
+      || throw "night: launcher inputs wrong (link discovery must default to link-local; role must reach the launcher)";
+    assert
+      rankEnv.NIGHT_RENDEZVOUS_PORT == "11441"
+      || throw "night: rendezvous port must reach the launcher env";
+    assert
+      builtins.match ".*mlx-night-rank-launcher.*" (builtins.head rankArgs) != null
+      || throw "night: rank ProgramArguments must start with the link-discovery launcher";
     assert
       rankEnv.MLX_METAL_FAST_SYNCH == "1"
       || throw "night: MLX_METAL_FAST_SYNCH=1 missing from the rank env";
@@ -39,8 +48,8 @@ in
       watcher.StartInterval == 30 && watcher.RunAtLoad == true
       || throw "night: watcher must tick every 30s from load";
     assert
-      watcherEnv.NIGHT_PEER_IP == "192.168.208.2"
-      || throw "night: coordinator watcher must ping the worker link ip, got ${watcherEnv.NIGHT_PEER_IP}";
+      !(watcherEnv ? NIGHT_PEER_IP) && watcherEnv.NIGHT_LINK_DISCOVERY == "link-local"
+      || throw "night: watcher must use link-local peer discovery (no baked peer ip) by default";
     assert
       watcherEnv.NIGHT_DAY_PROXY == "http://127.0.0.1:11434"
       || throw "night: watcher must quiesce the day proxy on its configured port";
