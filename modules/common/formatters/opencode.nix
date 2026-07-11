@@ -12,10 +12,11 @@
     {
       edit = "allow";
       webfetch = "allow";
-      bash =
-        { "*" = "ask"; }
-        // decide "allow" permissions.allow
-        // decide "ask" permissions.ask
-        // decide "deny" permissions.deny;
+      bash = {
+        "*" = "ask";
+      }
+      // decide "allow" permissions.allow
+      // decide "ask" permissions.ask
+      // decide "deny" permissions.deny;
     };
 }

@@ -28,9 +28,7 @@ let
   mdFiles =
     dir:
     lib.optionalAttrs (builtins.pathExists dir) (
-      lib.filterAttrs (name: type: type == "regular" && lib.hasSuffix ".md" name) (
-        builtins.readDir dir
-      )
+      lib.filterAttrs (name: type: type == "regular" && lib.hasSuffix ".md" name) (builtins.readDir dir)
     );
 
   mkCommandLinks =
