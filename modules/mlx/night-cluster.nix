@@ -15,12 +15,14 @@
 # self-contained under launchd. --pipeline is required: the pinned mlx-lm
 # release ships PipelineMixin for glm4_moe but not tensor-parallel shard().
 #
-# Link identity is ZERO-CONFIG: the cabled Thunderbolt port is auto-detected
-# at runtime and its automatic IPv6 link-local (fe80::) is the address — no
-# IP is written in any repo (see the linkDiscovery option for the JACCL gate
-# + static fallback). RDMA prerequisites: `rdma_ctl enable` from Recovery on
-# BOTH Macs; nix-darwin `system.rdmaLink` detaches the cabled port from the
-# Thunderbolt bridge at activation. Verify devices with `ibv_devices`.
+# Link identity: the cabled Thunderbolt port is auto-detected at runtime —
+# moving the cable needs no config edit. The JACCL link-local gate was
+# VALIDATED 2026-07-11 and FAILED: the rendezvous parser is IPv4-only (every
+# IPv6 form, including [::1]:port, fails with "Can't parse address"), so
+# linkDiscovery defaults to "static" — role-derived synthetic IPv4 that the
+# nix-darwin night-link-prep daemon converges onto the cabled port (it also
+# detaches every RDMA-capable port from the Thunderbolt bridge). RDMA
+# prerequisite: `rdma_ctl enable` on BOTH Macs; verify with `ibv_devices`.
 #
 {
   config,
@@ -115,13 +117,14 @@ in
         "link-local"
         "static"
       ];
-      default = "link-local";
+      default = "static";
       description = ''
-        "link-local" (default): zero written IP — auto-detected port, IPv6
-        fe80:: identity, peer via all-nodes multicast. GATE: JACCL accepting
-        a scoped link-local rendezvous is unvalidated until a supervised
-        cluster night. "static": the fallback — role-derived synthetic IPs
-        from staticLinkIps (pin per host via rdmaLink.staticAddress).
+        "static" (default): role-derived synthetic IPs from staticLinkIps,
+        converged onto the cabled port by the nix-darwin night-link-prep
+        daemon. "link-local" is kept for a future mlx-lm: the JACCL gate was
+        validated 2026-07-11 and REJECTED — the rendezvous parser is
+        IPv4-only (even [::1]:port fails to parse), so link-local cannot
+        work on the pinned release.
       '';
     };
 
