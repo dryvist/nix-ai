@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # splunk-mcp-connect — connects to the Splunk MCP Server via mcp-remote stdio proxy.
 #
 # Reads credentials from env (injected by doppler-mcp wrapper at MCP launch time).
