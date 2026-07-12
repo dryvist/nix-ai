@@ -57,8 +57,11 @@ in
       missingSharedLinks = builtins.filter (
         n: !(builtins.hasAttr n hmConfig.config.home.file)
       ) sharedSkillLinks;
+      # home.file entries are submodules, so the `source` attribute is always
+      # present — hasAttr is a no-op. An entry with no real source throws on
+      # access ("option used but not defined"), so probe with tryEval instead.
       missingSkillSources = builtins.filter (
-        n: !(builtins.hasAttr "source" hmConfig.config.home.file.${n})
+        n: !(builtins.tryEval hmConfig.config.home.file.${n}.source).success
       ) managedSkillEntries;
       skillFileSources = builtins.filter (
         n:
