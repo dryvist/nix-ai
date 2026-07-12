@@ -37,6 +37,8 @@ in
   allow = [
     "$defaults"
     "Running `rm` to delete files inside the current working repository is routine and safe — allow without confirmation, including recursive deletion of ordinary subdirectories such as build outputs, caches, vendored dependencies, test fixtures, and git worktrees."
+    "Running inline interpreters for read-only inspection — `python -c`, `python3 -c`, `node -e`, `ruby -e`, `perl -e` — to parse JSON, read a config file, or compute and print a value is routine and safe; allow without confirmation. Only require confirmation when such a one-liner writes or deletes files, or sends data to a destination outside the working repository."
+    "Read-only compound shell chains that combine already-safe inspection tools (cd, ls, cat, head, tail, wc, sort, uniq, grep, rg, jq, `sed -n`, `awk` print, `find` without -delete/-exec, and git status/log/diff/show) with `&&` or `|` are routine and safe; allow without confirmation even though the combined command does not match a single narrow allow rule."
   ];
 
   soft_deny = [
