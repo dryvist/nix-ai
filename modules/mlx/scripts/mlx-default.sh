@@ -18,9 +18,11 @@
 uid=$(id -u)
 label="${MLX_LAUNCHD_LABEL:?}"
 
-# PID of the running proxy, if any (empty when already stopped).
+# PID of the running proxy, if any (empty when already stopped). launchctl
+# print indents with spaces on modern macOS (tabs on older releases), so
+# match any leading whitespace.
 pid=$(launchctl print "gui/$uid/$label" 2>/dev/null |
-  awk -F' = ' '/^\tpid = /{print $2; exit}' || true)
+  awk -F' = ' '/^[[:space:]]*pid = /{print $2; exit}' || true)
 
 # SIGTERM the proxy so llama-swap gracefully stops its vllm-mlx workers before
 # exiting; KeepAlive then relaunches it.
