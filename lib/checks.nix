@@ -1,5 +1,5 @@
 # Nix quality checks - thin aggregator
-# Individual check groups live in lib/checks/{lint,claude,agent-skills,codex,antigravity-cli,mlx,fabric}.nix
+# Individual check groups live in lib/checks/{lint,claude,agent-skills,codex,antigravity-cli,mcp,mlx,fabric}.nix
 {
   pkgs,
   src,
@@ -64,6 +64,17 @@ let
       };
     }
   ];
+
+  # Fourth evaluation exercising programs.mlx.clusterMode as the coordinator
+  # (lib/checks/mlx-cluster.nix): rank env contract, watcher wiring, prefetch.
+  hmConfigCluster = mkHmConfig [
+    {
+      programs.mlx.clusterMode = {
+        enable = true;
+        role = "coordinator";
+      };
+    }
+  ];
 in
 (import ./checks/lint.nix { inherit pkgs src; })
 // (import ./checks/ai-stack.nix { inherit pkgs testLocalModelId; })
@@ -71,9 +82,11 @@ in
 // (import ./checks/agent-skills.nix { inherit pkgs hmConfig; })
 // (import ./checks/codex.nix { inherit pkgs hmConfig; })
 // (import ./checks/antigravity-cli.nix { inherit pkgs hmConfig; })
+// (import ./checks/mcp.nix { inherit pkgs hmConfig; })
 // (import ./checks/autonomous-profile.nix { inherit pkgs; })
 // (import ./checks/mlx.nix { inherit pkgs hmConfig; })
 // (import ./checks/mlx-catalog.nix { inherit pkgs hmConfigCatalog; })
+// (import ./checks/mlx-cluster.nix { inherit pkgs hmConfigCluster; })
 // (import ./checks/fabric.nix {
   inherit
     pkgs

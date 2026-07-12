@@ -26,6 +26,7 @@ let
     mlxVlmVersion
     apiUrl
     launchAgentLabel
+    warmupAgentLabel
     llamaSwapPkg
     llamaSwapConfigFile
     llamaSwapRuntimeConfigPath
@@ -50,6 +51,7 @@ in
         MLX_HOST = cfg.host;
         MLX_HF_HOME = cfg.huggingFaceHome;
         MLX_LAUNCHD_LABEL = launchAgentLabel;
+        MLX_WARMUP_LABEL = warmupAgentLabel;
         MLX_LLAMA_SWAP_CONFIG = llamaSwapRuntimeConfigPath;
         MLX_LLAMA_SWAP_BASE_CONFIG = "${llamaSwapConfigFile}";
       };
@@ -208,8 +210,11 @@ in
           text = builtins.readFile ./scripts/mlx-models.sh;
         })
 
-        # mlx-discover — auto-discover downloaded models and register with llama-swap
+        # mlx-discover — auto-discover downloaded models and register with llama-swap.
+        # MLX_PRELOAD_MODELS_JSON is baked in (not taken from the shell) so the
+        # wrapper works from any env, matching the activation hook.
         (pkgs.writeShellScriptBin "mlx-discover" ''
+          export MLX_PRELOAD_MODELS_JSON=${lib.escapeShellArg (builtins.toJSON cfg.preload)}
           exec ${pkgs.python3}/bin/python3 "${./discover-models.py}" "$@"
         '')
 

@@ -4,8 +4,9 @@ let
   helpers = import ./helpers.nix { inherit pkgs; };
   cfg = hmConfig.config.programs.agentSkills;
   homeFileNames = builtins.attrNames hmConfig.config.home.file;
+  # INDEX.md is the generated manifest, not a skill directory — exclude it.
   managedSkillEntries = builtins.filter (
-    n: builtins.match "^\\.agents/skills/[^/]+$" n != null
+    n: builtins.match "^\\.agents/skills/[^/]+$" n != null && n != ".agents/skills/INDEX.md"
   ) homeFileNames;
   legacySkillFileEntries = builtins.filter (
     n: builtins.match "^\\.agents/skills/.+/SKILL\\.md$" n != null
@@ -51,8 +52,23 @@ in
   agent-skills-home-files =
     let
       keepFile = hmConfig.config.home.file.".agents/.keep".text;
-      missingSkillFiles = builtins.filter (
-        n: !(builtins.pathExists "${hmConfig.config.home.file.${n}.source}/SKILL.md")
+      # Same registry the module fans out from — the check cannot drift.
+      sharedSkillLinks = builtins.attrValues (import ../../modules/agent-skills/harnesses.nix);
+      missingSharedLinks = builtins.filter (
+        n: !(builtins.hasAttr n hmConfig.config.home.file)
+      ) sharedSkillLinks;
+      # home.file entries are submodules, so the `source` attribute is always
+      # present — hasAttr is a no-op. An entry with no real source throws on
+      # access ("option used but not defined"), so probe with tryEval instead.
+      missingSkillSources = builtins.filter (
+        n: !(builtins.tryEval hmConfig.config.home.file.${n}.source).success
+      ) managedSkillEntries;
+      skillFileSources = builtins.filter (
+        n:
+        let
+          entry = hmConfig.config.home.file.${n};
+        in
+        entry ? source && pkgs.lib.hasSuffix "/SKILL.md" (toString entry.source)
       ) managedSkillEntries;
     in
     assert keepFile != "" || throw "Agent Skills .agents/.keep file is empty (module not loaded)";
@@ -61,7 +77,16 @@ in
       legacySkillFileEntries == [ ]
       || throw "Agent Skills must deploy skill directories, not SKILL.md files: ${builtins.toJSON legacySkillFileEntries}";
     assert
-      missingSkillFiles == [ ]
-      || throw "Agent Skills directory entries missing SKILL.md: ${builtins.toJSON missingSkillFiles}";
+      missingSkillSources == [ ]
+      || throw "Agent Skills directory entries missing source: ${builtins.toJSON missingSkillSources}";
+    assert
+      skillFileSources == [ ]
+      || throw "Agent Skills must source skill directories, not SKILL.md files: ${builtins.toJSON skillFileSources}";
+    assert
+      missingSharedLinks == [ ]
+      || throw "Agent Skills shared links missing: ${builtins.toJSON missingSharedLinks}";
+    assert
+      builtins.elem ".agents/skills/autoresearch" managedSkillEntries
+      || throw "autoresearch skill not discovered from its flake input";
     helpers.mkMarker "check-agent-skills-home-files" "Agent Skills home.file wiring: ${toString (builtins.length managedSkillEntries)} managed skill entries";
 }

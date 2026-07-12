@@ -106,7 +106,7 @@ in
       {
         name = "mlx.proxy.concurrencyLimit";
         actual = mlxCfg.proxy.concurrencyLimit;
-        expected = 2;
+        expected = 4;
       }
       {
         name = "mlx.prefillBatchSize";

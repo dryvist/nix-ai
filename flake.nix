@@ -84,6 +84,17 @@
       flake = false;
     };
 
+    # Autoresearch - autonomous goal-directed iteration engine (modify → verify
+    # → keep/discard loop) from uditgoenka/autoresearch. Dual-channel like
+    # ponytail: native .claude-plugin/ marketplace (14 /autoresearch:* commands
+    # + safety hooks for Claude) AND a self-contained .claude/skills/ skill
+    # (consumed cross-tool via agent-skills auto-discovery). Its .opencode/
+    # command files feed the opencode module directly.
+    autoresearch = {
+      url = "github:uditgoenka/autoresearch";
+      flake = false;
+    };
+
     # Last30Days - multi-source social research skill. Aggregates Reddit, X,
     # YouTube, TikTok, Hacker News, Polymarket, GitHub, and web results ranked
     # by engagement. Flat skills/<name>/SKILL.md layout; skill-only cross-tool
@@ -108,6 +119,7 @@
       dashmotion,
       ponytail,
       last30days-skill,
+      autoresearch,
       ...
     }:
     let
@@ -128,6 +140,7 @@
           dashmotion
           ponytail
           last30days-skill
+          autoresearch
           ;
       };
 
@@ -150,14 +163,25 @@
           pkgs = nixpkgs.legacyPackages.${system};
         in
         {
-          ${system} = import ./lib/checks.nix {
-            inherit
-              pkgs
-              home-manager
-              ;
-            src = ./.;
-            aiModule = self.homeManagerModules.default;
-          };
+          ${system} =
+            (import ./lib/checks.nix {
+              inherit
+                pkgs
+                home-manager
+                ;
+              src = ./.;
+              aiModule = self.homeManagerModules.default;
+            })
+            // {
+              # `nix flake check` only *evaluates* packages.<system> (reports
+              # "build skipped") — it never compiles them, so a stale fabric
+              # vendorHash after a fabric-src bump passes CI unnoticed (this
+              # happened twice: #1145, fixed by #1156/#1159). Aliasing the package
+              # as a check forces the Go build — and its vendorHash verification —
+              # to actually run. Scoped to the CI system (x86_64-linux) like every
+              # other check so a single linux runner covers it.
+              fabric-ai-build = self.packages.${system}.fabric-ai;
+            };
         };
 
       # Expose custom packages for nix-update automation

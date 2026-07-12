@@ -141,15 +141,18 @@
       description = "Per-physical-model overrides of programs.mlx serve options (e.g. pagedKvCache, enablePrefixCaching), merged over the global values when building that model's vllm-mlx command.";
     };
 
-    # preload — llama-swap hooks.on_startup.preload entries. Role names (or
-    # physical ids) loaded at proxy startup so the first request never pays a
-    # cold start. Multi-resident hosts list every role they keep warm, e.g.
+    # preload — models the warmup agent (mlx-warmup.py, via
+    # MLX_PRELOAD_MODELS_JSON) faults in after every proxy (re)start, so the
+    # first request never pays a cold start. Deliberately NOT emitted as
+    # llama-swap hooks.on_startup.preload — that hook's request shape 404s
+    # vllm-mlx and llama-swap stops the worker on preload failure (#1175).
+    # Multi-resident hosts list every role they keep warm, e.g.
     # [ "default" "coding" ]; each extra entry costs its full weight footprint
     # until the idle TTL evicts it.
     preload = lib.mkOption {
       type = lib.types.listOf lib.types.str;
       default = [ "default" ];
-      description = "Resident models (role aliases or physical ids) llama-swap preloads at startup. Every entry occupies memory concurrently until its idle TTL — size the list against the host's wired-memory budget. Swap-tier models belong in programs.mlx.models instead.";
+      description = "Resident models (role aliases or physical ids) the warmup agent loads after proxy start. Every entry occupies memory concurrently until its idle TTL — size the list against the host's wired-memory budget. Swap-tier models belong in programs.mlx.models instead.";
     };
 
     proxy = {
@@ -211,26 +214,23 @@
       };
       concurrencyLimit = lib.mkOption {
         type = lib.types.ints.positive;
-        default = 2;
+        default = 4;
         description = ''
           Max in-flight requests llama-swap will forward to vllm-mlx per
           model. Maps directly to the YAML key llama-swap reads
           (`concurrencyLimit`); excess requests get HTTP 429.
 
-          Default 2 — serializes bursts so a multi-pipe / multi-tool storm
-          can't fan out parallel calls that pile on faster than vllm-mlx
-          can schedule. Tightened from the prior 4 after the 2026-05-29
-          → 2026-06-03 pipe-timeout storm where bursts of concurrent
-          callers saturated the disconnect_guard window. The 2026-05-15
-          finish_reason:error incident remains tracked separately as a
-          vllm-mlx scheduler bug.
-
-          The trade-off: a value below `maxNumSeqs` slightly under-utilizes
-          continuous batching (1.5x–3x throughput peak). On this host the
-          stability win dominates. Bump only if you observe sustained
-          queue depth at the proxy without thrash.
-
-          Setting this to 1 silently defeats continuous batching.
+          Default 4 — matches `maxNumSeqs` so continuous batching is fed.
+          Re-raised from 2 on 2026-07-11 after a replicated c1-c8 sweep
+          (MBP Coder-30B): zero errors within the limit, 1.6-2.3x
+          aggregate when the batcher engages, worst case serialization
+          (~1.0x). Scheduling is bimodal, so treat >1x as opportunistic
+          and keep bench drivers pinned to their documented concurrency
+          (mlx-benchmarks RUNBOOK). The pipe-timeout storm behind the old
+          4->2 tightening predated the maxRequestTokens hardening that
+          fixed its cause. Above the limit callers get 429 — cap or
+          retry with backoff; the llm_router tier absorbs 429s via its
+          retry policy. Setting this to 1 silently defeats batching.
         '';
       };
     };

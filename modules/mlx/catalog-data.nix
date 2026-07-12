@@ -31,12 +31,22 @@ let
     "--timeout"
     "3600"
   ];
-  # 256-token paged-cache blocks (default 64): long sessions shattered the KV
+  # Paged-cache block sizing (engine default 64): long sessions shatter the KV
   # into enough per-block Metal buffers to trip MLX's buffer-count limit
-  # ("Resource limit (499000) exceeded", not a byte OOM). Validated with a
-  # 113K-token request 2026-07-09 (nix-darwin#1609).
+  # ("Resource limit (499000) exceeded", not a byte OOM; nix-darwin#1609).
+  # Residents run 512: 256 (validated 113K single-stream) still tripped once
+  # under 2x ~50K-token concurrency + a 16K-token generation on 2026-07-09
+  # even with the MLX_BUFFER_CACHE_LIMIT cap — 512 halves the per-token block
+  # count again (worst case ~98K buffers at maxNumSeqs 8 x 65K window, deep
+  # under the ceiling). Small swap models keep 256 (their 32K request cap
+  # keeps block counts low); the 80B large brain runs 512 after 256 tripped
+  # the ceiling four times under 2-way large-phase load on 2026-07-10 (see
+  # its entry).
   block256 = {
     pagedCacheBlockSize = 256;
+  };
+  block512 = {
+    pagedCacheBlockSize = 512;
   };
   # Swap tier: on-demand, idle-unloaded, small caps.
   swapFlags = {
@@ -64,7 +74,7 @@ in
       # HIGH KV budget for 40-58K-token contexts; maxNumSeqs 8 = one
       # continuous batch. 65536 replaces the 32768 cap that fed the
       # truncation/retry death-loop.
-      resident.flags = block256 // {
+      resident.flags = block512 // {
         cacheMemoryMb = 16384;
         maxNumSeqs = 8;
         maxRequestTokens = 65536;
@@ -88,7 +98,7 @@ in
     ++ agentTimeout;
     classes = {
       # The global maxRequestTokens default is too low for agentic multi-turn.
-      resident.flags = block256 // {
+      resident.flags = block512 // {
         maxRequestTokens = 32768;
       };
       swap.flags = block256 // swapFlags;
@@ -124,17 +134,27 @@ in
   # LARGE rotation brain. Always-thinking variant (no chat-template switch).
   # Small cache keeps the on-demand swap-in under the memory trip (derivation
   # in mlx-benchmarks docs/RUNBOOK.md). prefixCaching off — unsupported for
-  # the qwen3_next hybrid-attention family. Paged block size stays default:
-  # 256 is unvalidated on hybrid attention.
+  # the qwen3_next hybrid-attention family. block512 on the full-attention
+  # layers: the engine-default 64 tripped the Metal buffer-count ceiling
+  # mid-digest at step 250880 (active=67GB, running=2), and 256 STILL tripped
+  # it four times in the 2026-07-10 11:25-12:00 UTC large window (active
+  # ≈47.8GB, running=2 waiting=1, steps ~14K, 320s+ generations — crash,
+  # llama-swap reload on next request, crash again). The hybrid's recurrent
+  # layers carry no KV blocks, so the paged block size only shapes its
+  # full-attention layers; 512 halves the per-token buffer count again and is
+  # the same sizing the residents validated under 2x long-context concurrency.
   qwen3-next-80b = {
     model = "mlx-community/Qwen3-Next-80B-A3B-Thinking-4bit";
     weightGb = 42.0;
     args = qwenMoeGeneralParser ++ agentTimeout;
     classes = {
-      swap.flags = swapFlags // {
-        cacheMemoryMb = 4096;
-        enablePrefixCaching = false;
-      };
+      swap.flags =
+        block512
+        // swapFlags
+        // {
+          cacheMemoryMb = 4096;
+          enablePrefixCaching = false;
+        };
     };
   };
 

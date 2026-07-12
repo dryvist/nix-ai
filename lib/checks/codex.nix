@@ -21,6 +21,7 @@ in
       "modelProvider"
       "modelReasoningEffort"
       "modelVerbosity"
+      "mcpServerNames"
       "planModeReasoningEffort"
       "projectDocFallbackFilenames"
       "reviewModel"
@@ -93,7 +94,7 @@ in
       {
         name = "codex.excludedMcpServers.length";
         actual = builtins.length cfg.excludedMcpServers;
-        expected = 11;
+        expected = 0;
       }
       {
         name = "codex.trustedProjectDirs";

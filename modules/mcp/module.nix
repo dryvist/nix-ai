@@ -20,6 +20,8 @@ let
   cfg = config.programs.mcpRuntime;
 in
 {
+  imports = [ ./default.nix ];
+
   # Namespace note: home-manager 25.11+ ships `programs.mcp` (Claude Desktop
   # MCP integration). We use `programs.mcpRuntime` to avoid the collision —
   # this module is about Doppler/Splunk MCP runtime wrappers, not the

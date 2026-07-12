@@ -30,7 +30,7 @@ let
       (
         lib.filterAttrs (
           name: server: !(server.disabled or false) && !(lib.elem name cfg.excludedMcpServers)
-        ) config.programs.aiMcp.servers
+        ) config.programs.aiMcp.enabledServers
       );
 
   mcpConfig = {
@@ -80,103 +80,103 @@ in
 
     excludedMcpServers = lib.mkOption {
       type = lib.types.listOf lib.types.str;
-      default = [
-        "cloudflare"
-        "cribl"
-        "docker"
-        "everything"
-        "exa"
-        "fetch"
-        "filesystem"
-        "firecrawl"
-        "git"
-        "github"
-        "terraform"
-      ];
-      description = "MCP servers to exclude from the shared definitions";
+      default = [ ];
+      description = "Additional MCP servers to exclude from the shared cross-agent profile for Antigravity IDE only.";
+    };
+
+    mcpServerNames = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      readOnly = true;
+      internal = true;
+      description = "Names of MCP servers emitted to Antigravity IDE mcp_config.json.";
     };
   };
 
-  config = lib.mkIf cfg.enable {
-    home = {
-      activation.mergeAntigravityIdeSettings = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-        # Merge global settings for Antigravity IDE (VS Code-based settings.json)
-        settings_file="${homeDir}/Library/Application Support/Antigravity/User/settings.json"
-        if [ -f "$settings_file" ]; then
+  config = lib.mkMerge [
+    {
+      programs.antigravity-ide.mcpServerNames = lib.attrNames mcpServers;
+    }
+    (lib.mkIf cfg.enable {
+      home = {
+        activation.mergeAntigravityIdeSettings = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+          # Merge global settings for Antigravity IDE (VS Code-based settings.json)
+          settings_file="${homeDir}/Library/Application Support/Antigravity/User/settings.json"
+          if [ -f "$settings_file" ]; then
+            export PATH="${pkgs.jq}/bin:$PATH"
+            echo "-> Merging global settings for Antigravity IDE..."
+            # Update or add the autoExecutionPolicy setting
+            $DRY_RUN_CMD jq --arg policy "always" '. + {"antigravity.agent.terminal.autoExecutionPolicy": $policy}' "$settings_file" > "$settings_file.tmp" \
+              && $DRY_RUN_CMD mv "$settings_file.tmp" "$settings_file"
+          fi
+
+          # Merge mcp_config.json
           export PATH="${pkgs.jq}/bin:$PATH"
-          echo "-> Merging global settings for Antigravity IDE..."
-          # Update or add the autoExecutionPolicy setting
-          $DRY_RUN_CMD jq --arg policy "always" '. + {"antigravity.agent.terminal.autoExecutionPolicy": $policy}' "$settings_file" > "$settings_file.tmp" \
-            && $DRY_RUN_CMD mv "$settings_file.tmp" "$settings_file"
-        fi
+          $DRY_RUN_CMD ${../scripts/merge-json-settings.sh} \
+            "${mcpConfigJson}" \
+            "${homeDir}/.gemini/config/mcp_config.json"
 
-        # Merge mcp_config.json
-        export PATH="${pkgs.jq}/bin:$PATH"
-        $DRY_RUN_CMD ${../scripts/merge-json-settings.sh} \
-          "${mcpConfigJson}" \
-          "${homeDir}/.gemini/config/mcp_config.json"
-
-        # Merge globalPermissionGrants in ~/.gemini/config/config.json
-        gemini_config="${homeDir}/.gemini/config/config.json"
-        if [ -f "$gemini_config" ]; then
-          echo "-> Merging global permission grants in ~/.gemini/config/config.json..."
-          $DRY_RUN_CMD jq \
-            --argjson new_grants '[
-              "read_file(${homeDir}/.gemini)",
-              "write_file(${homeDir}/.gemini)",
-              "read_file(${homeDir}/.antigravity)",
-              "write_file(${homeDir}/.antigravity)",
-              "read_file(${homeDir}/.config)",
-              "read_file(${homeDir}/.claude)",
-              "write_file(${homeDir}/.config/ai-stack)"
-            ]' \
-            '.userSettings.globalPermissionGrants.allow = (((.userSettings.globalPermissionGrants.allow // []) + $new_grants | unique) - ["write_file(${homeDir}/.config)", "write_file(${homeDir}/.claude)"])' \
-            "$gemini_config" > "$gemini_config.tmp" \
-            && $DRY_RUN_CMD mv "$gemini_config.tmp" "$gemini_config"
-        else
-          echo "-> Creating ~/.gemini/config/config.json with global permission grants..."
-          $DRY_RUN_CMD mkdir -p "$(dirname "$gemini_config")"
-          $DRY_RUN_CMD jq -n \
-            --argjson new_grants '[
-              "read_file(${homeDir}/.gemini)",
-              "write_file(${homeDir}/.gemini)",
-              "read_file(${homeDir}/.antigravity)",
-              "write_file(${homeDir}/.antigravity)",
-              "read_file(${homeDir}/.config)",
-              "read_file(${homeDir}/.claude)",
-              "write_file(${homeDir}/.config/ai-stack)"
-            ]' \
-            '{userSettings: {globalPermissionGrants: {allow: $new_grants}}}' > "$gemini_config"
-        fi
-
-        # Update all project config JSON files under ~/.gemini/config/projects/
-        projects_dir="${homeDir}/.gemini/config/projects"
-        if [ -d "$projects_dir" ]; then
-          echo "-> Elevating permissions for all Antigravity projects..."
-          # Iterate over all json files in ~/.gemini/config/projects/
-          find "$projects_dir" -name "*.json" -print0 | while IFS= read -r -d $'\0' project_file; do
-            # We want to merge the new settings and allowed command list
-            # We construct a jq script to update settings and permissionGrants.permissionGrants.allow
-            # We combine and deduplicate them to be safe
+          # Merge globalPermissionGrants in ~/.gemini/config/config.json
+          gemini_config="${homeDir}/.gemini/config/config.json"
+          if [ -f "$gemini_config" ]; then
+            echo "-> Merging global permission grants in ~/.gemini/config/config.json..."
             $DRY_RUN_CMD jq \
-              --arg fileAccessPolicy "${cfg.fileAccessPolicy}" \
-              --arg internetPolicy "${cfg.internetPolicy}" \
-              --arg autoExecutionPolicy "${cfg.autoExecutionPolicy}" \
-              --arg artifactReviewMode "${cfg.artifactReviewMode}" \
-              --argjson allowedCommands '${allowedCommandsJson}' \
-              '
-              .settings.fileAccessPolicy = $fileAccessPolicy |
-              .settings.internetPolicy = $internetPolicy |
-              .settings.autoExecutionPolicy = $autoExecutionPolicy |
-              .settings.artifactReviewMode = $artifactReviewMode |
-              (.permissionGrants.permissionGrants.allow // []) as $existing_allow |
-              .permissionGrants.permissionGrants.allow = ($existing_allow + $allowedCommands | unique)
-              ' \
-              "$project_file" > "$project_file.tmp" \
-              && $DRY_RUN_CMD mv "$project_file.tmp" "$project_file"
-          done
-        fi
-      '';
-    };
-  };
+              --argjson new_grants '[
+                "read_file(${homeDir}/.gemini)",
+                "write_file(${homeDir}/.gemini)",
+                "read_file(${homeDir}/.antigravity)",
+                "write_file(${homeDir}/.antigravity)",
+                "read_file(${homeDir}/.config)",
+                "read_file(${homeDir}/.claude)",
+                "write_file(${homeDir}/.config/ai-stack)"
+              ]' \
+              '.userSettings.globalPermissionGrants.allow = (((.userSettings.globalPermissionGrants.allow // []) + $new_grants | unique) - ["write_file(${homeDir}/.config)", "write_file(${homeDir}/.claude)"])' \
+              "$gemini_config" > "$gemini_config.tmp" \
+              && $DRY_RUN_CMD mv "$gemini_config.tmp" "$gemini_config"
+          else
+            echo "-> Creating ~/.gemini/config/config.json with global permission grants..."
+            $DRY_RUN_CMD mkdir -p "$(dirname "$gemini_config")"
+            $DRY_RUN_CMD jq -n \
+              --argjson new_grants '[
+                "read_file(${homeDir}/.gemini)",
+                "write_file(${homeDir}/.gemini)",
+                "read_file(${homeDir}/.antigravity)",
+                "write_file(${homeDir}/.antigravity)",
+                "read_file(${homeDir}/.config)",
+                "read_file(${homeDir}/.claude)",
+                "write_file(${homeDir}/.config/ai-stack)"
+              ]' \
+              '{userSettings: {globalPermissionGrants: {allow: $new_grants}}}' > "$gemini_config"
+          fi
+
+          # Update all project config JSON files under ~/.gemini/config/projects/
+          projects_dir="${homeDir}/.gemini/config/projects"
+          if [ -d "$projects_dir" ]; then
+            echo "-> Elevating permissions for all Antigravity projects..."
+            # Iterate over all json files in ~/.gemini/config/projects/
+            find "$projects_dir" -name "*.json" -print0 | while IFS= read -r -d $'\0' project_file; do
+              # We want to merge the new settings and allowed command list
+              # We construct a jq script to update settings and permissionGrants.permissionGrants.allow
+              # We combine and deduplicate them to be safe
+              $DRY_RUN_CMD jq \
+                --arg fileAccessPolicy "${cfg.fileAccessPolicy}" \
+                --arg internetPolicy "${cfg.internetPolicy}" \
+                --arg autoExecutionPolicy "${cfg.autoExecutionPolicy}" \
+                --arg artifactReviewMode "${cfg.artifactReviewMode}" \
+                --argjson allowedCommands '${allowedCommandsJson}' \
+                '
+                .settings.fileAccessPolicy = $fileAccessPolicy |
+                .settings.internetPolicy = $internetPolicy |
+                .settings.autoExecutionPolicy = $autoExecutionPolicy |
+                .settings.artifactReviewMode = $artifactReviewMode |
+                (.permissionGrants.permissionGrants.allow // []) as $existing_allow |
+                .permissionGrants.permissionGrants.allow = ($existing_allow + $allowedCommands | unique)
+                ' \
+                "$project_file" > "$project_file.tmp" \
+                && $DRY_RUN_CMD mv "$project_file.tmp" "$project_file"
+            done
+          fi
+        '';
+      };
+    })
+  ];
 }

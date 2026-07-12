@@ -77,7 +77,7 @@ let
   mcpServers = lib.mapAttrs' (name: server: lib.nameValuePair name (normalizeMcpServer server)) (
     lib.filterAttrs (
       name: server: !(server.disabled or false) && !(lib.elem name cfg.excludedMcpServers)
-    ) config.programs.aiMcp.servers
+    ) config.programs.aiMcp.enabledServers
   );
 
   optionalValue = key: value: lib.optionalAttrs (value != null) { ${key} = value; };
@@ -121,7 +121,12 @@ in
   config = lib.mkMerge [
     # Read-only introspection option set unconditionally so module evaluation
     # succeeds even when programs.codex.enable = false.
-    { programs.codex.projectDocFallbackFilenames = configAttrs.project_doc_fallback_filenames; }
+    {
+      programs.codex = {
+        projectDocFallbackFilenames = configAttrs.project_doc_fallback_filenames;
+        mcpServerNames = lib.attrNames mcpServers;
+      };
+    }
     (lib.mkIf cfg.enable {
       home = {
         activation.codexConfigMerge = lib.hm.dag.entryAfter [ "writeBoundary" ] ''

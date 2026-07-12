@@ -34,6 +34,7 @@ activation scripts via Nix store paths baked into the derivation at evaluation t
 - `modules/mlx/default.nix` → `pkgs.writeText "llama-swap-config.json"` (process management config)
 - `modules/claude-config.nix` (+ `nix-claude-code` flake input) → JSON derivation for settings merge
 - `modules/codex/settings.nix` → TOML derivation for config merge
+- `modules/qwen-code/settings.nix` → JSON derivation for config merge
 
 **Constraint**: The MLX model list in `llama-swap.json` is seeded from `programs.mlx.models`
 (declared in Nix). Models discovered at runtime by `mlx-discover` are added to the mutable
@@ -71,6 +72,7 @@ All `home.activation` entries and their targets:
 | `knownMarketplacesMerge` | `nix-claude-code` flake input (`modules/settings.nix`) | `~/.claude/plugins/known_marketplaces.json` | Synthetic marketplace registry (installLocation + source) |
 | `mergeAntigravitySettings` | `modules/antigravity-cli/settings.nix` | `~/.gemini/antigravity-cli/settings.json` | MCP servers, policies, folder trust |
 | `codexConfigMerge` | `modules/codex/settings.nix` | `~/.codex/config.toml` | Model, MCP servers, approval policy |
+| `qwenCodeSettingsMerge` | `modules/qwen-code/settings.nix` | `~/.qwen/settings.json` | Local provider routing, MCP servers |
 | `seedLlamaSwapConfig` | `modules/mlx/launchd.nix` | `~/.config/mlx/llama-swap.json` | Copies Nix-generated seed; preserves runtime models |
 | `discoverMlxModels` | `modules/mlx/launchd.nix` | `~/.config/mlx/llama-swap.json` | Extends the seed with locally available MLX models (swap tier when configured) |
 
@@ -81,13 +83,13 @@ consuming tool writes to its own config file at runtime.
 
 | Pattern | Mechanism | Used When | Examples |
 |---------|-----------|-----------|---------|
-| **Nix store symlink** | `home.file` | Tool is read-only toward config | Plugin dirs, patterns, playbooks, copilot trusted folders |
-| **Activation deep-merge** | `home.activation` + shell script | Tool writes runtime state to config | `~/.claude.json`, `~/.gemini/antigravity-cli/settings.json`, `~/.codex/config.toml` |
+| **Nix store symlink** | `home.file` | Tool is read-only toward config | Plugin dirs, shared skills, patterns, playbooks, copilot trusted folders |
+| **Activation deep-merge** | `home.activation` + shell script | Tool writes runtime state to config | `~/.claude.json`, `~/.gemini/antigravity-cli/settings.json`, `~/.codex/config.toml`, `~/.qwen/settings.json` |
 | **Activation seed + runtime extension** | `seed-config.py` + `mlx-discover` | Config is both Nix-seeded and runtime-extensible | `~/.config/mlx/llama-swap.json` |
 
-### Why `home.file` Symlinks Break for Claude/Antigravity/Codex
+### Why `home.file` Symlinks Break for Agent Settings
 
-Claude Code, Antigravity, and Codex all write to their config files at runtime:
+Claude Code, Antigravity, Codex, and Qwen all write to their config files at runtime:
 authentication tokens, session state, user preferences set via `claude config set`, etc.
 
 A `home.file` symlink points into `/nix/store/` which is world-readable but **not
@@ -114,7 +116,7 @@ These tools refresh specific files between rebuilds:
 graph TD
     subgraph BuildTime["Build Time — /nix/store/ (immutable)"]
         NS1["llama-swap-config.json derivation"]
-        NS2["claude settings JSON derivation"]
+        NS2["agent settings derivations\nJSON/TOML"]
         NS3["plugin/skill/rule Nix store paths"]
     end
 
@@ -122,17 +124,23 @@ graph TD
         A1["seedLlamaSwapConfig\n→ ~/.config/mlx/llama-swap.json"]
         A2["claudeJsonMerge\n→ ~/.claude.json"]
         A3["claudeSettingsMerge\n→ ~/.claude/settings.json"]
+        A4["codexConfigMerge\n→ ~/.codex/config.toml"]
+        A5["qwenCodeSettingsMerge\n→ ~/.qwen/settings.json"]
     end
 
     subgraph Runtime["Runtime — mutable user files"]
         R1["~/.config/mlx/llama-swap.json\n(mlx-discover extends)"]
         R2["~/.claude.json\n(Claude Code writes session state)"]
         R3["~/.claude/settings.json\n(Claude Code writes preferences)"]
+        R4["~/.codex/config.toml\n(Codex writes runtime state)"]
+        R5["~/.qwen/settings.json\n(Qwen writes runtime state)"]
     end
 
     subgraph Symlinks["home.file Symlinks — read-only"]
         S1["~/.claude/plugins/marketplaces/"]
         S2["~/.claude/commands/, agents/, skills/, rules/"]
+        S5["~/.agents/skills\nshared agent skill source"]
+        S6["~/.codex/skills, ~/.qwen/skills,\n~/.gemini/*/skills"]
         S3["~/.config/fabric/patterns/"]
         S4["~/Maestro/ playbooks"]
     end
@@ -140,8 +148,11 @@ graph TD
     NS1 --> A1 --> R1
     NS2 --> A2 --> R2
     NS2 --> A3 --> R3
+    NS2 --> A4 --> R4
+    NS2 --> A5 --> R5
     NS3 --> S1
     NS3 --> S2
+    NS3 --> S5 --> S6
     NS3 --> S3
     NS3 --> S4
 ```

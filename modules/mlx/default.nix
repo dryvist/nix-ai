@@ -39,6 +39,7 @@ let
 
   apiUrl = "http://${cfg.host}:${toString cfg.port}/v1";
   launchAgentLabel = "dev.vllm-mlx.server";
+  warmupAgentLabel = "dev.vllm-mlx.warmup";
 
   # Shared per-backend env; the buffer-cache cap must ride the env
   # (MLX_BUFFER_CACHE_LIMIT) — rationale in options-cache.nix.
@@ -66,9 +67,12 @@ let
 
   # One entry per unique physical model. Every model — including the entry
   # owning the "default" alias — inherits the uniform proxy idle TTL.
-  # The default model is still preloaded on startup via hooks.on_startup.preload
-  # below, so the first request never pays a cold-start cost; after proxy.idleTtl
-  # of idle it unloads and the next request reloads it (~15-30 s).
+  # Preloading is done by the warmup LaunchAgent (mlx-warmup.py reading
+  # MLX_PRELOAD_MODELS_JSON), NOT llama-swap's hooks.on_startup.preload:
+  # that hook's request shape 404s against vllm-mlx (#1175), so llama-swap
+  # would start the worker, fail the preload, and stop it — residents cold.
+  # After proxy.idleTtl of idle a model unloads and the next request reloads
+  # it (~15-30 s).
   #
   # useModelName makes llama-swap rewrite the OpenAI-compatible request body's
   # `model` field to the physical model id before forwarding to vllm-mlx.
@@ -171,10 +175,6 @@ let
         members = builtins.attrNames swapModels;
       };
     };
-
-    # Preload by role, not physical name. llama-swap resolves "default"
-    # via the alias table on the registryModels entry.
-    hooks.on_startup.preload = cfg.preload;
   };
 
   # Use pkgs.writeText (not builtins.toFile) because content references store paths
@@ -194,6 +194,8 @@ in
     ./options-runtime.nix
     ./packages.nix
     ./launchd.nix
+    ./cluster-mode.nix
+    ./cluster-mode-maintenance.nix
   ];
 
   # Pass shared bindings to sub-modules via _module.args
@@ -207,6 +209,7 @@ in
       mlxVlmVersion
       apiUrl
       launchAgentLabel
+      warmupAgentLabel
       llamaSwapPkg
       llamaSwapConfigFile
       llamaSwapConfigAttrs

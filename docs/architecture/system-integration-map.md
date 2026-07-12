@@ -14,6 +14,7 @@ graph TD
         CC["Claude Code"]
         GEM["Antigravity CLI"]
         CDX["Codex CLI"]
+        QWEN["Qwen Code"]
         COP["Copilot"]
     end
 
@@ -58,6 +59,7 @@ Proxmox homelab (see the homelab IaC repos).
 | Claude Code | `modules/claude-config.nix` | Desktop app | Primary AI coding assistant | `~/.claude/settings.json`, `~/.claude.json` |
 | Antigravity CLI | `modules/antigravity-cli/` | CLI | Google Antigravity assistant | `~/.gemini/antigravity-cli/settings.json` |
 | Codex CLI | `modules/codex/` | CLI | OpenAI coding assistant | `~/.codex/config.toml` |
+| Qwen Code | `modules/qwen-code/` | CLI | Local-first coding assistant | `~/.qwen/settings.json` |
 | GitHub Copilot CLI | `modules/copilot.nix` | CLI | Trusted folder configuration | `~/.copilot/config.json` |
 | Bifrost | Proxmox homelab (`ansible-proxmox-apps`, relocating) | HTTPS (Traefik) | Multi-provider AI gateway | Doppler (provider keys) |
 | MLX / llama-swap | `modules/mlx/` | HTTP :11434 | Local Apple Silicon inference | `~/.config/mlx/llama-swap.json` |
@@ -67,8 +69,9 @@ Proxmox homelab (see the homelab IaC repos).
 ## MCP Server Connectivity
 
 The MCP server catalog (`modules/mcp/catalog.nix`) is exposed by the dedicated
-MCP module as `programs.aiMcp.servers`. Claude, Antigravity, and Codex each
-normalize that shared option differently via their own settings modules.
+MCP module as `programs.aiMcp.servers`. The global cross-agent profile is
+`programs.aiMcp.enabledServers`; Claude, Antigravity, Codex, and Qwen each
+normalize that same option differently via their own settings modules.
 
 ```mermaid
 graph LR
@@ -77,35 +80,34 @@ graph LR
     MCPCAT -->|normalized for Claude| CSETTINGS["modules/claude-config.nix\n→ ~/.claude.json"]
     MCPCAT -->|normalized for Antigravity| GSETTINGS["modules/antigravity-cli/settings.nix\n→ ~/.gemini/antigravity-cli/settings.json"]
     MCPCAT -->|normalized for Codex| DSETTINGS["modules/codex/settings.nix\n→ ~/.codex/config.toml"]
+    MCPCAT -->|normalized for Qwen| QSETTINGS["modules/qwen-code/settings.nix\n→ ~/.qwen/settings.json"]
 ```
 
-### Shared MCP Servers (all three CLI tools)
+### Global Cross-Agent MCP Servers
 
 | Server | Transport | Auth | Notes |
 |--------|-----------|------|-------|
-| `everything`, `fetch`, `filesystem`, `git`, `memory` | stdio (bunx) | None | Official Anthropic servers |
-| `sequentialthinking`, `docker` | stdio (bunx) | None | Official Anthropic servers |
+| `apple-events` | stdio (bunx) | macOS TCC prompts | Reminders and Calendar; Darwin-only |
+| `codex` | stdio (binary) | Codex auth | OpenAI Codex CLI server |
+| `fabric` | stdio (uvx) | Fabric CLI setup | Pattern execution |
+| `huggingface` | stdio (uvx) | `HF_TOKEN` from Keychain | Hub/model/dataset search |
 | `time` | stdio (uvx) | None | Official maintained Python server |
-| `aws` | stdio (bunx) | IAM/STS env vars | AWS KB retrieval |
-| `terraform` | stdio (binary) | None | nixpkgs binary |
-| `cribl` | HTTP :30030 | None (K8s internal) | Log pipeline |
+| `splunk` | stdio (doppler-mcp + mcp-remote) | Doppler runtime injection | Splunk MCP Server app |
 
-### Claude-Only MCP Servers
+### Plugin-Managed MCP Servers
 
 | Server | Transport | Notes |
 |--------|-----------|-------|
-| `huggingface` | stdio (uvx) | `HF_TOKEN` from Keychain |
-| `fabric` | stdio (uvx) | Pattern execution |
-| `google-workspace` | stdio (doppler-mcp + uvx) | Gmail/Drive/Calendar; requires OAuth |
-| `codex` | stdio (binary) | OpenAI Codex CLI server |
-| `splunk` | stdio (doppler-mcp + mcp-remote) | Defined in `nix-darwin` repo |
 | `context7` | plugin-managed | Lifecycle owned by `context7` plugin |
 
-### Disabled Servers (configured but off)
+### Disabled Or Excluded Catalog Servers
 
-`brave-search`, `cloudflare`, `exa`, `firecrawl`, `github`, `google-maps`, `postgresql`,
-`puppeteer`, `sentry`, `slack`, `sqlite` — all require API keys not currently configured.
-Enable by overriding `programs.aiMcp.servers.<name>.disabled` and adding the key to Doppler.
+`brave-search`, `cloudflare`, `cribl`, `docker`, `everything`, `exa`, `fetch`,
+`filesystem`, `firecrawl`, `git`, `github`, `google-maps`, `google-workspace`,
+`monarch`, `postgresql`, `puppeteer`, `sentry`, `slack`, `sqlite`, `terraform`,
+and `unifi` stay out of the global cross-agent profile by default. Enable by
+removing a global exclusion or overriding `programs.aiMcp.servers.<name>.disabled`
+and adding any required runtime secret injection.
 
 ## Port Allocation
 

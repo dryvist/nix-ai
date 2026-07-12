@@ -12,6 +12,7 @@
   lib,
   ai-assistant-instructions,
   nix-claude-code,
+  marketplaceInputs,
   userConfig ? {
     user.fullName = "JacobPEvans";
   },
@@ -92,9 +93,9 @@ in
     ./antigravity-cli
     ./fabric
     ./maestro
-    ./mcp
     ./mcp/module.nix
     ./mlx
+    ./opencode
     ./qwen-code
   ];
 
@@ -153,6 +154,13 @@ in
       # OpenAI Codex configuration (settings handled by modules/codex/)
       codex = {
         enable = true;
+      };
+
+      # OpenCode — skills via the agent-skills registry; upstream's native
+      # OpenCode command files come straight from the autoresearch input.
+      opencode = {
+        enable = true;
+        commandDirs = [ "${marketplaceInputs.autoresearch}/.opencode/commands" ];
       };
 
       # Antigravity IDE configuration (settings handled by modules/antigravity-ide/)

@@ -22,8 +22,8 @@ in
       optiqFlags.cacheMemoryMb == 8192
       || throw "catalog: direct host override (8192) must beat the catalog default 16384, got ${toString optiqFlags.cacheMemoryMb}";
     assert
-      optiqFlags.pagedCacheBlockSize == 256 && optiqFlags.maxNumSeqs == 8
-      || throw "catalog: optiq resident profile (block 256 / maxNumSeqs 8) not compiled";
+      optiqFlags.pagedCacheBlockSize == 512 && optiqFlags.maxNumSeqs == 8
+      || throw "catalog: optiq resident profile (block 512 / maxNumSeqs 8) not compiled";
     assert
       builtins.match ".*--tool-call-parser hermes.*--reasoning-parser qwen3.*" optiqArgs != null
       || throw "catalog: optiq family parser args not compiled into modelExtraArgs: ${optiqArgs}";
@@ -44,5 +44,8 @@ in
       builtins.match ".*enable_thinking.*" (builtins.concatStringsSep " " c.models.${next80}.extraArgs)
       == null
       || throw "catalog: 80B (always-thinking variant) must not carry an enable_thinking kwarg";
+    assert
+      c.modelFlagOverrides.${next80}.pagedCacheBlockSize == 512
+      || throw "catalog: 80B must run 512-token paged blocks — 256 still tripped the Metal buffer-count ceiling under 2-way large-phase load (2026-07-10)";
     helpers.mkMarker "check-mlx-catalog" "MLX catalog: resident/swap compile, bounded tweak, ttl fan-out, and host-override precedence verified";
 }

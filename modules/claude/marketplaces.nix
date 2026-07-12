@@ -69,11 +69,11 @@ base
     };
     flakeInput = jacobpevansMarketplace;
   };
-  "fabric-patterns" = {
-    source = {
-      type = "github";
-      url = "danielmiessler/fabric";
-    };
+  # Inherit the catalog source (nix-claude-code marks fabric-patterns
+  # source.type = "local" → a Claude `directory` source, so Claude reads the
+  # synthetic marketplace in place instead of re-cloning raw upstream and
+  # clobbering it). Only override flakeInput, matching browser-use/cribl above.
+  "fabric-patterns" = (base."fabric-patterns" or { }) // {
     flakeInput = fabricMarketplace;
   };
   # karpathy-skills lives in nix-ai (input + tier file).
@@ -92,5 +92,15 @@ base
       url = "DietrichGebert/ponytail";
     };
     flakeInput = marketplaceInputs.ponytail;
+  };
+  # autoresearch lives in nix-ai (input + tier entry), same as ponytail.
+  # Ships a native .claude-plugin/marketplace.json; content is pinned via the
+  # flake input — the GitHub source here is registry identity metadata only.
+  "autoresearch" = {
+    source = {
+      type = "github";
+      url = "uditgoenka/autoresearch";
+    };
+    flakeInput = marketplaceInputs.autoresearch;
   };
 }
