@@ -149,7 +149,7 @@
       # comments — see that file. The public `nix-ai.lib.*` shape is unchanged.
       lib = import ./flake/lib.nix { inherit nixpkgs nix-claude-code homebrewNix; };
 
-      # Quality checks (formatting, linting, dead code, shellcheck, module-eval).
+      # Quality checks (formatting, linting, dead code, module-eval).
       #
       # Scoped to x86_64-linux only so `nix flake check --all-systems` succeeds
       # from a single linux runner. All checks in lib/checks.nix are source-only

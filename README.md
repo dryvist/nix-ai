@@ -103,7 +103,7 @@ the MCP catalog is documented in [`modules/mcp/README.md`](modules/mcp/README.md
 ## Testing and validation
 
 ```bash
-nix flake check   # nixfmt, statix, deadnix, shellcheck, and full module evaluation
+nix flake check   # nixfmt, statix, deadnix, and full module evaluation
 nix fmt           # auto-fix formatting
 ```
 
