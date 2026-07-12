@@ -1,5 +1,32 @@
 # Changelog
 
+## [2.0.0](https://github.com/dryvist/nix-ai/compare/v1.87.0...v2.0.0) (2026-07-12)
+
+
+### ⚠ BREAKING CHANGES
+
+* **mlx:** programs.mlx.nightCluster is now programs.mlx.clusterMode; launchd labels dev.mlx-night.* are now dev.mlx-cluster.*; the watcher/launcher env contract is CLUSTER_* (was NIGHT_*); log/state/config dirs move from mlx-night to mlx-cluster. Consumers (nix-darwin hosts) must rename in the same flake bump.
+
+### Features
+
+* integrate autoresearch across all harnesses via a generalized skill fan-out ([#1189](https://github.com/dryvist/nix-ai/issues/1189)) ([ff0f11f](https://github.com/dryvist/nix-ai/commit/ff0f11fe7f0733c12fa7a6af6544ccbbb76d807e))
+* **mlx:** night-cluster link-local rework — zero written IP, runtime discovery ([#1192](https://github.com/dryvist/nix-ai/issues/1192)) ([df917f3](https://github.com/dryvist/nix-ai/commit/df917f3b19c946e7d4d55aa84571bcec3aaa6e1c))
+* **mlx:** PD-guard — cap night-rank kickstarts and page on halt ([#1195](https://github.com/dryvist/nix-ai/issues/1195)) ([03b9301](https://github.com/dryvist/nix-ai/commit/03b9301bb17d71d13405fc0efb7f190cc6e4c1a9))
+* **mlx:** raise proxy concurrencyLimit 2-&gt;4 to feed continuous batching ([#1190](https://github.com/dryvist/nix-ai/issues/1190)) ([477e747](https://github.com/dryvist/nix-ai/commit/477e74797acc865eead18a803aa4e3c019e6b6ad))
+
+
+### Bug Fixes
+
+* **ci:** recompile ci-doctor lock to trigger on develop ([#1187](https://github.com/dryvist/nix-ai/issues/1187)) ([69f944d](https://github.com/dryvist/nix-ai/commit/69f944d837f698b3c811dcfeaae06b5db036463a))
+* **mcp:** assign catalog in config so per-server overrides merge ([#1184](https://github.com/dryvist/nix-ai/issues/1184)) ([9cd0e3f](https://github.com/dryvist/nix-ai/commit/9cd0e3f6d478690cbade0a7bcf37cc7bc50ef150))
+* mlx-default kickstart -k orphans vllm-mlx workers (port conflict blocks resident reload) ([#1182](https://github.com/dryvist/nix-ai/issues/1182)) ([144cb06](https://github.com/dryvist/nix-ai/commit/144cb062aec21dfb3ad0fa4b8c067808a9be061a))
+* **mlx:** default night-link discovery to static — JACCL rendezvous is IPv4-only ([#1194](https://github.com/dryvist/nix-ai/issues/1194)) ([6ebe93e](https://github.com/dryvist/nix-ai/commit/6ebe93eb6111754e17a47fb7106baed26cec2e29))
+
+
+### Refactoring
+
+* **mlx:** rename night/day naming to clustered/normal mode ([#1199](https://github.com/dryvist/nix-ai/issues/1199)) ([ab29b05](https://github.com/dryvist/nix-ai/commit/ab29b05f3f27c4d87ee5bd193bb39e3d3b9b6dc6))
+
 ## [1.87.0](https://github.com/dryvist/nix-ai/compare/v1.86.4...v1.87.0) (2026-07-10)
 
 
