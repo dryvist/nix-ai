@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.1](https://github.com/dryvist/nix-ai/compare/v2.0.0...v2.0.1) (2026-07-13)
+
+
+### Bug Fixes
+
+* **claude:** loosen auto-mode classifier and disable autoresearch guard hooks ([#1202](https://github.com/dryvist/nix-ai/issues/1202)) ([a311bca](https://github.com/dryvist/nix-ai/commit/a311bca42b89889ca4ea6a46b09cba7f980d5e6e))
+* update nix-claude-code flake input to current develop tip ([7381651](https://github.com/dryvist/nix-ai/commit/73816510bf89b72f386ee9926ed4ce6b63300450))
+
 ## [2.0.0](https://github.com/dryvist/nix-ai/compare/v1.87.0...v2.0.0) (2026-07-12)
 
 
