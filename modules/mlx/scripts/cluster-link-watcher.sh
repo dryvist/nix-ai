@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Cluster link watcher — one state-machine tick per launchd interval.
 #
 # Detects the Thunderbolt point-to-point link by auto-detecting the cabled

@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Shared cluster-link discovery helpers — concatenated ahead of the watcher and
 # the rank launcher by writeShellApplication (this file is not standalone).
 #

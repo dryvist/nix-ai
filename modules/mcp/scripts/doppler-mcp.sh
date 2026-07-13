@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # doppler-mcp — wraps any command with Doppler secret injection.
 #
 # Fetches secrets from ai-ci-automation/prd at subprocess launch time.
