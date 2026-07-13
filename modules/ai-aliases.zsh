@@ -18,10 +18,6 @@ alias claude-latest-d="claude-latest --dangerously-skip-permissions"
 #        d-claude -p "prompt"   # non-interactive
 alias d-claude="doppler run -p ai-ci-automation -c prd -- claude"
 
-# aws-vault terraform profile layered on top of d-claude. For infra-repo sessions
-# that need BOTH AWS credentials AND AI MCP secrets loaded.
-alias tf-claude="aws-vault exec terraform -- doppler run -p ai-ci-automation -c prd -- claude"
-
 # Doppler-wrapped agent CLIs — inject ai-ci-automation/prd secrets for
 # cloud-provider fallback paths (OPENAI_API_KEY, OPENROUTER_API_KEY,
 # DASHSCOPE_API_KEY, etc.). Default sessions use local MLX directly; no
