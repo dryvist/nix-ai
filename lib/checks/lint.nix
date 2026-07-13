@@ -32,15 +32,19 @@
     cd ${src}
     find . -name "*.sh" -not -path "./.git/*" -not -path "./result/*" -print0 | \
     xargs -0 bash -c '
+      failed=0
       for script in "$@"; do
         # Skip zsh scripts (shellcheck does not support them)
         if head -1 "$script" | grep -q "zsh"; then
           echo "Skipping zsh script: $script"
         else
           echo "Checking $script..."
-          ${pkgs.lib.getExe pkgs.shellcheck} --severity=warning --exclude=SC1091 "$script"
+          if ! ${pkgs.lib.getExe pkgs.shellcheck} --severity=warning --exclude=SC1091 "$script"; then
+            failed=1
+          fi
         fi
       done
+      exit "$failed"
     ' bash
     touch $out
   '';

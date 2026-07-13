@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Cluster-rank launcher — computes the JACCL distributed-init environment at
 # RUNTIME (interface + addresses are physical facts discovered from the cable,
 # never committed), then execs the mlx_lm.server rank passed as "$@".

@@ -12,5 +12,5 @@ permissions:
   pull-requests: read
 jobs:
   hygiene:
-    uses: dryvist/ai-workflows/.github/workflows/issue-hygiene.yml@v0.30
+    uses: dryvist/ai-workflows/.github/workflows/issue-hygiene.yml@v0.31
     secrets: inherit # zizmor: ignore[secrets-inherit]

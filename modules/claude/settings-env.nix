@@ -33,6 +33,17 @@
   # See: https://code.claude.com/docs/en/agent-teams
   CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = "1";
 
+  # Disable the autoresearch plugin's PreToolUse block hooks (dangerous-cmd-block,
+  # scout-block, privacy-block). Those hooks raw-substring-match the command/path
+  # string on every Bash/Read/Edit/Write/Glob/Grep call and hard-deny false
+  # positives (e.g. "git checkout .github/..." contains "git checkout ."; any
+  # path containing "build/" or "env/" is blocked outright). The autoresearch:*
+  # skills keep working — only these three guard hooks are neutered. Read by
+  # node-hook-runner.sh, which forwards them into the hooks' clean `env -i`.
+  AR_DISABLE_DANGEROUS_CMD_BLOCK = "1";
+  AR_DISABLE_SCOUT_BLOCK = "1";
+  AR_DISABLE_PRIVACY_BLOCK = "1";
+
   # DEFAULT VALUES (upstream) - reference only, do not uncomment unless tuning
   # MAX_THINKING_TOKENS = "31999";
   # CLAUDE_CODE_MAX_OUTPUT_TOKENS = "32000";
