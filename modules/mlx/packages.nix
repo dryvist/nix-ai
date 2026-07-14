@@ -21,6 +21,7 @@ let
     cfg
     vllmMlxPkg
     mlxWarmupPkg
+    mlxWatchdogPkg
     vllmMlxVersion
     parakeetMlxVersion
     mlxVlmVersion
@@ -194,6 +195,11 @@ in
             echo "vllm-mlx ready (''${elapsed}s)"
           '';
         })
+
+        # mlx-watchdog — one probe-and-maybe-kickstart cycle for the zombie
+        # self-heal (also run every 60s by the vllm-mlx-watchdog LaunchAgent).
+        # On PATH for manual break-fix / testing.
+        mlxWatchdogPkg
 
         # ======================================================================
         # Model Inventory

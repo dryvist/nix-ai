@@ -18,6 +18,7 @@ let
     warmupAgentLabel
     apiUrl
     mlxWarmupPkg
+    mlxWatchdogPkg
     llamaSwapPkg
     llamaSwapConfigFile
     llamaSwapRuntimeConfigPath
@@ -38,72 +39,100 @@ in
       # emergency cache clear; programs.mlx.gpuMemoryUtilization) plus
       # --cache-memory-mb and --auto-unload-idle-seconds (set in the generated
       # config). programs.mlx.memoryHardLimitGb remains declarative intent only.
-      agents.vllm-mlx = {
-        enable = true;
-        config = {
-          Label = launchAgentLabel;
-          ProgramArguments = [
-            (lib.getExe llamaSwapPkg)
-            "--config"
-            llamaSwapRuntimeConfigPath
-            "--watch-config"
-            "--listen"
-            "${cfg.host}:${toString cfg.port}"
-          ];
-          RunAtLoad = true;
-          KeepAlive = true;
-          # 2 min throttle — 70GB model loads take 20-60s, prevents rapid crash-restart loops (closes #256)
-          ThrottleInterval = 120;
-          # Interactive by default — Background QoS clamps Metal decode ~8x
-          # (see options-runtime.nix processType). OOM backstop is the RSS
-          # hard limit, not Jetsam eligibility.
-          ProcessType = cfg.processType;
-          # Do not abandon the process group; ensure child vllm-mlx processes
-          # are terminated when launchd stops the proxy.
-          AbandonProcessGroup = false;
-          EnvironmentVariables = {
-            HF_HOME = cfg.huggingFaceHome;
-          }
-          // lib.optionalAttrs cfg.telemetry.enable {
-            # Standard OTel env vars inherited by llama-swap and its vllm-mlx children.
-            # The OTEL Collector at :30317 fans out to Cribl/Splunk and (optionally)
-            # to Galileo — see docs/adr/0003-galileo-ai-observability.md.
-            # Trace emission from vllm-mlx 0.2.9 is best-effort; the collector's
-            # routing connector is the primary gate, not the agent env.
-            OTEL_SERVICE_NAME = "vllm-mlx";
-            OTEL_EXPORTER_OTLP_ENDPOINT = cfg.telemetry.otlpEndpoint;
-            OTEL_EXPORTER_OTLP_PROTOCOL = "grpc";
-            OTEL_RESOURCE_ATTRIBUTES = "service.namespace=mlx,deployment.environment=homelab";
+      agents = {
+        vllm-mlx = {
+          enable = true;
+          config = {
+            Label = launchAgentLabel;
+            ProgramArguments = [
+              (lib.getExe llamaSwapPkg)
+              "--config"
+              llamaSwapRuntimeConfigPath
+              "--watch-config"
+              "--listen"
+              "${cfg.host}:${toString cfg.port}"
+            ];
+            RunAtLoad = true;
+            KeepAlive = true;
+            # 2 min throttle — 70GB model loads take 20-60s, prevents rapid crash-restart loops (closes #256)
+            ThrottleInterval = 120;
+            # Interactive by default — Background QoS clamps Metal decode ~8x
+            # (see options-runtime.nix processType). OOM backstop is the RSS
+            # hard limit, not Jetsam eligibility.
+            ProcessType = cfg.processType;
+            # Do not abandon the process group; ensure child vllm-mlx processes
+            # are terminated when launchd stops the proxy.
+            AbandonProcessGroup = false;
+            EnvironmentVariables = {
+              HF_HOME = cfg.huggingFaceHome;
+            }
+            // lib.optionalAttrs cfg.telemetry.enable {
+              # Standard OTel env vars inherited by llama-swap and its vllm-mlx children.
+              # The OTEL Collector at :30317 fans out to Cribl/Splunk and (optionally)
+              # to Galileo — see docs/adr/0003-galileo-ai-observability.md.
+              # Trace emission from vllm-mlx 0.2.9 is best-effort; the collector's
+              # routing connector is the primary gate, not the agent env.
+              OTEL_SERVICE_NAME = "vllm-mlx";
+              OTEL_EXPORTER_OTLP_ENDPOINT = cfg.telemetry.otlpEndpoint;
+              OTEL_EXPORTER_OTLP_PROTOCOL = "grpc";
+              OTEL_RESOURCE_ATTRIBUTES = "service.namespace=mlx,deployment.environment=homelab";
+            };
+            StandardOutPath = "${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx.log";
+            StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx.error.log";
           };
-          StandardOutPath = "${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx.log";
-          StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx.error.log";
         };
-      };
 
-      # One-shot warmup job: wait for the proxy to answer, then fault each
-      # preloaded model with a 1-token chat completion so the weights are
-      # resident at boot instead of on first user request. Also kickstarted
-      # by mlx-default.sh after every proxy restart (via MLX_WARMUP_LABEL) —
-      # this is the ONLY preload path; llama-swap's hooks.on_startup.preload
-      # is deliberately not emitted (its request shape 404s vllm-mlx, #1175).
-      agents.vllm-mlx-warmup = {
-        enable = true;
-        config = {
-          Label = warmupAgentLabel;
-          ProgramArguments = [ (lib.getExe mlxWarmupPkg) ];
-          RunAtLoad = true;
-          KeepAlive = {
-            SuccessfulExit = false;
+        # One-shot warmup job: wait for the proxy to answer, then fault each
+        # preloaded model with a 1-token chat completion so the weights are
+        # resident at boot instead of on first user request. Also kickstarted
+        # by mlx-default.sh after every proxy restart (via MLX_WARMUP_LABEL) —
+        # this is the ONLY preload path; llama-swap's hooks.on_startup.preload
+        # is deliberately not emitted (its request shape 404s vllm-mlx, #1175).
+        vllm-mlx-warmup = {
+          enable = true;
+          config = {
+            Label = warmupAgentLabel;
+            ProgramArguments = [ (lib.getExe mlxWarmupPkg) ];
+            RunAtLoad = true;
+            KeepAlive = {
+              SuccessfulExit = false;
+            };
+            ThrottleInterval = 120;
+            ProcessType = "Background";
+            EnvironmentVariables = {
+              MLX_API_URL = apiUrl;
+              MLX_PRELOAD_MODELS = lib.concatStringsSep " " cfg.preload;
+              MLX_PRELOAD_MODELS_JSON = builtins.toJSON cfg.preload;
+            };
+            StandardOutPath = "${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx-warmup.log";
+            StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx-warmup.error.log";
           };
-          ThrottleInterval = 120;
-          ProcessType = "Background";
-          EnvironmentVariables = {
-            MLX_API_URL = apiUrl;
-            MLX_PRELOAD_MODELS = lib.concatStringsSep " " cfg.preload;
-            MLX_PRELOAD_MODELS_JSON = builtins.toJSON cfg.preload;
+        };
+
+        # Liveness watchdog: KeepAlive=true only restarts the proxy on process
+        # EXIT, so a llama-swap panic into a listening-but-dead zombie (socket
+        # open, answering nothing) is never caught -> connection-refused ->
+        # litellm MidStreamFallbackError until a human kickstarts it. This probes
+        # /v1/models every StartInterval and kickstarts the server agent on
+        # repeated failure. The script self-gates re-fires with a cooldown marker
+        # so a slow model reload is not restart-stormed (mlx-watchdog.sh).
+        vllm-mlx-watchdog = {
+          enable = true;
+          config = {
+            Label = "dev.vllm-mlx.watchdog";
+            ProgramArguments = [ (lib.getExe mlxWatchdogPkg) ];
+            RunAtLoad = false;
+            # 60 s: a zombie is detected and kickstarted within one cron gap
+            # (crons fire every ~15 min), so the following tick finds it healthy.
+            StartInterval = 60;
+            ProcessType = "Background";
+            EnvironmentVariables = {
+              MLX_API_URL = apiUrl;
+              MLX_LAUNCHD_LABEL = launchAgentLabel;
+            };
+            StandardOutPath = "${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx-watchdog.log";
+            StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx-watchdog.error.log";
           };
-          StandardOutPath = "${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx-warmup.log";
-          StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx-warmup.error.log";
         };
       };
     };
@@ -121,6 +150,8 @@ in
         ${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx.log              :              644   3      10240 *     J
         ${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx-warmup.error.log :              644   3      10240 *     J
         ${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx-warmup.log       :              644   3      10240 *     J
+        ${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx-watchdog.error.log :            644   3      10240 *     J
+        ${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx-watchdog.log     :              644   3      10240 *     J
       '';
 
       # ==========================================================================
