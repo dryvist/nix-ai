@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.2](https://github.com/dryvist/nix-ai/compare/v2.0.1...v2.0.2) (2026-07-14)
+
+
+### Bug Fixes
+
+* **mlx:** give stock 35B the agent timeout + a resident profile ([#1218](https://github.com/dryvist/nix-ai/issues/1218)) ([7a04dce](https://github.com/dryvist/nix-ai/commit/7a04dceb0712647c28bf4c4b0d30226911df0169))
+
 ## [2.0.1](https://github.com/dryvist/nix-ai/compare/v2.0.0...v2.0.1) (2026-07-13)
 
 
