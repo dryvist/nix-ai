@@ -88,13 +88,9 @@ _:
   #   "shell(aws cloudformation delete-stack)"
   # ];
   #
-  # terraformDestructiveOperations = [
-  #   "shell(terraform apply)"
-  #   "shell(terraform destroy)"
-  #   "shell(terragrunt apply)"
-  #   "shell(terragrunt destroy)"
-  #   "shell(terragrunt run-all apply)"
-  #   "shell(terragrunt run-all destroy)"
+  # opentofuDestructiveOperations = [
+  #   "shell(tofu apply)"
+  #   "shell(tofu destroy)"
   # ];
   #
   # packageExecutionCommands = [
