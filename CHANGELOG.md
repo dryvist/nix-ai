@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.0.3](https://github.com/dryvist/nix-ai/compare/v2.0.2...v2.0.3) (2026-07-14)
+
+
+### Bug Fixes
+
+* **mlx:** add shebang to mlx-watchdog.sh (shellcheck SC2148) ([#1224](https://github.com/dryvist/nix-ai/issues/1224)) ([61f5cb2](https://github.com/dryvist/nix-ai/commit/61f5cb2aad300e7b87e505519c4f2db3d93e4f1b))
+* **mlx:** make the zombie watchdog CI-clean ([#1223](https://github.com/dryvist/nix-ai/issues/1223)) ([260202a](https://github.com/dryvist/nix-ai/commit/260202a77b233c3cc91c9a7e90469de938bf0c5a))
+* **mlx:** self-heal the listening-but-dead llama-swap zombie ([#1221](https://github.com/dryvist/nix-ai/issues/1221)) ([1607680](https://github.com/dryvist/nix-ai/commit/1607680a510aa47a43a37190f22957405aaaff38))
+
 ## [2.0.2](https://github.com/dryvist/nix-ai/compare/v2.0.1...v2.0.2) (2026-07-14)
 
 
