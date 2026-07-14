@@ -105,9 +105,14 @@ in
     };
   };
 
-  # Stock sibling of the OptiQ brain. Parser anomaly: still qwen3_coder
-  # (predates the 2026-07-08 bench); flip to the family parser only with a
-  # bench on this variant. Thinking off by default (requests can opt in).
+  # Stock sibling of the OptiQ brain, and the live ai-default fleet brain
+  # (nix-ai#915). Parser anomaly: still qwen3_coder (predates the 2026-07-08
+  # bench); flip to the family parser only with a bench on this variant.
+  # Thinking off by default (requests can opt in). agentTimeout is REQUIRED
+  # here now that it fronts the fleet: without it the serve worker keeps the
+  # 300 s disconnect_guard, which aborted long cron generations mid-stream
+  # ("ABORTING orphaned request … in 300.4s") and surfaced to Hermes as a
+  # brain-unreachable event on 2026-07-14.
   qwen36-35b = {
     model = "mlx-community/Qwen3.6-35B-A3B-4bit";
     weightGb = 19.4;
@@ -120,8 +125,18 @@ in
       (builtins.toJSON {
         enable_thinking = false;
       })
-    ];
+    ]
+    ++ agentTimeout;
     classes = {
+      # Fleet-brain resident profile mirrors the OptiQ twin it replaces as
+      # ai-default: same weights (~19.4 GB) and same KV budget, so the resident
+      # footprint is unchanged. HIGH caps for 40-58K agentic contexts; 65536
+      # avoids the 32768 truncation/retry death-loop (see the OptiQ entry).
+      resident.flags = block512 // {
+        cacheMemoryMb = 16384;
+        maxNumSeqs = 8;
+        maxRequestTokens = 65536;
+      };
       swap.flags =
         block256
         // swapFlags
