@@ -31,6 +31,17 @@ let
   mlxWarmupPkg = pkgs.writeShellScriptBin "mlx-warmup" ''
     exec ${pkgs.python3}/bin/python3 ${./scripts/mlx-warmup.py} "$@"
   '';
+  # mlx-watchdog — periodic liveness probe that kickstarts the proxy when it
+  # panics into a listening-but-dead zombie (KeepAlive only catches process
+  # exit). writeShellApplication shellcheck-validates the script at eval time.
+  mlxWatchdogPkg = pkgs.writeShellApplication {
+    name = "mlx-watchdog";
+    runtimeInputs = with pkgs; [
+      curl
+      coreutils
+    ];
+    text = builtins.readFile ./scripts/mlx-watchdog.sh;
+  };
 
   # llama-swap proxy package — sits on the API port, manages vllm-mlx child processes.
   # Sourced from nixpkgs-unstable: 25.11-darwin froze it at v165 on 2025-09-22
@@ -204,6 +215,7 @@ in
       cfg
       vllmMlxPkg
       mlxWarmupPkg
+      mlxWatchdogPkg
       vllmMlxVersion
       parakeetMlxVersion
       mlxVlmVersion
