@@ -18,6 +18,7 @@ let
     warmupAgentLabel
     apiUrl
     mlxWarmupPkg
+    mlxWatchdogPkg
     llamaSwapPkg
     llamaSwapConfigFile
     llamaSwapRuntimeConfigPath
@@ -106,6 +107,32 @@ in
           StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx-warmup.error.log";
         };
       };
+
+      # Liveness watchdog: KeepAlive=true only restarts the proxy on process
+      # EXIT, so a llama-swap panic into a listening-but-dead zombie (socket
+      # open, answering nothing) is never caught -> connection-refused ->
+      # litellm MidStreamFallbackError until a human kickstarts it. This probes
+      # /v1/models every StartInterval and kickstarts the server agent on
+      # repeated failure. The script self-gates re-fires with a cooldown marker
+      # so a slow model reload is not restart-stormed (mlx-watchdog.sh).
+      agents.vllm-mlx-watchdog = {
+        enable = true;
+        config = {
+          Label = "dev.vllm-mlx.watchdog";
+          ProgramArguments = [ (lib.getExe mlxWatchdogPkg) ];
+          RunAtLoad = false;
+          # 60 s: a zombie is detected and kickstarted within one cron gap
+          # (crons fire every ~15 min), so the following tick finds it healthy.
+          StartInterval = 60;
+          ProcessType = "Background";
+          EnvironmentVariables = {
+            MLX_API_URL = apiUrl;
+            MLX_LAUNCHD_LABEL = launchAgentLabel;
+          };
+          StandardOutPath = "${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx-watchdog.log";
+          StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx-watchdog.error.log";
+        };
+      };
     };
 
     home = {
@@ -121,6 +148,8 @@ in
         ${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx.log              :              644   3      10240 *     J
         ${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx-warmup.error.log :              644   3      10240 *     J
         ${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx-warmup.log       :              644   3      10240 *     J
+        ${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx-watchdog.error.log :            644   3      10240 *     J
+        ${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx-watchdog.log     :              644   3      10240 *     J
       '';
 
       # ==========================================================================
