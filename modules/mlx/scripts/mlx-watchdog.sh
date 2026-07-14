@@ -40,6 +40,10 @@ mkdir -p "$(dirname "$marker")"
 # be reloading - do nothing (including no log noise) rather than re-kick it.
 now="$(date +%s)"
 last="$(cat "$marker" 2>/dev/null || echo 0)"
+# A corrupt/partial marker write (non-integer content) would crash the
+# arithmetic below under set -e ("value too great for base"); an empty file is
+# already treated as 0 by (( )). Coerce anything non-numeric back to 0.
+[[ "$last" =~ ^[0-9]+$ ]] || last=0
 if (( now - last < cooldown )); then
   exit 0
 fi
