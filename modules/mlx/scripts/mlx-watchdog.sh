@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # mlx-watchdog - self-heal the listening-but-dead llama-swap zombie.
 #
 # The vllm-mlx LaunchAgent uses KeepAlive=true, which only restarts the proxy on
