@@ -88,5 +88,8 @@ in
     assert
       builtins.elem ".agents/skills/autoresearch" managedSkillEntries
       || throw "autoresearch skill not discovered from its flake input";
+    assert
+      builtins.elem ".agents/skills/premium-agent-orchestration" managedSkillEntries
+      || throw "premium-agent-orchestration skill not discovered from the direct plugin input";
     helpers.mkMarker "check-agent-skills-home-files" "Agent Skills home.file wiring: ${toString (builtins.length managedSkillEntries)} managed skill entries";
 }

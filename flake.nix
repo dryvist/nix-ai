@@ -26,6 +26,13 @@
       flake = false;
     };
 
+    # Canonical dryvist plugin and cross-tool skill source. Retain the input
+    # name for compatibility; non-Claude harnesses consume it directly.
+    jacobpevans-cc-plugins = {
+      url = "github:dryvist/claude-code-plugins";
+      flake = false;
+    };
+
     # Declarative Claude Code module. Owns programs.claude.* schema,
     # marketplace catalog, synthetic marketplace derivations, lib helpers,
     # and the byte-equivalence CI fixture. The 20 marketplace inputs that
@@ -37,6 +44,7 @@
         home-manager.follows = "home-manager";
         ai-assistant-instructions.follows = "ai-assistant-instructions";
         claude-code-plugins.follows = "claude-code-plugins";
+        jacobpevans-cc-plugins.follows = "jacobpevans-cc-plugins";
         # nix-claude-code injects fabric-src as the module arg that our
         # fabric-ai package consumes in the composed home config. Pin it to
         # our own fabric-src so the built source matches lib/versions.nix
@@ -113,6 +121,7 @@
       nixpkgs-unstable,
       home-manager,
       ai-assistant-instructions,
+      jacobpevans-cc-plugins,
       nix-claude-code,
       karpathy-skills,
       fabric-src,
@@ -134,6 +143,7 @@
       homeManagerModules = import ./flake/home-manager-modules.nix {
         inherit
           ai-assistant-instructions
+          jacobpevans-cc-plugins
           nix-claude-code
           karpathy-skills
           nixpkgs-unstable
