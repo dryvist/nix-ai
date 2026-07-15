@@ -1,5 +1,6 @@
 {
   ai-assistant-instructions,
+  jacobpevans-cc-plugins,
   nix-claude-code,
   karpathy-skills,
   nixpkgs-unstable,
@@ -30,7 +31,6 @@ let
       claude-code-workflows
       claude-plugins-official
       claude-skills
-      jacobpevans-cc-plugins
       lunar-claude
       obsidian-skills
       openai-codex
@@ -39,6 +39,7 @@ let
       visual-explainer-marketplace
       wakatime
       ;
+    inherit jacobpevans-cc-plugins;
     inherit karpathy-skills;
     inherit dashmotion;
     inherit ponytail;

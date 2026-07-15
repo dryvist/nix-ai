@@ -420,15 +420,15 @@
     "jacobpevans-cc-plugins": {
       "flake": false,
       "locked": {
-        "lastModified": 1783096239,
-        "narHash": "sha256-9fK/q7nQRyRxu3GOf+JzhrdwNZ00lcs7YnBUIIZafFE=",
-        "owner": "JacobPEvans",
+        "lastModified": 1784062929,
+        "narHash": "sha256-aTE2Rrkabc/LiQfqZBQiB9y/yne5vJKpXrvWXJLpgt8=",
+        "owner": "dryvist",
         "repo": "claude-code-plugins",
-        "rev": "281ab4d7f780e39f53ca2a77b7858f593e6a941e",
+        "rev": "0b39041e8c9ed555c62667e89eb72abc5dcef0cd",
         "type": "github"
       },
       "original": {
-        "owner": "JacobPEvans",
+        "owner": "dryvist",
         "repo": "claude-code-plugins",
         "type": "github"
       }
@@ -526,7 +526,9 @@
           "home-manager"
         ],
         "huggingface-skills": "huggingface-skills",
-        "jacobpevans-cc-plugins": "jacobpevans-cc-plugins",
+        "jacobpevans-cc-plugins": [
+          "jacobpevans-cc-plugins"
+        ],
         "karpathy-skills": "karpathy-skills_2",
         "lunar-claude": "lunar-claude",
         "nixpkgs": [
@@ -540,11 +542,11 @@
         "wakatime": "wakatime"
       },
       "locked": {
-        "lastModified": 1783853804,
-        "narHash": "sha256-T7osZbdTH1SGa8XzEvp9Du1F+Nv7NRxcBMFwmGfuZss=",
+        "lastModified": 1783966074,
+        "narHash": "sha256-1s/OyTEQS566RL4+Hwrf+I6HzYkRTb/HefHxhYfinew=",
         "owner": "dryvist",
         "repo": "nix-claude-code",
-        "rev": "6a4a356b0c6e7b2d52c7cef5a33241a06317847d",
+        "rev": "7b2bfdfc37745f58404b82054071f0686e74370c",
         "type": "github"
       },
       "original": {
@@ -641,6 +643,7 @@
         "dashmotion": "dashmotion",
         "fabric-src": "fabric-src",
         "home-manager": "home-manager",
+        "jacobpevans-cc-plugins": "jacobpevans-cc-plugins",
         "karpathy-skills": "karpathy-skills",
         "last30days-skill": "last30days-skill",
         "nix-claude-code": "nix-claude-code",
