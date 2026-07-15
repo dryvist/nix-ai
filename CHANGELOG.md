@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.4](https://github.com/dryvist/nix-ai/compare/v2.0.3...v2.0.4) (2026-07-15)
+
+
+### Bug Fixes
+
+* **skills:** source Codex skills directly ([0733be2](https://github.com/dryvist/nix-ai/commit/0733be2639383c8d60997889c2c1baa539d93b11))
+
 ## [2.0.3](https://github.com/dryvist/nix-ai/compare/v2.0.2...v2.0.3) (2026-07-14)
 
 
