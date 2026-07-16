@@ -220,12 +220,19 @@ in
   # @democratize-technology/vikunja-mcp). Chosen over the newer one-author
   # forks: most contributors/stars by far and the widest tool surface (task/
   # project/label CRUD, batch import, webhooks) with rate limiting + circuit
-  # breakers — built for autonomous agents. Requires (inject at runtime — see
-  # .env.example): VIKUNJA_URL (instance API base, ends in /api/v1) and
-  # VIKUNJA_API_TOKEN (a tk_ token minted in the Vikunja UI, per-agent).
-  # Ships disabled — like unifi, it fails to start without its credentials, so a
-  # consumer enables it deliberately once the per-agent token is wired.
-  vikunja = bunx [ "@democratize-technology/vikunja-mcp@${vikunjaMcpVersion}" ] // {
+  # breakers — built for autonomous agents. Requires VIKUNJA_URL (instance API
+  # base, ends in /api/v1) and VIKUNJA_API_TOKEN (a tk_ service-account token,
+  # svc-mcp-rw tier) — injected at launch by doppler-mcp from ai-ci-automation/
+  # prd, same pattern as google-workspace. Canonical token home is the secrets
+  # engine's apps/vikunja secret (promoted from the app role's SOPS mint).
+  # Ships disabled — a consumer enables it deliberately once the Doppler
+  # secrets exist for that machine.
+  vikunja = {
+    command = "doppler-mcp";
+    args = [
+      "bunx"
+      "@democratize-technology/vikunja-mcp@${vikunjaMcpVersion}"
+    ];
     disabled = true;
   };
 
