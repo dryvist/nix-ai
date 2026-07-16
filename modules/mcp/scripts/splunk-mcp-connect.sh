@@ -33,7 +33,7 @@ fi
 bao_addr="${bao_addr%/}"
 
 login_response="$($JQ_BIN -nc --arg role_id "$role_id" --arg secret_id "$secret_id" \
-  '{role_id: $role_id, secret_id: $secret_id}' | \
+  "{role_id: \$role_id, secret_id: \$secret_id}" | \
   $CURL_BIN -fsS --max-time 10 \
     -H "Content-Type: application/json" --data @- \
     "$bao_addr/v1/auth/approle/login" 2>/dev/null)" \
