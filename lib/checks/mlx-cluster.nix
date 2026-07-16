@@ -18,17 +18,18 @@ in
     assert
       rankEnv.MLX_RANK == "0" || throw "cluster: coordinator must be rank 0, got ${rankEnv.MLX_RANK}";
     assert
-      !(rankEnv ? MLX_JACCL_COORDINATOR)
-      || throw "cluster: the JACCL rendezvous address is runtime-computed by the launcher, never baked into the env";
+      rankEnv.MLX_JACCL_COORDINATOR == "192.168.208.1:11441"
+      || throw "cluster: rendezvous must be the coordinator's static link IPv4 + rendezvous port (JACCL is IPv4-only, verified 2026-07-11)";
     assert
-      rankEnv.CLUSTER_LINK_DISCOVERY == "static" && rankEnv.CLUSTER_ROLE == "coordinator"
-      || throw "cluster: launcher inputs wrong (link discovery must default to static — JACCL rendezvous is IPv4-only, verified 2026-07-11; role must reach the launcher)";
+      builtins.match ".*/.config/mlx-cluster/ibv-matrix.json" rankEnv.MLX_IBV_DEVICES != null
+      || throw "cluster: MLX_IBV_DEVICES must point at the nix-generated ibv matrix file";
     assert
-      rankEnv.CLUSTER_RENDEZVOUS_PORT == "11441"
-      || throw "cluster: rendezvous port must reach the launcher env";
+      builtins.match ".*[[]{2}null, \"rdma_en2\"[]].*"
+        hmConfigCluster.config.home.file.".config/mlx-cluster/ibv-matrix.json".text != null
+      || throw "cluster: the generated ibv matrix must carry the rdmaDevice name";
     assert
-      builtins.match ".*mlx-cluster-rank-launcher.*" (builtins.head rankArgs) != null
-      || throw "cluster: rank ProgramArguments must start with the link-discovery launcher";
+      builtins.match ".*uvx" (builtins.head rankArgs) != null
+      || throw "cluster: rank ProgramArguments must exec uvx directly (the launcher script is gone; the env contract is declarative)";
     assert
       rankEnv.MLX_METAL_FAST_SYNCH == "1"
       || throw "cluster: MLX_METAL_FAST_SYNCH=1 missing from the rank env";
@@ -51,9 +52,6 @@ in
       watcher.StartInterval == 30 && watcher.RunAtLoad == true
       || throw "cluster: watcher must tick every 30s from load";
     assert
-      !(watcherEnv ? CLUSTER_PEER_IP) && watcherEnv.CLUSTER_LINK_DISCOVERY == "static"
-      || throw "cluster: watcher must default to static link discovery (JACCL is IPv4-only) with the peer ip supplied as CLUSTER_STATIC_PEER_IP";
-    assert
       watcherEnv.CLUSTER_STATIC_PEER_IP == "192.168.208.2"
       || throw "cluster: coordinator watcher must ping the worker's static link ip, got ${watcherEnv.CLUSTER_STATIC_PEER_IP}";
     assert
@@ -63,8 +61,11 @@ in
       watcherEnv.CLUSTER_HTTP_PORT == "11440"
       || throw "cluster: coordinator watcher must get the cluster endpoint port to readiness-probe";
     assert
+      watcherEnv.CLUSTER_WIRED_LIMIT_MB == "90000" && watcherEnv.CLUSTER_DAY_WIRED_LIMIT_MB == "118000"
+      || throw "cluster: wired-ceiling values must reach the watcher env when wiredLimitMb is set";
+    assert
       agents ? mlx-cluster-prefetch
       && agents.mlx-cluster-prefetch.config.KeepAlive.SuccessfulExit == false
       || throw "cluster: prefetch agent must retry until the download completes";
-    helpers.mkMarker "check-mlx-cluster" "MLX clustered mode: rank env contract, --pipeline serving, watcher wiring, and prefetch retry verified";
+    helpers.mkMarker "check-mlx-cluster" "MLX clustered mode: declarative rank env contract, --pipeline serving, watcher wiring, and prefetch retry verified";
 }

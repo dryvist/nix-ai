@@ -1,21 +1,19 @@
 # shellcheck shell=bash
 # Cluster link watcher — one state-machine tick per launchd interval.
 #
-# Detects the Thunderbolt point-to-point link by auto-detecting the cabled
-# port and discovering the peer's link-local address (or, in fallback mode,
-# pinging the static peer IP), then converges the cluster rank to match:
-#   link up, rank down : quiesce normal serving, (re)start the cluster rank
+# Link state is a single ping to the peer's static link address (the route
+# only exists while the Thunderbolt cable is in), converging the cluster
+# rank to match:
+#   link up, rank down : wired ceiling + quiesce, then (re)start the rank
 #   link up, rank up   : coordinator readiness probe until :PORT answers once
-#   link up -> down    : stop the rank, restore normal serving
+#   link up -> down    : stop the rank, restore ceiling + normal serving
 #
 # Consumed environment (set declaratively by the launchd agent):
 #   CLUSTER_ROLE            coordinator | worker
-#   CLUSTER_LINK_DISCOVERY  link-local (default) | static
-#   CLUSTER_STATIC_PEER_IP  static-mode peer address (fallback mode only)
-#   CLUSTER_IFACE_OVERRIDE  optional cabled-port override
+#   CLUSTER_STATIC_PEER_IP  peer's static link address
 #   CLUSTER_RANK_LABEL      launchd label of the cluster rank agent
 #   CLUSTER_WARMUP_LABEL    launchd label of the normal-serving warmup one-shot
-#   CLUSTER_NORMAL_PROXY       normal-mode llama-swap base URL (coordinator only)
+#   CLUSTER_NORMAL_PROXY    normal-mode llama-swap base URL (coordinator only)
 #   CLUSTER_STATE_FILE      where the last observed link state is kept
 #   CLUSTER_QUIESCE_CMD     optional worker-side quiesce hook (run via sh -c)
 #   CLUSTER_RESTORE_CMD     optional worker-side restore hook (run via sh -c)
@@ -24,28 +22,18 @@
 #                         alert (untracked — never commit the URL)
 #   CLUSTER_HTTP_PORT       coordinator only: cluster endpoint to readiness-probe
 #   CLUSTER_LOAD_GRACE_SECS readiness grace for the model load (default 1800)
-#
-# (cluster_detect_iface / cluster_peer_ll come from cluster-link-lib.sh, prepended
-# at build time.)
+#   CLUSTER_WIRED_LIMIT_MB  optional: iogpu ceiling to hold while clustered
+#                         (applied via the exact-value sudoers grant from
+#                         nix-darwin; a failed apply SKIPS the rank start)
+#   CLUSTER_DAY_WIRED_LIMIT_MB  restore value at link-down (default 0)
 
 mkdir -p "$(dirname "$CLUSTER_STATE_FILE")"
 prev="down"
 [ -f "$CLUSTER_STATE_FILE" ] && prev="$(cat "$CLUSTER_STATE_FILE")"
 
 cur="down"
-if iface="$(cluster_detect_iface)"; then
-  case "${CLUSTER_LINK_DISCOVERY:-link-local}" in
-    static)
-      if /sbin/ping -c 1 -t 2 -q "$CLUSTER_STATIC_PEER_IP" > /dev/null 2>&1; then
-        cur="up"
-      fi
-      ;;
-    *)
-      if [ -n "$(cluster_peer_ll "$iface")" ]; then
-        cur="up"
-      fi
-      ;;
-  esac
+if /sbin/ping -c 1 -t 2 -q "$CLUSTER_STATIC_PEER_IP" > /dev/null 2>&1; then
+  cur="up"
 fi
 
 uid="$(id -u)"
@@ -54,6 +42,22 @@ kicks_file="$state_dir/rank-kickstarts"
 halt_file="$state_dir/rank-halted"
 started_file="$state_dir/rank-first-running"
 ready_file="$state_dir/rank-ready"
+
+# Idempotent wired-ceiling write through the exact-value sudoers grant.
+# No-op when unset or already at the target; returns nonzero on failure.
+set_wired_limit() {
+  local target="$1" current
+  [ -n "$target" ] || return 0
+  current="$(/usr/sbin/sysctl -n iogpu.wired_limit_mb 2>/dev/null || echo '')"
+  [ "$current" = "$target" ] && return 0
+  if sudo -n /usr/sbin/sysctl -w "iogpu.wired_limit_mb=$target" > /dev/null 2>&1 &&
+    [ "$(/usr/sbin/sysctl -n iogpu.wired_limit_mb 2>/dev/null)" = "$target" ]; then
+    echo "cluster-link: iogpu.wired_limit_mb=$target"
+  else
+    echo "cluster-link: WARN failed to set iogpu.wired_limit_mb=$target (sudoers grant missing?)" >&2
+    return 1
+  fi
+}
 
 quiesce_normal_serving() {
   if [ "$CLUSTER_ROLE" = "coordinator" ]; then
@@ -113,12 +117,17 @@ if [ "$cur" = "up" ]; then
           -d "$(hostname -s): cluster rank failed $kicks consecutive starts; kickstarts halted to protect RDMA protection domains. errno 60 = reboot needed. Clear: rm the rank-halted marker or replug the link." \
           "$(cat "$CLUSTER_ALERT_URL_FILE")" || true
       fi
+    elif ! set_wired_limit "${CLUSTER_WIRED_LIMIT_MB:-}"; then
+      # Never start a rank over a day-sized ceiling: a shard wiring out the
+      # GUI working set is the 2026-07-12 dual-host panic. Retry next tick;
+      # this does not consume a kickstart attempt.
+      echo "cluster-link: wired ceiling not applied; NOT starting the rank"
     else
       # Quiesce BEFORE every (re)start, not only on the down->up edge: the
       # link-state file survives a reboot, so a host that boots with the
       # cable in arrives here as up->up with day serving warm — skipping the
       # quiesce there is how a rank shard and the day models end up wired
-      # into the same 128 GB. Both hooks are idempotent, so a mid-night rank
+      # into the same 128 GB. Both hooks are idempotent, so a mid-run rank
       # restart re-running them is a no-op.
       quiesce_normal_serving
       echo "cluster-link: rank not running; kickstarting (attempt $((kicks + 1)))"
@@ -133,6 +142,9 @@ elif [ "$prev" = "up" ]; then
   # window.
   rm -f "$kicks_file" "$halt_file" "$started_file" "$ready_file"
   launchctl kill SIGTERM "gui/$uid/$CLUSTER_RANK_LABEL" 2> /dev/null || true
+  if [ -n "${CLUSTER_WIRED_LIMIT_MB:-}" ]; then
+    set_wired_limit "${CLUSTER_DAY_WIRED_LIMIT_MB:-0}" || true
+  fi
   if [ "$CLUSTER_ROLE" = "coordinator" ]; then
     # Re-warm the declared preload list through the existing warmup one-shot.
     launchctl kickstart -k "gui/$uid/$CLUSTER_WARMUP_LABEL" || true
