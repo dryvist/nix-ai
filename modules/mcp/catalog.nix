@@ -135,11 +135,11 @@ in
     ];
   };
 
-  # Splunk MCP via Doppler secret injection. The helper reads
-  # SPLUNK_MCP_ENDPOINT/SPLUNK_MCP_TOKEN from Doppler at process launch.
+  # Splunk MCP via OpenBao. The helper authenticates with the keychain-backed
+  # ai-readonly AppRole and injects the canonical connection only into its MCP
+  # child process.
   splunk = {
-    command = "doppler-mcp";
-    args = [ "splunk-mcp-connect" ];
+    command = "splunk-mcp-connect";
   };
 
   # ================================================================
