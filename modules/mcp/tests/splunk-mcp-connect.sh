@@ -18,6 +18,9 @@ write_mock() {
 }
 
 write_mock "$TEST_ROOT/bin/curl" <<'EOF'
+# Consume piped stdin (--data @- / -H @-) so the writing jq/printf never sees
+# EPIPE — real curl reads it; a mock that exits first makes the pipeline flaky.
+cat > /dev/null
 url="${!#}"
 case "$url" in
   */auth/approle/login)
