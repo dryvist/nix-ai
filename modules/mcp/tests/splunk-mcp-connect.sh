@@ -44,7 +44,10 @@ write_mock "$TEST_ROOT/bin/bunx" <<'EOF'
 [ "${SPLUNK_MCP_TOKEN:-}" = 'test-splunk-token' ]
 [ "${NODE_TLS_REJECT_UNAUTHORIZED:-}" = 0 ]
 [ "$*" = '--bun mcp-remote@0.1.38 https://splunk.example.test/services/mcp --header Authorization: Bearer test-splunk-token' ]
-[ "${TEST_MODE:-}" != mcp_failure ]
+if [ "${TEST_MODE:-}" = mcp_failure ]; then
+  echo 'mock bunx failed' >&2
+  exit 1
+fi
 EOF
 
 run_case() {
@@ -90,7 +93,7 @@ run_case login "AppRole login failed"
 run_case denied "denied or failed to read"
 run_case incomplete "is incomplete"
 run_case malformed_url "invalid SPLUNK_MCP_URL"
-run_case mcp_failure "MCP connection failed"
+run_case mcp_failure "mock bunx failed"
 
 TEST_MODE=success \
   BAO_ADDR='https://bao.example.test' \

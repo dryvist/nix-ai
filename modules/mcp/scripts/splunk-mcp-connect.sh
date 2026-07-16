@@ -29,6 +29,8 @@ secret_id="${AI_READONLY_SECRET_ID:-}"
 if [ -z "$bao_addr" ] || [ -z "$role_id" ] || [ -z "$secret_id" ]; then
   die "ai-readonly secret-zero missing from environment (need BAO_ADDR, AI_READONLY_ROLE_ID, AI_READONLY_SECRET_ID — see the ai-agent-access-openbao runbook)"
 fi
+# Strip a trailing slash so strict proxies never see a double-slash path.
+bao_addr="${bao_addr%/}"
 
 login_response="$($JQ_BIN -nc --arg role_id "$role_id" --arg secret_id "$secret_id" \
   '{role_id: $role_id, secret_id: $secret_id}' | \
@@ -59,8 +61,8 @@ export SPLUNK_MCP_URL="$splunk_mcp_url"
 export SPLUNK_MCP_TOKEN="$splunk_mcp_token"
 export NODE_TLS_REJECT_UNAUTHORIZED=0
 
-if ! "$BUNX_BIN" --bun mcp-remote@0.1.38 \
+# exec: the MCP child replaces this shell, so signals propagate directly and
+# no idle bash lingers for the connection's lifetime.
+exec "$BUNX_BIN" --bun mcp-remote@0.1.38 \
   "$SPLUNK_MCP_URL" \
-  --header "Authorization: Bearer $SPLUNK_MCP_TOKEN"; then
-  die "MCP connection failed"
-fi
+  --header "Authorization: Bearer $SPLUNK_MCP_TOKEN"
