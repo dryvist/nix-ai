@@ -70,7 +70,14 @@ The encrypted fallback handles offline scenarios.
 
 ## Pattern 2: macOS Keychain via Shell Init
 
-**Used by**: HuggingFace MCP (`HF_TOKEN`), GitHub MCP (`GITHUB_PERSONAL_ACCESS_TOKEN`)
+**Used by**: HuggingFace MCP (`HF_TOKEN`), GitHub MCP (`GITHUB_PERSONAL_ACCESS_TOKEN`),
+Splunk MCP secret-zero (`BAO_ADDR`, `AI_READONLY_ROLE_ID`, `AI_READONLY_SECRET_ID`)
+
+The Splunk secret-zero export lives in `modules/ai-aliases.zsh` (nix-ai's shell-init
+hook): it reads each variable from the automation Keychain only when unset, so any
+harness launched from a login shell inherits the ambient `ai-readonly` AppRole and
+`splunk-mcp-connect` never prompts. A `doppler run`-wrapped launch that already sets
+these wins over the Keychain read.
 
 Secrets are stored in the macOS Keychain and exported as environment variables during
 shell initialization via `_get_keychain_secret` (defined in `nix-home`). MCP servers
