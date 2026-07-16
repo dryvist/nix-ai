@@ -11,8 +11,6 @@ set -euo pipefail
 #
 # curl, jq, and bun are on PATH via runtimeInputs (writeShellApplication).
 
-readonly KEYCHAIN="${HOME}/Library/Keychains/openbao.keychain-db"
-readonly SECURITY_BIN="${SPLUNK_MCP_SECURITY_BIN:-/usr/bin/security}"
 readonly CURL_BIN="${SPLUNK_MCP_CURL_BIN:-curl}"
 readonly JQ_BIN="${SPLUNK_MCP_JQ_BIN:-jq}"
 readonly BUNX_BIN="${SPLUNK_MCP_BUNX_BIN:-bunx}"
@@ -22,20 +20,14 @@ die() {
   exit 1
 }
 
-read_keychain_item() {
-  "$SECURITY_BIN" find-generic-password \
-    -s "$1" -a "$2" -w "$KEYCHAIN" 2>/dev/null
-}
-
-bao_addr="$(read_keychain_item openbao bao_addr)" \
-  || die "OpenBao keychain is locked or unseeded"
-role_id="$(read_keychain_item openbao/ai-readonly role_id)" \
-  || die "OpenBao keychain is locked or unseeded"
-secret_id="$(read_keychain_item openbao/ai-readonly secret_id)" \
-  || die "OpenBao keychain is locked or unseeded"
+# ai-readonly secret-zero arrives ambiently (shell init / `doppler run` env),
+# per the ai-agent-access-openbao runbook. The keychain-delivery model is retired.
+bao_addr="${BAO_ADDR:-}"
+role_id="${AI_READONLY_ROLE_ID:-}"
+secret_id="${AI_READONLY_SECRET_ID:-}"
 
 if [ -z "$bao_addr" ] || [ -z "$role_id" ] || [ -z "$secret_id" ]; then
-  die "OpenBao keychain is locked or unseeded"
+  die "ai-readonly secret-zero missing from environment (need BAO_ADDR, AI_READONLY_ROLE_ID, AI_READONLY_SECRET_ID — see the ai-agent-access-openbao runbook)"
 fi
 
 login_response="$($JQ_BIN -nc --arg role_id "$role_id" --arg secret_id "$secret_id" \

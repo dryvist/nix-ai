@@ -50,7 +50,7 @@ in
       })
 
       # splunk-mcp-connect — fetches the canonical Splunk connection from
-      # OpenBao using the keychain-backed ai-readonly AppRole, then starts the
+      # OpenBao using the ambient-env ai-readonly AppRole, then starts the
       # Splunk MCP App stdio proxy via mcp-remote.
       (pkgs.writeShellApplication {
         name = "splunk-mcp-connect";

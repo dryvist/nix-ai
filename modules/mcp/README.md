@@ -104,11 +104,13 @@ secrets manager per command:
   which runs `doppler run -p ai-ci-automation -c prd -- <cmd>` at launch (see
   [Adding New Servers](#adding-new-servers)). Non-secret config (log levels,
   flags) belongs in the Nix-managed `env` attribute, not Doppler.
-- Splunk uses `splunk-mcp-connect`. At each launch it reads `BAO_ADDR` and the
-  `openbao/ai-readonly` AppRole items directly from
-  `~/Library/Keychains/openbao.keychain-db`, authenticates to OpenBao, and reads
-  `secret/ai/mcp/splunk`. The resulting `SPLUNK_MCP_URL` and
-  `SPLUNK_MCP_TOKEN` exist only in the MCP child process.
+- Splunk uses `splunk-mcp-connect`. At each launch it takes `BAO_ADDR` plus the
+  `ai-readonly` AppRole secret-zero (`AI_READONLY_ROLE_ID`,
+  `AI_READONLY_SECRET_ID`) from the ambient environment — delivered by shell
+  init or `doppler run`, per the `ai-agent-access-openbao` runbook on the docs
+  site — authenticates to OpenBao, and reads `secret/ai/mcp/splunk`. The
+  resulting `SPLUNK_MCP_URL` and `SPLUNK_MCP_TOKEN` exist only in the MCP
+  child process.
 - Env-var-backed servers (HF_TOKEN, GitHub PAT, UniFi, …) read from the process
   environment, injected directly (e.g. an inline Keychain read or `doppler run`).
 
@@ -235,11 +237,14 @@ or system packages. For bunx/uvx, ensure bun/uv is installed.
 
 ### splunk-mcp-connect fails
 
-The wrapper fails closed and identifies the failing boundary: locked or
-unseeded keychain, AppRole login, denied/missing KV data, invalid URL, or MCP
-connection. Unlock and seed `openbao.keychain-db`, verify the `ai-readonly`
-AppRole can read `secret/ai/mcp/splunk`, then launch the harness again. It does
-not cache OpenBao tokens or publish credentials into the login environment.
+The wrapper fails closed and identifies the failing boundary: missing ambient
+secret-zero, AppRole login, denied/missing KV data, invalid URL, or MCP
+connection. Ensure `BAO_ADDR`, `AI_READONLY_ROLE_ID`, and
+`AI_READONLY_SECRET_ID` are present in the harness's environment (the
+`ai-agent-access-openbao` runbook covers delivery and the human-gated
+break-glass fallback), verify the `ai-readonly` AppRole can read
+`secret/ai/mcp/splunk`, then launch the harness again. It does not cache
+OpenBao tokens or publish credentials into the login environment.
 
 ### doppler-mcp server shows "Failed to connect"
 

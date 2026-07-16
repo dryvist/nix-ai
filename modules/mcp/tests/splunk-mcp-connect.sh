@@ -8,29 +8,16 @@ trap 'rm -rf "$TEST_ROOT"' EXIT
 
 mkdir -p "$TEST_ROOT/bin"
 
-cat > "$TEST_ROOT/bin/security" <<'EOF'
-#!/usr/bin/env bash
-service="" account=""
-while [ "$#" -gt 0 ]; do
-  case "$1" in
-    -s) service="$2"; shift 2 ;;
-    -a) account="$2"; shift 2 ;;
-    *) shift ;;
-  esac
-done
-if [ "${TEST_MODE:-}" = keychain ]; then exit 44; fi
-case "$service/$account" in
-  openbao/bao_addr) printf '%s\n' 'https://bao.example.test' ;;
-  openbao/ai-readonly/role_id) printf '%s\n' 'test-role' ;;
-  openbao/ai-readonly/secret_id)
-    [ "${TEST_MODE:-}" = missing_approle ] || printf '%s\n' 'test-secret'
-    ;;
-  *) exit 44 ;;
-esac
-EOF
+# Mocks get an explicit interpreter path: the Nix Linux sandbox has no
+# /usr/bin/env, so a `#!/usr/bin/env bash` mock fails exec and every case
+# collapses into the same "missing secret-zero" error.
+write_mock() {
+  printf '#!%s\n' "$BASH" > "$1"
+  cat >> "$1"
+  chmod +x "$1"
+}
 
-cat > "$TEST_ROOT/bin/curl" <<'EOF'
-#!/usr/bin/env bash
+write_mock "$TEST_ROOT/bin/curl" <<'EOF'
 url="${!#}"
 case "$url" in
   */auth/approle/login)
@@ -49,21 +36,23 @@ case "$url" in
 esac
 EOF
 
-cat > "$TEST_ROOT/bin/bunx" <<'EOF'
-#!/usr/bin/env bash
+write_mock "$TEST_ROOT/bin/bunx" <<'EOF'
 [ "${SPLUNK_MCP_URL:-}" = 'https://splunk.example.test/services/mcp' ]
 [ "${SPLUNK_MCP_TOKEN:-}" = 'test-splunk-token' ]
 [ "${NODE_TLS_REJECT_UNAUTHORIZED:-}" = 0 ]
 [ "$*" = '--bun mcp-remote@0.1.38 https://splunk.example.test/services/mcp --header Authorization: Bearer test-splunk-token' ]
 [ "${TEST_MODE:-}" != mcp_failure ]
 EOF
-chmod +x "$TEST_ROOT/bin/security" "$TEST_ROOT/bin/curl" "$TEST_ROOT/bin/bunx"
 
 run_case() {
   local mode="$1" expected="$2"
   local output
+  local secret_id='test-secret'
+  [ "$mode" != missing_secret_id ] || secret_id=''
   if output="$(TEST_MODE="$mode" \
-    SPLUNK_MCP_SECURITY_BIN="$TEST_ROOT/bin/security" \
+    BAO_ADDR='https://bao.example.test' \
+    AI_READONLY_ROLE_ID='test-role' \
+    AI_READONLY_SECRET_ID="$secret_id" \
     SPLUNK_MCP_CURL_BIN="$TEST_ROOT/bin/curl" \
     SPLUNK_MCP_BUNX_BIN="$TEST_ROOT/bin/bunx" \
     bash "$CONNECT" 2>&1)"; then
@@ -82,8 +71,18 @@ run_case() {
   esac
 }
 
-run_case keychain "keychain is locked or unseeded"
-run_case missing_approle "keychain is locked or unseeded"
+# No ambient secret-zero at all → fail closed with the runbook pointer.
+if output="$(env -u BAO_ADDR -u AI_READONLY_ROLE_ID -u AI_READONLY_SECRET_ID \
+  bash "$CONNECT" 2>&1)"; then
+  echo "FAIL: missing_env unexpectedly succeeded" >&2
+  exit 1
+fi
+case "$output" in
+  *"secret-zero missing from environment"*) ;;
+  *) echo "FAIL: missing_env returned unexpected output: $output" >&2; exit 1 ;;
+esac
+
+run_case missing_secret_id "secret-zero missing from environment"
 run_case login "AppRole login failed"
 run_case denied "denied or failed to read"
 run_case incomplete "is incomplete"
@@ -91,7 +90,9 @@ run_case malformed_url "invalid SPLUNK_MCP_URL"
 run_case mcp_failure "MCP connection failed"
 
 TEST_MODE=success \
-  SPLUNK_MCP_SECURITY_BIN="$TEST_ROOT/bin/security" \
+  BAO_ADDR='https://bao.example.test' \
+  AI_READONLY_ROLE_ID='test-role' \
+  AI_READONLY_SECRET_ID='test-secret' \
   SPLUNK_MCP_CURL_BIN="$TEST_ROOT/bin/curl" \
   SPLUNK_MCP_BUNX_BIN="$TEST_ROOT/bin/bunx" \
   bash "$CONNECT"
