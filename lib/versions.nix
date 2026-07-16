@@ -62,6 +62,12 @@
   # renovate: datasource=pypi depName=unifi-mcp-server
   unifiMcpServer = "0.2.5";
 
+  # MCP servers (uvx from git — not published to PyPI or npm)
+  # Consumed as git+https://github.com/basher83/zammad-mcp.git@v<version>; the
+  # upstream tag is v-prefixed, this pin stays bare like fabric below.
+  # renovate: datasource=github-tags depName=basher83/Zammad-MCP
+  zammadMcp = "1.1.0";
+
   # MLX inference stack (pypi)
   # 0.4.0 adds GPT-OSS/harmony prompt rendering for tool calls (required to
   # serve gpt-oss models with working tool calling) and requires

@@ -38,6 +38,7 @@ let
   gwsMcpVersion = versions.gwsMcp;
   unifiMcpServerVersion = versions.unifiMcpServer;
   vikunjaMcpVersion = versions.vikunjaMcp;
+  zammadMcpVersion = versions.zammadMcp;
 in
 {
   # ================================================================
@@ -232,6 +233,30 @@ in
     args = [
       "bunx"
       "@democratize-technology/vikunja-mcp@${vikunjaMcpVersion}"
+    ];
+    disabled = true;
+  };
+
+  # ================================================================
+  # Zammad - self-hosted help desk / ticketing (Zammad MCP, task #12)
+  # ================================================================
+  # Source: https://github.com/basher83/Zammad-MCP (not on PyPI/npm; launched
+  # via uvx straight from the pinned git tag, entry point `mcp-zammad`). Covers
+  # ticket/user/organization/attachment tools plus queue resources — the
+  # surface the Hermes zammad-incidents loop drives. Requires ZAMMAD_URL
+  # (instance API base, ends in /api/v1) and ZAMMAD_HTTP_TOKEN (a Zammad API
+  # token) — injected at launch by doppler-mcp from ai-ci-automation/prd, same
+  # pattern as vikunja/google-workspace. Canonical token home is the secrets
+  # engine's secret/ai/mcp/zammad (ZAMMAD_MCP_URL + ZAMMAD_MCP_TOKEN fields).
+  # Ships disabled — the host opt-in + Doppler seeding follow Zammad's deploy
+  # (task #10); enabling before that would spawn a failing server.
+  zammad = {
+    command = "doppler-mcp";
+    args = [
+      "uvx"
+      "--from"
+      "git+https://github.com/basher83/zammad-mcp.git@v${zammadMcpVersion}"
+      "mcp-zammad"
     ];
     disabled = true;
   };
