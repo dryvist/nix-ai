@@ -105,7 +105,7 @@ not the k8s operator.
 | Product | Secret | Pattern | Where Configured |
 |---------|--------|---------|-----------------|
 | Google Workspace MCP | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Doppler subprocess | `ai-ci-automation/prd` Doppler project |
-| Splunk MCP | `SPLUNK_MCP_ENDPOINT`, `SPLUNK_MCP_TOKEN` | Doppler subprocess | `ai-ci-automation/prd` Doppler project |
+| Splunk MCP | `SPLUNK_MCP_URL`, `SPLUNK_MCP_TOKEN` | Direct OpenBao read at process launch | `secret/ai/mcp/splunk`, using the ambient-env `ai-readonly` AppRole |
 | HuggingFace MCP | `HF_TOKEN` | Keychain → shell env | macOS Keychain (`huggingface-token`) |
 | GitHub MCP | `GITHUB_PERSONAL_ACCESS_TOKEN` | Keychain → shell env | macOS Keychain |
 | Bifrost | Provider API keys | Homelab Doppler (`doppler run`) | Proxmox homelab (`ansible-proxmox-apps`) |

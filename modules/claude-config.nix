@@ -43,7 +43,10 @@ let
   inherit (aiCommon) permissions;
   inherit (aiCommon) formatters;
 
-  # Dynamic discovery helper — finds all .md files in a directory
+  # Dynamic discovery helper — finds all .md files in a directory.
+  # Non-recursive by design: the `type == "regular"` filter skips subdirectories,
+  # so nested tiers like `agentsmd/rules/on-demand/` are NOT discovered. Keep it
+  # this way — do not make readDir recurse (see rules.fromFlakeInputs below).
   discoverMarkdownFiles =
     dir:
     let
@@ -168,6 +171,12 @@ in
       (mkSourceEntries "${ai-assistant-instructions}/agentsmd/agents" aiAgents)
       ++ (mkSourceEntries "${claude-cookbooks}/.claude/agents" cbAgents);
 
+    # home-manager is the single canonical delivery pipe for agent instructions.
+    # Non-recursive discovery delivers only top-level `agentsmd/rules/*.md` flat to
+    # `~/.claude/rules/`: the always-on `soul.md` core plus path-scoped tier rules
+    # whose `paths:` frontmatter Claude Code's native loader honors. The opt-in
+    # `agentsmd/rules/on-demand/` tier lives in a subdir that discovery skips on
+    # purpose — it is read by path, never delivered. Do not make discovery recurse.
     rules.fromFlakeInputs = mkSourceEntries "${ai-assistant-instructions}/agentsmd/rules" aiRules;
 
     rules.local = {

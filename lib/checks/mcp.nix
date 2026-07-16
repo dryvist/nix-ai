@@ -20,6 +20,7 @@ let
     antigravity-cli = hmConfig.config.programs.antigravity-cli.mcpServerNames;
     antigravity-ide = hmConfig.config.programs.antigravity-ide.mcpServerNames;
     qwen-code = hmConfig.config.programs.qwen-code.mcpServerNames;
+    opencode = hmConfig.config.programs.opencode.mcpServerNames;
   };
   rendererMismatches = builtins.filter (name: rendererNames.${name} != cfg.enabledServerNames) (
     builtins.attrNames rendererNames
@@ -36,5 +37,22 @@ in
     assert
       rendererMismatches == [ ]
       || throw "MCP renderer parity mismatch: ${builtins.toJSON rendererMismatches}; shared=${builtins.toJSON cfg.enabledServerNames}; renderers=${builtins.toJSON rendererNames}";
-    helpers.mkMarker "check-shared-mcp-renderer-parity" "Shared MCP renderer parity verified for Claude, Codex, Antigravity CLI/IDE, and Qwen";
+    helpers.mkMarker "check-shared-mcp-renderer-parity" "Shared MCP renderer parity verified for Claude, Codex, Antigravity CLI/IDE, Qwen, and OpenCode";
+
+  splunk-mcp-canonical-launcher =
+    assert
+      cfg.servers.splunk.command == "splunk-mcp-connect" && cfg.servers.splunk.args == [ ]
+      || throw "Splunk MCP must launch directly through splunk-mcp-connect: ${builtins.toJSON cfg.servers.splunk}";
+    helpers.mkMarker "check-splunk-mcp-canonical-launcher" "Splunk MCP uses the OpenBao launcher without Doppler wiring";
+
+  splunk-mcp-openbao-wrapper =
+    pkgs.runCommand "check-splunk-mcp-openbao-wrapper"
+      {
+        nativeBuildInputs = [ pkgs.jq ];
+      }
+      ''
+        ${pkgs.bash}/bin/bash ${../../modules/mcp/tests/splunk-mcp-connect.sh} \
+          ${../../modules/mcp/scripts/splunk-mcp-connect.sh}
+        touch $out
+      '';
 }

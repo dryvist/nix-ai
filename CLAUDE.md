@@ -50,6 +50,30 @@ inputs.nix-ai.inputs.home-manager.follows = "home-manager";
 
 ## Separation Guidelines
 
+### Instruction delivery (single pipe)
+
+home-manager is the single canonical delivery pipe for agent instructions from
+`ai-assistant-instructions`. It delivers the always-on core (`soul.md`) plus the
+path-scoped tier rules flat to `~/.claude/rules/`; Claude Code's native loader
+then honors each file's `paths:` frontmatter (present = path-scoped, absent =
+always-on). The `on-demand/` tier is a subdir that discovery skips by design —
+read by path when needed, never delivered. The one sanctioned fallback for a
+non-Nix machine is cloning `ai-assistant-instructions` and reading `AGENTS.md` +
+`agentsmd/rules/` directly (as that repo's own CLAUDE.md instructs). The
+CI-sparse-checkout, Obsidian-submodule, and copy-paste "pipes" are not sync
+mechanisms and do not exist — do not add a second delivery path.
+
+### nix-ai vs nix-claude-code boundary
+
+`nix-claude-code` = the Claude Code option schema, settings/permission renderer,
+permission data, and marketplace catalog (the "what the config looks like").
+`nix-ai` = discovery, consumption, MCP, plugin tiers, MLX, and the glue that
+feeds `ai-assistant-instructions` content through nix-claude-code's options (the
+"what content flows and how"). Tiered rule delivery (top-level delivered,
+`on-demand/` not) is a property of nix-ai's `discoverMarkdownFiles`, using
+nix-claude-code's `rules` option verbatim. Mirror in
+[nix-claude-code `AGENTS.md`](https://github.com/JacobPEvans/nix-claude-code/blob/main/AGENTS.md).
+
 ### What belongs here (nix-ai)
 
 - AI CLI tools (Claude Code, Antigravity, Codex, Copilot, qwen-code, cecli)

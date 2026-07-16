@@ -29,6 +29,8 @@ let
   homeDir = config.home.homeDirectory;
   inherit (config.services.aiStack) models resolvedLlmEndpoint llmEndpoint;
 
+  mcpClient = import ../mcp/client.nix { inherit lib; };
+
   # Endpoint + API-key source both follow services.aiStack.llmEndpoint. Local
   # (llama-swap) is an open loopback hop, so a dummy key satisfies the schema.
   # The router is bearer-gated: point qwen-code's envKey at OPENAI_API_KEY,
@@ -69,11 +71,11 @@ let
           ;
       };
 
-  mcpServers = lib.mapAttrs' (name: server: lib.nameValuePair name (normalizeMcpServer server)) (
-    lib.filterAttrs (
-      name: server: !(server.disabled or false) && !(lib.elem name cfg.excludedMcpServers)
-    ) config.programs.aiMcp.enabledServers
-  );
+  mcpServers = mcpClient.renderServers {
+    inherit (config.programs.aiMcp) enabledServers;
+    excluded = cfg.excludedMcpServers;
+    normalize = normalizeMcpServer;
+  };
 
   baseSettings = {
     inherit mcpServers;

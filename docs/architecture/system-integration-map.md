@@ -92,7 +92,7 @@ graph LR
 | `fabric` | stdio (uvx) | Fabric CLI setup | Pattern execution |
 | `huggingface` | stdio (uvx) | `HF_TOKEN` from Keychain | Hub/model/dataset search |
 | `time` | stdio (uvx) | None | Official maintained Python server |
-| `splunk` | stdio (doppler-mcp + mcp-remote) | Doppler runtime injection | Splunk MCP Server app |
+| `splunk` | stdio (splunk-mcp-connect + mcp-remote) | OpenBao via ambient-env `ai-readonly` AppRole | Shared Splunk MCP Server app connection |
 
 ### Plugin-Managed MCP Servers
 
