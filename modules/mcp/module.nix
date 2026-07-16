@@ -3,8 +3,8 @@
 # Owns all runtime infrastructure required to make the MCP server definitions
 # in `./default.nix` actually executable on a user's machine:
 #
-#   - doppler-mcp wrapper (Doppler secret injection for any MCP server)
-#   - splunk-mcp-connect helper
+#   - doppler-mcp wrapper (Doppler secret injection for remaining MCP servers)
+#   - OpenBao-backed splunk-mcp-connect helper
 #
 # This module is the load-bearing piece for the MCP sub-flake's
 # self-containment guarantee: importing it (alone) gives a consumer a working
@@ -24,7 +24,7 @@ in
 
   # Namespace note: home-manager 25.11+ ships `programs.mcp` (Claude Desktop
   # MCP integration). We use `programs.mcpRuntime` to avoid the collision —
-  # this module is about Doppler/Splunk MCP runtime wrappers, not the
+  # this module is about secret-backed MCP runtime wrappers, not the
   # upstream Claude Desktop bridge.
   options.programs.mcpRuntime = {
     enable = lib.mkOption {
@@ -49,11 +49,16 @@ in
         text = builtins.readFile ./scripts/doppler-mcp.sh;
       })
 
-      # splunk-mcp-connect — Splunk MCP App stdio proxy via mcp-remote.
-      # Reads SPLUNK_MCP_ENDPOINT/SPLUNK_MCP_TOKEN injected by doppler-mcp.
+      # splunk-mcp-connect — fetches the canonical Splunk connection from
+      # OpenBao using the ambient-env ai-readonly AppRole, then starts the
+      # Splunk MCP App stdio proxy via mcp-remote.
       (pkgs.writeShellApplication {
         name = "splunk-mcp-connect";
-        runtimeInputs = [ pkgs.bun ];
+        runtimeInputs = [
+          pkgs.bun
+          pkgs.curl
+          pkgs.jq
+        ];
         text = builtins.readFile ./scripts/splunk-mcp-connect.sh;
       })
     ];

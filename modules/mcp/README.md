@@ -8,7 +8,8 @@ own configuration formats during every `darwin-rebuild switch`.
 
 Standalone consumers should import `modules/mcp/module.nix`, not
 `modules/mcp/default.nix`; the runtime module includes the shared option catalog
-and installs helper binaries such as `doppler-mcp` and `splunk-mcp-connect`.
+and installs helper binaries such as `doppler-mcp` and the OpenBao-backed
+`splunk-mcp-connect`.
 
 **Nix is the sole manager of user-scoped MCP servers.** Any entries added manually
 through client CLIs may be overwritten on the next rebuild.
@@ -99,10 +100,17 @@ Servers that need API keys read them from environment variables at runtime.
 **Inject secrets directly into each run — never write them to disk.** Use your
 secrets manager per command:
 
-- Doppler-backed servers (Google Workspace, Splunk) use the `doppler-mcp` wrapper,
+- Doppler-backed servers (such as Google Workspace) use the `doppler-mcp` wrapper,
   which runs `doppler run -p ai-ci-automation -c prd -- <cmd>` at launch (see
   [Adding New Servers](#adding-new-servers)). Non-secret config (log levels,
   flags) belongs in the Nix-managed `env` attribute, not Doppler.
+- Splunk uses `splunk-mcp-connect`. At each launch it takes `BAO_ADDR` plus the
+  `ai-readonly` AppRole secret-zero (`AI_READONLY_ROLE_ID`,
+  `AI_READONLY_SECRET_ID`) from the ambient environment — delivered by shell
+  init or `doppler run`, per the `ai-agent-access-openbao` runbook on the docs
+  site — authenticates to OpenBao, and reads `secret/ai/mcp/splunk`. The
+  resulting `SPLUNK_MCP_URL` and `SPLUNK_MCP_TOKEN` exist only in the MCP
+  child process.
 - Env-var-backed servers (HF_TOKEN, GitHub PAT, UniFi, …) read from the process
   environment, injected directly (e.g. an inline Keychain read or `doppler run`).
 
@@ -226,6 +234,17 @@ The server definition is still deployed — it will connect when the server is a
 
 Verify the binary is in PATH. For nixpkgs packages, ensure it's installed in your profile
 or system packages. For bunx/uvx, ensure bun/uv is installed.
+
+### splunk-mcp-connect fails
+
+The wrapper fails closed and identifies the failing boundary: missing ambient
+secret-zero, AppRole login, denied/missing KV data, invalid URL, or MCP
+connection. Ensure `BAO_ADDR`, `AI_READONLY_ROLE_ID`, and
+`AI_READONLY_SECRET_ID` are present in the harness's environment (the
+`ai-agent-access-openbao` runbook covers delivery and the human-gated
+break-glass fallback), verify the `ai-readonly` AppRole can read
+`secret/ai/mcp/splunk`, then launch the harness again. It does not cache
+OpenBao tokens or publish credentials into the login environment.
 
 ### doppler-mcp server shows "Failed to connect"
 
