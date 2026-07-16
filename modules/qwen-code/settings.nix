@@ -21,6 +21,7 @@
   pkgs,
   config,
   lib,
+  nix-claude-code,
   ...
 }:
 
@@ -28,6 +29,11 @@ let
   cfg = config.programs.qwen-code;
   homeDir = config.home.homeDirectory;
   inherit (config.services.aiStack) models resolvedLlmEndpoint llmEndpoint;
+
+  aiCommon = import ../common {
+    inherit lib config nix-claude-code;
+  };
+  inherit (aiCommon) permissions formatters;
 
   mcpClient = import ../mcp/client.nix { inherit lib; };
 
@@ -80,6 +86,12 @@ let
   baseSettings = {
     inherit mcpServers;
 
+    # Auto-approve / prompt / block rules from the shared permission engine.
+    permissions = formatters.qwen.formatPermissions permissions;
+
+    # Load repo AGENTS.md as instruction context, matching the other agents.
+    context.fileName = [ "AGENTS.md" ];
+
     modelProviders = [
       {
         name = providerKey;
@@ -118,7 +130,10 @@ in
 {
   config = lib.mkMerge [
     {
-      programs.qwen-code.mcpServerNames = lib.attrNames mcpServers;
+      programs.qwen-code = {
+        contextFileNames = baseSettings.context.fileName;
+        mcpServerNames = lib.attrNames mcpServers;
+      };
     }
     (lib.mkIf cfg.enable {
       home = {

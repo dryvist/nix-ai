@@ -172,6 +172,7 @@ in
     _module.args = {
       inherit
         ai-assistant-instructions
+        nix-claude-code
         marketplaceInputs
         ;
     };

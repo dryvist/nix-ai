@@ -47,6 +47,13 @@ in
       '';
     };
 
+    contextFileNames = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      readOnly = true;
+      internal = true;
+      description = "Context file names emitted to Qwen Code settings.json; read-only.";
+    };
+
   }
   // mcpClient.mkClientOptions "Qwen Code";
 }
