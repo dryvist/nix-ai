@@ -6,6 +6,7 @@
 { lib, ... }:
 
 let
+  mcpClient = import ../mcp/client.nix { inherit lib; };
   hookType = lib.types.nullOr (lib.types.either lib.types.path lib.types.lines);
   nullableStr = lib.types.nullOr lib.types.str;
   nullableReasoningEffort = lib.types.nullOr (
@@ -117,18 +118,7 @@ in
       description = "Default approval policy for Codex sessions";
     };
 
-    # MCP servers to exclude from shared definitions
-    excludedMcpServers = lib.mkOption {
-      type = lib.types.listOf lib.types.str;
-      default = [ ];
-      description = "Additional MCP servers to exclude from the shared cross-agent profile for Codex only.";
-    };
-
-    mcpServerNames = lib.mkOption {
-      type = lib.types.listOf lib.types.str;
-      readOnly = true;
-      internal = true;
-      description = "Names of MCP servers emitted to Codex config.toml.";
-    };
-  };
+    # excludedMcpServers + mcpServerNames come from the shared MCP client helper.
+  }
+  // mcpClient.mkClientOptions "Codex";
 }

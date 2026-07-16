@@ -3,6 +3,9 @@
 #
 { lib, ... }:
 
+let
+  mcpClient = import ../mcp/client.nix { inherit lib; };
+in
 {
   options.programs.qwen-code = {
     enable = lib.mkEnableOption "Qwen Code (Alibaba terminal coding agent)";
@@ -44,17 +47,6 @@
       '';
     };
 
-    excludedMcpServers = lib.mkOption {
-      type = lib.types.listOf lib.types.str;
-      default = [ ];
-      description = "Additional MCP servers to exclude from the shared cross-agent profile for Qwen Code only.";
-    };
-
-    mcpServerNames = lib.mkOption {
-      type = lib.types.listOf lib.types.str;
-      readOnly = true;
-      internal = true;
-      description = "Names of MCP servers emitted to Qwen settings.json.";
-    };
-  };
+  }
+  // mcpClient.mkClientOptions "Qwen Code";
 }
