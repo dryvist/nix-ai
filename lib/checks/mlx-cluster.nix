@@ -64,6 +64,10 @@ in
       watcherEnv.CLUSTER_WIRED_LIMIT_MB == "90000" && watcherEnv.CLUSTER_DAY_WIRED_LIMIT_MB == "118000"
       || throw "cluster: wired-ceiling values must reach the watcher env when wiredLimitMb is set";
     assert
+      watcherEnv.CLUSTER_RANK_URL == "http://127.0.0.1:11440"
+      && watcherEnv.CLUSTER_MODEL == "mlx-community/GLM-4.7-4bit"
+      || throw "cluster: coordinator watcher must know the rank endpoint and model for the post-readiness warm-up";
+    assert
       agents ? mlx-cluster-prefetch
       && agents.mlx-cluster-prefetch.config.KeepAlive.SuccessfulExit == false
       || throw "cluster: prefetch agent must retry until the download completes";
