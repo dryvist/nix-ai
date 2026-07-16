@@ -1,5 +1,8 @@
 # OpenCode Module Options
 { lib, ... }:
+let
+  mcpClient = import ../mcp/client.nix { inherit lib; };
+in
 {
   options.programs.opencode = {
     enable = lib.mkEnableOption "OpenCode (sst/opencode terminal agent)";
@@ -15,5 +18,6 @@
       default = { };
       description = "Attrs merged into ~/.config/opencode/opencode.json (wins over module defaults).";
     };
-  };
+  }
+  // mcpClient.mkClientOptions "OpenCode";
 }

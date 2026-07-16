@@ -26,6 +26,8 @@ let
   };
   inherit (aiCommon) permissions formatters;
 
+  mcpClient = import ../mcp/client.nix { inherit lib; };
+
   defaultTrustedFolders = [
     "${homeDir}/.config/nix"
     "${homeDir}/.config"
@@ -45,13 +47,11 @@ let
 
   mergedSandboxAllowedPaths = lib.unique (defaultSandboxAllowedPaths ++ cfg.sandboxAllowedPaths);
 
-  mcpServers =
-    lib.mapAttrs' (name: server: lib.nameValuePair name (formatters.utils.normalizeMcpServer server))
-      (
-        lib.filterAttrs (
-          name: server: !(server.disabled or false) && !(lib.elem name cfg.excludedMcpServers)
-        ) config.programs.aiMcp.enabledServers
-      );
+  mcpServers = mcpClient.renderServers {
+    inherit (config.programs.aiMcp) enabledServers;
+    excluded = cfg.excludedMcpServers;
+    normalize = formatters.utils.normalizeMcpServer;
+  };
 
   # Policy Engine: generate TOML rules from shared permissions
   policyRules =

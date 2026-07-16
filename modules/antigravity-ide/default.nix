@@ -21,17 +21,17 @@ let
   };
   inherit (aiCommon) permissions formatters;
 
+  mcpClient = import ../mcp/client.nix { inherit lib; };
+
   # Format permissions for Antigravity Desktop app (permissionGrants)
   # The format is "command(cmd)"
   allowedCommands = formatters."antigravity-ide".formatAllowed permissions;
 
-  mcpServers =
-    lib.mapAttrs' (name: server: lib.nameValuePair name (formatters.utils.normalizeMcpServer server))
-      (
-        lib.filterAttrs (
-          name: server: !(server.disabled or false) && !(lib.elem name cfg.excludedMcpServers)
-        ) config.programs.aiMcp.enabledServers
-      );
+  mcpServers = mcpClient.renderServers {
+    inherit (config.programs.aiMcp) enabledServers;
+    excluded = cfg.excludedMcpServers;
+    normalize = formatters.utils.normalizeMcpServer;
+  };
 
   mcpConfig = {
     inherit mcpServers;
@@ -78,19 +78,8 @@ in
       description = "Default artifact review mode.";
     };
 
-    excludedMcpServers = lib.mkOption {
-      type = lib.types.listOf lib.types.str;
-      default = [ ];
-      description = "Additional MCP servers to exclude from the shared cross-agent profile for Antigravity IDE only.";
-    };
-
-    mcpServerNames = lib.mkOption {
-      type = lib.types.listOf lib.types.str;
-      readOnly = true;
-      internal = true;
-      description = "Names of MCP servers emitted to Antigravity IDE mcp_config.json.";
-    };
-  };
+  }
+  // mcpClient.mkClientOptions "Antigravity IDE";
 
   config = lib.mkMerge [
     {

@@ -20,6 +20,8 @@ let
   };
   inherit (aiCommon) permissions formatters;
 
+  mcpClient = import ../mcp/client.nix { inherit lib; };
+
   # Mirror upstream home-manager programs.codex path logic so rules/config.toml stay co-located.
   packageVersion = if cfg.package != null then lib.getVersion cfg.package else "0.2.0";
   isTomlConfig = lib.versionAtLeast packageVersion "0.2.0";
@@ -74,11 +76,11 @@ let
       name: value: lib.elem name allowedKeys && value != null && value != [ ] && value != { }
     ) server;
 
-  mcpServers = lib.mapAttrs' (name: server: lib.nameValuePair name (normalizeMcpServer server)) (
-    lib.filterAttrs (
-      name: server: !(server.disabled or false) && !(lib.elem name cfg.excludedMcpServers)
-    ) config.programs.aiMcp.enabledServers
-  );
+  mcpServers = mcpClient.renderServers {
+    inherit (config.programs.aiMcp) enabledServers;
+    excluded = cfg.excludedMcpServers;
+    normalize = normalizeMcpServer;
+  };
 
   optionalValue = key: value: lib.optionalAttrs (value != null) { ${key} = value; };
 
