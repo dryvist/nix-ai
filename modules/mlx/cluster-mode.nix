@@ -52,6 +52,11 @@ let
     "${pkgs.uv}/bin/uvx"
     "--from"
     "mlx-lm==${versions.mlxLm}"
+    # mlx + mlx-lm are a lockstep pair (lib/versions.nix): pin mlx explicitly
+    # like the normal-mode stack does, instead of riding mlx-lm's transitive
+    # floor — otherwise the two ranks can resolve an mlx never validated here.
+    "--with"
+    "mlx==${versions.mlx}"
     "--with"
     "transformers==${versions.transformers}"
     "mlx_lm.server"
@@ -280,6 +285,11 @@ in
             CLUSTER_STATE_FILE = stateFile;
             CLUSTER_MAX_KICKSTARTS = toString ncfg.maxKickstarts;
             CLUSTER_ALERT_URL_FILE = ncfg.alertUrlFile;
+          }
+          // lib.optionalAttrs isCoordinator {
+            # Readiness probe target: launchctl liveness alone cannot see a
+            # rank hung in distributed init (see the watcher script).
+            CLUSTER_HTTP_PORT = toString ncfg.httpPort;
           }
           // lib.optionalAttrs isStatic {
             CLUSTER_STATIC_PEER_IP = staticPeerIp;

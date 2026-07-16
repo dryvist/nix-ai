@@ -36,6 +36,9 @@ in
       builtins.elem "mlx_lm.server" rankArgs && builtins.elem "--pipeline" rankArgs
       || throw "cluster: rank ProgramArguments must serve via mlx_lm.server --pipeline";
     assert
+      builtins.any (a: builtins.match "mlx==.*" a != null) rankArgs
+      || throw "cluster: rank must pin mlx explicitly (mlx/mlx-lm lockstep pair), not ride mlx-lm's transitive floor";
+    assert
       builtins.elem "mlx-community/GLM-4.7-4bit" rankArgs
       || throw "cluster: default cluster model (GLM-4.7-4bit) not in the rank ProgramArguments";
     assert
@@ -56,6 +59,9 @@ in
     assert
       watcherEnv.CLUSTER_NORMAL_PROXY == "http://127.0.0.1:11434"
       || throw "cluster: watcher must quiesce the normal-mode proxy on its configured port";
+    assert
+      watcherEnv.CLUSTER_HTTP_PORT == "11440"
+      || throw "cluster: coordinator watcher must get the cluster endpoint port to readiness-probe";
     assert
       agents ? mlx-cluster-prefetch
       && agents.mlx-cluster-prefetch.config.KeepAlive.SuccessfulExit == false
