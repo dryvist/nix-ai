@@ -56,9 +56,10 @@ let
   # keeps a restart an actual remedy. Rationale in llama-swap-launch.sh.
   llamaSwapLaunchPkg = pkgs.writeShellApplication {
     name = "llama-swap-launch";
+    # No procps: pgrep/pkill are called by absolute path (see the script) —
+    # Darwin's procps ships only ps/sysctl/top/watch.
     runtimeInputs = [
       llamaSwapPkg
-      pkgs.procps
       pkgs.coreutils
     ];
     text = builtins.readFile ./scripts/llama-swap-launch.sh;

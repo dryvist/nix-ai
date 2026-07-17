@@ -19,29 +19,33 @@
 
 set -euo pipefail
 
+# pgrep/pkill are called by absolute path because on Darwin nixpkgs' procps is
+# Apple's, shipping only ps/sysctl/top/watch — a runtimeInputs dependency would
+# resolve to nothing under writeShellApplication's sanitized PATH. Same reason
+# mlx-watchdog.sh calls /bin/launchctl by path.
 pattern='vllm-mlx serve'
 
 reap() {
-  pgrep -f "$pattern" >/dev/null 2>&1 || return 0
+  /usr/bin/pgrep -f "$pattern" >/dev/null 2>&1 || return 0
 
   echo "$(date -u +%FT%TZ) llama-swap-launch: reaping orphaned workers matching '${pattern}'" >&2
-  pkill -f "$pattern" || true
+  /usr/bin/pkill -f "$pattern" || true
 
   # Give them a graceful window, then escalate. A wedged engine (the
   # broadcast_shapes batch-scheduler hang) ignores SIGTERM, and it is exactly
   # the case that must not survive into the new proxy's port.
   for _ in $(seq 1 10); do
-    pgrep -f "$pattern" >/dev/null 2>&1 || return 0
+    /usr/bin/pgrep -f "$pattern" >/dev/null 2>&1 || return 0
     sleep 1
   done
 
-  pkill -9 -f "$pattern" || true
+  /usr/bin/pkill -9 -f "$pattern" || true
   sleep 2
 }
 
 reap
 
-if pgrep -f "$pattern" >/dev/null 2>&1; then
+if /usr/bin/pgrep -f "$pattern" >/dev/null 2>&1; then
   # Never exec into a guaranteed bind failure: exiting non-zero makes launchd
   # retry after ThrottleInterval, which is a real recovery path. Starting anyway
   # would just resume the 429 crash-loop this script exists to prevent.
