@@ -5,7 +5,8 @@
 # only exists while the Thunderbolt cable is in), converging the cluster
 # rank to match:
 #   link up, rank down : wired ceiling + quiesce, then (re)start the rank
-#   link up, rank up   : coordinator readiness probe until :PORT answers once
+#   link up, rank up   : coordinator readiness probe until :PORT answers once,
+#                        then one untimed warm generation before traffic flips
 #   link up -> down    : stop the rank, restore ceiling + normal serving
 #
 # Consumed environment (set declaratively by the launchd agent):
@@ -14,6 +15,9 @@
 #   CLUSTER_RANK_LABEL      launchd label of the cluster rank agent
 #   CLUSTER_WARMUP_LABEL    launchd label of the normal-serving warmup one-shot
 #   CLUSTER_NORMAL_PROXY    normal-mode llama-swap base URL (coordinator only)
+#   CLUSTER_RANK_URL        cluster rank OpenAI base URL (coordinator only) —
+#                         warmed once per link session after readiness
+#   CLUSTER_MODEL           cluster model id sent in the warm generation request
 #   CLUSTER_STATE_FILE      where the last observed link state is kept
 #   CLUSTER_QUIESCE_CMD     optional worker-side quiesce hook (run via sh -c)
 #   CLUSTER_RESTORE_CMD     optional worker-side restore hook (run via sh -c)
@@ -42,6 +46,7 @@ kicks_file="$state_dir/rank-kickstarts"
 halt_file="$state_dir/rank-halted"
 started_file="$state_dir/rank-first-running"
 ready_file="$state_dir/rank-ready"
+warm_file="$state_dir/rank-warmed"
 
 # Idempotent wired-ceiling write through the exact-value sudoers grant.
 # No-op when unset or already at the target; returns nonzero on failure.
@@ -104,6 +109,22 @@ if [ "$cur" = "up" ]; then
         fi
       fi
     fi
+    # First-token warm-up: once the rank is ready, fire one untimed 1-token
+    # generation so weights/compile caches are hot before the router flips
+    # traffic in. Coordinator-only (only rank 0 binds the endpoint) and
+    # idempotent per link session via the rank-warmed marker, which link-down
+    # clears. A blocked or failed warm just leaves the marker absent, so the
+    # next tick retries — no regression versus not warming.
+    if [ "$CLUSTER_ROLE" = "coordinator" ] && [ -f "$ready_file" ] && [ ! -f "$warm_file" ] &&
+      [ -n "${CLUSTER_RANK_URL:-}" ]; then
+      echo "cluster-link: rank ready; firing 1-token warm generation"
+      if curl -fsS -m 300 -X POST "$CLUSTER_RANK_URL/v1/chat/completions" \
+        -H "Content-Type: application/json" \
+        -d "{\"model\":\"${CLUSTER_MODEL:-}\",\"messages\":[{\"role\":\"user\",\"content\":\"warmup\"}],\"max_tokens\":1,\"stream\":false,\"temperature\":0}" \
+        > /dev/null 2>&1; then
+        touch "$warm_file"
+      fi
+    fi
   elif [ -f "$halt_file" ]; then
     : # halted — no more PD-burning retries until link cycles or manual clear
   else
@@ -131,16 +152,16 @@ if [ "$cur" = "up" ]; then
       # restart re-running them is a no-op.
       quiesce_normal_serving
       echo "cluster-link: rank not running; kickstarting (attempt $((kicks + 1)))"
-      rm -f "$started_file" "$ready_file"
+      rm -f "$started_file" "$ready_file" "$warm_file"
       launchctl kickstart "gui/$uid/$CLUSTER_RANK_LABEL" || true
       printf '%s\n' "$((kicks + 1))" > "$kicks_file"
     fi
   fi
 elif [ "$prev" = "up" ]; then
   echo "cluster-link: up -> down ($CLUSTER_ROLE); restoring normal serving"
-  # A link cycle (replug) clears the PD-guard + readiness state for the next
-  # window.
-  rm -f "$kicks_file" "$halt_file" "$started_file" "$ready_file"
+  # A link cycle (replug) clears the PD-guard + readiness state and the warm
+  # marker so the next link session re-warms its freshly started rank.
+  rm -f "$kicks_file" "$halt_file" "$started_file" "$ready_file" "$warm_file"
   launchctl kill SIGTERM "gui/$uid/$CLUSTER_RANK_LABEL" 2> /dev/null || true
   if [ -n "${CLUSTER_WIRED_LIMIT_MB:-}" ]; then
     set_wired_limit "${CLUSTER_DAY_WIRED_LIMIT_MB:-0}" || true

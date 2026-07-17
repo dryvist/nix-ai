@@ -266,8 +266,12 @@ in
           }
           // lib.optionalAttrs isCoordinator {
             # Readiness probe target: launchctl liveness alone cannot see a
-            # rank hung in distributed init (see the watcher script).
+            # rank hung in distributed init (see the watcher script). Only rank
+            # 0 binds the endpoint, so the coordinator also carries the URL and
+            # model for the post-readiness first-token warm-up.
             CLUSTER_HTTP_PORT = toString ncfg.httpPort;
+            CLUSTER_RANK_URL = "http://127.0.0.1:${toString ncfg.httpPort}";
+            CLUSTER_MODEL = ncfg.model;
           }
           // lib.optionalAttrs (ncfg.wiredLimitMb != null) {
             CLUSTER_WIRED_LIMIT_MB = toString ncfg.wiredLimitMb;
