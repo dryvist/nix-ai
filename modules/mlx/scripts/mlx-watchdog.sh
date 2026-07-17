@@ -59,10 +59,15 @@ fi
 # finish_reason are both untrustworthy here (mode 2 above), so completion_tokens
 # is the only assertion worth making.
 probe() {
-  local body
+  local request body
+  # Build the body with jq so a model id carrying quotes/backslashes cannot
+  # produce invalid JSON — that would fail the probe for a reason unrelated to
+  # serving health and kickstart a perfectly good proxy.
+  request="$(jq -nc --arg model "$probe_model" \
+    '{model: $model, messages: [{role: "user", content: "ping"}], max_tokens: 4}')" || return 1
   body="$(curl -s --max-time "$probe_timeout" \
     -H 'Content-Type: application/json' \
-    -d "{\"model\":\"${probe_model}\",\"messages\":[{\"role\":\"user\",\"content\":\"ping\"}],\"max_tokens\":4}" \
+    -d "$request" \
     "${api_url}/chat/completions" 2>/dev/null)" || return 1
   jq -e '(.usage.completion_tokens // 0) >= 1' >/dev/null 2>&1 <<<"$body"
 }

@@ -11,11 +11,14 @@
 # Observed 2026-07-16: a kickstart left an orphan holding :11439 and the serving
 # host was down ~1.5 h with no signal. See Zammad (AI/LLM Serving).
 #
-# The invariant that makes this safe: llama-swap is the ONLY thing that spawns
-# vllm-mlx workers, so at proxy-start time a live worker is by definition an
-# orphan of a previous proxy — never one this proxy needs. Reaping here makes
-# every start path (boot, KeepAlive restart, kickstart) self-cleaning, which is
-# what turns a restart back into an actual remedy.
+# The invariant that makes this safe is TIMING, not process ancestry: this runs
+# before the proxy exists, and llama-swap is the only thing that spawns workers,
+# so any worker alive right now belongs to a proxy that is already gone. Note
+# ancestry cannot be the test — llama-swap spawns workers detached, so a healthy
+# worker's top process already reports PPID 1 exactly like an orphan does.
+#
+# Reaping here makes every start path (boot, KeepAlive restart, kickstart)
+# self-cleaning, which is what turns a restart back into an actual remedy.
 
 set -euo pipefail
 
