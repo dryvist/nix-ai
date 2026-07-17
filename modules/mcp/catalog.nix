@@ -15,54 +15,30 @@ let
     inherit args;
   };
 
+  # Version pins live in lib/versions.nix, where the org-wide Renovate
+  # customManager regex tracks the annotations; refer to them directly.
   versions = import ../../lib/versions.nix;
-
-  # ================================================================
-  # Package version pins — sourced from lib/versions.nix
-  # ================================================================
-
-  mcpEverythingVersion = versions.mcpEverything;
-  context7McpVersion = versions.context7Mcp;
-  mcpFilesystemVersion = versions.mcpFilesystem;
-  mcpMemoryVersion = versions.mcpMemory;
-  mcpAwsVersion = versions.mcpAws;
-  mcpPostgresVersion = versions.mcpPostgres;
-  mcpBraveSearchVersion = versions.mcpBraveSearch;
-  mcpGoogleMapsVersion = versions.mcpGoogleMaps;
-  mcpPuppeteerVersion = versions.mcpPuppeteer;
-  mcpSlackVersion = versions.mcpSlack;
-  mcpAppleEventsVersion = versions.mcpAppleEvents;
-  mcpServerTimeVersion = versions.mcpServerTime;
-  hfMcpServerVersion = versions.hfMcpServer;
-  fabricMcpVersion = versions.fabricMcp;
-  gwsMcpVersion = versions.gwsMcp;
-  unifiMcpServerVersion = versions.unifiMcpServer;
-  vikunjaMcpVersion = versions.vikunjaMcp;
-  zammadMcpVersion = versions.zammadMcp;
 in
 {
   # ================================================================
   # Official Anthropic MCP Servers
   # ================================================================
-  # Version pins live in lib/versions.nix where the Renovate annotations are
-  # tracked by the org-wide customManager regex; the let-bindings above are
-  # plain references. Archived servers remain unpinned unless a maintained
-  # replacement exists.
+  # Archived servers remain unpinned unless a maintained replacement exists.
 
-  everything = bunx [ "@modelcontextprotocol/server-everything@${mcpEverythingVersion}" ];
+  everything = bunx [ "@modelcontextprotocol/server-everything@${versions.mcpEverything}" ];
   fetch = bunx [ "@modelcontextprotocol/server-fetch" ]; # archived
-  filesystem = bunx [ "@modelcontextprotocol/server-filesystem@${mcpFilesystemVersion}" ];
+  filesystem = bunx [ "@modelcontextprotocol/server-filesystem@${versions.mcpFilesystem}" ];
   git = bunx [ "@modelcontextprotocol/server-git" ]; # archived
   # memory: DISABLED — the file-based MEMORY.md system is the real memory store;
   # this knowledge-graph server is redundant (11 calls all-time per Splunk).
-  memory = bunx [ "@modelcontextprotocol/server-memory@${mcpMemoryVersion}" ] // {
+  memory = bunx [ "@modelcontextprotocol/server-memory@${versions.mcpMemory}" ] // {
     disabled = true;
   };
   time = {
     command = "uvx";
     args = [
       "--from"
-      "mcp-server-time==${mcpServerTimeVersion}"
+      "mcp-server-time==${versions.mcpServerTime}"
       "mcp-server-time"
     ];
   };
@@ -76,7 +52,7 @@ in
   cloudflare = bunx [ "@modelcontextprotocol/server-cloudflare" ] // {
     disabled = true;
   }; # archived; Requires: CLOUDFLARE_API_TOKEN
-  aws = bunx [ "@modelcontextprotocol/server-aws-kb-retrieval@${mcpAwsVersion}" ] // {
+  aws = bunx [ "@modelcontextprotocol/server-aws-kb-retrieval@${versions.mcpAws}" ] // {
     disabled = true;
   }; # Requires: AWS credentials; 0 calls in 3 months of history
 
@@ -103,7 +79,7 @@ in
   # Context7 - real-time documentation retrieval MCP server
   # DISABLED — duplicates the context7 *plugin*'s MCP (569x vs 48x per Splunk).
   # Keep the plugin (mcp__plugin_context7_context7); drop this catalog server.
-  context7 = bunx [ "@upstash/context7-mcp@${context7McpVersion}" ] // {
+  context7 = bunx [ "@upstash/context7-mcp@${versions.context7Mcp}" ] // {
     disabled = true;
   };
 
@@ -116,7 +92,7 @@ in
     command = "uvx";
     args = [
       "--from"
-      "huggingface-mcp-server==${hfMcpServerVersion}"
+      "huggingface-mcp-server==${versions.hfMcpServer}"
       "--with"
       "huggingface-hub==${versions.huggingfaceHub}"
       "huggingface-mcp-server"
@@ -129,7 +105,7 @@ in
     command = "uvx";
     args = [
       "--from"
-      "fabric-mcp==${fabricMcpVersion}"
+      "fabric-mcp==${versions.fabricMcp}"
       "fabric-mcp"
       "--transport"
       "stdio"
@@ -163,13 +139,13 @@ in
   # ================================================================
   # Source: https://github.com/FradSer/mcp-server-apple-events
   # First call triggers macOS TCC prompts for Reminders + Calendar.
-  apple-events = bunx [ "mcp-server-apple-events@${mcpAppleEventsVersion}" ];
+  apple-events = bunx [ "mcp-server-apple-events@${versions.mcpAppleEvents}" ];
 
   # ================================================================
   # Database (disabled by default)
   # ================================================================
 
-  postgresql = bunx [ "@modelcontextprotocol/server-postgres@${mcpPostgresVersion}" ] // {
+  postgresql = bunx [ "@modelcontextprotocol/server-postgres@${versions.mcpPostgres}" ] // {
     disabled = true;
   };
   sqlite = bunx [ "@modelcontextprotocol/server-sqlite" ] // {
@@ -180,7 +156,7 @@ in
   # Additional (disabled - specialized use cases)
   # ================================================================
 
-  brave-search = bunx [ "@modelcontextprotocol/server-brave-search@${mcpBraveSearchVersion}" ] // {
+  brave-search = bunx [ "@modelcontextprotocol/server-brave-search@${versions.mcpBraveSearch}" ] // {
     disabled = true;
   };
   # Google Workspace - Gmail, Drive, Calendar integration.
@@ -192,7 +168,7 @@ in
     args = [
       "uvx"
       "--from"
-      "google-workspace-mcp==${gwsMcpVersion}"
+      "google-workspace-mcp==${versions.gwsMcp}"
       "workspace-mcp"
       "--tools"
       "gmail"
@@ -201,13 +177,13 @@ in
     ];
     disabled = true;
   };
-  google-maps = bunx [ "@modelcontextprotocol/server-google-maps@${mcpGoogleMapsVersion}" ] // {
+  google-maps = bunx [ "@modelcontextprotocol/server-google-maps@${versions.mcpGoogleMaps}" ] // {
     disabled = true;
   };
-  puppeteer = bunx [ "@modelcontextprotocol/server-puppeteer@${mcpPuppeteerVersion}" ] // {
+  puppeteer = bunx [ "@modelcontextprotocol/server-puppeteer@${versions.mcpPuppeteer}" ] // {
     disabled = true;
   };
-  slack = bunx [ "@modelcontextprotocol/server-slack@${mcpSlackVersion}" ] // {
+  slack = bunx [ "@modelcontextprotocol/server-slack@${versions.mcpSlack}" ] // {
     disabled = true;
   };
   sentry = bunx [ "@modelcontextprotocol/server-sentry" ] // {
@@ -232,7 +208,7 @@ in
     command = "doppler-mcp";
     args = [
       "bunx"
-      "@democratize-technology/vikunja-mcp@${vikunjaMcpVersion}"
+      "@democratize-technology/vikunja-mcp@${versions.vikunjaMcp}"
     ];
     disabled = true;
   };
@@ -255,7 +231,7 @@ in
     args = [
       "uvx"
       "--from"
-      "git+https://github.com/basher83/zammad-mcp.git@v${zammadMcpVersion}"
+      "git+https://github.com/basher83/zammad-mcp.git@v${versions.zammadMcp}"
       "mcp-zammad"
     ];
     disabled = true;
@@ -274,7 +250,7 @@ in
     command = "uvx";
     args = [
       "--from"
-      "unifi-mcp-server==${unifiMcpServerVersion}"
+      "unifi-mcp-server==${versions.unifiMcpServer}"
       "unifi-mcp-server"
     ];
     env = {
