@@ -19,6 +19,30 @@
       description = "Enable continuous batching. Better throughput across concurrent requests.";
     };
 
+    # defaultRepetitionPenalty — server-side default
+    # (--default-repetition-penalty).
+    #
+    # A BATCH-SAFETY control, not a quality knob. In mlx_lm's batch generator,
+    # a request carrying no logits processor gets padded with a null entry
+    # instead of an empty list, and the decode step iterates that entry
+    # blindly. One request bearing a processor, alongside another lacking one,
+    # kills the scheduler thread on a type error — every completion on that
+    # worker afterwards hangs or comes back empty until the worker is killed.
+    #
+    # A repetition penalty IS a logits processor. Injecting it per-request at
+    # a router mixes penalized traffic with penalty-free callers (health
+    # probes, direct clients), and that mix wedges the engine. Setting it here
+    # applies it to EVERY request the worker sees, making batches uniform by
+    # construction regardless of caller. Uniformity is the property that
+    # matters, not the value. Prefer this over router-side injection.
+    # See dryvist/nix-ai#1234.
+    defaultRepetitionPenalty = lib.mkOption {
+      type = lib.types.nullOr (lib.types.numbers.between 1.0 2.0);
+      default = null;
+      example = 1.05;
+      description = "Server-side default repetition penalty applied to every request (vllm-mlx --default-repetition-penalty). Set this instead of injecting a per-request penalty at the router: a penalty is a logits processor, and mixing processor-ful with processor-free requests in one batch wedges mlx_lm's batch generator (nix-ai#1234). Null = upstream default (no penalty), which is uniform and therefore also safe.";
+    };
+
     # maxNumSeqs — Max concurrent sequences (--max-num-seqs).
     # Default: 4 — bounds memory pressure when continuousBatching is on. With
     # 32GB cache + prefix sharing, 4 concurrent sequences fit comfortably even
