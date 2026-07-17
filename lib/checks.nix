@@ -72,6 +72,8 @@ let
       programs.mlx.clusterMode = {
         enable = true;
         role = "coordinator";
+        wiredLimitMb = 90000;
+        dayWiredLimitMb = 118000;
       };
     }
   ];

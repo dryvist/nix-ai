@@ -11,18 +11,17 @@
 # rank — rank 0 (coordinator) binds the OpenAI-compatible HTTP endpoint,
 # all ranks participate in generation. Distributed init is driven by the
 # documented environment contract (MLX_RANK / MLX_JACCL_COORDINATOR /
-# MLX_IBV_DEVICES) instead of `mlx.launch`, which keeps each host
-# self-contained under launchd. --pipeline is required: the pinned mlx-lm
-# release ships PipelineMixin for glm4_moe but not tensor-parallel shard().
+# MLX_IBV_DEVICES). --pipeline is required: the pinned mlx-lm release ships
+# PipelineMixin for glm4_moe but not tensor-parallel shard().
 #
-# Link identity: the cabled Thunderbolt port is auto-detected at runtime —
-# moving the cable needs no config edit. The JACCL link-local gate was
-# VALIDATED 2026-07-11 and FAILED: the rendezvous parser is IPv4-only (every
-# IPv6 form, including [::1]:port, fails with "Can't parse address"), so
-# linkDiscovery defaults to "static" — role-derived synthetic IPv4 that the
-# nix-darwin cluster-link-prep daemon converges onto the cabled port (it also
-# detaches every RDMA-capable port from the Thunderbolt bridge). RDMA
-# prerequisite: `rdma_ctl enable` on BOTH Macs; verify with `ibv_devices`.
+# The whole env contract is DECLARATIVE — no runtime discovery, no launcher
+# script. The rendezvous address is the coordinator's static link IPv4
+# (JACCL's parser is IPv4-only: every IPv6 form, including [::1]:port, failed
+# with "Can't parse address" — validated 2026-07-11), which nix-darwin's
+# cluster-link prep pins on every Thunderbolt port at activation. The ibv
+# device matrix is a nix-generated file keyed by `rdmaDevice`; correct it
+# once from `ibv_devices` output if the default does not match. RDMA
+# prerequisite: `rdma_ctl enable` on BOTH Macs (done 2026-07-16).
 #
 {
   config,
@@ -40,18 +39,20 @@ let
   watcherLabel = "dev.mlx-cluster.watcher";
   logDir = "${config.home.homeDirectory}/Library/Logs/mlx-cluster";
   stateFile = "${config.home.homeDirectory}/Library/Application Support/mlx-cluster/link-state";
+  ibvMatrixFile = "${config.home.homeDirectory}/.config/mlx-cluster/ibv-matrix.json";
 
   isCoordinator = ncfg.role == "coordinator";
-  isStatic = ncfg.linkDiscovery == "static";
   staticPeerIp = if isCoordinator then ncfg.staticLinkIps.worker else ncfg.staticLinkIps.coordinator;
 
-  # The serve invocation stays a plain args list (appended after the launcher)
-  # so lib/checks/mlx-cluster.nix can assert it in pure eval; the launcher only
-  # computes MLX_JACCL_COORDINATOR / MLX_IBV_DEVICES at runtime and execs it.
   clusterRankArgs = [
     "${pkgs.uv}/bin/uvx"
     "--from"
     "mlx-lm==${versions.mlxLm}"
+    # mlx + mlx-lm are a lockstep pair (lib/versions.nix): pin mlx explicitly
+    # like the normal-mode stack does, instead of riding mlx-lm's transitive
+    # floor — otherwise the two ranks can resolve an mlx never validated here.
+    "--with"
+    "mlx==${versions.mlx}"
     "--with"
     "transformers==${versions.transformers}"
     "mlx_lm.server"
@@ -68,16 +69,7 @@ let
   clusterWatcherPkg = pkgs.writeShellApplication {
     name = "mlx-cluster-link-watcher";
     runtimeInputs = [ pkgs.curl ];
-    text =
-      builtins.readFile ./scripts/cluster-link-lib.sh
-      + builtins.readFile ./scripts/cluster-link-watcher.sh;
-  };
-
-  clusterRankLauncherPkg = pkgs.writeShellApplication {
-    name = "mlx-cluster-rank-launcher";
-    text =
-      builtins.readFile ./scripts/cluster-link-lib.sh
-      + builtins.readFile ./scripts/cluster-rank-launcher.sh;
+    text = builtins.readFile ./scripts/cluster-link-watcher.sh;
   };
 in
 {
@@ -114,32 +106,17 @@ in
       description = "JACCL coordinator rendezvous port (MLX_JACCL_COORDINATOR).";
     };
 
-    linkDiscovery = lib.mkOption {
-      type = lib.types.enum [
-        "link-local"
-        "static"
-      ];
-      default = "static";
-      description = ''
-        "static" (default): role-derived synthetic IPs from staticLinkIps,
-        converged onto the cabled port by the nix-darwin cluster-link-prep
-        daemon. "link-local" is kept for a future mlx-lm: the JACCL gate was
-        validated 2026-07-11 and REJECTED — the rendezvous parser is
-        IPv4-only (even [::1]:port fails to parse), so link-local cannot
-        work on the pinned release.
-      '';
-    };
-
     staticLinkIps = lib.mkOption {
       type = lib.types.attrsOf lib.types.str;
       default = {
         # Synthetic point-to-point net for the Thunderbolt cable itself —
-        # module-defined defaults, not site topology. Only meaningful with
-        # linkDiscovery = "static"; override only on subnet clash.
+        # module-defined defaults, not site topology. Must match the
+        # nix-darwin clusterLinkPrep.linkIps defaults; override only on
+        # subnet clash.
         coordinator = "192.168.208.1";
         worker = "192.168.208.2";
       };
-      description = "FALLBACK (linkDiscovery = \"static\"): link addresses of the two cable ends.";
+      description = "Link addresses of the two cable ends (pinned on the Thunderbolt ports by nix-darwin at activation).";
     };
 
     maxKickstarts = lib.mkOption {
@@ -163,23 +140,37 @@ in
       '';
     };
 
-    interfaceOverride = lib.mkOption {
-      type = lib.types.nullOr lib.types.str;
-      default = null;
-      example = "en3";
+    rdmaDevice = lib.mkOption {
+      type = lib.types.str;
+      default = "rdma_en2";
       description = ''
-        Cabled Thunderbolt port override. Default null = auto-detect (first
-        Thunderbolt port with an active link). Set only if more than one
-        Thunderbolt port is cabled and the wrong one wins.
+        RDMA device name for the MLX_IBV_DEVICES matrix (see `ibv_devices`).
+        Port-dependent: validate on the first plug session and override per
+        host if the cable lands on a different port.
       '';
     };
 
-    rdmaDevice = lib.mkOption {
-      type = lib.types.nullOr lib.types.str;
+    wiredLimitMb = lib.mkOption {
+      type = lib.types.nullOr lib.types.int;
       default = null;
+      example = 90000;
       description = ''
-        RDMA device override (see `ibv_devices`). Default null = derived at
-        runtime as rdma_<detected interface>.
+        iogpu.wired_limit_mb the watcher applies (sudo, exact-value grant
+        from nix-darwin clusterLinkPrep) before starting the rank — sized for
+        this node's pipeline shard, leaving the GUI working set unwirable.
+        null = never touch the sysctl. When set, a failed apply SKIPS the
+        rank start: serving a shard over a day-sized ceiling is the
+        2026-07-12 dual-host panic.
+      '';
+    };
+
+    dayWiredLimitMb = lib.mkOption {
+      type = lib.types.int;
+      default = 0;
+      description = ''
+        iogpu.wired_limit_mb the watcher restores at link-down (0 = macOS
+        default ceiling). Must equal the value nix-darwin grants
+        (appleSiliconTunables.wiredLimitMb, else 0).
       '';
     };
 
@@ -220,6 +211,11 @@ in
       }
     ];
 
+    # Symmetric 2-rank ibv matrix, generated at eval — no runtime discovery.
+    home.file.".config/mlx-cluster/ibv-matrix.json".text = ''
+      [[null, "${ncfg.rdmaDevice}"], ["${ncfg.rdmaDevice}", null]]
+    '';
+
     launchd.agents = {
       # The rank itself. Started/stopped exclusively by the link watcher —
       # RunAtLoad=false + KeepAlive=false means an unplugged cable and
@@ -229,10 +225,7 @@ in
         enable = true;
         config = {
           Label = rankLabel;
-          # Launcher first: it discovers the link at runtime (iface, addresses,
-          # ibv device), exports MLX_JACCL_COORDINATOR / MLX_IBV_DEVICES, and
-          # execs the serve args that follow it.
-          ProgramArguments = [ (lib.getExe clusterRankLauncherPkg) ] ++ clusterRankArgs;
+          ProgramArguments = clusterRankArgs;
           RunAtLoad = false;
           KeepAlive = false;
           ThrottleInterval = 60;
@@ -241,20 +234,10 @@ in
           EnvironmentVariables = {
             HF_HOME = cfg.huggingFaceHome;
             MLX_RANK = if isCoordinator then "0" else "1";
-            CLUSTER_ROLE = ncfg.role;
-            CLUSTER_LINK_DISCOVERY = ncfg.linkDiscovery;
-            CLUSTER_RENDEZVOUS_PORT = toString ncfg.rendezvousPort;
+            MLX_JACCL_COORDINATOR = "${ncfg.staticLinkIps.coordinator}:${toString ncfg.rendezvousPort}";
+            MLX_IBV_DEVICES = ibvMatrixFile;
             # Faster GPU/CPU synchronization for distributed decode.
             MLX_METAL_FAST_SYNCH = "1";
-          }
-          // lib.optionalAttrs isStatic {
-            CLUSTER_STATIC_COORDINATOR_IP = ncfg.staticLinkIps.coordinator;
-          }
-          // lib.optionalAttrs (ncfg.interfaceOverride != null) {
-            CLUSTER_IFACE_OVERRIDE = ncfg.interfaceOverride;
-          }
-          // lib.optionalAttrs (ncfg.rdmaDevice != null) {
-            CLUSTER_RDMA_DEVICE = ncfg.rdmaDevice;
           };
           StandardOutPath = "${logDir}/cluster-rank.log";
           StandardErrorPath = "${logDir}/cluster-rank.error.log";
@@ -273,19 +256,22 @@ in
           ProcessType = "Background";
           EnvironmentVariables = {
             CLUSTER_ROLE = ncfg.role;
-            CLUSTER_LINK_DISCOVERY = ncfg.linkDiscovery;
             CLUSTER_RANK_LABEL = rankLabel;
             CLUSTER_WARMUP_LABEL = warmupAgentLabel;
             CLUSTER_NORMAL_PROXY = "http://127.0.0.1:${toString cfg.port}";
             CLUSTER_STATE_FILE = stateFile;
             CLUSTER_MAX_KICKSTARTS = toString ncfg.maxKickstarts;
             CLUSTER_ALERT_URL_FILE = ncfg.alertUrlFile;
-          }
-          // lib.optionalAttrs isStatic {
             CLUSTER_STATIC_PEER_IP = staticPeerIp;
           }
-          // lib.optionalAttrs (ncfg.interfaceOverride != null) {
-            CLUSTER_IFACE_OVERRIDE = ncfg.interfaceOverride;
+          // lib.optionalAttrs isCoordinator {
+            # Readiness probe target: launchctl liveness alone cannot see a
+            # rank hung in distributed init (see the watcher script).
+            CLUSTER_HTTP_PORT = toString ncfg.httpPort;
+          }
+          // lib.optionalAttrs (ncfg.wiredLimitMb != null) {
+            CLUSTER_WIRED_LIMIT_MB = toString ncfg.wiredLimitMb;
+            CLUSTER_DAY_WIRED_LIMIT_MB = toString ncfg.dayWiredLimitMb;
           }
           // lib.optionalAttrs (ncfg.quiesceCommand != null) {
             CLUSTER_QUIESCE_CMD = ncfg.quiesceCommand;
