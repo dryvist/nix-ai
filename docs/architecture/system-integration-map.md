@@ -48,9 +48,7 @@ Local nix-ai clients (qwen-code, cecli, Fabric) call llama-swap directly at
 consumers at the cluster-hosted LiteLLM router instead (bearer-gated via
 `services.aiStack.llmEndpointTokenFile`). The chat UI is no longer local: the
 former on-host Open WebUI has been removed in favour of the single
-cluster-hosted Open WebUI. Multi-provider cloud fan-out lives in the Bifrost
-gateway, which relocated off this machine's OrbStack k8s cluster to the
-Proxmox homelab (see the homelab IaC repos).
+cluster-hosted Open WebUI.
 
 ## Product Responsibility Table
 
@@ -61,7 +59,6 @@ Proxmox homelab (see the homelab IaC repos).
 | Codex CLI | `modules/codex/` | CLI | OpenAI coding assistant | `~/.codex/config.toml` |
 | Qwen Code | `modules/qwen-code/` | CLI | Local-first coding assistant | `~/.qwen/settings.json` |
 | GitHub Copilot CLI | `modules/copilot.nix` | CLI | Trusted folder configuration | `~/.copilot/config.json` |
-| Bifrost | Proxmox homelab (`ansible-proxmox-apps`, relocating) | HTTPS (Traefik) | Multi-provider AI gateway | Doppler (provider keys) |
 | MLX / llama-swap | `modules/mlx/` | HTTP :11434 | Local Apple Silicon inference | `~/.config/mlx/llama-swap.json` |
 | Fabric | `modules/fabric/` | CLI + HTTP :8180 | AI prompt pattern library | `~/.config/fabric/` |
 | Maestro | `modules/maestro/` | Cron → subprocess | Scheduled Claude sessions | `~/Maestro/Auto Run Docs/` |
@@ -92,7 +89,7 @@ graph LR
 | `fabric` | stdio (uvx) | Fabric CLI setup | Pattern execution |
 | `huggingface` | stdio (uvx) | `HF_TOKEN` from Keychain | Hub/model/dataset search |
 | `time` | stdio (uvx) | None | Official maintained Python server |
-| `splunk` | stdio (splunk-mcp-connect + mcp-remote) | OpenBao via ambient-env `ai-readonly` AppRole | Shared Splunk MCP Server app connection |
+| `splunk` | stdio (splunk-mcp-connect + mcp-remote) | OpenBao via ambient-env AppRole (see [docs site](https://docs.jacobpevans.com/security/overview)) | Shared Splunk MCP Server app connection |
 
 ### Plugin-Managed MCP Servers
 

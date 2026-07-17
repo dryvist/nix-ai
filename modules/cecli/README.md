@@ -71,8 +71,8 @@ programs.cecli = {
 ```
 
 For cloud-provider sessions, use the Doppler-injected `d-cecli` shell
-alias — it loads `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, etc. from
-`ai-ci-automation/prd`.
+alias — it loads `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, etc. from the
+ambient `AI_DOPPLER_PROJECT`/`AI_DOPPLER_CONFIG` (see `modules/ai-aliases.zsh`).
 
 ## Files written
 

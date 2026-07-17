@@ -9,6 +9,10 @@
 > Galileo pipeline now spans two hosts (OTEL Collector stays in `orbstack-kubernetes`;
 > Bifrost's exporter lands on Proxmox). This integration is still Pending and should be
 > re-scoped against the new topology before it ships.
+>
+> **Update 2026-07-16:** Bifrost is decommissioned. The Bifrost-scoped rows in
+> Cross-Repo Dependencies are void; this ADR's remaining scope is the MLX inference
+> stack only.
 
 ## Documents in This Directory
 
@@ -18,8 +22,8 @@ _This ADR is part of [`docs/adr/`](README.md)._
 
 Galileo (galileo.ai) is an AI observability platform with hallucination detection,
 Signals-based failure analysis, and chain-of-thought evals. The goal is to collect
-LLM inference traces from the local homelab stack (MLX inference + Bifrost gateway)
-in Galileo alongside the existing Cribl/Splunk pipeline.
+LLM inference traces from the local homelab stack (MLX inference) in Galileo
+alongside the existing Cribl/Splunk pipeline.
 
 **Hard constraints:**
 
@@ -27,13 +31,13 @@ in Galileo alongside the existing Cribl/Splunk pipeline.
    internal engineering material, and client data. None of this may leave the local
    network in trace payloads.
 2. Claude Code, Codex CLI, and Gemini CLI are not instrumented — only surfaces that
-   are already isolated from work content (local MLX inference and Bifrost's
-   cloud-model paths when explicitly opted in).
+   are already isolated from work content (local MLX inference).
 3. The Splunk/Cribl pipeline must not regress. The Galileo branch is additive.
 
 ## Decision
 
-**Scope:** MLX inference stack + Bifrost gateway only. All AI CLI tools excluded.
+**Scope:** MLX inference stack only (Bifrost decommissioned — see update above).
+All AI CLI tools excluded.
 
 **Default posture:** Fail-closed. No traces reach Galileo unless the operator:
 
@@ -49,10 +53,11 @@ in Galileo alongside the existing Cribl/Splunk pipeline.
 **Galileo tier:** SaaS Free ($0/mo, 5K traces/mo). Revisit if the trace count
 exceeds the cap after 48h of normal use — add tail-sampling before upgrading.
 
-**Secret injection:** `GALILEO_API_KEY` follows Pattern 3 (Kubernetes Doppler Operator)
-in `docs/architecture/secrets-and-injection.md` — the same pattern as Bifrost and
-Cribl. The key is injected into the OTEL Collector pod by the Doppler Operator in
-the OrbStack cluster. It never appears in this repo, the Nix store, or `~/.claude.json`.
+**Secret injection:** `GALILEO_API_KEY` follows the Kubernetes Doppler Operator pattern
+documented on the [docs site](https://docs.jacobpevans.com/security/overview) — the
+same pattern as Cribl. The key is injected into the OTEL Collector pod by the Doppler
+Operator in the OrbStack cluster. It never appears in this repo, the Nix store, or
+`~/.claude.json`.
 
 **No Galileo SDK:** Galileo accepts OTLP/HTTP at `https://api.galileo.ai/otel/traces`
 with API key + project + logstream in request headers. A dedicated OTLP exporter in
@@ -63,7 +68,7 @@ the existing OTEL Collector is sufficient. No Python SDK, no agent-side library.
 **Easier:**
 
 - Galileo evals (hallucination detection, Signals) work on real homelab inference traces
-  once the collector and Bifrost changes land in `orbstack-kubernetes`.
+  once the collector changes land in `orbstack-kubernetes`.
 - The `programs.mlx.telemetry.enable` option in this repo is the correct long-term hook
   even before vllm-mlx 0.2.9 natively emits OTLP spans; future versions of the
   MLX stack that add OTel support will inherit the LaunchAgent env vars automatically.
@@ -87,8 +92,8 @@ self-contained. The remaining work:
 |------|--------|--------|
 | `nix-ai` | `programs.mlx.telemetry.enable` option + LaunchAgent env | Done (this PR) |
 | `orbstack-kubernetes` | OTEL Collector: `otlphttp/galileo` exporter, routing connector, content denylist processor | Pending |
-| `ansible-proxmox-apps` (homelab) | Bifrost: OTel exporter + header→span-attr mapping for `X-Trace-Sink` | Pending (moved off `orbstack-kubernetes` with the relocation) |
+| `ansible-proxmox-apps` (homelab) | Bifrost: OTel exporter + header→span-attr mapping for `X-Trace-Sink` | **Void — Bifrost decommissioned** |
 | `nix-home` | `galileo-on` zsh function + `gcurl` wrapper + `~/.config/galileo/allowlist.toml` | Pending |
-| `orbstack-kubernetes` | Doppler Operator: `GALILEO_API_KEY` in `ai-ci-automation/prd` | Pending (manual Doppler config) |
+| `orbstack-kubernetes` | Doppler Operator: `GALILEO_API_KEY` synced from Doppler (see the [docs site](https://docs.jacobpevans.com/security/overview) for the injection pattern) | Pending (manual Doppler config) |
 
-No Galileo traffic flows to the SaaS until all five rows are complete.
+No Galileo traffic flows to the SaaS until the remaining rows are complete.

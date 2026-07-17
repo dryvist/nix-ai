@@ -188,8 +188,8 @@ in
         the current accepted values.
         null leaves Antigravity CLI's own model resolution alone.
         NOTE: Google-hosted model values execute in Google's cloud. To
-        route generation elsewhere, point GOOGLE_GEMINI_BASE_URL at a
-        Gemini-compatible endpoint (e.g. the homelab Bifrost gateway).
+        route generation elsewhere, point GOOGLE_GEMINI_BASE_URL at any
+        self-hosted Gemini-compatible endpoint.
       '';
     };
 

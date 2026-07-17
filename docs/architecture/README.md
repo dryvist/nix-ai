@@ -32,14 +32,11 @@ inter-rebuild refreshes. Explains which config files are managed by which phase 
 **Read when**: Adding a new config file, debugging why a setting change does not take effect
 after `darwin-rebuild switch`, or understanding which config files refresh between rebuilds.
 
-### [secrets-and-injection.md](secrets-and-injection.md)
+### Secrets and injection
 
-The three distinct secrets injection patterns: Doppler subprocess wrappers, macOS Keychain
-via shell init, and Kubernetes Doppler Operator for in-cluster services. Maps which products
-use which pattern and explains the trust boundary each pattern enforces.
-
-**Read when**: Adding a new MCP server that needs API keys, debugging secrets not reaching
-a subprocess, or auditing where credentials flow.
+Secrets injection patterns and trust boundaries are documented on the
+[public docs site](https://docs.jacobpevans.com/security/overview), not in this repo.
+Per-secret runbooks live there and in `docs-starlight`.
 
 ### [mlx-stack.md](mlx-stack.md)
 

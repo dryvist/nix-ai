@@ -52,8 +52,8 @@ programs.qwen-code = {
 };
 ```
 
-For cloud-provider sessions, use `d-qwen` (Doppler-injected from
-`ai-ci-automation/prd`).
+For cloud-provider sessions, use `d-qwen` (Doppler-injected from the ambient
+`AI_DOPPLER_PROJECT`/`AI_DOPPLER_CONFIG`; see `modules/ai-aliases.zsh`).
 
 ## Adding cloud providers
 

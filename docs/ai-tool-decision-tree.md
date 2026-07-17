@@ -90,8 +90,7 @@ Use when:
 
 For a non-Claude *cloud* model or a second opinion from another model, use
 `/delegate-to-ai` (Codex or a native subagent) — there is no local gateway to
-route through. The multi-provider Bifrost gateway now lives on the Proxmox
-homelab (`https://bifrost.pve.jacobpevans.com`), not on this machine.
+route through.
 
 ## Anti-Patterns
 

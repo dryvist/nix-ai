@@ -5,18 +5,16 @@ and [system-integration-map](../architecture/system-integration-map.md) for topo
 
 ## Prerequisites (one-time setup)
 
-All five rows in the ADR's cross-repo table must be complete before any traces
+The non-void rows in the ADR's cross-repo table must be complete before any traces
 reach Galileo. Check each before assuming the pipeline is live:
 
 1. `programs.mlx.telemetry.enable = true` in your nix-darwin config (this repo).
 2. `orbstack-kubernetes`: OTEL Collector has `otlphttp/galileo` exporter, routing
    connector, and content denylist processor deployed.
-3. `ansible-proxmox-apps` (homelab): Bifrost emits OTel spans and maps `X-Trace-Sink`
-   header to `trace.sink` span attribute. (Bifrost relocated from `orbstack-kubernetes`
-   to the Proxmox homelab — see [ADR 0003](../adr/0003-galileo-ai-observability.md).)
-4. `nix-home`: `galileo-on` zsh function and `gcurl` wrapper are activated.
-5. Doppler (`ai-ci-automation/prd`): `GALILEO_API_KEY` is set, Doppler Operator
-   has synced it to the OTEL Collector pod.
+3. `nix-home`: `galileo-on` zsh function and `gcurl` wrapper are activated.
+4. Doppler: `GALILEO_API_KEY` is set, Doppler Operator has synced it to the OTEL
+   Collector pod (see the [docs site](https://docs.jacobpevans.com/security/overview)
+   for the injection pattern).
 
 ## Daily use
 
@@ -28,11 +26,6 @@ galileo-on          # sets GALILEO_TRACE=1, prints confirmation
 gcurl http://127.0.0.1:11434/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{"model":"default","messages":[{"role":"user","content":"hello"}]}'
-
-# Hit Bifrost with trace header (cloud model) — now on the Proxmox homelab:
-gcurl https://bifrost.pve.jacobpevans.com/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -d '{"model":"${MODEL_ID}","messages":[{"role":"user","content":"hello"}]}'
 
 # Check Galileo console:
 # app.galileo.ai → project: homelab → log stream: default
@@ -59,15 +52,15 @@ path = "~/git/nix-darwin"
 The content denylist lives in `/etc/galileo/denylist.txt` on the OrbStack node,
 injected by Doppler. To add a term:
 
-1. Add the regex pattern to the `GALILEO_CONTENT_DENYLIST` secret in Doppler
-   (`ai-ci-automation/prd`). Format: one pattern per line, POSIX ERE, case-insensitive.
+1. Add the regex pattern to the `GALILEO_CONTENT_DENYLIST` secret in Doppler.
+   Format: one pattern per line, POSIX ERE, case-insensitive.
 2. Restart the OTEL Collector pod: `kubectl rollout restart deployment otel-collector -n monitoring`.
 3. Verify the updated denylist is loaded: check collector logs for `denylist loaded N patterns`.
 
 ## If a trace lands in Galileo that shouldn't have
 
-1. **Rotate the API key immediately**: Doppler → `ai-ci-automation/prd` → regenerate
-   `GALILEO_API_KEY`. Old key stops working within seconds.
+1. **Rotate the API key immediately**: Doppler → regenerate `GALILEO_API_KEY`.
+   Old key stops working within seconds.
 2. **Delete the trace in Galileo**: `app.galileo.ai` → project → log stream → find
    the trace → delete (Galileo supports individual trace deletion from the UI).
 3. **Expand the denylist**: add the pattern that should have matched.
