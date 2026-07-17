@@ -176,14 +176,27 @@ in
 
       # Auto-discover newly downloaded HF models and register them with llama-swap.
       # Runs after seeding so the runtime config exists. The script exits 0 when
-      # the HF volume is absent (scan_models returns []), so no || true needed.
-      activation.discoverMlxModels = lib.hm.dag.entryAfter [ "seedLlamaSwapConfig" ] ''
-        export MLX_HF_HOME="${cfg.huggingFaceHome}"
-        export MLX_LLAMA_SWAP_CONFIG="${llamaSwapRuntimeConfigPath}"
-        export MLX_LLAMA_SWAP_BASE_CONFIG="${llamaSwapConfigFile}"
-        export MLX_PRELOAD_MODELS_JSON=${lib.escapeShellArg (builtins.toJSON cfg.preload)}
-        run ${pkgs.python3}/bin/python3 "${./discover-models.py}" --quiet
-      '';
+      # the HF volume is absent or nothing new is found; a nonzero exit means a
+      # real failure (e.g. the preload entry can't be resolved to a models[]
+      # entry). Guard on a non-empty preload: a host with `preload = [ ]` cannot
+      # derive a default model, so the script would exit 1 by design — skip
+      # discovery there instead of aborting the rebuild.
+      activation.discoverMlxModels = lib.hm.dag.entryAfter [ "seedLlamaSwapConfig" ] (
+        lib.optionalString (cfg.preload != [ ]) ''
+          export MLX_HF_HOME="${cfg.huggingFaceHome}"
+          export MLX_LLAMA_SWAP_CONFIG="${llamaSwapRuntimeConfigPath}"
+          export MLX_LLAMA_SWAP_BASE_CONFIG="${llamaSwapConfigFile}"
+          export MLX_PRELOAD_MODELS_JSON=${lib.escapeShellArg (builtins.toJSON cfg.preload)}
+          # Fail loud: a swallowed nonzero exit here left the runtime config
+          # stale across rebuilds while models sat unregistered (#1270). Surface
+          # the script's stderr and abort activation so the failure is visible
+          # instead of looking like a silent no-op.
+          if ! run ${pkgs.python3}/bin/python3 "${./discover-models.py}" --quiet; then
+            errorEcho "discoverMlxModels: model discovery failed (see errors above); llama-swap runtime config left unchanged"
+            exit 1
+          fi
+        ''
+      );
     };
 
     launchd.agents.vllm-mlx-logrotate = {
