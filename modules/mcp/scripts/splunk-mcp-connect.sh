@@ -57,9 +57,11 @@ esac
 
 # These exports exist only in this wrapper and its MCP child. The AppRole,
 # OpenBao token, and Splunk values are never exported to the parent shell.
+# TLS verification stays ON: the MCP endpoint is fronted by the ingress with a
+# publicly-trusted cert chain. If verification ever fails here, fix the served
+# certificate — never re-add NODE_TLS_REJECT_UNAUTHORIZED=0.
 export SPLUNK_MCP_URL="$splunk_mcp_url"
 export SPLUNK_MCP_TOKEN="$splunk_mcp_token"
-export NODE_TLS_REJECT_UNAUTHORIZED=0
 
 # exec: the MCP child replaces this shell, so signals propagate directly and
 # no idle bash lingers for the connection's lifetime.
