@@ -35,7 +35,7 @@
     # applies it to EVERY request the worker sees, making batches uniform by
     # construction regardless of caller. Uniformity is the property that
     # matters, not the value. Prefer this over router-side injection.
-    # See dryvist/nix-ai#1234.
+    # See nix-ai#1234.
     defaultRepetitionPenalty = lib.mkOption {
       type = lib.types.nullOr (lib.types.numbers.between 1.0 2.0);
       default = null;
