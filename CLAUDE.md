@@ -94,8 +94,9 @@ constraints and on-demand patterns.
 ## Architecture Documentation
 
 Cross-cutting views live in [`docs/architecture/`](docs/architecture/README.md):
-system-integration-map (topology + ports), config-lifecycle,
-secrets-and-injection, mlx-stack. Design decisions in [`docs/adr/`](docs/adr/README.md).
+system-integration-map (topology + ports), config-lifecycle, mlx-stack. Secrets
+injection patterns live on the [docs site](https://docs.jacobpevans.com/security/overview)
+instead. Design decisions in [`docs/adr/`](docs/adr/README.md).
 
 ## Key Files
 

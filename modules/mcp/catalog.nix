@@ -112,9 +112,9 @@ in
     ];
   };
 
-  # Splunk MCP via OpenBao. The helper authenticates with the ambient-env
-  # ai-readonly AppRole and injects the canonical connection only into its MCP
-  # child process.
+  # Splunk MCP via OpenBao. The helper authenticates with an ambient-env
+  # AppRole and injects the canonical connection only into its MCP child
+  # process.
   splunk = {
     command = "splunk-mcp-connect";
   };

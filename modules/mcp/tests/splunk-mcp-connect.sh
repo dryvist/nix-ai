@@ -27,7 +27,7 @@ case "$url" in
     [ "${TEST_MODE:-}" != login ] || exit 22
     printf '%s\n' '{"auth":{"client_token":"test-bao-token"}}'
     ;;
-  */secret/data/ai/mcp/splunk)
+  */"$SPLUNK_MCP_OPENBAO_PATH")
     [ "${TEST_MODE:-}" != denied ] || exit 22
     case "${TEST_MODE:-}" in
       incomplete) printf '%s\n' '{"data":{"data":{"SPLUNK_MCP_URL":"https://splunk.example.test/services/mcp"}}}' ;;
@@ -59,6 +59,7 @@ run_case() {
     BAO_ADDR='https://bao.example.test' \
     AI_READONLY_ROLE_ID='test-role' \
     AI_READONLY_SECRET_ID="$secret_id" \
+    SPLUNK_MCP_OPENBAO_PATH='secret/data/test/mcp-fixture' \
     SPLUNK_MCP_CURL_BIN="$TEST_ROOT/bin/curl" \
     SPLUNK_MCP_BUNX_BIN="$TEST_ROOT/bin/bunx" \
     bash "$CONNECT" 2>&1)"; then
@@ -79,6 +80,7 @@ run_case() {
 
 # No ambient secret-zero at all → fail closed with the runbook pointer.
 if output="$(env -u BAO_ADDR -u AI_READONLY_ROLE_ID -u AI_READONLY_SECRET_ID \
+  -u SPLUNK_MCP_OPENBAO_PATH \
   bash "$CONNECT" 2>&1)"; then
   echo "FAIL: missing_env unexpectedly succeeded" >&2
   exit 1
@@ -99,6 +101,7 @@ TEST_MODE=success \
   BAO_ADDR='https://bao.example.test' \
   AI_READONLY_ROLE_ID='test-role' \
   AI_READONLY_SECRET_ID='test-secret' \
+  SPLUNK_MCP_OPENBAO_PATH='secret/data/test/mcp-fixture' \
   SPLUNK_MCP_CURL_BIN="$TEST_ROOT/bin/curl" \
   SPLUNK_MCP_BUNX_BIN="$TEST_ROOT/bin/bunx" \
   bash "$CONNECT"
