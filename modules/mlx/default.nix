@@ -31,14 +31,16 @@ let
   mlxWarmupPkg = pkgs.writeShellScriptBin "mlx-warmup" ''
     exec ${pkgs.python3}/bin/python3 ${./scripts/mlx-warmup.py} "$@"
   '';
-  # mlx-watchdog — periodic liveness probe that kickstarts the proxy when it
-  # panics into a listening-but-dead zombie (KeepAlive only catches process
-  # exit). writeShellApplication shellcheck-validates the script at eval time.
+  # mlx-watchdog — periodic serving probe that kickstarts the proxy when it is up
+  # but not serving (KeepAlive only catches process exit). Probes a real
+  # completion: every observed failure mode still answers /v1/models with 200.
+  # writeShellApplication shellcheck-validates the script at eval time.
   mlxWatchdogPkg = pkgs.writeShellApplication {
     name = "mlx-watchdog";
     runtimeInputs = with pkgs; [
       curl
       coreutils
+      jq
     ];
     text = builtins.readFile ./scripts/mlx-watchdog.sh;
   };
@@ -47,6 +49,21 @@ let
   # Sourced from nixpkgs-unstable: 25.11-darwin froze it at v165 on 2025-09-22
   # with no backports while unstable kept moving (currently v211). See nix-ai#801.
   llamaSwapPkg = nixpkgs-unstable.legacyPackages.${pkgs.stdenv.hostPlatform.system}.llama-swap;
+
+  # Proxy launcher — reaps orphaned vllm-mlx workers, then execs llama-swap.
+  # A worker outliving its proxy keeps its engine port bound, which makes every
+  # subsequent start fail on bind and 429 forever; reaping on the way up is what
+  # keeps a restart an actual remedy. Rationale in llama-swap-launch.sh.
+  llamaSwapLaunchPkg = pkgs.writeShellApplication {
+    name = "llama-swap-launch";
+    # No procps: pgrep/pkill are called by absolute path (see the script) —
+    # Darwin's procps ships only ps/sysctl/top/watch.
+    runtimeInputs = [
+      llamaSwapPkg
+      pkgs.coreutils
+    ];
+    text = builtins.readFile ./scripts/llama-swap-launch.sh;
+  };
 
   apiUrl = "http://${cfg.host}:${toString cfg.port}/v1";
   launchAgentLabel = "dev.vllm-mlx.server";
@@ -223,6 +240,7 @@ in
       launchAgentLabel
       warmupAgentLabel
       llamaSwapPkg
+      llamaSwapLaunchPkg
       llamaSwapConfigFile
       llamaSwapConfigAttrs
       llamaSwapRuntimeConfigPath

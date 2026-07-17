@@ -1,21 +1,26 @@
 #!/usr/bin/env bash
-# mlx-watchdog - self-heal the listening-but-dead llama-swap zombie.
+# mlx-watchdog - self-heal a serving host that is up but not serving.
 #
-# The vllm-mlx LaunchAgent uses KeepAlive=true, which only restarts the proxy on
-# process EXIT. But llama-swap can panic (`sync: WaitGroup is reused before
-# previous Wait has returned`) into a process that is still ALIVE and still
-# holding the listen socket, yet answers nothing - a zombie. launchd never
-# notices (no exit), so the socket stays open, every request gets
-# connection-refused / a hung stream, and litellm surfaces
-# MidStreamFallbackError until a human kickstarts it. This probe closes that gap:
-# it health-checks the proxy's own /v1/models endpoint and, on repeated failure,
-# kickstarts the server LaunchAgent - the sanctioned Mac serving-host break-fix.
+# KeepAlive=true only restarts the proxy on process EXIT, so every failure that
+# leaves a live-but-useless proxy is invisible to launchd. Three such modes have
+# been observed on this host, and NONE of them show at /v1/models:
 #
-# Health signal choice: /v1/models is answered by llama-swap itself from its
-# static config, WITHOUT loading a model, so it stays up during a normal model
-# swap. A failure there means the proxy - not a worker - is dead. That is the
-# exact zombie signature, and it avoids the cost/side-effects of a real
-# completion probe.
+#   1. llama-swap panics into a listening-but-dead zombie (socket open, answers
+#      nothing) -> connection refused / hung streams.
+#   2. The vllm-mlx batch scheduler wedges and then answers EVERY completion with
+#      HTTP 200, finish_reason "error" and zero tokens. litellm even remaps that
+#      finish_reason to "stop" downstream, so it looks like a normal answer.
+#   3. An orphaned worker holds the engine port, so each fresh worker dies on
+#      bind and the proxy 429s every completion (fixed at the source by
+#      llama-swap-launch.sh, which reaps orphans before the proxy starts).
+#
+# /v1/models is answered by llama-swap itself from static config, without a
+# model, so it returned 200 throughout all three - including a ~1.5 h total
+# outage. It cannot be the health signal. The only thing that separates "serving"
+# from merely "up" is a real completion that yields a token, so that is what this
+# probes. Cost is one <=4-token generation per StartInterval against an
+# already-resident model - cheap next to another silent multi-hour outage.
+# See Zammad (AI/LLM Serving).
 #
 # Loop-cadence (durable min-interval marker): the scheduler is launchd's
 # StartInterval, but a 70 GB model reload takes 20-60 s, so a naive probe would
@@ -25,14 +30,16 @@
 
 set -euo pipefail
 
-health_url="${MLX_API_URL:?MLX_API_URL unset}/models"
+api_url="${MLX_API_URL:?MLX_API_URL unset}"
 label="${MLX_LAUNCHD_LABEL:?MLX_LAUNCHD_LABEL unset}"
+probe_model="${MLX_WATCHDOG_PROBE_MODEL:?MLX_WATCHDOG_PROBE_MODEL unset}"
 marker="${MLX_WATCHDOG_MARKER:-${HOME}/Library/Caches/vllm-mlx/watchdog-last-kick}"
-# Cooldown >= ThrottleInterval (120 s) + headroom for the largest resident
-# model's cold load, so one kickstart gets a full recovery window before the
-# next is allowed.
-cooldown="${MLX_WATCHDOG_COOLDOWN:-180}"
-probe_timeout="${MLX_WATCHDOG_PROBE_TIMEOUT:-15}"
+# Cooldown covers ThrottleInterval (120 s) plus a full cold load of the largest
+# resident model, so one kickstart gets a real recovery window before the next.
+cooldown="${MLX_WATCHDOG_COOLDOWN:-600}"
+# A cold load legitimately holds a completion open for minutes; a short timeout
+# turns every normal model swap into a false positive.
+probe_timeout="${MLX_WATCHDOG_PROBE_TIMEOUT:-240}"
 
 mkdir -p "$(dirname "$marker")"
 
@@ -48,21 +55,38 @@ if (( now - last < cooldown )); then
   exit 0
 fi
 
-probe() { curl -sf --max-time "$probe_timeout" "$health_url" >/dev/null 2>&1; }
+# Healthy iff the response carries at least one generated token. HTTP status and
+# finish_reason are both untrustworthy here (mode 2 above), so completion_tokens
+# is the only assertion worth making.
+probe() {
+  local request body
+  # Build the body with jq so a model id carrying quotes/backslashes cannot
+  # produce invalid JSON — that would fail the probe for a reason unrelated to
+  # serving health and kickstart a perfectly good proxy.
+  request="$(jq -nc --arg model "$probe_model" \
+    '{model: $model, messages: [{role: "user", content: "ping"}], max_tokens: 4}')" || return 1
+  body="$(curl -s --max-time "$probe_timeout" \
+    -H 'Content-Type: application/json' \
+    -d "$request" \
+    "${api_url}/chat/completions" 2>/dev/null)" || return 1
+  jq -e '(.usage.completion_tokens // 0) >= 1' >/dev/null 2>&1 <<<"$body"
+}
 
-# Healthy proxy answers immediately. One transient miss (a brief hiccup under
-# load) must not trigger a restart, so require two consecutive failures.
+# One transient miss (a hiccup under load, or a swap-in) must not trigger a
+# restart, so require two consecutive failures.
 if probe; then
   exit 0
 fi
-sleep 3
+sleep 5
 if probe; then
   exit 0
 fi
 
-# Zombie confirmed. launchctl is a system binary (absolute path - not on the
-# sanitized writeShellApplication PATH). `id` comes from coreutils.
-echo "$(date -u +%FT%TZ) mlx-watchdog: ${health_url} unreachable x2 -> kickstart ${label}" >&2
+# Confirmed not serving. launchctl is a system binary (absolute path - not on the
+# sanitized writeShellApplication PATH). `id` comes from coreutils. The kickstart
+# is a real remedy only because llama-swap-launch.sh reaps orphaned workers on
+# the way back up; without that, mode 3 restart-loops forever.
+echo "$(date -u +%FT%TZ) mlx-watchdog: ${probe_model} produced no tokens x2 -> kickstart ${label}" >&2
 /bin/launchctl kickstart -k "gui/$(id -u)/${label}" || true
 
 # Marker written AFTER the work: a crashed run does not suppress the retry; only

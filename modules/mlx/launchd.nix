@@ -19,7 +19,7 @@ let
     apiUrl
     mlxWarmupPkg
     mlxWatchdogPkg
-    llamaSwapPkg
+    llamaSwapLaunchPkg
     llamaSwapConfigFile
     llamaSwapRuntimeConfigPath
     ;
@@ -45,7 +45,7 @@ in
           config = {
             Label = launchAgentLabel;
             ProgramArguments = [
-              (lib.getExe llamaSwapPkg)
+              (lib.getExe llamaSwapLaunchPkg)
               "--config"
               llamaSwapRuntimeConfigPath
               "--watch-config"
@@ -60,8 +60,11 @@ in
             # (see options-runtime.nix processType). OOM backstop is the RSS
             # hard limit, not Jetsam eligibility.
             ProcessType = cfg.processType;
-            # Do not abandon the process group; ensure child vllm-mlx processes
-            # are terminated when launchd stops the proxy.
+            # Do not abandon the process group. This is necessary but NOT
+            # sufficient: workers are spawned through `uv tool uvx`, so the real
+            # engine is a grandchild and has been observed surviving a stop
+            # (re-parented to init) still holding its port. llama-swap-launch.sh
+            # reaps those on the way back up — that is the load-bearing half.
             AbandonProcessGroup = false;
             EnvironmentVariables = {
               HF_HOME = cfg.huggingFaceHome;
@@ -109,15 +112,19 @@ in
           };
         };
 
-        # Liveness watchdog: KeepAlive=true only restarts the proxy on process
-        # EXIT, so a llama-swap panic into a listening-but-dead zombie (socket
-        # open, answering nothing) is never caught -> connection-refused ->
-        # litellm MidStreamFallbackError until a human kickstarts it. This probes
-        # /v1/models every StartInterval and kickstarts the server agent on
-        # repeated failure. The script self-gates re-fires with a cooldown marker
-        # so a slow model reload is not restart-stormed (mlx-watchdog.sh).
+        # Serving watchdog: KeepAlive=true only restarts the proxy on process
+        # EXIT, so every "up but not serving" mode is invisible to launchd — a
+        # llama-swap zombie, a wedged batch scheduler answering 200 with zero
+        # tokens, or a port-holding orphan making the proxy 429 everything. All
+        # three keep /v1/models green, so this probes a REAL completion every
+        # StartInterval and kickstarts the server agent when no token comes back.
+        # The script self-gates re-fires with a cooldown marker so a slow model
+        # reload is not restart-stormed (mlx-watchdog.sh).
         vllm-mlx-watchdog = {
-          enable = true;
+          # The probe generates against the first preloaded (resident) model, so
+          # with nothing preloaded every probe would cold-load a worker — worse
+          # than no watchdog. Such a host has no resident serving to guard.
+          enable = cfg.preload != [ ];
           config = {
             Label = "dev.vllm-mlx.watchdog";
             ProgramArguments = [ (lib.getExe mlxWatchdogPkg) ];
@@ -129,6 +136,9 @@ in
             EnvironmentVariables = {
               MLX_API_URL = apiUrl;
               MLX_LAUNCHD_LABEL = launchAgentLabel;
+              # Probe the first resident model: it is warm by construction, so a
+              # failure means "not serving", never "cold load in progress".
+              MLX_WATCHDOG_PROBE_MODEL = lib.head cfg.preload;
             };
             StandardOutPath = "${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx-watchdog.log";
             StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx-watchdog.error.log";
