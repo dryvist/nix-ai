@@ -226,7 +226,6 @@
           cecliPkg = pkgs.callPackage ./modules/cecli/package.nix { };
         in
         {
-          gh-aw = pkgs.callPackage ./modules/gh-extensions/gh-aw.nix { };
           fabric-ai = pkgs.callPackage ./modules/fabric/package.nix { inherit fabric-src; };
           cecli = cecliPkg;
           inherit (cecliPkg.passthru) mcp;
