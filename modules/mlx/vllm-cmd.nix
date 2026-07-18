@@ -23,6 +23,7 @@ rec {
     "autoUnloadIdleSeconds"
     "enableMetrics"
     "continuousBatching"
+    "defaultRepetitionPenalty"
     "enablePrefixCaching"
     "pagedKvCache"
     "pagedCacheBlockSize"
@@ -65,6 +66,13 @@ rec {
         ]
         ++ lib.optionals c.enableMetrics [ "--enable-metrics" ]
         ++ lib.optionals c.continuousBatching [ "--continuous-batching" ]
+        # Applied server-side so every request carries the same logits
+        # processor — a batch mixing penalized with penalty-free requests
+        # wedges mlx_lm's generator. Rationale in options-batching.nix.
+        ++ lib.optionals (c.defaultRepetitionPenalty != null) [
+          "--default-repetition-penalty"
+          (toString c.defaultRepetitionPenalty)
+        ]
         ++ lib.optionals c.enablePrefixCaching [ "--enable-prefix-cache" ]
         ++ lib.optionals c.pagedKvCache [ "--use-paged-cache" ]
         ++ lib.optionals (c.pagedKvCache && c.pagedCacheBlockSize != null) [

@@ -17,6 +17,11 @@ OpenAI/Anthropic/Gemini-compatible endpoint. Apache-2.0.
 - MCP servers rendered from the shared `programs.aiMcp.enabledServers`
   profile, with `programs.qwen-code.excludedMcpServers` reserved for
   Qwen-only compatibility gaps.
+- `permissions` allow/ask/deny rules and `context.fileName`
+  (`AGENTS.md`) generated from the shared permission engine, matching
+  Codex and Antigravity. Only Bash command rules map across — Qwen's
+  builtin tool names and prefix-less `WebFetch(host)` syntax differ, so
+  Claude-specific extras are skipped.
 - Shared skills linked from `~/.agents/skills` into `~/.qwen/skills`,
   matching Codex and Antigravity rather than maintaining a separate
   skill tree.
@@ -52,8 +57,8 @@ programs.qwen-code = {
 };
 ```
 
-For cloud-provider sessions, use `d-qwen` (Doppler-injected from
-`ai-ci-automation/prd`).
+For cloud-provider sessions, use `d-qwen` (Doppler-injected from the ambient
+`AI_DOPPLER_PROJECT`/`AI_DOPPLER_CONFIG`; see `modules/ai-aliases.zsh`).
 
 ## Adding cloud providers
 

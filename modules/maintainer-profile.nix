@@ -65,6 +65,19 @@ in
               describe your own infrastructure footprint here.
             '';
           };
+
+          allowRules = lib.mkOption {
+            type = lib.types.listOf lib.types.str;
+            default = [ ];
+            description = ''
+              Prose auto-permit rules appended to Claude auto-mode's `allow`
+              when `homelab.enable` is true. Use for infrastructure actions the
+              default soft-block list would otherwise stop but that your own
+              tooling already gates (e.g. an IaC apply, or a secrets engine
+              that enforces its own access separation). Empty by default so a
+              fresh consumer keeps the neutral classifier.
+            '';
+          };
         };
 
         telemetry = {
