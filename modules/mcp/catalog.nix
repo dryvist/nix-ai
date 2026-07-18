@@ -234,7 +234,6 @@ in
       "git+https://github.com/basher83/zammad-mcp.git@v${versions.zammadMcp}"
       "mcp-zammad"
     ];
-    disabled = true;
   };
 
   # ================================================================
