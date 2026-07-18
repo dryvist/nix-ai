@@ -173,6 +173,38 @@ in
     };
   };
 
+  # Instruct sibling of the Thinking brain above — the 2026-07-17 agentic-bench
+  # winner and new fleet brain (perfect 1.0 valid_tool_call_rate across every
+  # single-stream cell, thinking on/off x ctx small/large x stream/nostream;
+  # envelopes in HF JacobPEvans/mlx-benchmarks). Same qwen3_next
+  # hybrid-attention constraints as the Thinking entry: prefixCaching
+  # unsupported, block512 on the full-attention layers (Metal buffer-count
+  # ceiling history above). Resident profile mirrors the OptiQ brain it
+  # replaces — 65536 serving window (Hermes' >=64K floor; also serves as the
+  # compression model), 16 GB KV — but caps maxNumSeqs at 4: this family's
+  # ceiling crashes hit under 2-way long-context load, so it gets half the
+  # OptiQ batch cap until 8 is validated on the hybrid arch.
+  qwen3-next-80b-instruct = {
+    model = "mlx-community/Qwen3-Next-80B-A3B-Instruct-4bit";
+    weightGb = 42.0;
+    args = qwenMoeGeneralParser ++ agentTimeout;
+    classes = {
+      resident.flags = block512 // {
+        cacheMemoryMb = 16384;
+        maxNumSeqs = 4;
+        maxRequestTokens = 65536;
+        enablePrefixCaching = false;
+      };
+      swap.flags =
+        block512
+        // swapFlags
+        // {
+          cacheMemoryMb = 4096;
+          enablePrefixCaching = false;
+        };
+    };
+  };
+
   # gpt-oss MUST set --reasoning-parser gpt_oss — unset, its harmony channel
   # markers leak into streamed message.content (nix-ai#1083). Paged cache +
   # prefix caching OFF: sliding-window attention hits [broadcast_shapes] with
