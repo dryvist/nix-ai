@@ -1,5 +1,39 @@
 # Changelog
 
+## [2.1.0](https://github.com/dryvist/nix-ai/compare/v2.0.4...v2.1.0) (2026-07-18)
+
+
+### Features
+
+* **automode:** homelab-gated allow rules for the classifier ([002e627](https://github.com/dryvist/nix-ai/commit/002e6278ce288de5159be949b7b8543b68dcb1b3))
+* **mcp:** add Zammad MCP catalog entry (basher83/Zammad-MCP) ([#1254](https://github.com/dryvist/nix-ai/issues/1254)) ([a0bd3ec](https://github.com/dryvist/nix-ai/commit/a0bd3ec824f87b1db6b65200b0f67e406f012cde))
+* **mcp:** enable zammad MCP server in catalog ([ac308ae](https://github.com/dryvist/nix-ai/commit/ac308ae60b7afb4e8ea219f481342d57d1450aff))
+* **mcp:** inject Vikunja credentials via doppler-mcp ([#1241](https://github.com/dryvist/nix-ai/issues/1241)) ([a998434](https://github.com/dryvist/nix-ai/commit/a998434d9905e278e3b370dfb4c1b312842cacb3))
+* **mcp:** source Splunk credentials from OpenBao ([#1230](https://github.com/dryvist/nix-ai/issues/1230)) ([0a6a610](https://github.com/dryvist/nix-ai/commit/0a6a610e9dff2740662b70e1e6f1e3b0b66a4eed))
+* **mlx:** add defaultRepetitionPenalty to keep batches uniform ([#1262](https://github.com/dryvist/nix-ai/issues/1262)) ([fb2afdb](https://github.com/dryvist/nix-ai/commit/fb2afdb5c054d3cb45e4234fdff35411fc7f25ff))
+* **mlx:** add Qwen3-Next-80B-A3B-Instruct catalog entry (new fleet brain) ([#1272](https://github.com/dryvist/nix-ai/issues/1272)) ([e9e0569](https://github.com/dryvist/nix-ai/commit/e9e0569dd49aea8c253956ff9383af601c51eb88))
+* **opencode:** render shared MCP servers via new shared mcp client helper ([#1235](https://github.com/dryvist/nix-ai/issues/1235)) ([71722ff](https://github.com/dryvist/nix-ai/commit/71722ff6e6d9afa84efaf4163be7515667a365ff))
+* **qwen-code:** wire shared permissions and AGENTS.md context ([#1237](https://github.com/dryvist/nix-ai/issues/1237)) ([b0c1db9](https://github.com/dryvist/nix-ai/commit/b0c1db9302cf4269d0635c75d708eef5ea67e1c3))
+
+
+### Bug Fixes
+
+* **cluster:** pin mlx on the rank, readiness-probe the endpoint, quiesce on every kickstart ([#1245](https://github.com/dryvist/nix-ai/issues/1245)) ([8344def](https://github.com/dryvist/nix-ai/commit/8344def0e916247e823c0835a06b4af347eae8bf))
+* **deps:** refresh gh-aw action SHA pins [aw:gh-aw-pin-refresh] ([#1238](https://github.com/dryvist/nix-ai/issues/1238)) ([3f9afa8](https://github.com/dryvist/nix-ai/commit/3f9afa82e1877d917ae131e59c3af50ee8c4105d))
+* discover-models.py: activation-time run registers nothing (env quoting); manual run with identical inputs registers 27 ([#1270](https://github.com/dryvist/nix-ai/issues/1270)) ([ad0de9f](https://github.com/dryvist/nix-ai/commit/ad0de9fa3170eb92823ce17518c3efde886231f7))
+* discover-models.py: activation-time run registers nothing (env quoting); manual run with identical inputs registers 27 ([#1270](https://github.com/dryvist/nix-ai/issues/1270)) ([260c8d5](https://github.com/dryvist/nix-ai/commit/260c8d5821bb8dcb0126a56e31b9b801bc86e179))
+* **docs:** drop internal secrets topology, parametrize Doppler/OpenBao identifiers ([826539e](https://github.com/dryvist/nix-ai/commit/826539ed38f6eec4dc9fa71c93eb360dea01d1b9))
+* **mcp:** inline the single-use version aliases in the catalog ([#1261](https://github.com/dryvist/nix-ai/issues/1261)) ([ecdbe9e](https://github.com/dryvist/nix-ai/commit/ecdbe9e277c764546fb401dabdf488bce217f9c0))
+* **mcp:** make splunk-mcp-connect pass shellcheck SC2016 ([#1243](https://github.com/dryvist/nix-ai/issues/1243)) ([c7208cb](https://github.com/dryvist/nix-ai/commit/c7208cb5f7b011c2fc1bd3a49e19416c21050255))
+* **mcp:** stop disabling TLS verification in splunk-mcp-connect ([#1263](https://github.com/dryvist/nix-ai/issues/1263)) ([7e6f811](https://github.com/dryvist/nix-ai/commit/7e6f811d6494dd3ac835498292a63a0791144372))
+* **mlx:** guard readiness age calculation ([6791b68](https://github.com/dryvist/nix-ai/commit/6791b6859915a1605568312d4afe5ffdcc751895))
+* **mlx:** reap orphaned workers on proxy start, probe serving not liveness ([#1260](https://github.com/dryvist/nix-ai/issues/1260)) ([fcf4562](https://github.com/dryvist/nix-ai/commit/fcf4562e31eae14dab4b78caec048ce74b0eb849))
+
+
+### Performance
+
+* warm the pipeline rank after readiness (first request pays the full cold load) ([#1247](https://github.com/dryvist/nix-ai/issues/1247)) ([#1250](https://github.com/dryvist/nix-ai/issues/1250)) ([ae3cf60](https://github.com/dryvist/nix-ai/commit/ae3cf600a50517e110f392b32e430de321bcb4f4))
+
 ## [2.0.4](https://github.com/dryvist/nix-ai/compare/v2.0.3...v2.0.4) (2026-07-15)
 
 
