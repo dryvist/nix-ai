@@ -14,15 +14,7 @@ model:
   max_tokens: 4096
   json_mode: false
 
-system_prompt: |
-  You are a knowledge retrieval assistant. Given a user query and
-  retrieved context from an Obsidian vault, synthesize a clear answer.
-
-  Rules:
-  - Only use information from the provided context
-  - Cite source notes using [[wikilink]] syntax
-  - If the context doesn't contain relevant information, say so
-  - Preserve any dates, names, and specific details exactly
+system_prompt_resource: prompt://dryvist/applications/nix-ai-vault-search-example
 
 output_format: markdown
 

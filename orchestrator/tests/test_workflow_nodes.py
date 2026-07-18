@@ -80,7 +80,11 @@ class TestMakeLlmCallNode:
     def test_client_created_at_factory_time(self, mock_openai_cls: MagicMock) -> None:
         node_def = NodeDefinition(
             name="llm", type=NodeType.LLM_CALL,
-            config={"endpoint": "http://localhost:1234/v1", "model": "test-model"},
+            config={
+                "endpoint": "http://localhost:1234/v1",
+                "model": "test-model",
+                "system_prompt": "Test prompt.",
+            },
         )
         _make_llm_call_node(node_def)
         mock_openai_cls.assert_called_once_with(
@@ -116,11 +120,32 @@ class TestMakeLlmCallNode:
         mock_choice.message.content = "the answer"
         mock_client.chat.completions.create.return_value = MagicMock(choices=[mock_choice])
 
-        node_def = NodeDefinition(name="llm", type=NodeType.LLM_CALL)
+        node_def = NodeDefinition(
+            name="llm",
+            type=NodeType.LLM_CALL,
+            config={"system_prompt": "Test prompt."},
+        )
         fn = _make_llm_call_node(node_def)
         result = fn({"messages": []})
         assert result["output"] == "the answer"
         assert result["messages"][-1]["content"] == "the answer"
+
+    @patch("orchestrator.workflows.nodes.load_prompt_resource")
+    @patch("orchestrator.workflows.nodes.OpenAI")
+    def test_default_prompt_uses_catalog(
+        self,
+        mock_openai_cls: MagicMock,
+        mock_load_prompt: MagicMock,
+    ) -> None:
+        mock_load_prompt.return_value = "Canonical default."
+        node_def = NodeDefinition(name="llm", type=NodeType.LLM_CALL)
+
+        _make_llm_call_node(node_def)
+
+        mock_load_prompt.assert_called_once_with(
+            "prompt://dryvist/applications/nix-ai-default-system",
+        )
+        mock_openai_cls.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

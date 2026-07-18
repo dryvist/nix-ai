@@ -15,15 +15,7 @@ model:
   max_tokens: 8192
   json_mode: false
 
-system_prompt: |
-  You are an expert code reviewer. Analyze the provided code for:
-  1. Security vulnerabilities (OWASP Top 10)
-  2. Performance issues
-  3. Code style and readability
-  4. Error handling gaps
-  5. Test coverage suggestions
-
-  Be specific and actionable. Reference line numbers when possible.
+system_prompt_resource: prompt://dryvist/applications/nix-ai-code-review-example
 
 output_format: markdown
 

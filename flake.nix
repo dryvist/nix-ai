@@ -12,6 +12,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    ai-llm-prompts = {
+      url = "github:dryvist/ai-llm-prompts/0431be6994d51169b9f705ddeba958eb8a4d0fc4";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # Official Anthropic plugin marketplace source (also re-exposed via
     # nix-claude-code). Kept here because nix-ai modules still reference it
     # directly for cookbook command/agent discovery.
@@ -120,6 +125,7 @@
       nixpkgs,
       nixpkgs-unstable,
       home-manager,
+      ai-llm-prompts,
       ai-assistant-instructions,
       jacobpevans-cc-plugins,
       nix-claude-code,
@@ -138,6 +144,17 @@
       ];
       forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
       homebrewNix = import ./lib/homebrew.nix;
+      orchestratorPromptNames = [
+        "nix-ai-code-explain-example"
+        "nix-ai-code-review-analysis-example"
+        "nix-ai-code-review-categorization-example"
+        "nix-ai-code-review-example"
+        "nix-ai-default-system"
+        "nix-ai-structured-extract-example"
+        "nix-ai-vault-search-example"
+      ];
+      orchestratorPromptDir =
+        system: "${ai-llm-prompts.packages.${system}.applications}/share/ai-llm-prompts/applications";
     in
     {
       homeManagerModules = import ./flake/home-manager-modules.nix {
@@ -191,6 +208,13 @@
               # to actually run. Scoped to the CI system (x86_64-linux) like every
               # other check so a single linux runner covers it.
               fabric-ai-build = self.packages.${system}.fabric-ai;
+              orchestrator-prompt-assets =
+                assert builtins.all (
+                  name: builtins.pathExists (ai-llm-prompts + "/applications/${name}.md")
+                ) orchestratorPromptNames;
+                pkgs.writeText "nix-ai-orchestrator-prompt-assets" ''
+                  Validated ${toString (builtins.length orchestratorPromptNames)} catalog prompts.
+                '';
             };
         };
 
@@ -206,6 +230,19 @@
           fabric-ai = pkgs.callPackage ./modules/fabric/package.nix { inherit fabric-src; };
           cecli = cecliPkg;
           inherit (cecliPkg.passthru) mcp;
+        }
+      );
+
+      devShells = forAllSystems (
+        system:
+        let
+          pkgs = nixpkgs.legacyPackages.${system};
+        in
+        {
+          default = pkgs.mkShell {
+            packages = [ pkgs.uv ];
+            NIX_AI_PROMPT_DIR = orchestratorPromptDir system;
+          };
         }
       );
 
