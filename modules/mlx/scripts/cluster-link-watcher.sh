@@ -101,11 +101,14 @@ if [ "$cur" = "up" ]; then
         touch "$ready_file"
         echo "cluster-link: rank ready (:$CLUSTER_HTTP_PORT answering)"
       else
-        age=$(($(date +%s) - $(/usr/bin/stat -f %m "$started_file")))
-        if [ "$age" -ge "${CLUSTER_LOAD_GRACE_SECS:-1800}" ]; then
-          echo "cluster-link: rank running but not ready after ${age}s; restarting (hung init)"
-          launchctl kill SIGTERM "gui/$uid/$CLUSTER_RANK_LABEL" 2> /dev/null || true
-          rm -f "$started_file"
+        started_time=$(/usr/bin/stat -f %m "$started_file" 2> /dev/null || echo 0)
+        if [ "$started_time" -gt 0 ]; then
+          age=$(($(date +%s) - started_time))
+          if [ "$age" -ge "${CLUSTER_LOAD_GRACE_SECS:-1800}" ]; then
+            echo "cluster-link: rank running but not ready after ${age}s; restarting (hung init)"
+            launchctl kill SIGTERM "gui/$uid/$CLUSTER_RANK_LABEL" 2> /dev/null || true
+            rm -f "$started_file"
+          fi
         fi
       fi
     fi
