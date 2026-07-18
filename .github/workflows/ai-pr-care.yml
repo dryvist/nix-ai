@@ -5,7 +5,7 @@
 #   refreshed per head SHA.
 #
 # Gates in the reusable workflows keep non-matching PRs at github-script cost.
-# Permissions are job-scoped and the secret is passed explicitly (zizmor:
+# Permissions are job-scoped and credentials are passed explicitly (zizmor:
 # excessive-permissions, secrets-inherit). No concurrency block on purpose: a
 # caller sharing the reusable workflow's exact concurrency group causes an
 # opaque 0-job startup_failure.
@@ -26,6 +26,7 @@ jobs:
     uses: dryvist/ai-workflows/.github/workflows/cc-dep-review.yml@main
     secrets:
       GH_ACTION_AI_API_KEY: ${{ secrets.GH_ACTION_AI_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
   release-notes:
     permissions:
@@ -35,3 +36,4 @@ jobs:
     uses: dryvist/ai-workflows/.github/workflows/cc-release-notes.yml@main
     secrets:
       GH_ACTION_AI_API_KEY: ${{ secrets.GH_ACTION_AI_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

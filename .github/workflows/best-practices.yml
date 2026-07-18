@@ -19,5 +19,5 @@ concurrency:
 
 jobs:
   best-practices:
-    uses: dryvist/ai-workflows/.github/workflows/best-practices.yml@v0.31
+    uses: dryvist/ai-workflows/.github/workflows/best-practices.yml@main
     secrets: inherit # zizmor: ignore[secrets-inherit]
