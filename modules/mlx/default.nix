@@ -240,6 +240,7 @@ in
     ./options-filters.nix
     ./options-parsers.nix
     ./options-runtime.nix
+    ./options-cluster.nix
     ./packages.nix
     ./launchd.nix
     ./cluster-mode.nix

@@ -157,39 +157,12 @@ let
   clusterDetachPkg = mkClusterCli "cluster-detach" ./scripts/cluster-detach.sh clusterDetachEnv;
 in
 {
+  # Clustered-mode option DECLARATIONS live in ./options-cluster.nix (split out
+  # for the per-file size cap; option paths are unchanged — the module system
+  # merges them with the staticLinkIps option below and the config block).
+  # staticLinkIps stays here so the synthetic point-to-point link defaults sit
+  # beside the config that consumes them.
   options.programs.mlx.clusterMode = {
-    enable = lib.mkEnableOption "two-Mac JACCL clustered mode (mlx-lm pipeline-parallel serving)";
-
-    role = lib.mkOption {
-      type = lib.types.enum [
-        "coordinator"
-        "worker"
-      ];
-      description = "coordinator = rank 0, binds the cluster HTTP endpoint; worker = rank 1.";
-    };
-
-    model = lib.mkOption {
-      type = lib.types.str;
-      default = "mlx-community/GLM-4.7-4bit";
-      description = ''
-        HuggingFace id of the cluster model. Must use an architecture with
-        distributed support in the pinned mlx-lm (glm4_moe: pipeline).
-        198 GB weights split across both ranks via --pipeline.
-      '';
-    };
-
-    httpPort = lib.mkOption {
-      type = lib.types.port;
-      default = 11440;
-      description = "Cluster endpoint port on the coordinator (loopback; exposed via the host's gateway).";
-    };
-
-    rendezvousPort = lib.mkOption {
-      type = lib.types.port;
-      default = 11441;
-      description = "JACCL coordinator rendezvous port (MLX_JACCL_COORDINATOR).";
-    };
-
     staticLinkIps = lib.mkOption {
       type = lib.types.attrsOf lib.types.str;
       default = {
@@ -201,130 +174,6 @@ in
         worker = "192.168.208.2";
       };
       description = "Link addresses of the two cable ends (pinned on the Thunderbolt ports by nix-darwin at activation).";
-    };
-
-    maxKickstarts = lib.mkOption {
-      type = lib.types.int;
-      default = 3;
-      description = ''
-        Consecutive failed rank starts before the watcher halts kickstarts
-        and pages once. Every failed distributed init leaks a kernel RDMA
-        Protection Domain and exhaustion is reboot-only (ml-explore/mlx#3207),
-        so an unbounded crash loop forces a reboot.
-      '';
-    };
-
-    alertUrlFile = lib.mkOption {
-      type = lib.types.str;
-      default = "${config.home.homeDirectory}/.config/mlx-cluster/alert-url";
-      description = ''
-        Untracked local file holding the notification URL (ntfy-style POST
-        target) for the halt page. The URL names internal topology, so it is
-        seeded out-of-band and never committed. Missing file = no page.
-      '';
-    };
-
-    rdmaDevice = lib.mkOption {
-      type = lib.types.str;
-      default = "rdma_en2";
-      description = ''
-        RDMA device name for the MLX_IBV_DEVICES matrix (see `ibv_devices`).
-        Port-dependent: validate on the first plug session and override per
-        host if the cable lands on a different port.
-      '';
-    };
-
-    wiredLimitMb = lib.mkOption {
-      type = lib.types.nullOr lib.types.int;
-      default = null;
-      example = 90000;
-      description = ''
-        iogpu.wired_limit_mb the watcher applies (sudo, exact-value grant
-        from nix-darwin clusterLinkPrep) before starting the rank — sized for
-        this node's pipeline shard, leaving the GUI working set unwirable.
-        null = never touch the sysctl. When set, a failed apply SKIPS the
-        rank start: serving a shard over a day-sized ceiling is the
-        2026-07-12 dual-host panic.
-      '';
-    };
-
-    dayWiredLimitMb = lib.mkOption {
-      type = lib.types.int;
-      default = 0;
-      description = ''
-        iogpu.wired_limit_mb the watcher restores at link-down (0 = macOS
-        default ceiling). Must equal the value nix-darwin grants
-        (appleSiliconTunables.wiredLimitMb, else 0).
-      '';
-    };
-
-    extraServerArgs = lib.mkOption {
-      type = lib.types.listOf lib.types.str;
-      default = [ ];
-      description = "Extra mlx_lm.server args for the cluster rank.";
-    };
-
-    prefetch = lib.mkOption {
-      type = lib.types.bool;
-      default = true;
-      description = "Idempotently download the cluster model at agent load (retries until complete).";
-    };
-
-    quiesceCommand = lib.mkOption {
-      type = lib.types.nullOr lib.types.str;
-      default = null;
-      description = "Worker-side hook run at link-up before the rank starts (e.g. the cluster-quiesce allowlist sweep).";
-    };
-
-    restoreCommand = lib.mkOption {
-      type = lib.types.nullOr lib.types.str;
-      default = null;
-      description = "Worker-side hook run at link-down after the rank stops.";
-    };
-
-    # --- cluster-join / cluster-detach lifecycle-command tunables ------------
-    joinSwapThresholdMb = lib.mkOption {
-      type = lib.types.int;
-      default = 8000;
-      description = ''
-        cluster-join refuses to load a shard when vm.swapusage used exceeds this
-        (MB). Loading a shard against stale swap spirals to a panic (INC-17075);
-        the operator is told to reboot first.
-      '';
-    };
-
-    detachSwapThresholdMb = lib.mkOption {
-      type = lib.types.int;
-      default = 20000;
-      description = ''
-        cluster-detach exits with a distinct code (3) and a prominent
-        reboot-before-next-join warning when vm.swapusage used exceeds this (MB),
-        so a wrapper can chain a reboot.
-      '';
-    };
-
-    joinTimeoutSecs = lib.mkOption {
-      type = lib.types.int;
-      default = 600;
-      description = "cluster-join bound (s) on the block-until-a-real-generation wait.";
-    };
-
-    detachTimeoutSecs = lib.mkOption {
-      type = lib.types.int;
-      default = 300;
-      description = "cluster-detach bound (s) on the teardown and day-serving-restore waits.";
-    };
-
-    quiesceGraceSecs = lib.mkOption {
-      type = lib.types.int;
-      default = 30;
-      description = "cluster-join grace (s) for day-serve engines to exit before orphans are reaped.";
-    };
-
-    workerStableSecs = lib.mkOption {
-      type = lib.types.int;
-      default = 60;
-      description = "cluster-join (worker role) seconds the rank must stay up to be declared stable.";
     };
   };
 
