@@ -31,6 +31,10 @@
 #   CLUSTER_NORMAL_PROXY        normal-mode llama-swap base URL (graceful unload)
 #   CLUSTER_SERVER_LABEL        normal-mode server (llama-swap) launchd label
 #   CLUSTER_WARMUP_LABEL        normal-mode warmup one-shot launchd label
+#   CLUSTER_KEEP_RESIDENT       newline-separated command-line substrings; a
+#                             `vllm-mlx serve` engine matching any is left
+#                             running through the quiesce (standalone keep-
+#                             resident backend). Empty = reap every engine.
 #   (join consumes the watcher's rank-warmed marker; it issues NO completion of
 #    its own, so it needs no cluster endpoint URL or model id)
 #   worker only:
@@ -183,26 +187,51 @@ Loading a shard against stale swap spirals to a panic (INC-17075)."
   # Graceful unload first (best effort), then bootout the day agents entirely so
   # the shard gets the full machine. The proxy grandchildren can survive a
   # bootout (re-parented, still holding memory), so reap them after a grace.
+  # The whole-llama-swap bootout below is unchanged — it IS the panic guard.
+  # keep-resident engines (CLUSTER_KEEP_RESIDENT) are standalone agents outside
+  # llama-swap, so the bootout and the proxy unload never touch them; only the
+  # reap of leftover `vllm-mlx serve` engines must skip them (see day_serve_pids).
   curl -fsS -m 30 -X POST "${CLUSTER_NORMAL_PROXY:-}/api/models/unload" > /dev/null 2>&1 || true
   /bin/launchctl bootout "gui/$uid/${CLUSTER_WARMUP_LABEL}" > /dev/null 2>&1 || true
   /bin/launchctl bootout "gui/$uid/${CLUSTER_SERVER_LABEL}" > /dev/null 2>&1 || true
   echo "cluster-join: booted out day serving ($CLUSTER_SERVER_LABEL, $CLUSTER_WARMUP_LABEL)"
 
+  # PIDs of `vllm-mlx serve` engines that are NOT keep-resident exempt. An engine
+  # whose command line contains any CLUSTER_KEEP_RESIDENT substring is left up.
+  day_serve_pids() {
+    local pid cmd pat exempt
+    /usr/bin/pgrep -f 'vllm-mlx serve' 2> /dev/null | while read -r pid; do
+      cmd="$(/bin/ps -p "$pid" -o command= 2> /dev/null)"
+      exempt=false
+      if [ -n "${CLUSTER_KEEP_RESIDENT:-}" ]; then
+        while IFS= read -r pat; do
+          [ -n "$pat" ] || continue
+          case "$cmd" in *"$pat"*)
+            exempt=true
+            break
+            ;;
+          esac
+        done <<< "$CLUSTER_KEEP_RESIDENT"
+      fi
+      [ "$exempt" = true ] || printf '%s\n' "$pid"
+    done
+  }
+
   grace="${CLUSTER_QUIESCE_GRACE_SECS:-30}"
   deadline=$(($(date +%s) + grace))
-  while /usr/bin/pgrep -f 'vllm-mlx serve' > /dev/null 2>&1; do
+  while [ -n "$(day_serve_pids)" ]; do
     if [ "$(date +%s)" -ge "$deadline" ]; then
-      echo "cluster-join: day-serve engines still up after ${grace}s; reaping orphans"
-      /usr/bin/pkill -f 'vllm-mlx serve' > /dev/null 2>&1 || true
+      echo "cluster-join: day-serve engines still up after ${grace}s; reaping orphans (keep-resident spared)"
+      day_serve_pids | while read -r pid; do /bin/kill "$pid" > /dev/null 2>&1 || true; done
       sleep 3
       break
     fi
     sleep 2
   done
-  if /usr/bin/pgrep -f 'vllm-mlx serve' > /dev/null 2>&1; then
+  if [ -n "$(day_serve_pids)" ]; then
     fail "day-serve engines still running after reap; memory not freed for the shard"
   fi
-  echo "cluster-join: day serving quiesced (zero vllm-mlx serve processes)"
+  echo "cluster-join: day serving quiesced (only keep-resident engines remain)"
 elif [ -n "${CLUSTER_QUIESCE_CMD:-}" ]; then
   sh -c "$CLUSTER_QUIESCE_CMD" || true
   echo "cluster-join: ran worker quiesce hook"

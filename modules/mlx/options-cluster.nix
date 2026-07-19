@@ -171,5 +171,24 @@
       default = 60;
       description = "cluster-join (worker role) seconds the rank must stay up to be declared stable.";
     };
+
+    keepResidentBackends = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      example = [ "--port 11442" ];
+      description = ''
+        Command-line substrings identifying day-serving `vllm-mlx serve`
+        backends the coordinator cluster-join must NOT reap when it quiesces for
+        the shard. A process whose command line contains any of these is left
+        running so it survives the cluster window — e.g. a standalone brain
+        agent on its own gated port kept resident for cluster-window
+        availability. The whole-llama-swap bootout is unchanged (it is the panic
+        guard); this only spares matching standalone engines from the
+        `vllm-mlx serve` reap and the zero-engine assert. Empty = quiesce every
+        engine (the panic-safe default). Only exempt a backend whose wired
+        footprint provably fits under the cluster wired ceiling ALONGSIDE the
+        shard — a resident co-loaded over the ceiling is the INC-17076 panic.
+      '';
+    };
   };
 }
