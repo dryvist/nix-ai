@@ -31,7 +31,12 @@
   ...
 }:
 let
-  inherit (mlxShared) cfg warmupAgentLabel;
+  inherit (mlxShared)
+    cfg
+    warmupAgentLabel
+    launchAgentLabel
+    apiUrl
+    ;
   ncfg = cfg.clusterMode;
   versions = import ../../lib/versions.nix;
 
@@ -40,9 +45,11 @@ let
   logDir = "${config.home.homeDirectory}/Library/Logs/mlx-cluster";
   stateFile = "${config.home.homeDirectory}/Library/Application Support/mlx-cluster/link-state";
   ibvMatrixFile = "${config.home.homeDirectory}/.config/mlx-cluster/ibv-matrix.json";
+  launchAgentsDir = "${config.home.homeDirectory}/Library/LaunchAgents";
 
   isCoordinator = ncfg.role == "coordinator";
   staticPeerIp = if isCoordinator then ncfg.staticLinkIps.worker else ncfg.staticLinkIps.coordinator;
+  staticSelfIp = if isCoordinator then ncfg.staticLinkIps.coordinator else ncfg.staticLinkIps.worker;
 
   clusterRankArgs = [
     "${pkgs.uv}/bin/uvx"
@@ -71,6 +78,79 @@ let
     runtimeInputs = [ pkgs.curl ];
     text = builtins.readFile ./scripts/cluster-link-watcher.sh;
   };
+
+  # Lifecycle commands (cluster-join / cluster-detach): supervised, verifiable
+  # front-ends over the watcher's already-designed teardown/bring-up. The whole
+  # CLUSTER_* env contract is baked at eval (mirrors the watcher agent) so the
+  # commands need no shell environment and behave identically on both nodes.
+  # System binaries (launchctl, ifconfig, ping, sysctl, sudo, pgrep) are called
+  # by absolute path — only curl/jq/coreutils ride the sanitized PATH.
+  mkClusterCli =
+    name: scriptFile: env:
+    pkgs.writeShellApplication {
+      inherit name;
+      runtimeInputs = with pkgs; [
+        curl
+        jq
+        coreutils
+      ];
+      text = lib.concatStringsSep "\n" (
+        lib.mapAttrsToList (k: v: "export ${k}=${lib.escapeShellArg v}") env
+        ++ [ (builtins.readFile scriptFile) ]
+      );
+    };
+
+  # Env common to both commands and both roles.
+  clusterCommonEnv = {
+    CLUSTER_ROLE = ncfg.role;
+    CLUSTER_STATIC_SELF_IP = staticSelfIp;
+    CLUSTER_STATIC_PEER_IP = staticPeerIp;
+    CLUSTER_RANK_LABEL = rankLabel;
+    CLUSTER_WATCHER_LABEL = watcherLabel;
+    CLUSTER_WATCHER_PLIST = "${launchAgentsDir}/${watcherLabel}.plist";
+    CLUSTER_STATE_FILE = stateFile;
+    CLUSTER_DAY_WIRED_LIMIT_MB = toString ncfg.dayWiredLimitMb;
+  }
+  // lib.optionalAttrs (ncfg.wiredLimitMb != null) {
+    CLUSTER_WIRED_LIMIT_MB = toString ncfg.wiredLimitMb;
+  };
+
+  clusterJoinEnv =
+    clusterCommonEnv
+    // {
+      CLUSTER_JOIN_SWAP_THRESHOLD_MB = toString ncfg.joinSwapThresholdMb;
+      CLUSTER_JOIN_TIMEOUT_SECS = toString ncfg.joinTimeoutSecs;
+      CLUSTER_QUIESCE_GRACE_SECS = toString ncfg.quiesceGraceSecs;
+      CLUSTER_WORKER_STABLE_SECS = toString ncfg.workerStableSecs;
+    }
+    // lib.optionalAttrs isCoordinator {
+      CLUSTER_NORMAL_PROXY = "http://127.0.0.1:${toString cfg.port}";
+      CLUSTER_SERVER_LABEL = launchAgentLabel;
+      CLUSTER_WARMUP_LABEL = warmupAgentLabel;
+      CLUSTER_HTTP_PORT = toString ncfg.httpPort;
+      CLUSTER_RANK_URL = "http://127.0.0.1:${toString ncfg.httpPort}";
+      CLUSTER_MODEL = ncfg.model;
+    }
+    // lib.optionalAttrs (!isCoordinator && ncfg.quiesceCommand != null) {
+      CLUSTER_QUIESCE_CMD = ncfg.quiesceCommand;
+    };
+
+  clusterDetachEnv =
+    clusterCommonEnv
+    // {
+      CLUSTER_DETACH_SWAP_THRESHOLD_MB = toString ncfg.detachSwapThresholdMb;
+      CLUSTER_DETACH_TIMEOUT_SECS = toString ncfg.detachTimeoutSecs;
+    }
+    // lib.optionalAttrs isCoordinator {
+      CLUSTER_SERVER_LABEL = launchAgentLabel;
+      CLUSTER_SERVER_PLIST = "${launchAgentsDir}/${launchAgentLabel}.plist";
+      CLUSTER_WARMUP_LABEL = warmupAgentLabel;
+      CLUSTER_DAY_PROBE_URL = apiUrl;
+      CLUSTER_DAY_PROBE_MODEL = cfg.defaultModel;
+    };
+
+  clusterJoinPkg = mkClusterCli "cluster-join" ./scripts/cluster-join.sh clusterJoinEnv;
+  clusterDetachPkg = mkClusterCli "cluster-detach" ./scripts/cluster-detach.sh clusterDetachEnv;
 in
 {
   options.programs.mlx.clusterMode = {
@@ -197,6 +277,51 @@ in
       default = null;
       description = "Worker-side hook run at link-down after the rank stops.";
     };
+
+    # --- cluster-join / cluster-detach lifecycle-command tunables ------------
+    joinSwapThresholdMb = lib.mkOption {
+      type = lib.types.int;
+      default = 8000;
+      description = ''
+        cluster-join refuses to load a shard when vm.swapusage used exceeds this
+        (MB). Loading a shard against stale swap spirals to a panic (INC-17075);
+        the operator is told to reboot first.
+      '';
+    };
+
+    detachSwapThresholdMb = lib.mkOption {
+      type = lib.types.int;
+      default = 20000;
+      description = ''
+        cluster-detach exits with a distinct code (3) and a prominent
+        reboot-before-next-join warning when vm.swapusage used exceeds this (MB),
+        so a wrapper can chain a reboot.
+      '';
+    };
+
+    joinTimeoutSecs = lib.mkOption {
+      type = lib.types.int;
+      default = 600;
+      description = "cluster-join bound (s) on the block-until-a-real-generation wait.";
+    };
+
+    detachTimeoutSecs = lib.mkOption {
+      type = lib.types.int;
+      default = 300;
+      description = "cluster-detach bound (s) on the teardown and day-serving-restore waits.";
+    };
+
+    quiesceGraceSecs = lib.mkOption {
+      type = lib.types.int;
+      default = 30;
+      description = "cluster-join grace (s) for day-serve engines to exit before orphans are reaped.";
+    };
+
+    workerStableSecs = lib.mkOption {
+      type = lib.types.int;
+      default = 60;
+      description = "cluster-join (worker role) seconds the rank must stay up to be declared stable.";
+    };
   };
 
   config = lib.mkIf (cfg.enable && ncfg.enable) {
@@ -209,6 +334,13 @@ in
         assertion = ncfg.httpPort != ncfg.rendezvousPort;
         message = "programs.mlx.clusterMode: httpPort and rendezvousPort must differ or the service cannot bind.";
       }
+    ];
+
+    # Lifecycle commands on PATH on both nodes (one-click cluster bring-up /
+    # safe-unplug over the watcher). Shipped only when clusterMode is enabled.
+    home.packages = [
+      clusterJoinPkg
+      clusterDetachPkg
     ];
 
     # Symmetric 2-rank ibv matrix, generated at eval — no runtime discovery.

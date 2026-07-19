@@ -14,6 +14,7 @@ in
       rankEnv = rank.EnvironmentVariables;
       watcherEnv = watcher.EnvironmentVariables;
       rankArgs = rank.ProgramArguments;
+      pkgNames = map (p: p.name or "") hmConfigCluster.config.home.packages;
     in
     assert
       rankEnv.MLX_RANK == "0" || throw "cluster: coordinator must be rank 0, got ${rankEnv.MLX_RANK}";
@@ -71,5 +72,8 @@ in
       agents ? mlx-cluster-prefetch
       && agents.mlx-cluster-prefetch.config.KeepAlive.SuccessfulExit == false
       || throw "cluster: prefetch agent must retry until the download completes";
-    helpers.mkMarker "check-mlx-cluster" "MLX clustered mode: declarative rank env contract, --pipeline serving, watcher wiring, and prefetch retry verified";
+    assert
+      builtins.elem "cluster-join" pkgNames && builtins.elem "cluster-detach" pkgNames
+      || throw "cluster: cluster-join and cluster-detach lifecycle commands must ship in home.packages";
+    helpers.mkMarker "check-mlx-cluster" "MLX clustered mode: declarative rank env contract, --pipeline serving, watcher wiring, prefetch retry, and cluster-join/cluster-detach lifecycle commands verified";
 }
