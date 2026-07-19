@@ -1,4 +1,5 @@
-# cluster-join — one-shot, idempotent cluster bring-up front-end.
+# shellcheck shell=bash
+# cluster-join -- one-shot, idempotent cluster bring-up front-end.
 #
 # The link watcher already owns the mechanics of forming the cluster (kickstart,
 # readiness probe, warm generation). cluster-join is the supervised operator
@@ -41,7 +42,7 @@
 # All launchctl verbs run in the caller's own gui/$uid domain and need no sudo.
 # Link repair uses activation FIRST (idempotent, persistent), then a direct
 # fallback (bridge0 deletem + alias-up on the carrier port). The fallback IS
-# granted: the `ifconfig en[0-9]* up` glob spans the alias form's spaces —
+# granted: the `ifconfig en[0-9]* up` glob spans the alias form's spaces --
 # `ifconfig <port> alias <ip> <mask> up` matches it (verified 2026-07-19 rc=0).
 
 uid="$(id -u)"
@@ -60,7 +61,7 @@ fail() {
 # port that is NOT enslaved in the Thunderbolt bridge (bridge0). Repair is a
 # bounded system activation FIRST (re-runs cluster-link-prep idempotently), and
 # only if that does not restore prep, a direct granted fallback (see
-# repair_link_direct) — both use nothing but the cluster-ops sudoers grants.
+# repair_link_direct) -- both use nothing but the cluster-ops sudoers grants.
 iface_holding_self_ip() {
   /sbin/ifconfig 2>/dev/null | /usr/bin/awk -v ip="$CLUSTER_STATIC_SELF_IP" '
     /^[a-z]/ { dev = $1; sub(/:$/, "", dev) }
@@ -89,7 +90,7 @@ link_prep_ok() {
 }
 
 # Physical Thunderbolt devices (the cable lands on exactly one; the others are
-# uncabled). Same discovery cluster-link-prep uses — never the service order.
+# uncabled). Same discovery cluster-link-prep uses -- never the service order.
 tb_devices() {
   /usr/sbin/networksetup -listallhardwareports \
     | /usr/bin/awk '/^Hardware Port: Thunderbolt [0-9]/{getline; sub(/^Device: /, ""); print}'
@@ -99,7 +100,7 @@ tb_devices() {
 # unrelated activation step, or need a second pass to bring a just-freed port
 # up). Frees every Thunderbolt port from bridge0 and admin-ups it (no address,
 # so no stray route), then aliases this node's link IP on the ONE port that
-# shows carrier — matching link-prep's single-active-port rule so the /24 route
+# shows carrier -- matching link-prep's single-active-port rule so the /24 route
 # cannot bind to an uncabled sibling. Uses only granted verbs
 # (`ifconfig bridge0 deletem *`, `ifconfig en[0-9]* up`; the alias form rides
 # the same space-spanning `en[0-9]* up` grant). Hex netmask avoids a dotted
@@ -164,7 +165,7 @@ Refusing to load a shard over a day-sized ceiling."
   fi
 fi
 
-# --- step 3: coordinator — swap guard, then quiesce day serving -------------
+# --- step 3: coordinator -- swap guard, then quiesce day serving -------------
 swap_used_mb() {
   /usr/sbin/sysctl -n vm.swapusage 2>/dev/null | /usr/bin/sed -n 's/.*used = \([0-9][0-9]*\).*/\1/p'
 }
@@ -236,8 +237,8 @@ if [ "$CLUSTER_ROLE" = "coordinator" ]; then
   # Zero completions from join. The watcher fires exactly ONE warm generation
   # (request #1) as part of bring-up and records success by creating the
   # rank-warmed marker; join CONSUMES that marker instead of issuing its own
-  # probe. Cycle 2 proved a second post-formation request — join's old probe,
-  # request #2 — wedges the pipeline (INC-17070), so the total post-formation
+  # probe. Cycle 2 proved a second post-formation request -- join's old probe,
+  # request #2 -- wedges the pipeline (INC-17070), so the total post-formation
   # request count must be exactly one, issued by exactly one component. Gate on
   # the rank process being up AND the marker present so a stale marker from a
   # prior session (rank not yet restarted) cannot pass early; the watcher clears

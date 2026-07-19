@@ -28,26 +28,38 @@
   # SC1091: Exclude "not following" errors for external sources (can't resolve in Nix sandbox)
   # Excludes zsh scripts (shellcheck only supports sh/bash/dash/ksh)
   # Uses find with -print0 and xargs -0 for robustness with filenames containing spaces and special characters
-  shellcheck = pkgs.runCommand "check-shellcheck" { } ''
-    cd ${src}
-    find . -name "*.sh" -not -path "./.git/*" -not -path "./result/*" -print0 | \
-    xargs -0 bash -c '
-      failed=0
-      for script in "$@"; do
-        # Skip zsh scripts (shellcheck does not support them)
-        if head -1 "$script" | grep -q "zsh"; then
-          echo "Skipping zsh script: $script"
-        else
-          echo "Checking $script..."
-          if ! ${pkgs.lib.getExe pkgs.shellcheck} --severity=warning --exclude=SC1091 "$script"; then
-            failed=1
-          fi
-        fi
-      done
-      exit "$failed"
-    ' bash
-    touch $out
-  '';
+  shellcheck =
+    pkgs.runCommand "check-shellcheck"
+      {
+        # shellcheck's GHC runtime encodes stdout with the process locale's charset;
+        # under the default C/POSIX locale a non-ASCII byte in a reported source line
+        # (e.g. an em-dash in a comment) aborts it with
+        # "commitBuffer: invalid argument (cannot encode character)" instead of
+        # printing the finding. Pin a UTF-8 locale so any script's UTF-8 content is
+        # emitted, not fatal — the check tests scripts, it must not crash on them.
+        LANG = "C.UTF-8";
+        LC_ALL = "C.UTF-8";
+      }
+      ''
+        cd ${src}
+        find . -name "*.sh" -not -path "./.git/*" -not -path "./result/*" -print0 | \
+        xargs -0 bash -c '
+          failed=0
+          for script in "$@"; do
+            # Skip zsh scripts (shellcheck does not support them)
+            if head -1 "$script" | grep -q "zsh"; then
+              echo "Skipping zsh script: $script"
+            else
+              echo "Checking $script..."
+              if ! ${pkgs.lib.getExe pkgs.shellcheck} --severity=warning --exclude=SC1091 "$script"; then
+                failed=1
+              fi
+            fi
+          done
+          exit "$failed"
+        ' bash
+        touch $out
+      '';
 
   # Guard: physical MLX model ids belong only in the runtime registry
   # (services.aiStack.defaultLocalModelId, sourced from AI_MODEL_LOCAL_LLM).

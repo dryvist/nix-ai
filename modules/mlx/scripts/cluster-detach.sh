@@ -1,4 +1,5 @@
-# cluster-detach — the daily safe-unplug front-end over the watcher teardown.
+# shellcheck shell=bash
+# cluster-detach -- the daily safe-unplug front-end over the watcher teardown.
 #
 # Takes the Thunderbolt link admin-down so both watchers observe peer loss and
 # run their up->down teardown (stop rank, clear markers, restore day ceiling and
@@ -57,7 +58,7 @@ fi
 
 # --- wait for the watcher's up->down teardown, verified against live state ---
 # The up->down edge clears these five markers, stops the rank, and restores the
-# day ceiling. Poll until ALL hold (or time out) — never trust the log.
+# day ceiling. Poll until ALL hold (or time out) -- never trust the log.
 markers=(rank-halted rank-kickstarts rank-first-running rank-ready rank-warmed)
 
 markers_clear() {
@@ -78,7 +79,7 @@ ceiling_restored() {
 # its own blocking warm-generation curl and never reach the teardown, so the
 # rank would survive the whole wait. A SIGTERM in our own gui/$uid domain lets
 # MLX release its GPU buffers cleanly (a SIGKILL'd rank leaks its wired shard
-# memory — reboot-only recovery), so try SIGTERM first and escalate only if it
+# memory -- reboot-only recovery), so try SIGTERM first and escalate only if it
 # does not land.
 if ! rank_gone; then
   /bin/launchctl kill SIGTERM "gui/$uid/${CLUSTER_RANK_LABEL}" > /dev/null 2>&1 || true
@@ -110,7 +111,7 @@ ceiling_restored ||
   note_fail "iogpu.wired_limit_mb=$(/usr/sbin/sysctl -n iogpu.wired_limit_mb 2>/dev/null) != day ${CLUSTER_DAY_WIRED_LIMIT_MB:-0}"
 [ "$failed" -eq 0 ] && echo "cluster-detach: teardown verified (markers clear, rank gone, day ceiling restored)"
 
-# --- step 2: coordinator — verify day serving actually came back ------------
+# --- step 2: coordinator -- verify day serving actually came back ------------
 # The watcher restore assumes the day agents are still loaded and silently no-ops
 # otherwise (INC-17071). Ensure the server agent is loaded, (re)kick it and the
 # warmup, then require a REAL completion from the primary resident.
@@ -186,12 +187,12 @@ if [ "$failed" -ne 0 ]; then
   exit 1
 fi
 if [ "${sigkilled_rank:-0}" -eq 1 ]; then
-  echo "cluster-detach: WARNING rank was SIGKILL'd — its wired shard memory likely leaked;" >&2
+  echo "cluster-detach: WARNING rank was SIGKILL'd -- its wired shard memory likely leaked;" >&2
   echo "                reboot this node before the next join (leaked wired -> INC-17076 panic risk)." >&2
   exit 3
 fi
 if [ "$stale_swap" = true ]; then
-  echo "cluster-detach: WARNING stale swap — reboot this node before the next join (or now):" >&2
+  echo "cluster-detach: WARNING stale swap -- reboot this node before the next join (or now):" >&2
   echo "                vm.swapusage used ${used}M > ${swap_threshold}M (INC-17075 spiral risk)" >&2
   exit 3
 fi
