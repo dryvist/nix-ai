@@ -66,16 +66,20 @@ cluster-detach     # -> day serving restored, node safe to unplug/sleep/reboot
 
 ## Local end-to-end testing before the module ships
 
-From this worktree, run the exact packaged wrappers without a system rebuild:
+These are per-host home-manager packages (all `CLUSTER_*` env is baked at eval
+from that host's `programs.mlx.clusterMode`), not flake apps — this flake
+exposes no `apps`/`packages`, so `nix run .#cluster-join` does NOT work. Build
+the exact per-node binary straight from the consuming nix-darwin host config
+with this branch pinned, then run the store path on that node:
 
 ```bash
-nix run .#cluster-join     # or .#cluster-detach
-```
-
-Or build and invoke the store binary directly:
-
-```bash
-nix build .#<clusterJoinPkg-attr> && ./result/bin/cluster-join
+# in the nix-darwin repo; HOST is the coordinator or worker host attr
+nix build --print-out-paths \
+  "$(nix eval --raw ".#darwinConfigurations.$HOST.config.home-manager.users.$USER.home.packages" \
+    --apply 'ps: (builtins.head (builtins.filter (x: (x.name or "") == "cluster-join") ps)).drvPath' \
+    --override-input nix-ai path:/abs/path/to/this/worktree)^*"
+# then run <out>/bin/cluster-join on that node (nix copy the closure to the
+# coordinator if /nix/store is not shared).
 ```
 
 The commands only mutate live state on a host with `clusterMode` enabled and a
@@ -86,14 +90,18 @@ started.
 
 Used by these commands and already granted: exact-value
 `sysctl -w iogpu.wired_limit_mb=<value>`, `/nix/var/nix/profiles/system/activate`,
-and `ifconfig en[0-9]* down`. All `launchctl` verbs run in the caller's own
-`gui/$uid` domain and need no sudo.
+`ifconfig bridge0 deletem *`, and `ifconfig en[0-9]* up` / `en[0-9]* down`. All
+`launchctl` verbs run in the caller's own `gui/$uid` domain and need no sudo.
 
-**Grant gap:** the manual link-prep fallback
-`sudo ifconfig <port> alias <ip> <mask> up` is **not** covered by the fixed-verb
-`ifconfig en[0-9]* up` grant (extra arguments), so `cluster-join` does not run it
-automatically — activation is the granted repair path. Widening the grant to
-cover the alias form would need a nix-darwin `security.nix` change.
+**Link repair is fully granted and auto-run.** `cluster-join` repairs a lost
+link (port re-enslaved in `bridge0` after a reboot) by (1) a bounded
+`activation` pass, then (2) a direct fallback that frees the Thunderbolt ports
+from `bridge0` and aliases the link IP up on the carrier port. The fallback
+`ifconfig <port> alias <ip> <mask> up` **is** covered by the `ifconfig en[0-9]* up`
+grant: the sudoers `*` glob spans the alias form's spaces (verified 2026-07-19,
+rc=0 on both nodes). The bounded activation matters because a full system
+activation can wedge on an unrelated step (observed: a home-manager symlink hung
+on a stale mount), which would otherwise block bring-up indefinitely.
 
 ## Related
 

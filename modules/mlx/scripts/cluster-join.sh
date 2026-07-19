@@ -37,11 +37,13 @@
 #   CLUSTER_QUIESCE_CMD         optional worker-side quiesce hook (run via sh -c)
 #
 # Grants used (nix-darwin sudoers, cluster-ops): exact-value
-# `sysctl -w iogpu.wired_limit_mb=<value>` and `/nix/var/nix/profiles/system/activate`.
+# `sysctl -w iogpu.wired_limit_mb=<value>`, `/nix/var/nix/profiles/system/activate`,
+# `ifconfig bridge0 deletem *`, and `ifconfig en[0-9]* up` / `en[0-9]* down`.
 # All launchctl verbs run in the caller's own gui/$uid domain and need no sudo.
-# GRANT GAP: repair falls back to `sudo ifconfig <port> alias <ip> <mask> up`, which
-# the fixed-verb `ifconfig en[0-9]* up` grant does NOT cover (extra args) — that
-# fallback is documented but not auto-run; activation is the granted repair path.
+# Link repair uses activation FIRST (idempotent, persistent), then a direct
+# fallback (bridge0 deletem + alias-up on the carrier port). The fallback IS
+# granted: the `ifconfig en[0-9]* up` glob spans the alias form's spaces —
+# `ifconfig <port> alias <ip> <mask> up` matches it (verified 2026-07-19 rc=0).
 
 uid="$(id -u)"
 state_dir="$(dirname "$CLUSTER_STATE_FILE")"
@@ -56,9 +58,10 @@ fail() {
 
 # --- step 1: verify/repair link prep on THIS node --------------------------
 # Prep is healthy when the node's own static link IP is aliased on a physical
-# port that is NOT enslaved in the Thunderbolt bridge (bridge0). The designed,
-# granted repair is a full system activation, which re-runs cluster-link-prep
-# idempotently (bridge0 detach + port alias) — never a hand-rolled reconfig.
+# port that is NOT enslaved in the Thunderbolt bridge (bridge0). Repair is a
+# bounded system activation FIRST (re-runs cluster-link-prep idempotently), and
+# only if that does not restore prep, a direct granted fallback (see
+# repair_link_direct) — both use nothing but the cluster-ops sudoers grants.
 iface_holding_self_ip() {
   /sbin/ifconfig 2>/dev/null | /usr/bin/awk -v ip="$CLUSTER_STATIC_SELF_IP" '
     /^[a-z]/ { dev = $1; sub(/:$/, "", dev) }
@@ -78,15 +81,60 @@ link_prep_ok() {
   return 0
 }
 
+# Physical Thunderbolt devices (the cable lands on exactly one; the others are
+# uncabled). Same discovery cluster-link-prep uses — never the service order.
+tb_devices() {
+  /usr/sbin/networksetup -listallhardwareports \
+    | /usr/bin/awk '/^Hardware Port: Thunderbolt [0-9]/{getline; sub(/^Device: /, ""); print}'
+}
+
+# Direct, granted link repair for when activation cannot (it can hang on an
+# unrelated activation step, or need a second pass to bring a just-freed port
+# up). Frees every Thunderbolt port from bridge0 and admin-ups it (no address,
+# so no stray route), then aliases this node's link IP on the ONE port that
+# shows carrier — matching link-prep's single-active-port rule so the /24 route
+# cannot bind to an uncabled sibling. Uses only granted verbs
+# (`ifconfig bridge0 deletem *`, `ifconfig en[0-9]* up`; the alias form rides
+# the same space-spanning `en[0-9]* up` grant). Hex netmask avoids a dotted
+# quad in a public repo.
+repair_link_direct() {
+  local dev active=""
+  while IFS= read -r dev; do
+    [ -n "$dev" ] || continue
+    if /sbin/ifconfig bridge0 2>/dev/null | grep -q "member: $dev "; then
+      sudo -n /sbin/ifconfig bridge0 deletem "$dev" > /dev/null 2>&1 || true
+    fi
+    sudo -n /sbin/ifconfig "$dev" up > /dev/null 2>&1 || true
+  done < <(tb_devices)
+  # carrier can take a moment after admin-up; retry briefly.
+  for _ in 1 2 3 4 5; do
+    active="$(tb_devices | while IFS= read -r dev; do
+      case "$(/sbin/ifconfig "$dev" 2>/dev/null)" in
+        *"status: active"*) echo "$dev"; break ;;
+      esac
+    done)"
+    [ -n "$active" ] && break
+    sleep 2
+  done
+  [ -n "$active" ] || return 1
+  sudo -n /sbin/ifconfig "$active" alias "$CLUSTER_STATIC_SELF_IP" 0xffffff00 up > /dev/null 2>&1 || true
+}
+
 if link_prep_ok; then
   echo "cluster-join: link prep OK ($CLUSTER_STATIC_SELF_IP on $(iface_holding_self_ip))"
 else
   echo "cluster-join: link prep missing ($CLUSTER_STATIC_SELF_IP not aliased on a free port); repairing via activation"
-  sudo -n /nix/var/nix/profiles/system/activate > /dev/null 2>&1 || true
+  # Bound the activation: a full system activation can wedge on an unrelated
+  # step (observed 2026-07-19: a home-manager symlink hung on a stale mount),
+  # which must not block cluster bring-up forever.
+  timeout 150 sudo -n /nix/var/nix/profiles/system/activate > /dev/null 2>&1 || true
   if ! link_prep_ok; then
-    fail "link prep still broken after activation. Is the Thunderbolt cable seated? \
-Manual fallback (NOT covered by current sudoers, needs a widened ifconfig grant): \
-sudo ifconfig <port> alias $CLUSTER_STATIC_SELF_IP <mask> up"
+    echo "cluster-join: activation did not restore link prep; trying direct granted repair"
+    repair_link_direct || true
+  fi
+  if ! link_prep_ok; then
+    fail "link prep still broken after activation and direct repair. Is the Thunderbolt cable seated? \
+Expected $CLUSTER_STATIC_SELF_IP aliased on a carrier-active Thunderbolt port outside bridge0."
   fi
   echo "cluster-join: link prep repaired ($CLUSTER_STATIC_SELF_IP on $(iface_holding_self_ip))"
 fi
