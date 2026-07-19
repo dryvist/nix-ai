@@ -19,14 +19,34 @@ let
   # The LaunchAgent needs a Nix store path (not a PATH lookup), so the
   # derivation lives here. Also added to home.packages for CLI access.
   #
-  # mlx + mlx-lm are pinned together as a lockstep pair (see lib/versions.nix).
-  # Pin mlx and transformers together with vllm-mlx; see lib/versions.nix for
-  # the compatibility history behind these versions.
+  # MLX-driven version set: core MLX is the primary driver of every version
+  # below (python, mlx, mlx-lm, transformers). One set, updated together and
+  # deliberately from MLX's official install matrix.
+  # Python rule: MLX supports Python 3.10 or newer with no stated upper bound.
+  # Following the stay-latest-within-MLX principle, pick the newest CPython minor
+  # for which the pinned mlx version publishes a wheel. mlx ${versions.mlx} ships
+  # cp310 through cp314, so the pin is 3.14 (cp314 GPU import validated
+  # 2026-07-19). Bump mechanically when mlx adds a newer cp wheel tag.
+  # mlx and mlx-lm are a lockstep pair; transformers is pinned for mlx-lm import
+  # compatibility (history in lib/versions.nix).
+  # These pins are renovate-excluded on purpose: an unpinned bump can split the
+  # set and desync the two cluster nodes. The exclusions live in the renovate
+  # config, landed separately by the ceiling-fix work; do not float any member.
   mlxPin = "mlx==${versions.mlx}";
   mlxLmPin = "mlx-lm==${versions.mlxLm}";
   transformersPin = "transformers==${versions.transformers}";
+
+  # Single source for the CPython minor every uvx invocation in this module
+  # resolves. Why it exists: the cluster rank runs uvx on BOTH the coordinator
+  # and the worker; with no `--python`, uv resolved a different CPython build per
+  # node, so the two ranks loaded mismatched mlx ABIs and failed to rendezvous.
+  # Pin every module uvx call to this one version so both nodes match. Sourced
+  # from lib/python.nix so there is exactly one declaration (no per-host, no
+  # per-invocation value). Value and bump rule: see the MLX-driven set above.
+  uvPythonVersion = (import ../../lib/python.nix { inherit pkgs; }).pythonVersion;
+
   vllmMlxPkg = pkgs.writeShellScriptBin "vllm-mlx" ''
-    exec ${pkgs.uv}/bin/uvx --from "vllm-mlx==${vllmMlxVersion}" --with "${mlxPin}" --with "${mlxLmPin}" --with "${transformersPin}" vllm-mlx "$@"
+    exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} --from "vllm-mlx==${vllmMlxVersion}" --with "${mlxPin}" --with "${mlxLmPin}" --with "${transformersPin}" vllm-mlx "$@"
   '';
   mlxWarmupPkg = pkgs.writeShellScriptBin "mlx-warmup" ''
     exec ${pkgs.python3}/bin/python3 ${./scripts/mlx-warmup.py} "$@"
@@ -220,6 +240,7 @@ in
     ./options-filters.nix
     ./options-parsers.nix
     ./options-runtime.nix
+    ./options-cluster.nix
     ./packages.nix
     ./launchd.nix
     ./cluster-mode.nix
@@ -237,6 +258,7 @@ in
       parakeetMlxVersion
       mlxVlmVersion
       apiUrl
+      uvPythonVersion
       launchAgentLabel
       warmupAgentLabel
       llamaSwapPkg

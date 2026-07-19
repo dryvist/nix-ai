@@ -15,16 +15,7 @@ model:
   max_tokens: 2048
   json_mode: true
 
-system_prompt: |
-  You are a data extraction specialist. Extract structured information
-  from the provided text and return it as valid JSON matching the
-  requested schema.
-
-  Rules:
-  - Return ONLY valid JSON
-  - Use null for missing fields, never fabricate data
-  - Normalize dates to ISO 8601 format
-  - Normalize names to Title Case
+system_prompt_resource: prompt://dryvist/applications/nix-ai-structured-extract-example
 
 output_format: json
 

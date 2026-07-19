@@ -46,12 +46,6 @@ let
       ;
   };
 
-  # GitHub CLI extensions
-  ghExtensions = import ./gh-extensions {
-    inherit pkgs lib;
-    inherit (pkgs) fetchFromGitHub;
-  };
-
   versions = import ../lib/versions.nix;
   browserUseVersion = versions.browserUse;
 
@@ -190,9 +184,6 @@ in
       # Bleeding-edge Claude Code at ~/.local/bin/claude via the upstream
       # opt-in module (nix-claude-code owns programs.claude.latest).
       claude.latest.enable = true;
-
-      # GitHub CLI extension for AI workflows
-      gh.extensions = [ ghExtensions.gh-aw ];
     };
   };
 }

@@ -6,14 +6,14 @@ nodes:
     config:
       model: "mlx-community/Qwen3.5-35B-A3B-4bit"
       endpoint: "http://localhost:11434/v1"
-      system_prompt: "You are a code reviewer. Analyze the diff and identify issues."
+      system_prompt_resource: prompt://dryvist/applications/nix-ai-code-review-analysis-example
     description: "Analyze code diff for issues"
   - name: categorize_issues
     type: llm_call
     config:
       model: "mlx-community/Qwen3.5-35B-A3B-4bit"
       endpoint: "http://localhost:11434/v1"
-      system_prompt: "Categorize the identified issues by severity: critical, warning, info."
+      system_prompt_resource: prompt://dryvist/applications/nix-ai-code-review-categorization-example
     description: "Categorize issues by severity"
   - name: check_critical
     type: conditional

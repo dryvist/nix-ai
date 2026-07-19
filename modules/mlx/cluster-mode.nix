@@ -31,7 +31,13 @@
   ...
 }:
 let
-  inherit (mlxShared) cfg warmupAgentLabel;
+  inherit (mlxShared)
+    cfg
+    warmupAgentLabel
+    launchAgentLabel
+    apiUrl
+    uvPythonVersion
+    ;
   ncfg = cfg.clusterMode;
   versions = import ../../lib/versions.nix;
 
@@ -40,12 +46,18 @@ let
   logDir = "${config.home.homeDirectory}/Library/Logs/mlx-cluster";
   stateFile = "${config.home.homeDirectory}/Library/Application Support/mlx-cluster/link-state";
   ibvMatrixFile = "${config.home.homeDirectory}/.config/mlx-cluster/ibv-matrix.json";
+  launchAgentsDir = "${config.home.homeDirectory}/Library/LaunchAgents";
 
   isCoordinator = ncfg.role == "coordinator";
   staticPeerIp = if isCoordinator then ncfg.staticLinkIps.worker else ncfg.staticLinkIps.coordinator;
+  staticSelfIp = if isCoordinator then ncfg.staticLinkIps.coordinator else ncfg.staticLinkIps.worker;
 
   clusterRankArgs = [
     "${pkgs.uv}/bin/uvx"
+    # Pin the CPython minor so the coordinator and worker ranks resolve the same
+    # mlx ABI (single-source uvPythonVersion; see modules/mlx/default.nix).
+    "--python"
+    uvPythonVersion
     "--from"
     "mlx-lm==${versions.mlxLm}"
     # mlx + mlx-lm are a lockstep pair (lib/versions.nix): pin mlx explicitly
@@ -71,41 +83,86 @@ let
     runtimeInputs = [ pkgs.curl ];
     text = builtins.readFile ./scripts/cluster-link-watcher.sh;
   };
+
+  # Lifecycle commands (cluster-join / cluster-detach): supervised, verifiable
+  # front-ends over the watcher's already-designed teardown/bring-up. The whole
+  # CLUSTER_* env contract is baked at eval (mirrors the watcher agent) so the
+  # commands need no shell environment and behave identically on both nodes.
+  # System binaries (launchctl, ifconfig, ping, sysctl, sudo, pgrep) are called
+  # by absolute path — only curl/jq/coreutils ride the sanitized PATH.
+  mkClusterCli =
+    name: scriptFile: env:
+    pkgs.writeShellApplication {
+      inherit name;
+      runtimeInputs = with pkgs; [
+        curl
+        jq
+        coreutils
+      ];
+      text = lib.concatStringsSep "\n" (
+        lib.mapAttrsToList (k: v: "export ${k}=${lib.escapeShellArg v}") env
+        ++ [ (builtins.readFile scriptFile) ]
+      );
+    };
+
+  # Env common to both commands and both roles.
+  clusterCommonEnv = {
+    CLUSTER_ROLE = ncfg.role;
+    CLUSTER_STATIC_SELF_IP = staticSelfIp;
+    CLUSTER_STATIC_PEER_IP = staticPeerIp;
+    CLUSTER_RANK_LABEL = rankLabel;
+    CLUSTER_WATCHER_LABEL = watcherLabel;
+    CLUSTER_WATCHER_PLIST = "${launchAgentsDir}/${watcherLabel}.plist";
+    CLUSTER_STATE_FILE = stateFile;
+    CLUSTER_DAY_WIRED_LIMIT_MB = toString ncfg.dayWiredLimitMb;
+  }
+  // lib.optionalAttrs (ncfg.wiredLimitMb != null) {
+    CLUSTER_WIRED_LIMIT_MB = toString ncfg.wiredLimitMb;
+  };
+
+  clusterJoinEnv =
+    clusterCommonEnv
+    // {
+      CLUSTER_JOIN_SWAP_THRESHOLD_MB = toString ncfg.joinSwapThresholdMb;
+      CLUSTER_JOIN_TIMEOUT_SECS = toString ncfg.joinTimeoutSecs;
+      CLUSTER_QUIESCE_GRACE_SECS = toString ncfg.quiesceGraceSecs;
+      CLUSTER_WORKER_STABLE_SECS = toString ncfg.workerStableSecs;
+    }
+    // lib.optionalAttrs isCoordinator {
+      # join consumes the watcher's rank-warmed marker (zero completions issued
+      # by join itself — INC-17070), so it needs no cluster endpoint URL/model.
+      CLUSTER_NORMAL_PROXY = "http://127.0.0.1:${toString cfg.port}";
+      CLUSTER_SERVER_LABEL = launchAgentLabel;
+      CLUSTER_WARMUP_LABEL = warmupAgentLabel;
+    }
+    // lib.optionalAttrs (!isCoordinator && ncfg.quiesceCommand != null) {
+      CLUSTER_QUIESCE_CMD = ncfg.quiesceCommand;
+    };
+
+  clusterDetachEnv =
+    clusterCommonEnv
+    // {
+      CLUSTER_DETACH_SWAP_THRESHOLD_MB = toString ncfg.detachSwapThresholdMb;
+      CLUSTER_DETACH_TIMEOUT_SECS = toString ncfg.detachTimeoutSecs;
+    }
+    // lib.optionalAttrs isCoordinator {
+      CLUSTER_SERVER_LABEL = launchAgentLabel;
+      CLUSTER_SERVER_PLIST = "${launchAgentsDir}/${launchAgentLabel}.plist";
+      CLUSTER_WARMUP_LABEL = warmupAgentLabel;
+      CLUSTER_DAY_PROBE_URL = apiUrl;
+      CLUSTER_DAY_PROBE_MODEL = cfg.defaultModel;
+    };
+
+  clusterJoinPkg = mkClusterCli "cluster-join" ./scripts/cluster-join.sh clusterJoinEnv;
+  clusterDetachPkg = mkClusterCli "cluster-detach" ./scripts/cluster-detach.sh clusterDetachEnv;
 in
 {
+  # Clustered-mode option DECLARATIONS live in ./options-cluster.nix (split out
+  # for the per-file size cap; option paths are unchanged — the module system
+  # merges them with the staticLinkIps option below and the config block).
+  # staticLinkIps stays here so the synthetic point-to-point link defaults sit
+  # beside the config that consumes them.
   options.programs.mlx.clusterMode = {
-    enable = lib.mkEnableOption "two-Mac JACCL clustered mode (mlx-lm pipeline-parallel serving)";
-
-    role = lib.mkOption {
-      type = lib.types.enum [
-        "coordinator"
-        "worker"
-      ];
-      description = "coordinator = rank 0, binds the cluster HTTP endpoint; worker = rank 1.";
-    };
-
-    model = lib.mkOption {
-      type = lib.types.str;
-      default = "mlx-community/GLM-4.7-4bit";
-      description = ''
-        HuggingFace id of the cluster model. Must use an architecture with
-        distributed support in the pinned mlx-lm (glm4_moe: pipeline).
-        198 GB weights split across both ranks via --pipeline.
-      '';
-    };
-
-    httpPort = lib.mkOption {
-      type = lib.types.port;
-      default = 11440;
-      description = "Cluster endpoint port on the coordinator (loopback; exposed via the host's gateway).";
-    };
-
-    rendezvousPort = lib.mkOption {
-      type = lib.types.port;
-      default = 11441;
-      description = "JACCL coordinator rendezvous port (MLX_JACCL_COORDINATOR).";
-    };
-
     staticLinkIps = lib.mkOption {
       type = lib.types.attrsOf lib.types.str;
       default = {
@@ -117,85 +174,6 @@ in
         worker = "192.168.208.2";
       };
       description = "Link addresses of the two cable ends (pinned on the Thunderbolt ports by nix-darwin at activation).";
-    };
-
-    maxKickstarts = lib.mkOption {
-      type = lib.types.int;
-      default = 3;
-      description = ''
-        Consecutive failed rank starts before the watcher halts kickstarts
-        and pages once. Every failed distributed init leaks a kernel RDMA
-        Protection Domain and exhaustion is reboot-only (ml-explore/mlx#3207),
-        so an unbounded crash loop forces a reboot.
-      '';
-    };
-
-    alertUrlFile = lib.mkOption {
-      type = lib.types.str;
-      default = "${config.home.homeDirectory}/.config/mlx-cluster/alert-url";
-      description = ''
-        Untracked local file holding the notification URL (ntfy-style POST
-        target) for the halt page. The URL names internal topology, so it is
-        seeded out-of-band and never committed. Missing file = no page.
-      '';
-    };
-
-    rdmaDevice = lib.mkOption {
-      type = lib.types.str;
-      default = "rdma_en2";
-      description = ''
-        RDMA device name for the MLX_IBV_DEVICES matrix (see `ibv_devices`).
-        Port-dependent: validate on the first plug session and override per
-        host if the cable lands on a different port.
-      '';
-    };
-
-    wiredLimitMb = lib.mkOption {
-      type = lib.types.nullOr lib.types.int;
-      default = null;
-      example = 90000;
-      description = ''
-        iogpu.wired_limit_mb the watcher applies (sudo, exact-value grant
-        from nix-darwin clusterLinkPrep) before starting the rank — sized for
-        this node's pipeline shard, leaving the GUI working set unwirable.
-        null = never touch the sysctl. When set, a failed apply SKIPS the
-        rank start: serving a shard over a day-sized ceiling is the
-        2026-07-12 dual-host panic.
-      '';
-    };
-
-    dayWiredLimitMb = lib.mkOption {
-      type = lib.types.int;
-      default = 0;
-      description = ''
-        iogpu.wired_limit_mb the watcher restores at link-down (0 = macOS
-        default ceiling). Must equal the value nix-darwin grants
-        (appleSiliconTunables.wiredLimitMb, else 0).
-      '';
-    };
-
-    extraServerArgs = lib.mkOption {
-      type = lib.types.listOf lib.types.str;
-      default = [ ];
-      description = "Extra mlx_lm.server args for the cluster rank.";
-    };
-
-    prefetch = lib.mkOption {
-      type = lib.types.bool;
-      default = true;
-      description = "Idempotently download the cluster model at agent load (retries until complete).";
-    };
-
-    quiesceCommand = lib.mkOption {
-      type = lib.types.nullOr lib.types.str;
-      default = null;
-      description = "Worker-side hook run at link-up before the rank starts (e.g. the cluster-quiesce allowlist sweep).";
-    };
-
-    restoreCommand = lib.mkOption {
-      type = lib.types.nullOr lib.types.str;
-      default = null;
-      description = "Worker-side hook run at link-down after the rank stops.";
     };
   };
 
@@ -209,6 +187,13 @@ in
         assertion = ncfg.httpPort != ncfg.rendezvousPort;
         message = "programs.mlx.clusterMode: httpPort and rendezvousPort must differ or the service cannot bind.";
       }
+    ];
+
+    # Lifecycle commands on PATH on both nodes (one-click cluster bring-up /
+    # safe-unplug over the watcher). Shipped only when clusterMode is enabled.
+    home.packages = [
+      clusterJoinPkg
+      clusterDetachPkg
     ];
 
     # Symmetric 2-rank ibv matrix, generated at eval — no runtime discovery.

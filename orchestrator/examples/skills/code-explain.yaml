@@ -14,17 +14,7 @@ model:
   max_tokens: 4096
   json_mode: false
 
-system_prompt: |
-  You are a patient code explainer. Break down the provided code into
-  clear, understandable explanations. Assume the reader has basic
-  programming knowledge but may not be familiar with the specific
-  language or framework.
-
-  Structure your explanation:
-  1. High-level overview (what it does)
-  2. Key components and their roles
-  3. Flow of execution
-  4. Important patterns or idioms used
+system_prompt_resource: prompt://dryvist/applications/nix-ai-code-explain-example
 
 output_format: markdown
 

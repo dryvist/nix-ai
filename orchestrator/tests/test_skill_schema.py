@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import MagicMock, patch
+
 import pytest
 import yaml
 from pydantic import ValidationError
@@ -123,6 +125,20 @@ class TestSystemPromptResolution:
         )
         with pytest.raises(FileNotFoundError):
             skill.resolve_system_prompt(tmp_path)
+
+    @patch("orchestrator.skill_schema.load_prompt_resource")
+    def test_catalog_prompt(self, mock_load_prompt: MagicMock):
+        mock_load_prompt.return_value = "Canonical prompt."
+        skill = SkillDefinition(
+            name="test",
+            description="test",
+            system_prompt_resource="prompt://dryvist/applications/test",
+        )
+
+        assert skill.resolve_system_prompt(Path(".")) == "Canonical prompt."
+        mock_load_prompt.assert_called_once_with(
+            "prompt://dryvist/applications/test",
+        )
 
 
 class TestLoadSkill:

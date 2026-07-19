@@ -15,6 +15,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 from orchestrator.common import load_yaml_file
+from orchestrator.prompts import load_prompt_resource
 
 _DEFAULT_MODEL = os.environ.get("MLX_DEFAULT_MODEL", "default")
 
@@ -131,6 +132,10 @@ class SkillDefinition(BaseModel):
         default=None,
         description="Path to external system prompt file (relative to skill YAML)",
     )
+    system_prompt_resource: str | None = Field(
+        default=None,
+        description="Canonical prompt://dryvist resource provided by the Nix prompt catalog",
+    )
 
     tools: list[ToolDefinition] = Field(
         default_factory=list,
@@ -158,6 +163,8 @@ class SkillDefinition(BaseModel):
 
     def resolve_system_prompt(self, base_dir: Path) -> str:
         """Resolve the system prompt, loading from file if specified."""
+        if self.system_prompt_resource:
+            return load_prompt_resource(self.system_prompt_resource)
         if self.system_prompt_file:
             prompt_path = base_dir / self.system_prompt_file
             if prompt_path.exists():
