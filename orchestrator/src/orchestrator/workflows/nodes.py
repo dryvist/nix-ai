@@ -65,8 +65,8 @@ def _make_llm_call_node(
     model = cfg.get("model", "mlx-community/Qwen3.5-35B-A3B-4bit")
     system_prompt = cfg.get("system_prompt")
     if system_prompt is None:
-        prompt_resource = cfg.get(
-            "system_prompt_resource", DEFAULT_SYSTEM_PROMPT_RESOURCE,
+        prompt_resource = (
+            cfg.get("system_prompt_resource") or DEFAULT_SYSTEM_PROMPT_RESOURCE
         )
         system_prompt = load_prompt_resource(prompt_resource)
     temperature = float(cfg.get("temperature", 0.7))
