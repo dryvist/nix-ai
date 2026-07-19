@@ -75,7 +75,7 @@ link_prep_ok() {
   [ -n "$dev" ] || return 1
   [ "$dev" = "bridge0" ] && return 1
   # port must not be a bridge0 member (re-enslavement is the classic prep loss)
-  if /sbin/ifconfig bridge0 2>/dev/null | grep -qw "member: $dev"; then
+  if /sbin/ifconfig bridge0 2>/dev/null | /usr/bin/grep -qw "member: $dev"; then
     return 1
   fi
   # port must have carrier: cluster-detach admin-downs the link but leaves the
@@ -109,7 +109,7 @@ repair_link_direct() {
   local dev active=""
   while IFS= read -r dev; do
     [ -n "$dev" ] || continue
-    if /sbin/ifconfig bridge0 2>/dev/null | grep -q "member: $dev "; then
+    if /sbin/ifconfig bridge0 2>/dev/null | /usr/bin/grep -qw "member: $dev"; then
       sudo -n /sbin/ifconfig bridge0 deletem "$dev" > /dev/null 2>&1 || true
     fi
     sudo -n /sbin/ifconfig "$dev" up > /dev/null 2>&1 || true
@@ -264,7 +264,7 @@ else
   running_since=0
   stable_ok=false
   while [ "$(date +%s)" -lt "$deadline" ]; do
-    if /bin/launchctl print "gui/$uid/${CLUSTER_RANK_LABEL}" 2> /dev/null | grep -q "state = running" &&
+    if /bin/launchctl print "gui/$uid/${CLUSTER_RANK_LABEL}" 2> /dev/null | /usr/bin/grep -q "state = running" &&
       /usr/bin/pgrep -f 'mlx_lm.server' > /dev/null 2>&1; then
       [ "$running_since" -eq 0 ] && running_since="$(date +%s)"
       if [ $(($(date +%s) - running_since)) -ge "$stable" ]; then
