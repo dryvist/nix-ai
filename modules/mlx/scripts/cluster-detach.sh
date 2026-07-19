@@ -24,8 +24,9 @@
 # Grants used (nix-darwin sudoers, cluster-ops): `ifconfig en[0-9]* down` to drop
 # the link. launchctl verbs run in the caller's own gui/$uid domain (no sudo).
 #
-# Exit codes: 0 = OK; 3 = OK but stale swap (reboot before next join); 1 = a
-# postcondition failed.
+# Exit codes: 0 = OK; 3 = OK but reboot recommended before the next join (stale
+# swap, or the rank had to be SIGKILL'd and its wired shard memory likely
+# leaked); 1 = a postcondition failed.
 
 uid="$(id -u)"
 state_dir="$(dirname "$CLUSTER_STATE_FILE")"
@@ -72,6 +73,17 @@ ceiling_restored() {
   [ "$(/usr/sbin/sysctl -n iogpu.wired_limit_mb 2>/dev/null || echo '')" = "${CLUSTER_DAY_WIRED_LIMIT_MB:-0}" ]
 }
 
+# Stop the rank directly, not only via the watcher. The watcher's up->down
+# teardown stops the rank, but on a DEADLOCKED rank the watcher can be stuck in
+# its own blocking warm-generation curl and never reach the teardown, so the
+# rank would survive the whole wait. A SIGTERM in our own gui/$uid domain lets
+# MLX release its GPU buffers cleanly (a SIGKILL'd rank leaks its wired shard
+# memory — reboot-only recovery), so try SIGTERM first and escalate only if it
+# does not land.
+if ! rank_gone; then
+  /bin/launchctl kill SIGTERM "gui/$uid/${CLUSTER_RANK_LABEL}" > /dev/null 2>&1 || true
+fi
+
 echo "cluster-detach: waiting up to ${timeout}s for the watcher teardown"
 deadline=$(($(date +%s) + timeout))
 while [ "$(date +%s)" -lt "$deadline" ]; do
@@ -80,6 +92,17 @@ while [ "$(date +%s)" -lt "$deadline" ]; do
   fi
   sleep 5
 done
+
+# Last resort: a rank still up here ignored SIGTERM (deep native/RDMA wedge).
+# SIGKILL it so the node is at least serving-safe, but warn that its wired shard
+# memory likely leaked and the node needs a reboot before the next join.
+if ! rank_gone; then
+  echo "cluster-detach: rank ignored SIGTERM; escalating to SIGKILL (wired shard memory may leak)" >&2
+  /bin/launchctl kill SIGKILL "gui/$uid/${CLUSTER_RANK_LABEL}" > /dev/null 2>&1 || true
+  /usr/bin/pkill -9 -f 'mlx_lm.server' > /dev/null 2>&1 || true
+  sleep 3
+  rank_gone && sigkilled_rank=1
+fi
 
 markers_clear || note_fail "PD-guard/readiness markers still present in $state_dir"
 rank_gone || note_fail "mlx_lm.server rank process still running"
@@ -161,6 +184,11 @@ echo "======================================================================"
 
 if [ "$failed" -ne 0 ]; then
   exit 1
+fi
+if [ "${sigkilled_rank:-0}" -eq 1 ]; then
+  echo "cluster-detach: WARNING rank was SIGKILL'd — its wired shard memory likely leaked;" >&2
+  echo "                reboot this node before the next join (leaked wired -> INC-17076 panic risk)." >&2
+  exit 3
 fi
 if [ "$stale_swap" = true ]; then
   echo "cluster-detach: WARNING stale swap — reboot this node before the next join (or now):" >&2
