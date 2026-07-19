@@ -13,7 +13,7 @@
   ...
 }:
 let
-  inherit (mlxShared) cfg;
+  inherit (mlxShared) cfg uvPythonVersion;
   ncfg = cfg.clusterMode;
   versions = import ../../lib/versions.nix;
   logDir = "${config.home.homeDirectory}/Library/Logs/mlx-cluster";
@@ -30,6 +30,9 @@ in
             Label = "dev.mlx-cluster.prefetch";
             ProgramArguments = [
               "${pkgs.uv}/bin/uvx"
+              # Single-source CPython pin (see modules/mlx/default.nix).
+              "--python"
+              uvPythonVersion
               "--from"
               "huggingface-hub==${versions.huggingfaceHub}"
               "hf"
