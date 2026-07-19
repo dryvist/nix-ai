@@ -40,7 +40,7 @@ def load_prompt_resource(resource: str) -> str:
 
     prompt_path = Path(prompt_dir) / f"{resource_name}.md"
     try:
-        content = prompt_path.read_text()
+        content = prompt_path.read_text(encoding="utf-8")
     except FileNotFoundError:
         msg = f"Prompt resource not found: {resource} ({prompt_path})"
         raise FileNotFoundError(msg) from None
