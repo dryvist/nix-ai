@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.2.0](https://github.com/dryvist/nix-ai/compare/v2.1.0...v2.2.0) (2026-07-19)
+
+
+### Features
+
+* **mlx:** cluster-join/cluster-detach lifecycle commands ([#1285](https://github.com/dryvist/nix-ai/issues/1285)) ([0eb0294](https://github.com/dryvist/nix-ai/commit/0eb0294f422648aa353e0107d68eb43ab3982553))
+
+
+### Bug Fixes
+
+* **mlx:** grep absolute paths + orchestrator robustness nits ([#1288](https://github.com/dryvist/nix-ai/issues/1288)) ([b7f3484](https://github.com/dryvist/nix-ai/commit/b7f34841f447dffb2c7fce2caafa4555c1168423))
+
 ## [2.1.0](https://github.com/dryvist/nix-ai/compare/v2.0.4...v2.1.0) (2026-07-18)
 
 
