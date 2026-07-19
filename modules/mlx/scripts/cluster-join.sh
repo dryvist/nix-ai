@@ -30,9 +30,8 @@
 #   CLUSTER_NORMAL_PROXY        normal-mode llama-swap base URL (graceful unload)
 #   CLUSTER_SERVER_LABEL        normal-mode server (llama-swap) launchd label
 #   CLUSTER_WARMUP_LABEL        normal-mode warmup one-shot launchd label
-#   CLUSTER_HTTP_PORT           cluster endpoint port to readiness-probe
-#   CLUSTER_RANK_URL            cluster rank OpenAI base URL (real-generation probe)
-#   CLUSTER_MODEL               cluster model id sent in the generation request
+#   (join consumes the watcher's rank-warmed marker; it issues NO completion of
+#    its own, so it needs no cluster endpoint URL or model id)
 #   worker only:
 #   CLUSTER_QUIESCE_CMD         optional worker-side quiesce hook (run via sh -c)
 #
@@ -234,22 +233,29 @@ deadline=$(($(date +%s) + timeout))
 rank_pid() { /usr/bin/pgrep -f 'mlx_lm.server' 2> /dev/null | head -n1; }
 
 if [ "$CLUSTER_ROLE" = "coordinator" ]; then
-  echo "cluster-join: waiting up to ${timeout}s for a real generation on $CLUSTER_RANK_URL"
-  gen_ok=false
+  # Zero completions from join. The watcher fires exactly ONE warm generation
+  # (request #1) as part of bring-up and records success by creating the
+  # rank-warmed marker; join CONSUMES that marker instead of issuing its own
+  # probe. Cycle 2 proved a second post-formation request — join's old probe,
+  # request #2 — wedges the pipeline (INC-17070), so the total post-formation
+  # request count must be exactly one, issued by exactly one component. Gate on
+  # the rank process being up AND the marker present so a stale marker from a
+  # prior session (rank not yet restarted) cannot pass early; the watcher clears
+  # rank-warmed on every (re)start, so a fresh formation only trips this once its
+  # own warm generation lands.
+  warm_marker="$state_dir/rank-warmed"
+  echo "cluster-join: waiting up to ${timeout}s for the watcher warm generation (rank-warmed)"
+  warm_ok=false
   while [ "$(date +%s)" -lt "$deadline" ]; do
-    body="$(curl -fsS -m 120 -X POST "${CLUSTER_RANK_URL}/v1/chat/completions" \
-      -H 'Content-Type: application/json' \
-      -d "$(jq -nc --arg m "${CLUSTER_MODEL:-}" \
-        '{model:$m,messages:[{role:"user",content:"cluster-join readiness check: reply ok"}],max_tokens:16,stream:false,temperature:0}')" \
-      2> /dev/null)" || { sleep 10; continue; }
-    if jq -e '((.choices[0].message.content // "") | length) > 0' > /dev/null 2>&1 <<< "$body"; then
-      gen_ok=true
+    if /usr/bin/pgrep -f 'mlx_lm.server' > /dev/null 2>&1 && [ -e "$warm_marker" ]; then
+      warm_ok=true
       break
     fi
-    sleep 10
+    sleep 5
   done
-  "$gen_ok" || fail "no real generation from the cluster endpoint within ${timeout}s"
-  echo "cluster-join: cluster generated tokens through $CLUSTER_RANK_URL"
+  "$warm_ok" || fail "watcher warm generation did not complete within ${timeout}s \
+(rank-warmed marker absent); cluster not serving. join issues no probe of its own by design."
+  echo "cluster-join: watcher warm generation confirmed (rank-warmed present); join issued no completion"
 else
   # Worker has no endpoint: require the rank process running and STABLE.
   stable="${CLUSTER_WORKER_STABLE_SECS:-60}"
@@ -282,7 +288,7 @@ echo "  link       : $CLUSTER_STATIC_SELF_IP on $(iface_holding_self_ip) (peer $
 echo "  wired ceil : iogpu.wired_limit_mb=$ceiling"
 echo "  rank pid   : ${rp:-none}"
 if [ "$CLUSTER_ROLE" = "coordinator" ]; then
-  echo "  generation : ok (tokens returned through $CLUSTER_RANK_URL)"
+  echo "  generation : ok (watcher warm-gen consumed; rank-warmed present, no probe by join)"
 else
   echo "  generation : n/a (worker rank stable)"
 fi

@@ -36,6 +36,7 @@ let
     warmupAgentLabel
     launchAgentLabel
     apiUrl
+    uvPythonVersion
     ;
   ncfg = cfg.clusterMode;
   versions = import ../../lib/versions.nix;
@@ -53,6 +54,10 @@ let
 
   clusterRankArgs = [
     "${pkgs.uv}/bin/uvx"
+    # Pin the CPython minor so the coordinator and worker ranks resolve the same
+    # mlx ABI (single-source uvPythonVersion; see modules/mlx/default.nix).
+    "--python"
+    uvPythonVersion
     "--from"
     "mlx-lm==${versions.mlxLm}"
     # mlx + mlx-lm are a lockstep pair (lib/versions.nix): pin mlx explicitly
@@ -124,12 +129,11 @@ let
       CLUSTER_WORKER_STABLE_SECS = toString ncfg.workerStableSecs;
     }
     // lib.optionalAttrs isCoordinator {
+      # join consumes the watcher's rank-warmed marker (zero completions issued
+      # by join itself — INC-17070), so it needs no cluster endpoint URL/model.
       CLUSTER_NORMAL_PROXY = "http://127.0.0.1:${toString cfg.port}";
       CLUSTER_SERVER_LABEL = launchAgentLabel;
       CLUSTER_WARMUP_LABEL = warmupAgentLabel;
-      CLUSTER_HTTP_PORT = toString ncfg.httpPort;
-      CLUSTER_RANK_URL = "http://127.0.0.1:${toString ncfg.httpPort}";
-      CLUSTER_MODEL = ncfg.model;
     }
     // lib.optionalAttrs (!isCoordinator && ncfg.quiesceCommand != null) {
       CLUSTER_QUIESCE_CMD = ncfg.quiesceCommand;

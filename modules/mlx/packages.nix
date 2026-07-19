@@ -26,6 +26,7 @@ let
     parakeetMlxVersion
     mlxVlmVersion
     apiUrl
+    uvPythonVersion
     launchAgentLabel
     warmupAgentLabel
     llamaSwapPkg
@@ -112,6 +113,7 @@ in
         # mlx-chat — interactive multi-turn chat via openai SDK
         (pkgs.writeShellScriptBin "mlx-chat" ''
           exec ${pkgs.uv}/bin/uv run \
+            --python ${uvPythonVersion} \
             --with "openai==2.32.0" \
             python3 ${./scripts/mlx-chat.py} "$@"
         '')
@@ -133,19 +135,19 @@ in
 
         # mlx-bench — LLM throughput/latency benchmark (loads model directly)
         (pkgs.writeShellScriptBin "mlx-bench" ''
-          exec ${pkgs.uv}/bin/uvx --from "${vllmMlxPin}" vllm-mlx-bench "$@"
+          exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} --from "${vllmMlxPin}" vllm-mlx-bench "$@"
         '')
 
         # mlx-bench-engine — engine benchmark with cache/batching knobs
         (pkgs.writeShellScriptBin "mlx-bench-engine" ''
-          exec ${pkgs.uv}/bin/uvx --from "${vllmMlxPin}" vllm-mlx bench "$@"
+          exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} --from "${vllmMlxPin}" vllm-mlx bench "$@"
         '')
 
         # mlx-bench-raw — raw MLX prefill + decode (no vllm-mlx overhead).
         # transformers pinned for the same mlx-lm import break as the server
         # wrapper (lib/versions.nix incident note).
         (pkgs.writeShellScriptBin "mlx-bench-raw" ''
-          exec ${pkgs.uv}/bin/uvx --from "mlx-lm==${mlxLmVersion}" --with "transformers==${versions.transformers}" mlx_lm.benchmark "$@"
+          exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} --from "mlx-lm==${mlxLmVersion}" --with "transformers==${versions.transformers}" mlx_lm.benchmark "$@"
         '')
 
         # mlx-eval — accuracy evaluation against the live vllm-mlx server API
@@ -166,7 +168,7 @@ in
         #
         (pkgs.writeShellScriptBin "mlx-eval" ''
           concurrent="''${MLX_EVAL_CONCURRENT:-4}"
-          exec ${pkgs.uv}/bin/uvx --from "lm-eval[api,math]==${lmEvalVersion}" lm-eval run \
+          exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} --from "lm-eval[api,math]==${lmEvalVersion}" lm-eval run \
             --model local-chat-completions \
             --model_args "base_url=''${MLX_API_URL:-${apiUrl}}/chat/completions,model=''${MLX_DEFAULT_MODEL:-${cfg.defaultModel}},tokenizer_backend=None,tokenized_requests=False,num_concurrent=''${concurrent},max_retries=3,max_length=32768" \
             --apply_chat_template \
@@ -233,13 +235,13 @@ in
           name = "parakeet-mlx";
           runtimeInputs = [ pkgs.ffmpeg ]; # librosa needs ffmpeg for audio decoding
           text = ''
-            exec ${pkgs.uv}/bin/uvx --from "parakeet-mlx==${parakeetMlxVersion}" parakeet-mlx "$@"
+            exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} --from "parakeet-mlx==${parakeetMlxVersion}" parakeet-mlx "$@"
           '';
         })
 
         # mlx-vlm-generate — vision language model image analysis
         (pkgs.writeShellScriptBin "mlx-vlm-generate" ''
-          exec ${pkgs.uv}/bin/uvx --from "mlx-vlm==${mlxVlmVersion}" mlx_vlm.generate "$@"
+          exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} --from "mlx-vlm==${mlxVlmVersion}" mlx_vlm.generate "$@"
         '')
       ];
     };

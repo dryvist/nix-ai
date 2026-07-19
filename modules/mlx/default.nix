@@ -25,8 +25,20 @@ let
   mlxPin = "mlx==${versions.mlx}";
   mlxLmPin = "mlx-lm==${versions.mlxLm}";
   transformersPin = "transformers==${versions.transformers}";
+
+  # Single source for the CPython minor every uvx invocation in this module
+  # resolves. Why it exists: the cluster rank runs uvx on BOTH the coordinator
+  # and the worker; with no `--python`, uv resolved a different CPython build per
+  # node, so the two ranks loaded mismatched mlx ABIs and failed to rendezvous.
+  # Pin every module uvx call to this one version so both nodes match. Sourced
+  # from lib/python.nix so there is exactly one declaration (no per-host, no
+  # per-invocation value). Retest/bump condition: only when the pinned mlx
+  # version drops or adds a cpython wheel tag — mlx ${versions.mlx} ships
+  # cp310-cp314, and cp314 import was validated 2026-07-19.
+  uvPythonVersion = (import ../../lib/python.nix { inherit pkgs; }).pythonVersion;
+
   vllmMlxPkg = pkgs.writeShellScriptBin "vllm-mlx" ''
-    exec ${pkgs.uv}/bin/uvx --from "vllm-mlx==${vllmMlxVersion}" --with "${mlxPin}" --with "${mlxLmPin}" --with "${transformersPin}" vllm-mlx "$@"
+    exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} --from "vllm-mlx==${vllmMlxVersion}" --with "${mlxPin}" --with "${mlxLmPin}" --with "${transformersPin}" vllm-mlx "$@"
   '';
   mlxWarmupPkg = pkgs.writeShellScriptBin "mlx-warmup" ''
     exec ${pkgs.python3}/bin/python3 ${./scripts/mlx-warmup.py} "$@"
@@ -237,6 +249,7 @@ in
       parakeetMlxVersion
       mlxVlmVersion
       apiUrl
+      uvPythonVersion
       launchAgentLabel
       warmupAgentLabel
       llamaSwapPkg
