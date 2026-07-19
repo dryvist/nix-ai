@@ -150,7 +150,7 @@ fi
 
 # --- step 3: swap check (distinct exit so a wrapper can chain a reboot) ------
 swap_used_mb() {
-  /usr/sbin/sysctl -n vm.swapusage 2>/dev/null | sed -n 's/.*used = \([0-9][0-9]*\).*/\1/p'
+  /usr/sbin/sysctl -n vm.swapusage 2>/dev/null | /usr/bin/sed -n 's/.*used = \([0-9][0-9]*\).*/\1/p'
 }
 used="$(swap_used_mb)"
 used="${used:-0}"
