@@ -14,10 +14,13 @@ environment and behave identically on the coordinator and the worker.
 
 ## `cluster-join` — bring the cluster up
 
-1. Verify/repair link prep on the local node (own static link IP aliased on a
-   port that is not enslaved in `bridge0`). Repair is a granted, idempotent
-   `sudo /nix/var/nix/profiles/system/activate`, which re-runs cluster-link-prep
-   — never a hand-rolled reconfig (INC-17067).
+1. Verify/repair link prep on the local node (own static link IP on a
+   carrier-active port that is not enslaved in `bridge0`). Repair is a bounded
+   `sudo /nix/var/nix/profiles/system/activate` first (re-runs cluster-link-prep
+   idempotently), then a direct granted fallback (`bridge0 deletem` + alias-up on
+   the carrier port) if activation does not restore prep — both use only the
+   cluster-ops sudoers grants (INC-17067). The activation is time-bounded so an
+   unrelated hung activation step cannot wedge bring-up.
 2. Pin the cluster wired ceiling **before anything loads**
    (`sysctl -w iogpu.wired_limit_mb=<clusterWiredLimitMb>`). This is the one
    non-negotiable step and hard-fails on error: a shard loaded over a day-sized
@@ -31,10 +34,19 @@ environment and behave identically on the coordinator and the worker.
 4. Clear a stale `rank-halted` PD-guard latch, ensure the watcher agent is
    loaded (bootstrap in the caller's own `gui/$uid` domain if not), then let the
    watcher kickstart the rank.
-5. Block (bounded by `joinTimeoutSecs`, default 600 s) until the **coordinator
-   endpoint returns a real chat completion** (tokens in
-   `choices[0].message.content`) — not merely `/v1/models`. Worker role blocks
-   until its rank process is running and stable for `workerStableSecs` (60 s).
+5. Block (bounded by `joinTimeoutSecs`, default 600 s) until the cluster is
+   serving. The coordinator issues **no completion of its own**: the link
+   watcher fires exactly one warm generation (request #1) at bring-up and records
+   success by creating the `rank-warmed` marker, and join gates on the rank
+   process being up **and** that marker present. So the total post-formation
+   request count is exactly one, issued by one component — Cycle 2 proved a
+   second post-formation request wedges the pipeline (INC-17070). Note the
+   contract: the `rank-warmed` marker means "the single warm generation succeeded
+   at formation", not "serving is healthy now"; a join re-run against a wedged
+   same-session cluster passes on the existing marker by design (zero-probe
+   contract), so use `cluster-detach` + rejoin to force a fresh formation. Worker
+   role blocks until its rank process is running and stable for `workerStableSecs`
+   (60 s).
 6. Print a state summary (link, ceiling, rank pid, generation) and exit 0 only
    if every check passed.
 
