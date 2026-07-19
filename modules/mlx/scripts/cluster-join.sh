@@ -78,6 +78,14 @@ link_prep_ok() {
   if /sbin/ifconfig bridge0 2>/dev/null | grep -qw "member: $dev"; then
     return 1
   fi
+  # port must have carrier: cluster-detach admin-downs the link but leaves the
+  # alias in place, so a down-but-aliased port looks configured yet cannot
+  # rendezvous. Require it up so a rejoin repairs (brings it back up) instead
+  # of blocking forever on an unreachable peer.
+  case "$(/sbin/ifconfig "$dev" 2>/dev/null)" in
+    *"status: active"*) ;;
+    *) return 1 ;;
+  esac
   return 0
 }
 
