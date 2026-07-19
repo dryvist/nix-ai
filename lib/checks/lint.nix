@@ -69,9 +69,11 @@
   # lib/checks/* is excluded since it names the pattern itself, and
   # modules/mlx/catalog-data.nix is excluded because it IS the physical-id
   # SSOT (the validated model catalog every other reference resolves through).
-  # modules/mlx/cluster-mode.nix is the same kind of SSOT for the clustered-mode
-  # model: a different engine (mlx-lm, not vllm-mlx) with exactly one model,
-  # so the normal-mode catalog's role registry never references it.
+  # modules/mlx/cluster-mode.nix (and its extracted option file
+  # modules/mlx/options-cluster.nix, which holds the clusterMode.model default)
+  # are the same kind of SSOT for the clustered-mode model: a different engine
+  # (mlx-lm, not vllm-mlx) with exactly one model, so the normal-mode catalog's
+  # role registry never references it.
   no-hardcoded-model-id = pkgs.runCommand "check-no-hardcoded-model-id" { } ''
     cd ${src}
     bad=$(grep -rnoE 'mlx-community/[A-Za-z0-9][^[:space:]"]*' \
@@ -80,6 +82,7 @@
       | grep -vE 'lib/checks' \
       | grep -vE 'modules/mlx/catalog-data\.nix' \
       | grep -vE 'modules/mlx/cluster-mode\.nix' \
+      | grep -vE 'modules/mlx/options-cluster\.nix' \
       | grep -vE 'mlx-community/test-model' || true)
     if [ -n "$bad" ]; then
       echo "ERROR: hardcoded physical MLX model id(s) found — use an ai-stack capability role instead:" >&2
