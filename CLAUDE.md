@@ -78,7 +78,6 @@ nix-claude-code's `rules` option verbatim. Mirror in
 
 - AI CLI tools (Claude Code, Antigravity, Codex, Copilot, qwen-code, cecli)
 - MCP servers and wrappers (github-mcp-server, terraform-mcp-server, doppler-mcp, etc.)
-- AI-specific GitHub CLI extensions (gh-aw)
 - AI tool configuration files (`.claude/`, `.gemini/`, `.copilot/`)
 - MLX inference server (vllm-mlx LaunchAgent + wrappers)
 - AI-specific shell utilities (hf CLI wrapper, Doppler-wrapped aliases)

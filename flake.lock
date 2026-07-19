@@ -16,6 +16,27 @@
         "type": "github"
       }
     },
+    "ai-llm-prompts": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1784408116,
+        "narHash": "sha256-8vrPVYjaT3quAKA5lgXIkRtmfN1ulDJwugs9QB8KkO0=",
+        "owner": "dryvist",
+        "repo": "ai-llm-prompts",
+        "rev": "0431be6994d51169b9f705ddeba958eb8a4d0fc4",
+        "type": "github"
+      },
+      "original": {
+        "owner": "dryvist",
+        "repo": "ai-llm-prompts",
+        "rev": "0431be6994d51169b9f705ddeba958eb8a4d0fc4",
+        "type": "github"
+      }
+    },
     "anthropic-agent-skills": {
       "flake": false,
       "locked": {
@@ -638,6 +659,7 @@
     "root": {
       "inputs": {
         "ai-assistant-instructions": "ai-assistant-instructions",
+        "ai-llm-prompts": "ai-llm-prompts",
         "autoresearch": "autoresearch",
         "claude-code-plugins": "claude-code-plugins",
         "dashmotion": "dashmotion",

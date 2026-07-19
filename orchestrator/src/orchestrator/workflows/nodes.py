@@ -20,9 +20,12 @@ from typing import Any, Callable
 
 from openai import OpenAI
 
+from orchestrator.prompts import load_prompt_resource
 from orchestrator.workflows.models import NodeDefinition, NodeType, WorkflowState
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_SYSTEM_PROMPT_RESOURCE = "prompt://dryvist/applications/nix-ai-default-system"
 
 
 def _error_state(
@@ -60,7 +63,12 @@ def _make_llm_call_node(
     cfg = node_def.config
     endpoint = cfg.get("endpoint", "http://127.0.0.1:11434/v1")
     model = cfg.get("model", "mlx-community/Qwen3.5-35B-A3B-4bit")
-    system_prompt = cfg.get("system_prompt", "You are a helpful assistant.")
+    system_prompt = cfg.get("system_prompt")
+    if system_prompt is None:
+        prompt_resource = cfg.get(
+            "system_prompt_resource", DEFAULT_SYSTEM_PROMPT_RESOURCE,
+        )
+        system_prompt = load_prompt_resource(prompt_resource)
     temperature = float(cfg.get("temperature", 0.7))
     max_tokens = int(cfg.get("max_tokens", 4096))
 
