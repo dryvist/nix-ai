@@ -4,7 +4,7 @@
 # The link watcher already owns the mechanics of forming the cluster (kickstart,
 # readiness probe, warm generation). cluster-join is the supervised operator
 # entry point that makes bring-up safe and verifiable in one command: it repairs
-# link prep, pins the wired ceiling BEFORE any load, quiesces day serving on the
+# link prep, pins the wired ceiling BEFORE any load, quiesces standalone serving on the
 # coordinator, then hands the actual rank start to the watcher and BLOCKS until a
 # real generation proves the cluster is serving. Safe to re-run at any point.
 #
@@ -22,14 +22,14 @@
 #   CLUSTER_WATCHER_PLIST       path to the watcher agent plist (for bootstrap)
 #   CLUSTER_STATE_FILE          watcher link-state file (locates the marker dir)
 #   CLUSTER_WIRED_LIMIT_MB      optional cluster wired ceiling (exact-value grant)
-#   CLUSTER_DAY_WIRED_LIMIT_MB  day ceiling (unused here; carried for symmetry)
+#   CLUSTER_STANDALONE_WIRED_LIMIT_MB  standalone ceiling (unused here; carried for symmetry)
 #   CLUSTER_GENERATION_REPO     GitHub owner/repo whose origin/main is the
 #                             deploy source of truth for generation parity
 #                             (step 0); drift rebuilds from the remote flake
 #                             ref directly; empty disables the preflight
 #   CLUSTER_JOIN_SWAP_THRESHOLD_MB  refuse to load above this vm.swapusage used (MB)
 #   CLUSTER_JOIN_TIMEOUT_SECS   bound on the block-until-serving wait
-#   CLUSTER_QUIESCE_GRACE_SECS  grace before reaping orphaned day-serve engines
+#   CLUSTER_QUIESCE_GRACE_SECS  grace before reaping orphaned standalone-serve engines
 #   CLUSTER_WORKER_STABLE_SECS  worker: seconds the rank must stay up to pass
 #   coordinator only:
 #   CLUSTER_NORMAL_PROXY        normal-mode llama-swap base URL (graceful unload)
@@ -190,8 +190,8 @@ Expected $CLUSTER_STATIC_SELF_IP aliased on a carrier-active Thunderbolt port ou
 fi
 
 # --- step 2: pin the wired ceiling BEFORE anything loads (non-negotiable) ---
-# Skipped by last night's manual path -> WindowServer watchdog kill (INC-17076).
-# A shard loaded over a day-sized ceiling wires out the GUI working set and
+# Skipping this step risks a WindowServer watchdog kill (INC-17076).
+# A shard loaded over a standalone-sized ceiling wires out the GUI working set and
 # panics the host, so a failed apply is a HARD stop, not a warning.
 if [ -n "${CLUSTER_WIRED_LIMIT_MB:-}" ]; then
   target="$CLUSTER_WIRED_LIMIT_MB"
@@ -203,11 +203,11 @@ if [ -n "${CLUSTER_WIRED_LIMIT_MB:-}" ]; then
     echo "cluster-join: iogpu.wired_limit_mb=$target"
   else
     fail "could not set iogpu.wired_limit_mb=$target (exact-value sudoers grant missing?). \
-Refusing to load a shard over a day-sized ceiling."
+Refusing to load a shard over a standalone-sized ceiling."
   fi
 fi
 
-# --- step 3: coordinator -- swap guard, then quiesce day serving -------------
+# --- step 3: coordinator -- swap guard, then quiesce standalone serving -------------
 swap_used_mb() {
   /usr/sbin/sysctl -n vm.swapusage 2>/dev/null | /usr/bin/sed -n 's/.*used = \([0-9][0-9]*\).*/\1/p'
 }
@@ -222,21 +222,21 @@ Loading a shard against stale swap spirals to a panic (INC-17075)."
   fi
   echo "cluster-join: swap OK (${used}M used <= ${threshold}M)"
 
-  # Graceful unload first (best effort), then bootout the day agents entirely so
+  # Graceful unload first (best effort), then bootout the standalone agents entirely so
   # the shard gets the full machine. The proxy grandchildren can survive a
   # bootout (re-parented, still holding memory), so reap them after a grace.
   # The whole-llama-swap bootout below is unchanged — it IS the panic guard.
   # keep-resident engines (CLUSTER_KEEP_RESIDENT) are standalone agents outside
   # llama-swap, so the bootout and the proxy unload never touch them; only the
-  # reap of leftover `vllm-mlx serve` engines must skip them (see day_serve_pids).
+  # reap of leftover `vllm-mlx serve` engines must skip them (see standalone_serve_pids).
   curl -fsS -m 30 -X POST "${CLUSTER_NORMAL_PROXY:-}/api/models/unload" > /dev/null 2>&1 || true
   /bin/launchctl bootout "gui/$uid/${CLUSTER_WARMUP_LABEL}" > /dev/null 2>&1 || true
   /bin/launchctl bootout "gui/$uid/${CLUSTER_SERVER_LABEL}" > /dev/null 2>&1 || true
-  echo "cluster-join: booted out day serving ($CLUSTER_SERVER_LABEL, $CLUSTER_WARMUP_LABEL)"
+  echo "cluster-join: booted out standalone serving ($CLUSTER_SERVER_LABEL, $CLUSTER_WARMUP_LABEL)"
 
   # PIDs of `vllm-mlx serve` engines that are NOT keep-resident exempt. An engine
   # whose command line contains any CLUSTER_KEEP_RESIDENT substring is left up.
-  day_serve_pids() {
+  standalone_serve_pids() {
     local pid cmd pat exempt
     /usr/bin/pgrep -f 'vllm-mlx serve' 2> /dev/null | while read -r pid; do
       cmd="$(/bin/ps -ww -p "$pid" -o command= 2> /dev/null)"
@@ -257,19 +257,19 @@ Loading a shard against stale swap spirals to a panic (INC-17075)."
 
   grace="${CLUSTER_QUIESCE_GRACE_SECS:-30}"
   deadline=$(($(date +%s) + grace))
-  while [ -n "$(day_serve_pids)" ]; do
+  while [ -n "$(standalone_serve_pids)" ]; do
     if [ "$(date +%s)" -ge "$deadline" ]; then
-      echo "cluster-join: day-serve engines still up after ${grace}s; reaping orphans (keep-resident spared)"
-      day_serve_pids | while read -r pid; do /bin/kill "$pid" > /dev/null 2>&1 || true; done
+      echo "cluster-join: standalone-serve engines still up after ${grace}s; reaping orphans (keep-resident spared)"
+      standalone_serve_pids | while read -r pid; do /bin/kill "$pid" > /dev/null 2>&1 || true; done
       sleep 3
       break
     fi
     sleep 2
   done
-  if [ -n "$(day_serve_pids)" ]; then
-    fail "day-serve engines still running after reap; memory not freed for the shard"
+  if [ -n "$(standalone_serve_pids)" ]; then
+    fail "standalone-serve engines still running after reap; memory not freed for the shard"
   fi
-  echo "cluster-join: day serving quiesced (only keep-resident engines remain)"
+  echo "cluster-join: standalone serving quiesced (only keep-resident engines remain)"
 elif [ -n "${CLUSTER_QUIESCE_CMD:-}" ]; then
   sh -c "$CLUSTER_QUIESCE_CMD" || true
   echo "cluster-join: ran worker quiesce hook"

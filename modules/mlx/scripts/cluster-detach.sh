@@ -2,8 +2,8 @@
 # cluster-detach -- the daily safe-unplug front-end over the watcher teardown.
 #
 # Takes the Thunderbolt link admin-down so both watchers observe peer loss and
-# run their up->down teardown (stop rank, clear markers, restore day ceiling and
-# day serving), then VERIFIES each postcondition against live state rather than
+# run their up->down teardown (stop rank, clear markers, restore standalone ceiling and
+# standalone serving), then VERIFIES each postcondition against live state rather than
 # trusting the watcher logs. Ends the node in a state that is safe to unplug,
 # sleep, or reboot, and ready to rejoin.
 #
@@ -11,16 +11,16 @@
 #   CLUSTER_ROLE                coordinator | worker
 #   CLUSTER_STATIC_SELF_IP      this node's static link address (locates the port)
 #   CLUSTER_STATE_FILE          watcher link-state file (locates the marker dir)
-#   CLUSTER_WIRED_LIMIT_MB      optional: set => a day-ceiling restore is expected
-#   CLUSTER_DAY_WIRED_LIMIT_MB  day ceiling the watcher restores (default 0)
+#   CLUSTER_WIRED_LIMIT_MB      optional: set => a standalone-ceiling restore is expected
+#   CLUSTER_STANDALONE_WIRED_LIMIT_MB  standalone ceiling the watcher restores (default 0)
 #   CLUSTER_DETACH_SWAP_THRESHOLD_MB  warn+exit-3 above this vm.swapusage used (MB)
 #   CLUSTER_DETACH_TIMEOUT_SECS bound on the teardown/restore waits
 #   coordinator only:
 #   CLUSTER_SERVER_LABEL        normal-mode server (llama-swap) launchd label
 #   CLUSTER_SERVER_PLIST        path to the server agent plist (for bootstrap)
 #   CLUSTER_WARMUP_LABEL        normal-mode warmup one-shot launchd label
-#   CLUSTER_DAY_PROBE_URL       normal-mode proxy /v1 base URL
-#   CLUSTER_DAY_PROBE_MODEL     primary resident model id (real-completion probe)
+#   CLUSTER_STANDALONE_PROBE_URL       normal-mode proxy /v1 base URL
+#   CLUSTER_STANDALONE_PROBE_MODEL     primary resident model id (real-completion probe)
 #
 # Grants used (nix-darwin sudoers, cluster-ops): `ifconfig en[0-9]* down` to drop
 # the link. launchctl verbs run in the caller's own gui/$uid domain (no sudo).
@@ -58,7 +58,7 @@ fi
 
 # --- wait for the watcher's up->down teardown, verified against live state ---
 # The up->down edge clears these five markers, stops the rank, and restores the
-# day ceiling. Poll until ALL hold (or time out) -- never trust the log.
+# standalone ceiling. Poll until ALL hold (or time out) -- never trust the log.
 markers=(rank-halted rank-kickstarts rank-first-running rank-ready rank-warmed)
 
 markers_clear() {
@@ -71,7 +71,7 @@ markers_clear() {
 rank_gone() { ! /usr/bin/pgrep -f 'mlx_lm.server' > /dev/null 2>&1; }
 ceiling_restored() {
   [ -z "${CLUSTER_WIRED_LIMIT_MB:-}" ] && return 0
-  [ "$(/usr/sbin/sysctl -n iogpu.wired_limit_mb 2>/dev/null || echo '')" = "${CLUSTER_DAY_WIRED_LIMIT_MB:-0}" ]
+  [ "$(/usr/sbin/sysctl -n iogpu.wired_limit_mb 2>/dev/null || echo '')" = "${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}" ]
 }
 
 # Stop the rank directly, not only via the watcher. The watcher's up->down
@@ -108,16 +108,16 @@ fi
 markers_clear || note_fail "PD-guard/readiness markers still present in $state_dir"
 rank_gone || note_fail "mlx_lm.server rank process still running"
 ceiling_restored ||
-  note_fail "iogpu.wired_limit_mb=$(/usr/sbin/sysctl -n iogpu.wired_limit_mb 2>/dev/null) != day ${CLUSTER_DAY_WIRED_LIMIT_MB:-0}"
-[ "$failed" -eq 0 ] && echo "cluster-detach: teardown verified (markers clear, rank gone, day ceiling restored)"
+  note_fail "iogpu.wired_limit_mb=$(/usr/sbin/sysctl -n iogpu.wired_limit_mb 2>/dev/null) != standalone ${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}"
+[ "$failed" -eq 0 ] && echo "cluster-detach: teardown verified (markers clear, rank gone, standalone ceiling restored)"
 
-# --- step 2: coordinator -- verify day serving actually came back ------------
-# The watcher restore assumes the day agents are still loaded and silently no-ops
+# --- step 2: coordinator -- verify standalone serving actually came back ------------
+# The watcher restore assumes the standalone agents are still loaded and silently no-ops
 # otherwise (INC-17071). Ensure the server agent is loaded, (re)kick it and the
 # warmup, then require a REAL completion from the primary resident.
 if [ "$CLUSTER_ROLE" = "coordinator" ]; then
   if ! /bin/launchctl print "gui/$uid/${CLUSTER_SERVER_LABEL}" > /dev/null 2>&1; then
-    echo "cluster-detach: day server agent not loaded; bootstrapping"
+    echo "cluster-detach: standalone server agent not loaded; bootstrapping"
     if [ -f "${CLUSTER_SERVER_PLIST:-}" ]; then
       /bin/launchctl bootstrap "gui/$uid" "$CLUSTER_SERVER_PLIST" > /dev/null 2>&1 || true
     fi
@@ -125,14 +125,14 @@ if [ "$CLUSTER_ROLE" = "coordinator" ]; then
   /bin/launchctl kickstart "gui/$uid/${CLUSTER_SERVER_LABEL}" > /dev/null 2>&1 || true
   /bin/launchctl kickstart -k "gui/$uid/${CLUSTER_WARMUP_LABEL}" > /dev/null 2>&1 || true
 
-  echo "cluster-detach: waiting up to ${timeout}s for day serving to answer a real completion"
+  echo "cluster-detach: waiting up to ${timeout}s for standalone serving to answer a real completion"
   deadline=$(($(date +%s) + timeout))
   serve_ok=false
   while [ "$(date +%s)" -lt "$deadline" ]; do
-    if curl -fsS -m 5 "${CLUSTER_DAY_PROBE_URL}/models" > /dev/null 2>&1; then
-      body="$(curl -fsS -m 240 -X POST "${CLUSTER_DAY_PROBE_URL}/chat/completions" \
+    if curl -fsS -m 5 "${CLUSTER_STANDALONE_PROBE_URL}/models" > /dev/null 2>&1; then
+      body="$(curl -fsS -m 240 -X POST "${CLUSTER_STANDALONE_PROBE_URL}/chat/completions" \
         -H 'Content-Type: application/json' \
-        -d "$(jq -nc --arg m "${CLUSTER_DAY_PROBE_MODEL:-}" \
+        -d "$(jq -nc --arg m "${CLUSTER_STANDALONE_PROBE_MODEL:-}" \
           '{model:$m,messages:[{role:"user",content:"ping"}],max_tokens:4}')" \
         2> /dev/null)" || { sleep 10; continue; }
       if jq -e '(.usage.completion_tokens // 0) >= 1' > /dev/null 2>&1 <<< "$body"; then
@@ -143,9 +143,9 @@ if [ "$CLUSTER_ROLE" = "coordinator" ]; then
     sleep 10
   done
   if "$serve_ok"; then
-    echo "cluster-detach: day serving restored (real completion from $CLUSTER_DAY_PROBE_MODEL)"
+    echo "cluster-detach: standalone serving restored (real completion from $CLUSTER_STANDALONE_PROBE_MODEL)"
   else
-    note_fail "day serving did not return a real completion within ${timeout}s"
+    note_fail "standalone serving did not return a real completion within ${timeout}s"
   fi
 fi
 
@@ -175,10 +175,10 @@ fi
 echo "  link       : $link_state"
 echo "  markers    : $markers_state"
 echo "  rank       : $rank_state"
-echo "  wired ceil : iogpu.wired_limit_mb=$ceiling (day ${CLUSTER_DAY_WIRED_LIMIT_MB:-0})"
+echo "  wired ceil : iogpu.wired_limit_mb=$ceiling (standalone ${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0})"
 if [ "$CLUSTER_ROLE" = "coordinator" ]; then
-  if [ "$serve_ok" = true ]; then day_state="restored"; else day_state="NOT-RESTORED"; fi
-  echo "  day serving: $day_state"
+  if [ "$serve_ok" = true ]; then standalone_state="restored"; else standalone_state="NOT-RESTORED"; fi
+  echo "  standalone serving: $standalone_state"
 fi
 echo "  swap used  : ${used}M (threshold ${swap_threshold}M)"
 echo "======================================================================"

@@ -73,7 +73,7 @@ let
         enable = true;
         role = "coordinator";
         wiredLimitMb = 90000;
-        dayWiredLimitMb = 118000;
+        standaloneWiredLimitMb = 118000;
       };
     }
   ];

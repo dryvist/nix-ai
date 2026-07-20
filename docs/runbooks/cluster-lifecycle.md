@@ -23,12 +23,12 @@ environment and behave identically on the coordinator and the worker.
    unrelated hung activation step cannot wedge bring-up.
 2. Pin the cluster wired ceiling **before anything loads**
    (`sysctl -w iogpu.wired_limit_mb=<clusterWiredLimitMb>`). This is the one
-   non-negotiable step and hard-fails on error: a shard loaded over a day-sized
+   non-negotiable step and hard-fails on error: a shard loaded over a standalone-sized
    ceiling wires out the GUI working set and triggers a WindowServer watchdog
    kill / panic (INC-17076, the 2026-07-12 dual-host panic).
 3. Coordinator only: refuse to proceed if `vm.swapusage` used exceeds
    `joinSwapThresholdMb` (default 8000 MB) — loading against stale swap spirals
-   to a panic (INC-17075) — then quiesce day serving (bootout the server +
+   to a panic (INC-17075) — then quiesce standalone serving (bootout the server +
    warmup agents, wait for zero `vllm-mlx serve` processes, reap orphans after a
    grace).
 4. Clear a stale `rank-halted` PD-guard latch, ensure the watcher agent is
@@ -56,10 +56,10 @@ environment and behave identically on the coordinator and the worker.
    observe peer loss and run their up→down teardown, then **verify against live
    state** (bounded by `detachTimeoutSecs`, default 300 s): PD-guard/readiness
    markers actually absent, no `mlx_lm.server` process, and
-   `iogpu.wired_limit_mb` equal to the day value — never trust the logs.
-2. Coordinator only: verify day serving actually restored — the proxy answers
+   `iogpu.wired_limit_mb` equal to the standalone value — never trust the logs.
+2. Coordinator only: verify standalone serving actually restored — the proxy answers
    **and** a real completion returns from the primary resident. The watcher's
-   restore assumes the day agents are still loaded and silently no-ops otherwise
+   restore assumes the standalone agents are still loaded and silently no-ops otherwise
    (INC-17071), so this bootstraps the server agent if needed before probing.
 3. If `vm.swapusage` used exceeds `detachSwapThresholdMb` (default 20000 MB),
    print a prominent "stale swap — reboot before next join" warning and exit
@@ -72,7 +72,7 @@ environment and behave identically on the coordinator and the worker.
 # coordinator and worker, in either order (each blocks on its own postconditions)
 cluster-join       # -> cluster serving a frontier model over Thunderbolt
 # ... run the window ...
-cluster-detach     # -> day serving restored, node safe to unplug/sleep/reboot
+cluster-detach     # -> standalone serving restored, node safe to unplug/sleep/reboot
                    #    exit 3 => reboot before the next cluster-join
 ```
 
