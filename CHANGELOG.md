@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.4.0](https://github.com/dryvist/nix-ai/compare/v2.3.0...v2.4.0) (2026-07-20)
+
+
+### Features
+
+* **mlx:** generation-parity preflight with auto-heal in cluster-join ([#1298](https://github.com/dryvist/nix-ai/issues/1298)) ([21bb181](https://github.com/dryvist/nix-ai/commit/21bb181f3f47ab5358191f5642f1b899bf3b81a9))
+
+
+### Bug Fixes
+
+* **mlx:** drop reasoning parser from 80B-Instruct catalog entry ([#1297](https://github.com/dryvist/nix-ai/issues/1297)) ([8d19e34](https://github.com/dryvist/nix-ai/commit/8d19e34d3564143b663f5d87bb0bae7b64c20c6b))
+* **mlx:** generation auto-heal rebuilds from the remote flake ref ([#1299](https://github.com/dryvist/nix-ai/issues/1299)) ([b2b29ab](https://github.com/dryvist/nix-ai/commit/b2b29abbdf2f8ff2310ddc6dd105caf4213af007))
+
 ## [2.3.0](https://github.com/dryvist/nix-ai/compare/v2.2.0...v2.3.0) (2026-07-20)
 
 
