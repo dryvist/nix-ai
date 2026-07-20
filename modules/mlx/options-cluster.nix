@@ -128,6 +128,20 @@
     };
 
     # --- cluster-join / cluster-detach lifecycle-command tunables ------------
+    generationRepo = lib.mkOption {
+      type = lib.types.str;
+      default = "dryvist/nix-darwin";
+      description = ''
+        GitHub owner/repo whose origin/main is the deploy source of truth for
+        the cluster-join generation-parity preflight: every node must run a
+        system generation stamped with that branch's HEAD revision before any
+        clustering config begins (two nodes both at remote HEAD are identical
+        by construction). Drift auto-heals by rebuilding directly from the
+        remote flake ref (github:<repo>/<rev>) — no local checkout is
+        referenced. Empty string disables the preflight.
+      '';
+    };
+
     joinSwapThresholdMb = lib.mkOption {
       type = lib.types.int;
       default = 8000;
