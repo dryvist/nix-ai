@@ -57,6 +57,28 @@ pkgs.runCommand "vllm-mlx-wheel-patched-${vllmMlxVersion}"
         'uvicorn.run(app, host=args.host, port=args.port, log_level="info")' \
         "$(printf '_vllm_mlx_log_level = os.environ.get("VLLM_MLX_LOG_LEVEL", "info").lower()\n    _vllm_mlx_log_level = {"warn": "warning"}.get(_vllm_mlx_log_level, _vllm_mlx_log_level)\n    uvicorn.run(app, host=args.host, port=args.port, log_level=_vllm_mlx_log_level)')"
 
+    # _build_engine is the lifecycle/residency construction path, taken
+    # whenever --auto-unload-idle-seconds or --lazy-load-model is set. Unlike
+    # the direct load path (server.py, which passes
+    # gpu_memory_utilization=gpu_memory_utilization), it omits the argument
+    # entirely, so BatchedEngine falls back to its 0.90 default and the CLI
+    # flag is silently discarded.
+    #
+    # That value is not cosmetic: BatchedEngine feeds it into EngineConfig,
+    # from which engine_core derives the emergency KV-clear trip point at
+    # device_mem * (util + 0.05). Stuck at 0.90, the trip lands at ~130 GB —
+    # above any wired ceiling a 128 GB host can have — so the soft valve never
+    # fires and the OS ceiling becomes the only bound.
+    #
+    # ModelSpec carries no utilization field, so threading it through the
+    # dataclass would be a larger upstream change. Read the env instead,
+    # keeping the same 0.90 fallback, mirroring VLLM_MLX_LOG_LEVEL above.
+    # server.py already imports os.
+    substituteInPlace unpacked/vllm_mlx/server.py \
+      --replace-fail \
+        "$(printf 'return BatchedEngine(\n            model_name=spec.model_name,\n            scheduler_config=spec.scheduler_config,\n            stream_interval=spec.stream_interval,\n            force_mllm=spec.force_mllm,\n        )')" \
+        "$(printf 'return BatchedEngine(\n            model_name=spec.model_name,\n            scheduler_config=spec.scheduler_config,\n            stream_interval=spec.stream_interval,\n            force_mllm=spec.force_mllm,\n            gpu_memory_utilization=float(\n                os.environ.get("VLLM_MLX_GPU_MEMORY_UTILIZATION", "0.90")\n            ),\n        )')"
+
     mkdir -p $out
     (cd unpacked && zip -qr "$out/${wheelName}" .)
   ''
