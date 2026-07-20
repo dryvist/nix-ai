@@ -201,7 +201,7 @@ Loading a shard against stale swap spirals to a panic (INC-17075)."
   day_serve_pids() {
     local pid cmd pat exempt
     /usr/bin/pgrep -f 'vllm-mlx serve' 2> /dev/null | while read -r pid; do
-      cmd="$(/bin/ps -p "$pid" -o command= 2> /dev/null)"
+      cmd="$(/bin/ps -ww -p "$pid" -o command= 2> /dev/null)"
       exempt=false
       if [ -n "${CLUSTER_KEEP_RESIDENT:-}" ]; then
         while IFS= read -r pat; do
