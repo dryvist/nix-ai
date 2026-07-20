@@ -1131,7 +1131,7 @@
 * auto-sync Claude Code plugin cache after nix rebuild ([#235](https://github.com/JacobPEvans/nix-ai/issues/235)) ([edba1ad](https://github.com/JacobPEvans/nix-ai/commit/edba1adb0d2ade246e7c7ce51a60762d8fb770ae))
 * build pal-mcp-server as Nix derivation ([#157](https://github.com/JacobPEvans/nix-ai/issues/157)) ([7e5ab79](https://github.com/JacobPEvans/nix-ai/commit/7e5ab799c0ae56d7af12cfe2769988f780c61373))
 * cap Ollama memory at 20G, switch MLX default to Qwen3.5-122B MoE ([#234](https://github.com/JacobPEvans/nix-ai/issues/234)) ([9d82a86](https://github.com/JacobPEvans/nix-ai/commit/9d82a86d8a17b88eeb670e490a6401ff7f92e73f))
-* change MLX port from 11435 to 11436 (screenpipe conflict) ([#230](https://github.com/JacobPEvans/nix-ai/issues/230)) ([8a8dde9](https://github.com/JacobPEvans/nix-ai/commit/8a8dde9e90ef09491089115fbb19ecaa7856e605))
+* change MLX port from 11435 to 11436 (port conflict) ([#230](https://github.com/JacobPEvans/nix-ai/issues/230)) ([8a8dde9](https://github.com/JacobPEvans/nix-ai/commit/8a8dde9e90ef09491089115fbb19ecaa7856e605))
 * **checks:** bump test stateVersion to 25.11 ([#244](https://github.com/JacobPEvans/nix-ai/issues/244)) ([616d251](https://github.com/JacobPEvans/nix-ai/commit/616d251f0968ddb28521403e0c6d3f4c7dc58429))
 * **ci:** add pull-requests:write for release-please auto-approve ([007d630](https://github.com/JacobPEvans/nix-ai/commit/007d630d28ee4b59e2ce11d7926f3f0a0aac2e58))
 * **ci:** exclude CHANGELOG.md from markdownlint ([#171](https://github.com/JacobPEvans/nix-ai/issues/171)) ([f974ead](https://github.com/JacobPEvans/nix-ai/commit/f974eada87f0c10a29fe6897b5543ebb289b86fd))
