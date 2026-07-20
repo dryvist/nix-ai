@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.3.0](https://github.com/dryvist/nix-ai/compare/v2.2.0...v2.3.0) (2026-07-20)
+
+
+### Features
+
+* **mlx:** clusterMode.keepResidentBackends — spare a standalone engine from cluster quiesce ([#1291](https://github.com/dryvist/nix-ai/issues/1291)) ([200d107](https://github.com/dryvist/nix-ai/commit/200d10770ac4cd1bd42521818cd3d7e149d2de39))
+
 ## [2.2.0](https://github.com/dryvist/nix-ai/compare/v2.1.0...v2.2.0) (2026-07-19)
 
 
