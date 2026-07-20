@@ -98,6 +98,7 @@ let
         curl
         jq
         coreutils
+        git # generation-parity preflight (ls-remote + auto-heal pull)
       ];
       text = lib.concatStringsSep "\n" (
         lib.mapAttrsToList (k: v: "export ${k}=${lib.escapeShellArg v}") env
@@ -123,6 +124,8 @@ let
   clusterJoinEnv =
     clusterCommonEnv
     // {
+      CLUSTER_GENERATION_REPO_URL = ncfg.generationRepoUrl;
+      CLUSTER_FLAKE_DIR = ncfg.generationFlakeDir;
       CLUSTER_JOIN_SWAP_THRESHOLD_MB = toString ncfg.joinSwapThresholdMb;
       CLUSTER_JOIN_TIMEOUT_SECS = toString ncfg.joinTimeoutSecs;
       CLUSTER_QUIESCE_GRACE_SECS = toString ncfg.quiesceGraceSecs;
