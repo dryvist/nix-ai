@@ -1,5 +1,22 @@
 # Changelog
 
+## [3.0.0](https://github.com/dryvist/nix-ai/compare/v2.4.0...v3.0.0) (2026-07-20)
+
+
+### ⚠ BREAKING CHANGES
+
+* **mlx:** rename cluster standalone-ceiling identifiers, trim option docs ([#1313](https://github.com/dryvist/nix-ai/issues/1313))
+
+### Features
+
+* **mlx:** default llama-swap proxy logging to debug ([#1310](https://github.com/dryvist/nix-ai/issues/1310)) ([a51fd9e](https://github.com/dryvist/nix-ai/commit/a51fd9e076024992ff4e59364211225bf4a96f83))
+* **mlx:** patch vllm-mlx to honor VLLM_MLX_LOG_LEVEL, default debug ([#1312](https://github.com/dryvist/nix-ai/issues/1312)) ([a81a5c5](https://github.com/dryvist/nix-ai/commit/a81a5c5116d755235708891172305ca229c38a38))
+
+
+### Refactoring
+
+* **mlx:** rename cluster standalone-ceiling identifiers, trim option docs ([#1313](https://github.com/dryvist/nix-ai/issues/1313)) ([931cfcd](https://github.com/dryvist/nix-ai/commit/931cfcd9c0deebc69e3ad65a5aad16b8d4674932))
+
 ## [2.4.0](https://github.com/dryvist/nix-ai/compare/v2.3.0...v2.4.0) (2026-07-20)
 
 
