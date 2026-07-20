@@ -25,6 +25,14 @@ let
     "--reasoning-parser"
     "qwen3"
   ];
+  # Instruct (non-thinking) variants must NOT carry a reasoning parser: it
+  # classifies the entire non-streaming completion as reasoning and strips it
+  # (empty content, "Thinking-only response" under agent harnesses) while
+  # streaming still works — the 2026-07-20 Hermes outage signature.
+  qwenMoeInstructParser = [
+    "--tool-call-parser"
+    "hermes"
+  ];
   # Guard chain: server 3600 > router 2400 > client 1800 (lifts the
   # 300 s disconnect_guard).
   agentTimeout = [
@@ -187,7 +195,7 @@ in
   qwen3-next-80b-instruct = {
     model = "mlx-community/Qwen3-Next-80B-A3B-Instruct-4bit";
     weightGb = 42.0;
-    args = qwenMoeGeneralParser ++ agentTimeout;
+    args = qwenMoeInstructParser ++ agentTimeout;
     classes = {
       resident.flags = block512 // {
         cacheMemoryMb = 16384;
