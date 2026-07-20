@@ -79,10 +79,10 @@ if [ -n "${CLUSTER_GENERATION_REPO:-}" ]; then
     jq -r '.configurationRevision // empty')"
   remote_rev="$(git ls-remote "https://github.com/$CLUSTER_GENERATION_REPO" refs/heads/main 2>/dev/null |
     cut -f1)"
-  if [ -z "$remote_rev" ]; then
-    echo "cluster-join: WARN generation parity unverified (deploy branch unreachable)" >&2
-  elif [ -z "$local_rev" ]; then
+  if [ -z "$local_rev" ]; then
     fail "system generation carries no configurationRevision (dirty or unstamped build) — darwin-rebuild switch from a committed revision before clustering"
+  elif [ -z "$remote_rev" ]; then
+    echo "cluster-join: WARN generation parity unverified (deploy branch unreachable)" >&2
   elif [ "$local_rev" != "$remote_rev" ]; then
     echo "cluster-join: generation drift (local ${local_rev:0:12} != deploy ${remote_rev:0:12}); auto-healing from remote flake"
     sudo /run/current-system/sw/bin/darwin-rebuild switch \
