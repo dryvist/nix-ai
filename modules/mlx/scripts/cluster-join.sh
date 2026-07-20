@@ -23,10 +23,10 @@
 #   CLUSTER_STATE_FILE          watcher link-state file (locates the marker dir)
 #   CLUSTER_WIRED_LIMIT_MB      optional cluster wired ceiling (exact-value grant)
 #   CLUSTER_DAY_WIRED_LIMIT_MB  day ceiling (unused here; carried for symmetry)
-#   CLUSTER_GENERATION_REPO_URL flake repo URL whose origin/main is the deploy
-#                             source of truth for generation parity (step 0);
-#                             empty disables the preflight
-#   CLUSTER_FLAKE_DIR           local flake checkout used to auto-heal drift
+#   CLUSTER_GENERATION_REPO     GitHub owner/repo whose origin/main is the
+#                             deploy source of truth for generation parity
+#                             (step 0); drift rebuilds from the remote flake
+#                             ref directly; empty disables the preflight
 #   CLUSTER_JOIN_SWAP_THRESHOLD_MB  refuse to load above this vm.swapusage used (MB)
 #   CLUSTER_JOIN_TIMEOUT_SECS   bound on the block-until-serving wait
 #   CLUSTER_QUIESCE_GRACE_SECS  grace before reaping orphaned day-serve engines
@@ -71,28 +71,23 @@ fail() {
 # INC-17070 deadlock family. Parity is judged against the shared deploy branch
 # (origin main of the flake repo) rather than peer SSH: two nodes both at
 # remote HEAD are identical by construction, and a node behind HEAD is healed
-# by rebuilding locally. Unreachable remote only WARNS (offline joins stay
-# possible); a dirty/unstamped local generation always fails.
-if [ -n "${CLUSTER_GENERATION_REPO_URL:-}" ]; then
+# by rebuilding DIRECTLY from the remote flake ref (github:<repo>/<rev>) — no
+# local checkout is referenced. Unreachable remote only WARNS (offline joins
+# stay possible); a dirty/unstamped local generation always fails.
+if [ -n "${CLUSTER_GENERATION_REPO:-}" ]; then
   local_rev="$(/run/current-system/sw/bin/darwin-version --json 2>/dev/null |
     jq -r '.configurationRevision // empty')"
-  remote_rev="$(git ls-remote "$CLUSTER_GENERATION_REPO_URL" refs/heads/main 2>/dev/null |
+  remote_rev="$(git ls-remote "https://github.com/$CLUSTER_GENERATION_REPO" refs/heads/main 2>/dev/null |
     cut -f1)"
   if [ -z "$remote_rev" ]; then
     echo "cluster-join: WARN generation parity unverified (deploy branch unreachable)" >&2
   elif [ -z "$local_rev" ]; then
-    fail "system generation carries no configurationRevision (dirty or unstamped build) — darwin-rebuild switch from a clean committed checkout before clustering"
+    fail "system generation carries no configurationRevision (dirty or unstamped build) — darwin-rebuild switch from a committed revision before clustering"
   elif [ "$local_rev" != "$remote_rev" ]; then
-    flake_dir="${CLUSTER_FLAKE_DIR:-}"
-    [ -d "$flake_dir" ] ||
-      fail "generation drift (local ${local_rev:0:12} != deploy ${remote_rev:0:12}) and no flake checkout at '$flake_dir' to auto-heal from"
-    echo "cluster-join: generation drift (local ${local_rev:0:12} != deploy ${remote_rev:0:12}); auto-healing"
-    [ "$(git -C "$flake_dir" branch --show-current)" = "main" ] ||
-      fail "flake checkout $flake_dir is not on main — cannot auto-heal safely; align it and re-run"
-    git -C "$flake_dir" pull --ff-only origin main ||
-      fail "auto-heal could not fast-forward $flake_dir to deploy HEAD"
-    sudo /run/current-system/sw/bin/darwin-rebuild switch --flake "$flake_dir" ||
-      fail "auto-heal rebuild failed"
+    echo "cluster-join: generation drift (local ${local_rev:0:12} != deploy ${remote_rev:0:12}); auto-healing from remote flake"
+    sudo /run/current-system/sw/bin/darwin-rebuild switch \
+      --flake "github:$CLUSTER_GENERATION_REPO/$remote_rev" ||
+      fail "auto-heal rebuild from github:$CLUSTER_GENERATION_REPO/$remote_rev failed"
     local_rev="$(/run/current-system/sw/bin/darwin-version --json 2>/dev/null |
       jq -r '.configurationRevision // empty')"
     [ "$local_rev" = "$remote_rev" ] ||
