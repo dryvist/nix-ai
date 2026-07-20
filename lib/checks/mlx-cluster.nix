@@ -62,7 +62,8 @@ in
       watcherEnv.CLUSTER_HTTP_PORT == "11440"
       || throw "cluster: coordinator watcher must get the cluster endpoint port to readiness-probe";
     assert
-      watcherEnv.CLUSTER_WIRED_LIMIT_MB == "90000" && watcherEnv.CLUSTER_DAY_WIRED_LIMIT_MB == "118000"
+      watcherEnv.CLUSTER_WIRED_LIMIT_MB == "90000"
+      && watcherEnv.CLUSTER_STANDALONE_WIRED_LIMIT_MB == "118000"
       || throw "cluster: wired-ceiling values must reach the watcher env when wiredLimitMb is set";
     assert
       watcherEnv.CLUSTER_RANK_URL == "http://127.0.0.1:11440"

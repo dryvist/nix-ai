@@ -115,7 +115,7 @@ let
     CLUSTER_WATCHER_LABEL = watcherLabel;
     CLUSTER_WATCHER_PLIST = "${launchAgentsDir}/${watcherLabel}.plist";
     CLUSTER_STATE_FILE = stateFile;
-    CLUSTER_DAY_WIRED_LIMIT_MB = toString ncfg.dayWiredLimitMb;
+    CLUSTER_STANDALONE_WIRED_LIMIT_MB = toString ncfg.standaloneWiredLimitMb;
   }
   // lib.optionalAttrs (ncfg.wiredLimitMb != null) {
     CLUSTER_WIRED_LIMIT_MB = toString ncfg.wiredLimitMb;
@@ -136,7 +136,7 @@ let
       CLUSTER_NORMAL_PROXY = "http://127.0.0.1:${toString cfg.port}";
       CLUSTER_SERVER_LABEL = launchAgentLabel;
       CLUSTER_WARMUP_LABEL = warmupAgentLabel;
-      # Newline-separated substrings of day-serving engines to spare from the
+      # Newline-separated substrings of standalone-serving engines to spare from the
       # quiesce reap (standalone keep-resident backends). Empty by default.
       CLUSTER_KEEP_RESIDENT = lib.concatStringsSep "\n" ncfg.keepResidentBackends;
     }
@@ -154,8 +154,8 @@ let
       CLUSTER_SERVER_LABEL = launchAgentLabel;
       CLUSTER_SERVER_PLIST = "${launchAgentsDir}/${launchAgentLabel}.plist";
       CLUSTER_WARMUP_LABEL = warmupAgentLabel;
-      CLUSTER_DAY_PROBE_URL = apiUrl;
-      CLUSTER_DAY_PROBE_MODEL = cfg.defaultModel;
+      CLUSTER_STANDALONE_PROBE_URL = apiUrl;
+      CLUSTER_STANDALONE_PROBE_MODEL = cfg.defaultModel;
     };
 
   clusterJoinPkg = mkClusterCli "cluster-join" ./scripts/cluster-join.sh clusterJoinEnv;
@@ -265,7 +265,7 @@ in
           }
           // lib.optionalAttrs (ncfg.wiredLimitMb != null) {
             CLUSTER_WIRED_LIMIT_MB = toString ncfg.wiredLimitMb;
-            CLUSTER_DAY_WIRED_LIMIT_MB = toString ncfg.dayWiredLimitMb;
+            CLUSTER_STANDALONE_WIRED_LIMIT_MB = toString ncfg.standaloneWiredLimitMb;
           }
           // lib.optionalAttrs (ncfg.quiesceCommand != null) {
             CLUSTER_QUIESCE_CMD = ncfg.quiesceCommand;

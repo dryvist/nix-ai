@@ -57,6 +57,30 @@
       '';
     };
 
+    # serverLogLevel — vllm-mlx has no --log-level flag or env var of its own
+    # (0.4.0 hardcodes INFO in both its app logger and uvicorn's request
+    # logging; see vllm-mlx-patch.nix for the source-level evidence). This
+    # option feeds the locally patched VLLM_MLX_LOG_LEVEL env var (workerEnv
+    # in default.nix), giving the same debug/info/warn/error vocabulary as
+    # proxy.logLevel for the vllm-mlx worker process itself.
+    serverLogLevel = lib.mkOption {
+      type = lib.types.enum [
+        "debug"
+        "info"
+        "warn"
+        "error"
+      ];
+      default = "debug";
+      description = ''
+        vllm-mlx worker log verbosity, via the locally patched
+        VLLM_MLX_LOG_LEVEL env var (upstream has no equivalent lever — see
+        vllm-mlx-patch.nix). "debug" is the production default: pre-error
+        context and point-in-time config detail for later log-based
+        analytics, not just live diagnosis. Set to "info" to drop back to
+        upstream's original hardcoded verbosity.
+      '';
+    };
+
     models = lib.mkOption {
       type = lib.types.attrsOf (
         lib.types.submodule {
@@ -153,86 +177,6 @@
       type = lib.types.listOf lib.types.str;
       default = [ "default" ];
       description = "Resident models (role aliases or physical ids) the warmup agent loads after proxy start. Every entry occupies memory concurrently until its idle TTL — size the list against the host's wired-memory budget. Swap-tier models belong in programs.mlx.models instead.";
-    };
-
-    proxy = {
-      # groupSwap — llama-swap `groups.mlx-models.swap`. true (default) keeps
-      # the one-resident-model posture: loading any model evicts the previous
-      # one, so swap-thrash is impossible on RAM-constrained workstations.
-      # false lets multiple registry models stay resident concurrently
-      # (server-class hosts serving e.g. a large default plus a coder model);
-      # the memory bound then falls to gpuMemoryUtilization/cacheMemoryMb per
-      # worker, which the host must size so the sum of resident workers fits
-      # its wired-memory budget.
-      groupSwap = lib.mkOption {
-        type = lib.types.bool;
-        default = true;
-        description = "Whether llama-swap unloads the resident model before loading another (groups.mlx-models.swap). Set false on hosts with the memory headroom to keep several models resident at once.";
-      };
-
-      healthCheckTimeout = lib.mkOption {
-        type = lib.types.ints.positive;
-        default = 180;
-        description = "Seconds to wait for a backend to become healthy. 70GB models take 20-60s to load; 180s covers the worst case.";
-      };
-      idleTtl = lib.mkOption {
-        type = lib.types.ints.unsigned;
-        default = 900;
-        description = "Idle TTL in seconds applied uniformly to every model in the registry (including the default-aliased one). 0 = never auto-unload (escape hatch). Default 900 s (15 min). Tightened twice: 3600 -> 1800 after the recurring `nix-ai#801` stuck-past-TTL incidents, then 1800 -> 900 after the 2026-06-10 nix-mac-performance RC14 snapshot showed a single healthy in-TTL ~50 GB worker plus the desktop working set saturating compressor + swap on a 128 GB host — idle-weight dwell is the dominant memory cost, and a 4-bit MoE model reloads from NVMe in 10-20 s, so eviction is cheap relative to the host-wide paging it prevents.";
-      };
-      logLevel = lib.mkOption {
-        type = lib.types.enum [
-          "debug"
-          "info"
-          "warn"
-          "error"
-        ];
-        default = "info";
-        description = ''
-          llama-swap log verbosity. "info" is the production default — keeps
-          model load events and swap transitions visible without dumping every
-          weight tensor name. Switch to "debug" only when actively diagnosing
-          proxy behaviour (logs every proxied HTTP request/response body and
-          makes `curl http://127.0.0.1:11434/logs/stream` a live I/O tap).
-          Note: debug output rotates within the 10 MB LaunchAgent log limit.
-        '';
-      };
-      logToStdout = lib.mkOption {
-        type = lib.types.enum [
-          "proxy"
-          "upstream"
-          "both"
-          "none"
-        ];
-        default = "both";
-        description = ''
-          Which output streams llama-swap forwards to stdout (and therefore
-          the /logs/stream SSE endpoint). "both" interleaves proxy request
-          logs with vllm-mlx upstream output. "proxy" (default upstream
-          behaviour) shows only proxy-level events.
-        '';
-      };
-      concurrencyLimit = lib.mkOption {
-        type = lib.types.ints.positive;
-        default = 4;
-        description = ''
-          Max in-flight requests llama-swap will forward to vllm-mlx per
-          model. Maps directly to the YAML key llama-swap reads
-          (`concurrencyLimit`); excess requests get HTTP 429.
-
-          Default 4 — matches `maxNumSeqs` so continuous batching is fed.
-          Re-raised from 2 on 2026-07-11 after a replicated c1-c8 sweep
-          (MBP Coder-30B): zero errors within the limit, 1.6-2.3x
-          aggregate when the batcher engages, worst case serialization
-          (~1.0x). Scheduling is bimodal, so treat >1x as opportunistic
-          and keep bench drivers pinned to their documented concurrency
-          (mlx-benchmarks RUNBOOK). The pipe-timeout storm behind the old
-          4->2 tightening predated the maxRequestTokens hardening that
-          fixed its cause. Above the limit callers get 429 — cap or
-          retry with backoff; the llm_router tier absorbs 429s via its
-          retry policy. Setting this to 1 silently defeats batching.
-        '';
-      };
     };
   };
 }

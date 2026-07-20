@@ -29,7 +29,7 @@
 #   CLUSTER_WIRED_LIMIT_MB  optional: iogpu ceiling to hold while clustered
 #                         (applied via the exact-value sudoers grant from
 #                         nix-darwin; a failed apply SKIPS the rank start)
-#   CLUSTER_DAY_WIRED_LIMIT_MB  restore value at link-down (default 0)
+#   CLUSTER_STANDALONE_WIRED_LIMIT_MB  restore value at link-down (default 0)
 
 mkdir -p "$(dirname "$CLUSTER_STATE_FILE")"
 prev="down"
@@ -142,15 +142,15 @@ if [ "$cur" = "up" ]; then
           "$(cat "$CLUSTER_ALERT_URL_FILE")" || true
       fi
     elif ! set_wired_limit "${CLUSTER_WIRED_LIMIT_MB:-}"; then
-      # Never start a rank over a day-sized ceiling: a shard wiring out the
+      # Never start a rank over a standalone-sized ceiling: a shard wiring out the
       # GUI working set is the 2026-07-12 dual-host panic. Retry next tick;
       # this does not consume a kickstart attempt.
       echo "cluster-link: wired ceiling not applied; NOT starting the rank"
     else
       # Quiesce BEFORE every (re)start, not only on the down->up edge: the
       # link-state file survives a reboot, so a host that boots with the
-      # cable in arrives here as up->up with day serving warm — skipping the
-      # quiesce there is how a rank shard and the day models end up wired
+      # cable in arrives here as up->up with standalone serving warm — skipping the
+      # quiesce there is how a rank shard and the standalone models end up wired
       # into the same 128 GB. Both hooks are idempotent, so a mid-run rank
       # restart re-running them is a no-op.
       quiesce_normal_serving
@@ -167,7 +167,7 @@ elif [ "$prev" = "up" ]; then
   rm -f "$kicks_file" "$halt_file" "$started_file" "$ready_file" "$warm_file"
   launchctl kill SIGTERM "gui/$uid/$CLUSTER_RANK_LABEL" 2> /dev/null || true
   if [ -n "${CLUSTER_WIRED_LIMIT_MB:-}" ]; then
-    set_wired_limit "${CLUSTER_DAY_WIRED_LIMIT_MB:-0}" || true
+    set_wired_limit "${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}" || true
   fi
   if [ "$CLUSTER_ROLE" = "coordinator" ]; then
     # Re-warm the declared preload list through the existing warmup one-shot.
