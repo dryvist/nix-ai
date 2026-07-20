@@ -1,11 +1,12 @@
 #
 # MLX Module — KV cache and prefill options
 #
-# vllm-mlx 0.2.9 PERFORMANCE TUNING.
-# Sizing target: M4 Max 128 GB. Effective wired ceiling 104 GB (from
-# nix-darwin's apple-silicon-tunables module via iogpu.wired_limit_mb=104000;
-# lowered from 118000 on 2026-06-10 to guarantee 24 GB pageable headroom —
-# see nix-mac-performance RC14).
+# vllm-mlx PERFORMANCE TUNING. Sizing target: M4 Max 128 GB.
+#
+# The wired ceiling is per-host and set OUTSIDE this module, by nix-darwin's
+# system.appleSiliconTunables.wiredLimitMb. Every value here is sized against
+# that ceiling, not against physical RAM.
+# https://docs.jacobpevans.com/local-llm/memory-ceilings
 #
 # vllm-mlx 0.2.9 adds Paged KV Cache + prefix sharing on top of the
 # memory-aware cache that auto-sizes based on available RAM.
@@ -38,43 +39,20 @@
       description = "KV cache reservation in MB (vllm-mlx --cache-memory-mb). Null = server auto-detect. Default 8 GB right-sized for maxNumSeqs=4 and maxTokens=8192; raise per-host if a workload needs more.";
     };
 
-    # gpuMemoryUtilization — a DEVICE FRACTION with two coupled effects in
-    # vllm-mlx. It is not "share of the host given to inference" (that is the
-    # OS wired-memory ceiling, set per host via appleSiliconTunables.wiredLimitMb);
-    # it is a fraction of total device memory that:
-    #   1. caps how much Metal memory each worker PROCESS may allocate
-    #      (allocation_limit = util * device_working_set), and
-    #   2. sets the engine's emergency cache-clear TRIP POINT at
-    #      device_mem * (util + 0.05) — when total active GPU memory crosses
-    #      that, every worker force-clears its KV cache (engine_core.py).
+    # gpuMemoryUtilization — a device fraction, NOT the share of the host given
+    # to inference (that is appleSiliconTunables.wiredLimitMb). It both caps each
+    # worker and places the engine's emergency KV-clear trip point, so it is
+    # coupled to the host ceiling and the two must be changed together.
+    # Sizing rules, the invariant, and the re-derivation formula:
+    # https://docs.jacobpevans.com/local-llm/memory-ceilings
     #
-    # Because it is a fraction, ONE value scales correctly across any device
-    # size — no per-host math or override is needed, which is why this is a
-    # single declared default rather than a per-host knob.
-    #
-    # Choosing the default: the trip point must sit ABOVE the resident
-    # weights+cache a serving host keeps warm, but just BELOW the wired ceiling
-    # so the soft cache-clear still fires as a safety valve before hard Metal
-    # paging. On a 128 GiB host with a ~92%-wired GPU (~115 GiB), the trip point
-    # as a function of util is:
-    #   util 0.50 -> ~76 GiB  (below a dual-model ~92 GiB resident set: the
-    #                          worker force-clears every step -> KV thrash ->
-    #                          multi-turn agent chats die after a few messages)
-    #   util 0.80 -> ~109 GiB (clears the ~92 GiB resident set with headroom,
-    #                          ~6 GiB under the 115 GiB ceiling: the sweet spot)
-    #   util 0.85+ -> >115 GiB (trip lands OVER the wired ceiling; the soft
-    #                           valve never fires and you hit hard paging instead)
-    # 0.80 also lifts allocation_limit to ~92 GiB/worker, enough to hold a
-    # ~63 GiB 120B model plus cache; 0.50 capped it at ~57 GiB, below that
-    # model's footprint, so it could not stay resident. A workstation that
-    # actively needs interactive desktop headroom can override DOWN.
     # This is the per-worker enforcement layer that HardResourceLimits could not
     # provide (see launchd.nix) because it acts inside the worker process itself.
     # Ref: https://github.com/ml-explore/mlx-lm/issues/883
     gpuMemoryUtilization = lib.mkOption {
       type = lib.types.nullOr (lib.types.numbers.between 0.05 1.0);
       default = 0.8;
-      description = "Fraction of device memory each worker may allocate via Metal (vllm-mlx --gpu-memory-utilization), which vllm-mlx also uses as the emergency cache-clear trip point at device_mem*(util+0.05). 0.80 keeps the trip point above a dual-model resident set yet under a ~92%-wired ceiling. Null = upstream default (0.90). Override DOWN only for a host that needs interactive desktop headroom.";
+      description = "Fraction of device memory each worker may allocate via Metal (vllm-mlx --gpu-memory-utilization), also used as the emergency cache-clear trip point at device_mem*(util+0.05). Coupled to the host wired ceiling — the invariant is footprint < trip < ceiling, so override this only together with appleSiliconTunables.wiredLimitMb. Null = upstream default (0.90). Override DOWN for a host that needs interactive desktop headroom.";
     };
 
     # bufferCacheLimitGb — per-worker cap on MLX's RETAINED free-buffer cache

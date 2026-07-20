@@ -88,12 +88,12 @@
         from nix-darwin clusterLinkPrep) before starting the rank — sized for
         this node's pipeline shard, leaving the GUI working set unwirable.
         null = never touch the sysctl. When set, a failed apply SKIPS the
-        rank start: serving a shard over a day-sized ceiling is the
+        rank start: serving a shard over a standalone-sized ceiling is the
         2026-07-12 dual-host panic.
       '';
     };
 
-    dayWiredLimitMb = lib.mkOption {
+    standaloneWiredLimitMb = lib.mkOption {
       type = lib.types.int;
       default = 0;
       description = ''
@@ -171,13 +171,13 @@
     detachTimeoutSecs = lib.mkOption {
       type = lib.types.int;
       default = 300;
-      description = "cluster-detach bound (s) on the teardown and day-serving-restore waits.";
+      description = "cluster-detach bound (s) on the teardown and standalone-serving-restore waits.";
     };
 
     quiesceGraceSecs = lib.mkOption {
       type = lib.types.int;
       default = 30;
-      description = "cluster-join grace (s) for day-serve engines to exit before orphans are reaped.";
+      description = "cluster-join grace (s) for standalone-serve engines to exit before orphans are reaped.";
     };
 
     workerStableSecs = lib.mkOption {
@@ -191,7 +191,7 @@
       default = [ ];
       example = [ "--port 11442" ];
       description = ''
-        Command-line substrings identifying day-serving `vllm-mlx serve`
+        Command-line substrings identifying standalone-serving `vllm-mlx serve`
         backends the coordinator cluster-join must NOT reap when it quiesces for
         the shard. A process whose command line contains any of these is left
         running so it survives the cluster window — e.g. a standalone brain

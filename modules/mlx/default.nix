@@ -238,6 +238,8 @@ let
 in
 {
   imports = [
+    ./options-renamed.nix
+    ./options-proxy.nix
     ./options-server.nix
     ./options-cache.nix
     ./options-batching.nix
