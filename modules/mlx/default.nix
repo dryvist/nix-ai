@@ -45,8 +45,11 @@ let
   # per-invocation value). Value and bump rule: see the MLX-driven set above.
   uvPythonVersion = (import ../../lib/python.nix { inherit pkgs; }).pythonVersion;
 
+  # Patched wheel (VLLM_MLX_LOG_LEVEL support) — see vllm-mlx-patch.nix for why.
+  vllmMlxPatchedWheel = import ./vllm-mlx-patch.nix { inherit pkgs vllmMlxVersion; };
+
   vllmMlxPkg = pkgs.writeShellScriptBin "vllm-mlx" ''
-    exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} --from "vllm-mlx==${vllmMlxVersion}" --with "${mlxPin}" --with "${mlxLmPin}" --with "${transformersPin}" vllm-mlx "$@"
+    exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} --from "${vllmMlxPatchedWheel}/vllm_mlx-${vllmMlxVersion}-py3-none-any.whl" --with "${mlxPin}" --with "${mlxLmPin}" --with "${transformersPin}" vllm-mlx "$@"
   '';
   mlxWarmupPkg = pkgs.writeShellScriptBin "mlx-warmup" ''
     exec ${pkgs.python3}/bin/python3 ${./scripts/mlx-warmup.py} "$@"
@@ -90,9 +93,11 @@ let
   warmupAgentLabel = "dev.vllm-mlx.warmup";
 
   # Shared per-backend env; the buffer-cache cap must ride the env
-  # (MLX_BUFFER_CACHE_LIMIT) — rationale in options-cache.nix.
+  # (MLX_BUFFER_CACHE_LIMIT) — rationale in options-cache.nix. VLLM_MLX_LOG_LEVEL
+  # is read by the patch in vllm-mlx-patch.nix (upstream has no lever of its own).
   workerEnv = [
     "HF_HOME=${cfg.huggingFaceHome}"
+    "VLLM_MLX_LOG_LEVEL=${cfg.serverLogLevel}"
   ]
   ++ lib.optionals (cfg.bufferCacheLimitGb != null) [
     "MLX_BUFFER_CACHE_LIMIT=${toString (cfg.bufferCacheLimitGb * 1024 * 1024 * 1024)}"
