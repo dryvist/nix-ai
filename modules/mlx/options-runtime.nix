@@ -187,14 +187,20 @@
           "warn"
           "error"
         ];
-        default = "info";
+        default = "debug";
         description = ''
-          llama-swap log verbosity. "info" is the production default — keeps
-          model load events and swap transitions visible without dumping every
-          weight tensor name. Switch to "debug" only when actively diagnosing
-          proxy behaviour (logs every proxied HTTP request/response body and
-          makes `curl http://127.0.0.1:11434/logs/stream` a live I/O tap).
+          llama-swap log verbosity. "debug" is the production default — logs
+          every proxied HTTP request/response body and model load/swap
+          transitions, giving pre-error context and point-in-time config
+          detail for later log-based analytics (config-over-time mining), not
+          just live diagnosis. Set to "info" to drop the request/response
+          body logging and keep only model load events and swap transitions.
           Note: debug output rotates within the 10 MB LaunchAgent log limit.
+
+          vllm-mlx itself has no equivalent lever: 0.4.0 hardcodes
+          `logging.basicConfig(level=logging.INFO)` (server.py) and
+          `uvicorn.run(..., log_level="info")` (cli.py) with no CLI flag or
+          env var — this option only raises the proxy's own verbosity.
         '';
       };
       logToStdout = lib.mkOption {
