@@ -134,6 +134,9 @@ let
       CLUSTER_NORMAL_PROXY = "http://127.0.0.1:${toString cfg.port}";
       CLUSTER_SERVER_LABEL = launchAgentLabel;
       CLUSTER_WARMUP_LABEL = warmupAgentLabel;
+      # Newline-separated substrings of day-serving engines to spare from the
+      # quiesce reap (standalone keep-resident backends). Empty by default.
+      CLUSTER_KEEP_RESIDENT = lib.concatStringsSep "\n" ncfg.keepResidentBackends;
     }
     // lib.optionalAttrs (!isCoordinator && ncfg.quiesceCommand != null) {
       CLUSTER_QUIESCE_CMD = ncfg.quiesceCommand;
