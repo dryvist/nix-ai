@@ -128,6 +128,29 @@
     };
 
     # --- cluster-join / cluster-detach lifecycle-command tunables ------------
+    generationRepoUrl = lib.mkOption {
+      type = lib.types.str;
+      default = "https://github.com/dryvist/nix-darwin";
+      description = ''
+        Flake repo whose origin/main is the deploy source of truth for the
+        cluster-join generation-parity preflight: every node must run a system
+        generation stamped with that branch's HEAD revision before any
+        clustering config begins (two nodes both at remote HEAD are identical
+        by construction). Empty string disables the preflight.
+      '';
+    };
+
+    generationFlakeDir = lib.mkOption {
+      type = lib.types.str;
+      default = "";
+      example = "/Users/me/git/public/nix/nix-darwin/main";
+      description = ''
+        Local nix-darwin flake checkout cluster-join auto-heals generation
+        drift from (ff-only pull of main, then darwin-rebuild switch). Empty
+        disables auto-heal: drift then fails the join with instructions.
+      '';
+    };
+
     joinSwapThresholdMb = lib.mkOption {
       type = lib.types.int;
       default = 8000;
