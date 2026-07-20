@@ -57,6 +57,30 @@
       '';
     };
 
+    # serverLogLevel — vllm-mlx has no --log-level flag or env var of its own
+    # (0.4.0 hardcodes INFO in both its app logger and uvicorn's request
+    # logging; see vllm-mlx-patch.nix for the source-level evidence). This
+    # option feeds the locally patched VLLM_MLX_LOG_LEVEL env var (workerEnv
+    # in default.nix), giving the same debug/info/warn/error vocabulary as
+    # proxy.logLevel for the vllm-mlx worker process itself.
+    serverLogLevel = lib.mkOption {
+      type = lib.types.enum [
+        "debug"
+        "info"
+        "warn"
+        "error"
+      ];
+      default = "debug";
+      description = ''
+        vllm-mlx worker log verbosity, via the locally patched
+        VLLM_MLX_LOG_LEVEL env var (upstream has no equivalent lever — see
+        vllm-mlx-patch.nix). "debug" is the production default: pre-error
+        context and point-in-time config detail for later log-based
+        analytics, not just live diagnosis. Set to "info" to drop back to
+        upstream's original hardcoded verbosity.
+      '';
+    };
+
     models = lib.mkOption {
       type = lib.types.attrsOf (
         lib.types.submodule {
