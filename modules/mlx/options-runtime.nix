@@ -139,6 +139,24 @@
       description = "Additional vllm-mlx serve arguments per physical registry model id, appended after the global flags.";
     };
 
+    # modelConcurrencyLimits — per-physical-id override of the GLOBAL proxy
+    # concurrencyLimit (the llama-swap-side in-flight cap). modelExtraArgs and
+    # modelFlagOverrides tune the vllm-mlx worker; this one tunes the proxy gate
+    # in front of it. Needed for models that abort under parallel dispatch
+    # regardless of worker batch width — e.g. Qwen3-Next-80B (metal::malloc
+    # resource limit under concurrent requests), which must be serialized to 1.
+    # Keyed by physical model id; absent id falls back to proxy.concurrencyLimit.
+    modelConcurrencyLimits = lib.mkOption {
+      type = lib.types.attrsOf lib.types.ints.positive;
+      default = { };
+      example = lib.literalExpression ''
+        {
+          "mlx-community/<crash-under-concurrency-model>" = 1;
+        }
+      '';
+      description = "Per-physical-model override of programs.mlx.proxy.concurrencyLimit (llama-swap in-flight cap), for models that must be serialized independent of the global default.";
+    };
+
     # modelFlagOverrides — per-physical-id overrides of the GLOBAL serve
     # options. modelExtraArgs can only APPEND flags; it cannot retract a
     # default-on boolean like pagedKvCache, whose --use-paged-cache flag has

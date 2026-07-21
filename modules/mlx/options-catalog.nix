@@ -185,6 +185,13 @@ in
         lib.nameValuePair (entryFor name).model (lib.mapAttrs (_: lib.mkDefault) (flagsFor name sel))
       ) enabled;
 
+      # A catalog entry may pin a proxy-side concurrency cap (e.g. the 80B that
+      # aborts under parallel dispatch). Compile it to the per-physical-id
+      # override; mkDefault so a direct host setting still wins.
+      modelConcurrencyLimits = lib.mapAttrs' (
+        name: _sel: lib.nameValuePair (entryFor name).model (lib.mkDefault (entryFor name).concurrencyLimit)
+      ) (lib.filterAttrs (name: _sel: (entryFor name) ? concurrencyLimit) enabled);
+
       models = lib.mapAttrs' (
         name: sel:
         lib.nameValuePair (entryFor name).model (

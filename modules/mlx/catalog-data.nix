@@ -196,6 +196,14 @@ in
     model = "mlx-community/Qwen3-Next-80B-A3B-Instruct-4bit";
     weightGb = 42.0;
     args = qwenMoeInstructParser ++ agentTimeout;
+    # Serialize proxy dispatch: this 80B aborts with metal::malloc resource-limit
+    # errors under concurrent requests (Hermes crons + fleet traffic in
+    # parallel), and the crash-loop respawn storm exhausts the per-uid process
+    # table. maxNumSeqs=4 caps the worker's batch width, but the proxy still
+    # fans out; concurrencyLimit=1 makes llama-swap queue instead of parallel-
+    # dispatch, trading throughput for reliability. Instruct only — the Thinking
+    # sibling keeps the global default until validated.
+    concurrencyLimit = 1;
     classes = {
       resident.flags = block512 // {
         cacheMemoryMb = 16384;
