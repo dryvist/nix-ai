@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.2](https://github.com/dryvist/nix-ai/compare/v3.0.1...v3.0.2) (2026-07-21)
+
+
+### Bug Fixes
+
+* **mlx:** watchdog probe discrimination — stop kickstarting on busy ([#1324](https://github.com/dryvist/nix-ai/issues/1324)) ([a79ff67](https://github.com/dryvist/nix-ai/commit/a79ff67ecb6d1244b917a896077a280cf796c8d0))
+
 ## [3.0.1](https://github.com/dryvist/nix-ai/compare/v3.0.0...v3.0.1) (2026-07-21)
 
 
