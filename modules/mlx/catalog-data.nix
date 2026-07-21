@@ -9,6 +9,28 @@
 # Entry schema:
 #   model            physical Hugging Face id
 #   weightGb         4-bit weight footprint (co-residency budget accounting)
+#   kv               (optional) per-token KV-cache geometry for admission control.
+#                    Fields fetched from the model's HF config.json:
+#                      kvLayers     count of KV-BEARING attention layers. For a
+#                                   standard model this is num_hidden_layers; for
+#                                   the qwen3_next HYBRID it is ONLY the
+#                                   full-attention layers = num_hidden_layers /
+#                                   full_attention_interval (the recurrent/linear
+#                                   layers carry NO paged-KV blocks — mlx-lm
+#                                   qwen3_next.py make_cache gives them ArraysCache,
+#                                   not KVCache), so counting all 48 would
+#                                   over-reserve KV by 4x.
+#                      kvHeads      num_key_value_heads (GQA KV head count)
+#                      headDim      head_dim
+#                      kvDtypeBytes bytes/element of the stored KV. 2 (fp16) unless
+#                                   the serve profile sets --kv-cache-quantization
+#                                   (store_true, default off; no resident does).
+#                    perTokenKvBytes = 2 (K+V) * kvLayers * kvHeads * headDim
+#                                      * kvDtypeBytes. Present on residents only —
+#                                      the admission wrapper needs it to size the
+#                                      GLOBAL paged-KV pool (--max-cache-blocks is
+#                                      a whole-pool block count shared across all
+#                                      concurrent sequences, not per-sequence).
 #   args             family serve args, applied in every class
 #   classes.<class>  validated profile: { flags = modelFlagOverrides attrs }
 #     resident — preload-capable agent brain (host preload list still decides
@@ -99,6 +121,14 @@ in
   qwen3-coder-30b = {
     model = "mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit";
     weightGb = 17.1;
+    # qwen3_moe, standard attention: all 48 layers bear KV.
+    # perTokenKvBytes = 2*48*4*128*2 = 98304 B/token (96 KiB/token).
+    kv = {
+      kvLayers = 48;
+      kvHeads = 4;
+      headDim = 128;
+      kvDtypeBytes = 2;
+    };
     args = [
       "--tool-call-parser"
       "qwen3_coder"
@@ -203,6 +233,19 @@ in
   qwen3-next-80b-instruct = {
     model = "mlx-community/Qwen3-Next-80B-A3B-Instruct-4bit";
     weightGb = 42.0;
+    # qwen3_next HYBRID: 48 layers, full_attention_interval=4 → only 12
+    # full-attention layers carry paged KV; the other 36 gated-delta-net layers
+    # carry none (mlx-lm qwen3_next.py:360 is_linear, :450 make_cache). Counting
+    # all 48 would over-reserve KV by 4x. kvHeads=2, headDim=256.
+    # perTokenKvBytes = 2*12*2*256*2 = 24576 B/token (24 KiB/token) — LOWER than
+    # the 30B dense models despite 2.4x the weights, because 3/4 of its layers
+    # are KV-free. (Thinking sibling qwen3-next-80b has identical arch.)
+    kv = {
+      kvLayers = 12;
+      kvHeads = 2;
+      headDim = 256;
+      kvDtypeBytes = 2;
+    };
     args = qwenMoeInstructParser ++ agentTimeout;
     # 40B+ SINGLE-SLOT POLICY (user directive 2026-07-21): no concurrency on any
     # 40B+ model. Two layers, defense in depth: concurrencyLimit=1 makes
@@ -270,6 +313,14 @@ in
   qwen3-30b-2507 = {
     model = "mlx-community/Qwen3-30B-A3B-Instruct-2507-4bit";
     weightGb = 17.5;
+    # qwen3_moe, standard attention: all 48 layers bear KV. jevans-mbp standalone
+    # default. perTokenKvBytes = 2*48*4*128*2 = 98304 B/token (96 KiB/token).
+    kv = {
+      kvLayers = 48;
+      kvHeads = 4;
+      headDim = 128;
+      kvDtypeBytes = 2;
+    };
     args = [
       "--tool-call-parser"
       "hermes"
