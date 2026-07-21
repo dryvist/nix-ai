@@ -68,7 +68,13 @@ markers_clear() {
   done
   return 0
 }
-rank_gone() { ! /usr/bin/pgrep -f 'mlx_lm.server' > /dev/null 2>&1; }
+# Match the real python server by its venv script PATH (/…/bin/mlx_lm.server),
+# never the bare 'mlx_lm.server' token: uvx carries that same token in its own
+# argv, so an unanchored -f match reports the rank alive after the python child
+# has already exited (a lingering uvx wrapper) and also latches onto unrelated
+# monitoring/bash loops that merely mention the name — both false-positively
+# block detach (INC-17075). The escaped dot keeps it literal, not a wildcard.
+rank_gone() { ! /usr/bin/pgrep -f '/mlx_lm\.server' > /dev/null 2>&1; }
 ceiling_restored() {
   [ -z "${CLUSTER_WIRED_LIMIT_MB:-}" ] && return 0
   [ "$(/usr/sbin/sysctl -n iogpu.wired_limit_mb 2>/dev/null || echo '')" = "${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}" ]
@@ -100,7 +106,7 @@ done
 if ! rank_gone; then
   echo "cluster-detach: rank ignored SIGTERM; escalating to SIGKILL (wired shard memory may leak)" >&2
   /bin/launchctl kill SIGKILL "gui/$uid/${CLUSTER_RANK_LABEL}" > /dev/null 2>&1 || true
-  /usr/bin/pkill -9 -f 'mlx_lm.server' > /dev/null 2>&1 || true
+  /usr/bin/pkill -9 -f '/mlx_lm\.server' > /dev/null 2>&1 || true
   sleep 3
   rank_gone && sigkilled_rank=1
 fi
