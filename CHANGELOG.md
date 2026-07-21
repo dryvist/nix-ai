@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.1.1](https://github.com/dryvist/nix-ai/compare/v3.1.0...v3.1.1) (2026-07-21)
+
+
+### Bug Fixes
+
+* **mlx-cluster:** anchor rank pgrep to the venv script path ([#1333](https://github.com/dryvist/nix-ai/issues/1333)) ([08a7ccb](https://github.com/dryvist/nix-ai/commit/08a7ccbd9bfb53c8a53a02f643ceb35b5dc6caa1))
+
 ## [3.1.0](https://github.com/dryvist/nix-ai/compare/v3.0.2...v3.1.0) (2026-07-21)
 
 
