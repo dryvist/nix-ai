@@ -44,9 +44,10 @@
     };
 
     # maxNumSeqs — Max concurrent sequences (--max-num-seqs).
-    # Default: 4 — bounds memory pressure when continuousBatching is on. With
-    # 32GB cache + prefix sharing, 4 concurrent sequences fit comfortably even
-    # on the 122B MoE model.
+    # Default: 4 — bounds memory pressure when continuousBatching is on. The
+    # 8 GB (8192 MB) default cache plus prefix sharing holds 4 concurrent
+    # sequences comfortably across the small/mid MoE models that batch; 40B+
+    # models run single-slot (maxNumSeqs = 1) per their catalog entries.
     maxNumSeqs = lib.mkOption {
       type = lib.types.nullOr lib.types.ints.positive;
       default = 4;

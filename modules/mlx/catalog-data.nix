@@ -1,67 +1,17 @@
-# Validated MLX model catalog — pure data, shipped with the module.
-#
-# This is the single source of truth for HOW each known model is served:
-# family serve args (parser stack, chat-template kwargs) and per-class
-# validated flag profiles. Hosts only pick WHICH entries to enable, the
-# class, and a few type-bounded tweaks (programs.mlx.catalog, see
-# options-catalog.nix) — detailed serve args never belong in host config.
-#
-# Entry schema:
-#   model            physical Hugging Face id
-#   weightGb         4-bit weight footprint (co-residency budget accounting)
-#   args             family serve args, applied in every class
-#   classes.<class>  validated profile: { flags = modelFlagOverrides attrs }
-#     resident — preload-capable agent brain (host preload list still decides
-#                what actually warms at boot)
-#     swap     — on-demand, idle-unloaded, small caps
-# An entry only offers the classes it has been validated for; requesting an
-# unoffered class fails the eval.
+# Validated MLX model catalog — pure data (model entries), shipped with the
+# module. The entry schema and the shared serve-arg helpers inherited below
+# (parser stacks, timeout, paged-block sizes, swap tier) are documented in
+# catalog-lib.nix; this file is split out to keep each under the 12KB gate.
 let
-  # Qwen3.6/Next MoE lineage: XML tool format needs hermes (qwen3_coder
-  # mis-parses it → empty function.name repair storms) + qwen3 reasoning.
-  qwenMoeGeneralParser = [
-    "--tool-call-parser"
-    "hermes"
-    "--reasoning-parser"
-    "qwen3"
-  ];
-  # Instruct (non-thinking) variants must NOT carry a reasoning parser: it
-  # classifies the entire non-streaming completion as reasoning and strips it
-  # (empty content, "Thinking-only response" under agent harnesses) while
-  # streaming still works — the 2026-07-20 Hermes outage signature.
-  qwenMoeInstructParser = [
-    "--tool-call-parser"
-    "hermes"
-  ];
-  # Guard chain: server 3600 > router 2400 > client 1800 (lifts the
-  # 300 s disconnect_guard).
-  agentTimeout = [
-    "--timeout"
-    "3600"
-  ];
-  # Paged-cache block sizing (engine default 64): long sessions shatter the KV
-  # into enough per-block Metal buffers to trip MLX's buffer-count limit
-  # ("Resource limit (499000) exceeded", not a byte OOM; nix-darwin#1609).
-  # Residents run 512: 256 (validated 113K single-stream) still tripped once
-  # under 2x ~50K-token concurrency + a 16K-token generation on 2026-07-09
-  # even with the MLX_BUFFER_CACHE_LIMIT cap — 512 halves the per-token block
-  # count again (worst case ~98K buffers at maxNumSeqs 8 x 65K window, deep
-  # under the ceiling). Small swap models keep 256 (their 32K request cap
-  # keeps block counts low); the 80B large brain runs 512 after 256 tripped
-  # the ceiling four times under 2-way large-phase load on 2026-07-10 (see
-  # its entry).
-  block256 = {
-    pagedCacheBlockSize = 256;
-  };
-  block512 = {
-    pagedCacheBlockSize = 512;
-  };
-  # Swap tier: on-demand, idle-unloaded, small caps.
-  swapFlags = {
-    autoUnloadIdleSeconds = 900;
-    maxNumSeqs = 2;
-    maxRequestTokens = 32768;
-  };
+  inherit (import ./catalog-lib.nix)
+    qwenMoeGeneralParser
+    qwenMoeInstructParser
+    agentTimeout
+    block256
+    block512
+    hybridNoPaged
+    swapFlags
+    ;
 in
 {
   # Agentic tool-calling brain (2026-07-08 bench winner; verdicts in
@@ -99,6 +49,14 @@ in
   qwen3-coder-30b = {
     model = "mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit";
     weightGb = 17.1;
+    # qwen3_moe, standard attention: all 48 layers bear KV.
+    # perTokenKvBytes = 2*48*4*128*2 = 98304 B/token (96 KiB/token).
+    kv = {
+      kvLayers = 48;
+      kvHeads = 4;
+      headDim = 128;
+      kvDtypeBytes = 2;
+    };
     args = [
       "--tool-call-parser"
       "qwen3_coder"
@@ -156,27 +114,26 @@ in
 
   # LARGE rotation brain. Always-thinking variant (no chat-template switch).
   # Small cache keeps the on-demand swap-in under the memory trip (derivation
-  # in mlx-benchmarks docs/RUNBOOK.md). prefixCaching off — unsupported for
-  # the qwen3_next hybrid-attention family. block512 on the full-attention
-  # layers: the engine-default 64 tripped the Metal buffer-count ceiling
-  # mid-digest at step 250880 (active=67GB, running=2), and 256 STILL tripped
-  # it four times in the 2026-07-10 11:25-12:00 UTC large window (active
-  # ≈47.8GB, running=2 waiting=1, steps ~14K, 320s+ generations — crash,
-  # llama-swap reload on next request, crash again). The hybrid's recurrent
-  # layers carry no KV blocks, so the paged block size only shapes its
-  # full-attention layers; 512 halves the per-token buffer count again and is
-  # the same sizing the residents validated under 2x long-context concurrency.
+  # in mlx-benchmarks docs/RUNBOOK.md). Paged cache off (hybridNoPaged): the
+  # qwen3_next hybrid attention fails paged-block reconstruction on every
+  # multi-turn request (mlx-lm#1162), wedging the worker; the standard KV cache
+  # runs instead. With paged off, the block-size sizing (and its Metal
+  # buffer-count ceiling) no longer applies.
   qwen3-next-80b = {
     model = "mlx-community/Qwen3-Next-80B-A3B-Thinking-4bit";
     weightGb = 42.0;
     args = qwenMoeGeneralParser ++ agentTimeout;
+    # 40B+ single-slot policy: proxy queues (single in-flight), engine batch
+    # capped at 1 (in swap.flags). Same hybrid-attention re-prefill constraint
+    # as the Instruct sibling.
+    concurrencyLimit = 1;
     classes = {
       swap.flags =
-        block512
-        // swapFlags
+        swapFlags
+        // hybridNoPaged
         // {
           cacheMemoryMb = 4096;
-          enablePrefixCaching = false;
+          maxNumSeqs = 1; # 40B+ single-slot policy (overrides swapFlags maxNumSeqs=2)
         };
     };
   };
@@ -185,38 +142,54 @@ in
   # winner and new fleet brain (perfect 1.0 valid_tool_call_rate across every
   # single-stream cell, thinking on/off x ctx small/large x stream/nostream;
   # envelopes in HF JacobPEvans/mlx-benchmarks). Same qwen3_next
-  # hybrid-attention constraints as the Thinking entry: prefixCaching
-  # unsupported, block512 on the full-attention layers (Metal buffer-count
-  # ceiling history above). Resident profile mirrors the OptiQ brain it
+  # hybrid-attention constraint as the Thinking entry: paged cache off
+  # (hybridNoPaged) because paged-block reconstruction fails every multi-turn
+  # request; the standard KV cache runs instead. Resident profile mirrors the OptiQ brain it
   # replaces — 65536 serving window (Hermes' >=64K floor; also serves as the
-  # compression model), 16 GB KV — but caps maxNumSeqs at 4: this family's
-  # ceiling crashes hit under 2-way long-context load, so it gets half the
-  # OptiQ batch cap until 8 is validated on the hybrid arch.
+  # compression model), 16 GB KV. SINGLE-SLOT (40B+ policy, below): maxNumSeqs=1
+  # at the engine AND concurrencyLimit=1 at the proxy — this family's ceiling
+  # crashes hit under any concurrency, and prefix-cache reconstruction is broken
+  # upstream (mlx-lm#1162, INC-17130) so every tool turn full-reprefills 85-100s;
+  # batching multiple such requests only time-slices one GPU and balloons every
+  # caller's latency into the 429 storm. One request at a time, queue the rest.
   qwen3-next-80b-instruct = {
     model = "mlx-community/Qwen3-Next-80B-A3B-Instruct-4bit";
     weightGb = 42.0;
+    # qwen3_next HYBRID: 48 layers, full_attention_interval=4 → only 12
+    # full-attention layers carry paged KV; the other 36 gated-delta-net layers
+    # carry none (mlx-lm qwen3_next.py:360 is_linear, :450 make_cache). Counting
+    # all 48 would over-reserve KV by 4x. kvHeads=2, headDim=256.
+    # perTokenKvBytes = 2*12*2*256*2 = 24576 B/token (24 KiB/token) — LOWER than
+    # the 30B dense models despite 2.4x the weights, because 3/4 of its layers
+    # are KV-free. (Thinking sibling qwen3-next-80b has identical arch.)
+    kv = {
+      kvLayers = 12;
+      kvHeads = 2;
+      headDim = 256;
+      kvDtypeBytes = 2;
+    };
     args = qwenMoeInstructParser ++ agentTimeout;
-    # Serialize proxy dispatch: this 80B aborts with metal::malloc resource-limit
-    # errors under concurrent requests (Hermes crons + fleet traffic in
-    # parallel), and the crash-loop respawn storm exhausts the per-uid process
-    # table. maxNumSeqs=4 caps the worker's batch width, but the proxy still
-    # fans out; concurrencyLimit=1 makes llama-swap queue instead of parallel-
-    # dispatch, trading throughput for reliability. Instruct only — the Thinking
-    # sibling keeps the global default until validated.
+    # 40B+ SINGLE-SLOT POLICY (user directive 2026-07-21): no concurrency on any
+    # 40B+ model. Two layers, defense in depth: concurrencyLimit=1 makes
+    # llama-swap QUEUE excess requests (single in-flight to the worker) instead
+    # of parallel-dispatch + 429-storm; maxNumSeqs=1 (in flags) caps the engine
+    # batch width so even a proxy regression cannot re-enable batching. This 80B
+    # aborts with metal::malloc resource-limit errors under concurrent requests
+    # (Hermes crons + fleet traffic), and the crash-loop respawn storm exhausts
+    # the per-uid process table — reliability over throughput.
     concurrencyLimit = 1;
     classes = {
-      resident.flags = block512 // {
+      resident.flags = hybridNoPaged // {
         cacheMemoryMb = 16384;
-        maxNumSeqs = 4;
+        maxNumSeqs = 1;
         maxRequestTokens = 65536;
-        enablePrefixCaching = false;
       };
       swap.flags =
-        block512
-        // swapFlags
+        swapFlags
+        // hybridNoPaged
         // {
           cacheMemoryMb = 4096;
-          enablePrefixCaching = false;
+          maxNumSeqs = 1; # 40B+ single-slot policy (overrides swapFlags maxNumSeqs=2)
         };
     };
   };
@@ -239,11 +212,17 @@ in
         reasoning_effort = "low";
       })
     ];
+    # 40B+ single-slot policy: 63 GB weights on one GPU — proxy queues (single
+    # in-flight), engine batch capped at 1 (in swap.flags). Without maxNumSeqs
+    # this inherited the global default (4); concurrencyLimit inherited the
+    # host-wide 8 — both re-enabled the multi-request storm this policy forbids.
+    concurrencyLimit = 1;
     classes = {
       # 63 GB — never resident; idle unload frees it back to baseline.
       swap.flags = {
         pagedKvCache = false;
         enablePrefixCaching = false;
+        maxNumSeqs = 1;
         autoUnloadIdleSeconds = 900;
       };
     };
@@ -254,6 +233,14 @@ in
   qwen3-30b-2507 = {
     model = "mlx-community/Qwen3-30B-A3B-Instruct-2507-4bit";
     weightGb = 17.5;
+    # qwen3_moe, standard attention: all 48 layers bear KV. jevans-mbp standalone
+    # default. perTokenKvBytes = 2*48*4*128*2 = 98304 B/token (96 KiB/token).
+    kv = {
+      kvLayers = 48;
+      kvHeads = 4;
+      headDim = 128;
+      kvDtypeBytes = 2;
+    };
     args = [
       "--tool-call-parser"
       "hermes"
