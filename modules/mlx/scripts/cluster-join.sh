@@ -298,7 +298,11 @@ fi
 timeout="${CLUSTER_JOIN_TIMEOUT_SECS:-600}"
 deadline=$(($(date +%s) + timeout))
 
-rank_pid() { /usr/bin/pgrep -f 'mlx_lm.server' 2> /dev/null | head -n1; }
+# Anchor to the venv script PATH (/…/bin/mlx_lm.server): the bare
+# 'mlx_lm.server' token also lives in the uvx wrapper's argv and in monitoring
+# loops, so an unanchored match sees the rank as "up" while the real python
+# child is dead (see cluster-detach.sh rank_gone). Escaped dot = literal.
+rank_pid() { /usr/bin/pgrep -f '/mlx_lm\.server' 2> /dev/null | head -n1; }
 
 if [ "$CLUSTER_ROLE" = "coordinator" ]; then
   # Zero completions from join. The watcher fires exactly ONE warm generation
@@ -315,7 +319,7 @@ if [ "$CLUSTER_ROLE" = "coordinator" ]; then
   echo "cluster-join: waiting up to ${timeout}s for the watcher warm generation (rank-warmed)"
   warm_ok=false
   while [ "$(date +%s)" -lt "$deadline" ]; do
-    if /usr/bin/pgrep -f 'mlx_lm.server' > /dev/null 2>&1 && [ -e "$warm_marker" ]; then
+    if /usr/bin/pgrep -f '/mlx_lm\.server' > /dev/null 2>&1 && [ -e "$warm_marker" ]; then
       warm_ok=true
       break
     fi
@@ -332,7 +336,7 @@ else
   stable_ok=false
   while [ "$(date +%s)" -lt "$deadline" ]; do
     if /bin/launchctl print "gui/$uid/${CLUSTER_RANK_LABEL}" 2> /dev/null | /usr/bin/grep -q "state = running" &&
-      /usr/bin/pgrep -f 'mlx_lm.server' > /dev/null 2>&1; then
+      /usr/bin/pgrep -f '/mlx_lm\.server' > /dev/null 2>&1; then
       [ "$running_since" -eq 0 ] && running_since="$(date +%s)"
       if [ $(($(date +%s) - running_since)) -ge "$stable" ]; then
         stable_ok=true
