@@ -13,7 +13,7 @@
     };
 
     ai-llm-prompts = {
-      url = "github:dryvist/ai-llm-prompts/0431be6994d51169b9f705ddeba958eb8a4d0fc4";
+      url = "github:dryvist/ai-llm-prompts/9f55dee4840752c5b73f92278bc75fbe701e8dff";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
