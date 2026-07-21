@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.1.0](https://github.com/dryvist/nix-ai/compare/v3.0.2...v3.1.0) (2026-07-21)
+
+
+### Features
+
+* **mlx:** ping external deadman on healthy watchdog probe ([#1328](https://github.com/dryvist/nix-ai/issues/1328)) ([2319ae1](https://github.com/dryvist/nix-ai/commit/2319ae14995bac99c8163b18b3fe9b3ddb892882))
+
 ## [3.0.2](https://github.com/dryvist/nix-ai/compare/v3.0.1...v3.0.2) (2026-07-21)
 
 
