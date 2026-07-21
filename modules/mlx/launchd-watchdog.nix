@@ -69,6 +69,11 @@ in
           # Untracked ntfy url file, shared with the cluster watcher so one
           # seeded url pages for both. Missing file = no page.
           MLX_WATCHDOG_ALERT_URL_FILE = "${config.home.homeDirectory}/.config/mlx-cluster/alert-url";
+          # Untracked healthchecks deadman ping url file (the UUID is secret-tier,
+          # so seeded out-of-band like the alert url — never committed). The
+          # watchdog pings it on a healthy brain; a silent host stops pinging and
+          # the external check pages. Missing file = no ping.
+          MLX_WATCHDOG_HEALTHCHECK_URL_FILE = "${config.home.homeDirectory}/.config/mlx-cluster/healthcheck-url";
         };
         StandardOutPath = "${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx-watchdog.log";
         StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx-watchdog.error.log";
