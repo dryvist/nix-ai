@@ -92,16 +92,8 @@ let
   launchAgentLabel = "dev.vllm-mlx.server";
   warmupAgentLabel = "dev.vllm-mlx.warmup";
 
-  # Shared per-backend env; the buffer-cache cap must ride the env
-  # (MLX_BUFFER_CACHE_LIMIT) — rationale in options-cache.nix. VLLM_MLX_LOG_LEVEL
-  # is read by the patch in vllm-mlx-patch.nix (upstream has no lever of its own).
-  workerEnv = [
-    "HF_HOME=${cfg.huggingFaceHome}"
-    "VLLM_MLX_LOG_LEVEL=${cfg.serverLogLevel}"
-  ]
-  ++ lib.optionals (cfg.bufferCacheLimitGb != null) [
-    "MLX_BUFFER_CACHE_LIMIT=${toString (cfg.bufferCacheLimitGb * 1024 * 1024 * 1024)}"
-  ];
+  # Shared per-backend env — split to worker-env.nix (12KB file-size gate).
+  inherit (import ./worker-env.nix { inherit lib cfg; }) workerEnv;
 
   # Mutable runtime config path — llama-swap reads this with --watch-config.
   # mlx-discover merges auto-discovered models into this file at runtime.
@@ -156,7 +148,7 @@ let
       checkEndpoint = "/v1/models";
       aliases = roles;
       useModelName = physical;
-      inherit (cfg.proxy) concurrencyLimit;
+      concurrencyLimit = cfg.modelConcurrencyLimits.${physical} or cfg.proxy.concurrencyLimit;
     }
     // lib.optionalAttrs (defaultFilters != { }) {
       filters = defaultFilters;
@@ -181,7 +173,7 @@ let
       ttl = if modelCfg.ttl > 0 then modelCfg.ttl else cfg.proxy.idleTtl;
       env = workerEnv;
       checkEndpoint = "/v1/models";
-      inherit (cfg.proxy) concurrencyLimit;
+      concurrencyLimit = cfg.modelConcurrencyLimits.${name} or cfg.proxy.concurrencyLimit;
     }
     // lib.optionalAttrs (modelCfg.aliases != [ ]) {
       inherit (modelCfg) aliases;

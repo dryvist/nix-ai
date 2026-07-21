@@ -58,6 +58,9 @@ let
             class = "swap";
             tweaks.ttl = 600;
           };
+          # Carries an intrinsic proxy concurrencyLimit=1 (metal::malloc under
+          # concurrency) — exercises modelConcurrencyLimits compilation.
+          qwen3-next-80b-instruct.class = "swap";
         };
         # Direct host setting on a catalog-managed key must win over the catalog.
         modelFlagOverrides."mlx-community/Qwen3.6-35B-A3B-OptiQ-4bit".cacheMemoryMb = 8192;

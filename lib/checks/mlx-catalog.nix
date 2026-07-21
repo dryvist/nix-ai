@@ -15,6 +15,7 @@ in
       coder = "mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit";
       gptOss = "mlx-community/gpt-oss-120b-MXFP4-Q8";
       next80 = "mlx-community/Qwen3-Next-80B-A3B-Thinking-4bit";
+      next80Instruct = "mlx-community/Qwen3-Next-80B-A3B-Instruct-4bit";
       optiqFlags = c.modelFlagOverrides.${optiq};
       optiqArgs = builtins.concatStringsSep " " c.modelExtraArgs.${optiq};
     in
@@ -47,5 +48,11 @@ in
     assert
       c.modelFlagOverrides.${next80}.pagedCacheBlockSize == 512
       || throw "catalog: 80B must run 512-token paged blocks — 256 still tripped the Metal buffer-count ceiling under 2-way large-phase load (2026-07-10)";
+    assert
+      c.modelConcurrencyLimits.${next80Instruct} == 1
+      || throw "catalog: 80B-instruct must compile concurrencyLimit=1 (serialized; aborts under concurrent dispatch)";
+    assert
+      !(c.modelConcurrencyLimits ? ${next80})
+      || throw "catalog: 80B-thinking must NOT pin a concurrencyLimit — override is Instruct-only";
     helpers.mkMarker "check-mlx-catalog" "MLX catalog: resident/swap compile, bounded tweak, ttl fan-out, and host-override precedence verified";
 }
