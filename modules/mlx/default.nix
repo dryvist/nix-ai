@@ -242,6 +242,7 @@ in
     ./options-cluster.nix
     ./packages.nix
     ./launchd.nix
+    ./launchd-watchdog.nix
     ./cluster-mode.nix
     ./cluster-mode-maintenance.nix
   ];
