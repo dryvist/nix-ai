@@ -117,6 +117,16 @@ in
   # process.
   splunk = {
     command = "splunk-mcp-connect";
+    # Codex inherits only explicitly listed ambient variables for each stdio
+    # server. Keep the AppRole bootstrap narrowly scoped to this launcher.
+    env_vars = [
+      "BAO_ADDR"
+      "AI_READONLY_ROLE_ID"
+      "AI_READONLY_SECRET_ID"
+      "SPLUNK_MCP_OPENBAO_PATH"
+    ];
+    startup_timeout_sec = 300;
+    tool_timeout_sec = 300;
   };
 
   # ================================================================
@@ -199,8 +209,8 @@ in
   # project/label CRUD, batch import, webhooks) with rate limiting + circuit
   # breakers — built for autonomous agents. Requires VIKUNJA_URL (instance API
   # base, ends in /api/v1) and VIKUNJA_API_TOKEN (a tk_ service-account token,
-  # svc-mcp-rw tier) — injected at launch by doppler-mcp from ai-ci-automation/
-  # prd, same pattern as google-workspace. Canonical token home is the secrets
+  # svc-mcp-rw tier) — injected at launch by doppler-mcp from the configured
+  # Doppler project, same pattern as google-workspace. Canonical token home is the secrets
   # engine's apps/vikunja secret (promoted from the app role's SOPS mint).
   # Ships disabled — a consumer enables it deliberately once the Doppler
   # secrets exist for that machine.
@@ -210,6 +220,13 @@ in
       "bunx"
       "@democratize-technology/vikunja-mcp@${versions.vikunjaMcp}"
     ];
+    # Codex needs the Doppler wrapper configuration forwarded explicitly.
+    env_vars = [
+      "AI_DOPPLER_PROJECT"
+      "AI_DOPPLER_CONFIG"
+    ];
+    startup_timeout_sec = 300;
+    tool_timeout_sec = 300;
     disabled = true;
   };
 
@@ -221,11 +238,11 @@ in
   # ticket/user/organization/attachment tools plus queue resources — the
   # surface the Hermes zammad-incidents loop drives. Requires ZAMMAD_URL
   # (instance API base, ends in /api/v1) and ZAMMAD_HTTP_TOKEN (a Zammad API
-  # token) — injected at launch by doppler-mcp from ai-ci-automation/prd, same
-  # pattern as vikunja/google-workspace. Canonical token home is the secrets
+  # token) — injected at launch by doppler-mcp from the configured Doppler
+  # project, same pattern as vikunja/google-workspace. Canonical token home is the secrets
   # engine's secret/ai/mcp/zammad (ZAMMAD_MCP_URL + ZAMMAD_MCP_TOKEN fields).
-  # Ships disabled — the host opt-in + Doppler seeding follow Zammad's deploy
-  # (task #10); enabling before that would spawn a failing server.
+  # Enabled in the shared profile. Its Doppler wrapper receives only the
+  # project/config selectors from Codex; Zammad credentials stay in Doppler.
   zammad = {
     command = "doppler-mcp";
     args = [
@@ -234,6 +251,12 @@ in
       "git+https://github.com/basher83/zammad-mcp.git@v${versions.zammadMcp}"
       "mcp-zammad"
     ];
+    env_vars = [
+      "AI_DOPPLER_PROJECT"
+      "AI_DOPPLER_CONFIG"
+    ];
+    startup_timeout_sec = 300;
+    tool_timeout_sec = 300;
   };
 
   # ================================================================
