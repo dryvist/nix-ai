@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.0.1](https://github.com/dryvist/nix-ai/compare/v3.0.0...v3.0.1) (2026-07-21)
+
+
+### Bug Fixes
+
+* **mlx:** make gpu-memory-utilization apply on the lifecycle engine path ([#1317](https://github.com/dryvist/nix-ai/issues/1317)) ([d04be98](https://github.com/dryvist/nix-ai/commit/d04be98524cffc04807acff795bf870ba7cbd128))
+* **mlx:** serialize qwen3-next-80b requests (concurrency 1) ([9235f59](https://github.com/dryvist/nix-ai/commit/9235f59cb629558f531cca190f68208b3a411dad))
+* **mlx:** watchdog escalation ladder — bootout+bootstrap on repeated failure ([e2935c4](https://github.com/dryvist/nix-ai/commit/e2935c43f788fa92a777815c49429596e7a47f47))
+
 ## [3.0.0](https://github.com/dryvist/nix-ai/compare/v2.4.0...v3.0.0) (2026-07-20)
 
 
