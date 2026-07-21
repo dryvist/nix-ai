@@ -67,4 +67,4 @@ export SPLUNK_MCP_AUTH_HEADER="Bearer $splunk_mcp_token"
 # no idle bash lingers for the connection's lifetime.
 exec "$BUNX_BIN" --bun mcp-remote@0.1.38 \
   "$SPLUNK_MCP_URL" \
-  --header 'Authorization:${SPLUNK_MCP_AUTH_HEADER}'
+  --header "Authorization:\${SPLUNK_MCP_AUTH_HEADER}"
