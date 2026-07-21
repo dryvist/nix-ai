@@ -56,6 +56,19 @@ let
   block512 = {
     pagedCacheBlockSize = 512;
   };
+  # qwen3_next hybrid-attention family: the paged KV cache fails block
+  # reconstruction on every multi-turn request (upstream mlx-lm behavior we
+  # work around). The failed reconstruction wedges the worker and forces a
+  # full-context re-prefill each turn, which the serving watchdog then reaps.
+  # The standard non-paged KV cache reconstructs correctly, so these models run
+  # paged off — the same escape hatch gpt-oss-120b uses for its own paged-cache
+  # attention incompatibility. Prefix sharing needs the paged cache, so it
+  # stays off too (already unsupported for this family). With paged off there
+  # are no per-block Metal buffers, so the block-size sizing no longer applies.
+  hybridNoPaged = {
+    pagedKvCache = false;
+    enablePrefixCaching = false;
+  };
   # Swap tier: on-demand, idle-unloaded, small caps.
   swapFlags = {
     autoUnloadIdleSeconds = 900;
@@ -156,27 +169,22 @@ in
 
   # LARGE rotation brain. Always-thinking variant (no chat-template switch).
   # Small cache keeps the on-demand swap-in under the memory trip (derivation
-  # in mlx-benchmarks docs/RUNBOOK.md). prefixCaching off — unsupported for
-  # the qwen3_next hybrid-attention family. block512 on the full-attention
-  # layers: the engine-default 64 tripped the Metal buffer-count ceiling
-  # mid-digest at step 250880 (active=67GB, running=2), and 256 STILL tripped
-  # it four times in the 2026-07-10 11:25-12:00 UTC large window (active
-  # ≈47.8GB, running=2 waiting=1, steps ~14K, 320s+ generations — crash,
-  # llama-swap reload on next request, crash again). The hybrid's recurrent
-  # layers carry no KV blocks, so the paged block size only shapes its
-  # full-attention layers; 512 halves the per-token buffer count again and is
-  # the same sizing the residents validated under 2x long-context concurrency.
+  # in mlx-benchmarks docs/RUNBOOK.md). Paged cache off (hybridNoPaged): the
+  # qwen3_next hybrid attention fails paged-block reconstruction on every
+  # multi-turn request, wedging the worker; the standard KV cache runs instead.
+  # With paged off, the block-size sizing (and its Metal buffer-count ceiling)
+  # no longer applies — the standard cache holds one contiguous buffer per
+  # sequence rather than many small blocks.
   qwen3-next-80b = {
     model = "mlx-community/Qwen3-Next-80B-A3B-Thinking-4bit";
     weightGb = 42.0;
     args = qwenMoeGeneralParser ++ agentTimeout;
     classes = {
       swap.flags =
-        block512
-        // swapFlags
+        swapFlags
+        // hybridNoPaged
         // {
           cacheMemoryMb = 4096;
-          enablePrefixCaching = false;
         };
     };
   };
@@ -185,12 +193,12 @@ in
   # winner and new fleet brain (perfect 1.0 valid_tool_call_rate across every
   # single-stream cell, thinking on/off x ctx small/large x stream/nostream;
   # envelopes in HF JacobPEvans/mlx-benchmarks). Same qwen3_next
-  # hybrid-attention constraints as the Thinking entry: prefixCaching
-  # unsupported, block512 on the full-attention layers (Metal buffer-count
-  # ceiling history above). Resident profile mirrors the OptiQ brain it
-  # replaces — 65536 serving window (Hermes' >=64K floor; also serves as the
-  # compression model), 16 GB KV — but caps maxNumSeqs at 4: this family's
-  # ceiling crashes hit under 2-way long-context load, so it gets half the
+  # hybrid-attention constraint as the Thinking entry: paged cache off
+  # (hybridNoPaged) because paged-block reconstruction fails every multi-turn
+  # request; the standard KV cache runs instead. Resident profile mirrors the
+  # OptiQ brain it replaces — 65536 serving window (Hermes' >=64K floor; also
+  # serves as the compression model), 16 GB KV — but caps maxNumSeqs at 4: this
+  # family's crashes hit under 2-way long-context load, so it gets half the
   # OptiQ batch cap until 8 is validated on the hybrid arch.
   qwen3-next-80b-instruct = {
     model = "mlx-community/Qwen3-Next-80B-A3B-Instruct-4bit";
@@ -205,18 +213,16 @@ in
     # sibling keeps the global default until validated.
     concurrencyLimit = 1;
     classes = {
-      resident.flags = block512 // {
+      resident.flags = hybridNoPaged // {
         cacheMemoryMb = 16384;
         maxNumSeqs = 4;
         maxRequestTokens = 65536;
-        enablePrefixCaching = false;
       };
       swap.flags =
-        block512
-        // swapFlags
+        swapFlags
+        // hybridNoPaged
         // {
           cacheMemoryMb = 4096;
-          enablePrefixCaching = false;
         };
     };
   };
