@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.2.0](https://github.com/dryvist/nix-ai/compare/v3.1.1...v3.2.0) (2026-07-21)
+
+
+### Features
+
+* **mlx:** KV-arch metadata + disable paged cache on qwen3-next 80B ([db813c3](https://github.com/dryvist/nix-ai/commit/db813c31abc87833ee3471cd660446ff80b83923))
+* single-slot serving for all 40B+ MLX models ([ffb98d2](https://github.com/dryvist/nix-ai/commit/ffb98d2c24f3a3453e0bfa45e8516b0ae3a3348f))
+
 ## [3.1.1](https://github.com/dryvist/nix-ai/compare/v3.1.0...v3.1.1) (2026-07-21)
 
 
