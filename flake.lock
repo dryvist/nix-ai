@@ -23,17 +23,17 @@
         ]
       },
       "locked": {
-        "lastModified": 1784408116,
-        "narHash": "sha256-8vrPVYjaT3quAKA5lgXIkRtmfN1ulDJwugs9QB8KkO0=",
+        "lastModified": 1784606851,
+        "narHash": "sha256-HuK+I21PN6Ir5UysdKHriU6GtpeEGuUSbJn8SxUDZfg=",
         "owner": "dryvist",
         "repo": "ai-llm-prompts",
-        "rev": "0431be6994d51169b9f705ddeba958eb8a4d0fc4",
+        "rev": "9f55dee4840752c5b73f92278bc75fbe701e8dff",
         "type": "github"
       },
       "original": {
         "owner": "dryvist",
         "repo": "ai-llm-prompts",
-        "rev": "0431be6994d51169b9f705ddeba958eb8a4d0fc4",
+        "rev": "9f55dee4840752c5b73f92278bc75fbe701e8dff",
         "type": "github"
       }
     },
