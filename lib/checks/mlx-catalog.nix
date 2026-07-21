@@ -48,11 +48,20 @@ in
     assert
       c.modelFlagOverrides.${next80}.pagedCacheBlockSize == 512
       || throw "catalog: 80B must run 512-token paged blocks — 256 still tripped the Metal buffer-count ceiling under 2-way large-phase load (2026-07-10)";
+    # 40B+ single-slot policy (user directive 2026-07-21): every 40B+ model
+    # compiles concurrencyLimit=1 so llama-swap serializes dispatch. The hybrid
+    # 80Bs abort under concurrent dispatch (Metal resource-limit) and gpt-oss is
+    # 63 GB on one GPU; batching only time-slices and balloons latency into the
+    # 429 storm. maxNumSeqs=1 in the catalog flags is the paired engine-level
+    # guard. Extended from the 2026-07 Instruct-only serialization.
     assert
       c.modelConcurrencyLimits.${next80Instruct} == 1
-      || throw "catalog: 80B-instruct must compile concurrencyLimit=1 (serialized; aborts under concurrent dispatch)";
+      || throw "catalog: 80B-instruct must compile concurrencyLimit=1 (40B+ single-slot policy)";
     assert
-      !(c.modelConcurrencyLimits ? ${next80})
-      || throw "catalog: 80B-thinking must NOT pin a concurrencyLimit — override is Instruct-only";
+      c.modelConcurrencyLimits.${next80} == 1
+      || throw "catalog: 80B-thinking must compile concurrencyLimit=1 (40B+ single-slot policy)";
+    assert
+      c.modelConcurrencyLimits.${gptOss} == 1
+      || throw "catalog: gpt-oss-120b must compile concurrencyLimit=1 (40B+ single-slot policy)";
     helpers.mkMarker "check-mlx-catalog" "MLX catalog: resident/swap compile, bounded tweak, ttl fan-out, and host-override precedence verified";
 }

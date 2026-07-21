@@ -170,12 +170,17 @@ in
     model = "mlx-community/Qwen3-Next-80B-A3B-Thinking-4bit";
     weightGb = 42.0;
     args = qwenMoeGeneralParser ++ agentTimeout;
+    # 40B+ single-slot policy: proxy queues (single in-flight), engine batch
+    # capped at 1 (in swap.flags). Same hybrid-attention re-prefill + Metal
+    # ceiling constraints as the Instruct sibling.
+    concurrencyLimit = 1;
     classes = {
       swap.flags =
         block512
         // swapFlags
         // {
           cacheMemoryMb = 4096;
+          maxNumSeqs = 1; # 40B+ single-slot policy (overrides swapFlags maxNumSeqs=2)
           enablePrefixCaching = false;
         };
     };
@@ -189,25 +194,29 @@ in
   # unsupported, block512 on the full-attention layers (Metal buffer-count
   # ceiling history above). Resident profile mirrors the OptiQ brain it
   # replaces — 65536 serving window (Hermes' >=64K floor; also serves as the
-  # compression model), 16 GB KV — but caps maxNumSeqs at 4: this family's
-  # ceiling crashes hit under 2-way long-context load, so it gets half the
-  # OptiQ batch cap until 8 is validated on the hybrid arch.
+  # compression model), 16 GB KV. SINGLE-SLOT (40B+ policy, below): maxNumSeqs=1
+  # at the engine AND concurrencyLimit=1 at the proxy — this family's ceiling
+  # crashes hit under any concurrency, and prefix-cache reconstruction is broken
+  # upstream (mlx-lm#1162, INC-17130) so every tool turn full-reprefills 85-100s;
+  # batching multiple such requests only time-slices one GPU and balloons every
+  # caller's latency into the 429 storm. One request at a time, queue the rest.
   qwen3-next-80b-instruct = {
     model = "mlx-community/Qwen3-Next-80B-A3B-Instruct-4bit";
     weightGb = 42.0;
     args = qwenMoeInstructParser ++ agentTimeout;
-    # Serialize proxy dispatch: this 80B aborts with metal::malloc resource-limit
-    # errors under concurrent requests (Hermes crons + fleet traffic in
-    # parallel), and the crash-loop respawn storm exhausts the per-uid process
-    # table. maxNumSeqs=4 caps the worker's batch width, but the proxy still
-    # fans out; concurrencyLimit=1 makes llama-swap queue instead of parallel-
-    # dispatch, trading throughput for reliability. Instruct only — the Thinking
-    # sibling keeps the global default until validated.
+    # 40B+ SINGLE-SLOT POLICY (user directive 2026-07-21): no concurrency on any
+    # 40B+ model. Two layers, defense in depth: concurrencyLimit=1 makes
+    # llama-swap QUEUE excess requests (single in-flight to the worker) instead
+    # of parallel-dispatch + 429-storm; maxNumSeqs=1 (in flags) caps the engine
+    # batch width so even a proxy regression cannot re-enable batching. This 80B
+    # aborts with metal::malloc resource-limit errors under concurrent requests
+    # (Hermes crons + fleet traffic), and the crash-loop respawn storm exhausts
+    # the per-uid process table — reliability over throughput.
     concurrencyLimit = 1;
     classes = {
       resident.flags = block512 // {
         cacheMemoryMb = 16384;
-        maxNumSeqs = 4;
+        maxNumSeqs = 1;
         maxRequestTokens = 65536;
         enablePrefixCaching = false;
       };
@@ -216,6 +225,7 @@ in
         // swapFlags
         // {
           cacheMemoryMb = 4096;
+          maxNumSeqs = 1; # 40B+ single-slot policy (overrides swapFlags maxNumSeqs=2)
           enablePrefixCaching = false;
         };
     };
@@ -239,11 +249,17 @@ in
         reasoning_effort = "low";
       })
     ];
+    # 40B+ single-slot policy: 63 GB weights on one GPU — proxy queues (single
+    # in-flight), engine batch capped at 1 (in swap.flags). Without maxNumSeqs
+    # this inherited the global default (4); concurrencyLimit inherited the
+    # host-wide 8 — both re-enabled the multi-request storm this policy forbids.
+    concurrencyLimit = 1;
     classes = {
       # 63 GB — never resident; idle unload frees it back to baseline.
       swap.flags = {
         pagedKvCache = false;
         enablePrefixCaching = false;
+        maxNumSeqs = 1;
         autoUnloadIdleSeconds = 900;
       };
     };
