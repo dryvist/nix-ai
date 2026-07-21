@@ -81,6 +81,18 @@
   block512 = {
     pagedCacheBlockSize = 512;
   };
+  # qwen3_next hybrid-attention family: the paged KV cache fails block
+  # reconstruction on every multi-turn request (mlx-lm#1162), wedging the worker
+  # into a full-context re-prefill each turn that the serving watchdog then
+  # reaps. The standard non-paged KV cache reconstructs correctly, so these
+  # models run paged off — the same escape hatch gpt-oss-120b uses for its own
+  # paged-cache attention incompatibility. Prefix sharing needs the paged cache,
+  # so it stays off too (already unsupported for this family). With paged off
+  # there are no per-block Metal buffers, so block-size sizing no longer applies.
+  hybridNoPaged = {
+    pagedKvCache = false;
+    enablePrefixCaching = false;
+  };
   # Swap tier: on-demand, idle-unloaded, small caps.
   swapFlags = {
     autoUnloadIdleSeconds = 900;

@@ -9,6 +9,7 @@ let
     agentTimeout
     block256
     block512
+    hybridNoPaged
     swapFlags
     ;
 in
@@ -113,32 +114,26 @@ in
 
   # LARGE rotation brain. Always-thinking variant (no chat-template switch).
   # Small cache keeps the on-demand swap-in under the memory trip (derivation
-  # in mlx-benchmarks docs/RUNBOOK.md). prefixCaching off — unsupported for
-  # the qwen3_next hybrid-attention family. block512 on the full-attention
-  # layers: the engine-default 64 tripped the Metal buffer-count ceiling
-  # mid-digest at step 250880 (active=67GB, running=2), and 256 STILL tripped
-  # it four times in the 2026-07-10 11:25-12:00 UTC large window (active
-  # ≈47.8GB, running=2 waiting=1, steps ~14K, 320s+ generations — crash,
-  # llama-swap reload on next request, crash again). The hybrid's recurrent
-  # layers carry no KV blocks, so the paged block size only shapes its
-  # full-attention layers; 512 halves the per-token buffer count again and is
-  # the same sizing the residents validated under 2x long-context concurrency.
+  # in mlx-benchmarks docs/RUNBOOK.md). Paged cache off (hybridNoPaged): the
+  # qwen3_next hybrid attention fails paged-block reconstruction on every
+  # multi-turn request (mlx-lm#1162), wedging the worker; the standard KV cache
+  # runs instead. With paged off, the block-size sizing (and its Metal
+  # buffer-count ceiling) no longer applies.
   qwen3-next-80b = {
     model = "mlx-community/Qwen3-Next-80B-A3B-Thinking-4bit";
     weightGb = 42.0;
     args = qwenMoeGeneralParser ++ agentTimeout;
     # 40B+ single-slot policy: proxy queues (single in-flight), engine batch
-    # capped at 1 (in swap.flags). Same hybrid-attention re-prefill + Metal
-    # ceiling constraints as the Instruct sibling.
+    # capped at 1 (in swap.flags). Same hybrid-attention re-prefill constraint
+    # as the Instruct sibling.
     concurrencyLimit = 1;
     classes = {
       swap.flags =
-        block512
-        // swapFlags
+        swapFlags
+        // hybridNoPaged
         // {
           cacheMemoryMb = 4096;
           maxNumSeqs = 1; # 40B+ single-slot policy (overrides swapFlags maxNumSeqs=2)
-          enablePrefixCaching = false;
         };
     };
   };
@@ -147,9 +142,9 @@ in
   # winner and new fleet brain (perfect 1.0 valid_tool_call_rate across every
   # single-stream cell, thinking on/off x ctx small/large x stream/nostream;
   # envelopes in HF JacobPEvans/mlx-benchmarks). Same qwen3_next
-  # hybrid-attention constraints as the Thinking entry: prefixCaching
-  # unsupported, block512 on the full-attention layers (Metal buffer-count
-  # ceiling history above). Resident profile mirrors the OptiQ brain it
+  # hybrid-attention constraint as the Thinking entry: paged cache off
+  # (hybridNoPaged) because paged-block reconstruction fails every multi-turn
+  # request; the standard KV cache runs instead. Resident profile mirrors the OptiQ brain it
   # replaces — 65536 serving window (Hermes' >=64K floor; also serves as the
   # compression model), 16 GB KV. SINGLE-SLOT (40B+ policy, below): maxNumSeqs=1
   # at the engine AND concurrencyLimit=1 at the proxy — this family's ceiling
@@ -184,19 +179,17 @@ in
     # the per-uid process table — reliability over throughput.
     concurrencyLimit = 1;
     classes = {
-      resident.flags = block512 // {
+      resident.flags = hybridNoPaged // {
         cacheMemoryMb = 16384;
         maxNumSeqs = 1;
         maxRequestTokens = 65536;
-        enablePrefixCaching = false;
       };
       swap.flags =
-        block512
-        // swapFlags
+        swapFlags
+        // hybridNoPaged
         // {
           cacheMemoryMb = 4096;
           maxNumSeqs = 1; # 40B+ single-slot policy (overrides swapFlags maxNumSeqs=2)
-          enablePrefixCaching = false;
         };
     };
   };

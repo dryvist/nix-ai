@@ -18,6 +18,8 @@ in
       next80Instruct = "mlx-community/Qwen3-Next-80B-A3B-Instruct-4bit";
       optiqFlags = c.modelFlagOverrides.${optiq};
       optiqArgs = builtins.concatStringsSep " " c.modelExtraArgs.${optiq};
+      inst = c.modelFlagOverrides.${next80Instruct};
+      next80InstructPagedOff = inst.pagedKvCache == false && inst.enablePrefixCaching == false;
     in
     assert
       optiqFlags.cacheMemoryMb == 8192
@@ -46,8 +48,12 @@ in
       == null
       || throw "catalog: 80B (always-thinking variant) must not carry an enable_thinking kwarg";
     assert
-      c.modelFlagOverrides.${next80}.pagedCacheBlockSize == 512
-      || throw "catalog: 80B must run 512-token paged blocks — 256 still tripped the Metal buffer-count ceiling under 2-way large-phase load (2026-07-10)";
+      c.modelFlagOverrides.${next80}.pagedKvCache == false
+      && c.modelFlagOverrides.${next80}.enablePrefixCaching == false
+      || throw "catalog: 80B-thinking (qwen3_next hybrid) must disable paged KV + prefix caching — paged-block reconstruction fails every multi-turn request and wedges the worker (mlx-lm#1162)";
+    assert
+      next80InstructPagedOff
+      || throw "catalog: 80B-instruct (qwen3_next hybrid) must disable paged KV + prefix caching (mlx-lm#1162)";
     # 40B+ single-slot policy (user directive 2026-07-21): every 40B+ model
     # compiles concurrencyLimit=1 so llama-swap serializes dispatch. The hybrid
     # 80Bs abort under concurrent dispatch (Metal resource-limit) and gpt-oss is
