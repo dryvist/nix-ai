@@ -44,6 +44,10 @@ busy_marker="${MLX_WATCHDOG_BUSY_MARKER:-${HOME}/Library/Caches/vllm-mlx/watchdo
 # Untracked ntfy POST url (names internal topology, never committed; missing =
 # no page). Shared with the cluster watcher so one seeded url serves both.
 alert_url_file="${MLX_WATCHDOG_ALERT_URL_FILE:-${HOME}/.config/mlx-cluster/alert-url}"
+# Untracked healthchecks-style deadman OK-ping url (the UUID is secret-tier, so
+# never committed — seeded out of band exactly like the alert url above).
+# Missing file = no ping.
+healthcheck_url_file="${MLX_WATCHDOG_HEALTHCHECK_URL_FILE:-${HOME}/.config/mlx-cluster/healthcheck-url}"
 # Short cooldown for fast recovery; probe timeout out-waits a cold load.
 cooldown="${MLX_WATCHDOG_COOLDOWN:-90}"
 probe_timeout="${MLX_WATCHDOG_PROBE_TIMEOUT:-240}"
@@ -111,6 +115,16 @@ alert() {
   curl -fsS -m 10 -H "Priority: urgent" \
     -H "Title: mlx-watchdog $(/bin/hostname -s)" \
     -d "$1" "$(<"$alert_url_file")" >/dev/null 2>&1 || true
+}
+
+# Ping the external deadman OK endpoint on a healthy brain, only if the url file
+# exists. When these pings stop — this host down/asleep, launchd wedged, or the
+# brain not serving — the external check pages on its own. It is the only signal
+# that survives this whole host going silent, which no on-host alert can emit.
+# Missing file = no-op.
+hc_ping() {
+  [[ -f "$healthcheck_url_file" ]] || return 0
+  curl -fsS -m 8 "$(<"$healthcheck_url_file")" >/dev/null 2>&1 || true
 }
 
 # One probe of one model -> healthy | dead | busy | down. Body to a temp file,
@@ -260,6 +274,7 @@ fi
 
 case "$brain_state" in
   healthy)
+    hc_ping   # external deadman OK: brain serving this cycle (survives host going silent)
     rm -f "$fail_marker" "$busy_marker"
     exit 0
     ;;
