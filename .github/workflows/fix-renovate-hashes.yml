@@ -36,7 +36,7 @@ jobs:
           ref: ${{ github.ref }}
 
       - name: Install Nix
-        uses: DeterminateSystems/determinate-nix-action@c70cb8ae92d68c66953db28a26a63db1665bc837 # v3
+        uses: DeterminateSystems/determinate-nix-action@d96678350ffd6a456235832eb11e1c491589b7bb # v3
 
       - name: Update mcp hash
         run: nix run nixpkgs#nix-update -- --flake mcp --version="$(nix eval --raw .#mcp.version)"
