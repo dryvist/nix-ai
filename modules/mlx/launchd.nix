@@ -124,9 +124,9 @@ in
         # count nears fork exhaustion, and self-gates re-fires with a cooldown
         # marker so a slow model reload is not restart-stormed (mlx-watchdog.sh).
         vllm-mlx-watchdog = {
-          # The probe generates against the first preloaded (resident) model, so
-          # with nothing preloaded every probe would cold-load a worker — worse
-          # than no watchdog. Such a host has no resident serving to guard.
+          # The probe generates against the preloaded (resident) models, so with
+          # nothing preloaded every probe would cold-load a worker — worse than
+          # no watchdog. Such a host has no resident serving to guard.
           enable = cfg.preload != [ ];
           config = {
             Label = "dev.vllm-mlx.watchdog";
@@ -139,8 +139,21 @@ in
             EnvironmentVariables = {
               MLX_API_URL = apiUrl;
               MLX_LAUNCHD_LABEL = launchAgentLabel;
-              # Probe the first resident model: it is warm by construction, so a
-              # failure means "not serving", never "cold load in progress".
+              # Probe the whole resident set, not just the head. Each preloaded
+              # model is warm by construction, so a failure means "not serving",
+              # never "cold load in progress". Passing the full list lets the
+              # watchdog scope its blast radius: only a brain failure restarts
+              # the stack; a non-brain failure just pages.
+              MLX_WATCHDOG_PROBE_MODELS_JSON = builtins.toJSON cfg.preload;
+              # The brain: the one model whose failure justifies restarting the
+              # whole stack. Default to the tool-calling (fleet-brain) entry when
+              # it is preloaded, else the first preload entry — never a coder or
+              # other non-brain, whose transient busy must not flap a healthy
+              # brain (the misclassification this fix removes).
+              MLX_WATCHDOG_BRAIN_MODEL =
+                if lib.elem "tool-calling" cfg.preload then "tool-calling" else lib.head cfg.preload;
+              # Single-model fallback for a manual/legacy run of `mlx-watchdog`
+              # with no JSON list in the environment.
               MLX_WATCHDOG_PROBE_MODEL = lib.head cfg.preload;
               # Plist the rung-2 teardown re-bootstraps after `bootout` — passed
               # explicitly so the script does not guess the LaunchAgents layout.
