@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.2.1](https://github.com/dryvist/nix-ai/compare/v3.2.0...v3.2.1) (2026-07-21)
+
+
+### Bug Fixes
+
+* **mcp:** redact Splunk authorization header ([210ee4a](https://github.com/dryvist/nix-ai/commit/210ee4a29d70b70fd78089c92fb093ac258e6d2f))
+* **mcp:** redact Splunk authorization header ([c08d28f](https://github.com/dryvist/nix-ai/commit/c08d28f34cbf9979a4e9d8a977d7f1a6f9cdab41))
+* prevent Splunk MCP bearer token disclosure ([210ee4a](https://github.com/dryvist/nix-ai/commit/210ee4a29d70b70fd78089c92fb093ac258e6d2f))
+
 ## [3.2.0](https://github.com/dryvist/nix-ai/compare/v3.1.1...v3.2.0) (2026-07-21)
 
 

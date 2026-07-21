@@ -4,10 +4,8 @@ set -euo pipefail
 # splunk-mcp-connect — fetches the shared Splunk MCP connection from OpenBao,
 # then connects via the mcp-remote stdio proxy.
 #
-# SECURITY NOTE: Bearer token is visible in process list via --header arg.
-# This is a known mcp-remote limitation — no stdin/env-based header injection exists yet.
-# Mitigated by: (1) macOS single-user system, (2) Splunk-scoped token with limited
-# capabilities, (3) token is rotatable in OpenBao.
+# The bearer value reaches mcp-remote through its supported environment-variable
+# header expansion, so diagnostics and the process list contain only a placeholder.
 #
 # curl, jq, and bun are on PATH via runtimeInputs (writeShellApplication).
 
@@ -63,10 +61,10 @@ esac
 # publicly-trusted cert chain. If verification ever fails here, fix the served
 # certificate — never re-add NODE_TLS_REJECT_UNAUTHORIZED=0.
 export SPLUNK_MCP_URL="$splunk_mcp_url"
-export SPLUNK_MCP_TOKEN="$splunk_mcp_token"
+export SPLUNK_MCP_AUTH_HEADER="Bearer $splunk_mcp_token"
 
 # exec: the MCP child replaces this shell, so signals propagate directly and
 # no idle bash lingers for the connection's lifetime.
 exec "$BUNX_BIN" --bun mcp-remote@0.1.38 \
   "$SPLUNK_MCP_URL" \
-  --header "Authorization: Bearer $SPLUNK_MCP_TOKEN"
+  --header 'Authorization:${SPLUNK_MCP_AUTH_HEADER}'
