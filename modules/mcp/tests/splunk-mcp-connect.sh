@@ -120,8 +120,8 @@ if TEST_MODE=mcp_diagnostics \
   echo "FAIL: mcp_diagnostics unexpectedly succeeded" >&2
   exit 1
 fi
-grep -F 'Authorization:${SPLUNK_MCP_AUTH_HEADER}' "$stdout" >/dev/null
-grep -F 'Authorization:${SPLUNK_MCP_AUTH_HEADER}' "$stderr" >/dev/null
+grep -F "Authorization:\${SPLUNK_MCP_AUTH_HEADER}" "$stdout" >/dev/null
+grep -F "Authorization:\${SPLUNK_MCP_AUTH_HEADER}" "$stderr" >/dev/null
 if grep -F "$SPLUNK_TOKEN_SENTINEL" "$stdout" "$stderr" >/dev/null; then
   echo "FAIL: mcp_diagnostics exposed the Splunk token" >&2
   exit 1

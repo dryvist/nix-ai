@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.2.2](https://github.com/dryvist/nix-ai/compare/v3.2.1...v3.2.2) (2026-07-21)
+
+
+### Bug Fixes
+
+* keep Splunk MCP auth placeholder ShellCheck-clean ([f8a0a8c](https://github.com/dryvist/nix-ai/commit/f8a0a8cf530cdec8f75f1764ad18b1b93f020a52))
+* **mcp:** preserve literal auth placeholder under shellcheck ([f8a0a8c](https://github.com/dryvist/nix-ai/commit/f8a0a8cf530cdec8f75f1764ad18b1b93f020a52))
+* **mcp:** preserve literal auth placeholder under shellcheck ([1157ef1](https://github.com/dryvist/nix-ai/commit/1157ef1f878270cb166a585b403d393ad025e8df))
+
 ## [3.2.1](https://github.com/dryvist/nix-ai/compare/v3.2.0...v3.2.1) (2026-07-21)
 
 
