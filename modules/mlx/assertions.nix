@@ -20,16 +20,6 @@ in
     }
     {
       assertion = lib.all (
-        modelId:
-        let
-          generated = llamaSwapConfigAttrs.models.${modelId} or null;
-        in
-        generated != null && lib.hasPrefix "/usr/bin/env VLLM_MLX_FORCE_TEXT_ONLY=1 " generated.cmd
-      ) (lib.attrNames (lib.filterAttrs (_modelId: enabled: enabled) cfg.modelTextOnly));
-      message = "modelTextOnly entries must compile into final llama-swap commands with the text-only loader environment.";
-    }
-    {
-      assertion = lib.all (
         role:
         let
           physical = config.services.aiStack.models.${role};

@@ -20,26 +20,25 @@ in
   qwen35-9b-optiq = {
     model = "mlx-community/Qwen3.5-9B-OptiQ-4bit";
     weightGb = 7.7;
-    # This text-only quant retains multimodal metadata even though it ships no
-    # vision-tower weights. Force the text loader and disable thinking so a
-    # bounded judge verdict does not spend its response budget on reasoning.
-    textOnly = true;
-    args =
-      qwenMoeGeneralParser
-      ++ [
-        "--default-chat-template-kwargs"
-        (builtins.toJSON {
-          enable_thinking = false;
-        })
-      ]
-      ++ agentTimeout;
+    # The model card's Hermes recipe serves this text quant with mlx_lm.server.
+    # Keep it off the multimodal-aware vllm-mlx loader.
+    server = "mlx-lm";
+    args = [
+      "--max-tokens"
+      "512"
+      "--chat-template-args"
+      (builtins.toJSON {
+        enable_thinking = false;
+      })
+      "--decode-concurrency"
+      "1"
+      "--prompt-concurrency"
+      "1"
+    ];
+    concurrencyLimit = 1;
     classes = {
-      resident.flags = block256 // {
-        cacheMemoryMb = 2048;
-        maxNumSeqs = 4;
-        maxRequestTokens = 16384;
-      };
-      swap.flags = block256 // swapFlags;
+      resident.flags = { };
+      swap.flags = swapFlags;
     };
   };
 
