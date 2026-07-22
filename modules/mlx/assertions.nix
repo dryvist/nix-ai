@@ -11,7 +11,11 @@ in
   # Fail evaluation when coupled options or generated proxy contracts drift.
   assertions = lib.optionals cfg.enable [
     {
-      assertion = !cfg.enablePrefixCaching || cfg.pagedKvCache;
+      assertion = lib.elem cfg.modelServerBackend cfg.enabledBackends;
+      message = "programs.mlx.modelServerBackend must be listed in programs.mlx.enabledBackends; vllm-mlx remains preserved but disabled.";
+    }
+    {
+      assertion = cfg.modelServerBackend != "vllm-mlx" || !cfg.enablePrefixCaching || cfg.pagedKvCache;
       message = ''
         programs.mlx.enablePrefixCaching requires programs.mlx.pagedKvCache to
         also be true. vllm-mlx builds the prefix-sharing index inside the paged

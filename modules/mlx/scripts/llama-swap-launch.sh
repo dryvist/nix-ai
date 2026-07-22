@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # llama-swap-launch - reap orphaned engine workers, then exec the proxy.
 #
-# Why this exists: launchd stops the llama-swap proxy, but the vllm-mlx workers
+# Why this exists: launchd stops the llama-swap proxy, but mlx_lm.server workers
 # it spawned are launched through `uv tool uvx`, which puts the real engine two
 # levels down. Those grandchildren survive the stop (re-parented to init) despite
 # AbandonProcessGroup=false, and they keep HOLDING THEIR LISTEN PORT. The
@@ -26,7 +26,7 @@ set -euo pipefail
 # Apple's, shipping only ps/sysctl/top/watch — a runtimeInputs dependency would
 # resolve to nothing under writeShellApplication's sanitized PATH. Same reason
 # mlx-watchdog.sh calls /bin/launchctl by path.
-pattern='vllm-mlx serve'
+pattern="${MLX_MODEL_SERVER_PROCESS_PATTERN:?MLX_MODEL_SERVER_PROCESS_PATTERN unset}"
 
 reap() {
   /usr/bin/pgrep -f "$pattern" >/dev/null 2>&1 || return 0

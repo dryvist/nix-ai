@@ -9,13 +9,13 @@ let
   cfg = config.programs.mlx;
   versions = import ../../lib/versions.nix;
 
-  # vllm-mlx version history and compatibility notes live in lib/versions.nix.
-  # This module only keeps the pinning and scheduler-specific glue.
+  # Preserved backend implementation. It remains unavailable to workers unless
+  # explicitly included in enabledBackends after future requalification.
   vllmMlxVersion = versions.vllmMlx;
   parakeetMlxVersion = versions.parakeetMlx;
   mlxVlmVersion = versions.mlxVlm;
 
-  # Central vllm-mlx wrapper — single source of truth for the pinned version.
+  # Official Apple mlx_lm.server wrapper.
   # The LaunchAgent needs a Nix store path (not a PATH lookup), so the
   # derivation lives here. Also added to home.packages for CLI access.
   #
@@ -45,15 +45,29 @@ let
   # per-invocation value). Value and bump rule: see the MLX-driven set above.
   uvPythonVersion = (import ../../lib/python.nix { inherit pkgs; }).pythonVersion;
 
-  # Patched wheel (VLLM_MLX_LOG_LEVEL support) — see vllm-mlx-patch.nix for why.
   vllmMlxPatchedWheel = import ./vllm-mlx-patch.nix { inherit pkgs vllmMlxVersion; };
-
   vllmMlxPkg = pkgs.writeShellScriptBin "vllm-mlx" ''
     exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} --from "${vllmMlxPatchedWheel}/vllm_mlx-${vllmMlxVersion}-py3-none-any.whl" --with "${mlxPin}" --with "${mlxLmPin}" --with "${transformersPin}" vllm-mlx "$@"
   '';
+  vllmMlxServerAdapterPkg = pkgs.writeShellScriptBin "mlx-model-server" ''
+    if [[ "$1" != "--model" || -z "''${2:-}" ]]; then
+      echo "usage: mlx-model-server --model MODEL [server options]" >&2
+      exit 2
+    fi
+    model="$2"
+    shift 2
+    exec ${lib.getExe vllmMlxPkg} serve "$model" "$@"
+  '';
+
   mlxLmServerPkg = pkgs.writeShellScriptBin "mlx-lm-server" ''
     exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} --from "${mlxLmPin}" --with "${mlxPin}" --with "${transformersPin}" mlx_lm.server "$@"
   '';
+  mlxModelServerPkg =
+    {
+      mlx-lm = mlxLmServerPkg;
+      vllm-mlx = vllmMlxServerAdapterPkg;
+    }
+    .${cfg.modelServerBackend};
   mlxWarmupPkg = pkgs.writeShellScriptBin "mlx-warmup" ''
     exec ${pkgs.python3}/bin/python3 ${./scripts/mlx-warmup.py} "$@"
   '';
@@ -72,12 +86,12 @@ let
     text = builtins.readFile ./scripts/mlx-watchdog.sh;
   };
 
-  # llama-swap proxy package — sits on the API port, manages vllm-mlx child processes.
+  # llama-swap sits on the stable API port and supervises official mlx_lm workers.
   # Sourced from nixpkgs-unstable: 25.11-darwin froze it at v165 on 2025-09-22
   # with no backports while unstable kept moving (currently v211). See nix-ai#801.
   llamaSwapPkg = nixpkgs-unstable.legacyPackages.${pkgs.stdenv.hostPlatform.system}.llama-swap;
 
-  # Proxy launcher — reaps orphaned vllm-mlx workers, then execs llama-swap.
+  # Proxy launcher — reaps orphaned mlx_lm.server workers, then execs llama-swap.
   # A worker outliving its proxy keeps its engine port bound, which makes every
   # subsequent start fail on bind and 429 forever; reaping on the way up is what
   # keeps a restart an actual remedy. Rationale in llama-swap-launch.sh.
@@ -93,8 +107,14 @@ let
   };
 
   apiUrl = "http://${cfg.host}:${toString cfg.port}/v1";
-  launchAgentLabel = "dev.vllm-mlx.server";
-  warmupAgentLabel = "dev.vllm-mlx.warmup";
+  launchAgentLabel = "dev.mlx-model-server";
+  warmupAgentLabel = "dev.mlx-model-server.warmup";
+  modelServerProcessPattern =
+    {
+      mlx-lm = "/mlx_lm\\.server";
+      vllm-mlx = "vllm-mlx serve";
+    }
+    .${cfg.modelServerBackend};
 
   # Shared per-backend env — split to worker-env.nix (12KB file-size gate).
   inherit (import ./worker-env.nix { inherit lib cfg; }) workerEnv;
@@ -104,8 +124,17 @@ let
   # The Nix-generated llamaSwapConfigFile seeds this on first activation.
   llamaSwapRuntimeConfigPath = "${config.home.homeDirectory}/.config/mlx/llama-swap.json";
 
-  # Serve-command builder — split to vllm-cmd.nix (12KB file-size gate).
-  inherit (import ./vllm-cmd.nix { inherit lib cfg vllmMlxPkg mlxLmServerPkg; }) mkModelCmd;
+  # MLX model-server command builder — split for the 12KB file-size gate.
+  inherit
+    (import ./model-server-cmd.nix {
+      inherit
+        lib
+        cfg
+        mlxModelServerPkg
+        ;
+    })
+    mkModelCmd
+    ;
 
   # Role registry (services.aiStack.models): role-name -> physical model ID.
   # Single source of truth.
@@ -226,8 +255,7 @@ let
     };
   };
 
-  # Use pkgs.writeText (not builtins.toFile) because content references store paths
-  # (vllmMlxPkg store path is embedded in the cmd strings).
+  # Use pkgs.writeText because command strings embed Nix store paths.
   llamaSwapConfigFile = pkgs.writeText "llama-swap-config.json" (
     builtins.toJSON llamaSwapConfigAttrs
   );
@@ -256,6 +284,7 @@ in
   _module.args.mlxShared = {
     inherit
       cfg
+      mlxModelServerPkg
       vllmMlxPkg
       mlxWarmupPkg
       mlxWatchdogPkg
@@ -266,6 +295,7 @@ in
       uvPythonVersion
       launchAgentLabel
       warmupAgentLabel
+      modelServerProcessPattern
       llamaSwapPkg
       llamaSwapLaunchPkg
       llamaSwapConfigFile

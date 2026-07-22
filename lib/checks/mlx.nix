@@ -194,11 +194,11 @@ in
 
   # Validate MLX LaunchAgent ProgramArguments use llama-swap proxy,
   # and that the generated llama-swap config JSON contains required fields.
-  # With the llama-swap architecture, vllm-mlx flags live inside the JSON
+  # With the llama-swap architecture, model-server flags live inside the JSON
   # config (embedded in cmd strings), not in the LaunchAgent ProgramArguments.
   mlx-launchd =
     let
-      launchdCfg = hmConfig.config.launchd.agents.vllm-mlx.config;
+      launchdCfg = hmConfig.config.launchd.agents.mlx-model-server.config;
       args = launchdCfg.ProgramArguments;
       argsStr = builtins.concatStringsSep " " args;
 
@@ -252,20 +252,20 @@ in
 
   # Verify OOM prevention: ProcessType in LaunchAgent.
   # HardResourceLimits is intentionally absent — it would only cap the llama-swap
-  # proxy process, not the vllm-mlx child processes where the actual memory lives.
+  # proxy process, not the MLX model-server children where memory lives.
   # ProcessType defaults to Interactive since #916: Background's QoS clamp
   # throttles Metal decode ~8x; the OOM backstop is the RSS hard limit
   # (programs.mlx.memoryHardLimitGb), not Jetsam eligibility.
   mlx-launchd-memory-safety =
     let
-      launchdCfg = hmConfig.config.launchd.agents.vllm-mlx.config;
+      launchdCfg = hmConfig.config.launchd.agents.mlx-model-server.config;
     in
     assert
       launchdCfg.ProcessType == "Interactive"
       || throw "ProcessType default must be \"Interactive\" — Background QoS clamps Metal decode ~8x (#916)";
     assert
       (!(launchdCfg ? HardResourceLimits) || launchdCfg.HardResourceLimits == null)
-      || throw "HardResourceLimits must NOT be set on the llama-swap proxy (only constrains proxy, not vllm-mlx children)";
+      || throw "HardResourceLimits must NOT be set on the llama-swap proxy (only constrains proxy, not model-server children)";
     helpers.mkMarker "check-mlx-launchd-memory-safety" "MLX LaunchAgent memory safety: ProcessType=Interactive verified; HardResourceLimits correctly absent from proxy";
 
   # Negative test: verify the banned-flag detection logic actually catches bad flags.

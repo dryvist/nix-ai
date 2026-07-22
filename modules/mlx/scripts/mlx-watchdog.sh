@@ -38,13 +38,13 @@ label="${MLX_LAUNCHD_LABEL:?MLX_LAUNCHD_LABEL unset}"
 plist="${MLX_WATCHDOG_PLIST:-${HOME}/Library/LaunchAgents/${label}.plist}"
 # Cooldown marker (last remediation), failure counter (ladder), and the
 # timestamp the brain first went busy — all cleared on a healthy brain.
-marker="${MLX_WATCHDOG_MARKER:-${HOME}/Library/Caches/vllm-mlx/watchdog-last-kick}"
-fail_marker="${MLX_WATCHDOG_FAIL_MARKER:-${HOME}/Library/Caches/vllm-mlx/watchdog-failures}"
-busy_marker="${MLX_WATCHDOG_BUSY_MARKER:-${HOME}/Library/Caches/vllm-mlx/watchdog-brain-busy-since}"
+marker="${MLX_WATCHDOG_MARKER:-${HOME}/Library/Caches/mlx-model-server/watchdog-last-kick}"
+fail_marker="${MLX_WATCHDOG_FAIL_MARKER:-${HOME}/Library/Caches/mlx-model-server/watchdog-failures}"
+busy_marker="${MLX_WATCHDOG_BUSY_MARKER:-${HOME}/Library/Caches/mlx-model-server/watchdog-brain-busy-since}"
 # Last authoritative progress sample for the brain's physical worker. A busy
 # probe is expected while its single slot is occupied; advancing engine steps
 # prove the scheduler is productive and rebase the stuck timer.
-progress_marker="${MLX_WATCHDOG_PROGRESS_MARKER:-${HOME}/Library/Caches/vllm-mlx/watchdog-brain-progress}"
+progress_marker="${MLX_WATCHDOG_PROGRESS_MARKER:-${HOME}/Library/Caches/mlx-model-server/watchdog-brain-progress}"
 llama_swap_config="${MLX_WATCHDOG_CONFIG:-${HOME}/.config/mlx/llama-swap.json}"
 # Untracked ntfy POST url (names internal topology, never committed; missing =
 # no page). Shared with the cluster watcher so one seeded url serves both.
@@ -79,7 +79,7 @@ brain_model="${MLX_WATCHDOG_BRAIN_MODEL:-${probe_models[0]}}"
 uid="$(id -u)"
 # pgrep/pkill/launchctl/ps/hostname go by absolute path — not on
 # writeShellApplication's sanitized PATH.
-worker_pattern='vllm-mlx serve'
+worker_pattern="${MLX_MODEL_SERVER_PROCESS_PATTERN:?MLX_MODEL_SERVER_PROCESS_PATTERN unset}"
 
 mkdir -p "$(dirname "$marker")" "$(dirname "$fail_marker")" \
   "$(dirname "$busy_marker")" "$(dirname "$progress_marker")"
@@ -280,7 +280,7 @@ if (( procs > maxproc_threshold )); then
   # reclaiming slots outweighs a brief serving blip. Raise if steady state nears it.
   echo "$(ts) mlx-watchdog: WARN procs=${procs} > ${maxproc_threshold} -> reaping worker trees to reclaim process slots" >&2
   reap_workers
-  alert "$(/bin/hostname -s): uid procs=${procs} exceeded ${maxproc_threshold}; reaped vllm-mlx worker trees to avoid fork exhaustion."
+  alert "$(/bin/hostname -s): uid procs=${procs} exceeded ${maxproc_threshold}; reaped mlx_lm.server worker trees to avoid fork exhaustion."
 fi
 
 # Cadence gate: if we remediated within the cooldown, the proxy may still be

@@ -29,18 +29,24 @@ in
       optiqFlags.pagedCacheBlockSize == 512 && optiqFlags.maxNumSeqs == 8
       || throw "catalog: optiq resident profile (block 512 / maxNumSeqs 8) not compiled";
     assert
-      builtins.match ".*--tool-call-parser hermes.*--reasoning-parser qwen3.*" optiqArgs != null
-      || throw "catalog: optiq family parser args not compiled into modelExtraArgs: ${optiqArgs}";
+      builtins.match ".*--decode-concurrency 1.*--prompt-concurrency 1.*" optiqArgs != null
+      && builtins.match ".*--tool-call-parser.*" optiqArgs == null
+      || throw "catalog: official mlx_lm serial-serving args not compiled cleanly: ${optiqArgs}";
     assert
       c.modelFlagOverrides.${coder}.maxRequestTokens == 32768
       || throw "catalog: coder resident maxRequestTokens 32768 not compiled";
-    assert c.modelServer.${judge9b} == "mlx-lm"
+    assert
+      c.modelServerBackend == "mlx-lm"
       || throw "catalog: 9B judge must use its published mlx_lm.server deployment path";
     assert
+      c.enabledBackends == [ "mlx-lm" ]
+      || throw "catalog: official mlx-lm must be the only enabled backend; vllm-mlx must remain preserved but disabled";
+    assert
       c.modelConcurrencyLimits.${judge9b} == 1
-      && builtins.match ".*enable_thinking.*false.*" (
-        builtins.concatStringsSep " " c.modelExtraArgs.${judge9b}
-      ) != null
+      &&
+        builtins.match ".*enable_thinking.*false.*" (
+          builtins.concatStringsSep " " c.modelExtraArgs.${judge9b}
+        ) != null
       || throw "catalog: 9B judge must use bounded single-concurrency text serving";
     assert
       hmConfigCatalog.config.services.aiStack.roleOverrides.goal-judge == judge9b

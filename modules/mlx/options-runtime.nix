@@ -21,6 +21,26 @@
 { lib, ... }:
 {
   options.programs.mlx = {
+    enabledBackends = lib.mkOption {
+      type = lib.types.listOf (
+        lib.types.enum [
+          "mlx-lm"
+          "vllm-mlx"
+        ]
+      );
+      default = [ "mlx-lm" ];
+      description = "Serving implementations permitted to run. Official mlx-lm is enabled; preserved vllm-mlx support remains disabled unless explicitly listed.";
+    };
+
+    modelServerBackend = lib.mkOption {
+      type = lib.types.enum [
+        "mlx-lm"
+        "vllm-mlx"
+      ];
+      default = "mlx-lm";
+      description = "Implementation used by every standalone MLX model server. The selected value must also be present in enabledBackends.";
+    };
+
     memoryHardLimitGb = lib.mkOption {
       type = lib.types.ints.positive;
       default = 100;
@@ -137,15 +157,6 @@
         }
       '';
       description = "Additional vllm-mlx serve arguments per physical registry model id, appended after the global flags.";
-    };
-
-    modelServer = lib.mkOption {
-      type = lib.types.attrsOf (lib.types.enum [
-        "vllm-mlx"
-        "mlx-lm"
-      ]);
-      default = { };
-      description = "Per-physical-model serving implementation. Defaults to vllm-mlx; use mlx-lm when the model's published deployment recipe requires mlx_lm.server.";
     };
 
     # modelConcurrencyLimits — per-physical-id override of the GLOBAL proxy

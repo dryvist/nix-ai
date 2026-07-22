@@ -1,13 +1,11 @@
-# vllm-mlx serve-command builder — split from default.nix (12KB gate).
-# See default.nix for how mkVllmCmd is consumed by the model builders.
+# MLX model-server command builder — split from default.nix (12KB gate).
 {
   lib,
   cfg,
-  vllmMlxPkg,
-  mlxLmServerPkg,
+  mlxModelServerPkg,
 }:
 rec {
-  # Build the vllm-mlx serve command string for a given model ID.
+  # Build the selected serving command for a given model ID.
   # Global option values may be replaced per physical model via
   # modelFlagOverrides; every override key must appear in overridableFlags —
   # the serve options this builder reads below. Guarding against that list
@@ -40,7 +38,7 @@ rec {
   mkModelCmd =
     modelId:
     let
-      server = cfg.modelServer.${modelId} or "vllm-mlx";
+      backend = cfg.modelServerBackend;
       overrides = cfg.modelFlagOverrides.${modelId} or { };
       unknown = lib.filter (k: !(lib.elem k overridableFlags)) (lib.attrNames overrides);
       c =
@@ -48,11 +46,6 @@ rec {
           cfg // overrides
         else
           throw "programs.mlx.modelFlagOverrides.\"${modelId}\": not overridable serve option(s): ${lib.concatStringsSep ", " unknown}";
-      baseCmd =
-        if server == "mlx-lm" then
-          "${lib.getExe mlxLmServerPkg} --model ${modelId} --port \${PORT} --host ${c.host}"
-        else
-          "${lib.getExe vllmMlxPkg} serve ${modelId} --port \${PORT} --host ${c.host}";
       flags = lib.concatStringsSep " " (
         lib.optionals (c.cacheMemoryMb != null) [
           "--cache-memory-mb"
@@ -115,7 +108,15 @@ rec {
           c.reasoningParser
         ]
       );
+      mlxModelServerFlags =
+        {
+          mlx-lm = "";
+          vllm-mlx = flags;
+        }
+        .${backend};
     in
-    "${baseCmd}${lib.optionalString (server == "vllm-mlx" && flags != "") " ${flags}"}";
+    "${lib.getExe mlxModelServerPkg} --model ${modelId} --port \${PORT} --host ${c.host}${
+      lib.optionalString (mlxModelServerFlags != "") " ${mlxModelServerFlags}"
+    }";
 
 }

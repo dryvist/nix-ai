@@ -4,9 +4,7 @@
 # catalog-lib.nix; this file is split out to keep each under the 12KB gate.
 let
   inherit (import ./catalog-lib.nix)
-    qwenMoeGeneralParser
-    qwenMoeInstructParser
-    agentTimeout
+    mlxLmServerDefaults
     block256
     block512
     hybridNoPaged
@@ -22,18 +20,11 @@ in
     weightGb = 7.7;
     # The model card's Hermes recipe serves this text quant with mlx_lm.server.
     # Keep it off the multimodal-aware vllm-mlx loader.
-    server = "mlx-lm";
-    args = [
-      "--max-tokens"
-      "512"
+    args = mlxLmServerDefaults ++ [
       "--chat-template-args"
       (builtins.toJSON {
         enable_thinking = false;
       })
-      "--decode-concurrency"
-      "1"
-      "--prompt-concurrency"
-      "1"
     ];
     concurrencyLimit = 1;
     classes = {
@@ -47,15 +38,12 @@ in
   qwen36-optiq = {
     model = "mlx-community/Qwen3.6-35B-A3B-OptiQ-4bit";
     weightGb = 19.5;
-    args =
-      qwenMoeGeneralParser
-      ++ [
-        "--default-chat-template-kwargs"
-        (builtins.toJSON {
-          enable_thinking = true;
-        })
-      ]
-      ++ agentTimeout;
+    args = mlxLmServerDefaults ++ [
+      "--chat-template-args"
+      (builtins.toJSON {
+        enable_thinking = true;
+      })
+    ];
     classes = {
       # HIGH KV budget for 40-58K-token contexts; maxNumSeqs 8 = one
       # continuous batch. 65536 replaces the 32768 cap that fed the
@@ -85,11 +73,7 @@ in
       headDim = 128;
       kvDtypeBytes = 2;
     };
-    args = [
-      "--tool-call-parser"
-      "qwen3_coder"
-    ]
-    ++ agentTimeout;
+    args = mlxLmServerDefaults;
     classes = {
       # The global maxRequestTokens default is too low for agentic multi-turn.
       resident.flags = block512 // {
@@ -110,17 +94,12 @@ in
   qwen36-35b = {
     model = "mlx-community/Qwen3.6-35B-A3B-4bit";
     weightGb = 19.4;
-    args = [
-      "--tool-call-parser"
-      "qwen3_coder"
-      "--reasoning-parser"
-      "qwen3"
-      "--default-chat-template-kwargs"
+    args = mlxLmServerDefaults ++ [
+      "--chat-template-args"
       (builtins.toJSON {
         enable_thinking = false;
       })
-    ]
-    ++ agentTimeout;
+    ];
     classes = {
       # Fleet-brain resident profile mirrors the OptiQ twin it replaces as
       # ai-default: same weights (~19.4 GB) and same KV budget, so the resident
@@ -150,7 +129,7 @@ in
   qwen3-next-80b = {
     model = "mlx-community/Qwen3-Next-80B-A3B-Thinking-4bit";
     weightGb = 42.0;
-    args = qwenMoeGeneralParser ++ agentTimeout;
+    args = mlxLmServerDefaults;
     # 40B+ single-slot policy: proxy queues (single in-flight), engine batch
     # capped at 1 (in swap.flags). Same hybrid-attention re-prefill constraint
     # as the Instruct sibling.
@@ -196,7 +175,7 @@ in
       headDim = 256;
       kvDtypeBytes = 2;
     };
-    args = qwenMoeInstructParser ++ agentTimeout;
+    args = mlxLmServerDefaults;
     # 40B+ SINGLE-SLOT POLICY (user directive 2026-07-21): no concurrency on any
     # 40B+ model. Two layers, defense in depth: concurrencyLimit=1 makes
     # llama-swap QUEUE excess requests (single in-flight to the worker) instead
@@ -229,13 +208,9 @@ in
   gpt-oss-120b = {
     model = "mlx-community/gpt-oss-120b-MXFP4-Q8";
     weightGb = 63.3;
-    args = [
-      "--tool-call-parser"
-      "harmony"
-      "--reasoning-parser"
-      "gpt_oss"
+    args = mlxLmServerDefaults ++ [
       # Server defaults keep request-level chat_template_kwargs overrideable.
-      "--default-chat-template-kwargs"
+      "--chat-template-args"
       (builtins.toJSON {
         reasoning_effort = "low";
       })
@@ -269,10 +244,7 @@ in
       headDim = 128;
       kvDtypeBytes = 2;
     };
-    args = [
-      "--tool-call-parser"
-      "hermes"
-    ];
+    args = mlxLmServerDefaults;
     classes = {
       swap.flags = swapFlags;
     };

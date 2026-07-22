@@ -5,7 +5,7 @@
 #
 # The proxy MUST stop with SIGTERM, never SIGKILL. llama-swap only runs its
 # graceful upstream shutdown on SIGTERM; `launchctl kickstart -k` SIGKILLs it,
-# so a vllm-mlx worker that is mid-load or mid-request survives as an orphan
+# so an mlx_lm.server worker that is mid-load or mid-request survives as an orphan
 # (reparented to PID 1, still bound to its port). The relaunched proxy then
 # dies on bind ("upstream exited unexpectedly") and untracks the model, while
 # the orphan keeps answering proxied requests — a resident that never truly
@@ -24,7 +24,7 @@ label="${MLX_LAUNCHD_LABEL:?}"
 pid=$(launchctl print "gui/$uid/$label" 2>/dev/null |
   awk -F' = ' '/^[[:space:]]*pid = /{print $2; exit}' || true)
 
-# SIGTERM the proxy so llama-swap gracefully stops its vllm-mlx workers before
+# SIGTERM the proxy so llama-swap gracefully stops its mlx_lm.server workers before
 # exiting; KeepAlive then relaunches it.
 launchctl stop "$label"
 
