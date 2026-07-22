@@ -16,6 +16,7 @@ in
       gptOss = "mlx-community/gpt-oss-120b-MXFP4-Q8";
       next80 = "mlx-community/Qwen3-Next-80B-A3B-Thinking-4bit";
       next80Instruct = "mlx-community/Qwen3-Next-80B-A3B-Instruct-4bit";
+      judge9b = "mlx-community/Qwen3.5-9B-OptiQ-4bit";
       optiqFlags = c.modelFlagOverrides.${optiq};
       optiqArgs = builtins.concatStringsSep " " c.modelExtraArgs.${optiq};
       inst = c.modelFlagOverrides.${next80Instruct};
@@ -33,6 +34,10 @@ in
     assert
       c.modelFlagOverrides.${coder}.maxRequestTokens == 32768
       || throw "catalog: coder resident maxRequestTokens 32768 not compiled";
+    assert
+      c.modelFlagOverrides.${judge9b}.cacheMemoryMb == 2048
+      && c.modelFlagOverrides.${judge9b}.maxRequestTokens == 16384
+      || throw "catalog: 9B judge resident profile must remain bounded";
     assert
       c.modelFlagOverrides.${gptOss}.pagedKvCache == false
       && c.modelFlagOverrides.${gptOss}.enablePrefixCaching == false

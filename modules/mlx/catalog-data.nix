@@ -14,6 +14,23 @@ let
     ;
 in
 {
+  # Small resident auxiliary model for bounded classification and judging.
+  # OptiQ keeps tool/reasoning compatibility with the Qwen family while the
+  # 4-bit footprint permits it to stay warm beside the primary 80B brain.
+  qwen35-9b-optiq = {
+    model = "mlx-community/Qwen3.5-9B-OptiQ-4bit";
+    weightGb = 7.7;
+    args = qwenMoeGeneralParser ++ agentTimeout;
+    classes = {
+      resident.flags = block256 // {
+        cacheMemoryMb = 2048;
+        maxNumSeqs = 4;
+        maxRequestTokens = 16384;
+      };
+      swap.flags = block256 // swapFlags;
+    };
+  };
+
   # Agentic tool-calling brain (2026-07-08 bench winner; verdicts in
   # HF JacobPEvans/mlx-benchmarks). Thinking ON is part of the verdict.
   qwen36-optiq = {
