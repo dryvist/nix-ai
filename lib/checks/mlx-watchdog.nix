@@ -75,6 +75,7 @@ in
     export HOME="$TMPDIR/home"
     export MLX_API_URL=http://127.0.0.1:11434/v1
     export MLX_LAUNCHD_LABEL=dev.test.mlx
+    export MLX_MODEL_SERVER_PROCESS_PATTERN=vllm_mlx.server
     export MLX_WATCHDOG_PROBE_MODELS_JSON='["tool-calling"]'
     export MLX_WATCHDOG_BRAIN_MODEL=tool-calling
     export MLX_WATCHDOG_BUSY_GRACE=900

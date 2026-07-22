@@ -67,7 +67,7 @@ in
       || throw "cluster: wired-ceiling values must reach the watcher env when wiredLimitMb is set";
     assert
       watcherEnv.CLUSTER_RANK_URL == "http://127.0.0.1:11440"
-      && watcherEnv.CLUSTER_MODEL == "mlx-community/GLM-4.7-4bit"
+      && watcherEnv.CLUSTER_MODEL == "test/cluster-model"
       || throw "cluster: coordinator watcher must know the rank endpoint and model for the post-readiness warm-up";
     assert
       agents ? mlx-cluster-prefetch
