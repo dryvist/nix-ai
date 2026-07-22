@@ -222,13 +222,22 @@ in
   # surface the Hermes zammad-incidents loop drives. Requires ZAMMAD_URL
   # (instance API base, ends in /api/v1) and ZAMMAD_HTTP_TOKEN (a Zammad API
   # token) — injected at launch by doppler-mcp from ai-ci-automation/prd, same
-  # pattern as vikunja/google-workspace. Canonical token home is the secrets
+  # pattern as vikunja/google-workspace. `uvx` must not inherit the Nix shell's
+  # PYTHONPATH: the pinned server creates a Python 3.14 environment, while the
+  # inherited 3.13 package path makes its native rpds extension fail at import
+  # time before MCP can complete its initialize handshake. Canonical token home
+  # is the secrets
   # engine's secret/ai/mcp/zammad (ZAMMAD_MCP_URL + ZAMMAD_MCP_TOKEN fields).
   # Ships disabled — the host opt-in + Doppler seeding follow Zammad's deploy
   # (task #10); enabling before that would spawn a failing server.
   zammad = {
-    command = "doppler-mcp";
+    command = "env";
     args = [
+      "-u"
+      "PYTHONPATH"
+      "-u"
+      "PYTHONHOME"
+      "doppler-mcp"
       "uvx"
       "--from"
       "git+https://github.com/basher83/zammad-mcp.git@v${versions.zammadMcp}"
