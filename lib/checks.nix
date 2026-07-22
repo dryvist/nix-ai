@@ -51,6 +51,10 @@ let
     {
       programs.mlx = {
         catalog = {
+          qwen35-9b-optiq = {
+            class = "resident";
+            roles = [ "goal-judge" ];
+          };
           qwen36-optiq.class = "resident";
           qwen3-coder-30b.class = "resident";
           gpt-oss-120b.class = "swap";

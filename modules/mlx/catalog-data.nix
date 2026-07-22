@@ -14,6 +14,35 @@ let
     ;
 in
 {
+  # Small resident auxiliary model for bounded classification and judging.
+  # OptiQ keeps tool/reasoning compatibility with the Qwen family while the
+  # 4-bit footprint permits it to stay warm beside the primary 80B brain.
+  qwen35-9b-optiq = {
+    model = "mlx-community/Qwen3.5-9B-OptiQ-4bit";
+    weightGb = 7.7;
+    # This text-only quant retains multimodal metadata even though it ships no
+    # vision-tower weights. Force the text loader and disable thinking so a
+    # bounded judge verdict does not spend its response budget on reasoning.
+    textOnly = true;
+    args =
+      qwenMoeGeneralParser
+      ++ [
+        "--default-chat-template-kwargs"
+        (builtins.toJSON {
+          enable_thinking = false;
+        })
+      ]
+      ++ agentTimeout;
+    classes = {
+      resident.flags = block256 // {
+        cacheMemoryMb = 2048;
+        maxNumSeqs = 4;
+        maxRequestTokens = 16384;
+      };
+      swap.flags = block256 // swapFlags;
+    };
+  };
+
   # Agentic tool-calling brain (2026-07-08 bench winner; verdicts in
   # HF JacobPEvans/mlx-benchmarks). Thinking ON is part of the verdict.
   qwen36-optiq = {

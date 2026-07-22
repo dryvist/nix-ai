@@ -12,8 +12,8 @@
 #   entry args         -> modelExtraArgs.<physical id>        (mkDefault)
 #   class flag profile -> modelFlagOverrides.<physical id>    (mkDefault per key)
 #   class == "swap"    -> models.<physical id> (llama-swap swap-tier entry)
-# Role aliasing (which entry serves "tool-calling"/"coding"/"default") stays a
-# host concern via services.aiStack.models — the catalog never assigns roles.
+#   selection roles     -> services.aiStack.roleOverrides.<role>
+# Hosts assign logical roles to catalog entries without repeating physical IDs.
 #
 { config, lib, ... }:
 let
@@ -75,6 +75,10 @@ let
   residentWeightGb = lib.foldl' (acc: name: acc + (entryFor name).weightGb) 0.0 (
     lib.attrNames residents
   );
+  catalogRoleOverrides = lib.foldl' (
+    acc: name: acc // lib.genAttrs enabled.${name}.roles (_role: (entryFor name).model)
+  ) { } (lib.attrNames enabled);
+  selectedRoles = lib.concatMap (name: enabled.${name}.roles) (lib.attrNames enabled);
 in
 {
   options.programs.mlx = {
@@ -93,6 +97,11 @@ in
                 "swap"
               ];
               description = "Validated serving class: resident (preload-capable brain, big caps) or swap (on-demand, idle-unloaded, small caps). The entry must offer the class.";
+            };
+            roles = lib.mkOption {
+              type = lib.types.listOf lib.types.str;
+              default = [ ];
+              description = "Logical AI-stack roles served by this catalog entry. The catalog resolves the physical model ID.";
             };
             tweaks = {
               cacheMemoryMb = lib.mkOption {
@@ -152,6 +161,10 @@ in
         '';
       }
       {
+        assertion = lib.length selectedRoles == lib.length (lib.unique selectedRoles);
+        message = "programs.mlx.catalog: each logical role may be assigned to only one enabled catalog entry.";
+      }
+      {
         # ttl is lifecycle for on-demand models; residents ignore it (they
         # follow proxy.idleTtl), so a resident ttl tweak would be a silent
         # no-op misconfiguration.
@@ -180,6 +193,10 @@ in
         name: _sel: lib.nameValuePair (entryFor name).model (lib.mkDefault (entryFor name).args)
       ) argsViaExtraArgs;
 
+      modelTextOnly = lib.mapAttrs' (
+        name: _sel: lib.nameValuePair (entryFor name).model (lib.mkDefault true)
+      ) (lib.filterAttrs (name: _sel: (entryFor name).textOnly or false) enabled);
+
       modelFlagOverrides = lib.mapAttrs' (
         name: sel:
         lib.nameValuePair (entryFor name).model (lib.mapAttrs (_: lib.mkDefault) (flagsFor name sel))
@@ -204,5 +221,9 @@ in
         )
       ) swapsNonRegistry;
     };
+
+    services.aiStack.roleOverrides = lib.mapAttrs (
+      _role: model: lib.mkDefault model
+    ) catalogRoleOverrides;
   };
 }
