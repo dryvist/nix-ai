@@ -193,9 +193,9 @@ in
         name: _sel: lib.nameValuePair (entryFor name).model (lib.mkDefault (entryFor name).args)
       ) argsViaExtraArgs;
 
-      modelTextOnly = lib.mapAttrs' (
-        name: _sel: lib.nameValuePair (entryFor name).model (lib.mkDefault true)
-      ) (lib.filterAttrs (name: _sel: (entryFor name).textOnly or false) enabled);
+      modelServer = lib.mapAttrs' (
+        name: _sel: lib.nameValuePair (entryFor name).model (lib.mkDefault (entryFor name).server)
+      ) (lib.filterAttrs (name: _sel: ((entryFor name).server or "vllm-mlx") != "vllm-mlx") enabled);
 
       modelFlagOverrides = lib.mapAttrs' (
         name: sel:

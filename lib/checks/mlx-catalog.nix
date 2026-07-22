@@ -34,17 +34,14 @@ in
     assert
       c.modelFlagOverrides.${coder}.maxRequestTokens == 32768
       || throw "catalog: coder resident maxRequestTokens 32768 not compiled";
+    assert c.modelServer.${judge9b} == "mlx-lm"
+      || throw "catalog: 9B judge must use its published mlx_lm.server deployment path";
     assert
-      c.modelFlagOverrides.${judge9b}.cacheMemoryMb == 2048
-      && c.modelFlagOverrides.${judge9b}.maxRequestTokens == 16384
-      || throw "catalog: 9B judge resident profile must remain bounded";
-    assert
-      c.modelTextOnly.${judge9b}
-      &&
-        builtins.match ".*enable_thinking.*false.*" (
-          builtins.concatStringsSep " " c.modelExtraArgs.${judge9b}
-        ) != null
-      || throw "catalog: 9B judge must use the text-only loader with thinking disabled";
+      c.modelConcurrencyLimits.${judge9b} == 1
+      && builtins.match ".*enable_thinking.*false.*" (
+        builtins.concatStringsSep " " c.modelExtraArgs.${judge9b}
+      ) != null
+      || throw "catalog: 9B judge must use bounded single-concurrency text serving";
     assert
       hmConfigCatalog.config.services.aiStack.roleOverrides.goal-judge == judge9b
       || throw "catalog: logical goal-judge role must resolve to the catalog-owned physical model";

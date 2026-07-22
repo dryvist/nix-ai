@@ -139,10 +139,13 @@
       description = "Additional vllm-mlx serve arguments per physical registry model id, appended after the global flags.";
     };
 
-    modelTextOnly = lib.mkOption {
-      type = lib.types.attrsOf lib.types.bool;
+    modelServer = lib.mkOption {
+      type = lib.types.attrsOf (lib.types.enum [
+        "vllm-mlx"
+        "mlx-lm"
+      ]);
       default = { };
-      description = "Per-physical-model text-only loader override for model artifacts whose metadata advertises multimodal support but whose quant intentionally omits media-tower weights.";
+      description = "Per-physical-model serving implementation. Defaults to vllm-mlx; use mlx-lm when the model's published deployment recipe requires mlx_lm.server.";
     };
 
     # modelConcurrencyLimits — per-physical-id override of the GLOBAL proxy

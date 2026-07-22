@@ -4,6 +4,7 @@
   lib,
   cfg,
   vllmMlxPkg,
+  mlxLmServerPkg,
 }:
 rec {
   # Build the vllm-mlx serve command string for a given model ID.
@@ -36,9 +37,10 @@ rec {
     "toolCallParser"
     "reasoningParser"
   ];
-  mkVllmCmd =
+  mkModelCmd =
     modelId:
     let
+      server = cfg.modelServer.${modelId} or "vllm-mlx";
       overrides = cfg.modelFlagOverrides.${modelId} or { };
       unknown = lib.filter (k: !(lib.elem k overridableFlags)) (lib.attrNames overrides);
       c =
@@ -46,9 +48,11 @@ rec {
           cfg // overrides
         else
           throw "programs.mlx.modelFlagOverrides.\"${modelId}\": not overridable serve option(s): ${lib.concatStringsSep ", " unknown}";
-      textOnlyEnv = lib.optionalString (cfg.modelTextOnly.${modelId} or false
-      ) "/usr/bin/env VLLM_MLX_FORCE_TEXT_ONLY=1 ";
-      baseCmd = "${textOnlyEnv}${lib.getExe vllmMlxPkg} serve ${modelId} --port \${PORT} --host ${c.host}";
+      baseCmd =
+        if server == "mlx-lm" then
+          "${lib.getExe mlxLmServerPkg} --model ${modelId} --port \${PORT} --host ${c.host}"
+        else
+          "${lib.getExe vllmMlxPkg} serve ${modelId} --port \${PORT} --host ${c.host}";
       flags = lib.concatStringsSep " " (
         lib.optionals (c.cacheMemoryMb != null) [
           "--cache-memory-mb"
@@ -112,6 +116,6 @@ rec {
         ]
       );
     in
-    "${baseCmd}${lib.optionalString (flags != "") " ${flags}"}";
+    "${baseCmd}${lib.optionalString (server == "vllm-mlx" && flags != "") " ${flags}"}";
 
 }

@@ -51,6 +51,9 @@ let
   vllmMlxPkg = pkgs.writeShellScriptBin "vllm-mlx" ''
     exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} --from "${vllmMlxPatchedWheel}/vllm_mlx-${vllmMlxVersion}-py3-none-any.whl" --with "${mlxPin}" --with "${mlxLmPin}" --with "${transformersPin}" vllm-mlx "$@"
   '';
+  mlxLmServerPkg = pkgs.writeShellScriptBin "mlx-lm-server" ''
+    exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} --from "${mlxLmPin}" --with "${mlxPin}" --with "${transformersPin}" mlx_lm.server "$@"
+  '';
   mlxWarmupPkg = pkgs.writeShellScriptBin "mlx-warmup" ''
     exec ${pkgs.python3}/bin/python3 ${./scripts/mlx-warmup.py} "$@"
   '';
@@ -102,7 +105,7 @@ let
   llamaSwapRuntimeConfigPath = "${config.home.homeDirectory}/.config/mlx/llama-swap.json";
 
   # Serve-command builder — split to vllm-cmd.nix (12KB file-size gate).
-  inherit (import ./vllm-cmd.nix { inherit lib cfg vllmMlxPkg; }) mkVllmCmd;
+  inherit (import ./vllm-cmd.nix { inherit lib cfg vllmMlxPkg mlxLmServerPkg; }) mkModelCmd;
 
   # Role registry (services.aiStack.models): role-name -> physical model ID.
   # Single source of truth.
@@ -143,7 +146,7 @@ let
     in
     {
       cmd =
-        mkVllmCmd physical + lib.optionalString (extraArgs != [ ]) (" " + lib.escapeShellArgs extraArgs);
+        mkModelCmd physical + lib.optionalString (extraArgs != [ ]) (" " + lib.escapeShellArgs extraArgs);
       ttl = cfg.proxy.idleTtl;
       env = workerEnv;
       checkEndpoint = "/v1/models";
@@ -167,7 +170,7 @@ let
     in
     {
       cmd =
-        mkVllmCmd name
+        mkModelCmd name
         + lib.optionalString (modelCfg.extraArgs != [ ]) (
           " " + lib.concatStringsSep " " modelCfg.extraArgs
         );
