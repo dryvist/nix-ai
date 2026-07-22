@@ -11,8 +11,8 @@ in
   # Fail evaluation when coupled options or generated proxy contracts drift.
   assertions = lib.optionals cfg.enable [
     {
-      assertion = lib.elem cfg.modelServerBackend cfg.enabledBackends;
-      message = "programs.mlx.modelServerBackend must be listed in programs.mlx.enabledBackends; vllm-mlx remains preserved but disabled.";
+      assertion = cfg.modelServerBackend == "mlx-lm" && cfg.enabledBackends == [ "mlx-lm" ];
+      message = "programs.mlx must use only the enabled mlx-lm backend; vllm-mlx remains preserved but disabled.";
     }
     {
       assertion = cfg.modelServerBackend != "vllm-mlx" || !cfg.enablePrefixCaching || cfg.pagedKvCache;

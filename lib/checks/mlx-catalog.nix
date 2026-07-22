@@ -42,6 +42,9 @@ in
       c.enabledBackends == [ "mlx-lm" ]
       || throw "catalog: official mlx-lm must be the only enabled backend; vllm-mlx must remain preserved but disabled";
     assert
+      !hmConfigCatalog.config.launchd.agents.mlx-model-server-watchdog.enable
+      || throw "catalog: the vllm-specific watchdog must stay disabled for mlx-lm";
+    assert
       c.modelConcurrencyLimits.${judge9b} == 1
       &&
         builtins.match ".*enable_thinking.*false.*" (

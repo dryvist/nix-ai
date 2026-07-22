@@ -41,8 +41,8 @@ in
       builtins.any (a: builtins.match "mlx==.*" a != null) rankArgs
       || throw "cluster: rank must pin mlx explicitly (mlx/mlx-lm lockstep pair), not ride mlx-lm's transitive floor";
     assert
-      builtins.elem "mlx-community/GLM-4.7-4bit" rankArgs
-      || throw "cluster: default cluster model (GLM-4.7-4bit) not in the rank ProgramArguments";
+      builtins.elem "test/cluster-model" rankArgs
+      || throw "cluster: configured cluster model not in the rank ProgramArguments";
     assert
       rank.RunAtLoad == false && rank.KeepAlive == false
       || throw "cluster: the rank must be started only by the link watcher";

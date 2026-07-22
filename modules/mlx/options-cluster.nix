@@ -28,11 +28,9 @@
 
     model = lib.mkOption {
       type = lib.types.str;
-      default = "mlx-community/GLM-4.7-4bit";
       description = ''
-        HuggingFace id of the cluster model. Must use an architecture with
+        Required HuggingFace id of the cluster model. Must use an architecture with
         distributed support in the pinned mlx-lm (glm4_moe: pipeline).
-        198 GB weights split across both ranks via --pipeline.
       '';
     };
 

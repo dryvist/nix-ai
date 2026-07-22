@@ -36,7 +36,7 @@ in
       # The probe generates against the preloaded (resident) models, so with
       # nothing preloaded every probe would cold-load a worker — worse than
       # no watchdog. Such a host has no resident serving to guard.
-      enable = cfg.preload != [ ];
+      enable = cfg.modelServerBackend == "vllm-mlx" && cfg.preload != [ ];
       config = {
         Label = "dev.mlx-model-server.watchdog";
         ProgramArguments = [ (lib.getExe mlxWatchdogPkg) ];

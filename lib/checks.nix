@@ -79,6 +79,7 @@ let
       programs.mlx.clusterMode = {
         enable = true;
         role = "coordinator";
+        model = "test/cluster-model";
         wiredLimitMb = 90000;
         standaloneWiredLimitMb = 118000;
       };
