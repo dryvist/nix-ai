@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.2.3](https://github.com/dryvist/nix-ai/compare/v3.2.2...v3.2.3) (2026-07-22)
+
+
+### Bug Fixes
+
+* **mlx:** preserve productive watchdog work ([e202689](https://github.com/dryvist/nix-ai/commit/e202689ebc653702825739f26cbb3bcee8c42c71))
+* **mlx:** preserve productive watchdog work ([c9ff3ee](https://github.com/dryvist/nix-ai/commit/c9ff3ee98c9f9ff5a605079df8e647fa71d06e32))
+
 ## [3.2.2](https://github.com/dryvist/nix-ai/compare/v3.2.1...v3.2.2) (2026-07-21)
 
 

@@ -66,6 +66,9 @@ in
           # Plist the rung-2 teardown re-bootstraps after `bootout` — passed
           # explicitly so the script does not guess the LaunchAgents layout.
           MLX_WATCHDOG_PLIST = "${config.home.homeDirectory}/Library/LaunchAgents/${launchAgentLabel}.plist";
+          # Maps the capability alias to its physical worker so progress
+          # metrics cannot be borrowed from a healthy non-brain backend.
+          MLX_WATCHDOG_CONFIG = mlxShared.llamaSwapRuntimeConfigPath;
           # Untracked ntfy url file, shared with the cluster watcher so one
           # seeded url pages for both. Missing file = no page.
           MLX_WATCHDOG_ALERT_URL_FILE = "${config.home.homeDirectory}/.config/mlx-cluster/alert-url";
