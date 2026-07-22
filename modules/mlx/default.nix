@@ -63,6 +63,7 @@ let
     runtimeInputs = with pkgs; [
       curl
       coreutils
+      gawk
       jq
     ];
     text = builtins.readFile ./scripts/mlx-watchdog.sh;
