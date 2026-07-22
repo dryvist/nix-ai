@@ -41,6 +41,11 @@ plist="${MLX_WATCHDOG_PLIST:-${HOME}/Library/LaunchAgents/${label}.plist}"
 marker="${MLX_WATCHDOG_MARKER:-${HOME}/Library/Caches/vllm-mlx/watchdog-last-kick}"
 fail_marker="${MLX_WATCHDOG_FAIL_MARKER:-${HOME}/Library/Caches/vllm-mlx/watchdog-failures}"
 busy_marker="${MLX_WATCHDOG_BUSY_MARKER:-${HOME}/Library/Caches/vllm-mlx/watchdog-brain-busy-since}"
+# Last authoritative progress sample for the brain's physical worker. A busy
+# probe is expected while its single slot is occupied; advancing engine steps
+# prove the scheduler is productive and rebase the stuck timer.
+progress_marker="${MLX_WATCHDOG_PROGRESS_MARKER:-${HOME}/Library/Caches/vllm-mlx/watchdog-brain-progress}"
+llama_swap_config="${MLX_WATCHDOG_CONFIG:-${HOME}/.config/mlx/llama-swap.json}"
 # Untracked ntfy POST url (names internal topology, never committed; missing =
 # no page). Shared with the cluster watcher so one seeded url serves both.
 alert_url_file="${MLX_WATCHDOG_ALERT_URL_FILE:-${HOME}/.config/mlx-cluster/alert-url}"
@@ -76,7 +81,8 @@ uid="$(id -u)"
 # writeShellApplication's sanitized PATH.
 worker_pattern='vllm-mlx serve'
 
-mkdir -p "$(dirname "$marker")" "$(dirname "$fail_marker")" "$(dirname "$busy_marker")"
+mkdir -p "$(dirname "$marker")" "$(dirname "$fail_marker")" \
+  "$(dirname "$busy_marker")" "$(dirname "$progress_marker")"
 
 ts() { date -u +%FT%TZ; }
 
@@ -125,6 +131,46 @@ alert() {
 hc_ping() {
   [[ -f "$healthcheck_url_file" ]] || return 0
   curl -fsS -m 8 "$(<"$healthcheck_url_file")" >/dev/null 2>&1 || true
+}
+
+# Return "physical-model<TAB>backend-url<TAB>steps<TAB>uptime" for the brain.
+# The mutable llama-swap config maps the capability alias to exactly one
+# physical model; /running then maps that model to its own metrics endpoint.
+# vllm_mlx_engine_steps_executed increments on every scheduler step, including
+# during one long request. Engine uptime distinguishes a reset epoch. Missing,
+# duplicated, or malformed metrics are fail-closed: the existing busy timer
+# continues without being reset.
+brain_progress_snapshot() {
+  local physical api_root running backend metrics engine_state steps uptime
+  [[ -r "$llama_swap_config" ]] || return 1
+  physical="$(jq -er --arg brain "$brain_model" '
+    [
+      .models
+      | to_entries[]
+      | select(.key == $brain or ((.value.aliases // []) | index($brain)))
+      | .key
+    ]
+    | if length == 1 then .[0] else empty end
+  ' "$llama_swap_config" 2>/dev/null)" || return 1
+
+  api_root="${api_url%/v1}"
+  running="$(curl -fsS --max-time 5 "${api_root}/running" 2>/dev/null)" || return 1
+  backend="$(jq -er --arg model "$physical" '
+    [.running[] | select(.model == $model and .state == "ready") | .proxy]
+    | if length == 1 then .[0] else empty end
+  ' <<<"$running" 2>/dev/null)" || return 1
+  metrics="$(curl -fsS --max-time 5 "${backend}/metrics" 2>/dev/null)" || return 1
+  engine_state="$(awk '
+    $1 == "vllm_mlx_engine_steps_executed" { steps = $2; step_count++ }
+    $1 == "vllm_mlx_engine_uptime_seconds" { uptime = $2; uptime_count++ }
+    END {
+      if (step_count != 1 || uptime_count != 1) exit 1
+      printf "%.0f\t%.0f\n", steps, uptime
+    }
+  ' <<<"$metrics")" || return 1
+  IFS=$'\t' read -r steps uptime <<<"$engine_state"
+  [[ "$steps" =~ ^[0-9]+$ && "$uptime" =~ ^[0-9]+$ ]] || return 1
+  printf '%s\t%s\t%s\t%s\n' "$physical" "$backend" "$steps" "$uptime"
 }
 
 # One probe of one model -> healthy | dead | busy | down. Body to a temp file,
@@ -275,26 +321,56 @@ fi
 case "$brain_state" in
   healthy)
     hc_ping   # external deadman OK: brain serving this cycle (survives host going silent)
-    rm -f "$fail_marker" "$busy_marker"
+    rm -f "$fail_marker" "$busy_marker" "$progress_marker"
     exit 0
     ;;
   dead | down)
-    rm -f "$busy_marker"
+    rm -f "$busy_marker" "$progress_marker"
     escalate_ladder "brain ${brain_model} not serving (state=${brain_state})"
     exit 0
     ;;
   busy)
-    # Do NOT tear down mid-work; escalate only once the brain passes the grace
-    # window still busy.
+    # Do NOT tear down productive work. A single-slot brain correctly returns
+    # 429 while generating, so reset the stuck timer whenever that exact
+    # physical worker's scheduler-step counter advances. A counter/uptime
+    # reset or backend identity change starts a new worker epoch and also gets
+    # a fresh grace. Frozen or unavailable metrics retain the 900 s ladder.
     busy_since="$(read_int "$busy_marker")"
     if (( busy_since == 0 )); then
       busy_since="$now"
       printf '%s\n' "$busy_since" > "$busy_marker"
     fi
+    snapshot="$(brain_progress_snapshot || true)"
+    if [[ -n "$snapshot" ]]; then
+      IFS=$'\t' read -r progress_model progress_backend steps_now uptime_now <<<"$snapshot"
+      steps_previous=0
+      uptime_previous=0
+      if [[ -r "$progress_marker" ]]; then
+        IFS=$'\t' read -r previous_model previous_backend steps_previous uptime_previous < "$progress_marker" || true
+      fi
+      if [[ "$steps_previous" =~ ^[0-9]+$ && "$uptime_previous" =~ ^[0-9]+$ ]]; then
+        progress_reason=""
+        if [[ "$progress_model" != "${previous_model:-}" || "$progress_backend" != "${previous_backend:-}" ]]; then
+          progress_reason="worker identity changed"
+        elif (( steps_now < steps_previous || uptime_now < uptime_previous )); then
+          progress_reason="worker epoch reset"
+        elif (( steps_now > steps_previous )); then
+          progress_reason="engine steps advanced ${steps_previous}->${steps_now}"
+        fi
+      else
+        progress_reason=""
+      fi
+      if [[ -n "$progress_reason" ]]; then
+        busy_since="$now"
+        printf '%s\n' "$busy_since" > "$busy_marker"
+        echo "$(ts) mlx-watchdog: brain ${brain_model} ${progress_reason} -> reset busy grace"
+      fi
+      printf '%s\t%s\t%s\t%s\n' "$progress_model" "$progress_backend" "$steps_now" "$uptime_now" > "$progress_marker"
+    fi
     busy_for=$(( now - busy_since ))
     if (( busy_for >= busy_grace )); then
-      rm -f "$busy_marker"
-      escalate_ladder "brain ${brain_model} stuck busy/loading for ${busy_for}s (no completion through ${busy_grace}s grace)"
+      rm -f "$busy_marker" "$progress_marker"
+      escalate_ladder "brain ${brain_model} stuck busy/loading for ${busy_for}s (no engine progress through ${busy_grace}s grace)"
     else
       echo "$(ts) mlx-watchdog: brain ${brain_model} busy/loading (${busy_for}s < ${busy_grace}s grace) -> waiting, no restart"
     fi
