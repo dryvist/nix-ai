@@ -241,6 +241,7 @@ in
     ./options-parsers.nix
     ./options-runtime.nix
     ./options-cluster.nix
+    ./assertions.nix
     ./packages.nix
     ./launchd.nix
     ./launchd-watchdog.nix
@@ -270,39 +271,4 @@ in
       ;
   };
 
-  # Enforce documented option dependencies. Without these, vllm-mlx silently
-  # mis-behaves when consumers flip one boolean and forget the partner.
-  assertions = lib.optionals cfg.enable [
-    {
-      assertion = !cfg.enablePrefixCaching || cfg.pagedKvCache;
-      message = ''
-        programs.mlx.enablePrefixCaching requires programs.mlx.pagedKvCache to
-        also be true. vllm-mlx 0.2.9 builds the prefix-sharing index inside
-        the paged KV cache; turning prefix caching on without paged KV cache
-        either fails to start or silently drops the prefix-share path.
-        Either set both to true (the defaults) or both to false.
-      '';
-    }
-    {
-      assertion = lib.all (
-        modelId:
-        let
-          generated = llamaSwapConfigAttrs.models.${modelId} or null;
-        in
-        generated != null && lib.hasPrefix "VLLM_MLX_FORCE_TEXT_ONLY=1 " generated.cmd
-      ) (lib.attrNames (lib.filterAttrs (_modelId: enabled: enabled) cfg.modelTextOnly));
-      message = "programs.mlx.modelTextOnly entries must compile into final llama-swap model commands with the text-only loader environment.";
-    }
-    {
-      assertion = lib.all (
-        role:
-        let
-          physical = config.services.aiStack.models.${role};
-          generated = llamaSwapConfigAttrs.models.${physical} or null;
-        in
-        generated != null && lib.elem role generated.aliases
-      ) (lib.attrNames config.services.aiStack.models);
-      message = "Every AI-stack logical role must compile into the aliases of its final llama-swap physical backend.";
-    }
-  ];
 }
