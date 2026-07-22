@@ -47,7 +47,7 @@ rec {
         else
           throw "programs.mlx.modelFlagOverrides.\"${modelId}\": not overridable serve option(s): ${lib.concatStringsSep ", " unknown}";
       textOnlyEnv = lib.optionalString (cfg.modelTextOnly.${modelId} or false
-      ) "VLLM_MLX_FORCE_TEXT_ONLY=1 ";
+      ) "/usr/bin/env VLLM_MLX_FORCE_TEXT_ONLY=1 ";
       baseCmd = "${textOnlyEnv}${lib.getExe vllmMlxPkg} serve ${modelId} --port \${PORT} --host ${c.host}";
       flags = lib.concatStringsSep " " (
         lib.optionals (c.cacheMemoryMb != null) [
