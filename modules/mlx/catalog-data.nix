@@ -20,7 +20,19 @@ in
   qwen35-9b-optiq = {
     model = "mlx-community/Qwen3.5-9B-OptiQ-4bit";
     weightGb = 7.7;
-    args = qwenMoeGeneralParser ++ agentTimeout;
+    # This text-only quant retains multimodal metadata even though it ships no
+    # vision-tower weights. Force the text loader and disable thinking so a
+    # bounded judge verdict does not spend its response budget on reasoning.
+    textOnly = true;
+    args =
+      qwenMoeGeneralParser
+      ++ [
+        "--default-chat-template-kwargs"
+        (builtins.toJSON {
+          enable_thinking = false;
+        })
+      ]
+      ++ agentTimeout;
     classes = {
       resident.flags = block256 // {
         cacheMemoryMb = 2048;

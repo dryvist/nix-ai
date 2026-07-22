@@ -139,6 +139,12 @@
       description = "Additional vllm-mlx serve arguments per physical registry model id, appended after the global flags.";
     };
 
+    modelTextOnly = lib.mkOption {
+      type = lib.types.attrsOf lib.types.bool;
+      default = { };
+      description = "Per-physical-model text-only loader override for model artifacts whose metadata advertises multimodal support but whose quant intentionally omits media-tower weights.";
+    };
+
     # modelConcurrencyLimits — per-physical-id override of the GLOBAL proxy
     # concurrencyLimit (the llama-swap-side in-flight cap). modelExtraArgs and
     # modelFlagOverrides tune the vllm-mlx worker; this one tunes the proxy gate

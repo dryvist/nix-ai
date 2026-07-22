@@ -5,10 +5,11 @@
 #   cli.py:     uvicorn.run(app, host=args.host, port=args.port, log_level="info")
 # (confirmed via `vllm-mlx serve --help` and a source read of both files —
 # no --log-level flag exists anywhere in the argparse tree). This derivation
-# patches only those two call sites to read VLLM_MLX_LOG_LEVEL (falling back
+# patches those two call sites to read VLLM_MLX_LOG_LEVEL (falling back
 # to the same upstream defaults), so programs.mlx.serverLogLevel
 # (options-runtime.nix) controls the app logger AND uvicorn's own request
-# logging. No other behavior changes.
+# logging. It also provides the catalog's opt-in text-only loader override for
+# quants whose metadata advertises media support but omits media weights.
 #
 # Patches the prebuilt wheel, not the sdist: pointing uvx's `--from` at a
 # source directory made uv try to build it in place via setuptools, which
@@ -56,6 +57,17 @@ pkgs.runCommand "vllm-mlx-wheel-patched-${vllmMlxVersion}"
       --replace-fail \
         'uvicorn.run(app, host=args.host, port=args.port, log_level="info")' \
         "$(printf '_vllm_mlx_log_level = os.environ.get("VLLM_MLX_LOG_LEVEL", "info").lower()\n    _vllm_mlx_log_level = {"warn": "warning"}.get(_vllm_mlx_log_level, _vllm_mlx_log_level)\n    uvicorn.run(app, host=args.host, port=args.port, log_level=_vllm_mlx_log_level)')"
+
+    # Some text-only quants preserve multimodal config metadata while omitting
+    # the media-tower weights. Let the per-model catalog select the LLM loader
+    # without rewriting the cached Hugging Face artifact.
+    substituteInPlace unpacked/vllm_mlx/api/utils.py \
+      --replace-fail \
+        'import logging' \
+        "$(printf 'import logging\nimport os')" \
+      --replace-fail \
+        '    config = _try_read_config_json(model_name)' \
+        "$(printf '    if os.environ.get("VLLM_MLX_FORCE_TEXT_ONLY") == "1":\n        return False\n    config = _try_read_config_json(model_name)')"
 
     # _build_engine is the lifecycle/residency construction path, taken
     # whenever --auto-unload-idle-seconds or --lazy-load-model is set. Unlike

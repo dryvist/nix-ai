@@ -39,6 +39,13 @@ in
       && c.modelFlagOverrides.${judge9b}.maxRequestTokens == 16384
       || throw "catalog: 9B judge resident profile must remain bounded";
     assert
+      c.modelTextOnly.${judge9b}
+      &&
+        builtins.match ".*enable_thinking.*false.*" (
+          builtins.concatStringsSep " " c.modelExtraArgs.${judge9b}
+        ) != null
+      || throw "catalog: 9B judge must use the text-only loader with thinking disabled";
+    assert
       c.modelFlagOverrides.${gptOss}.pagedKvCache == false
       && c.modelFlagOverrides.${gptOss}.enablePrefixCaching == false
       || throw "catalog: gpt-oss swap profile must disable paged KV + prefix caching";
