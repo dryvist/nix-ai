@@ -46,6 +46,9 @@ in
         ) != null
       || throw "catalog: 9B judge must use the text-only loader with thinking disabled";
     assert
+      hmConfigCatalog.config.services.aiStack.roleOverrides.goal-judge == judge9b
+      || throw "catalog: logical goal-judge role must resolve to the catalog-owned physical model";
+    assert
       c.modelFlagOverrides.${gptOss}.pagedKvCache == false
       && c.modelFlagOverrides.${gptOss}.enablePrefixCaching == false
       || throw "catalog: gpt-oss swap profile must disable paged KV + prefix caching";
