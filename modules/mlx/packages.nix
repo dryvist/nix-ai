@@ -187,9 +187,8 @@ in
           '';
         })
 
-        # mlx-watchdog — one probe-and-maybe-kickstart cycle for the zombie
-        # self-heal (also run every 60s by the mlx-lm watchdog LaunchAgent).
-        # On PATH for manual break-fix / testing.
+        # mlx-watchdog — retained on PATH for manual break-fix and future
+        # vllm-mlx re-enablement. No watchdog LaunchAgent runs for mlx_lm.
         mlxWatchdogPkg
 
         # ======================================================================

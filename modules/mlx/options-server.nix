@@ -10,7 +10,7 @@ let
 in
 {
   options.programs.mlx = {
-    enable = lib.mkEnableOption "MLX inference server via vllm-mlx";
+    enable = lib.mkEnableOption "MLX inference server";
 
     defaultModel = lib.mkOption {
       type = lib.types.str;
@@ -26,13 +26,13 @@ in
     port = lib.mkOption {
       type = lib.types.port;
       default = 11434;
-      description = "Port for the vllm-mlx API server";
+      description = "Port for the MLX model server";
     };
 
     host = lib.mkOption {
       type = lib.types.str;
       default = "127.0.0.1";
-      description = "Host address for the vllm-mlx API server";
+      description = "Host address for the MLX model server";
     };
 
     huggingFaceHome = lib.mkOption {
@@ -41,13 +41,13 @@ in
       description = "Path to HuggingFace model cache (dedicated APFS volume)";
     };
 
-    # enableMetrics — Native Prometheus metrics endpoint (--enable-metrics).
-    # Exposes /metrics on each worker for scrape-based monitoring (Cribl Edge
-    # has a built-in Prometheus input). No custom collectors required.
+    # Retained for the disabled vllm-mlx backend, whose native
+    # --enable-metrics flag exposes /metrics on each worker. The active
+    # mlx_lm backend does not consume this option.
     enableMetrics = lib.mkOption {
       type = lib.types.bool;
       default = true;
-      description = "Expose the native Prometheus /metrics endpoint on each vllm-mlx worker (--enable-metrics).";
+      description = "Expose native Prometheus metrics when the selected MLX backend supports them.";
     };
 
     telemetry = {

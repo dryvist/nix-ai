@@ -147,22 +147,22 @@ let
   # owning the "default" alias — inherits the uniform proxy idle TTL.
   # Preloading is done by the warmup LaunchAgent (mlx-warmup.py reading
   # MLX_PRELOAD_MODELS_JSON), NOT llama-swap's hooks.on_startup.preload:
-  # that hook's request shape 404s against vllm-mlx (#1175), so llama-swap
+  # that hook's request shape is not portable across MLX backends, so llama-swap
   # would start the worker, fail the preload, and stop it — residents cold.
   # After proxy.idleTtl of idle a model unloads and the next request reloads
   # it (~15-30 s).
   #
   # useModelName makes llama-swap rewrite the OpenAI-compatible request body's
-  # `model` field to the physical model id before forwarding to vllm-mlx.
-  # vllm-mlx 0.2.9 strictly validates the model field against the loaded model
-  # name and returns 404 for unknown names — without this rewrite, callers
+  # `model` field to the physical model id before forwarding to the MLX server.
+  # MLX servers validate the model field against the loaded model name and
+  # return 404 for unknown names — without this rewrite, callers
   # using a capability-class alias (e.g. `model: "default"`) hit
   #   "The model `default` does not exist."
   # even though llama-swap routed the request correctly. With it, the alias
   # works end-to-end through the local proxy.
   # Default llama-swap filters applied to every model in the registry.
   # See modules/mlx/options-filters.nix for the schema and reasoning.
-  # Filters run at the proxy layer BEFORE the request hits vllm-mlx, so they
+  # Filters run at the proxy layer BEFORE the request hits the MLX server, so they
   # apply universally to every caller, every prompt, every model — including
   # callers that explicitly send greedy-decoding parameters (setParams
   # overrides client values per llama-swap's documented semantics).
@@ -223,7 +223,7 @@ let
   llamaSwapConfigAttrs = {
     inherit (cfg.proxy) healthCheckTimeout logLevel logToStdout;
     # logLevel="debug" logs every proxied HTTP request/response body.
-    # logToStdout="both" merges proxy and vllm-mlx output into one stream.
+    # logToStdout="both" merges proxy and MLX server output into one stream.
     # Tap live I/O with: curl http://127.0.0.1:11434/logs/stream
     # Configurable via programs.mlx.proxy.logLevel / logToStdout.
     startPort = 11436;
