@@ -4,7 +4,7 @@
 # Split from options-runtime.nix for the 12KB file-size gate; see the split
 # history of modules/mlx/options for the pattern.
 #
-# llama-swap sits on the API port and manages vllm-mlx backends as child
+# llama-swap sits on the API port and manages MLX model servers as child
 # processes. Model switching is transparent: send a request with model: "X"
 # and the proxy handles it.
 #
@@ -17,9 +17,8 @@
       # one, so swap-thrash is impossible on RAM-constrained workstations.
       # false lets multiple registry models stay resident concurrently
       # (server-class hosts serving e.g. a large default plus a coder model);
-      # the memory bound then falls to gpuMemoryUtilization/cacheMemoryMb per
-      # worker, which the host must size so the sum of resident workers fits
-      # its wired-memory budget.
+      # the memory bound then falls to the selected server's cache budget plus
+      # the host wired-memory ceiling. The host must size the resident sum.
       groupSwap = lib.mkOption {
         type = lib.types.bool;
         default = true;
@@ -43,20 +42,12 @@
           "warn"
           "error"
         ];
-        default = "debug";
+        default = "info";
         description = ''
-          llama-swap log verbosity. "debug" is the production default — logs
-          every proxied HTTP request/response body and model load/swap
-          transitions, giving pre-error context and point-in-time config
-          detail for later log-based analytics (config-over-time mining), not
-          just live diagnosis. Set to "info" to drop the request/response
-          body logging and keep only model load events and swap transitions.
-          Note: debug output rotates within the 10 MB LaunchAgent log limit.
-
-          vllm-mlx itself has no equivalent lever: 0.4.0 hardcodes
-          `logging.basicConfig(level=logging.INFO)` (server.py) and
-          `uvicorn.run(..., log_level="info")` (cli.py) with no CLI flag or
-          env var — this option only raises the proxy's own verbosity.
+          llama-swap log verbosity. "info" is the production default: it keeps
+          model load, unload, and routing events without logging proxied
+          request or response bodies. "debug" is for supervised diagnosis
+          only because it can contain prompt and completion content.
         '';
       };
       logToStdout = lib.mkOption {
@@ -69,16 +60,15 @@
         default = "both";
         description = ''
           Which output streams llama-swap forwards to stdout (and therefore
-          the /logs/stream SSE endpoint). "both" interleaves proxy request
-          logs with vllm-mlx upstream output. "proxy" (default upstream
-          behaviour) shows only proxy-level events.
+          the /logs/stream SSE endpoint). "both" interleaves proxy events with
+          selected MLX model-server output.
         '';
       };
       concurrencyLimit = lib.mkOption {
         type = lib.types.ints.positive;
         default = 4;
         description = ''
-          Max in-flight requests llama-swap will forward to vllm-mlx per
+          Max in-flight requests llama-swap will forward to a model server per
           model. Maps directly to the YAML key llama-swap reads
           (`concurrencyLimit`); excess requests get HTTP 429.
 

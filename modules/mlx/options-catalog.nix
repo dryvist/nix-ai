@@ -193,10 +193,6 @@ in
         name: _sel: lib.nameValuePair (entryFor name).model (lib.mkDefault (entryFor name).args)
       ) argsViaExtraArgs;
 
-      modelTextOnly = lib.mapAttrs' (
-        name: _sel: lib.nameValuePair (entryFor name).model (lib.mkDefault true)
-      ) (lib.filterAttrs (name: _sel: (entryFor name).textOnly or false) enabled);
-
       modelFlagOverrides = lib.mapAttrs' (
         name: sel:
         lib.nameValuePair (entryFor name).model (lib.mapAttrs (_: lib.mkDefault) (flagsFor name sel))
@@ -208,6 +204,13 @@ in
       modelConcurrencyLimits = lib.mapAttrs' (
         name: _sel: lib.nameValuePair (entryFor name).model (lib.mkDefault (entryFor name).concurrencyLimit)
       ) (lib.filterAttrs (name: _sel: (entryFor name) ? concurrencyLimit) enabled);
+
+      # Swap-class role models still compile into the role registry rather than
+      # cfg.models. Carry their catalog TTL to that registry entry so official
+      # mlx_lm workers unload after use even when the host's resident TTL is 0.
+      modelTtls = lib.mapAttrs' (
+        name: sel: lib.nameValuePair (entryFor name).model (lib.mkDefault (swapTtlFor name sel))
+      ) swaps;
 
       models = lib.mapAttrs' (
         name: sel:

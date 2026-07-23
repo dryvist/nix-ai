@@ -16,6 +16,7 @@ let
     launchAgentLabel
     apiUrl
     mlxWatchdogPkg
+    modelServerProcessPattern
     ;
 in
 {
@@ -31,13 +32,13 @@ in
     # kickstart). It also reaps orphan worker trees when the uid process
     # count nears fork exhaustion, and self-gates re-fires with a cooldown
     # marker so a slow model reload is not restart-stormed (mlx-watchdog.sh).
-    launchd.agents.vllm-mlx-watchdog = {
+    launchd.agents.mlx-model-server-watchdog = {
       # The probe generates against the preloaded (resident) models, so with
       # nothing preloaded every probe would cold-load a worker — worse than
       # no watchdog. Such a host has no resident serving to guard.
-      enable = cfg.preload != [ ];
+      enable = cfg.modelServerBackend == "vllm-mlx" && cfg.preload != [ ];
       config = {
-        Label = "dev.vllm-mlx.watchdog";
+        Label = "dev.mlx-model-server.watchdog";
         ProgramArguments = [ (lib.getExe mlxWatchdogPkg) ];
         RunAtLoad = false;
         # 60 s: a zombie is detected and kickstarted within one cron gap
@@ -47,6 +48,7 @@ in
         EnvironmentVariables = {
           MLX_API_URL = apiUrl;
           MLX_LAUNCHD_LABEL = launchAgentLabel;
+          MLX_MODEL_SERVER_PROCESS_PATTERN = modelServerProcessPattern;
           # Probe the whole resident set, not just the head. Each preloaded
           # model is warm by construction, so a failure means "not serving",
           # never "cold load in progress". Passing the full list lets the
@@ -78,8 +80,8 @@ in
           # the external check pages. Missing file = no ping.
           MLX_WATCHDOG_HEALTHCHECK_URL_FILE = "${config.home.homeDirectory}/.config/mlx-cluster/healthcheck-url";
         };
-        StandardOutPath = "${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx-watchdog.log";
-        StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx-watchdog.error.log";
+        StandardOutPath = "${config.home.homeDirectory}/Library/Logs/mlx-model-server/watchdog.log";
+        StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/mlx-model-server/watchdog.error.log";
       };
     };
   };

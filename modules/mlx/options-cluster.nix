@@ -14,6 +14,11 @@
   lib,
   ...
 }:
+let
+  catalogData = import ./catalog-data.nix;
+  clusterCatalog = lib.filterAttrs (_: entry: entry.cluster or false) catalogData;
+  clusterModelKey = config.programs.mlx.clusterMode.modelCatalogKey;
+in
 {
   options.programs.mlx.clusterMode = {
     enable = lib.mkEnableOption "two-Mac JACCL clustered mode (mlx-lm pipeline-parallel serving)";
@@ -28,12 +33,17 @@
 
     model = lib.mkOption {
       type = lib.types.str;
-      default = "mlx-community/GLM-4.7-4bit";
+      default = if clusterModelKey == null then "" else clusterCatalog.${clusterModelKey}.model;
       description = ''
-        HuggingFace id of the cluster model. Must use an architecture with
-        distributed support in the pinned mlx-lm (glm4_moe: pipeline).
-        198 GB weights split across both ranks via --pipeline.
+        Resolved HuggingFace id of the cluster model. Prefer modelCatalogKey so
+        deployed host configuration does not repeat physical model ids.
       '';
+    };
+
+    modelCatalogKey = lib.mkOption {
+      type = lib.types.nullOr (lib.types.enum (lib.attrNames clusterCatalog));
+      default = null;
+      description = "Central catalog key for the pipeline-parallel cluster model.";
     };
 
     httpPort = lib.mkOption {

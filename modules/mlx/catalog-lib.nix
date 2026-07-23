@@ -42,28 +42,6 @@
 # An entry only offers the classes it has been validated for; requesting an
 # unoffered class fails the eval.
 {
-  # Qwen3.6/Next MoE lineage: XML tool format needs hermes (qwen3_coder
-  # mis-parses it → empty function.name repair storms) + qwen3 reasoning.
-  qwenMoeGeneralParser = [
-    "--tool-call-parser"
-    "hermes"
-    "--reasoning-parser"
-    "qwen3"
-  ];
-  # Instruct (non-thinking) variants must NOT carry a reasoning parser: it
-  # classifies the entire non-streaming completion as reasoning and strips it
-  # (empty content, "Thinking-only response" under agent harnesses) while
-  # streaming still works — the 2026-07-20 Hermes outage signature.
-  qwenMoeInstructParser = [
-    "--tool-call-parser"
-    "hermes"
-  ];
-  # Guard chain: server 3600 > router 2400 > client 1800 (lifts the
-  # 300 s disconnect_guard).
-  agentTimeout = [
-    "--timeout"
-    "3600"
-  ];
   # Paged-cache block sizing (engine default 64): long sessions shatter the KV
   # into enough per-block Metal buffers to trip MLX's buffer-count limit
   # ("Resource limit (499000) exceeded", not a byte OOM; nix-darwin#1609).
