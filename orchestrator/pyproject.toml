@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Generic skill orchestration library with LangGraph and LlamaIndex"
 requires-python = ">=3.14"
 dependencies = [
+  "harbor>=0.1.0",
   "langgraph>=0.4.0",
   # llama-index meta-package removed — it pulls llama-index-cli, llama-parse,
   # llama-cloud, and llms-openai which we don't use. Pin only what we need:
