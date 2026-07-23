@@ -51,6 +51,13 @@ let
     {
       programs.mlx = {
         catalog = {
+          qwen35-9b-optiq = {
+            class = "swap";
+          };
+          qwen36-27b-mxfp4 = {
+            class = "resident";
+            roles = [ "goal-judge" ];
+          };
           qwen36-optiq.class = "resident";
           qwen3-coder-30b.class = "resident";
           gpt-oss-120b.class = "swap";
@@ -75,6 +82,7 @@ let
       programs.mlx.clusterMode = {
         enable = true;
         role = "coordinator";
+        modelCatalogKey = "glm47-reap50";
         wiredLimitMb = 90000;
         standaloneWiredLimitMb = 118000;
       };
@@ -93,7 +101,7 @@ in
 // (import ./checks/mlx.nix { inherit pkgs hmConfig; })
 // (import ./checks/mlx-watchdog.nix { inherit pkgs src; })
 // (import ./checks/mlx-catalog.nix { inherit pkgs hmConfigCatalog; })
-// (import ./checks/mlx-cluster.nix { inherit pkgs hmConfigCluster; })
+// (import ./checks/mlx-cluster.nix { inherit pkgs hmConfigCluster src; })
 // (import ./checks/fabric.nix {
   inherit
     pkgs

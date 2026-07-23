@@ -2,8 +2,7 @@
 # MLX Module — CLI Tools, Environment & Ecosystem
 #
 # All home.packages and home.sessionVariables for the MLX module.
-# Includes: vllm-mlx wrapper, mlx CLI tools (including upstream mlx-bench /
-# mlx-bench-engine / mlx-bench-raw for ad-hoc measurement), health check,
+# Includes: official mlx_lm.server wrapper, MLX CLI tools, health check,
 # and ecosystem uvx wrappers (parakeet-mlx, mlx-vlm).
 #
 # Orchestrated sweep runs live in the companion repo JacobPEvans/mlx-benchmarks;
@@ -19,6 +18,7 @@
 let
   inherit (mlxShared)
     cfg
+    mlxModelServerPkg
     vllmMlxPkg
     mlxWarmupPkg
     mlxWatchdogPkg
@@ -54,6 +54,7 @@ in
         MLX_HF_HOME = cfg.huggingFaceHome;
         MLX_LAUNCHD_LABEL = launchAgentLabel;
         MLX_WARMUP_LABEL = warmupAgentLabel;
+        MLX_MODEL_SERVER_PROCESS_PATTERN = mlxShared.modelServerProcessPattern;
         MLX_LLAMA_SWAP_CONFIG = llamaSwapRuntimeConfigPath;
         MLX_LLAMA_SWAP_BASE_CONFIG = "${llamaSwapConfigFile}";
       };
@@ -62,8 +63,8 @@ in
       # CLI Tools
       # ==========================================================================
       packages = [
-        # vllm-mlx wrapper (on PATH for scripts, store path for LaunchAgent)
-        vllmMlxPkg
+        # Official Apple OpenAI-compatible model server.
+        mlxModelServerPkg
 
         # mlx — one-shot prompt (curl + jq, no Python)
         (pkgs.writeShellApplication {
@@ -133,29 +134,17 @@ in
         # Benchmark Suite
         # ======================================================================
 
-        # mlx-bench — LLM throughput/latency benchmark (loads model directly)
-        (pkgs.writeShellScriptBin "mlx-bench" ''
-          exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} --from "${vllmMlxPin}" vllm-mlx-bench "$@"
-        '')
-
-        # mlx-bench-engine — engine benchmark with cache/batching knobs
-        (pkgs.writeShellScriptBin "mlx-bench-engine" ''
-          exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} --from "${vllmMlxPin}" vllm-mlx bench "$@"
-        '')
-
-        # mlx-bench-raw — raw MLX prefill + decode (no vllm-mlx overhead).
+        # mlx-bench-raw — official MLX prefill + decode benchmark.
         # transformers pinned for the same mlx-lm import break as the server
         # wrapper (lib/versions.nix incident note).
         (pkgs.writeShellScriptBin "mlx-bench-raw" ''
           exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} --from "mlx-lm==${mlxLmVersion}" --with "transformers==${versions.transformers}" mlx_lm.benchmark "$@"
         '')
 
-        # mlx-eval — accuracy evaluation against the live vllm-mlx server API
+        # mlx-eval — accuracy evaluation against the live mlx_lm.server API
         #
-        # MLX_EVAL_CONCURRENT controls parallel requests (default 4). vllm-mlx
-        # handles concurrent decode via continuous batching, so raising this
-        # from the lm-eval default of 1 is the single biggest speedup lever
-        # for long-running suites like evalplus and math-hard.
+        # MLX_EVAL_CONCURRENT defaults to 1 because production serving is
+        # intentionally serial while official mlx_lm concurrency is qualified.
         #
         # max_length=32768 is critical: lm-eval's local-chat-completions backend
         # defaults max_length to 2048, leaving only ~1023 tokens for the prompt
@@ -167,7 +156,7 @@ in
         # minerva_math500, which is the math-hard suite task currently run.
         #
         (pkgs.writeShellScriptBin "mlx-eval" ''
-          concurrent="''${MLX_EVAL_CONCURRENT:-4}"
+          concurrent="''${MLX_EVAL_CONCURRENT:-1}"
           exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} --from "lm-eval[api,math]==${lmEvalVersion}" lm-eval run \
             --model local-chat-completions \
             --model_args "base_url=''${MLX_API_URL:-${apiUrl}}/chat/completions,model=''${MLX_DEFAULT_MODEL:-${cfg.defaultModel}},tokenizer_backend=None,tokenized_requests=False,num_concurrent=''${concurrent},max_retries=3,max_length=32768" \
@@ -190,17 +179,16 @@ in
               sleep 2
               elapsed=$((elapsed + 2))
               if [ "$elapsed" -ge "$timeout" ]; then
-                echo "Timed out waiting for vllm-mlx after ''${timeout}s" >&2
+                echo "Timed out waiting for mlx_lm.server after ''${timeout}s" >&2
                 exit 1
               fi
             done
-            echo "vllm-mlx ready (''${elapsed}s)"
+            echo "mlx_lm.server ready (''${elapsed}s)"
           '';
         })
 
-        # mlx-watchdog — one probe-and-maybe-kickstart cycle for the zombie
-        # self-heal (also run every 60s by the vllm-mlx-watchdog LaunchAgent).
-        # On PATH for manual break-fix / testing.
+        # mlx-watchdog — retained on PATH for manual break-fix and future
+        # vllm-mlx re-enablement. No watchdog LaunchAgent runs for mlx_lm.
         mlxWatchdogPkg
 
         # ======================================================================
@@ -242,6 +230,17 @@ in
         # mlx-vlm-generate — vision language model image analysis
         (pkgs.writeShellScriptBin "mlx-vlm-generate" ''
           exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} --from "mlx-vlm==${mlxVlmVersion}" mlx_vlm.generate "$@"
+        '')
+      ]
+      ++ lib.optionals (lib.elem "vllm-mlx" cfg.enabledBackends) [
+        # Preserved for future requalification; absent from deployed hosts while
+        # the backend is disabled.
+        vllmMlxPkg
+        (pkgs.writeShellScriptBin "mlx-bench" ''
+          exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} --from "${vllmMlxPin}" vllm-mlx-bench "$@"
+        '')
+        (pkgs.writeShellScriptBin "mlx-bench-engine" ''
+          exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} --from "${vllmMlxPin}" vllm-mlx bench "$@"
         '')
       ];
     };

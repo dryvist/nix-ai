@@ -4,9 +4,6 @@
 # catalog-lib.nix; this file is split out to keep each under the 12KB gate.
 let
   inherit (import ./catalog-lib.nix)
-    qwenMoeGeneralParser
-    qwenMoeInstructParser
-    agentTimeout
     block256
     block512
     hybridNoPaged
@@ -14,20 +11,84 @@ let
     ;
 in
 {
+  # Small resident auxiliary model for bounded classification and judging.
+  # OptiQ keeps tool/reasoning compatibility with the Qwen family while the
+  # 4-bit footprint permits it to stay warm beside the primary 80B brain.
+  qwen35-9b-optiq = {
+    model = "mlx-community/Qwen3.5-9B-OptiQ-4bit";
+    weightGb = 7.7;
+    # The model card's Hermes recipe serves this text quant with mlx_lm.server.
+    # Keep it off the multimodal-aware vllm-mlx loader.
+    args = [
+      "--chat-template-args"
+      (builtins.toJSON {
+        enable_thinking = false;
+      })
+    ];
+    concurrencyLimit = 1;
+    classes = {
+      resident.flags = { };
+      swap.flags = swapFlags;
+    };
+  };
+
+  # Small on-demand summarizer. The screenpipe hourly-obsidian pipe requests
+  # this exact physical id ("mlx-community/Qwen3.5-9B-MLX-4bit"); registering it
+  # swap-class (no roles -> compiles to a llama-swap models.<id> entry keyed by
+  # the physical id) lets that request route without evicting a resident. Weights
+  # fetch from HuggingFace on first load if not already cached.
+  qwen35-9b-mlx = {
+    model = "mlx-community/Qwen3.5-9B-MLX-4bit";
+    weightGb = 5.2;
+    # Text quant served through mlx_lm.server; keep off the vllm-mlx loader.
+    args = [
+      "--chat-template-args"
+      (builtins.toJSON {
+        enable_thinking = false;
+      })
+    ];
+    concurrencyLimit = 1;
+    classes = {
+      resident.flags = { };
+      swap.flags = swapFlags;
+    };
+  };
+
+  # Resident Hermes goal judge. This is the smallest already-cached 27B MLX
+  # quant on jevans-ms. Keep it serialized: judging is latency-sensitive but
+  # never needs concurrent decode, and a second prompt would only increase
+  # unified-memory pressure beside the resident 80B worker.
+  qwen36-27b-mxfp4 = {
+    model = "mlx-community/Qwen3.6-27B-mxfp4";
+    weightGb = 15.3;
+    args = [
+      "--chat-template-args"
+      (builtins.toJSON {
+        enable_thinking = false;
+      })
+    ];
+    concurrencyLimit = 1;
+    classes = {
+      resident.flags = {
+        cacheMemoryMb = 8192;
+      };
+      swap.flags = swapFlags // {
+        cacheMemoryMb = 3072;
+      };
+    };
+  };
+
   # Agentic tool-calling brain (2026-07-08 bench winner; verdicts in
   # HF JacobPEvans/mlx-benchmarks). Thinking ON is part of the verdict.
   qwen36-optiq = {
     model = "mlx-community/Qwen3.6-35B-A3B-OptiQ-4bit";
     weightGb = 19.5;
-    args =
-      qwenMoeGeneralParser
-      ++ [
-        "--default-chat-template-kwargs"
-        (builtins.toJSON {
-          enable_thinking = true;
-        })
-      ]
-      ++ agentTimeout;
+    args = [
+      "--chat-template-args"
+      (builtins.toJSON {
+        enable_thinking = true;
+      })
+    ];
     classes = {
       # HIGH KV budget for 40-58K-token contexts; maxNumSeqs 8 = one
       # continuous batch. 65536 replaces the 32768 cap that fed the
@@ -57,11 +118,7 @@ in
       headDim = 128;
       kvDtypeBytes = 2;
     };
-    args = [
-      "--tool-call-parser"
-      "qwen3_coder"
-    ]
-    ++ agentTimeout;
+    args = [ ];
     classes = {
       # The global maxRequestTokens default is too low for agentic multi-turn.
       resident.flags = block512 // {
@@ -83,16 +140,11 @@ in
     model = "mlx-community/Qwen3.6-35B-A3B-4bit";
     weightGb = 19.4;
     args = [
-      "--tool-call-parser"
-      "qwen3_coder"
-      "--reasoning-parser"
-      "qwen3"
-      "--default-chat-template-kwargs"
+      "--chat-template-args"
       (builtins.toJSON {
         enable_thinking = false;
       })
-    ]
-    ++ agentTimeout;
+    ];
     classes = {
       # Fleet-brain resident profile mirrors the OptiQ twin it replaces as
       # ai-default: same weights (~19.4 GB) and same KV budget, so the resident
@@ -122,7 +174,7 @@ in
   qwen3-next-80b = {
     model = "mlx-community/Qwen3-Next-80B-A3B-Thinking-4bit";
     weightGb = 42.0;
-    args = qwenMoeGeneralParser ++ agentTimeout;
+    args = [ ];
     # 40B+ single-slot policy: proxy queues (single in-flight), engine batch
     # capped at 1 (in swap.flags). Same hybrid-attention re-prefill constraint
     # as the Instruct sibling.
@@ -168,7 +220,7 @@ in
       headDim = 256;
       kvDtypeBytes = 2;
     };
-    args = qwenMoeInstructParser ++ agentTimeout;
+    args = [ ];
     # 40B+ SINGLE-SLOT POLICY (user directive 2026-07-21): no concurrency on any
     # 40B+ model. Two layers, defense in depth: concurrencyLimit=1 makes
     # llama-swap QUEUE excess requests (single in-flight to the worker) instead
@@ -180,7 +232,7 @@ in
     concurrencyLimit = 1;
     classes = {
       resident.flags = hybridNoPaged // {
-        cacheMemoryMb = 16384;
+        cacheMemoryMb = 8192;
         maxNumSeqs = 1;
         maxRequestTokens = 65536;
       };
@@ -194,6 +246,16 @@ in
     };
   };
 
+  # Pipeline-parallel cluster model. Cluster hosts select this catalog key;
+  # the physical model id stays centralized here with the standalone models.
+  glm47-reap50 = {
+    model = "mlx-community/GLM-4.7-REAP-50-mxfp4";
+    weightGb = 98.0;
+    cluster = true;
+    args = [ ];
+    classes = { };
+  };
+
   # gpt-oss MUST set --reasoning-parser gpt_oss — unset, its harmony channel
   # markers leak into streamed message.content (nix-ai#1083). Paged cache +
   # prefix caching OFF: sliding-window attention hits [broadcast_shapes] with
@@ -202,12 +264,8 @@ in
     model = "mlx-community/gpt-oss-120b-MXFP4-Q8";
     weightGb = 63.3;
     args = [
-      "--tool-call-parser"
-      "harmony"
-      "--reasoning-parser"
-      "gpt_oss"
       # Server defaults keep request-level chat_template_kwargs overrideable.
-      "--default-chat-template-kwargs"
+      "--chat-template-args"
       (builtins.toJSON {
         reasoning_effort = "low";
       })
@@ -241,10 +299,7 @@ in
       headDim = 128;
       kvDtypeBytes = 2;
     };
-    args = [
-      "--tool-call-parser"
-      "hermes"
-    ];
+    args = [ ];
     classes = {
       swap.flags = swapFlags;
     };

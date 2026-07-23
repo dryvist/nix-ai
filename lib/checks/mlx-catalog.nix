@@ -16,8 +16,29 @@ in
       gptOss = "mlx-community/gpt-oss-120b-MXFP4-Q8";
       next80 = "mlx-community/Qwen3-Next-80B-A3B-Thinking-4bit";
       next80Instruct = "mlx-community/Qwen3-Next-80B-A3B-Instruct-4bit";
+      judge27b = "mlx-community/Qwen3.6-27B-mxfp4";
       optiqFlags = c.modelFlagOverrides.${optiq};
-      optiqArgs = builtins.concatStringsSep " " c.modelExtraArgs.${optiq};
+      judgeArgs = builtins.concatStringsSep " " c.modelExtraArgs.${judge27b};
+      commandBuilder = import ../../modules/mlx/model-server-cmd.nix {
+        inherit (pkgs) lib;
+        cfg = c;
+        mlxModelServerPkg = pkgs.writeShellScriptBin "mlx-model-server" "";
+      };
+      optiqCmd =
+        commandBuilder.mkModelCmd optiq + " " + pkgs.lib.escapeShellArgs c.modelExtraArgs.${optiq};
+      judgeCmd =
+        commandBuilder.mkModelCmd judge27b + " " + pkgs.lib.escapeShellArgs c.modelExtraArgs.${judge27b};
+      uncataloguedCmd = commandBuilder.mkModelCmd "mlx-community/test-model";
+      nullDefaultsCmd =
+        (import ../../modules/mlx/model-server-cmd.nix {
+          inherit (pkgs) lib;
+          cfg = c // {
+            maxTokens = null;
+            cacheMemoryMb = null;
+          };
+          mlxModelServerPkg = pkgs.writeShellScriptBin "mlx-model-server" "";
+        }).mkModelCmd
+          "mlx-community/null-default-test";
       inst = c.modelFlagOverrides.${next80Instruct};
       next80InstructPagedOff = inst.pagedKvCache == false && inst.enablePrefixCaching == false;
     in
@@ -28,11 +49,60 @@ in
       optiqFlags.pagedCacheBlockSize == 512 && optiqFlags.maxNumSeqs == 8
       || throw "catalog: optiq resident profile (block 512 / maxNumSeqs 8) not compiled";
     assert
-      builtins.match ".*--tool-call-parser hermes.*--reasoning-parser qwen3.*" optiqArgs != null
-      || throw "catalog: optiq family parser args not compiled into modelExtraArgs: ${optiqArgs}";
+      builtins.match ".*--decode-concurrency 1.*--prompt-concurrency 1.*" optiqCmd != null
+      && builtins.match ".*--tool-call-parser.*" optiqCmd == null
+      || throw "catalog: official mlx_lm serial-serving args not compiled cleanly: ${optiqCmd}";
     assert
       c.modelFlagOverrides.${coder}.maxRequestTokens == 32768
       || throw "catalog: coder resident maxRequestTokens 32768 not compiled";
+    assert
+      c.modelServerBackend == "mlx-lm"
+      || throw "catalog: the goal judge must use the selected mlx_lm.server deployment path";
+    assert
+      c.enabledBackends == [ "mlx-lm" ]
+      || throw "catalog: official mlx-lm must be the only enabled backend; vllm-mlx must remain preserved but disabled";
+    assert
+      !hmConfigCatalog.config.launchd.agents.mlx-model-server-watchdog.enable
+      || throw "catalog: the vllm-specific watchdog must stay disabled for mlx-lm";
+    assert
+      c.modelConcurrencyLimits.${judge27b} == 1
+      && builtins.match ".*enable_thinking.*false.*" judgeArgs != null
+      || throw "catalog: 27B judge must use bounded single-concurrency text serving";
+    assert
+      builtins.match ".*mlx-model-server --model mlx-community/Qwen3.6-27B-mxfp4.*" judgeCmd != null
+      && builtins.match ".*--log-level DEBUG.*" judgeCmd != null
+      && builtins.match ".*--max-tokens 8192.*" judgeCmd != null
+      && builtins.match ".*--decode-concurrency 1.*" judgeCmd != null
+      && builtins.match ".*--prompt-concurrency 1.*" judgeCmd != null
+      && builtins.match ".*--prompt-cache-size 1.*" judgeCmd != null
+      && builtins.match ".*--prompt-cache-bytes 8589934592.*" judgeCmd != null
+      && builtins.match ".*vllm-mlx.*" judgeCmd == null
+      && builtins.match ".*--gpu-memory-utilization.*" judgeCmd == null
+      || throw "catalog: 27B judge command must use only the bounded official mlx_lm serving contract: ${judgeCmd}";
+    assert
+      builtins.match ".*--log-level DEBUG.*" uncataloguedCmd != null
+      && builtins.match ".*--max-tokens 8192.*" uncataloguedCmd != null
+      && builtins.match ".*--decode-concurrency 1.*" uncataloguedCmd != null
+      && builtins.match ".*--prompt-concurrency 1.*" uncataloguedCmd != null
+      && builtins.match ".*--prompt-cache-size 1.*" uncataloguedCmd != null
+      && builtins.match ".*--prompt-cache-bytes 8589934592.*" uncataloguedCmd != null
+      || throw "catalog: non-catalog official workers must inherit the same bounded serial contract: ${uncataloguedCmd}";
+    assert
+      builtins.match ".*--max-tokens 8192.*" nullDefaultsCmd != null
+      && builtins.match ".*--prompt-cache-bytes 8589934592.*" nullDefaultsCmd != null
+      || throw "catalog: nullable legacy settings must retain bounded official mlx_lm defaults: ${nullDefaultsCmd}";
+    assert
+      c.proxy.logLevel == "info"
+      || throw "catalog: production proxy logging must remain prompt-safe INFO";
+    assert
+      hmConfigCatalog.config.services.aiStack.roleOverrides.goal-judge == judge27b
+      || throw "catalog: logical goal-judge role must resolve to the catalog-owned physical model";
+    assert
+      !(builtins.hasAttr judge27b c.modelTtls)
+      || throw "catalog: resident 27B judge must inherit the resident TTL";
+    assert
+      c.modelTtls."mlx-community/Qwen3.5-9B-OptiQ-4bit" == 900
+      || throw "catalog: swap-class role models must retain a backend-neutral 900-second proxy TTL";
     assert
       c.modelFlagOverrides.${gptOss}.pagedKvCache == false
       && c.modelFlagOverrides.${gptOss}.enablePrefixCaching == false

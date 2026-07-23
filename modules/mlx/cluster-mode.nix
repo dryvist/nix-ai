@@ -37,6 +37,7 @@ let
     launchAgentLabel
     apiUrl
     uvPythonVersion
+    modelServerProcessPattern
     ;
   ncfg = cfg.clusterMode;
   versions = import ../../lib/versions.nix;
@@ -136,6 +137,7 @@ let
       CLUSTER_NORMAL_PROXY = "http://127.0.0.1:${toString cfg.port}";
       CLUSTER_SERVER_LABEL = launchAgentLabel;
       CLUSTER_WARMUP_LABEL = warmupAgentLabel;
+      CLUSTER_STANDALONE_PROCESS_PATTERN = modelServerProcessPattern;
       # Newline-separated substrings of standalone-serving engines to spare from the
       # quiesce reap (standalone keep-resident backends). Empty by default.
       CLUSTER_KEEP_RESIDENT = lib.concatStringsSep "\n" ncfg.keepResidentBackends;

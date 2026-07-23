@@ -1,7 +1,7 @@
 #
 # MLX Module — LaunchAgent & Log Rotation
 #
-# macOS LaunchAgent configuration for the vllm-mlx inference server,
+# macOS LaunchAgent configuration for official mlx_lm.server workers,
 # plus newsyslog log rotation.
 #
 {
@@ -21,6 +21,7 @@ let
     llamaSwapLaunchPkg
     llamaSwapConfigFile
     llamaSwapRuntimeConfigPath
+    modelServerProcessPattern
     ;
 in
 {
@@ -29,17 +30,18 @@ in
       # ==========================================================================
       # LaunchAgent for Auto-Start
       # ==========================================================================
-      # llama-swap proxy listens on the API port and manages vllm-mlx child
+      # llama-swap proxy listens on the API port and manages mlx_lm.server child
       # processes on ephemeral ports (startPort = 11436+). HardResourceLimits
-      # is omitted — it would only cap the proxy process, not the vllm-mlx
+      # is omitted — it would only cap the proxy process, not the mlx_lm.server
       # children where the actual memory lives (and macOS does not reliably
-      # enforce RSS rlimits). Per-worker OOM protection is native and inside
-      # each worker: --gpu-memory-utilization (Metal allocation ceiling +
-      # emergency cache clear; programs.mlx.gpuMemoryUtilization) plus
-      # --cache-memory-mb and --auto-unload-idle-seconds (set in the generated
-      # config). programs.mlx.memoryHardLimitGb remains declarative intent only.
+      # enforce RSS rlimits). The host iogpu.wired_limit_mb value is the hard
+      # Metal guardrail. Official mlx_lm additionally receives the declared
+      # cacheMemoryMb as --prompt-cache-bytes, and programs.mlx.memoryHardLimitGb
+      # is enforced in-process by the mlx_lm launcher (mx.set_memory_limit /
+      # mx.set_cache_limit). vllm-only utilization and worker-unload options
+      # remain preserved but inactive for mlx_lm.
       agents = {
-        vllm-mlx = {
+        mlx-model-server = {
           enable = true;
           config = {
             Label = launchAgentLabel;
@@ -67,20 +69,19 @@ in
             AbandonProcessGroup = false;
             EnvironmentVariables = {
               HF_HOME = cfg.huggingFaceHome;
+              MLX_MODEL_SERVER_PROCESS_PATTERN = modelServerProcessPattern;
             }
             // lib.optionalAttrs cfg.telemetry.enable {
-              # Standard OTel env vars inherited by llama-swap and its vllm-mlx children.
+              # Standard OTel env vars inherited by llama-swap and mlx_lm.server children.
               # The OTEL Collector at :30317 fans out to Cribl/Splunk and (optionally)
               # to Galileo — see docs/adr/0003-galileo-ai-observability.md.
-              # Trace emission from vllm-mlx 0.2.9 is best-effort; the collector's
-              # routing connector is the primary gate, not the agent env.
-              OTEL_SERVICE_NAME = "vllm-mlx";
+              OTEL_SERVICE_NAME = "mlx-model-server";
               OTEL_EXPORTER_OTLP_ENDPOINT = cfg.telemetry.otlpEndpoint;
               OTEL_EXPORTER_OTLP_PROTOCOL = "grpc";
               OTEL_RESOURCE_ATTRIBUTES = "service.namespace=mlx,deployment.environment=homelab";
             };
-            StandardOutPath = "${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx.log";
-            StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx.error.log";
+            StandardOutPath = "${config.home.homeDirectory}/Library/Logs/mlx-model-server/server.log";
+            StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/mlx-model-server/server.error.log";
           };
         };
 
@@ -89,8 +90,9 @@ in
         # resident at boot instead of on first user request. Also kickstarted
         # by mlx-default.sh after every proxy restart (via MLX_WARMUP_LABEL) —
         # this is the ONLY preload path; llama-swap's hooks.on_startup.preload
-        # is deliberately not emitted (its request shape 404s vllm-mlx, #1175).
-        vllm-mlx-warmup = {
+        # is deliberately not emitted because its request shape is not
+        # portable across the preserved MLX backends.
+        mlx-model-server-warmup = {
           enable = true;
           config = {
             Label = warmupAgentLabel;
@@ -106,8 +108,8 @@ in
               MLX_PRELOAD_MODELS = lib.concatStringsSep " " cfg.preload;
               MLX_PRELOAD_MODELS_JSON = builtins.toJSON cfg.preload;
             };
-            StandardOutPath = "${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx-warmup.log";
-            StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx-warmup.error.log";
+            StandardOutPath = "${config.home.homeDirectory}/Library/Logs/mlx-model-server/warmup.log";
+            StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/mlx-model-server/warmup.error.log";
           };
         };
 
@@ -122,14 +124,14 @@ in
       # newsyslog rotates logs when they exceed 10MB, keeping 3 compressed archives.
       # Stock macOS newsyslog only reads /etc/newsyslog.d/ (requires root), so a
       # companion LaunchAgent invokes it hourly with our user-level config.
-      file.".config/newsyslog.d/vllm-mlx.conf".text = ''
+      file.".config/newsyslog.d/mlx-model-server.conf".text = ''
         # logfilename                                                                [owner:group]  mode  count  size  when  flags
-        ${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx.error.log        :              644   3      10240 *     J
-        ${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx.log              :              644   3      10240 *     J
-        ${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx-warmup.error.log :              644   3      10240 *     J
-        ${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx-warmup.log       :              644   3      10240 *     J
-        ${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx-watchdog.error.log :            644   3      10240 *     J
-        ${config.home.homeDirectory}/Library/Logs/vllm-mlx/vllm-mlx-watchdog.log     :              644   3      10240 *     J
+        ${config.home.homeDirectory}/Library/Logs/mlx-model-server/server.error.log   : 644 3 10240 * J
+        ${config.home.homeDirectory}/Library/Logs/mlx-model-server/server.log         : 644 3 10240 * J
+        ${config.home.homeDirectory}/Library/Logs/mlx-model-server/warmup.error.log   : 644 3 10240 * J
+        ${config.home.homeDirectory}/Library/Logs/mlx-model-server/warmup.log         : 644 3 10240 * J
+        ${config.home.homeDirectory}/Library/Logs/mlx-model-server/watchdog.error.log : 644 3 10240 * J
+        ${config.home.homeDirectory}/Library/Logs/mlx-model-server/watchdog.log       : 644 3 10240 * J
       '';
 
       # ==========================================================================
@@ -167,14 +169,14 @@ in
       );
     };
 
-    launchd.agents.vllm-mlx-logrotate = {
+    launchd.agents.mlx-model-server-logrotate = {
       enable = true;
       config = {
-        Label = "dev.vllm-mlx.logrotate";
+        Label = "dev.mlx-model-server.logrotate";
         ProgramArguments = [
           "/usr/sbin/newsyslog"
           "-f"
-          "${config.home.homeDirectory}/.config/newsyslog.d/vllm-mlx.conf"
+          "${config.home.homeDirectory}/.config/newsyslog.d/mlx-model-server.conf"
         ];
         StartCalendarInterval = [ { Minute = 0; } ]; # hourly
       };
