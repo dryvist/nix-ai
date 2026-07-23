@@ -48,7 +48,10 @@ in
       {
         name = "antigravity-cli.contextFileNames";
         actual = cfg.contextFileNames;
-        expected = [ "AGENTS.md" ];
+        expected = [
+          "AGENTS.md"
+          "AGENTS.local.md"
+        ];
       }
       {
         name = "antigravity-cli.excludedMcpServers.length";

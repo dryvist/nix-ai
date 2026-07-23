@@ -20,17 +20,20 @@
 }:
 
 let
-  # AgentsMD symlinks from ai-assistant-instructions flake input
+  # AgentsMD symlinks from ai-assistant-instructions flake input.
+  # Deployed to ~/.agents/ (not ~/ bare) — each AI CLI tool finds
+  # AGENTS.md via its native global config hierarchy and the harness
+  # symlinks in modules/agent-skills/harnesses.nix.
   agentsMdSymlinks = {
-    "CLAUDE.md" = {
+    ".agents/CLAUDE.md" = {
       source = "${ai-assistant-instructions}/CLAUDE.md";
       force = true;
     };
-    "AGENTS.md" = {
+    ".agents/AGENTS.md" = {
       source = "${ai-assistant-instructions}/AGENTS.md";
       force = true;
     };
-    "agentsmd" = {
+    ".agents/agentsmd" = {
       source = "${ai-assistant-instructions}/agentsmd";
       force = true;
     };
@@ -121,6 +124,22 @@ in
                 ;;
             esac
           fi
+        '';
+
+        # AI instruction files moved from ~/ bare to ~/.agents/.
+        # Remove stale Nix-store symlinks left by previous generations.
+        cleanupLegacyHomeDirAiFiles = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
+          for f in AGENTS.md CLAUDE.md agentsmd; do
+            target="${config.home.homeDirectory}/$f"
+            if [ -L "$target" ]; then
+              link_target=$(readlink "$target")
+              case "$link_target" in
+                /nix/store/*)
+                  $DRY_RUN_CMD rm -f "$target"
+                  ;;
+              esac
+            fi
+          done
         '';
 
         # browser-use: CLI for browser automation (not in nixpkgs)

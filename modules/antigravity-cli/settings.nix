@@ -82,7 +82,10 @@ let
     };
 
     context = {
-      fileName = [ "AGENTS.md" ];
+      fileName = [
+        "AGENTS.md"
+        "AGENTS.local.md"
+      ];
     };
 
     security = {
