@@ -48,6 +48,14 @@ rec {
           throw "programs.mlx.modelFlagOverrides.\"${modelId}\": not overridable serve option(s): ${lib.concatStringsSep ", " unknown}";
       effectiveMlxLmMaxTokens = if c.maxTokens == null then 8192 else c.maxTokens;
       effectiveMlxLmCacheMb = if c.cacheMemoryMb == null then 8192 else lib.min c.cacheMemoryMb 8192;
+      mlxLmLogLevel =
+        {
+          debug = "DEBUG";
+          info = "INFO";
+          warn = "WARNING";
+          error = "ERROR";
+        }
+        .${cfg.serverLogLevel};
       vllmMlxFlags = lib.concatStringsSep " " (
         lib.optionals (c.cacheMemoryMb != null) [
           "--cache-memory-mb"
@@ -113,7 +121,7 @@ rec {
       mlxLmFlags = lib.concatStringsSep " " (
         [
           "--log-level"
-          "INFO"
+          mlxLmLogLevel
           "--max-tokens"
           (toString effectiveMlxLmMaxTokens)
           "--decode-concurrency"

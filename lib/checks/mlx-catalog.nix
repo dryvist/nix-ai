@@ -70,7 +70,7 @@ in
       || throw "catalog: 27B judge must use bounded single-concurrency text serving";
     assert
       builtins.match ".*mlx-model-server --model mlx-community/Qwen3.6-27B-mxfp4.*" judgeCmd != null
-      && builtins.match ".*--log-level INFO.*" judgeCmd != null
+      && builtins.match ".*--log-level DEBUG.*" judgeCmd != null
       && builtins.match ".*--max-tokens 8192.*" judgeCmd != null
       && builtins.match ".*--decode-concurrency 1.*" judgeCmd != null
       && builtins.match ".*--prompt-concurrency 1.*" judgeCmd != null
@@ -80,7 +80,7 @@ in
       && builtins.match ".*--gpu-memory-utilization.*" judgeCmd == null
       || throw "catalog: 27B judge command must use only the bounded official mlx_lm serving contract: ${judgeCmd}";
     assert
-      builtins.match ".*--log-level INFO.*" uncataloguedCmd != null
+      builtins.match ".*--log-level DEBUG.*" uncataloguedCmd != null
       && builtins.match ".*--max-tokens 8192.*" uncataloguedCmd != null
       && builtins.match ".*--decode-concurrency 1.*" uncataloguedCmd != null
       && builtins.match ".*--prompt-concurrency 1.*" uncataloguedCmd != null

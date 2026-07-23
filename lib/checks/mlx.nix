@@ -35,6 +35,7 @@ in
       "prefillBatchSize"
       "proxy"
       "reasoningParser"
+      "serverLogLevel"
       "toolCallParser"
     ];
   };
@@ -168,6 +169,11 @@ in
         actual = mlxCfg.reasoningParser;
         expected = null;
       }
+      {
+        name = "mlx.serverLogLevel";
+        actual = mlxCfg.serverLogLevel;
+        expected = "debug";
+      }
       # Environment variables
       {
         name = "mlx.env.MLX_DEFAULT_MODEL";
@@ -191,6 +197,25 @@ in
       }
     ];
   };
+
+  # The backend-neutral serverLogLevel must reach the selected server's native
+  # command. This catches a backend switch silently falling back to its own
+  # logging default while the evaluated option still reports "debug".
+  mlx-server-log-level =
+    let
+      testServerPkg = pkgs.writeShellScriptBin "mlx-lm-server-test" "exit 0";
+      cmd =
+        (import ../../modules/mlx/model-server-cmd.nix {
+          inherit (pkgs) lib;
+          cfg = mlxCfg;
+          mlxModelServerPkg = testServerPkg;
+        }).mkModelCmd
+          mlxCfg.defaultModel;
+    in
+    assert
+      builtins.match ".*--log-level DEBUG.*" cmd != null
+      || throw "programs.mlx.serverLogLevel=debug did not render --log-level DEBUG for mlx_lm";
+    helpers.mkMarker "check-mlx-server-log-level" "MLX server log level: DEBUG reaches the official mlx_lm command";
 
   # Validate MLX LaunchAgent ProgramArguments use llama-swap proxy,
   # and that the generated llama-swap config JSON contains required fields.
