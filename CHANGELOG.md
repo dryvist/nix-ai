@@ -1,5 +1,21 @@
 # Changelog
 
+## [3.3.0](https://github.com/dryvist/nix-ai/compare/v3.2.3...v3.3.0) (2026-07-23)
+
+
+### Features
+
+* **mlx:** add resident 9B judge model ([#1359](https://github.com/dryvist/nix-ai/issues/1359)) ([c953c6d](https://github.com/dryvist/nix-ai/commit/c953c6df74cdcfe0071631e640381d5e17ac0ca8))
+* **mlx:** enable official server debug logging ([68360f5](https://github.com/dryvist/nix-ai/commit/68360f5d8c22af049216c03869474f43fe7d1b58))
+* **mlx:** enforce L2 process memory limit in-process for mlx-lm ([#1368](https://github.com/dryvist/nix-ai/issues/1368)) ([e9db44f](https://github.com/dryvist/nix-ai/commit/e9db44f5b3315a93b9f5980c4374dcf83fed30f8))
+* **orchestrator:** add harbor AI evaluation framework dependency ([#1367](https://github.com/dryvist/nix-ai/issues/1367)) ([6d97397](https://github.com/dryvist/nix-ai/commit/6d973972a4b174f338c121de21243bb914882b0b))
+
+
+### Bug Fixes
+
+* launch text-only MLX models through env ([#1360](https://github.com/dryvist/nix-ai/issues/1360)) ([218e45b](https://github.com/dryvist/nix-ai/commit/218e45b145b930ffc72e72ed96da96b486265d05))
+* **mlx:** disable vllm-mlx and serve through mlx-lm ([#1361](https://github.com/dryvist/nix-ai/issues/1361)) ([d1d92ab](https://github.com/dryvist/nix-ai/commit/d1d92ab5fc4e5b34915f430cf370ff0fc2eace2d))
+
 ## [3.2.3](https://github.com/dryvist/nix-ai/compare/v3.2.2...v3.2.3) (2026-07-22)
 
 
