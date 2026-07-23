@@ -29,9 +29,9 @@ in
           physical = config.services.aiStack.models.${role};
           generated = llamaSwapConfigAttrs.models.${physical} or null;
         in
-        generated != null && lib.elem role generated.aliases
+        physical != "" && generated != null && lib.elem role generated.aliases
       ) (lib.attrNames config.services.aiStack.models);
-      message = "Every AI-stack logical role must compile into the aliases of its final llama-swap physical backend.";
+      message = "Every AI-stack logical role must resolve to a non-empty physical model and compile into that llama-swap backend's aliases.";
     }
   ];
 }

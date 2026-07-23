@@ -46,7 +46,9 @@ rec {
           cfg // overrides
         else
           throw "programs.mlx.modelFlagOverrides.\"${modelId}\": not overridable serve option(s): ${lib.concatStringsSep ", " unknown}";
-      flags = lib.concatStringsSep " " (
+      effectiveMlxLmMaxTokens = if c.maxTokens == null then 8192 else c.maxTokens;
+      effectiveMlxLmCacheMb = if c.cacheMemoryMb == null then 8192 else lib.min c.cacheMemoryMb 8192;
+      vllmMlxFlags = lib.concatStringsSep " " (
         lib.optionals (c.cacheMemoryMb != null) [
           "--cache-memory-mb"
           (toString c.cacheMemoryMb)
@@ -108,10 +110,37 @@ rec {
           c.reasoningParser
         ]
       );
+      mlxLmFlags = lib.concatStringsSep " " (
+        [
+          "--log-level"
+          "INFO"
+          "--max-tokens"
+          (toString effectiveMlxLmMaxTokens)
+          "--decode-concurrency"
+          "1"
+          "--prompt-concurrency"
+          "1"
+          "--prompt-cache-size"
+          "1"
+        ]
+        ++
+          # Reuse the backend-neutral cache budget. Official mlx_lm calls this
+          # the prompt-cache byte limit; vllm-mlx calls it cache memory in MiB.
+          # Bound the official server at 8 GiB even when a preserved vllm profile
+          # carries a larger historical cache reservation.
+          [
+            "--prompt-cache-bytes"
+            (toString (effectiveMlxLmCacheMb * 1024 * 1024))
+          ]
+        ++ lib.optionals (c.prefillBatchSize != null) [
+          "--prefill-step-size"
+          (toString c.prefillBatchSize)
+        ]
+      );
       mlxModelServerFlags =
         {
-          mlx-lm = "";
-          vllm-mlx = flags;
+          mlx-lm = mlxLmFlags;
+          vllm-mlx = vllmMlxFlags;
         }
         .${backend};
     in

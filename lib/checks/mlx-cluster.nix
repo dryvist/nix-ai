@@ -1,5 +1,9 @@
 # Clustered-mode compile regression tests (programs.mlx.clusterMode -> launchd agents)
-{ pkgs, hmConfigCluster }:
+{
+  pkgs,
+  hmConfigCluster,
+  src,
+}:
 let
   helpers = import ./helpers.nix { inherit pkgs; };
 in
@@ -15,6 +19,7 @@ in
       watcherEnv = watcher.EnvironmentVariables;
       rankArgs = rank.ProgramArguments;
       pkgNames = map (p: p.name or "") hmConfigCluster.config.home.packages;
+      joinScript = builtins.readFile (src + "/modules/mlx/scripts/cluster-join.sh");
     in
     assert
       rankEnv.MLX_RANK == "0" || throw "cluster: coordinator must be rank 0, got ${rankEnv.MLX_RANK}";
@@ -41,7 +46,7 @@ in
       builtins.any (a: builtins.match "mlx==.*" a != null) rankArgs
       || throw "cluster: rank must pin mlx explicitly (mlx/mlx-lm lockstep pair), not ride mlx-lm's transitive floor";
     assert
-      builtins.elem "test/cluster-model" rankArgs
+      builtins.elem "mlx-community/GLM-4.7-REAP-50-mxfp4" rankArgs
       || throw "cluster: configured cluster model not in the rank ProgramArguments";
     assert
       rank.RunAtLoad == false && rank.KeepAlive == false
@@ -66,8 +71,12 @@ in
       && watcherEnv.CLUSTER_STANDALONE_WIRED_LIMIT_MB == "118000"
       || throw "cluster: wired-ceiling values must reach the watcher env when wiredLimitMb is set";
     assert
+      builtins.match ".*CLUSTER_STANDALONE_PROCESS_PATTERN.*" joinScript != null
+      && builtins.match ".*pgrep -f \"\\$\\{CLUSTER_STANDALONE_PROCESS_PATTERN.*" joinScript != null
+      || throw "cluster: join must reap through the selected generic MLX process pattern";
+    assert
       watcherEnv.CLUSTER_RANK_URL == "http://127.0.0.1:11440"
-      && watcherEnv.CLUSTER_MODEL == "test/cluster-model"
+      && watcherEnv.CLUSTER_MODEL == "mlx-community/GLM-4.7-REAP-50-mxfp4"
       || throw "cluster: coordinator watcher must know the rank endpoint and model for the post-readiness warm-up";
     assert
       agents ? mlx-cluster-prefetch

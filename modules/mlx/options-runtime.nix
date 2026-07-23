@@ -1,17 +1,12 @@
 #
 # MLX Module — Runtime safety + model-swap proxy options
 #
-# OOM PREVENTION:
-# The enforced per-worker memory bound is programs.mlx.gpuMemoryUtilization
-# (options-cache.nix) — a Metal allocation ceiling applied inside each
-# vllm-mlx worker, where the memory actually lives. launchd
-# HardResourceLimits is NOT serialized into the plist: it would only cap the
-# llama-swap proxy, and macOS does not reliably enforce RSS rlimits (see
-# launchd.nix). memoryHardLimitGb below is therefore declarative intent, not
-# an enforced kernel limit. autoUnloadIdleSeconds adds a worker-side idle
-# failsafe. ProcessType=Background was once part of the mitigation (Jetsam
-# eligibility) but its QoS clamp throttles Metal decode ~8x — see the
-# processType option below.
+# MEMORY SAFETY:
+# The host iogpu.wired_limit_mb guardrail bounds Metal allocations. Official
+# mlx_lm additionally receives MLX_BUFFER_CACHE_LIMIT and a prompt-cache byte
+# limit. gpuMemoryUtilization and autoUnloadIdleSeconds remain available for
+# the preserved vllm-mlx backend only. launchd HardResourceLimits is absent:
+# it would cap llama-swap, not its model-server children.
 #
 # MODEL SWITCHING (llama-swap proxy):
 # llama-swap sits on the API port and manages vllm-mlx backends as child
@@ -44,7 +39,7 @@
     memoryHardLimitGb = lib.mkOption {
       type = lib.types.ints.positive;
       default = 100;
-      description = "Declared RSS budget in GB for the LLM stack (documentation/dashboards). NOT kernel-enforced: launchd HardResourceLimits would only cap the proxy process and macOS does not reliably enforce RSS rlimits. The enforced per-worker bound is gpuMemoryUtilization.";
+      description = "Declared RSS budget in GB for documentation and dashboards. It is not kernel-enforced; the active Metal guardrail is the host iogpu.wired_limit_mb setting.";
     };
 
     # autoUnloadIdleSeconds — Worker-side idle self-unload (--auto-unload-idle-seconds).
@@ -67,13 +62,12 @@
       ];
       default = "Interactive";
       description = ''
-        launchd ProcessType for the llama-swap proxy (inherited by vllm-mlx
-        children). Background makes the tree Jetsam-eligible but its QoS clamp
+        launchd ProcessType for the llama-swap proxy and model-server
+        children. Background makes the tree Jetsam-eligible but its QoS clamp
         throttles Metal decode roughly 8x (11 -> 87 tok/s measured 2026-06-09
-        on an M4 Max). Interactive restores full GPU performance; OOM
-        protection comes from gpuMemoryUtilization (per-worker Metal ceiling)
-        and KeepAlive restart. Set back to Background only if Jetsam
-        eligibility matters more than inference speed.
+        on an M4 Max). Interactive restores full GPU performance. Memory
+        protection comes from the host wired-memory ceiling and the selected
+        backend's cache limits.
       '';
     };
 
@@ -108,7 +102,7 @@
             extraArgs = lib.mkOption {
               type = lib.types.listOf lib.types.str;
               default = [ ];
-              description = "Additional vllm-mlx serve arguments for this model";
+              description = "Additional arguments for the selected MLX model server";
             };
             ttl = lib.mkOption {
               type = lib.types.ints.unsigned;
@@ -137,7 +131,7 @@
       description = "Additional non-resident models available for on-demand switching via llama-swap proxy. These form the swap tier; they are loaded only when requested and can carry their own TTLs, aliases, filters, and serve-flag overrides.";
     };
 
-    # modelExtraArgs — extra vllm-mlx serve args for REGISTRY models, keyed by
+    # modelExtraArgs — extra selected-server arguments for REGISTRY models, keyed by
     # physical model id. The role registry (services.aiStack.models) builds one
     # backend per unique physical model with uniform global flags; this is the
     # per-backend escape hatch when flags genuinely differ per model —
@@ -156,12 +150,12 @@
           ];
         }
       '';
-      description = "Additional vllm-mlx serve arguments per physical registry model id, appended after the global flags.";
+      description = "Additional selected-server arguments per physical registry model id, appended after the global flags.";
     };
 
     # modelConcurrencyLimits — per-physical-id override of the GLOBAL proxy
     # concurrencyLimit (the llama-swap-side in-flight cap). modelExtraArgs and
-    # modelFlagOverrides tune the vllm-mlx worker; this one tunes the proxy gate
+    # modelFlagOverrides tune the selected worker; this one tunes the proxy gate
     # in front of it. Needed for models that abort under parallel dispatch
     # regardless of worker batch width — e.g. Qwen3-Next-80B (metal::malloc
     # resource limit under concurrent requests), which must be serialized to 1.
@@ -175,6 +169,15 @@
         }
       '';
       description = "Per-physical-model override of programs.mlx.proxy.concurrencyLimit (llama-swap in-flight cap), for models that must be serialized independent of the global default.";
+    };
+
+    # Per-physical-id llama-swap lifecycle for role-registry models. This is
+    # backend-neutral: unlike vllm-mlx's worker-side auto-unload flag, the
+    # proxy TTL also unloads official mlx_lm workers.
+    modelTtls = lib.mkOption {
+      type = lib.types.attrsOf lib.types.ints.unsigned;
+      default = { };
+      description = "Per-physical-model llama-swap idle TTL. Absent models inherit programs.mlx.proxy.idleTtl.";
     };
 
     # modelFlagOverrides — per-physical-id overrides of the GLOBAL serve

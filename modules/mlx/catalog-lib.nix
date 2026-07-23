@@ -42,17 +42,6 @@
 # An entry only offers the classes it has been validated for; requesting an
 # unoffered class fails the eval.
 {
-  # Conservative official mlx_lm.server defaults. Request queuing remains at
-  # llama-swap; the Apple worker itself processes one prompt/decode stream at a
-  # time until each model has a new concurrency qualification.
-  mlxLmServerDefaults = [
-    "--max-tokens"
-    "8192"
-    "--decode-concurrency"
-    "1"
-    "--prompt-concurrency"
-    "1"
-  ];
   # Paged-cache block sizing (engine default 64): long sessions shatter the KV
   # into enough per-block Metal buffers to trip MLX's buffer-count limit
   # ("Resource limit (499000) exceeded", not a byte OOM; nix-darwin#1609).

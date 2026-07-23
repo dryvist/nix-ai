@@ -34,11 +34,11 @@ in
       # processes on ephemeral ports (startPort = 11436+). HardResourceLimits
       # is omitted — it would only cap the proxy process, not the mlx_lm.server
       # children where the actual memory lives (and macOS does not reliably
-      # enforce RSS rlimits). Per-worker OOM protection is native and inside
-      # each worker: --gpu-memory-utilization (Metal allocation ceiling +
-      # emergency cache clear; programs.mlx.gpuMemoryUtilization) plus
-      # --cache-memory-mb and --auto-unload-idle-seconds (set in the generated
-      # config). programs.mlx.memoryHardLimitGb remains declarative intent only.
+      # enforce RSS rlimits). The host iogpu.wired_limit_mb value is the hard
+      # Metal guardrail. Official mlx_lm additionally receives the declared
+      # cacheMemoryMb as --prompt-cache-bytes. vllm-only utilization and
+      # worker-unload options remain preserved but inactive for mlx_lm.
+      # programs.mlx.memoryHardLimitGb remains declarative intent only.
       agents = {
         mlx-model-server = {
           enable = true;
@@ -89,7 +89,8 @@ in
         # resident at boot instead of on first user request. Also kickstarted
         # by mlx-default.sh after every proxy restart (via MLX_WARMUP_LABEL) —
         # this is the ONLY preload path; llama-swap's hooks.on_startup.preload
-        # is deliberately not emitted (its request shape 404s vllm-mlx, #1175).
+        # is deliberately not emitted because its request shape is not
+        # portable across the preserved MLX backends.
         mlx-model-server-warmup = {
           enable = true;
           config = {

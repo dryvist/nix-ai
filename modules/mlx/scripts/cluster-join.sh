@@ -228,17 +228,17 @@ Loading a shard against stale swap spirals to a panic (INC-17075)."
   # The whole-llama-swap bootout below is unchanged — it IS the panic guard.
   # keep-resident engines (CLUSTER_KEEP_RESIDENT) are standalone agents outside
   # llama-swap, so the bootout and the proxy unload never touch them; only the
-  # reap of leftover `vllm-mlx serve` engines must skip them (see standalone_serve_pids).
+  # reap of leftover model-server engines must skip them (see standalone_serve_pids).
   curl -fsS -m 30 -X POST "${CLUSTER_NORMAL_PROXY:-}/api/models/unload" > /dev/null 2>&1 || true
   /bin/launchctl bootout "gui/$uid/${CLUSTER_WARMUP_LABEL}" > /dev/null 2>&1 || true
   /bin/launchctl bootout "gui/$uid/${CLUSTER_SERVER_LABEL}" > /dev/null 2>&1 || true
   echo "cluster-join: booted out standalone serving ($CLUSTER_SERVER_LABEL, $CLUSTER_WARMUP_LABEL)"
 
-  # PIDs of `vllm-mlx serve` engines that are NOT keep-resident exempt. An engine
+  # PIDs of standalone model-server engines that are NOT keep-resident exempt. An engine
   # whose command line contains any CLUSTER_KEEP_RESIDENT substring is left up.
   standalone_serve_pids() {
     local pid cmd pat exempt
-    /usr/bin/pgrep -f 'vllm-mlx serve' 2> /dev/null | while read -r pid; do
+    /usr/bin/pgrep -f "${CLUSTER_STANDALONE_PROCESS_PATTERN:-vllm-mlx serve}" 2> /dev/null | while read -r pid; do
       cmd="$(/bin/ps -ww -p "$pid" -o command= 2> /dev/null)"
       exempt=false
       if [ -n "${CLUSTER_KEEP_RESIDENT:-}" ]; then

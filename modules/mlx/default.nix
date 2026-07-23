@@ -176,7 +176,7 @@ let
     {
       cmd =
         mkModelCmd physical + lib.optionalString (extraArgs != [ ]) (" " + lib.escapeShellArgs extraArgs);
-      ttl = cfg.proxy.idleTtl;
+      ttl = cfg.modelTtls.${physical} or cfg.proxy.idleTtl;
       env = workerEnv;
       checkEndpoint = "/v1/models";
       aliases = roles;
@@ -222,7 +222,7 @@ let
 
   llamaSwapConfigAttrs = {
     inherit (cfg.proxy) healthCheckTimeout logLevel logToStdout;
-    # logLevel="debug" logs every proxied HTTP request/response body.
+    # logLevel="info" keeps lifecycle/routing evidence without prompt bodies.
     # logToStdout="both" merges proxy and MLX server output into one stream.
     # Tap live I/O with: curl http://127.0.0.1:11434/logs/stream
     # Configurable via programs.mlx.proxy.logLevel / logToStdout.
