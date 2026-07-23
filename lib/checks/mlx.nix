@@ -152,7 +152,7 @@ in
       {
         name = "mlx.memoryHardLimitGb";
         actual = mlxCfg.memoryHardLimitGb;
-        expected = 100;
+        expected = 99;
       }
       {
         name = "mlx.enableAutoToolChoice";

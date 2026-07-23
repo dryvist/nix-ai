@@ -1,7 +1,10 @@
 # Shared per-backend worker environment — split from default.nix (12KB gate),
 # same pattern as the command builder.
-# MLX_BUFFER_CACHE_LIMIT is an official MLX runtime control. vllm-mlx-specific
-# environment variables are intentionally absent because that backend is disabled.
+# MLX_BUFFER_CACHE_LIMIT is exported for backends that read it (the preserved
+# vllm-mlx path). MLX core itself has no such env var, so under mlx-lm the
+# buffer-cache cap is enforced in-process instead, via mx.set_cache_limit in
+# the launcher (scripts/mlx-lm-launch.py). vllm-mlx-specific environment
+# variables are otherwise absent because that backend is disabled.
 { lib, cfg }:
 let
   shared = [

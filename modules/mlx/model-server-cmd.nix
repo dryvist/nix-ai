@@ -47,7 +47,12 @@ rec {
         else
           throw "programs.mlx.modelFlagOverrides.\"${modelId}\": not overridable serve option(s): ${lib.concatStringsSep ", " unknown}";
       effectiveMlxLmMaxTokens = if c.maxTokens == null then 8192 else c.maxTokens;
-      effectiveMlxLmCacheMb = if c.cacheMemoryMb == null then 8192 else lib.min c.cacheMemoryMb 8192;
+      # Honor the configured prompt-cache budget up to 16 GiB. The prior 8 GiB
+      # clamp silently capped catalog entries that ask for more (e.g. the
+      # large-context resident class at cacheMemoryMb = 16384), making the
+      # documented 16 GiB prefill-reuse story false. 16 GiB stays well inside
+      # the 99 GiB L2 budget on the 128 GiB Macs.
+      effectiveMlxLmCacheMb = if c.cacheMemoryMb == null then 8192 else lib.min c.cacheMemoryMb 16384;
       mlxLmLogLevel =
         {
           debug = "DEBUG";
@@ -134,8 +139,8 @@ rec {
         ++
           # Reuse the backend-neutral cache budget. Official mlx_lm calls this
           # the prompt-cache byte limit; vllm-mlx calls it cache memory in MiB.
-          # Bound the official server at 8 GiB even when a preserved vllm profile
-          # carries a larger historical cache reservation.
+          # Bounded at 16 GiB (effectiveMlxLmCacheMb above) so large-context
+          # catalog classes get the cache they declare.
           [
             "--prompt-cache-bytes"
             (toString (effectiveMlxLmCacheMb * 1024 * 1024))

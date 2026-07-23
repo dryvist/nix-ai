@@ -36,9 +36,10 @@ in
       # children where the actual memory lives (and macOS does not reliably
       # enforce RSS rlimits). The host iogpu.wired_limit_mb value is the hard
       # Metal guardrail. Official mlx_lm additionally receives the declared
-      # cacheMemoryMb as --prompt-cache-bytes. vllm-only utilization and
-      # worker-unload options remain preserved but inactive for mlx_lm.
-      # programs.mlx.memoryHardLimitGb remains declarative intent only.
+      # cacheMemoryMb as --prompt-cache-bytes, and programs.mlx.memoryHardLimitGb
+      # is enforced in-process by the mlx_lm launcher (mx.set_memory_limit /
+      # mx.set_cache_limit). vllm-only utilization and worker-unload options
+      # remain preserved but inactive for mlx_lm.
       agents = {
         mlx-model-server = {
           enable = true;
