@@ -77,7 +77,7 @@
   # renovate: datasource=pypi depName=parakeet-mlx
   parakeetMlx = "0.5.2";
   # renovate: datasource=pypi depName=mlx-vlm
-  mlxVlm = "0.6.4";
+  mlxVlm = "0.6.7";
   # The nix-ai#751 hold at mlx 0.31.1 is RESOLVED: vllm-mlx 0.4.0 is built
   # against mlx 0.31.2 / mlx-lm 0.31.3 (it requires mlx-lm>=0.31.3), and the
   # cross-thread stream crash ("There is no Stream(gpu, N) in current thread")
@@ -97,17 +97,19 @@
   # module import, killing every vllm-mlx worker on both hosts (fleet-wide
   # serving outage, 2026-07-04). Renovate re-bumped it to 5.13.0 in #1144
   # anyway; the break re-confirmed by import test 2026-07-09, so this pin is
-  # re-reverted and renovate.json5 now blocks 5.13.0 via allowedVersions.
-  # Bump together with mlxLm once mlx-lm registers a class (or transformers
-  # restores string keys).
+  # re-reverted and renovate.json5 blocks the exact 5.13.0 build via
+  # allowedVersions. Re-tested 2026-07-23: `uvx --from mlx-lm==0.31.3 --with
+  # transformers==5.14.1 python -c "import mlx_lm"` imports clean on both
+  # 5.13.1 and 5.14.1, so the register() crash does not reproduce past 5.13.0
+  # — bumping to latest.
   # renovate: datasource=pypi depName=transformers
-  transformers = "5.13.1";
+  transformers = "5.14.1";
   # renovate: datasource=pypi depName=lm-eval
   lmEval = "0.4.12";
 
   # AI tools (pypi)
   # renovate: datasource=pypi depName=browser-use
-  browserUse = "0.13.3";
+  browserUse = "0.13.6";
 
   # Fabric Go CLI (github-releases)
   # The flake input fabric-src is ALSO tracked by Renovate's nix manager and
