@@ -32,6 +32,28 @@ in
     };
   };
 
+  # Small on-demand summarizer. The screenpipe hourly-obsidian pipe requests
+  # this exact physical id ("mlx-community/Qwen3.5-9B-MLX-4bit"); registering it
+  # swap-class (no roles -> compiles to a llama-swap models.<id> entry keyed by
+  # the physical id) lets that request route without evicting a resident. Weights
+  # fetch from HuggingFace on first load if not already cached.
+  qwen35-9b-mlx = {
+    model = "mlx-community/Qwen3.5-9B-MLX-4bit";
+    weightGb = 5.2;
+    # Text quant served through mlx_lm.server; keep off the vllm-mlx loader.
+    args = [
+      "--chat-template-args"
+      (builtins.toJSON {
+        enable_thinking = false;
+      })
+    ];
+    concurrencyLimit = 1;
+    classes = {
+      resident.flags = { };
+      swap.flags = swapFlags;
+    };
+  };
+
   # Resident Hermes goal judge. This is the smallest already-cached 27B MLX
   # quant on jevans-ms. Keep it serialized: judging is latency-sensitive but
   # never needs concurrent decode, and a second prompt would only increase

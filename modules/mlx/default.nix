@@ -59,9 +59,19 @@ let
     exec ${lib.getExe vllmMlxPkg} serve "$model" "$@"
   '';
 
-  mlxLmServerPkg = pkgs.writeShellScriptBin "mlx-lm-server" ''
-    exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} --from "${mlxLmPin}" --with "${mlxPin}" --with "${transformersPin}" mlx_lm.server "$@"
-  '';
+  # Official mlx_lm.server wrapper with the in-process L2 memory limit —
+  # split to mlx-lm-server.nix for the 12 KB file-size gate.
+  mlxLmServerPkg = import ./mlx-lm-server.nix {
+    inherit
+      pkgs
+      lib
+      cfg
+      uvPythonVersion
+      mlxLmPin
+      mlxPin
+      transformersPin
+      ;
+  };
   mlxModelServerPkg =
     {
       mlx-lm = mlxLmServerPkg;

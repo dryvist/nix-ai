@@ -1,17 +1,21 @@
 #
 # MLX Module — Runtime safety + model-swap proxy options
 #
-# MEMORY SAFETY:
-# The host iogpu.wired_limit_mb guardrail bounds Metal allocations. Official
-# mlx_lm additionally receives MLX_BUFFER_CACHE_LIMIT and a prompt-cache byte
-# limit. gpuMemoryUtilization and autoUnloadIdleSeconds remain available for
-# the preserved vllm-mlx backend only. launchd HardResourceLimits is absent:
-# it would cap llama-swap, not its model-server children.
+# MEMORY SAFETY (layers, furthest-from-OS trips first):
+#   L3 serving budget — model weights + prompt-cache + retained buffer cache.
+#   L2 process cap     — memoryHardLimitGb, enforced in-process by the mlx_lm
+#                        launcher (mx.set_memory_limit / mx.set_cache_limit;
+#                        see modules/mlx/scripts/mlx-lm-launch.py).
+#   L1 OS wired ceiling — host iogpu.wired_limit_mb (nix-darwin tunables).
+# Official mlx_lm additionally receives a prompt-cache byte limit. launchd
+# HardResourceLimits is absent: it would cap llama-swap, not its model-server
+# children. gpuMemoryUtilization and autoUnloadIdleSeconds apply to the
+# preserved vllm-mlx backend only and are inert under mlx-lm.
 #
 # MODEL SWITCHING (llama-swap proxy):
-# llama-swap sits on the API port and manages vllm-mlx backends as child
-# processes. Model switching is transparent: send a request with model: "X"
-# and the proxy handles it.
+# llama-swap sits on the API port and manages the official mlx_lm.server as
+# child processes. Model switching is transparent: send a request with
+# model: "X" and the proxy handles it.
 #
 { lib, ... }:
 {
@@ -38,8 +42,17 @@
 
     memoryHardLimitGb = lib.mkOption {
       type = lib.types.ints.positive;
-      default = 100;
-      description = "Declared RSS budget in GB for documentation and dashboards. It is not kernel-enforced; the active Metal guardrail is the host iogpu.wired_limit_mb setting.";
+      default = 99;
+      description = ''
+        L2 process memory limit in GiB, enforced in-process before serving via
+        mx.set_memory_limit in the mlx_lm launcher (scripts/mlx-lm-launch.py).
+        A guideline in MLX terms — it forces cache shedding and allocation
+        failure ahead of the host wired ceiling (L1, iogpu.wired_limit_mb)
+        rather than at MLX's 1.5x-working-set default, so memory pressure
+        surfaces as an application error instead of host-wide swap. Set below
+        the wired ceiling with a small cushion (99 GiB under the 100 GiB /
+        102400 MiB ceiling on the 128 GiB Macs).
+      '';
     };
 
     # autoUnloadIdleSeconds — Worker-side idle self-unload (--auto-unload-idle-seconds).
