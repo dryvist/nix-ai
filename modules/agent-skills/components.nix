@@ -10,10 +10,19 @@ let
 
   # Harness fan-out: one registry generates the symlinks, the cleanup sweep,
   # and (via lib/checks/agent-skills.nix) the regression coverage.
-  harnessSkillDirs = builtins.attrValues (import ./harnesses.nix);
+  harnesses = import ./harnesses.nix;
+  harnessSkillDirs = builtins.attrValues harnesses.skills;
   harnessSymlinks = lib.genAttrs harnessSkillDirs (_: {
     source = config.lib.file.mkOutOfStoreSymlink "${homeDir}/.agents/skills";
   });
+
+  # AGENTS.md fan-out: each tool's native global path → ~/.agents/AGENTS.md
+  harnessAgentsMdSymlinks = lib.mapAttrs' (_name: relPath: {
+    name = relPath;
+    value = {
+      source = config.lib.file.mkOutOfStoreSymlink "${homeDir}/.agents/AGENTS.md";
+    };
+  }) harnesses.agentsMd;
 
   # Names-only manifest (descriptions would force IFD on wrapped-command
   # skills). Harnesses without a native skill loader (Copilot, cecli) are
@@ -97,6 +106,7 @@ in
         ".agents/skills/INDEX.md".text = skillIndex;
       }
       // harnessSymlinks
+      // harnessAgentsMdSymlinks
       // mkSkillFiles cfg.fromFlakeInputs
       // mkLocalSkills cfg.local;
     };

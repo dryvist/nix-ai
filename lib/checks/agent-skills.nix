@@ -53,10 +53,16 @@ in
     let
       keepFile = hmConfig.config.home.file.".agents/.keep".text;
       # Same registry the module fans out from — the check cannot drift.
-      sharedSkillLinks = builtins.attrValues (import ../../modules/agent-skills/harnesses.nix);
+      harnesses = import ../../modules/agent-skills/harnesses.nix;
+      sharedSkillLinks = builtins.attrValues harnesses.skills;
       missingSharedLinks = builtins.filter (
         n: !(builtins.hasAttr n hmConfig.config.home.file)
       ) sharedSkillLinks;
+      # AGENTS.md fan-out: each tool's native global path → ~/.agents/AGENTS.md
+      sharedAgentsMdLinks = builtins.attrValues harnesses.agentsMd;
+      missingAgentsMdLinks = builtins.filter (
+        n: !(builtins.hasAttr n hmConfig.config.home.file)
+      ) sharedAgentsMdLinks;
       # home.file entries are submodules, so the `source` attribute is always
       # present — hasAttr is a no-op. An entry with no real source throws on
       # access ("option used but not defined"), so probe with tryEval instead.
@@ -85,6 +91,9 @@ in
     assert
       missingSharedLinks == [ ]
       || throw "Agent Skills shared links missing: ${builtins.toJSON missingSharedLinks}";
+    assert
+      missingAgentsMdLinks == [ ]
+      || throw "Agent Skills AGENTS.md harness links missing: ${builtins.toJSON missingAgentsMdLinks}";
     assert
       builtins.elem ".agents/skills/autoresearch" managedSkillEntries
       || throw "autoresearch skill not discovered from its flake input";

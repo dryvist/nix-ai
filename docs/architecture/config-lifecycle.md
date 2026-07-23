@@ -139,8 +139,9 @@ graph TD
     subgraph Symlinks["home.file Symlinks — read-only"]
         S1["~/.claude/plugins/marketplaces/"]
         S2["~/.claude/commands/, agents/, skills/, rules/"]
-        S5["~/.agents/skills\nshared agent skill source"]
-        S6["~/.codex/skills, ~/.qwen/skills,\n~/.gemini/*/skills"]
+        S5["~/.agents/\nAGENTS.md, CLAUDE.md, agentsmd/, skills/"]
+        S6["~/.codex/skills, ~/.qwen/skills,\n~/.gemini/*/skills\n(harness → ~/.agents/skills)"]
+        S7["~/.qwen/AGENTS.md,\n~/.gemini/antigravity-cli/AGENTS.md,\n~/.config/opencode/AGENTS.md\n(harness → ~/.agents/AGENTS.md)"]
         S3["~/.config/fabric/patterns/"]
         S4["~/Maestro/ playbooks"]
     end
@@ -153,6 +154,7 @@ graph TD
     NS3 --> S1
     NS3 --> S2
     NS3 --> S5 --> S6
+    NS3 --> S5 --> S7
     NS3 --> S3
     NS3 --> S4
 ```
