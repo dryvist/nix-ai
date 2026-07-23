@@ -91,17 +91,8 @@
   mlx = "0.32.0";
   # renovate: datasource=pypi depName=mlx-lm
   mlxLm = "0.31.3";
-  # transformers 5.13.0 (released 2026-07-04) broke mlx-lm 0.31.3's import:
-  # AutoTokenizer.register("NewlineTokenizer", ...) passes a string key and
-  # 5.13.0's register() calls key.__module__ on it -> AttributeError at
-  # module import, killing every vllm-mlx worker on both hosts (fleet-wide
-  # serving outage, 2026-07-04). Renovate re-bumped it to 5.13.0 in #1144
-  # anyway; the break re-confirmed by import test 2026-07-09, so this pin is
-  # re-reverted and renovate.json5 blocks the exact 5.13.0 build via
-  # allowedVersions. Re-tested 2026-07-23: `uvx --from mlx-lm==0.31.3 --with
-  # transformers==5.14.1 python -c "import mlx_lm"` imports clean on both
-  # 5.13.1 and 5.14.1, so the register() crash does not reproduce past 5.13.0
-  # — bumping to latest.
+  # renovate.json5 blocks the exact 5.13.0 build via allowedVersions (see
+  # Zammad ticket 130 for the 2026-07-04 outage history behind that block).
   # renovate: datasource=pypi depName=transformers
   transformers = "5.14.1";
   # renovate: datasource=pypi depName=lm-eval
