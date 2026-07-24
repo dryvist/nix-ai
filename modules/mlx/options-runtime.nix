@@ -48,6 +48,16 @@
       '';
     };
 
+    alwaysAvailableModels = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      description = ''
+        Registry model ids that stay servable in singleModel mode (on-demand
+        swap tier beside the pinned resident; no alias onto its roles). No
+        effect when singleModel is null; unknown ids are ignored.
+      '';
+    };
+
     modelServerBackend = lib.mkOption {
       type = lib.types.enum [
         "mlx-lm"
