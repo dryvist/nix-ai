@@ -235,8 +235,8 @@ let
   # lib/checks/mlx.nix can unit-test single-model mode directly.
   llamaSwapTopology = import ./llama-swap-topology.nix { inherit lib; } {
     inherit residentModels swapModels allModels;
+    inherit (cfg) singleModel;
     groupSwap = cfg.proxy.groupSwap;
-    singleModel = cfg.singleModel;
   };
 
   llamaSwapConfigAttrs = {
