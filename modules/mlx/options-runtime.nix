@@ -34,7 +34,7 @@
     singleModel = lib.mkOption {
       type = lib.types.nullOr lib.types.str;
       default = null;
-      example = "mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit";
+      example = "mlx-community/<the-one-model-to-serve>";
       description = ''
         Single-model mode: physical model id (must be a key of the compiled
         models registry) that becomes the ONLY servable model, resident with
