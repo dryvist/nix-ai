@@ -36,6 +36,7 @@ in
       "proxy"
       "reasoningParser"
       "serverLogLevel"
+      "singleModel"
       "toolCallParser"
     ];
   };
@@ -172,7 +173,7 @@ in
       {
         name = "mlx.serverLogLevel";
         actual = mlxCfg.serverLogLevel;
-        expected = "debug";
+        expected = "info";
       }
       # Environment variables
       {
@@ -213,9 +214,9 @@ in
           mlxCfg.defaultModel;
     in
     assert
-      builtins.match ".*--log-level DEBUG.*" cmd != null
-      || throw "programs.mlx.serverLogLevel=debug did not render --log-level DEBUG for mlx_lm";
-    helpers.mkMarker "check-mlx-server-log-level" "MLX server log level: DEBUG reaches the official mlx_lm command";
+      builtins.match ".*--log-level INFO.*" cmd != null
+      || throw "programs.mlx.serverLogLevel=info did not render --log-level INFO for mlx_lm";
+    helpers.mkMarker "check-mlx-server-log-level" "MLX server log level: INFO reaches the official mlx_lm command";
 
   # Validate MLX LaunchAgent ProgramArguments use llama-swap proxy,
   # and that the generated llama-swap config JSON contains required fields.

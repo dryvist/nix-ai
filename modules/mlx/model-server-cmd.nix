@@ -133,8 +133,11 @@ rec {
           "1"
           "--prompt-concurrency"
           "1"
+          # 4 slots, not 1: multiple clients interleaving turns evict each
+          # other's cache at size 1 (measured 0.22s warm vs 8.34s cold after
+          # one intervening conversation — a 38x penalty at 7k tokens).
           "--prompt-cache-size"
-          "1"
+          "4"
         ]
         ++
           # Reuse the backend-neutral cache budget. Official mlx_lm calls this
