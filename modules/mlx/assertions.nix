@@ -5,7 +5,7 @@
   ...
 }:
 let
-  inherit (mlxShared) cfg llamaSwapConfigAttrs;
+  inherit (mlxShared) cfg llamaSwapConfigAttrs allModels;
 in
 {
   # Fail evaluation when coupled options or generated proxy contracts drift.
@@ -13,6 +13,10 @@ in
     {
       assertion = cfg.modelServerBackend == "mlx-lm" && cfg.enabledBackends == [ "mlx-lm" ];
       message = "programs.mlx must use only the enabled mlx-lm backend; vllm-mlx remains preserved but disabled.";
+    }
+    {
+      assertion = cfg.singleModel == null || builtins.hasAttr cfg.singleModel allModels;
+      message = "programs.mlx.singleModel must name a physical id already compiled into the model registry (a services.aiStack role or programs.mlx.models entry).";
     }
     {
       assertion = cfg.modelServerBackend != "vllm-mlx" || !cfg.enablePrefixCaching || cfg.pagedKvCache;

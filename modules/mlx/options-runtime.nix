@@ -31,6 +31,23 @@
       description = "Serving implementations permitted to run. Official mlx-lm is enabled; preserved vllm-mlx support remains disabled unless explicitly listed.";
     };
 
+    singleModel = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      example = "mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit";
+      description = ''
+        Single-model mode: physical model id (must be a key of the compiled
+        models registry) that becomes the ONLY servable model, resident with
+        ttl=0. Every alias — every logical role AND every other model's own
+        physical id — routes to it, so any caller naming any known model
+        gets this one. Every other compiled model/group is preserved but
+        emitted under disabledModels/disabledGroups instead of
+        models/groups (llama-swap ignores those keys); move an entry back
+        under models to re-enable it. null (default) serves the full
+        multi-model registry as normal.
+      '';
+    };
+
     modelServerBackend = lib.mkOption {
       type = lib.types.enum [
         "mlx-lm"

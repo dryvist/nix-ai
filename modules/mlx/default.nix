@@ -230,6 +230,15 @@ let
   swapModels = additionalModels;
   allModels = residentModels // swapModels;
 
+  # Model/group topology (models/disabledModels/groups/disabledGroups) is a
+  # pure function of the above — split into llama-swap-topology.nix so
+  # lib/checks/mlx.nix can unit-test single-model mode directly.
+  llamaSwapTopology = import ./llama-swap-topology.nix { inherit lib; } {
+    inherit residentModels swapModels allModels;
+    groupSwap = cfg.proxy.groupSwap;
+    singleModel = cfg.singleModel;
+  };
+
   llamaSwapConfigAttrs = {
     inherit (cfg.proxy) healthCheckTimeout logLevel logToStdout;
     # logLevel="info" keeps lifecycle/routing evidence without prompt bodies.
@@ -237,33 +246,8 @@ let
     # Tap live I/O with: curl http://127.0.0.1:11434/logs/stream
     # Configurable via programs.mlx.proxy.logLevel / logToStdout.
     startPort = 11436;
-
-    models = allModels;
-
-    # Merge the two group definitions INSIDE `groups` (disjoint keys), not via
-    # an outer `//` on the whole config set. `//` is a shallow update: two
-    # sibling `groups.<name>` paths in `a // b` make `b`'s `groups` replace
-    # `a`'s wholesale, so the persistent resident group would vanish whenever
-    # the swap tier is non-empty — collapsing coder/OptiQ/gpt-oss into
-    # llama-swap's implicit swap default and evicting a resident on every
-    # cross-model request.
-    groups = {
-      mlx-models = {
-        swap = cfg.proxy.groupSwap;
-        exclusive = true;
-        persistent = true;
-        members = builtins.attrNames residentModels;
-      };
-    }
-    // lib.optionalAttrs (swapModels != { }) {
-      mlx-swap-models = {
-        swap = true;
-        exclusive = false;
-        persistent = false;
-        members = builtins.attrNames swapModels;
-      };
-    };
-  };
+  }
+  // llamaSwapTopology;
 
   # Use pkgs.writeText because command strings embed Nix store paths.
   llamaSwapConfigFile = pkgs.writeText "llama-swap-config.json" (
@@ -311,6 +295,7 @@ in
       llamaSwapConfigFile
       llamaSwapConfigAttrs
       llamaSwapRuntimeConfigPath
+      allModels
       ;
   };
 
