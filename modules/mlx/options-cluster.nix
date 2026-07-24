@@ -87,9 +87,17 @@ in
       type = lib.types.str;
       default = "${config.home.homeDirectory}/.config/mlx-cluster/alert-url";
       description = ''
-        Untracked local file holding the notification URL (ntfy-style POST
-        target) for the halt page. The URL names internal topology, so it is
-        seeded out-of-band and never committed. Missing file = no page.
+        Untracked local file holding a Slack incoming-webhook URL for the halt
+        page. A webhook URL is a write capability for its channel, so it is
+        seeded out-of-band (mode 600) and never committed. Missing file = no
+        page.
+
+        Was an ntfy publish URL until 2026-07-24; ntfy is internal-only and
+        nothing subscribed to it, so an armed pager rang in an empty room.
+        Slack is the channel that is actually read. The alerters POST
+        `{"text": ...}` as application/json — a raw body is rejected as
+        invalid_payload, so the contents of this file are not interchangeable
+        with an ntfy URL.
       '';
     };
 

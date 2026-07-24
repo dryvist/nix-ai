@@ -36,7 +36,7 @@ in
     # they are independently missing, and seeding one does not cover the other.
     home.activation.warnMlxNotificationUrls = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
       [ -s "${alertUrlFile}" ] \
-        || echo "warning: mlx: ${alertUrlFile} is missing or empty — the PD-guard halt and the serving watchdog will page NOBODY. Seed a full ntfy publish url (chmod 600)." 1>&2
+        || echo "warning: mlx: ${alertUrlFile} is missing or empty — the PD-guard halt and the serving watchdog will page NOBODY. Seed a Slack incoming-webhook url (chmod 600)." 1>&2
       [ -s "${healthcheckUrlFile}" ] \
         || echo "warning: mlx: ${healthcheckUrlFile} is missing or empty — the external deadman gets no pings, so this host going silent goes unnoticed. Separate file: seeding the alert url does NOT cover this one." 1>&2
     '';
@@ -91,8 +91,8 @@ in
           # Maps the capability alias to its physical worker so progress
           # metrics cannot be borrowed from a healthy non-brain backend.
           MLX_WATCHDOG_CONFIG = mlxShared.llamaSwapRuntimeConfigPath;
-          # Untracked ntfy url file, shared with the cluster watcher so one
-          # seeded url pages for both. Missing file = no page.
+          # Untracked Slack incoming-webhook url file, shared with the cluster
+          # watcher so one seeded url pages for both. Missing file = no page.
           MLX_WATCHDOG_ALERT_URL_FILE = alertUrlFile;
           # Untracked healthchecks deadman ping url file (the UUID is secret-tier,
           # so seeded out-of-band like the alert url — never committed). The

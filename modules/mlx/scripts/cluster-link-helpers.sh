@@ -7,6 +7,33 @@
 # safe to re-run, which is what lets the watcher retry an incomplete teardown
 # instead of consuming the link-state edge on a swallowed error.
 
+# Page once via Slack incoming webhook, only if the untracked url file exists.
+# Slack needs application/json {"text": ...} — a raw ntfy-style body is rejected
+# as invalid_payload, and it has no Priority/Title headers, so severity and
+# source are folded into the text. Callers already prefix the hostname.
+# Mirrors alert() in mlx-watchdog.sh; keep the two in step.
+alert() {
+  [ -f "${CLUSTER_ALERT_URL_FILE:-}" ] || return 0
+  local payload resp code body
+  # jq, never string interpolation: "$1" is free text carrying quotes, newlines
+  # and model ids with slashes. Hand-built JSON breaks on all three and Slack
+  # rejects it — silently, which is the failure mode being fixed here.
+  if ! payload="$(jq -n --arg text ":rotating_light: *mlx-cluster rank halted (PD guard)* — $1" '{text: $text}')"; then
+    echo "cluster-link: WARN alert encode FAILED; not paging" >&2
+    return 0
+  fi
+  # No -f: it suppresses the response body, and Slack puts the reason there.
+  # Never fatal — an alerter must not take down what it monitors — but ALWAYS
+  # logged, so a broken pager is discoverable instead of silently swallowed.
+  resp="$(curl -sS -m 10 -X POST -H 'Content-Type: application/json' \
+    --data-binary "$payload" -w $'\n%{http_code}' \
+    "$(cat "$CLUSTER_ALERT_URL_FILE")" 2>&1)" || true
+  code="${resp##*$'\n'}"
+  body="${resp%$'\n'*}"
+  [ "$code" = "200" ] ||
+    echo "cluster-link: WARN alert POST failed http=${code:-none} body=${body:0:200}" >&2
+}
+
 # Idempotent wired-ceiling write through the exact-value sudoers grant.
 # No-op when unset or already at the target; returns nonzero on failure.
 set_wired_limit() {

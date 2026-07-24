@@ -25,8 +25,8 @@
 #   CLUSTER_LINK_DOWN_STRIKES  consecutive failed link probes before the link
 #                         is declared down (default 2). Debounce only applies
 #                         to down; up is believed on the first reply.
-#   CLUSTER_ALERT_URL_FILE  local file holding an ntfy-style URL for the halt
-#                         alert (untracked — never commit the URL)
+#   CLUSTER_ALERT_URL_FILE  local file holding a Slack incoming-webhook URL for
+#                         the halt alert (untracked — never commit the URL)
 #   CLUSTER_HTTP_PORT       coordinator only: cluster endpoint to readiness-probe
 #   CLUSTER_LOAD_GRACE_SECS readiness grace for the model load (default 1800)
 #   CLUSTER_WIRED_LIMIT_MB  optional: iogpu ceiling to hold while clustered
@@ -224,11 +224,7 @@ if [ "$cur" = "up" ]; then
     if [ "$kicks" -ge "${CLUSTER_MAX_KICKSTARTS:-3}" ]; then
       echo "cluster-link: rank failed $kicks consecutive starts; HALTING kickstarts (RDMA PD guard)"
       touch "$halt_file"
-      if [ -f "${CLUSTER_ALERT_URL_FILE:-}" ]; then
-        curl -fsS -m 10 -H "Priority: urgent" -H "Title: mlx-cluster rank halted (PD guard)" \
-          -d "$(hostname -s): cluster rank failed $kicks consecutive starts; kickstarts halted to protect RDMA protection domains. errno 60 = reboot needed. Clear: rm the rank-halted marker or replug the link." \
-          "$(cat "$CLUSTER_ALERT_URL_FILE")" || true
-      fi
+      alert "$(hostname -s): cluster rank failed $kicks consecutive starts; kickstarts halted to protect RDMA protection domains. errno 60 = reboot needed. Clear: rm the rank-halted marker or replug the link."
     elif ! set_wired_limit "${CLUSTER_WIRED_LIMIT_MB:-}"; then
       # Never start a rank over a standalone-sized ceiling: a shard wiring out the
       # GUI working set is the 2026-07-12 dual-host panic. Retry next tick;

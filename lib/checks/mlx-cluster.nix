@@ -6,8 +6,29 @@
 }:
 let
   helpers = import ./helpers.nix { inherit pkgs; };
+
+  # Records the posted JSON and replays a scripted status code, so the alert()
+  # contract can be exercised without a network.
+  fakeCurl = pkgs.writeShellScriptBin "curl" (
+    builtins.readFile ../../modules/mlx/scripts/alert-payload-fakecurl.sh
+  );
 in
 {
+  # alert() Slack contract. Both failure modes it covers are SILENT in
+  # production — malformed JSON is rejected as invalid_payload, and a non-200
+  # used to vanish under `|| true` — so this is the check that fails if either
+  # regresses. cluster-link-helpers.sh is function-definitions-only, so the test
+  # sources it without running the watcher. mlx-watchdog.sh carries an identical
+  # alert(); keep the two in step.
+  mlx-cluster-alert-payload = pkgs.runCommand "check-mlx-cluster-alert-payload" {
+    nativeBuildInputs = [
+      fakeCurl
+      pkgs.jq
+      pkgs.gnugrep
+    ];
+    HELPERS = "${src}/modules/mlx/scripts/cluster-link-helpers.sh";
+  } (builtins.readFile ../../modules/mlx/scripts/alert-payload-test.sh);
+
   # Coordinator fixture: rank/watcher/prefetch agents must compile with the
   # distributed env contract. The fixture leaves shardingMode and fastMetalSync
   # at their defaults, so it also pins those defaults.

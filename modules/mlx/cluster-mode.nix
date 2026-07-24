@@ -98,7 +98,11 @@ let
 
   clusterWatcherPkg = pkgs.writeShellApplication {
     name = "mlx-cluster-link-watcher";
-    runtimeInputs = [ pkgs.curl ];
+    # jq: the Slack alert payload is JSON-encoded, never string-interpolated.
+    runtimeInputs = [
+      pkgs.curl
+      pkgs.jq
+    ];
     # Helpers first, then the state machine (split for the per-file size cap).
     # Concatenation, not sourcing: the helper bodies read `uid` and the
     # CLUSTER_* env from the watcher's own scope, resolved at call time.
