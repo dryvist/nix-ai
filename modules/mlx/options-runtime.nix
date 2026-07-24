@@ -94,7 +94,7 @@
         "warn"
         "error"
       ];
-      default = "debug";
+      default = "info";
       description = ''
         MLX model-server verbosity. Official mlx_lm receives --log-level;
         preserved vllm-mlx receives the locally patched VLLM_MLX_LOG_LEVEL
