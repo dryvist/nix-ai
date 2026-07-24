@@ -51,15 +51,10 @@
     alwaysAvailableModels = lib.mkOption {
       type = lib.types.listOf lib.types.str;
       default = [ ];
-      example = [ "mlx-community/Qwen3.5-9B-MLX-4bit" ];
       description = ''
-        Physical model ids (keys of the compiled models registry) that stay
-        servable even in singleModel mode instead of being demoted to
-        disabledModels. They load on demand as a non-resident swap tier beside
-        the single resident — which is pinned persistent so a small-model load
-        never evicts it — and carry no alias onto the resident's roles. No
-        effect when singleModel is null (the full registry is already served).
-        Ids absent from the registry are ignored.
+        Registry model ids that stay servable in singleModel mode (on-demand
+        swap tier beside the pinned resident; no alias onto its roles). No
+        effect when singleModel is null; unknown ids are ignored.
       '';
     };
 
