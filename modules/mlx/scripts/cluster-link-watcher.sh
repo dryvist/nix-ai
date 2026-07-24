@@ -30,6 +30,11 @@
 #                         (applied via the exact-value sudoers grant from
 #                         nix-darwin; a failed apply SKIPS the rank start)
 #   CLUSTER_STANDALONE_WIRED_LIMIT_MB  restore value at link-down (default 0)
+#   CLUSTER_SERVER_LABEL    coordinator only: normal-mode server (llama-swap)
+#                         launchd label, bootstrapped before the warmup fires
+#   CLUSTER_SERVER_PLIST    coordinator only: that agent's plist, for bootstrap
+#   CLUSTER_MAX_WARM_FAILURES  consecutive post-readiness warm-generation
+#                         failures before the rank is declared wedged
 
 mkdir -p "$(dirname "$CLUSTER_STATE_FILE")"
 prev="down"
@@ -47,32 +52,7 @@ halt_file="$state_dir/rank-halted"
 started_file="$state_dir/rank-first-running"
 ready_file="$state_dir/rank-ready"
 warm_file="$state_dir/rank-warmed"
-
-# Idempotent wired-ceiling write through the exact-value sudoers grant.
-# No-op when unset or already at the target; returns nonzero on failure.
-set_wired_limit() {
-  local target="$1" current
-  [ -n "$target" ] || return 0
-  current="$(/usr/sbin/sysctl -n iogpu.wired_limit_mb 2>/dev/null || echo '')"
-  [ "$current" = "$target" ] && return 0
-  if sudo -n /usr/sbin/sysctl -w "iogpu.wired_limit_mb=$target" > /dev/null 2>&1 &&
-    [ "$(/usr/sbin/sysctl -n iogpu.wired_limit_mb 2>/dev/null)" = "$target" ]; then
-    echo "cluster-link: iogpu.wired_limit_mb=$target"
-  else
-    echo "cluster-link: WARN failed to set iogpu.wired_limit_mb=$target (sudoers grant missing?)" >&2
-    return 1
-  fi
-}
-
-quiesce_normal_serving() {
-  if [ "$CLUSTER_ROLE" = "coordinator" ]; then
-    # Unload every normal-mode model; the proxy itself stays up so the
-    # restore only needs a re-warm, not a proxy restart. Idempotent.
-    curl -fsS -m 60 -X POST "$CLUSTER_NORMAL_PROXY/api/models/unload" || true
-  elif [ -n "${CLUSTER_QUIESCE_CMD:-}" ]; then
-    sh -c "$CLUSTER_QUIESCE_CMD" || true
-  fi
-}
+warm_fails_file="$state_dir/rank-warm-failures"
 
 if [ "$cur" = "up" ]; then
   if [ "$prev" = "down" ]; then
@@ -119,13 +99,40 @@ if [ "$cur" = "up" ]; then
     # clears. A blocked or failed warm just leaves the marker absent, so the
     # next tick retries — no regression versus not warming.
     if [ "$CLUSTER_ROLE" = "coordinator" ] && [ -f "$ready_file" ] && [ ! -f "$warm_file" ] &&
-      [ -n "${CLUSTER_RANK_URL:-}" ]; then
+      [ ! -f "$halt_file" ] && [ -n "${CLUSTER_RANK_URL:-}" ]; then
       echo "cluster-link: rank ready; firing 1-token warm generation"
       if curl -fsS -m 300 -X POST "$CLUSTER_RANK_URL/v1/chat/completions" \
         -H "Content-Type: application/json" \
         -d "{\"model\":\"${CLUSTER_MODEL:-}\",\"messages\":[{\"role\":\"user\",\"content\":\"warmup\"}],\"max_tokens\":1,\"stream\":false,\"temperature\":0}" \
         > /dev/null 2>&1; then
         touch "$warm_file"
+        rm -f "$warm_fails_file"
+      else
+        # Readiness is a one-shot latch: /v1/models answering once is never
+        # re-verified, so a rank that serves the probe but wedges on real
+        # generation (INC-17070) would sit here retrying forever with nothing
+        # escalating. Count consecutive post-readiness failures and tear down
+        # to standalone at the cap instead of running wedged.
+        warm_fails=0
+        [ -f "$warm_fails_file" ] && warm_fails="$(cat "$warm_fails_file")"
+        warm_fails=$((warm_fails + 1))
+        printf '%s\n' "$warm_fails" > "$warm_fails_file"
+        if [ "$warm_fails" -ge "${CLUSTER_MAX_WARM_FAILURES:-3}" ]; then
+          echo "cluster-link: warm generation failed $warm_fails times after readiness; declaring the rank WEDGED and restoring standalone serving" >&2
+          # Reuse the PD-guard halt latch: it already suppresses restarts until
+          # the link cycles, so the wedged rank is not immediately restarted.
+          touch "$halt_file"
+          launchctl kill SIGTERM "gui/$uid/$CLUSTER_RANK_LABEL" 2> /dev/null || true
+          if [ -n "${CLUSTER_WIRED_LIMIT_MB:-}" ]; then
+            set_wired_limit "${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}" || true
+          fi
+          restore_normal_serving || true
+          if [ -f "${CLUSTER_ALERT_URL_FILE:-}" ]; then
+            curl -fsS -m 10 -H "Priority: urgent" -H "Title: mlx-cluster rank wedged (warm generation)" \
+              -d "$(hostname -s): cluster rank answered /v1/models but failed $warm_fails consecutive warm generations; torn down to standalone serving. Replug the link to retry." \
+              "$(cat "$CLUSTER_ALERT_URL_FILE")" || true
+          fi
+        fi
       fi
     fi
   elif [ -f "$halt_file" ]; then
@@ -155,7 +162,7 @@ if [ "$cur" = "up" ]; then
       # restart re-running them is a no-op.
       quiesce_normal_serving
       echo "cluster-link: rank not running; kickstarting (attempt $((kicks + 1)))"
-      rm -f "$started_file" "$ready_file" "$warm_file"
+      rm -f "$started_file" "$ready_file" "$warm_file" "$warm_fails_file"
       launchctl kickstart "gui/$uid/$CLUSTER_RANK_LABEL" || true
       printf '%s\n' "$((kicks + 1))" > "$kicks_file"
     fi
@@ -164,17 +171,21 @@ elif [ "$prev" = "up" ]; then
   echo "cluster-link: up -> down ($CLUSTER_ROLE); restoring normal serving"
   # A link cycle (replug) clears the PD-guard + readiness state and the warm
   # marker so the next link session re-warms its freshly started rank.
-  rm -f "$kicks_file" "$halt_file" "$started_file" "$ready_file" "$warm_file"
+  rm -f "$kicks_file" "$halt_file" "$started_file" "$ready_file" "$warm_file" "$warm_fails_file"
   launchctl kill SIGTERM "gui/$uid/$CLUSTER_RANK_LABEL" 2> /dev/null || true
   if [ -n "${CLUSTER_WIRED_LIMIT_MB:-}" ]; then
-    set_wired_limit "${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}" || true
+    set_wired_limit "${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}" || down_failed=1
   fi
-  if [ "$CLUSTER_ROLE" = "coordinator" ]; then
-    # Re-warm the declared preload list through the existing warmup one-shot.
-    launchctl kickstart -k "gui/$uid/$CLUSTER_WARMUP_LABEL" || true
-  elif [ -n "${CLUSTER_RESTORE_CMD:-}" ]; then
-    sh -c "$CLUSTER_RESTORE_CMD" || true
-  fi
+  restore_normal_serving || down_failed=1
 fi
 
-printf '%s\n' "$cur" > "$CLUSTER_STATE_FILE"
+# Consume the link-state edge only when the teardown actually completed. The
+# down path is idempotent (marker rm -f, SIGTERM on a dead rank, an idempotent
+# ceiling write, a bootstrap guarded on not-loaded, and a cluster-restore that
+# deliberately keeps failed labels for retry), so leaving the state at "up"
+# re-runs it next tick instead of losing the transition to a swallowed error.
+if [ "${down_failed:-0}" -ne 0 ]; then
+  echo "cluster-link: WARN teardown incomplete; holding link state 'up' so the next tick retries" >&2
+else
+  printf '%s\n' "$cur" > "$CLUSTER_STATE_FILE"
+fi
