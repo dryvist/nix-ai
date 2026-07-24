@@ -12,6 +12,7 @@ in
     checkName = "check-mlx-options-regression";
     cfg = mlxCfg;
     expectedOptions = [
+      "alwaysAvailableModels"
       "autoUnloadIdleSeconds"
       "bufferCacheLimitGb"
       "cacheMemoryMb"
