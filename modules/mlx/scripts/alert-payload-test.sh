@@ -40,7 +40,7 @@ source "${HELPERS:?set HELPERS to the path of cluster-link-helpers.sh}"
 
 # Free text carrying every character class that breaks hand-built JSON.
 hostile='host: rank "wedged" after 3 starts
-model=mlx-community/GLM-4.7 path=C:\tmp 100% <&>'
+model=some-org/Some-Model-4.7 path=C:\tmp 100% <&>'
 
 alert "$hostile" 2> "$work/err1"
 
@@ -55,7 +55,7 @@ case "$got" in
 esac
 
 case "$got" in
-  *'mlx-community/GLM-4.7'*) ;;
+  *'some-org/Some-Model-4.7'*) ;;
   *) fail "slashes mangled" "$got" ;;
 esac
 
@@ -89,8 +89,10 @@ alert "third page" 2> "$work/err3" || fail "missing url file must no-op"
 
 echo "alert() Slack contract OK"
 
-# Doubles as the body of the nix check: runCommand sets $out, a standalone run
-# does not.
-if [ -n "${out:-}" ]; then
+# Doubles as the body of the nix check. Gate on NIX_BUILD_TOP, not on $out:
+# `out` is a common variable name and leaks in from ordinary shells, which made
+# a standalone run try to touch someone else's path. NIX_BUILD_TOP is set only
+# inside a nix builder, where $out is guaranteed.
+if [ -n "${NIX_BUILD_TOP:-}" ]; then
   touch "$out"
 fi
