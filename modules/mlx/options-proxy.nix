@@ -65,24 +65,35 @@
         '';
       };
       concurrencyLimit = lib.mkOption {
-        type = lib.types.ints.positive;
-        default = 4;
+        # Ceiling 4 is an operator constraint, expressed in the type so a value
+        # above it cannot be represented rather than merely being remembered.
+        type = lib.types.ints.between 1 4;
+        default = 1;
         description = ''
           Max in-flight requests llama-swap will forward to a model server per
           model. Maps directly to the YAML key llama-swap reads
           (`concurrencyLimit`); excess requests get HTTP 429.
 
-          Default 4 — matches `maxNumSeqs` so continuous batching is fed.
-          Re-raised from 2 on 2026-07-11 after a replicated c1-c8 sweep
-          (MBP Coder-30B): zero errors within the limit, 1.6-2.3x
-          aggregate when the batcher engages, worst case serialization
-          (~1.0x). Scheduling is bimodal, so treat >1x as opportunistic
-          and keep bench drivers pinned to their documented concurrency
-          (mlx-benchmarks RUNBOOK). The pipe-timeout storm behind the old
-          4->2 tightening predated the maxRequestTokens hardening that
-          fixed its cause. Above the limit callers get 429 — cap or
-          retry with backoff; the llm_router tier absorbs 429s via its
-          retry policy. Setting this to 1 silently defeats batching.
+          This is the SINGLE definition of per-model concurrency. It feeds both
+          llama-swap's advertised limit and the MLX server's own
+          --decode-concurrency/--prompt-concurrency (see
+          model-server-cmd.nix `effectiveConcurrency`). Do not set either
+          consumer independently — that split is what produced the 2026-07-24
+          cron kills: the proxy admitted 4 while the server served 1, and the
+          excess came back as 429.
+
+          Default 1, ceiling 4 (operator constraint, enforced by the type).
+          1 serializes and defeats continuous batching; that is the accepted
+          trade while the simplest non-crashing configuration is the goal.
+          Raising it means raising the server's real capacity at the same time,
+          which now happens automatically because both derive from here.
+
+          Above the limit callers get 429 — cap or retry with backoff; the
+          llm_router tier absorbs 429s via its retry policy. Prior sweep data
+          (2026-07-11, MBP Coder-30B, c1-c8) measured 1.6-2.3x aggregate when
+          the batcher engages, worst case ~1.0x; scheduling is bimodal, so
+          treat >1x as opportunistic and keep bench drivers pinned to their
+          documented concurrency (mlx-benchmarks RUNBOOK).
         '';
       };
     };

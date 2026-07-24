@@ -197,7 +197,9 @@
     # resource limit under concurrent requests), which must be serialized to 1.
     # Keyed by physical model id; absent id falls back to proxy.concurrencyLimit.
     modelConcurrencyLimits = lib.mkOption {
-      type = lib.types.attrsOf lib.types.ints.positive;
+      # Same ceiling as programs.mlx.proxy.concurrencyLimit — a per-model
+      # override must not be able to exceed what the global option allows.
+      type = lib.types.attrsOf (lib.types.ints.between 1 4);
       default = { };
       example = lib.literalExpression ''
         {
