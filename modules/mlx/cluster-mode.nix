@@ -264,6 +264,14 @@ in
             CLUSTER_HTTP_PORT = toString ncfg.httpPort;
             CLUSTER_RANK_URL = "http://127.0.0.1:${toString ncfg.httpPort}";
             CLUSTER_MODEL = ncfg.model;
+            CLUSTER_MAX_WARM_FAILURES = toString ncfg.maxWarmFailures;
+            # The link-down re-warm POSTs through llama-swap, so the watcher
+            # needs to be able to bootstrap that agent when cluster-join has
+            # booted it out -- otherwise the kickstart silently no-ops and
+            # standalone serving never returns (INC-17071). Same pair
+            # cluster-detach already carries, so both paths converge.
+            CLUSTER_SERVER_LABEL = launchAgentLabel;
+            CLUSTER_SERVER_PLIST = "${launchAgentsDir}/${launchAgentLabel}.plist";
           }
           // lib.optionalAttrs (ncfg.wiredLimitMb != null) {
             CLUSTER_WIRED_LIMIT_MB = toString ncfg.wiredLimitMb;
