@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.1](https://github.com/dryvist/nix-ai/compare/v3.3.0...v3.3.1) (2026-07-24)
+
+
+### Bug Fixes
+
+* **mlx:** serving stability — prompt-cache-size 4, INFO logs, HF offline, mlx 0.31.2 pin ([#1376](https://github.com/dryvist/nix-ai/issues/1376)) ([369382b](https://github.com/dryvist/nix-ai/commit/369382bac8ac6ec51738d7d684eba23073208439))
+
 ## [3.3.0](https://github.com/dryvist/nix-ai/compare/v3.2.3...v3.3.0) (2026-07-23)
 
 
