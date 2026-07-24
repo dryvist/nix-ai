@@ -9,6 +9,9 @@
 let
   shared = [
     "HF_HOME=${cfg.huggingFaceHome}"
+    # Models are fully cached under HF_HOME; loads must never depend on
+    # reaching huggingface.co at serve time.
+    "HF_HUB_OFFLINE=1"
   ]
   ++ lib.optionals (cfg.bufferCacheLimitGb != null) [
     "MLX_BUFFER_CACHE_LIMIT=${toString (cfg.bufferCacheLimitGb * 1024 * 1024 * 1024)}"

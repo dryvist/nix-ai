@@ -84,11 +84,12 @@
   # no longer reproduces — validated 2026-07-02 on jevans-mbp with three
   # concurrent completions against Qwen3-30B-A3B-Instruct-2507-4bit under
   # continuous batching + paged KV cache: zero errors. Keep mlx and mlx-lm
-  # pinned as a pair; they move in lockstep. mlx 0.32.0 with mlx-lm 0.31.3
-  # (satisfies its mlx>=0.31.2) import-validated 2026-07-09 alongside
-  # vllm-mlx 0.4.0 + transformers 5.12.0.
+  # pinned as a pair; they move in lockstep. Pinned back to 0.31.2 (last
+  # release of the prior minor — never ride a #.#.0) 2026-07-23 after serving
+  # instability on jevans-ms; mlx-lm 0.31.3 declares mlx>=0.31.2, so this
+  # stays compatible.
   # renovate: datasource=pypi depName=mlx
-  mlx = "0.32.0";
+  mlx = "0.31.2";
   # renovate: datasource=pypi depName=mlx-lm
   mlxLm = "0.31.3";
   # renovate.json5 blocks the exact 5.13.0 build via allowedVersions (see
