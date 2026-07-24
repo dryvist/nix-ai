@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.4.0](https://github.com/dryvist/nix-ai/compare/v3.3.1...v3.4.0) (2026-07-24)
+
+
+### Features
+
+* **mlx:** alwaysAvailableModels escape for singleModel mode ([#1380](https://github.com/dryvist/nix-ai/issues/1380)) ([7ae8190](https://github.com/dryvist/nix-ai/commit/7ae8190353a9ffee11ff1010a969ab771cb1b8f2))
+
 ## [3.3.1](https://github.com/dryvist/nix-ai/compare/v3.3.0...v3.3.1) (2026-07-24)
 
 
