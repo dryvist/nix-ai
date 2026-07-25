@@ -266,6 +266,7 @@ in
     ./options-parsers.nix
     ./options-runtime.nix
     ./options-cluster.nix
+    ./options-cluster-lifecycle.nix
     ./assertions.nix
     ./packages.nix
     ./launchd.nix

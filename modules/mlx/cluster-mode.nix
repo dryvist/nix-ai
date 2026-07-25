@@ -7,21 +7,24 @@
 # orchestration): a link watcher detects the cable, quiesces normal serving,
 # and starts the rank; unplugging reverses it unattended.
 #
-# Serving stack is first-party mlx-lm: `mlx_lm.server --pipeline` on every
-# rank — rank 0 (coordinator) binds the OpenAI-compatible HTTP endpoint,
-# all ranks participate in generation. Distributed init is driven by the
-# documented environment contract (MLX_RANK / MLX_JACCL_COORDINATOR /
-# MLX_IBV_DEVICES). --pipeline is required: the pinned mlx-lm release ships
-# PipelineMixin for glm4_moe but not tensor-parallel shard().
+# Serving stack is first-party mlx-lm: `mlx_lm.server` on every rank — rank 0
+# (coordinator) binds the OpenAI-compatible HTTP endpoint, all ranks
+# participate in generation. Distributed init is driven by the documented
+# environment contract (MLX_RANK / MLX_JACCL_COORDINATOR / MLX_IBV_DEVICES).
+# Sharding mode is per-model (`shardingMode`): tensor parallelism is mlx-lm's
+# default and what almost every architecture implements, so --pipeline is
+# opt-in, not a constant.
 #
-# The whole env contract is DECLARATIVE — no runtime discovery, no launcher
-# script. The rendezvous address is the coordinator's static link IPv4
-# (JACCL's parser is IPv4-only: every IPv6 form, including [::1]:port, failed
-# with "Can't parse address" — validated 2026-07-11), which nix-darwin's
+# The env contract is DECLARATIVE except the one value that names a physical
+# port. The rendezvous address is the coordinator's static link IPv4 (JACCL's
+# parser is IPv4-only: every IPv6 form, including [::1]:port, failed with
+# "Can't parse address" — validated 2026-07-11), which nix-darwin's
 # cluster-link prep pins on every Thunderbolt port at activation. The ibv
-# device matrix is a nix-generated file keyed by `rdmaDevice`; correct it
-# once from `ibv_devices` output if the default does not match. RDMA
-# prerequisite: `rdma_ctl enable` on BOTH Macs (done 2026-07-16).
+# device matrix is written at rank start by ./scripts/cluster-rank-launch.sh
+# from the locally-discovered Thunderbolt device, so moving the cable to
+# another port no longer wedges the mesh; `rdmaDevice` remains the override
+# for when discovery is wrong. RDMA prerequisite: `rdma_ctl enable` on BOTH
+# Macs (done 2026-07-16).
 #
 {
   config,
@@ -46,7 +49,9 @@ let
   watcherLabel = "dev.mlx-cluster.watcher";
   logDir = "${config.home.homeDirectory}/Library/Logs/mlx-cluster";
   stateFile = "${config.home.homeDirectory}/Library/Application Support/mlx-cluster/link-state";
-  ibvMatrixFile = "${config.home.homeDirectory}/.config/mlx-cluster/ibv-matrix.json";
+  # Written by the rank launcher at start (not a nix-managed file — its content
+  # depends on which physical Thunderbolt port has the cable).
+  ibvMatrixFile = "${config.home.homeDirectory}/Library/Application Support/mlx-cluster/ibv-matrix.json";
   launchAgentsDir = "${config.home.homeDirectory}/Library/LaunchAgents";
 
   isCoordinator = ncfg.role == "coordinator";
@@ -71,17 +76,33 @@ let
     "mlx_lm.server"
     "--model"
     ncfg.model
-    "--pipeline"
     "--host"
     "127.0.0.1"
     "--port"
     (toString ncfg.httpPort)
   ]
+  # Tensor parallelism is the mlx-lm default and emits no flag; --pipeline opts
+  # OUT of it and only glm4_moe/glm4_moe_lite implement it (see shardingMode).
+  # The two mlx_lm predicates, verbatim:
+  #   has_pipelining      = hasattr(model, "model") and hasattr(model.model, "pipeline")
+  #   has_tensor_parallel = hasattr(model, "shard")
+  ++ lib.optional (ncfg.shardingMode == "pipeline") "--pipeline"
   ++ ncfg.extraServerArgs;
+
+  # Thin wrapper in front of the rank: discovers the RDMA device, writes the
+  # ibv matrix, execs clusterRankArgs. Everything else stays baked at eval.
+  clusterRankLaunchPkg = pkgs.writeShellApplication {
+    name = "mlx-cluster-rank-launch";
+    text = builtins.readFile ./scripts/cluster-rank-launch.sh;
+  };
 
   clusterWatcherPkg = pkgs.writeShellApplication {
     name = "mlx-cluster-link-watcher";
-    runtimeInputs = [ pkgs.curl ];
+    # jq: the Slack alert payload is JSON-encoded, never string-interpolated.
+    runtimeInputs = [
+      pkgs.curl
+      pkgs.jq
+    ];
     # Helpers first, then the state machine (split for the per-file size cap).
     # Concatenation, not sourcing: the helper bodies read `uid` and the
     # CLUSTER_* env from the watcher's own scope, resolved at call time.
@@ -91,27 +112,9 @@ let
     ];
   };
 
-  # Lifecycle commands (cluster-join / cluster-detach): supervised, verifiable
-  # front-ends over the watcher's already-designed teardown/bring-up. The whole
-  # CLUSTER_* env contract is baked at eval (mirrors the watcher agent) so the
-  # commands need no shell environment and behave identically on both nodes.
-  # System binaries (launchctl, ifconfig, ping, sysctl, sudo, pgrep) are called
-  # by absolute path — only curl/jq/coreutils ride the sanitized PATH.
-  mkClusterCli =
-    name: scriptFile: env:
-    pkgs.writeShellApplication {
-      inherit name;
-      runtimeInputs = with pkgs; [
-        curl
-        jq
-        coreutils
-        git # generation-parity preflight (ls-remote)
-      ];
-      text = lib.concatStringsSep "\n" (
-        lib.mapAttrsToList (k: v: "export ${k}=${lib.escapeShellArg v}") env
-        ++ [ (builtins.readFile scriptFile) ]
-      );
-    };
+  # Lifecycle-command builder lives in ./cluster-cli-builder.nix (split out for
+  # the per-file size cap, same as ./cluster-cli-env.nix below).
+  mkClusterCli = import ./cluster-cli-builder.nix { inherit lib pkgs; };
 
   # Lifecycle-command env contract lives in ./cluster-cli-env.nix (split out
   # for the per-file size cap); the packages that consume it stay here.
@@ -179,11 +182,6 @@ in
       clusterDetachPkg
     ];
 
-    # Symmetric 2-rank ibv matrix, generated at eval — no runtime discovery.
-    home.file.".config/mlx-cluster/ibv-matrix.json".text = ''
-      [[null, "${ncfg.rdmaDevice}"], ["${ncfg.rdmaDevice}", null]]
-    '';
-
     launchd.agents = {
       # The rank itself. Started/stopped exclusively by the link watcher —
       # RunAtLoad=false + KeepAlive=false means an unplugged cable and
@@ -193,7 +191,7 @@ in
         enable = true;
         config = {
           Label = rankLabel;
-          ProgramArguments = clusterRankArgs;
+          ProgramArguments = [ (lib.getExe clusterRankLaunchPkg) ] ++ clusterRankArgs;
           RunAtLoad = false;
           KeepAlive = false;
           ThrottleInterval = 60;
@@ -203,8 +201,16 @@ in
             HF_HOME = cfg.huggingFaceHome;
             MLX_RANK = if isCoordinator then "0" else "1";
             MLX_JACCL_COORDINATOR = "${ncfg.staticLinkIps.coordinator}:${toString ncfg.rendezvousPort}";
+            # The launcher rewrites this file from the discovered device and
+            # re-exports the variable; setting it here keeps the contract
+            # visible and gives mlx a valid path if the launcher is bypassed.
             MLX_IBV_DEVICES = ibvMatrixFile;
-            # Faster GPU/CPU synchronization for distributed decode.
+            CLUSTER_IBV_MATRIX_FILE = ibvMatrixFile;
+            CLUSTER_RDMA_DEVICE = ncfg.rdmaDevice;
+          }
+          // lib.optionalAttrs ncfg.fastMetalSync {
+            # Faster GPU/CPU synchronization for distributed decode — and the
+            # reason a GPU failure hangs instead of raising (see fastMetalSync).
             MLX_METAL_FAST_SYNCH = "1";
           };
           StandardOutPath = "${logDir}/cluster-rank.log";

@@ -5,7 +5,8 @@
 # config wiring, and the staticLinkIps option) purely to keep each file under
 # the repo per-file size cap. The option paths are UNCHANGED
 # (programs.mlx.clusterMode.*): the module system merges this declaration block
-# with the staticLinkIps option + config block in cluster-mode.nix and the
+# with the staticLinkIps option + config block in cluster-mode.nix, the
+# cluster-join/cluster-detach tunables in options-cluster-lifecycle.nix, and the
 # agents in cluster-mode-maintenance.nix. Only `config` (for the home-directory
 # default) and `lib` are referenced here.
 #
@@ -87,9 +88,73 @@ in
       type = lib.types.str;
       default = "${config.home.homeDirectory}/.config/mlx-cluster/alert-url";
       description = ''
-        Untracked local file holding the notification URL (ntfy-style POST
-        target) for the halt page. The URL names internal topology, so it is
-        seeded out-of-band and never committed. Missing file = no page.
+        Untracked local file holding a Slack incoming-webhook URL for the halt
+        page. A webhook URL is a write capability for its channel, so it is
+        seeded out-of-band (mode 600) and never committed. Missing file = no
+        page.
+
+        Was an ntfy publish URL until 2026-07-24; ntfy is internal-only and
+        nothing subscribed to it, so an armed pager rang in an empty room.
+        Slack is the channel that is actually read. The alerters POST
+        `{"text": ...}` as application/json — a raw body is rejected as
+        invalid_payload, so the contents of this file are not interchangeable
+        with an ntfy URL.
+      '';
+    };
+
+    shardingMode = lib.mkOption {
+      type = lib.types.enum [
+        "tensor-parallel"
+        "pipeline"
+      ];
+      default = "tensor-parallel";
+      description = ''
+        How the cluster model is split across ranks. Per-model, because the
+        two modes have DISJOINT architecture support in mlx-lm and picking the
+        wrong one kills the rank at startup.
+
+        tensor-parallel (default, emits no flag) — mlx-lm's default path,
+        gated on the predicate has_tensor_parallel, i.e. the model object
+        exposes a shard attribute. Almost every architecture implements it,
+        including every Qwen3 variant validated here (Qwen3-4B-Instruct,
+        Qwen3-30B-A3B-Instruct and Qwen3.6-35B-A3B-OptiQ all clustered clean
+        on 2026-07-23).
+
+        pipeline (emits --pipeline) — opts OUT of tensor parallelism, gated on
+        the predicate has_pipelining, i.e. the model object exposes an inner
+        model that itself exposes a pipeline attribute. Only glm4_moe and
+        glm4_moe_lite satisfy that. Selecting it for any other architecture
+        fails at rank startup with "ValueError: The model does not support
+        pipelining but a pipeline_group was provided" (mlx_lm/utils.py:536) —
+        measured on both Qwen3-4B-Instruct and Qwen3-30B-A3B-Instruct.
+
+        Set this to "pipeline" only alongside a GLM4-MoE cluster model.
+      '';
+    };
+
+    fastMetalSync = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Set MLX_METAL_FAST_SYNCH=1 in the rank environment. This is a LATENCY
+        VERSUS OBSERVABILITY trade-off with no free answer — the default
+        preserves existing behaviour, the operator owns the decision.
+
+        On (default): the MLX docs call fast Metal sync "pretty critical for
+        low-latency communication" under JACCL, because the communication is
+        done by the CPU. mlx/fence.h documents fast mode as requiring Metal
+        3.2+ (macOS 15+), which both nodes satisfy.
+
+        Off: GPU failures surface as exceptions instead of hangs. Measured
+        2026-07-23 against one genuine Metal out-of-memory failure — with the
+        flag set the rank hung silently for 900s+ (zero bytes emitted, ~100%
+        CPU on both ranks, every health signal green); with it unset the SAME
+        failure raised in 5.1s naming the cause ("[METAL] Command buffer
+        execution failed: Insufficient Memory").
+
+        A silent hang is the worst failure shape this cluster has: the watcher
+        cannot tell it apart from a healthy idle rank. Weigh that against
+        decode latency before leaving this on.
       '';
     };
 
@@ -97,9 +162,15 @@ in
       type = lib.types.str;
       default = "rdma_en2";
       description = ''
-        RDMA device name for the MLX_IBV_DEVICES matrix (see `ibv_devices`).
-        Port-dependent: validate on the first plug session and override per
-        host if the cable lands on a different port.
+        Fallback RDMA device name for the MLX_IBV_DEVICES matrix (see
+        `ibv_devices`). Normally UNUSED: the rank launcher discovers the
+        carrier-active Thunderbolt port at start and writes the matrix from
+        that, so moving the cable between ports is handled without a rebuild
+        (and the two hosts may use different ports — each rank consumes only
+        its own row of the matrix). This value is the override applied only
+        when discovery finds no carrier-active Thunderbolt port with a
+        matching rdma_ device, and the launcher logs loudly when it falls
+        back.
       '';
     };
 
@@ -149,84 +220,6 @@ in
       type = lib.types.nullOr lib.types.str;
       default = null;
       description = "Worker-side hook run at link-down after the rank stops.";
-    };
-
-    # --- cluster-join / cluster-detach lifecycle-command tunables ------------
-    generationRepo = lib.mkOption {
-      type = lib.types.str;
-      default = "dryvist/nix-darwin";
-      description = ''
-        GitHub owner/repo whose origin/main is the deploy source of truth for
-        the cluster-join generation-parity preflight: every node must run a
-        system generation stamped with that branch's HEAD revision before any
-        clustering config begins (two nodes both at remote HEAD are identical
-        by construction). Drift auto-heals by rebuilding directly from the
-        remote flake ref (github:<repo>/<rev>) — no local checkout is
-        referenced. Empty string disables the preflight.
-      '';
-    };
-
-    joinSwapThresholdMb = lib.mkOption {
-      type = lib.types.int;
-      default = 8000;
-      description = ''
-        cluster-join refuses to load a shard when vm.swapusage used exceeds this
-        (MB). Loading a shard against stale swap spirals to a panic (INC-17075);
-        the operator is told to reboot first.
-      '';
-    };
-
-    detachSwapThresholdMb = lib.mkOption {
-      type = lib.types.int;
-      default = 20000;
-      description = ''
-        cluster-detach exits with a distinct code (3) and a prominent
-        reboot-before-next-join warning when vm.swapusage used exceeds this (MB),
-        so a wrapper can chain a reboot.
-      '';
-    };
-
-    joinTimeoutSecs = lib.mkOption {
-      type = lib.types.int;
-      default = 600;
-      description = "cluster-join bound (s) on the block-until-a-real-generation wait.";
-    };
-
-    detachTimeoutSecs = lib.mkOption {
-      type = lib.types.int;
-      default = 300;
-      description = "cluster-detach bound (s) on the teardown and standalone-serving-restore waits.";
-    };
-
-    quiesceGraceSecs = lib.mkOption {
-      type = lib.types.int;
-      default = 30;
-      description = "cluster-join grace (s) for standalone-serve engines to exit before orphans are reaped.";
-    };
-
-    workerStableSecs = lib.mkOption {
-      type = lib.types.int;
-      default = 60;
-      description = "cluster-join (worker role) seconds the rank must stay up to be declared stable.";
-    };
-
-    keepResidentBackends = lib.mkOption {
-      type = lib.types.listOf lib.types.str;
-      default = [ ];
-      example = [ "--port 11442" ];
-      description = ''
-        Command-line substrings identifying standalone-serving `vllm-mlx serve`
-        backends the coordinator cluster-join must NOT reap when it quiesces for
-        the shard. A process whose command line contains any of these is left
-        running so it survives the cluster window — e.g. a standalone brain
-        agent on its own gated port kept resident for cluster-window
-        availability. The whole-llama-swap bootout is unchanged (it is the panic
-        guard); this only spares matching standalone engines from the
-        `vllm-mlx serve` reap and the zero-engine assert. Empty = quiesce every
-        engine (the panic-safe default). Only exempt a backend whose wired
-        footprint provably fits under the cluster wired ceiling ALONGSIDE the
-        shard — a resident co-loaded over the ceiling is the INC-17076 panic.
-      '';
     };
   };
 }

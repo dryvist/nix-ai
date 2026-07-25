@@ -46,8 +46,9 @@ busy_marker="${MLX_WATCHDOG_BUSY_MARKER:-${HOME}/Library/Caches/mlx-model-server
 # prove the scheduler is productive and rebase the stuck timer.
 progress_marker="${MLX_WATCHDOG_PROGRESS_MARKER:-${HOME}/Library/Caches/mlx-model-server/watchdog-brain-progress}"
 llama_swap_config="${MLX_WATCHDOG_CONFIG:-${HOME}/.config/mlx/llama-swap.json}"
-# Untracked ntfy POST url (names internal topology, never committed; missing =
-# no page). Shared with the cluster watcher so one seeded url serves both.
+# Untracked Slack incoming-webhook url (a write capability for its channel, so
+# never committed; missing = no page). Shared with the cluster watcher so one
+# seeded url serves both.
 alert_url_file="${MLX_WATCHDOG_ALERT_URL_FILE:-${HOME}/.config/mlx-cluster/alert-url}"
 # Untracked healthchecks-style deadman OK-ping url (the UUID is secret-tier, so
 # never committed — seeded out of band exactly like the alert url above).
@@ -115,12 +116,34 @@ reap_workers() {
   sleep 2
 }
 
-# Page once via ntfy, only if the untracked url file exists.
+# Page once via Slack incoming webhook, only if the untracked url file exists.
+# Slack needs application/json {"text": ...} — a raw ntfy-style body is rejected
+# as invalid_payload, and it has no Priority/Title headers, so severity and
+# source are folded into the text instead. Callers already prefix the hostname.
+#
+# Mirrors alert() in cluster-link-helpers.sh; keep the two in step. They stay
+# separate because the two scripts are independently packaged writeShellApplications
+# with no shared text — a third alerter would justify one concatenated lib.
 alert() {
   [[ -f "$alert_url_file" ]] || return 0
-  curl -fsS -m 10 -H "Priority: urgent" \
-    -H "Title: mlx-watchdog $(/bin/hostname -s)" \
-    -d "$1" "$(<"$alert_url_file")" >/dev/null 2>&1 || true
+  local payload resp code body
+  # jq, never string interpolation: "$1" is free text carrying quotes, newlines
+  # and model ids with slashes. Hand-built JSON breaks on all three and Slack
+  # rejects it — silently, which is the whole failure mode being fixed here.
+  if ! payload="$(jq -n --arg text ":rotating_light: *mlx-watchdog* — $1" '{text: $text}')"; then
+    echo "$(ts) mlx-watchdog: alert encode FAILED; not paging" >&2
+    return 0
+  fi
+  # No -f: it suppresses the response body, and Slack puts the reason there.
+  # Never fatal — an alerter must not take down what it monitors — but ALWAYS
+  # logged, so a broken pager is discoverable instead of silently swallowed.
+  resp="$(curl -sS -m 10 -X POST -H 'Content-Type: application/json' \
+    --data-binary "$payload" -w $'\n%{http_code}' \
+    "$(<"$alert_url_file")" 2>&1)" || true
+  code="${resp##*$'\n'}"
+  body="${resp%$'\n'*}"
+  [[ "$code" == "200" ]] ||
+    echo "$(ts) mlx-watchdog: alert POST failed http=${code:-none} body=${body:0:200}" >&2
 }
 
 # Ping the external deadman OK endpoint on a healthy brain, only if the url file
