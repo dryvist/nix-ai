@@ -28,13 +28,18 @@ set -o errexit -o nounset -o pipefail
 state_dir="$(mktemp -d)"
 trap 'rm -rf "$state_dir"' EXIT
 down_strikes_file="$state_dir/link-down-strikes"
+down_quiet_file="$state_dir/link-down-quiet-ticks"
+# Every line the already-down branch would emit, so the reporting cadence can be
+# asserted rather than eyeballed.
+report_log="$state_dir/reports"
+: > "$report_log"
 
 # probe: 0 = peer replied, 1 = no reply.
 tick() {
   local prev="$1" probe="$2" cur
   if [ "$probe" -eq 0 ]; then
     cur="up"
-    rm -f "$down_strikes_file"
+    rm -f "$down_strikes_file" "$down_quiet_file"
   elif [ "$prev" = "up" ]; then
     local strikes=0
     [ -f "$down_strikes_file" ] && strikes="$(cat "$down_strikes_file")"
@@ -48,9 +53,18 @@ tick() {
     fi
   else
     cur="down"
+    local downs=0
+    [ -f "$down_quiet_file" ] && downs="$(cat "$down_quiet_file")"
+    downs=$((downs + 1))
+    printf '%s\n' "$downs" > "$down_quiet_file"
+    if [ "$downs" -eq 1 ] \
+      || [ "$((downs % ${CLUSTER_DOWN_REPORT_EVERY:-20}))" -eq 0 ]; then
+      printf 'report@%s\n' "$downs" >> "$report_log"
+    fi
   fi
   printf '%s' "$cur"
 }
+reports() { wc -l < "$report_log" | tr -d ' '; }
 
 fail=0
 check() {
@@ -86,5 +100,31 @@ rm -f "$down_strikes_file"
 check "1/3 holds" up "$(tick up 1)"
 check "2/3 holds" up "$(tick up 1)"
 check "3/3 declares down" down "$(tick up 1)"
+
+echo "a still-failing probe stays audible while down (and does not spam):"
+# The regression this guards: this branch used to emit NOTHING, so a probe that
+# could never succeed was indistinguishable from an idle, correctly-down link.
+# On 2026-07-25 that hid a denied macOS Local Network permission for 65 minutes
+# while launchctl reported runs=115, last exit code=0.
+CLUSTER_LINK_DOWN_STRIKES=2
+CLUSTER_DOWN_REPORT_EVERY=5
+rm -f "$down_strikes_file" "$down_quiet_file"
+: > "$report_log"
+_=$(tick down 1)
+check "first confirmed-down tick reports" 1 "$(reports)"
+for _ in 1 2 3; do _=$(tick down 1); done
+check "ticks 2-4 stay quiet" 1 "$(reports)"
+_=$(tick down 1)
+check "tick 5 reports on the cadence" 2 "$(reports)"
+for _ in 1 2 3 4; do _=$(tick down 1); done
+check "ticks 6-9 stay quiet" 2 "$(reports)"
+_=$(tick down 1)
+check "tick 10 reports again" 3 "$(reports)"
+# A recovered link must reset the cadence, so the next outage reports promptly
+# instead of inheriting a mid-cycle counter.
+_=$(tick down 0)
+: > "$report_log"
+_=$(tick down 1)
+check "recovery resets the counter, so the next down reports at once" 1 "$(reports)"
 
 exit "$fail"

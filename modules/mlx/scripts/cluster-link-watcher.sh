@@ -63,6 +63,10 @@ ready_file="$state_dir/rank-ready"
 warm_file="$state_dir/rank-warmed"
 warm_fails_file="$state_dir/rank-warm-failures"
 down_strikes_file="$state_dir/link-down-strikes"
+# Consecutive ticks the probe has failed while the link was ALREADY down. Used
+# only to make a permanently-failing probe audible on a cadence — see the
+# else-branch of the probe below.
+down_quiet_file="$state_dir/link-down-quiet-ticks"
 # Sticky companion to halt_file: survives a manual `rm` of the marker so the
 # next tick can re-verify the cause before the first retry (see
 # halt_clear_accepted). Cleared only by a real link cycle or an accepted clear.
@@ -94,7 +98,7 @@ halt_latch_file="$state_dir/rank-halt-latched"
 #      ~1 extra tick while a multi-second transient is absorbed.
 if /sbin/ping -c 3 -t 2 -q "$CLUSTER_STATIC_PEER_IP" > /dev/null 2>&1; then
   cur="up"
-  rm -f "$down_strikes_file"
+  rm -f "$down_strikes_file" "$down_quiet_file"
 elif [ "$prev" = "up" ]; then
   strikes=0
   [ -f "$down_strikes_file" ] && strikes="$(cat "$down_strikes_file")"
@@ -112,7 +116,32 @@ elif [ "$prev" = "up" ]; then
     cur="up"
   fi
 else
+  # Link was ALREADY down and the probe still fails. This branch used to be
+  # completely silent, which is how a permanently broken probe hid for 65
+  # minutes on 2026-07-25: the agent ticked 115 times, exited 0 every time,
+  # wrote nothing to stdout OR stderr, and `launchctl print` reported
+  # `runs = 115, last exit code = 0`. Every health signal read green while the
+  # cluster could not form. A watchdog whose own failure mode is indistinguishable
+  # from "nothing to do" is the certify-by-proxy trap this repo keeps finding.
+  #
+  # An unplugged cable is a legitimate, possibly days-long down — so this must
+  # not spam. Report on a cadence instead: once when down is first confirmed,
+  # then every CLUSTER_DOWN_REPORT_EVERY ticks (default 20 ≈ 10 min at the 30s
+  # interval). The message names the two causes that look identical from here,
+  # because the second one is invisible without it: on macOS a DENIED Local
+  # Network permission makes the probe fail with "No route to host" even though
+  # the cable is in, the address is assigned and the route and ARP entry are
+  # both valid (jevans-ms, 2026-07-25 — shell pinged 75/75 while the agent
+  # failed 5/5).
   cur="down"
+  downs=0
+  [ -f "$down_quiet_file" ] && downs="$(cat "$down_quiet_file")"
+  downs=$((downs + 1))
+  printf '%s\n' "$downs" > "$down_quiet_file"
+  if [ "$downs" -eq 1 ] \
+    || [ "$((downs % ${CLUSTER_DOWN_REPORT_EVERY:-20}))" -eq 0 ]; then
+    echo "cluster-link: probe to $CLUSTER_STATIC_PEER_IP has failed $downs consecutive tick(s) while down — cable out, OR this host cannot reach the peer subnet at all (check: ping works from a shell but not from this agent = denied macOS Local Network permission). The cluster cannot form until this clears."
+  fi
 fi
 
 if [ "$cur" = "up" ]; then
