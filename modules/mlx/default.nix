@@ -268,6 +268,7 @@ in
     ./options-runtime.nix
     ./options-cluster.nix
     ./options-cluster-lifecycle.nix
+    ./options-cluster-resilience.nix
     ./assertions.nix
     ./packages.nix
     ./launchd.nix

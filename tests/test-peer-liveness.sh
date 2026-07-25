@@ -23,10 +23,20 @@ script_dir="$repo_root/modules/mlx/scripts"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
+# Every generated script below is EXECUTED (the fakes via PATH, the assembled
+# script directly), so its shebang has to resolve in whatever environment the
+# test runs in. `#!/usr/bin/env bash` does not: a Linux nix build sandbox
+# exposes /bin/sh but no /usr/bin/env, so under `nix flake check` each fake
+# failed to exec and every assertion that expected the state machine to ACT
+# read as "nothing happened" — which is also why this passed on macOS and only
+# failed once the check was wired up. $BASH is the running interpreter's own
+# absolute path, so it is correct in the sandbox and on a workstation alike.
+shebang="#!$BASH"
+
 # Assemble the way the module does: helpers, observers, then the state machine,
 # under writeShellApplication's shell flags.
 {
-  printf '#!/usr/bin/env bash\nset -o errexit -o nounset -o pipefail\n'
+  printf '%s\nset -o errexit -o nounset -o pipefail\n' "$shebang"
   cat "$script_dir/cluster-link-helpers.sh"
   cat "$script_dir/cluster-peer-observe.sh"
   cat "$script_dir/cluster-peer-liveness.sh"
@@ -35,8 +45,9 @@ chmod +x "$tmp/peer-liveness.sh"
 
 mkdir -p "$tmp/bin" "$tmp/state"
 
-cat > "$tmp/bin/launchctl" << 'FAKE'
-#!/usr/bin/env bash
+{
+  printf '%s\n' "$shebang"
+  cat << 'FAKE'
 printf '%s\n' "$*" >> "$FAKE_DIR/launchctl.log"
 if [ "${1:-}" = "print" ] && [[ "${2:-}" == *"$FAKE_RANK_LABEL" ]]; then
   [ -f "$FAKE_DIR/rank-running" ] && echo "  state = running"
@@ -46,9 +57,11 @@ elif [ "${1:-}" = "kill" ]; then
 fi
 exit 0
 FAKE
+} > "$tmp/bin/launchctl"
 
-cat > "$tmp/bin/curl" << 'FAKE'
-#!/usr/bin/env bash
+{
+  printf '%s\n' "$shebang"
+  cat << 'FAKE'
 if [[ "$*" == *"/v1/chat/completions"* ]]; then
   echo probe >> "$FAKE_DIR/probe.log"
   if [ "${FAKE_PROBE_OK:-0}" = "1" ]; then
@@ -72,16 +85,21 @@ for a in "$@"; do
 done
 printf 'ok\n200'
 FAKE
+} > "$tmp/bin/curl"
 
-cat > "$tmp/bin/netstat" << 'FAKE'
-#!/usr/bin/env bash
+{
+  printf '%s\n' "$shebang"
+  cat << 'FAKE'
 cat "$FAKE_DIR/netstat.out" 2> /dev/null || true
 FAKE
+} > "$tmp/bin/netstat"
 
-cat > "$tmp/bin/ping" << 'FAKE'
-#!/usr/bin/env bash
+{
+  printf '%s\n' "$shebang"
+  cat << 'FAKE'
 exit "${FAKE_PING_RC:-0}"
 FAKE
+} > "$tmp/bin/ping"
 
 chmod +x "$tmp/bin/"*
 : > "$tmp/alert-url"

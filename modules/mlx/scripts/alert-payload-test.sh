@@ -29,6 +29,9 @@ trap 'rm -rf "$work"' EXIT
 export FAKE_PAYLOAD_FILE="$work/payload"
 export FAKE_CODE_FILE="$work/code"
 export CLUSTER_ALERT_URL_FILE="$work/webhook"
+# Locates the undelivered-pages file (alerts-undelivered.log beside it).
+export CLUSTER_STATE_FILE="$work/state/link-state"
+undelivered="$work/state/alerts-undelivered.log"
 printf 'https://hooks.example/T/B/X' > "$CLUSTER_ALERT_URL_FILE"
 printf '200' > "$FAKE_CODE_FILE"
 
@@ -77,19 +80,42 @@ esac
 [ "$(printf '%s' "$got" | wc -l)" -ge 1 ] || fail "embedded newline lost" "$got"
 
 [ ! -s "$work/err1" ] || fail "a healthy 200 must log nothing" "$(cat "$work/err1")"
+[ ! -e "$undelivered" ] || fail "a delivered page must not be recorded as undelivered"
 
-# A rejected page must be logged, never fatal.
+# The headline is the caller's, not a hardcoded one: alert() serves several
+# conditions (PD-guard halt, wedged rank, rejected manual clear) and a page whose
+# title names the wrong one is worse than no title.
+alert "text" "mlx-cluster rank wedged (warm generation)" 2> /dev/null
+case "$(jq -r .text "$FAKE_PAYLOAD_FILE")" in
+  *'*mlx-cluster rank wedged (warm generation)*'*) ;;
+  *) fail "caller headline not used" "$(jq -r .text "$FAKE_PAYLOAD_FILE")" ;;
+esac
+
+# A rejected page must be logged, never fatal — AND the message itself must be
+# logged, not just the status code. On 2026-07-24 the one page of the incident
+# died as http=000 (ntfy unreachable) and the reason the rank had halted went
+# nowhere at all: a pager that reaches nobody must still reach the log.
 printf '500' > "$FAKE_CODE_FILE"
 alert "second page" 2> "$work/err2" || fail "alert must never return nonzero"
 grep -q 'alert POST failed http=500' "$work/err2" ||
   fail "a rejected page must be logged, not swallowed" "$(cat "$work/err2")"
 grep -q 'slack-said-no' "$work/err2" ||
   fail "the response body carries Slack's reason and must be logged" "$(cat "$work/err2")"
+grep -q 'undelivered page: .*second page' "$work/err2" ||
+  fail "the undelivered message TEXT must be logged, not only its status code" "$(cat "$work/err2")"
+grep -q 'second page' "$undelivered" ||
+  fail "an undelivered page must be recorded where it outlives log rotation" \
+    "$(cat "$undelivered" 2> /dev/null || echo '<no file>')"
 
-# Unconfigured is not broken: a missing url file stays a silent no-op.
+# Unconfigured is not broken (a missing url file is a valid "no pager") but it is
+# not silent either: nothing posts, and the page still lands in the log.
 rm -f "$CLUSTER_ALERT_URL_FILE" "$FAKE_PAYLOAD_FILE"
 alert "third page" 2> "$work/err3" || fail "missing url file must no-op"
 [ ! -e "$FAKE_PAYLOAD_FILE" ] || fail "posted with no url file present"
+grep -q 'no alert URL file' "$work/err3" ||
+  fail "an unconfigured pager must say so" "$(cat "$work/err3")"
+grep -q 'third page' "$work/err3" ||
+  fail "an unsendable page must still log its text" "$(cat "$work/err3")"
 
 echo "alert() Slack contract OK"
 

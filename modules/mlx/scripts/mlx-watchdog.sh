@@ -124,14 +124,24 @@ reap_workers() {
 # Mirrors alert() in cluster-link-helpers.sh; keep the two in step. They stay
 # separate because the two scripts are independently packaged writeShellApplications
 # with no shared text — a third alerter would justify one concatenated lib.
+#
+# A PAGE THAT REACHES NOBODY MUST STILL REACH THE LOG: every non-delivery path
+# logs the FULL text, not just a status code. On 2026-07-24 the one page of a
+# cluster incident died as `http=000 body=curl: (7) Failed to connect` and the
+# reason it was paging went nowhere at all. cluster-link-helpers.sh additionally
+# records undelivered pages to a file beside its link-state marker; this script
+# has no equivalent state dir, which is the one deliberate difference.
 alert() {
-  [[ -f "$alert_url_file" ]] || return 0
+  if [[ ! -f "$alert_url_file" ]]; then
+    echo "$(ts) mlx-watchdog: WARN no alert URL file ($alert_url_file); page NOT sent: $1" >&2
+    return 0
+  fi
   local payload resp code body
   # jq, never string interpolation: "$1" is free text carrying quotes, newlines
   # and model ids with slashes. Hand-built JSON breaks on all three and Slack
   # rejects it — silently, which is the whole failure mode being fixed here.
   if ! payload="$(jq -n --arg text ":rotating_light: *mlx-watchdog* — $1" '{text: $text}')"; then
-    echo "$(ts) mlx-watchdog: alert encode FAILED; not paging" >&2
+    echo "$(ts) mlx-watchdog: alert encode FAILED; page NOT sent: $1" >&2
     return 0
   fi
   # No -f: it suppresses the response body, and Slack puts the reason there.
@@ -142,8 +152,10 @@ alert() {
     "$(<"$alert_url_file")" 2>&1)" || true
   code="${resp##*$'\n'}"
   body="${resp%$'\n'*}"
-  [[ "$code" == "200" ]] ||
+  if [[ "$code" != "200" ]]; then
     echo "$(ts) mlx-watchdog: alert POST failed http=${code:-none} body=${body:0:200}" >&2
+    echo "$(ts) mlx-watchdog: WARN undelivered page: $1" >&2
+  fi
 }
 
 # Ping the external deadman OK endpoint on a healthy brain, only if the url file
