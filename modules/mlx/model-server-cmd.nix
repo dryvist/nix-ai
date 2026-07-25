@@ -5,6 +5,14 @@
   mlxModelServerPkg,
 }:
 rec {
+  # SINGLE DEFINITION of per-model concurrency. Both consumers derive from it:
+  # llama-swap's advertised `concurrencyLimit` (default.nix registryModels) and
+  # the MLX server's own --decode-concurrency/--prompt-concurrency below.
+  # These were two independent values — the flags were hard-coded "1" while the
+  # proxy default is 4 — so llama-swap admitted 4 requests to a server serving
+  # 1, and the excess came back as HTTP 429 (2026-07-24 cron kills).
+  effectiveConcurrency = modelId: cfg.modelConcurrencyLimits.${modelId} or cfg.proxy.concurrencyLimit;
+
   # Build the selected serving command for a given model ID.
   # Global option values may be replaced per physical model via
   # modelFlagOverrides; every override key must appear in overridableFlags —
@@ -130,9 +138,9 @@ rec {
           "--max-tokens"
           (toString effectiveMlxLmMaxTokens)
           "--decode-concurrency"
-          "1"
+          (toString (effectiveConcurrency modelId))
           "--prompt-concurrency"
-          "1"
+          (toString (effectiveConcurrency modelId))
           # 4 slots, not 1: multiple clients interleaving turns evict each
           # other's cache at size 1 (measured 0.22s warm vs 8.34s cold after
           # one intervening conversation — a 38x penalty at 7k tokens).
