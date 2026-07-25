@@ -9,7 +9,8 @@ let
 in
 {
   # Coordinator fixture: rank/watcher/prefetch agents must compile with the
-  # distributed env contract and the --pipeline serving mode baked in.
+  # distributed env contract. The fixture leaves shardingMode and fastMetalSync
+  # at their defaults, so it also pins those defaults.
   mlx-cluster =
     let
       agents = hmConfigCluster.config.launchd.agents;
@@ -27,21 +28,24 @@ in
       rankEnv.MLX_JACCL_COORDINATOR == "192.168.208.1:11441"
       || throw "cluster: rendezvous must be the coordinator's static link IPv4 + rendezvous port (JACCL is IPv4-only, verified 2026-07-11)";
     assert
-      builtins.match ".*/.config/mlx-cluster/ibv-matrix.json" rankEnv.MLX_IBV_DEVICES != null
-      || throw "cluster: MLX_IBV_DEVICES must point at the nix-generated ibv matrix file";
+      rankEnv.CLUSTER_IBV_MATRIX_FILE == rankEnv.MLX_IBV_DEVICES
+      && rankEnv.CLUSTER_RDMA_DEVICE == "rdma_en2"
+      || throw "cluster: the launcher needs the matrix path it rewrites plus the rdmaDevice discovery fallback, both matching MLX_IBV_DEVICES";
     assert
-      builtins.match ".*[[]{2}null, \"rdma_en2\"[]].*"
-        hmConfigCluster.config.home.file.".config/mlx-cluster/ibv-matrix.json".text != null
-      || throw "cluster: the generated ibv matrix must carry the rdmaDevice name";
+      builtins.match ".*/mlx-cluster/ibv-matrix.json" rankEnv.MLX_IBV_DEVICES != null
+      || throw "cluster: MLX_IBV_DEVICES must point at the ibv matrix file the rank launcher rewrites";
     assert
-      builtins.match ".*uvx" (builtins.head rankArgs) != null
-      || throw "cluster: rank ProgramArguments must exec uvx directly (the launcher script is gone; the env contract is declarative)";
+      !(hmConfigCluster.config.home.file ? ".config/mlx-cluster/ibv-matrix.json")
+      || throw "cluster: the ibv matrix must NOT be pinned at eval — it names a physical Thunderbolt port, so it is discovered and written at rank start";
     assert
-      rankEnv.MLX_METAL_FAST_SYNCH == "1"
-      || throw "cluster: MLX_METAL_FAST_SYNCH=1 missing from the rank env";
+      builtins.match ".*/bin/mlx-cluster-rank-launch" (builtins.head rankArgs) != null
+      || throw "cluster: rank ProgramArguments must start with the RDMA-discovery launcher, which execs the uvx server invocation after it";
     assert
-      builtins.elem "mlx_lm.server" rankArgs && builtins.elem "--pipeline" rankArgs
-      || throw "cluster: rank ProgramArguments must serve via mlx_lm.server --pipeline";
+      (rankEnv.MLX_METAL_FAST_SYNCH or null) == "1"
+      || throw "cluster: fastMetalSync defaults to true, so MLX_METAL_FAST_SYNCH=1 must reach the rank env (latency vs. observability — see the option)";
+    assert
+      builtins.elem "mlx_lm.server" rankArgs && !(builtins.elem "--pipeline" rankArgs)
+      || throw "cluster: shardingMode defaults to tensor-parallel and must emit NO --pipeline; only glm4_moe/glm4_moe_lite implement pipelining, every other model dies at rank startup under the flag";
     assert
       builtins.any (a: builtins.match "mlx==.*" a != null) rankArgs
       || throw "cluster: rank must pin mlx explicitly (mlx/mlx-lm lockstep pair), not ride mlx-lm's transitive floor";
@@ -92,5 +96,5 @@ in
     assert
       builtins.elem "cluster-join" pkgNames && builtins.elem "cluster-detach" pkgNames
       || throw "cluster: cluster-join and cluster-detach lifecycle commands must ship in home.packages";
-    helpers.mkMarker "check-mlx-cluster" "MLX clustered mode: declarative rank env contract, --pipeline serving, watcher wiring, prefetch retry, and cluster-join/cluster-detach lifecycle commands verified";
+    helpers.mkMarker "check-mlx-cluster" "MLX clustered mode: rank env contract, tensor-parallel default sharding, runtime RDMA-device discovery, watcher wiring, prefetch retry, and cluster-join/cluster-detach lifecycle commands verified";
 }

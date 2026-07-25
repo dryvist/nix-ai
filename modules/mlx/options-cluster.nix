@@ -93,13 +93,75 @@ in
       '';
     };
 
+    shardingMode = lib.mkOption {
+      type = lib.types.enum [
+        "tensor-parallel"
+        "pipeline"
+      ];
+      default = "tensor-parallel";
+      description = ''
+        How the cluster model is split across ranks. Per-model, because the
+        two modes have DISJOINT architecture support in mlx-lm and picking the
+        wrong one kills the rank at startup.
+
+        tensor-parallel (default, emits no flag) — mlx-lm's default path,
+        gated on the predicate has_tensor_parallel, i.e. the model object
+        exposes a shard attribute. Almost every architecture implements it,
+        including every Qwen3 variant validated here (Qwen3-4B-Instruct,
+        Qwen3-30B-A3B-Instruct and Qwen3.6-35B-A3B-OptiQ all clustered clean
+        on 2026-07-23).
+
+        pipeline (emits --pipeline) — opts OUT of tensor parallelism, gated on
+        the predicate has_pipelining, i.e. the model object exposes an inner
+        model that itself exposes a pipeline attribute. Only glm4_moe and
+        glm4_moe_lite satisfy that. Selecting it for any other architecture
+        fails at rank startup with "ValueError: The model does not support
+        pipelining but a pipeline_group was provided" (mlx_lm/utils.py:536) —
+        measured on both Qwen3-4B-Instruct and Qwen3-30B-A3B-Instruct.
+
+        Set this to "pipeline" only alongside a GLM4-MoE cluster model.
+      '';
+    };
+
+    fastMetalSync = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Set MLX_METAL_FAST_SYNCH=1 in the rank environment. This is a LATENCY
+        VERSUS OBSERVABILITY trade-off with no free answer — the default
+        preserves existing behaviour, the operator owns the decision.
+
+        On (default): the MLX docs call fast Metal sync "pretty critical for
+        low-latency communication" under JACCL, because the communication is
+        done by the CPU. mlx/fence.h documents fast mode as requiring Metal
+        3.2+ (macOS 15+), which both nodes satisfy.
+
+        Off: GPU failures surface as exceptions instead of hangs. Measured
+        2026-07-23 against one genuine Metal out-of-memory failure — with the
+        flag set the rank hung silently for 900s+ (zero bytes emitted, ~100%
+        CPU on both ranks, every health signal green); with it unset the SAME
+        failure raised in 5.1s naming the cause ("[METAL] Command buffer
+        execution failed: Insufficient Memory").
+
+        A silent hang is the worst failure shape this cluster has: the watcher
+        cannot tell it apart from a healthy idle rank. Weigh that against
+        decode latency before leaving this on.
+      '';
+    };
+
     rdmaDevice = lib.mkOption {
       type = lib.types.str;
       default = "rdma_en2";
       description = ''
-        RDMA device name for the MLX_IBV_DEVICES matrix (see `ibv_devices`).
-        Port-dependent: validate on the first plug session and override per
-        host if the cable lands on a different port.
+        Fallback RDMA device name for the MLX_IBV_DEVICES matrix (see
+        `ibv_devices`). Normally UNUSED: the rank launcher discovers the
+        carrier-active Thunderbolt port at start and writes the matrix from
+        that, so moving the cable between ports is handled without a rebuild
+        (and the two hosts may use different ports — each rank consumes only
+        its own row of the matrix). This value is the override applied only
+        when discovery finds no carrier-active Thunderbolt port with a
+        matching rdma_ device, and the launcher logs loudly when it falls
+        back.
       '';
     };
 
