@@ -19,6 +19,10 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+# Supplied by the nix builder when this runs as the check body; empty for a
+# standalone run. Declared here so it is an assigned variable either way.
+out="${out:-}"
+
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
