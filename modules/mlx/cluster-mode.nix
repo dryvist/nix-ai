@@ -99,15 +99,21 @@ let
   clusterWatcherPkg = pkgs.writeShellApplication {
     name = "mlx-cluster-link-watcher";
     # jq: the Slack alert payload is JSON-encoded, never string-interpolated.
+    # coreutils: `timeout` bounds both the rendezvous probe and the activation
+    # repair pass, and macOS ships no timeout(1).
     runtimeInputs = [
       pkgs.curl
       pkgs.jq
+      pkgs.coreutils
     ];
-    # Helpers first, then the state machine (split for the per-file size cap).
-    # Concatenation, not sourcing: the helper bodies read `uid` and the
-    # CLUSTER_* env from the watcher's own scope, resolved at call time.
+    # Function definitions first, then the state machine (split for the per-file
+    # size cap). Concatenation, not sourcing: the helper bodies read `uid` and
+    # the CLUSTER_* env from the watcher's own scope, resolved at call time.
     text = lib.concatStrings [
       (builtins.readFile ./scripts/cluster-link-helpers.sh)
+      (builtins.readFile ./scripts/cluster-link-locate.sh)
+      (builtins.readFile ./scripts/cluster-link-repair.sh)
+      (builtins.readFile ./scripts/cluster-link-guards.sh)
       (builtins.readFile ./scripts/cluster-link-watcher.sh)
     ];
   };
@@ -137,10 +143,40 @@ let
       ;
   };
 
-  clusterJoinPkg = mkClusterCli "cluster-join" ./scripts/cluster-join.sh clusterCliEnv.clusterJoinEnv;
-  clusterDetachPkg =
-    mkClusterCli "cluster-detach" ./scripts/cluster-detach.sh
-      clusterCliEnv.clusterDetachEnv;
+  # Both lifecycle commands consume the shared link-prep primitives (each used to
+  # carry its own copy of iface_holding_self_ip), so each is built from the layers
+  # it uses plus its own body. Each gets EXACTLY the layers it calls:
+  # writeShellApplication runs shellcheck at default severity, so shipping a
+  # function a consumer never invokes fails the build (SC2329) — which is a
+  # useful pressure toward finely-split libraries, not an inconvenience.
+  clusterJoinPkg = mkClusterCli "cluster-join" [
+    ./scripts/cluster-link-locate.sh
+    ./scripts/cluster-link-repair.sh
+    ./scripts/cluster-join.sh
+  ] clusterCliEnv.clusterJoinEnv;
+  clusterDetachPkg = mkClusterCli "cluster-detach" [
+    ./scripts/cluster-link-locate.sh
+    ./scripts/cluster-detach.sh
+  ] clusterCliEnv.clusterDetachEnv;
+
+  # Watcher env contract lives in ./cluster-watcher-env.nix (split out for the
+  # per-file size cap, same as ./cluster-cli-env.nix); it also derives the
+  # link-down settle window into probe strikes.
+  clusterWatcherEnv = import ./cluster-watcher-env.nix {
+    inherit
+      lib
+      ncfg
+      cfg
+      isCoordinator
+      staticSelfIp
+      staticPeerIp
+      rankLabel
+      warmupAgentLabel
+      launchAgentLabel
+      launchAgentsDir
+      stateFile
+      ;
+  };
 in
 {
   # Clustered-mode option DECLARATIONS live in ./options-cluster.nix (split out
@@ -226,45 +262,12 @@ in
           Label = watcherLabel;
           ProgramArguments = [ (lib.getExe clusterWatcherPkg) ];
           RunAtLoad = true;
-          StartInterval = 30;
+          # The convergence quantum. Every seconds-valued watcher threshold is
+          # converted into ticks against this one number (see
+          # ./cluster-watcher-env.nix), so none of them can drift from it.
+          StartInterval = ncfg.tickIntervalSecs;
           ProcessType = "Background";
-          EnvironmentVariables = {
-            CLUSTER_ROLE = ncfg.role;
-            CLUSTER_RANK_LABEL = rankLabel;
-            CLUSTER_WARMUP_LABEL = warmupAgentLabel;
-            CLUSTER_NORMAL_PROXY = "http://127.0.0.1:${toString cfg.port}";
-            CLUSTER_STATE_FILE = stateFile;
-            CLUSTER_MAX_KICKSTARTS = toString ncfg.maxKickstarts;
-            CLUSTER_ALERT_URL_FILE = ncfg.alertUrlFile;
-            CLUSTER_STATIC_PEER_IP = staticPeerIp;
-          }
-          // lib.optionalAttrs isCoordinator {
-            # Readiness probe target: launchctl liveness alone cannot see a
-            # rank hung in distributed init (see the watcher script). Only rank
-            # 0 binds the endpoint, so the coordinator also carries the URL and
-            # model for the post-readiness first-token warm-up.
-            CLUSTER_HTTP_PORT = toString ncfg.httpPort;
-            CLUSTER_RANK_URL = "http://127.0.0.1:${toString ncfg.httpPort}";
-            CLUSTER_MODEL = ncfg.model;
-            CLUSTER_MAX_WARM_FAILURES = toString ncfg.maxWarmFailures;
-            # The link-down re-warm POSTs through llama-swap, so the watcher
-            # needs to be able to bootstrap that agent when cluster-join has
-            # booted it out -- otherwise the kickstart silently no-ops and
-            # standalone serving never returns (INC-17071). Same pair
-            # cluster-detach already carries, so both paths converge.
-            CLUSTER_SERVER_LABEL = launchAgentLabel;
-            CLUSTER_SERVER_PLIST = "${launchAgentsDir}/${launchAgentLabel}.plist";
-          }
-          // lib.optionalAttrs (ncfg.wiredLimitMb != null) {
-            CLUSTER_WIRED_LIMIT_MB = toString ncfg.wiredLimitMb;
-            CLUSTER_STANDALONE_WIRED_LIMIT_MB = toString ncfg.standaloneWiredLimitMb;
-          }
-          // lib.optionalAttrs (ncfg.quiesceCommand != null) {
-            CLUSTER_QUIESCE_CMD = ncfg.quiesceCommand;
-          }
-          // lib.optionalAttrs (ncfg.restoreCommand != null) {
-            CLUSTER_RESTORE_CMD = ncfg.restoreCommand;
-          };
+          EnvironmentVariables = clusterWatcherEnv;
           StandardOutPath = "${logDir}/cluster-watcher.log";
           StandardErrorPath = "${logDir}/cluster-watcher.error.log";
         };

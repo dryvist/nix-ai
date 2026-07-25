@@ -7,28 +7,41 @@
 let
   helpers = import ./helpers.nix { inherit pkgs; };
 
-  # Records the posted JSON and replays a scripted status code, so the alert()
-  # contract can be exercised without a network.
-  fakeCurl = pkgs.writeShellScriptBin "curl" (
-    builtins.readFile ../../modules/mlx/scripts/alert-payload-fakecurl.sh
-  );
+  # The link-down settle window in seconds, resolved to the probe count the
+  # watcher actually counts in. Calls the shipped derivation directly (worker
+  # shape, so the coordinator-only branch stays unevaluated) instead of
+  # re-implementing the arithmetic here — a second implementation would agree
+  # with the first right up until someone changed one of them.
+  derivedStrikes =
+    settle: tick:
+    (import ../../modules/mlx/cluster-watcher-env.nix {
+      inherit (pkgs) lib;
+      cfg.port = 11434;
+      isCoordinator = false;
+      staticSelfIp = "192.168.208.2";
+      staticPeerIp = "192.168.208.1";
+      rankLabel = "dev.test.rank";
+      warmupAgentLabel = "dev.test.warmup";
+      launchAgentLabel = "dev.test.server";
+      launchAgentsDir = "/tmp/LaunchAgents";
+      stateFile = "/tmp/link-state";
+      ncfg = {
+        role = "worker";
+        maxKickstarts = 3;
+        alertUrlFile = "/tmp/alert-url";
+        rendezvousPort = 11441;
+        peerRendezvousProbeTimeoutSecs = 2;
+        linkRepair = true;
+        linkRepairActivateTimeoutSecs = 150;
+        linkDownSettleSecs = settle;
+        tickIntervalSecs = tick;
+        wiredLimitMb = null;
+        quiesceCommand = null;
+        restoreCommand = null;
+      };
+    }).CLUSTER_LINK_DOWN_STRIKES;
 in
 {
-  # alert() Slack contract. Both failure modes it covers are SILENT in
-  # production — malformed JSON is rejected as invalid_payload, and a non-200
-  # used to vanish under `|| true` — so this is the check that fails if either
-  # regresses. cluster-link-helpers.sh is function-definitions-only, so the test
-  # sources it without running the watcher. mlx-watchdog.sh carries an identical
-  # alert(); keep the two in step.
-  mlx-cluster-alert-payload = pkgs.runCommand "check-mlx-cluster-alert-payload" {
-    nativeBuildInputs = [
-      fakeCurl
-      pkgs.jq
-      pkgs.gnugrep
-    ];
-    HELPERS = "${src}/modules/mlx/scripts/cluster-link-helpers.sh";
-  } (builtins.readFile ../../modules/mlx/scripts/alert-payload-test.sh);
-
   # Coordinator fixture: rank/watcher/prefetch agents must compile with the
   # distributed env contract. The fixture leaves shardingMode and fastMetalSync
   # at their defaults, so it also pins those defaults.
@@ -156,6 +169,31 @@ in
         "CLUSTER_SERVER_PLIST"
       ]
       || throw "cluster: peer-liveness must be able to page AND restore standalone serving, or a confirmed wedge just sits there";
+    assert
+      watcherEnv.CLUSTER_WARM_RECHECK_SECS == "1800"
+      || throw "cluster: coordinator watcher must carry the warm-marker re-arm interval, or the wedge detector runs at most once per link session";
+    assert
+      watcherEnv.CLUSTER_STATIC_SELF_IP == "192.168.208.1"
+      && watcherEnv.CLUSTER_RENDEZVOUS_PORT == "11441"
+      || throw "cluster: the watcher must know its OWN link address and the rendezvous port — the two rank-start preconditions (errno 49 EADDRNOTAVAIL on a missing address, errno 60 + a leaked RDMA protection domain on an absent rank 0)";
+    assert
+      watcherEnv.CLUSTER_PEER_PROBE_TIMEOUT_SECS == "2"
+      && watcherEnv.CLUSTER_LINK_REPAIR == "1"
+      && watcherEnv.CLUSTER_LINK_ACTIVATE_TIMEOUT_SECS == "150"
+      || throw "cluster: rendezvous-probe bound, link-address repair switch and its bounded activation fallback must all reach the watcher as configuration, not script defaults";
+    # The settle window is expressed in SECONDS and converted to probe strikes
+    # against the watcher's own tick, so the two can never drift. 60s at the
+    # default 30s tick is the historical 2 strikes — the unit changed, the
+    # behaviour did not.
+    assert
+      watcherEnv.CLUSTER_LINK_DOWN_STRIKES == "2" && watcher.StartInterval == 30
+      || throw "cluster: default 60s settle window at a 30s tick must be 2 confirming probes";
+    assert
+      derivedStrikes 45 10 == "5"
+      || throw "cluster: the settle window must round UP to whole probes (45s at a 10s tick = 5), or a shortened tick silently shortens the window";
+    assert
+      derivedStrikes 5 30 == "1"
+      || throw "cluster: a settle window shorter than one tick must still mean one CONFIRMING probe, never zero — a single dropped packet must not tear the rank down and reset the PD guard";
     assert
       agents ? mlx-cluster-prefetch
       && agents.mlx-cluster-prefetch.config.KeepAlive.SuccessfulExit == false

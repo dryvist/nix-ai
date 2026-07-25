@@ -93,6 +93,53 @@ minutes of provably zero tokens. Thresholds are
    with distinct code **3** so a wrapper can chain a reboot (INC-17075).
 4. Print an OK/FAIL summary; nonzero exit on any failed postcondition.
 
+## Zero-click flow: what the watcher does with no human at all
+
+`cluster-join` / `cluster-detach` are the *supervised* front-ends. Plugging or
+unplugging the cable is meant to be sufficient on its own, and since 2026-07-25
+the watcher enforces the parts a human used to have to get right.
+
+**Start order no longer matters.** A worker whose coordinator has no rank yet
+used to kickstart into a rendezvous that did not exist (`[jaccl] Couldn't
+connect (error: 60)`), and every failed `mx.distributed.init()` leaks a
+**reboot-only** RDMA protection domain — so three attempts turned "peer not up
+yet" into a mandatory reboot (2026-07-24). The worker now confirms rank 0 is
+listening (a `timeout`-bounded TCP connect) before starting, and a peer that is
+not listening yet is a *wait*, not a failed start: it consumes no attempt from
+the PD-guard budget. The coordinator has no such precondition — it must come up
+first, and gating it would deadlock both nodes into waiting for each other.
+
+**A boot does not produce a usable link.** cluster-link prep runs in root
+`postActivation`, before Thunderbolt carrier settles, so it can find no
+carrier-active port and address nothing — leaving a rank to die with `Couldn't
+bind socket (error: 49)` (EADDRNOTAVAIL). The watcher now requires this host to
+hold its own link address before starting a rank, and repairs it in place when it
+does not (`linkRepair`; direct granted alias first, bounded `activate` second).
+
+**The halt is not just a file.** The marker records *why* (`cause=...`) beside a
+sticky `rank-halt-latched`, so deleting `rank-halted` by hand is a *request*: the
+watcher re-verifies the preconditions before the first retry, accepts the clear
+(resetting the attempt counter) if they pass, and **re-halts** with
+`cause=manual-clear-rejected` naming the still-failing precondition if they do
+not. That is how the remaining domains were burned on 2026-07-24, and it can no
+longer happen. Sanctioned resets: a real link cycle, or `cluster-join`.
+
+**Unplug is debounced in seconds, not probes.** `linkDownSettleSecs` (default
+60 s) converts to consecutive failed probes against `tickIntervalSecs` (default
+30 s), rounded up, floor of one, so window and tick cannot drift apart. The
+debounce is asymmetric on purpose: "up" is believed at the first reply, "down"
+must be earned, because a false down tears the rank down *and* resets the PD
+guard — a flapping link could otherwise never accumulate toward a halt.
+
+**A page that reaches nobody still reaches the log.** Halt alerts log their full
+text on any non-delivery (no pager configured, encode failure, non-200) and
+append it to `alerts-undelivered.log` beside the link-state file.
+
+Tunables — all under `programs.mlx.clusterMode`, each documented at its
+declaration in `modules/mlx/options-cluster-resilience.nix`:
+`tickIntervalSecs`, `linkDownSettleSecs`, `peerRendezvousProbeTimeoutSecs`,
+`linkRepair`, `linkRepairActivateTimeoutSecs`, `warmRecheckSecs`.
+
 ## One-click flow
 
 ```text

@@ -74,9 +74,10 @@ host="$(hostname -s 2> /dev/null || echo unknown)"
 state_dir="$(dirname "$state_file")"
 mkdir -p "$state_dir"
 
-# Markers owned by the watcher — read here, never written, except halt_file,
-# which is the deliberate shared latch (see escalate).
+# Markers owned by the watcher — read here, never written, except halt_file and
+# its latch, which are the deliberate shared latch (see escalate).
 halt_file="$state_dir/rank-halted"
+halt_latch_file="$state_dir/rank-halt-latched"
 ready_file="$state_dir/rank-ready"
 # Markers owned by this supervisor.
 strikes_file="$state_dir/peer-strikes"
@@ -98,18 +99,20 @@ escalate() {
   local cause="$1" evidence="$2" fault
   fault="$(rank_fault_line)"
   echo "cluster-peer: NO TOKEN PROGRESS — $cause" >&2
-  CLUSTER_ALERT_PREFIX=":rotating_light: *mlx-cluster no token progress*" \
-    alert "$host ($role): $cause
+  alert "$host ($role): $cause
 $evidence${fault:+
 last exception seen locally: $fault}
-Tearing down to standalone serving. Clear: replug the link, or rm $halt_file.
+Tearing down to standalone serving. Clear: replug the link, or rm $halt_file — a
+by-hand clear has the watcher re-verify its preconditions before the first retry.
 --- rank log tail ---
-$(log_tail)"
+$(log_tail)" "mlx-cluster no token progress"
   launchctl kill SIGTERM "gui/$uid/$rank_label" 2> /dev/null || true
   if rank_running; then
     echo "cluster-peer: WARN rank still running after SIGTERM; not halting kickstarts" >&2
   else
-    touch "$halt_file"
+    # Through halt_write, not `touch`: the shared latch records its cause, and a
+    # later `rm` of the marker is re-verified by the watcher rather than obeyed.
+    halt_write "$halt_file" "$halt_latch_file" "no-token-progress" "$cause"
   fi
   if [ -n "${CLUSTER_WIRED_LIMIT_MB:-}" ]; then
     set_wired_limit "${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}" || true
@@ -187,12 +190,11 @@ worker_tick() {
 
   fault="$(rank_fault_line)"
   echo "cluster-peer: worker rank down for $dead consecutive ticks with the link up${fault:+ — $fault}" >&2
-  CLUSTER_ALERT_PREFIX=":rotating_light: *mlx-cluster worker rank down*" \
-    alert "$host (worker): rank agent $rank_label is not running, $dead ticks after the link came up.
+  alert "$host (worker): rank agent $rank_label is not running, $dead ticks after the link came up.
 The coordinator CANNOT see this: it blocks in jaccl recv while its endpoint keeps answering 200.
 ${fault:-no exception line matched in the rank logs}
 --- worker rank log tail ---
-$(log_tail)"
+$(log_tail)" "mlx-cluster worker rank down"
 
   # Only restore standalone serving once the watcher has given up (halt marker
   # present). While it is still retrying kickstarts this node is meant to come

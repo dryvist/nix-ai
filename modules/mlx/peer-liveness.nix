@@ -44,9 +44,13 @@ let
     # curl: bounded token probe + the Slack page. jq: the alert payload is
     # JSON-encoded, never string-interpolated (a rank traceback is full of
     # quotes and newlines).
+    # coreutils: the shared helpers timestamp the halt marker and the
+    # undelivered-pages record (date, mkdir) — declared, not leaned on from
+    # launchd's ambient /bin.
     runtimeInputs = [
       pkgs.curl
       pkgs.jq
+      pkgs.coreutils
     ];
     # Same composition the watcher uses: function definitions first, then the
     # state machine (split three ways for the per-file size cap). Concatenation
