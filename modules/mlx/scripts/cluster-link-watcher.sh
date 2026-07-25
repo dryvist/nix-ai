@@ -22,6 +22,9 @@
 #   CLUSTER_QUIESCE_CMD     optional worker-side quiesce hook (run via sh -c)
 #   CLUSTER_RESTORE_CMD     optional worker-side restore hook (run via sh -c)
 #   CLUSTER_MAX_KICKSTARTS  consecutive failed rank starts before halting
+#   CLUSTER_LINK_DOWN_STRIKES  consecutive failed link probes before the link
+#                         is declared down (default 2). Debounce only applies
+#                         to down; up is believed on the first reply.
 #   CLUSTER_ALERT_URL_FILE  local file holding an ntfy-style URL for the halt
 #                         alert (untracked — never commit the URL)
 #   CLUSTER_HTTP_PORT       coordinator only: cluster endpoint to readiness-probe
@@ -40,11 +43,6 @@ mkdir -p "$(dirname "$CLUSTER_STATE_FILE")"
 prev="down"
 [ -f "$CLUSTER_STATE_FILE" ] && prev="$(cat "$CLUSTER_STATE_FILE")"
 
-cur="down"
-if /sbin/ping -c 1 -t 2 -q "$CLUSTER_STATIC_PEER_IP" > /dev/null 2>&1; then
-  cur="up"
-fi
-
 uid="$(id -u)"
 state_dir="$(dirname "$CLUSTER_STATE_FILE")"
 kicks_file="$state_dir/rank-kickstarts"
@@ -53,6 +51,54 @@ started_file="$state_dir/rank-first-running"
 ready_file="$state_dir/rank-ready"
 warm_file="$state_dir/rank-warmed"
 warm_fails_file="$state_dir/rank-warm-failures"
+down_strikes_file="$state_dir/link-down-strikes"
+
+# Link probe, debounced ASYMMETRICALLY — a false "down" is destructive, a false
+# "up" is not. Declaring down tears the rank down, restores standalone serving,
+# and (crucially) the up->down handler deletes BOTH rank-kickstarts and
+# rank-halted, which resets the RDMA PD guard. Declaring up merely tries a
+# kickstart, which that same guard already caps. So "up" is believed on the
+# first reply and "down" must be earned.
+#
+# Why this matters: every failed mx.distributed.init() leaks a kernel RDMA
+# Protection Domain and exhaustion is reboot-only, so the guard halts after
+# CLUSTER_MAX_KICKSTARTS consecutive failures. A flapping link defeats it
+# entirely — each spurious down zeroes the counter, so the halt can never
+# accumulate. Seen 2026-07-19: HALT fired once, then six up/down cycles each
+# logging "kickstarting (attempt 1)" and never reaching 2, with 135
+# `fork: Resource temporarily unavailable` errors as the quiesce/restore churn
+# ran every 30s.
+#
+# Two layers, both cheap:
+#   1. -c 3 instead of -c 1: any one reply is enough, so a single dropped
+#      packet no longer reads as a pulled cable. Costs ~2s only when the peer
+#      is genuinely gone, on a 30s tick.
+#   2. Consecutive-tick confirmation: a failed probe while the link was up
+#      is a strike, not a transition. Down is declared at
+#      CLUSTER_LINK_DOWN_STRIKES (default 2), so a real unplug is seen within
+#      ~1 extra tick while a multi-second transient is absorbed.
+if /sbin/ping -c 3 -t 2 -q "$CLUSTER_STATIC_PEER_IP" > /dev/null 2>&1; then
+  cur="up"
+  rm -f "$down_strikes_file"
+elif [ "$prev" = "up" ]; then
+  strikes=0
+  [ -f "$down_strikes_file" ] && strikes="$(cat "$down_strikes_file")"
+  strikes=$((strikes + 1))
+  printf '%s\n' "$strikes" > "$down_strikes_file"
+  if [ "$strikes" -ge "${CLUSTER_LINK_DOWN_STRIKES:-2}" ]; then
+    cur="down"
+    rm -f "$down_strikes_file"
+  else
+    # Hold the previous state: not a transition, so no teardown and no
+    # PD-guard reset. Logged because a link that strikes repeatedly without
+    # ever reaching the threshold is a failing cable, and that pattern is
+    # invisible if the tick stays silent.
+    echo "cluster-link: probe failed ($strikes/${CLUSTER_LINK_DOWN_STRIKES:-2}) — holding up"
+    cur="up"
+  fi
+else
+  cur="down"
+fi
 
 if [ "$cur" = "up" ]; then
   if [ "$prev" = "down" ]; then
