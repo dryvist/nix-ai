@@ -107,4 +107,11 @@ in
   mlx-cluster-link-debounce = pkgs.runCommand "check-mlx-cluster-link-debounce" {
     nativeBuildInputs = [ pkgs.coreutils ];
   } "bash ${src}/tests/test-link-debounce.sh && touch $out";
+
+  # RDMA PD guard integrity: the halt is not cleared by a rank that merely
+  # reached `state = running`, and halting always restores standalone serving.
+  # Mirror-style by necessity (see the test header).
+  mlx-cluster-pd-guard-integrity = pkgs.runCommand "check-mlx-cluster-pd-guard-integrity" {
+    nativeBuildInputs = [ pkgs.coreutils ];
+  } "bash ${src}/tests/test-pd-guard-integrity.sh && touch $out";
 }

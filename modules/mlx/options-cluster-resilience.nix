@@ -95,24 +95,5 @@
       '';
     };
 
-    warmRecheckSecs = lib.mkOption {
-      type = lib.types.int;
-      default = 1800;
-      description = ''
-        Re-arm the warm marker after this long, so the post-readiness wedge
-        detector can run more than once per link session; 0 disables re-checks.
-
-        Readiness is a one-shot latch and the wedge detector is gated on the
-        warm marker being absent, so without this a single successful warm
-        disables the detector for the rest of the session — which is how a rank
-        that wedged AFTER its first warm (2026-07-25: an 8-token completion
-        returning 0 bytes after 900s, both ranks at ~100% CPU) sat for over an
-        hour with nothing escalating.
-
-        Deliberately long: mlx_lm.server blocks HTTP during a generation, so a
-        healthy rank mid-answer fails a probe, and only maxWarmFailures
-        CONSECUTIVE failures escalate.
-      '';
-    };
   };
 }

@@ -154,9 +154,24 @@ if [ "$cur" = "up" ]; then
   # #3207, exo-explore/exo#1847), so an unbounded crash loop turns one bad
   # start into a forced reboot. After the cap: halt and page once.
   if launchctl print "gui/$uid/$CLUSTER_RANK_LABEL" 2>/dev/null | grep -q "state = running"; then
-    rm -f "$kicks_file" "$halt_file" "$halt_latch_file"
     if [ ! -f "$started_file" ]; then
       touch "$started_file"
+    fi
+    # `state = running` is NOT evidence the rank started. mlx_lm.server reaches
+    # it immediately and then sits in the jaccl connect back-off (2s+4s+8s)
+    # before mx.distributed.init() throws errno 60 and exits. A tick landing
+    # inside that window used to clear the PD guard unconditionally — so the
+    # halt was cleared by the corpse of the very attempt that tripped it, and
+    # the watcher retried forever. Observed 2026-07-25: three complete
+    # halt -> clear -> 3x kickstart cycles back to back, each leaking another
+    # protection domain. PD exhaustion is reboot-only, so a defeated guard is
+    # worse than none: it spends the budget while reporting it is protecting it.
+    #
+    # Require the process to have SETTLED before believing it.
+    settled_at="$(/usr/bin/stat -f %m "$started_file" 2> /dev/null || echo 0)"
+    if [ "$settled_at" -gt 0 ] &&
+      [ "$(($(date +%s) - settled_at))" -ge "${CLUSTER_RANK_SETTLE_SECS:-60}" ]; then
+      rm -f "$kicks_file" "$halt_file" "$halt_latch_file"
     fi
     # Readiness probe (coordinator): launchctl "running" cannot see a rank
     # that hung inside distributed init or the model load. Until the endpoint
@@ -267,10 +282,22 @@ if [ "$cur" = "up" ]; then
     kicks=0
     [ -f "$kicks_file" ] && kicks="$(cat "$kicks_file")"
     if [ "$kicks" -ge "${CLUSTER_MAX_KICKSTARTS:-3}" ]; then
-      echo "cluster-link: rank failed $kicks consecutive starts; HALTING kickstarts (RDMA PD guard)"
+      echo "cluster-link: rank failed $kicks consecutive starts; HALTING kickstarts (RDMA PD guard); restoring normal serving"
       halt_write "$halt_file" "$halt_latch_file" "rank-start-failures" \
         "$kicks consecutive failed rank starts"
-      alert "$(hostname -s): cluster rank failed $kicks consecutive starts; kickstarts halted to protect RDMA protection domains. errno 60 = reboot needed. Replug the link to reset, or clear the rank-halted marker — the watcher re-verifies the cause before retrying and will re-halt if it persists." \
+      # Every attempt was preceded by quiesce_normal_serving, which boots the
+      # standalone model server out. Halting without undoing that leaves the
+      # host serving NOTHING for as long as the link stays up, because the only
+      # restore was on the up->down edge — an edge that never comes when the
+      # link is healthy and it is the PEER that cannot form the cluster.
+      # Observed 2026-07-25: the worker served no inference for over an hour
+      # while its own link probe read up. The warm-wedged path above already
+      # does this; the PD-guard path simply forgot to.
+      if [ -n "${CLUSTER_WIRED_LIMIT_MB:-}" ]; then
+        set_wired_limit "${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}" || true
+      fi
+      restore_normal_serving || true
+      alert "$(hostname -s): cluster rank failed $kicks consecutive starts; kickstarts halted to protect RDMA protection domains and the host restored to standalone serving. errno 60 = reboot needed. Replug the link to reset, or clear the rank-halted marker — the watcher re-verifies the cause before retrying and will re-halt if it persists." \
         "mlx-cluster rank halted (PD guard)"
     elif ! rank_start_preconditions_ok; then
       # A precondition that is not yet met is NOT a failed start: nothing was
