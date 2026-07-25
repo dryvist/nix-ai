@@ -22,6 +22,9 @@
 #   CLUSTER_QUIESCE_CMD     optional worker-side quiesce hook (run via sh -c)
 #   CLUSTER_RESTORE_CMD     optional worker-side restore hook (run via sh -c)
 #   CLUSTER_MAX_KICKSTARTS  consecutive failed rank starts before halting
+#   CLUSTER_LINK_DOWN_STRIKES  consecutive failed link probes before the link
+#                         is declared down (default 2). Debounce only applies
+#                         to down; up is believed on the first reply.
 #   CLUSTER_ALERT_URL_FILE  local file holding an ntfy-style URL for the halt
 #                         alert (untracked — never commit the URL)
 #   CLUSTER_HTTP_PORT       coordinator only: cluster endpoint to readiness-probe
@@ -35,15 +38,14 @@
 #   CLUSTER_SERVER_PLIST    coordinator only: that agent's plist, for bootstrap
 #   CLUSTER_MAX_WARM_FAILURES  consecutive post-readiness warm-generation
 #                         failures before the rank is declared wedged
+#   CLUSTER_WARM_RECHECK_SECS  re-arm the warm marker after this many seconds,
+#                         so the wedge detector can run more than once per link
+#                         session instead of being disabled by the first
+#                         successful warm (default 1800; 0 disables re-checks)
 
 mkdir -p "$(dirname "$CLUSTER_STATE_FILE")"
 prev="down"
 [ -f "$CLUSTER_STATE_FILE" ] && prev="$(cat "$CLUSTER_STATE_FILE")"
-
-cur="down"
-if /sbin/ping -c 1 -t 2 -q "$CLUSTER_STATIC_PEER_IP" > /dev/null 2>&1; then
-  cur="up"
-fi
 
 uid="$(id -u)"
 state_dir="$(dirname "$CLUSTER_STATE_FILE")"
@@ -53,6 +55,54 @@ started_file="$state_dir/rank-first-running"
 ready_file="$state_dir/rank-ready"
 warm_file="$state_dir/rank-warmed"
 warm_fails_file="$state_dir/rank-warm-failures"
+down_strikes_file="$state_dir/link-down-strikes"
+
+# Link probe, debounced ASYMMETRICALLY — a false "down" is destructive, a false
+# "up" is not. Declaring down tears the rank down, restores standalone serving,
+# and (crucially) the up->down handler deletes BOTH rank-kickstarts and
+# rank-halted, which resets the RDMA PD guard. Declaring up merely tries a
+# kickstart, which that same guard already caps. So "up" is believed on the
+# first reply and "down" must be earned.
+#
+# Why this matters: every failed mx.distributed.init() leaks a kernel RDMA
+# Protection Domain and exhaustion is reboot-only, so the guard halts after
+# CLUSTER_MAX_KICKSTARTS consecutive failures. A flapping link defeats it
+# entirely — each spurious down zeroes the counter, so the halt can never
+# accumulate. Seen 2026-07-19: HALT fired once, then six up/down cycles each
+# logging "kickstarting (attempt 1)" and never reaching 2, with 135
+# `fork: Resource temporarily unavailable` errors as the quiesce/restore churn
+# ran every 30s.
+#
+# Two layers, both cheap:
+#   1. -c 3 instead of -c 1: any one reply is enough, so a single dropped
+#      packet no longer reads as a pulled cable. Costs ~2s only when the peer
+#      is genuinely gone, on a 30s tick.
+#   2. Consecutive-tick confirmation: a failed probe while the link was up
+#      is a strike, not a transition. Down is declared at
+#      CLUSTER_LINK_DOWN_STRIKES (default 2), so a real unplug is seen within
+#      ~1 extra tick while a multi-second transient is absorbed.
+if /sbin/ping -c 3 -t 2 -q "$CLUSTER_STATIC_PEER_IP" > /dev/null 2>&1; then
+  cur="up"
+  rm -f "$down_strikes_file"
+elif [ "$prev" = "up" ]; then
+  strikes=0
+  [ -f "$down_strikes_file" ] && strikes="$(cat "$down_strikes_file")"
+  strikes=$((strikes + 1))
+  printf '%s\n' "$strikes" > "$down_strikes_file"
+  if [ "$strikes" -ge "${CLUSTER_LINK_DOWN_STRIKES:-2}" ]; then
+    cur="down"
+    rm -f "$down_strikes_file"
+  else
+    # Hold the previous state: not a transition, so no teardown and no
+    # PD-guard reset. Logged because a link that strikes repeatedly without
+    # ever reaching the threshold is a failing cable, and that pattern is
+    # invisible if the tick stays silent.
+    echo "cluster-link: probe failed ($strikes/${CLUSTER_LINK_DOWN_STRIKES:-2}) — holding up"
+    cur="up"
+  fi
+else
+  cur="down"
+fi
 
 if [ "$cur" = "up" ]; then
   if [ "$prev" = "down" ]; then
@@ -92,6 +142,37 @@ if [ "$cur" = "up" ]; then
         fi
       fi
     fi
+    # Re-arm the warm marker periodically so the wedge detector below can run
+    # more than once per link session.
+    #
+    # The detector counts consecutive warm-generation failures and tears the
+    # rank down at CLUSTER_MAX_WARM_FAILURES — but the whole block is gated on
+    # the warm marker being ABSENT, so a single successful warm disables it for
+    # the rest of the session. It therefore catches a rank that wedges BEFORE
+    # its first warm and can never catch one that wedges AFTER.
+    #
+    # After is the case actually observed (2026-07-25). The one-token warm
+    # succeeded, the marker was set, and the rank then wedged on a real
+    # request: an 8-token completion returned 0 bytes after 900s while both
+    # ranks spun at ~100% CPU — the coordinator in jaccl::MeshImpl::recv, the
+    # worker in mlx::core::Fence::wait. Readiness stayed latched, the marker
+    # stayed set, and nothing escalated for over an hour.
+    #
+    # Dropping the marker on an interval re-runs the existing probe and its
+    # existing failure counting, so no new teardown path is introduced. The
+    # interval is deliberately long: mlx_lm.server blocks HTTP during a
+    # generation, so a healthy rank mid-answer will fail a probe, and only
+    # CLUSTER_MAX_WARM_FAILURES *consecutive* failures escalate.
+    if [ "$CLUSTER_ROLE" = "coordinator" ] && [ -f "$warm_file" ] &&
+      [ "${CLUSTER_WARM_RECHECK_SECS:-1800}" -gt 0 ]; then
+      warmed_at="$(/usr/bin/stat -f %m "$warm_file" 2> /dev/null || echo 0)"
+      if [ "$warmed_at" -gt 0 ] &&
+        [ "$(($(date +%s) - warmed_at))" -ge "${CLUSTER_WARM_RECHECK_SECS:-1800}" ]; then
+        echo "cluster-link: re-checking liveness (warm marker older than ${CLUSTER_WARM_RECHECK_SECS:-1800}s)"
+        rm -f "$warm_file"
+      fi
+    fi
+
     # First-token warm-up: once the rank is ready, fire one untimed 1-token
     # generation so weights/compile caches are hot before the router flips
     # traffic in. Coordinator-only (only rank 0 binds the endpoint) and
