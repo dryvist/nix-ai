@@ -1,8 +1,8 @@
 #
-# MLX Module — LaunchAgent & Log Rotation
+# MLX Module — LaunchAgents
 #
-# macOS LaunchAgent configuration for official mlx_lm.server workers,
-# plus newsyslog log rotation.
+# macOS LaunchAgent configuration for official mlx_lm.server workers.
+# Log rotation is NOT here — see programs.agent-log-rotation in nix-darwin.
 #
 {
   config,
@@ -118,21 +118,12 @@ in
     };
 
     home = {
-      # ==========================================================================
-      # Log Rotation (closes #255)
-      # ==========================================================================
-      # newsyslog rotates logs when they exceed 10MB, keeping 3 compressed archives.
-      # Stock macOS newsyslog only reads /etc/newsyslog.d/ (requires root), so a
-      # companion LaunchAgent invokes it hourly with our user-level config.
-      file.".config/newsyslog.d/mlx-model-server.conf".text = ''
-        # logfilename                                                                [owner:group]  mode  count  size  when  flags
-        ${config.home.homeDirectory}/Library/Logs/mlx-model-server/server.error.log   : 644 3 10240 * J
-        ${config.home.homeDirectory}/Library/Logs/mlx-model-server/server.log         : 644 3 10240 * J
-        ${config.home.homeDirectory}/Library/Logs/mlx-model-server/warmup.error.log   : 644 3 10240 * J
-        ${config.home.homeDirectory}/Library/Logs/mlx-model-server/warmup.log         : 644 3 10240 * J
-        ${config.home.homeDirectory}/Library/Logs/mlx-model-server/watchdog.error.log : 644 3 10240 * J
-        ${config.home.homeDirectory}/Library/Logs/mlx-model-server/watchdog.log       : 644 3 10240 * J
-      '';
+      # Log rotation (#255) is NOT here. It lives in nix-darwin's
+      # programs.agent-log-rotation, as an /etc/newsyslog.d entry run by the
+      # system newsyslog as root. It cannot live in home-manager: newsyslog
+      # refuses to run as anyone but root — the check is in the binary, so even
+      # `newsyslog -n` fails — which is why the user LaunchAgent that used to be
+      # here sat at exit status 1 every hour while server.log grew past 40 MB.
 
       # ==========================================================================
       # Runtime Config Seeding and Model Discovery
@@ -169,17 +160,5 @@ in
       );
     };
 
-    launchd.agents.mlx-model-server-logrotate = {
-      enable = true;
-      config = {
-        Label = "dev.mlx-model-server.logrotate";
-        ProgramArguments = [
-          "/usr/sbin/newsyslog"
-          "-f"
-          "${config.home.homeDirectory}/.config/newsyslog.d/mlx-model-server.conf"
-        ];
-        StartCalendarInterval = [ { Minute = 0; } ]; # hourly
-      };
-    };
   };
 }
