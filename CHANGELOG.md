@@ -1,5 +1,19 @@
 # Changelog
 
+## [3.6.0](https://github.com/dryvist/nix-ai/compare/v3.5.0...v3.6.0) (2026-07-25)
+
+
+### Features
+
+* **mlx:** warn at activation when the notification url files are missing ([#1387](https://github.com/dryvist/nix-ai/issues/1387)) ([e53526c](https://github.com/dryvist/nix-ai/commit/e53526c58efe239ff9e0072daf1fac01e430ad29))
+
+
+### Bug Fixes
+
+* **cluster:** debounce the link probe, and let the wedge detector run more than once ([#1390](https://github.com/dryvist/nix-ai/issues/1390)) ([a346409](https://github.com/dryvist/nix-ai/commit/a3464096d6b17957ab619cf2bf2530ba44963ce8))
+* **mlx-cluster:** stop pinning sharding mode and RDMA port at eval ([#1394](https://github.com/dryvist/nix-ai/issues/1394)) ([4a4e099](https://github.com/dryvist/nix-ai/commit/4a4e099dec7ce4ceb3c16b7867a2b9692aa38c26))
+* **mlx:** post alerts to Slack, JSON-encoded, and log rejections ([#1389](https://github.com/dryvist/nix-ai/issues/1389)) ([53397f7](https://github.com/dryvist/nix-ai/commit/53397f72dceb261aeb72804522972ef10b45ecbf))
+
 ## [3.5.0](https://github.com/dryvist/nix-ai/compare/v3.4.0...v3.5.0) (2026-07-25)
 
 
