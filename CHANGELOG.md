@@ -1,5 +1,18 @@
 # Changelog
 
+## [3.7.0](https://github.com/dryvist/nix-ai/compare/v3.6.0...v3.7.0) (2026-07-25)
+
+
+### Features
+
+* **mlx:** peer-liveness supervisor for the clustered ranks ([#1398](https://github.com/dryvist/nix-ai/issues/1398)) ([66f67e8](https://github.com/dryvist/nix-ai/commit/66f67e885ea6db5408efd1e4a99c382d7c9b11fa))
+
+
+### Bug Fixes
+
+* **logrotate:** drop three user LaunchAgents that could never rotate ([#1386](https://github.com/dryvist/nix-ai/issues/1386)) ([a1eaa4c](https://github.com/dryvist/nix-ai/commit/a1eaa4cafc4f7bc5040592ed2eba95ded8e93333))
+* **mlx:** single-source per-model concurrency ([#1385](https://github.com/dryvist/nix-ai/issues/1385)) ([9c0c178](https://github.com/dryvist/nix-ai/commit/9c0c178a734ec05cb7d6f976b6ea0d954bfa90a5))
+
 ## [3.6.0](https://github.com/dryvist/nix-ai/compare/v3.5.0...v3.6.0) (2026-07-25)
 
 
