@@ -63,6 +63,7 @@ in
   CLUSTER_MODEL = ncfg.model;
   CLUSTER_MAX_WARM_FAILURES = toString ncfg.maxWarmFailures;
   CLUSTER_WARM_RECHECK_SECS = toString ncfg.warmRecheckSecs;
+  CLUSTER_RANK_SETTLE_SECS = toString ncfg.rankSettleSecs;
   # The link-down re-warm POSTs through llama-swap, so the watcher needs to be
   # able to bootstrap that agent when cluster-join has booted it out -- otherwise
   # the kickstart silently no-ops and standalone serving never returns

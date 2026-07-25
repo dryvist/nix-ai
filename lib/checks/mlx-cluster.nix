@@ -135,6 +135,15 @@ in
     assert
       watcherEnv.CLUSTER_MAX_WARM_FAILURES == "3"
       || throw "cluster: coordinator watcher must carry the post-readiness warm-failure cap; without it a rank wedged after readiness retries forever (INC-17070)";
+    # The settle window is the ONLY thing standing between a failing rank and an
+    # unbounded retry loop that burns reboot-only RDMA protection domains. Drop
+    # it from the env and the script's `:-60` fallback silently takes over, so
+    # the option stops controlling anything — the exact drift the derived-value
+    # pins above exist to prevent.
+    assert
+      watcherEnv ? CLUSTER_RANK_SETTLE_SECS
+      && builtins.match "[0-9]+" watcherEnv.CLUSTER_RANK_SETTLE_SECS != null
+      || throw "cluster: watcher must carry the rank settle window; without it `state = running` clears the PD guard on a rank still inside the jaccl back-off, and the guard retries forever while reporting it is protecting the budget";
     # Peer-liveness supervisor. Its whole job is telling a dead peer from a
     # wedged one, and every input to that decision is env wiring — so a silent
     # drop here would restore the exact blind spot it exists to remove.
