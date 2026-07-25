@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.5.0](https://github.com/dryvist/nix-ai/compare/v3.4.0...v3.5.0) (2026-07-25)
+
+
+### Features
+
+* **claude:** export trace spans to a dedicated OTLP endpoint ([#1388](https://github.com/dryvist/nix-ai/issues/1388)) ([0cd92c4](https://github.com/dryvist/nix-ai/commit/0cd92c4da8b09bee8e867a9dfb8353c5e3af8352))
+
+
+### Bug Fixes
+
+* **mlx-cluster:** make link-down teardown actually restore standalone serving ([#1384](https://github.com/dryvist/nix-ai/issues/1384)) ([bb3461d](https://github.com/dryvist/nix-ai/commit/bb3461d938c25af424994df3ce6c8699d75f436b))
+
 ## [3.4.0](https://github.com/dryvist/nix-ai/compare/v3.3.1...v3.4.0) (2026-07-24)
 
 
