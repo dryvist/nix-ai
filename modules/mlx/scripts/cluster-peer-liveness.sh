@@ -27,13 +27,24 @@
 #   1. real traffic short-circuits everything — new token lines in the rank log
 #      mean the mesh is alive, so no probe is even attempted
 #   2. an ESTABLISHED client connection on the endpoint means a request is in
-#      flight; the tick backs off without probing
+#      flight; the tick backs off without probing — but only up to
+#      CLUSTER_PEER_BUSY_STALL_SECS, because this brake used to be UNBOUNDED and
+#      a wedged rank holds its connection open forever, so the supervisor
+#      deferred behind it on every tick and never ran (drill, 2026-07-25)
 #   3. probes are rate-limited to one per CLUSTER_PEER_PROBE_INTERVAL_SECS, and
 #      each gets a generous CLUSTER_PEER_PROBE_TIMEOUT_SECS
 #   4. only CLUSTER_PEER_STRIKES CONSECUTIVE failures escalate; any success,
 #      anywhere, clears the count
-# At the defaults that is ~15 minutes of provably zero tokens, with no client
-# request open, before anything is torn down.
+# At the defaults that is ~15 minutes of provably zero tokens before anything is
+# torn down, and at most busyStallSecs more if a stalled request is holding the
+# endpoint. The "with no client request open" qualifier that used to sit here was
+# the bug: it described an unbounded precondition as if it were a bound.
+#
+# One case skips the ladder entirely because its evidence is conclusive rather
+# than statistical: the peer's JACCL rendezvous session being GONE while the peer
+# still answers ping. A healthy cluster always holds that session open, so its
+# absence cannot be a busy healthy rank — it means the group is gone and no
+# further waiting can produce a token.
 #
 # ROLES — there is no SSH between the nodes (see cluster-mode.nix), so neither
 # host can read the other's process table or logs. Each side reports the thing
@@ -54,6 +65,8 @@
 #   CLUSTER_PEER_PROBE_INTERVAL_SECS  minimum seconds between active probes
 #   CLUSTER_PEER_STRIKES              consecutive failed probes before teardown
 #   CLUSTER_PEER_DEAD_TICKS           worker: ticks with a down rank before paging
+#   CLUSTER_PEER_BUSY_STALL_SECS      cap on backing off behind an in-flight
+#                                     request that is producing no tokens
 # Inherited from the watcher's contract and consumed by the shared helpers in
 # ./cluster-link-helpers.sh (alert, set_wired_limit, restore_normal_serving):
 #   CLUSTER_ALERT_URL_FILE CLUSTER_WARMUP_LABEL CLUSTER_SERVER_LABEL
@@ -68,6 +81,7 @@ state_file="${CLUSTER_STATE_FILE:?CLUSTER_STATE_FILE unset}"
 probe_interval="${CLUSTER_PEER_PROBE_INTERVAL_SECS:-300}"
 max_strikes="${CLUSTER_PEER_STRIKES:-3}"
 dead_ticks_max="${CLUSTER_PEER_DEAD_TICKS:-3}"
+busy_stall_secs="${CLUSTER_PEER_BUSY_STALL_SECS:-900}"
 
 uid="$(id -u)"
 host="$(hostname -s 2> /dev/null || echo unknown)"
@@ -84,9 +98,14 @@ strikes_file="$state_dir/peer-strikes"
 probed_file="$state_dir/peer-last-probe"
 dead_file="$state_dir/peer-rank-down-ticks"
 reported_file="$state_dir/peer-reported"
+# When the endpoint first went busy with no token progress behind it. Cleared by
+# any progress or any idle tick, so it only accumulates during a real stall.
+busy_since_file="$state_dir/peer-busy-since"
 
-clear_progress_state() { rm -f "$strikes_file" "$probed_file"; }
-reset_state() { rm -f "$strikes_file" "$probed_file" "$dead_file" "$reported_file"; }
+clear_progress_state() { rm -f "$strikes_file" "$probed_file" "$busy_since_file"; }
+reset_state() {
+  rm -f "$strikes_file" "$probed_file" "$dead_file" "$reported_file" "$busy_since_file"
+}
 
 # Confirmed no token progress: name the cause, page with the evidence, then get
 # OUT of the wedged state rather than sitting in it.
@@ -124,7 +143,7 @@ $(log_tail)" "mlx-cluster no token progress"
 # Coordinator: the only rank that binds the endpoint, so the only one that can
 # observe a token at all.
 coordinator_tick() {
-  local progressed now last strikes cause evidence
+  local progressed now last strikes cause evidence busy_since
   progressed="$(new_progress_lines)"
   if [ "$progressed" -gt 0 ]; then
     # Real traffic is generating. Nothing to prove, nothing to ask for.
@@ -132,12 +151,52 @@ coordinator_tick() {
     return 0
   fi
 
+  now="$(date +%s)"
+
+  # A client connection in flight is normally proof of life, and backing off is
+  # what stops a long generation being mistaken for a wedge. But the back-off was
+  # UNBOUNDED, and a wedged rank holds its client connection open forever — so
+  # this branch returned on every tick and the supervisor below it never ran at
+  # all. Not a slow detection: no detection.
+  #
+  # Measured 2026-07-25 by an induced kill drill. With the worker killed, the
+  # coordinator did not crash: its rendezvous socket went to CLOSE_WAIT, its
+  # process stayed up, its port kept accepting, and a real request returned
+  # http=000 after 60s with zero bytes and NOTHING in its log. That request holds
+  # the connection open, so `endpoint_busy` stays true and every later tick
+  # deferred behind it.
+  #
+  # Bound it. Busy WITH zero new tokens for busyStallSecs is not a long
+  # generation — a real generation emits token lines, which short-circuits this
+  # function above before we ever get here.
   if endpoint_busy; then
-    echo "cluster-peer: request in flight on :${CLUSTER_HTTP_PORT:-?}; deferring the probe"
+    busy_since="$(read_int "$busy_since_file")"
+    if [ "$busy_since" -eq 0 ]; then
+      printf '%s\n' "$now" > "$busy_since_file"
+      busy_since="$now"
+    fi
+    if [ "$((now - busy_since))" -lt "$busy_stall_secs" ]; then
+      echo "cluster-peer: request in flight on :${CLUSTER_HTTP_PORT:-?}; deferring the probe"
+      return 0
+    fi
+    echo "cluster-peer: a request has held :${CLUSTER_HTTP_PORT:-?} for $((now - busy_since))s with ZERO new tokens — treating as WEDGED rather than deferring behind it again" >&2
+  else
+    rm -f "$busy_since_file"
+  fi
+
+  # The peer's rendezvous session is the group itself. If the rank is up and
+  # ready but that session is gone, the mesh cannot produce another token no
+  # matter how long we wait, so the strike ladder below has nothing left to
+  # learn. This is the drill's exact signature, and unlike a timed probe it
+  # cannot mistake a busy healthy rank for a dead one: a healthy cluster always
+  # holds this session open.
+  if ! peer_rendezvous_session && peer_reachable; then
+    escalate \
+      "the peer answers ping but its JACCL rendezvous session is GONE: the peer rank process died and this rank can never produce another token, so no probe was attempted. Its traceback is in the peer's own rank log — the worker pages that separately" \
+      "peer=${CLUSTER_STATIC_PEER_IP} ping=ok rendezvous=absent detected=first-tick"
     return 0
   fi
 
-  now="$(date +%s)"
   last="$(read_int "$probed_file")"
   [ "$((now - last))" -ge "$probe_interval" ] || return 0
   printf '%s\n' "$now" > "$probed_file"
