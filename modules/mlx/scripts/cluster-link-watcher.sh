@@ -38,6 +38,10 @@
 #   CLUSTER_SERVER_PLIST    coordinator only: that agent's plist, for bootstrap
 #   CLUSTER_MAX_WARM_FAILURES  consecutive post-readiness warm-generation
 #                         failures before the rank is declared wedged
+#   CLUSTER_WARM_RECHECK_SECS  re-arm the warm marker after this many seconds,
+#                         so the wedge detector can run more than once per link
+#                         session instead of being disabled by the first
+#                         successful warm (default 1800; 0 disables re-checks)
 
 mkdir -p "$(dirname "$CLUSTER_STATE_FILE")"
 prev="down"
@@ -138,6 +142,37 @@ if [ "$cur" = "up" ]; then
         fi
       fi
     fi
+    # Re-arm the warm marker periodically so the wedge detector below can run
+    # more than once per link session.
+    #
+    # The detector counts consecutive warm-generation failures and tears the
+    # rank down at CLUSTER_MAX_WARM_FAILURES — but the whole block is gated on
+    # the warm marker being ABSENT, so a single successful warm disables it for
+    # the rest of the session. It therefore catches a rank that wedges BEFORE
+    # its first warm and can never catch one that wedges AFTER.
+    #
+    # After is the case actually observed (2026-07-25). The one-token warm
+    # succeeded, the marker was set, and the rank then wedged on a real
+    # request: an 8-token completion returned 0 bytes after 900s while both
+    # ranks spun at ~100% CPU — the coordinator in jaccl::MeshImpl::recv, the
+    # worker in mlx::core::Fence::wait. Readiness stayed latched, the marker
+    # stayed set, and nothing escalated for over an hour.
+    #
+    # Dropping the marker on an interval re-runs the existing probe and its
+    # existing failure counting, so no new teardown path is introduced. The
+    # interval is deliberately long: mlx_lm.server blocks HTTP during a
+    # generation, so a healthy rank mid-answer will fail a probe, and only
+    # CLUSTER_MAX_WARM_FAILURES *consecutive* failures escalate.
+    if [ "$CLUSTER_ROLE" = "coordinator" ] && [ -f "$warm_file" ] &&
+      [ "${CLUSTER_WARM_RECHECK_SECS:-1800}" -gt 0 ]; then
+      warmed_at="$(/usr/bin/stat -f %m "$warm_file" 2> /dev/null || echo 0)"
+      if [ "$warmed_at" -gt 0 ] &&
+        [ "$(($(date +%s) - warmed_at))" -ge "${CLUSTER_WARM_RECHECK_SECS:-1800}" ]; then
+        echo "cluster-link: re-checking liveness (warm marker older than ${CLUSTER_WARM_RECHECK_SECS:-1800}s)"
+        rm -f "$warm_file"
+      fi
+    fi
+
     # First-token warm-up: once the rank is ready, fire one untimed 1-token
     # generation so weights/compile caches are hot before the router flips
     # traffic in. Coordinator-only (only rank 0 binds the endpoint) and
