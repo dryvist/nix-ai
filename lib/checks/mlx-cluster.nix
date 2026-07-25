@@ -37,8 +37,20 @@ in
       agents = hmConfigCluster.config.launchd.agents;
       rank = agents.mlx-cluster-rank.config;
       watcher = agents.mlx-cluster-watcher.config;
+      peer = agents.mlx-cluster-peer-liveness.config;
       rankEnv = rank.EnvironmentVariables;
       watcherEnv = watcher.EnvironmentVariables;
+      peerEnv = peer.EnvironmentVariables;
+      # Compared as a whole below, so a threshold that silently stops reaching
+      # the agent fails the check instead of falling back to a script default.
+      peerThresholds = {
+        inherit (peerEnv)
+          CLUSTER_PEER_STRIKES
+          CLUSTER_PEER_PROBE_INTERVAL_SECS
+          CLUSTER_PEER_PROBE_TIMEOUT_SECS
+          CLUSTER_PEER_DEAD_TICKS
+          ;
+      };
       rankArgs = rank.ProgramArguments;
       pkgNames = map (p: p.name or "") hmConfigCluster.config.home.packages;
       joinScript = builtins.readFile (src + "/modules/mlx/scripts/cluster-join.sh");
@@ -110,6 +122,40 @@ in
     assert
       watcherEnv.CLUSTER_MAX_WARM_FAILURES == "3"
       || throw "cluster: coordinator watcher must carry the post-readiness warm-failure cap; without it a rank wedged after readiness retries forever (INC-17070)";
+    # Peer-liveness supervisor. Its whole job is telling a dead peer from a
+    # wedged one, and every input to that decision is env wiring — so a silent
+    # drop here would restore the exact blind spot it exists to remove.
+    assert
+      peer.RunAtLoad == true && peer.StartInterval == 60
+      || throw "cluster: peer-liveness must tick from load, slower than the watcher (its expensive step is separately rate-limited)";
+    assert
+      peerEnv.CLUSTER_RENDEZVOUS_PORT == "11441"
+      || throw "cluster: peer-liveness needs the rendezvous port — the JACCL session on it is the only no-SSH evidence about the PEER's rank process";
+    assert
+      peerEnv.CLUSTER_RANK_PROGRESS_LOG == rank.StandardErrorPath
+      || throw "cluster: peer-liveness must count token progress from the rank's stderr, where mlx_lm.server writes generation timings";
+    assert
+      peerEnv.CLUSTER_RANK_URL == watcherEnv.CLUSTER_RANK_URL
+      && peerEnv.CLUSTER_MODEL == watcherEnv.CLUSTER_MODEL
+      || throw "cluster: coordinator peer-liveness must probe the same endpoint and model the watcher warms";
+    assert
+      peerEnv.CLUSTER_HTTP_PORT == watcherEnv.CLUSTER_HTTP_PORT
+      || throw "cluster: peer-liveness needs the endpoint port to see an in-flight request; probing over one is how a HEALTHY busy rank gets killed";
+    assert
+      peerThresholds == {
+        CLUSTER_PEER_STRIKES = "3";
+        CLUSTER_PEER_PROBE_INTERVAL_SECS = "300";
+        CLUSTER_PEER_PROBE_TIMEOUT_SECS = "120";
+        CLUSTER_PEER_DEAD_TICKS = "3";
+      }
+      || throw "cluster: every peer-liveness threshold must arrive from the options — the script's inline defaults are a last resort, never the configured value";
+    assert
+      builtins.all (k: peerEnv ? ${k}) [
+        "CLUSTER_ALERT_URL_FILE"
+        "CLUSTER_WARMUP_LABEL"
+        "CLUSTER_SERVER_PLIST"
+      ]
+      || throw "cluster: peer-liveness must be able to page AND restore standalone serving, or a confirmed wedge just sits there";
     assert
       agents ? mlx-cluster-prefetch
       && agents.mlx-cluster-prefetch.config.KeepAlive.SuccessfulExit == false

@@ -49,24 +49,9 @@ in
       };
     };
 
-    # Log rotation via newsyslog (follows mlx/launchd.nix pattern)
-    home.file.".config/newsyslog.d/fabric.conf".text = ''
-      # logfilename                                                              [owner:group]  mode  count  size  when  flags
-      ${config.home.homeDirectory}/Library/Logs/fabric/fabric.error.log         :              644   3      10240 *     J
-      ${config.home.homeDirectory}/Library/Logs/fabric/fabric.log               :              644   3      10240 *     J
-    '';
-
-    launchd.agents.fabric-logrotate = {
-      enable = true;
-      config = {
-        Label = "dev.fabric.logrotate";
-        ProgramArguments = [
-          "/usr/sbin/newsyslog"
-          "-f"
-          "${config.home.homeDirectory}/.config/newsyslog.d/fabric.conf"
-        ];
-        StartCalendarInterval = [ { Minute = 0; } ]; # hourly
-      };
-    };
+    # Rotation for ~/Library/Logs/fabric lives in nix-darwin's
+    # programs.agent-log-rotation, run by the system newsyslog as root. This
+    # module used to copy mlx/launchd.nix's user LaunchAgent, which could never
+    # work: newsyslog refuses to run as anyone but root.
   };
 }

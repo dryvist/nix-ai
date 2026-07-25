@@ -29,6 +29,10 @@ in
       judgeCmd =
         commandBuilder.mkModelCmd judge27b + " " + pkgs.lib.escapeShellArgs c.modelExtraArgs.${judge27b};
       uncataloguedCmd = commandBuilder.mkModelCmd "mlx-community/test-model";
+      # Assert the EMITTED flags equal the DECLARED concurrency, not a literal.
+      # A check pinning a magic number is what kept --decode-concurrency
+      # hard-coded at 1 while proxy.concurrencyLimit said 4.
+      conc = modelId: toString (commandBuilder.effectiveConcurrency modelId);
       nullDefaultsCmd =
         (import ../../modules/mlx/model-server-cmd.nix {
           inherit (pkgs) lib;
@@ -49,7 +53,8 @@ in
       optiqFlags.pagedCacheBlockSize == 512 && optiqFlags.maxNumSeqs == 8
       || throw "catalog: optiq resident profile (block 512 / maxNumSeqs 8) not compiled";
     assert
-      builtins.match ".*--decode-concurrency 1.*--prompt-concurrency 1.*" optiqCmd != null
+      builtins.match ".*--decode-concurrency ${conc optiq}.*--prompt-concurrency ${conc optiq}.*" optiqCmd
+      != null
       && builtins.match ".*--tool-call-parser.*" optiqCmd == null
       || throw "catalog: official mlx_lm serial-serving args not compiled cleanly: ${optiqCmd}";
     assert
@@ -72,8 +77,8 @@ in
       builtins.match ".*mlx-model-server --model mlx-community/Qwen3.6-27B-mxfp4.*" judgeCmd != null
       && builtins.match ".*--log-level INFO.*" judgeCmd != null
       && builtins.match ".*--max-tokens 8192.*" judgeCmd != null
-      && builtins.match ".*--decode-concurrency 1.*" judgeCmd != null
-      && builtins.match ".*--prompt-concurrency 1.*" judgeCmd != null
+      && builtins.match ".*--decode-concurrency ${conc judge27b}.*" judgeCmd != null
+      && builtins.match ".*--prompt-concurrency ${conc judge27b}.*" judgeCmd != null
       && builtins.match ".*--prompt-cache-size 4.*" judgeCmd != null
       && builtins.match ".*--prompt-cache-bytes 8589934592.*" judgeCmd != null
       && builtins.match ".*vllm-mlx.*" judgeCmd == null
@@ -82,8 +87,10 @@ in
     assert
       builtins.match ".*--log-level INFO.*" uncataloguedCmd != null
       && builtins.match ".*--max-tokens 8192.*" uncataloguedCmd != null
-      && builtins.match ".*--decode-concurrency 1.*" uncataloguedCmd != null
-      && builtins.match ".*--prompt-concurrency 1.*" uncataloguedCmd != null
+      &&
+        builtins.match ".*--decode-concurrency ${conc "mlx-community/test-model"}.*" uncataloguedCmd != null
+      &&
+        builtins.match ".*--prompt-concurrency ${conc "mlx-community/test-model"}.*" uncataloguedCmd != null
       && builtins.match ".*--prompt-cache-size 4.*" uncataloguedCmd != null
       && builtins.match ".*--prompt-cache-bytes 8589934592.*" uncataloguedCmd != null
       || throw "catalog: non-catalog official workers must inherit the same bounded serial contract: ${uncataloguedCmd}";

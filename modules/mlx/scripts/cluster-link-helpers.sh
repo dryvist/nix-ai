@@ -11,6 +11,9 @@
 # Slack needs application/json {"text": ...} — a raw ntfy-style body is rejected
 # as invalid_payload, and it has no Priority/Title headers, so severity and
 # source are folded into the text. Callers already prefix the hostname.
+# CLUSTER_ALERT_PREFIX overrides the headline for callers that are not the
+# PD-guard halt (the peer-liveness supervisor reuses this function); unset it
+# and the behaviour is byte-identical to before.
 # Mirrors alert() in mlx-watchdog.sh; keep the two in step.
 alert() {
   [ -f "${CLUSTER_ALERT_URL_FILE:-}" ] || return 0
@@ -18,7 +21,7 @@ alert() {
   # jq, never string interpolation: "$1" is free text carrying quotes, newlines
   # and model ids with slashes. Hand-built JSON breaks on all three and Slack
   # rejects it — silently, which is the failure mode being fixed here.
-  if ! payload="$(jq -n --arg text ":rotating_light: *mlx-cluster rank halted (PD guard)* — $1" '{text: $text}')"; then
+  if ! payload="$(jq -n --arg text "${CLUSTER_ALERT_PREFIX:-:rotating_light: *mlx-cluster rank halted (PD guard)*} — $1" '{text: $text}')"; then
     echo "cluster-link: WARN alert encode FAILED; not paging" >&2
     return 0
   fi

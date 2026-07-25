@@ -144,6 +144,7 @@ let
         ;
     })
     mkModelCmd
+    effectiveConcurrency
     ;
 
   # Role registry (services.aiStack.models): role-name -> physical model ID.
@@ -191,7 +192,7 @@ let
       checkEndpoint = "/v1/models";
       aliases = roles;
       useModelName = physical;
-      concurrencyLimit = cfg.modelConcurrencyLimits.${physical} or cfg.proxy.concurrencyLimit;
+      concurrencyLimit = effectiveConcurrency physical;
     }
     // lib.optionalAttrs (defaultFilters != { }) {
       filters = defaultFilters;
@@ -216,7 +217,7 @@ let
       ttl = if modelCfg.ttl > 0 then modelCfg.ttl else cfg.proxy.idleTtl;
       env = workerEnv;
       checkEndpoint = "/v1/models";
-      concurrencyLimit = cfg.modelConcurrencyLimits.${name} or cfg.proxy.concurrencyLimit;
+      concurrencyLimit = effectiveConcurrency name;
     }
     // lib.optionalAttrs (modelCfg.aliases != [ ]) {
       inherit (modelCfg) aliases;
@@ -273,6 +274,7 @@ in
     ./launchd-watchdog.nix
     ./cluster-mode.nix
     ./cluster-mode-maintenance.nix
+    ./peer-liveness.nix
   ];
 
   # Pass shared bindings to sub-modules via _module.args
