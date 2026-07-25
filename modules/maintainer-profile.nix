@@ -95,6 +95,21 @@ in
             default = "http://localhost:${toString aiVars.nodeports.otel_grpc}";
             description = "OTLP gRPC endpoint for Claude Code telemetry when enabled.";
           };
+
+          tracesEndpoint = lib.mkOption {
+            type = lib.types.nullOr lib.types.str;
+            default = null;
+            example = "https://otel.example.internal/v1/traces";
+            description = ''
+              Optional OTLP/HTTP endpoint for Claude Code *trace spans* only. When
+              set (alongside telemetry.enable), the enhanced-telemetry tracing beta
+              is turned on and trace spans are exported here over http/protobuf,
+              while metrics and logs continue to otlpEndpoint. Leave null to keep
+              all signals on otlpEndpoint. Kept out of the committed default so no
+              private hostname is baked into a public config — set it in your own
+              user config.
+            '';
+          };
         };
 
         extraTrustedPaths = lib.mkOption {
