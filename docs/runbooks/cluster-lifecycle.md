@@ -50,6 +50,33 @@ environment and behave identically on the coordinator and the worker.
 6. Print a state summary (link, ceiling, rank pid, generation) and exit 0 only
    if every check passed.
 
+## `mlx-cluster-peer-liveness` — the no-progress supervisor
+
+A second launchd agent (`dev.mlx-cluster.peer-liveness`, 60 s tick) runs beside
+the watcher. The watcher answers "is the cable in and is a rank process
+running?"; this answers "is the mesh producing tokens, and if not, which side
+broke?" — because a dead peer and a wedged peer look identical from the
+coordinator, which blocks forever in `jaccl::MeshImpl::recv` while `/v1/models`
+keeps answering 200.
+
+Operationally, two things to know:
+
+- **It can set `rank-halted`.** That latch is no longer PD-guard-only. When the
+  coordinator sees `peerLiveness.strikes` consecutive bounded generations return
+  no token, it stops the rank, sets the latch, restores standalone serving and
+  pages. Clearing it is unchanged: replug the link, or remove the marker.
+- **The worker pages separately, with the traceback.** There is no SSH between
+  the nodes, so the coordinator can never read the worker's log. The worker's own
+  supervisor reports its rank dying and attaches the exception — which is usually
+  the actual cause (e.g. a `shardingMode` mismatch raising `ValueError: The model
+  does not support pipelining...`). Correlate the two pages by hostname.
+
+It is deliberately reluctant: real traffic in the rank log, or any ESTABLISHED
+connection on the endpoint, suppresses the probe entirely, so a healthy rank
+mid-generation is never torn down. At the defaults escalation needs roughly 15
+minutes of provably zero tokens. Thresholds are
+`programs.mlx.clusterMode.peerLiveness.*`.
+
 ## `cluster-detach` — the daily safe-unplug
 
 1. Take the Thunderbolt link admin-down (`ifconfig <port> down`) so both watchers

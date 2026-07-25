@@ -274,6 +274,7 @@ in
     ./launchd-watchdog.nix
     ./cluster-mode.nix
     ./cluster-mode-maintenance.nix
+    ./peer-liveness.nix
   ];
 
   # Pass shared bindings to sub-modules via _module.args
