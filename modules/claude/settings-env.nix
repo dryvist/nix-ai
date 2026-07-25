@@ -79,3 +79,18 @@
   OTEL_LOGS_EXPORTER = "otlp";
   OTEL_TRACES_EXPORTER = "otlp";
 }
+# Trace spans → a dedicated OTLP/HTTP endpoint, separate from the metrics/logs
+# collector above. Only when telemetry.tracesEndpoint is set. Turns on the
+# enhanced-telemetry tracing beta (the flag that makes Claude Code emit the
+# interaction/llm_request/tool/tool.execution/subagent span tree at all — plain
+# telemetry.enable exports only counters and log events, no spans). A
+# signal-specific TRACES endpoint is required: with only the generic
+# OTEL_EXPORTER_OTLP_ENDPOINT set, the CLI emits zero trace traffic.
+//
+  lib.optionalAttrs
+    ((userConfig.telemetry.enable or false) && (userConfig.telemetry.tracesEndpoint or null) != null)
+    {
+      CLAUDE_CODE_ENHANCED_TELEMETRY_BETA = "1";
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT = userConfig.telemetry.tracesEndpoint;
+      OTEL_EXPORTER_OTLP_TRACES_PROTOCOL = "http/protobuf";
+    }

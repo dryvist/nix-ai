@@ -82,7 +82,13 @@ let
   clusterWatcherPkg = pkgs.writeShellApplication {
     name = "mlx-cluster-link-watcher";
     runtimeInputs = [ pkgs.curl ];
-    text = builtins.readFile ./scripts/cluster-link-watcher.sh;
+    # Helpers first, then the state machine (split for the per-file size cap).
+    # Concatenation, not sourcing: the helper bodies read `uid` and the
+    # CLUSTER_* env from the watcher's own scope, resolved at call time.
+    text = lib.concatStrings [
+      (builtins.readFile ./scripts/cluster-link-helpers.sh)
+      (builtins.readFile ./scripts/cluster-link-watcher.sh)
+    ];
   };
 
   # Lifecycle commands (cluster-join / cluster-detach): supervised, verifiable
@@ -107,61 +113,31 @@ let
       );
     };
 
-  # Env common to both commands and both roles.
-  clusterCommonEnv = {
-    CLUSTER_ROLE = ncfg.role;
-    CLUSTER_STATIC_SELF_IP = staticSelfIp;
-    CLUSTER_STATIC_PEER_IP = staticPeerIp;
-    CLUSTER_RANK_LABEL = rankLabel;
-    CLUSTER_WATCHER_LABEL = watcherLabel;
-    CLUSTER_WATCHER_PLIST = "${launchAgentsDir}/${watcherLabel}.plist";
-    CLUSTER_STATE_FILE = stateFile;
-    CLUSTER_STANDALONE_WIRED_LIMIT_MB = toString ncfg.standaloneWiredLimitMb;
-  }
-  // lib.optionalAttrs (ncfg.wiredLimitMb != null) {
-    CLUSTER_WIRED_LIMIT_MB = toString ncfg.wiredLimitMb;
+  # Lifecycle-command env contract lives in ./cluster-cli-env.nix (split out
+  # for the per-file size cap); the packages that consume it stay here.
+  clusterCliEnv = import ./cluster-cli-env.nix {
+    inherit
+      lib
+      ncfg
+      cfg
+      isCoordinator
+      staticSelfIp
+      staticPeerIp
+      rankLabel
+      watcherLabel
+      launchAgentsDir
+      launchAgentLabel
+      warmupAgentLabel
+      stateFile
+      apiUrl
+      modelServerProcessPattern
+      ;
   };
 
-  clusterJoinEnv =
-    clusterCommonEnv
-    // {
-      CLUSTER_GENERATION_REPO = ncfg.generationRepo;
-      CLUSTER_JOIN_SWAP_THRESHOLD_MB = toString ncfg.joinSwapThresholdMb;
-      CLUSTER_JOIN_TIMEOUT_SECS = toString ncfg.joinTimeoutSecs;
-      CLUSTER_QUIESCE_GRACE_SECS = toString ncfg.quiesceGraceSecs;
-      CLUSTER_WORKER_STABLE_SECS = toString ncfg.workerStableSecs;
-    }
-    // lib.optionalAttrs isCoordinator {
-      # join consumes the watcher's rank-warmed marker (zero completions issued
-      # by join itself — INC-17070), so it needs no cluster endpoint URL/model.
-      CLUSTER_NORMAL_PROXY = "http://127.0.0.1:${toString cfg.port}";
-      CLUSTER_SERVER_LABEL = launchAgentLabel;
-      CLUSTER_WARMUP_LABEL = warmupAgentLabel;
-      CLUSTER_STANDALONE_PROCESS_PATTERN = modelServerProcessPattern;
-      # Newline-separated substrings of standalone-serving engines to spare from the
-      # quiesce reap (standalone keep-resident backends). Empty by default.
-      CLUSTER_KEEP_RESIDENT = lib.concatStringsSep "\n" ncfg.keepResidentBackends;
-    }
-    // lib.optionalAttrs (!isCoordinator && ncfg.quiesceCommand != null) {
-      CLUSTER_QUIESCE_CMD = ncfg.quiesceCommand;
-    };
-
-  clusterDetachEnv =
-    clusterCommonEnv
-    // {
-      CLUSTER_DETACH_SWAP_THRESHOLD_MB = toString ncfg.detachSwapThresholdMb;
-      CLUSTER_DETACH_TIMEOUT_SECS = toString ncfg.detachTimeoutSecs;
-    }
-    // lib.optionalAttrs isCoordinator {
-      CLUSTER_SERVER_LABEL = launchAgentLabel;
-      CLUSTER_SERVER_PLIST = "${launchAgentsDir}/${launchAgentLabel}.plist";
-      CLUSTER_WARMUP_LABEL = warmupAgentLabel;
-      CLUSTER_STANDALONE_PROBE_URL = apiUrl;
-      CLUSTER_STANDALONE_PROBE_MODEL = cfg.defaultModel;
-    };
-
-  clusterJoinPkg = mkClusterCli "cluster-join" ./scripts/cluster-join.sh clusterJoinEnv;
-  clusterDetachPkg = mkClusterCli "cluster-detach" ./scripts/cluster-detach.sh clusterDetachEnv;
+  clusterJoinPkg = mkClusterCli "cluster-join" ./scripts/cluster-join.sh clusterCliEnv.clusterJoinEnv;
+  clusterDetachPkg =
+    mkClusterCli "cluster-detach" ./scripts/cluster-detach.sh
+      clusterCliEnv.clusterDetachEnv;
 in
 {
   # Clustered-mode option DECLARATIONS live in ./options-cluster.nix (split out
@@ -264,6 +240,14 @@ in
             CLUSTER_HTTP_PORT = toString ncfg.httpPort;
             CLUSTER_RANK_URL = "http://127.0.0.1:${toString ncfg.httpPort}";
             CLUSTER_MODEL = ncfg.model;
+            CLUSTER_MAX_WARM_FAILURES = toString ncfg.maxWarmFailures;
+            # The link-down re-warm POSTs through llama-swap, so the watcher
+            # needs to be able to bootstrap that agent when cluster-join has
+            # booted it out -- otherwise the kickstart silently no-ops and
+            # standalone serving never returns (INC-17071). Same pair
+            # cluster-detach already carries, so both paths converge.
+            CLUSTER_SERVER_LABEL = launchAgentLabel;
+            CLUSTER_SERVER_PLIST = "${launchAgentsDir}/${launchAgentLabel}.plist";
           }
           // lib.optionalAttrs (ncfg.wiredLimitMb != null) {
             CLUSTER_WIRED_LIMIT_MB = toString ncfg.wiredLimitMb;

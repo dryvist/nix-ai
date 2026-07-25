@@ -69,6 +69,20 @@ in
       '';
     };
 
+    maxWarmFailures = lib.mkOption {
+      type = lib.types.int;
+      default = 3;
+      description = ''
+        Consecutive post-readiness warm-generation failures before the watcher
+        declares the rank wedged, halts it, and restores standalone serving.
+        Readiness is a one-shot latch — once the endpoint answers a /v1/models
+        probe it is never re-verified, because mlx_lm.server blocks HTTP during
+        long generations and a timed probe would kill healthy ranks. A rank
+        that serves the probe but hangs on real generation (INC-17070) would
+        otherwise retry forever with nothing escalating.
+      '';
+    };
+
     alertUrlFile = lib.mkOption {
       type = lib.types.str;
       default = "${config.home.homeDirectory}/.config/mlx-cluster/alert-url";

@@ -79,6 +79,13 @@ in
       && watcherEnv.CLUSTER_MODEL == "mlx-community/GLM-4.7-REAP-50-mxfp4"
       || throw "cluster: coordinator watcher must know the rank endpoint and model for the post-readiness warm-up";
     assert
+      watcherEnv ? CLUSTER_SERVER_LABEL
+      && builtins.match ".*/Library/LaunchAgents/.*[.]plist" watcherEnv.CLUSTER_SERVER_PLIST != null
+      || throw "cluster: coordinator watcher must carry the standalone server label+plist, or the link-down re-warm silently no-ops when cluster-join booted that agent out (INC-17071)";
+    assert
+      watcherEnv.CLUSTER_MAX_WARM_FAILURES == "3"
+      || throw "cluster: coordinator watcher must carry the post-readiness warm-failure cap; without it a rank wedged after readiness retries forever (INC-17070)";
+    assert
       agents ? mlx-cluster-prefetch
       && agents.mlx-cluster-prefetch.config.KeepAlive.SuccessfulExit == false
       || throw "cluster: prefetch agent must retry until the download completes";
