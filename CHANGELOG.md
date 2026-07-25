@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.8.0](https://github.com/dryvist/nix-ai/compare/v3.7.0...v3.8.0) (2026-07-25)
+
+
+### Features
+
+* **mlx:** enforce cluster start order so plug/unplug needs no human ([#1402](https://github.com/dryvist/nix-ai/issues/1402)) ([266e6ab](https://github.com/dryvist/nix-ai/commit/266e6ab533003a916ae7e6e7ba39e4fdac003092))
+
 ## [3.7.0](https://github.com/dryvist/nix-ai/compare/v3.6.0...v3.7.0) (2026-07-25)
 
 
