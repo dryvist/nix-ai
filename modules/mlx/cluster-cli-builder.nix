@@ -10,8 +10,13 @@
 # ./cluster-cli-env.nix was split out. The repo's .file-size.yml states the
 # policy directly: files drifting toward the threshold are split rather than
 # added to an extended-limit list.
+#
+# `scriptFiles` is a LIST, concatenated in order after the exported env: the
+# shared link-prep library (function definitions only) comes first, then the
+# command body. Concatenation, not sourcing, so the library's CLUSTER_* reads
+# resolve in the command's own scope at call time.
 { lib, pkgs }:
-name: scriptFile: env:
+name: scriptFiles: env:
 pkgs.writeShellApplication {
   inherit name;
   runtimeInputs = with pkgs; [
@@ -22,6 +27,6 @@ pkgs.writeShellApplication {
   ];
   text = lib.concatStringsSep "\n" (
     lib.mapAttrsToList (k: v: "export ${k}=${lib.escapeShellArg v}") env
-    ++ [ (builtins.readFile scriptFile) ]
+    ++ map builtins.readFile scriptFiles
   );
 }

@@ -12,6 +12,13 @@
 # Consumed environment (set declaratively by the launchd agent):
 #   CLUSTER_ROLE            coordinator | worker
 #   CLUSTER_STATIC_PEER_IP  peer's static link address
+#   CLUSTER_STATIC_SELF_IP  this host's static link address (must be present on a
+#                         carrier-active Thunderbolt port before a rank starts)
+#   CLUSTER_RENDEZVOUS_PORT  JACCL rendezvous port — the worker confirms rank 0
+#                         is listening there before spending a start attempt
+#   CLUSTER_PEER_PROBE_TIMEOUT_SECS  bound on that TCP connect probe
+#   CLUSTER_LINK_REPAIR     1 = repair a missing local link address in place
+#   CLUSTER_LINK_ACTIVATE_TIMEOUT_SECS  bound on the activation repair fallback
 #   CLUSTER_RANK_LABEL      launchd label of the cluster rank agent
 #   CLUSTER_WARMUP_LABEL    launchd label of the normal-serving warmup one-shot
 #   CLUSTER_NORMAL_PROXY    normal-mode llama-swap base URL (coordinator only)
@@ -56,6 +63,10 @@ ready_file="$state_dir/rank-ready"
 warm_file="$state_dir/rank-warmed"
 warm_fails_file="$state_dir/rank-warm-failures"
 down_strikes_file="$state_dir/link-down-strikes"
+# Sticky companion to halt_file: survives a manual `rm` of the marker so the
+# next tick can re-verify the cause before the first retry (see
+# halt_clear_accepted). Cleared only by a real link cycle or an accepted clear.
+halt_latch_file="$state_dir/rank-halt-latched"
 
 # Link probe, debounced ASYMMETRICALLY — a false "down" is destructive, a false
 # "up" is not. Declaring down tears the rank down, restores standalone serving,
@@ -114,7 +125,7 @@ if [ "$cur" = "up" ]; then
   # #3207, exo-explore/exo#1847), so an unbounded crash loop turns one bad
   # start into a forced reboot. After the cap: halt and page once.
   if launchctl print "gui/$uid/$CLUSTER_RANK_LABEL" 2>/dev/null | grep -q "state = running"; then
-    rm -f "$kicks_file" "$halt_file"
+    rm -f "$kicks_file" "$halt_file" "$halt_latch_file"
     if [ ! -f "$started_file" ]; then
       touch "$started_file"
     fi
@@ -202,34 +213,41 @@ if [ "$cur" = "up" ]; then
           echo "cluster-link: warm generation failed $warm_fails times after readiness; declaring the rank WEDGED and restoring standalone serving" >&2
           # Reuse the PD-guard halt latch: it already suppresses restarts until
           # the link cycles, so the wedged rank is not immediately restarted.
-          touch "$halt_file"
+          halt_write "$halt_file" "$halt_latch_file" "warm-wedged" \
+            "$warm_fails consecutive post-readiness warm-generation failures"
           launchctl kill SIGTERM "gui/$uid/$CLUSTER_RANK_LABEL" 2> /dev/null || true
           if [ -n "${CLUSTER_WIRED_LIMIT_MB:-}" ]; then
             set_wired_limit "${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}" || true
           fi
           restore_normal_serving || true
-          if [ -f "${CLUSTER_ALERT_URL_FILE:-}" ]; then
-            curl -fsS -m 10 -H "Priority: urgent" -H "Title: mlx-cluster rank wedged (warm generation)" \
-              -d "$(hostname -s): cluster rank answered /v1/models but failed $warm_fails consecutive warm generations; torn down to standalone serving. Replug the link to retry." \
-              "$(cat "$CLUSTER_ALERT_URL_FILE")" || true
-          fi
+          # Through alert(), never a raw curl: this page used to POST an
+          # ntfy-style body with Priority/Title HEADERS, which the Slack webhook
+          # rejects as invalid_payload — and `-fsS ... || true` then swallowed
+          # both the rejection and the message. Silent by construction.
+          alert "$(hostname -s): cluster rank answered /v1/models but failed $warm_fails consecutive warm generations; torn down to standalone serving. Replug the link to retry." \
+            "mlx-cluster rank wedged (warm generation)"
         fi
       fi
     fi
   elif [ -f "$halt_file" ]; then
-    : # halted — no more PD-burning retries until link cycles or manual clear
+    : # halted — no more PD-burning retries until the link cycles
+  elif [ -f "$halt_latch_file" ] &&
+    ! halt_clear_accepted "$halt_file" "$halt_latch_file" "$kicks_file"; then
+    : # cleared by hand while the cause persists — re-halted, logged, no retry
   else
     kicks=0
     [ -f "$kicks_file" ] && kicks="$(cat "$kicks_file")"
     if [ "$kicks" -ge "${CLUSTER_MAX_KICKSTARTS:-3}" ]; then
       echo "cluster-link: rank failed $kicks consecutive starts; HALTING kickstarts (RDMA PD guard)"
-      touch "$halt_file"
-      alert "$(hostname -s): cluster rank failed $kicks consecutive starts; kickstarts halted to protect RDMA protection domains. errno 60 = reboot needed. Clear: rm the rank-halted marker or replug the link."
-    elif ! set_wired_limit "${CLUSTER_WIRED_LIMIT_MB:-}"; then
-      # Never start a rank over a standalone-sized ceiling: a shard wiring out the
-      # GUI working set is the 2026-07-12 dual-host panic. Retry next tick;
-      # this does not consume a kickstart attempt.
-      echo "cluster-link: wired ceiling not applied; NOT starting the rank"
+      halt_write "$halt_file" "$halt_latch_file" "rank-start-failures" \
+        "$kicks consecutive failed rank starts"
+      alert "$(hostname -s): cluster rank failed $kicks consecutive starts; kickstarts halted to protect RDMA protection domains. errno 60 = reboot needed. Replug the link to reset, or clear the rank-halted marker — the watcher re-verifies the cause before retrying and will re-halt if it persists." \
+        "mlx-cluster rank halted (PD guard)"
+    elif ! rank_start_preconditions_ok; then
+      # A precondition that is not yet met is NOT a failed start: nothing was
+      # launched, so no protection domain leaked, so no attempt is consumed.
+      # Retry next tick. The function logs which rung failed.
+      :
     else
       # Quiesce BEFORE every (re)start, not only on the down->up edge: the
       # link-state file survives a reboot, so a host that boots with the
@@ -245,10 +263,20 @@ if [ "$cur" = "up" ]; then
     fi
   fi
 elif [ "$prev" = "up" ]; then
-  echo "cluster-link: up -> down ($CLUSTER_ROLE); restoring normal serving"
+  # THE UNPLUG PATH. Reached only after the link has failed
+  # CLUSTER_LINK_DOWN_STRIKES consecutive probes, i.e. after the configured
+  # settle window (clusterMode.linkDownSettleSecs, converted to strikes against
+  # the watcher's own tick interval so the two numbers cannot drift apart) —
+  # never on the first missed probe. Everything below is idempotent, and the
+  # link-state edge is only consumed if it all succeeds, so a partial teardown
+  # is retried rather than lost.
+  echo "cluster-link: up -> down ($CLUSTER_ROLE) after ${CLUSTER_LINK_DOWN_STRIKES:-2} failed probes; tearing down and restoring normal serving"
   # A link cycle (replug) clears the PD-guard + readiness state and the warm
-  # marker so the next link session re-warms its freshly started rank.
-  rm -f "$kicks_file" "$halt_file" "$started_file" "$ready_file" "$warm_file" "$warm_fails_file"
+  # marker so the next link session re-warms its freshly started rank. This is
+  # the ONE legitimate reset of the halt latch: the cable really did move, so
+  # the cause the halt recorded is no longer assumed to hold.
+  rm -f "$kicks_file" "$halt_file" "$halt_latch_file" "$started_file" "$ready_file" \
+    "$warm_file" "$warm_fails_file"
   launchctl kill SIGTERM "gui/$uid/$CLUSTER_RANK_LABEL" 2> /dev/null || true
   if [ -n "${CLUSTER_WIRED_LIMIT_MB:-}" ]; then
     set_wired_limit "${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}" || down_failed=1

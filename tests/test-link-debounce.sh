@@ -12,6 +12,17 @@
 # is the same certify-by-proxy weakness this repo keeps finding elsewhere, and
 # it should be closed by sourcing the real block once the checks harness from
 # the alert-payload work is available to wire it into.
+#
+# The threshold this file exercises is no longer a bare number in the script: it
+# is derived in modules/mlx/cluster-watcher-env.nix from
+# clusterMode.linkDownSettleSecs and clusterMode.tickIntervalSecs (seconds, the
+# unit an operator actually thinks in), so the settle window and the tick cannot
+# drift apart. That derivation is pinned by lib/checks/mlx-cluster.nix; what
+# follows pins the state machine the derived value feeds.
+#
+# tests/test-rank-start-guards.sh covers the other half of the same state
+# machine — the preconditions that gate a rank START — and sources the real
+# functions rather than mirroring them.
 set -o errexit -o nounset -o pipefail
 
 state_dir="$(mktemp -d)"

@@ -40,13 +40,9 @@ note_fail() {
 }
 
 # --- step 1: take the link admin-down ---------------------------------------
-iface_holding_self_ip() {
-  /sbin/ifconfig 2>/dev/null | /usr/bin/awk -v ip="$CLUSTER_STATIC_SELF_IP" '
-    /^[a-z]/ { dev = $1; sub(/:$/, "", dev) }
-    $1 == "inet" && $2 == ip { print dev; exit }
-  '
-}
-
+# iface_holding_self_ip comes from scripts/cluster-link-locate.sh, concatenated
+# ahead of this body by cluster-cli-builder.nix and shared with cluster-join and
+# the link watcher.
 port="$(iface_holding_self_ip)"
 if [ -n "$port" ] && [ "$port" != "bridge0" ]; then
   echo "cluster-detach: taking $port ($CLUSTER_STATIC_SELF_IP) admin-down"
@@ -57,9 +53,15 @@ else
 fi
 
 # --- wait for the watcher's up->down teardown, verified against live state ---
-# The up->down edge clears these five markers, stops the rank, and restores the
+# The up->down edge clears these markers, stops the rank, and restores the
 # standalone ceiling. Poll until ALL hold (or time out) -- never trust the log.
-markers=(rank-halted rank-kickstarts rank-first-running rank-ready rank-warmed)
+# rank-halt-latched is included because a leftover latch makes the NEXT session's
+# first rank start re-verify (and possibly re-halt) instead of simply starting:
+# "safe to rejoin" has to mean the halt state is gone, not just the halt marker.
+markers=(
+  rank-halted rank-halt-latched rank-kickstarts
+  rank-first-running rank-ready rank-warmed
+)
 
 markers_clear() {
   local m

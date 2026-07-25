@@ -11,18 +11,37 @@
 # Slack needs application/json {"text": ...} — a raw ntfy-style body is rejected
 # as invalid_payload, and it has no Priority/Title headers, so severity and
 # source are folded into the text. Callers already prefix the hostname.
-# CLUSTER_ALERT_PREFIX overrides the headline for callers that are not the
-# PD-guard halt (the peer-liveness supervisor reuses this function); unset it
-# and the behaviour is byte-identical to before.
 # Mirrors alert() in mlx-watchdog.sh; keep the two in step.
+#
+# $1 = message text, $2 = headline naming the condition, so a page is
+# identifiable at a glance. Several conditions share this function (PD-guard
+# halt, wedged rank, no token progress, worker rank down, rejected manual
+# clear), and the Slack markup is applied HERE from the plain headline — callers
+# pass words, never formatting.
+#
+# A PAGE THAT REACHES NOBODY MUST STILL REACH THE LOG. On 2026-07-24 the single
+# alert of the incident died as `alert POST failed http=000 body=curl: (7)
+# Failed to connect` and the message content — the only record of WHY the rank
+# halted — went nowhere at all. So every non-delivery path below logs the FULL
+# text, not just a status code, and appends it to an undelivered-pages file:
+# a silent pager must never also mean a silent log.
 alert() {
-  [ -f "${CLUSTER_ALERT_URL_FILE:-}" ] || return 0
-  local payload resp code body
+  local text="$1" headline="${2:-mlx-cluster alert}"
+  local payload resp code body undelivered
+  undelivered="$(dirname "${CLUSTER_STATE_FILE:-/dev/null}")/alerts-undelivered.log"
+  if [ ! -f "${CLUSTER_ALERT_URL_FILE:-}" ]; then
+    # Unconfigured is not broken (a missing url file is a valid "no pager"), but
+    # it is not silent either: the page's content is the incident record.
+    echo "cluster-link: WARN no alert URL file (${CLUSTER_ALERT_URL_FILE:-unset}); page NOT sent: $headline — $text" >&2
+    alert_record "$undelivered" "no-url-file" "$headline" "$text"
+    return 0
+  fi
   # jq, never string interpolation: "$1" is free text carrying quotes, newlines
   # and model ids with slashes. Hand-built JSON breaks on all three and Slack
   # rejects it — silently, which is the failure mode being fixed here.
-  if ! payload="$(jq -n --arg text "${CLUSTER_ALERT_PREFIX:-:rotating_light: *mlx-cluster rank halted (PD guard)*} — $1" '{text: $text}')"; then
-    echo "cluster-link: WARN alert encode FAILED; not paging" >&2
+  if ! payload="$(jq -n --arg text ":rotating_light: *$headline* — $text" '{text: $text}')"; then
+    echo "cluster-link: WARN alert encode FAILED; page NOT sent: $headline — $text" >&2
+    alert_record "$undelivered" "encode-failed" "$headline" "$text"
     return 0
   fi
   # No -f: it suppresses the response body, and Slack puts the reason there.
@@ -33,8 +52,39 @@ alert() {
     "$(cat "$CLUSTER_ALERT_URL_FILE")" 2>&1)" || true
   code="${resp##*$'\n'}"
   body="${resp%$'\n'*}"
-  [ "$code" = "200" ] ||
+  if [ "$code" != "200" ]; then
     echo "cluster-link: WARN alert POST failed http=${code:-none} body=${body:0:200}" >&2
+    echo "cluster-link: WARN undelivered page: $headline — $text" >&2
+    alert_record "$undelivered" "http=${code:-none}" "$headline" "$text"
+  fi
+}
+
+# Append an undelivered page to a local file, so the record survives log
+# rotation of the watcher's stderr. Best-effort by design: an alerter that dies
+# because it could not write its own audit trail is worse than one that cannot.
+alert_record() {
+  local file="$1" why="$2" headline="$3" text="$4"
+  mkdir -p "$(dirname "$file")" 2> /dev/null || return 0
+  printf '%s\tundelivered(%s)\t%s\t%s\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$why" "$headline" "$text" >> "$file" 2> /dev/null || true
+}
+
+# Halt the rank-start loop, recording WHY. The marker used to be a bare `touch`,
+# so a later reader — human or agent — could see that kickstarts were halted but
+# not what halted them, and the fastest way to "make progress" was to delete it.
+#
+# Lives here rather than in cluster-link-guards.sh because BOTH the watcher and
+# the peer-liveness supervisor set this latch, and the cause is worth recording
+# whichever one did it.
+#
+# $1 halt marker, $2 latch, $3 cause token, $4 free-text detail.
+halt_write() {
+  local halt_file="$1" latch_file="$2" cause="$3" detail="$4"
+  printf '%s\tcause=%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$cause" "$detail" > "$halt_file"
+  # The latch outlives a manual `rm` of the marker and is cleared only by a real
+  # link cycle, an accepted clear, or cluster-join. It is what makes the halt
+  # more than a file someone can delete (see halt_clear_accepted).
+  printf '%s\n' "$cause" > "$latch_file"
 }
 
 # Idempotent wired-ceiling write through the exact-value sudoers grant.

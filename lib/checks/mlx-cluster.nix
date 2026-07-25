@@ -12,6 +12,40 @@ let
   fakeCurl = pkgs.writeShellScriptBin "curl" (
     builtins.readFile ../../modules/mlx/scripts/alert-payload-fakecurl.sh
   );
+
+  # The link-down settle window in seconds, resolved to the probe count the
+  # watcher actually counts in. Calls the shipped derivation directly (worker
+  # shape, so the coordinator-only branch stays unevaluated) instead of
+  # re-implementing the arithmetic here — a second implementation would agree
+  # with the first right up until someone changed one of them.
+  derivedStrikes =
+    settle: tick:
+    (import ../../modules/mlx/cluster-watcher-env.nix {
+      inherit (pkgs) lib;
+      cfg.port = 11434;
+      isCoordinator = false;
+      staticSelfIp = "192.168.208.2";
+      staticPeerIp = "192.168.208.1";
+      rankLabel = "dev.test.rank";
+      warmupAgentLabel = "dev.test.warmup";
+      launchAgentLabel = "dev.test.server";
+      launchAgentsDir = "/tmp/LaunchAgents";
+      stateFile = "/tmp/link-state";
+      ncfg = {
+        role = "worker";
+        maxKickstarts = 3;
+        alertUrlFile = "/tmp/alert-url";
+        rendezvousPort = 11441;
+        peerRendezvousProbeTimeoutSecs = 2;
+        linkRepair = true;
+        linkRepairActivateTimeoutSecs = 150;
+        linkDownSettleSecs = settle;
+        tickIntervalSecs = tick;
+        wiredLimitMb = null;
+        quiesceCommand = null;
+        restoreCommand = null;
+      };
+    }).CLUSTER_LINK_DOWN_STRIKES;
 in
 {
   # alert() Slack contract. Both failure modes it covers are SILENT in
@@ -28,6 +62,84 @@ in
     ];
     HELPERS = "${src}/modules/mlx/scripts/cluster-link-helpers.sh";
   } (builtins.readFile ../../modules/mlx/scripts/alert-payload-test.sh);
+
+  # Rank-start guards: the preconditions that decide whether a rank may start at
+  # all, and whether a start attempt may be COUNTED against the RDMA PD guard.
+  # Sources the shipped helpers + guards in the module's concatenation order and
+  # stubs only the thin wrappers over macOS-only binaries
+  # (ifconfig/networksetup/nc/sysctl), so the decisions under test are the real
+  # ones. Replays the 2026-07-24 incident: a worker that kickstarted into an
+  # absent rank 0, exhausted the guard, and was then un-halted by hand.
+  mlx-cluster-rank-guards = pkgs.runCommand "check-mlx-cluster-rank-guards" {
+    nativeBuildInputs = [
+      pkgs.coreutils
+      pkgs.gnugrep
+      pkgs.gnused
+    ];
+    HELPERS = "${src}/modules/mlx/scripts/cluster-link-helpers.sh";
+    GUARDS = "${src}/modules/mlx/scripts/cluster-link-guards.sh";
+  } "bash ${src}/tests/test-rank-start-guards.sh && touch $out";
+
+  # Builds the three CONCATENATED cluster scripts for real. Nothing else does:
+  # `nix flake check` only evaluates packages, and the repo-wide shellcheck check
+  # lints each fragment on its own. Only an actual build runs
+  # writeShellApplication's checkPhase — bash -n plus shellcheck at DEFAULT
+  # severity, which is stricter than that sweep's `--severity=warning`.
+  #
+  # Concatenation is exactly where the extra strictness earns its keep: a helper
+  # shipped to a consumer that never calls it fails as SC2329 (hit 2026-07-25,
+  # when one shared link-prep library was handed to cluster-detach, which uses a
+  # single function from it). That pressure is what keeps the layers split by
+  # actual use — cluster-link-locate.sh / -repair.sh / -guards.sh — instead of one
+  # grab-bag with a suppression comment on top.
+  mlx-cluster-scripts-build =
+    let
+      agents = hmConfigCluster.config.launchd.agents;
+      agentExes = map (a: builtins.head agents.${a}.config.ProgramArguments) [
+        "mlx-cluster-watcher"
+        # Concatenates the same helpers, so a helper change must build here too.
+        "mlx-cluster-peer-liveness"
+      ];
+      cliExes = map pkgs.lib.getExe (
+        builtins.filter (
+          p:
+          builtins.elem (p.name or "") [
+            "cluster-join"
+            "cluster-detach"
+          ]
+        ) hmConfigCluster.config.home.packages
+      );
+    in
+    pkgs.runCommand "check-mlx-cluster-scripts-build" { } ''
+      for exe in ${pkgs.lib.concatStringsSep " " (agentExes ++ cliExes)}; do
+        test -x "$exe" || {
+          echo "cluster script not executable: $exe" >&2
+          exit 1
+        }
+      done
+      touch $out
+    '';
+
+  # Peer-liveness state machine, assembling and running the REAL script with
+  # launchctl/curl/netstat/ping faked (see the test header for what its fakes
+  # still assume about live behaviour). Shipped with #1398 but never wired as a
+  # check, so nothing ran it — including when the shared alert()/halt_write
+  # helpers it concatenates changed underneath it.
+  mlx-cluster-peer-liveness = pkgs.runCommand "check-mlx-cluster-peer-liveness" {
+    nativeBuildInputs = [
+      pkgs.coreutils
+      pkgs.gnugrep
+      pkgs.gnused
+      pkgs.gawk
+      pkgs.jq
+    ];
+  } "bash ${src}/tests/test-peer-liveness.sh && touch $out";
+
+  # Link-probe debounce: down is earned over the settle window, up is believed at
+  # once. Mirror-style by necessity (see the test header).
+  mlx-cluster-link-debounce = pkgs.runCommand "check-mlx-cluster-link-debounce" {
+    nativeBuildInputs = [ pkgs.coreutils ];
+  } "bash ${src}/tests/test-link-debounce.sh && touch $out";
 
   # Coordinator fixture: rank/watcher/prefetch agents must compile with the
   # distributed env contract. The fixture leaves shardingMode and fastMetalSync
@@ -156,6 +268,31 @@ in
         "CLUSTER_SERVER_PLIST"
       ]
       || throw "cluster: peer-liveness must be able to page AND restore standalone serving, or a confirmed wedge just sits there";
+    assert
+      watcherEnv.CLUSTER_WARM_RECHECK_SECS == "1800"
+      || throw "cluster: coordinator watcher must carry the warm-marker re-arm interval, or the wedge detector runs at most once per link session";
+    assert
+      watcherEnv.CLUSTER_STATIC_SELF_IP == "192.168.208.1"
+      && watcherEnv.CLUSTER_RENDEZVOUS_PORT == "11441"
+      || throw "cluster: the watcher must know its OWN link address and the rendezvous port — the two rank-start preconditions (errno 49 EADDRNOTAVAIL on a missing address, errno 60 + a leaked RDMA protection domain on an absent rank 0)";
+    assert
+      watcherEnv.CLUSTER_PEER_PROBE_TIMEOUT_SECS == "2"
+      && watcherEnv.CLUSTER_LINK_REPAIR == "1"
+      && watcherEnv.CLUSTER_LINK_ACTIVATE_TIMEOUT_SECS == "150"
+      || throw "cluster: rendezvous-probe bound, link-address repair switch and its bounded activation fallback must all reach the watcher as configuration, not script defaults";
+    # The settle window is expressed in SECONDS and converted to probe strikes
+    # against the watcher's own tick, so the two can never drift. 60s at the
+    # default 30s tick is the historical 2 strikes — the unit changed, the
+    # behaviour did not.
+    assert
+      watcherEnv.CLUSTER_LINK_DOWN_STRIKES == "2" && watcher.StartInterval == 30
+      || throw "cluster: default 60s settle window at a 30s tick must be 2 confirming probes";
+    assert
+      derivedStrikes 45 10 == "5"
+      || throw "cluster: the settle window must round UP to whole probes (45s at a 10s tick = 5), or a shortened tick silently shortens the window";
+    assert
+      derivedStrikes 5 30 == "1"
+      || throw "cluster: a settle window shorter than one tick must still mean one CONFIRMING probe, never zero — a single dropped packet must not tear the rank down and reset the PD guard";
     assert
       agents ? mlx-cluster-prefetch
       && agents.mlx-cluster-prefetch.config.KeepAlive.SuccessfulExit == false

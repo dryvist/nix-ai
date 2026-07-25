@@ -57,6 +57,8 @@ uid="$(id -u)"
 state_dir="$(dirname "$CLUSTER_STATE_FILE")"
 mkdir -p "$state_dir"
 halt_file="$state_dir/rank-halted"
+# Sticky companion the watcher writes beside the halt marker; see step 4.
+halt_latch_file="$state_dir/rank-halt-latched"
 kicks_file="$state_dir/rank-kickstarts"
 
 fail() {
@@ -104,72 +106,11 @@ fi
 # bounded system activation FIRST (re-runs cluster-link-prep idempotently), and
 # only if that does not restore prep, a direct granted fallback (see
 # repair_link_direct) -- both use nothing but the cluster-ops sudoers grants.
-iface_holding_self_ip() {
-  /sbin/ifconfig 2>/dev/null | /usr/bin/awk -v ip="$CLUSTER_STATIC_SELF_IP" '
-    /^[a-z]/ { dev = $1; sub(/:$/, "", dev) }
-    $1 == "inet" && $2 == ip { print dev; exit }
-  '
-}
-
-link_prep_ok() {
-  local dev
-  dev="$(iface_holding_self_ip)"
-  [ -n "$dev" ] || return 1
-  [ "$dev" = "bridge0" ] && return 1
-  # port must not be a bridge0 member (re-enslavement is the classic prep loss)
-  if /sbin/ifconfig bridge0 2>/dev/null | /usr/bin/grep -qw "member: $dev"; then
-    return 1
-  fi
-  # port must have carrier: cluster-detach admin-downs the link but leaves the
-  # alias in place, so a down-but-aliased port looks configured yet cannot
-  # rendezvous. Require it up so a rejoin repairs (brings it back up) instead
-  # of blocking forever on an unreachable peer.
-  case "$(/sbin/ifconfig "$dev" 2>/dev/null)" in
-    *"status: active"*) ;;
-    *) return 1 ;;
-  esac
-  return 0
-}
-
-# Physical Thunderbolt devices (the cable lands on exactly one; the others are
-# uncabled). Same discovery cluster-link-prep uses -- never the service order.
-tb_devices() {
-  /usr/sbin/networksetup -listallhardwareports \
-    | /usr/bin/awk '/^Hardware Port: Thunderbolt [0-9]/{getline; sub(/^Device: /, ""); print}'
-}
-
-# Direct, granted link repair for when activation cannot (it can hang on an
-# unrelated activation step, or need a second pass to bring a just-freed port
-# up). Frees every Thunderbolt port from bridge0 and admin-ups it (no address,
-# so no stray route), then aliases this node's link IP on the ONE port that
-# shows carrier -- matching link-prep's single-active-port rule so the /24 route
-# cannot bind to an uncabled sibling. Uses only granted verbs
-# (`ifconfig bridge0 deletem *`, `ifconfig en[0-9]* up`; the alias form rides
-# the same space-spanning `en[0-9]* up` grant). Hex netmask avoids a dotted
-# quad in a public repo.
-repair_link_direct() {
-  local dev active=""
-  while IFS= read -r dev; do
-    [ -n "$dev" ] || continue
-    if /sbin/ifconfig bridge0 2>/dev/null | /usr/bin/grep -qw "member: $dev"; then
-      sudo -n /sbin/ifconfig bridge0 deletem "$dev" > /dev/null 2>&1 || true
-    fi
-    sudo -n /sbin/ifconfig "$dev" up > /dev/null 2>&1 || true
-  done < <(tb_devices)
-  # carrier can take a moment after admin-up; retry briefly.
-  for _ in 1 2 3 4 5; do
-    active="$(tb_devices | while IFS= read -r dev; do
-      case "$(/sbin/ifconfig "$dev" 2>/dev/null)" in
-        *"status: active"*) echo "$dev"; break ;;
-      esac
-    done)"
-    [ -n "$active" ] && break
-    sleep 2
-  done
-  [ -n "$active" ] || return 1
-  sudo -n /sbin/ifconfig "$active" alias "$CLUSTER_STATIC_SELF_IP" 0xffffff00 up > /dev/null 2>&1 || true
-}
-
+#
+# iface_holding_self_ip / link_prep_ok / tb_devices / repair_link_direct come from
+# scripts/cluster-link-locate.sh and scripts/cluster-link-repair.sh, concatenated
+# ahead of this body by cluster-cli-builder.nix and shared with cluster-detach
+# and the link watcher.
 if link_prep_ok; then
   echo "cluster-join: link prep OK ($CLUSTER_STATIC_SELF_IP on $(iface_holding_self_ip))"
 else
@@ -278,8 +219,17 @@ fi
 # --- step 4: clear a stale halt latch, ensure the watcher is loaded ---------
 # The watcher (not this command) starts the rank on its next tick. Clear a stale
 # PD-guard halt so it is free to kickstart; a fresh session resets the budget.
-if [ -f "$halt_file" ]; then
-  rm -f "$halt_file" "$kicks_file"
+#
+# This is the SANCTIONED reset, which is why it also drops rank-halt-latched.
+# A bare `rm rank-halted` is not: the watcher keeps that latch precisely so a
+# by-hand clear has its cause re-verified before the first retry (and is
+# re-halted if the cause still holds — see halt_clear_accepted). Getting here
+# means steps 1-3 just repaired link prep and pinned the ceiling under
+# supervision, i.e. the causes this command owns are actually addressed, so the
+# worker returns to the ordinary "wait for rank 0, spend no attempts" path
+# instead of being re-halted for a coordinator that has not started yet.
+if [ -f "$halt_file" ] || [ -f "$halt_latch_file" ]; then
+  rm -f "$halt_file" "$halt_latch_file" "$kicks_file"
   echo "cluster-join: cleared stale rank-halted latch"
 fi
 
