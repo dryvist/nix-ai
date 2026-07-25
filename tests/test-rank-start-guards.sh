@@ -124,6 +124,32 @@ reset_state() {
 kicks_now() { cat "$kicks_file" 2> /dev/null || echo absent; }
 halt_cause() { sed -n 's/.*cause=\([^	]*\).*/\1/p' "$halt_file" 2> /dev/null || echo none; }
 
+echo "stub contracts (the guards call these indirectly, so pin them here):"
+# Every case below reaches the stubs only through rank_start_preconditions_ok,
+# which is sourced. Asserting them directly does two jobs: it proves the stubs
+# honour the contract the real macOS wrappers have, and it keeps the indirection
+# from reading as dead code to a static analyser.
+reset_state
+check "link_prep_ok true when the link is up" 0 "$(link_prep_ok && echo 0 || echo 1)"
+link_ok=0
+check "link_prep_ok false when the link is down" 1 "$(link_prep_ok && echo 0 || echo 1)"
+check "peer_rendezvous_listening true when the peer answers" 0 \
+  "$(peer_rendezvous_listening && echo 0 || echo 1)"
+peer_listening=0
+check "peer_rendezvous_listening false when it does not" 1 \
+  "$(peer_rendezvous_listening && echo 0 || echo 1)"
+check "set_wired_limit true under the ceiling" 0 "$(set_wired_limit && echo 0 || echo 1)"
+ceiling_ok=0
+check "set_wired_limit false when the ceiling is refused" 1 \
+  "$(set_wired_limit && echo 0 || echo 1)"
+# repair_link_prep always reports failure (the stub models a repair that did not
+# take), and must count the attempt. Called in this shell so the counter sticks.
+reset_state
+repair_link_prep || true
+check "repair_link_prep reports failure" 1 "$(repair_link_prep > /dev/null 2>&1 && echo 0 || echo 1)"
+check "repair_link_prep counted its attempt" 1 "$repairs"
+reset_state
+
 echo "peer not listening does NOT consume an attempt:"
 # THE incident. Three attempts against an absent rank 0 = three leaked
 # protection domains = a mandatory reboot. Waiting costs nothing.
