@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.8.1](https://github.com/dryvist/nix-ai/compare/v3.8.0...v3.8.1) (2026-07-25)
+
+
+### Bug Fixes
+
+* **mlx-cluster:** make a permanently-failing link probe audible ([#1406](https://github.com/dryvist/nix-ai/issues/1406)) ([396f199](https://github.com/dryvist/nix-ai/commit/396f19971c78bbada220a68f8601de37a6ee9646))
+
 ## [3.8.0](https://github.com/dryvist/nix-ai/compare/v3.7.0...v3.8.0) (2026-07-25)
 
 
