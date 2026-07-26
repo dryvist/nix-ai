@@ -26,6 +26,10 @@
 let
   inherit (mlxShared) cfg warmupAgentLabel launchAgentLabel;
   ncfg = cfg.clusterMode;
+  # Cluster override if set, else the module-wide convention
+  # (./options-launch.nix). Resolved once, here, so both agents
+  # cannot disagree about how they are launched.
+  appleInterp = if ncfg.appleInterpreter != null then ncfg.appleInterpreter else cfg.appleInterpreter;
   pcfg = ncfg.peerLiveness;
 
   rankLabel = "dev.mlx-cluster.rank";
@@ -187,8 +191,8 @@ in
         Label = "dev.mlx-cluster.peer-liveness";
         # Apple's interpreter, not the script's Nix shebang — same reason as the
         # watcher: it is what lets this agent reach the peer at all. See
-        # clusterMode.appleInterpreter.
-        ProgramArguments = lib.optional (ncfg.appleInterpreter != null) ncfg.appleInterpreter ++ [
+        # programs.mlx.appleInterpreter.
+        ProgramArguments = lib.optional (appleInterp != null) appleInterp ++ [
           (lib.getExe peerLivenessPkg)
         ];
         RunAtLoad = true;

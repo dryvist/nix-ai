@@ -261,6 +261,9 @@ in
     ./options-proxy.nix
     ./options-server.nix
     ./options-cache.nix
+    # How every shell-script launchd agent here is launched. One option, because
+    # getting it wrong costs the agent its network access, silently.
+    ./options-launch.nix
     ./options-batching.nix
     ./options-catalog.nix
     ./options-filters.nix

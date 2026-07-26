@@ -82,42 +82,14 @@
 
     appleInterpreter = lib.mkOption {
       type = lib.types.nullOr lib.types.str;
-      default = "/bin/bash";
+      default = null;
       description = ''
-        Interpreter the shell-only cluster agents are launched with. null uses
-        each script's own Nix shebang.
+        Per-cluster override for programs.mlx.appleInterpreter. null (the
+        default) inherits the module-wide value, which is where the convention
+        and its rationale live — see ./options-launch.nix.
 
-        This exists because of how macOS grants network access. TCC keys a
-        privacy grant to a binary's CODE-SIGNING IDENTITY, and a Nix binary's
-        identity IS its content hash:
-
-          nix bash:    designated => cdhash H"51837d11..."
-          Apple bash:  designated => identifier "com.apple.bash" and anchor apple
-
-        So every nixpkgs bump mints an executable macOS has never seen and the
-        previous Local Network grant becomes inert. Worse, no wrapper launders
-        it: a Nix binary anywhere in the chain becomes the responsible process
-        for everything below it, which is why even Apple's own /sbin/ping is
-        denied when its parent is a Nix bash (all measured 2026-07-25).
-
-        Launching under Apple's /bin/bash makes the ENTIRE chain Apple-signed,
-        so these agents need no Local Network grant at all — not one that
-        expires, not one at all. Verified on jevans-mbp: the same ping that
-        returns "No route to host" under the Nix shebang returns rc=0 from a
-        launchd job under /bin/bash.
-
-        Safe because the shell agents are self-contained and conservative:
-        their helpers are concatenated in at build time (no runtime `source`),
-        they carry no bash-5-only constructs, and both parse cleanly under the
-        bash 3.2 Apple ships. That is checked, not assumed — see
-        lib/checks/mlx-cluster-scripts.nix.
-
-        Does NOT cover the rank: it execs a Python interpreter, which becomes
-        its own responsible process. That one needs a stable code-signing
-        identity instead (dryvist/nix-darwin#1890).
-
-        Set to null only if a script ever genuinely needs bash 5 — and then fix
-        the script, because this is what keeps the cluster self-forming.
+        Present only so a single host can opt one cluster agent out without
+        changing the estate default. Almost nothing should set this.
       '';
     };
 

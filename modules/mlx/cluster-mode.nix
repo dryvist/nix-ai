@@ -43,6 +43,10 @@ let
     modelServerProcessPattern
     ;
   ncfg = cfg.clusterMode;
+  # Cluster override if set, else the module-wide convention
+  # (./options-launch.nix). Resolved once, here, so both agents
+  # cannot disagree about how they are launched.
+  appleInterp = if ncfg.appleInterpreter != null then ncfg.appleInterpreter else cfg.appleInterpreter;
   versions = import ../../lib/versions.nix;
 
   rankLabel = "dev.mlx-cluster.rank";
@@ -262,9 +266,9 @@ in
           Label = watcherLabel;
           # Launched through Apple's interpreter, not the script's Nix shebang,
           # so the whole chain is Apple-signed and macOS grants it Local Network
-          # unconditionally. See clusterMode.appleInterpreter for why a Nix
+          # unconditionally. See programs.mlx.appleInterpreter for why a Nix
           # shebang here made the cluster unable to self-form.
-          ProgramArguments = lib.optional (ncfg.appleInterpreter != null) ncfg.appleInterpreter ++ [
+          ProgramArguments = lib.optional (appleInterp != null) appleInterp ++ [
             (lib.getExe clusterWatcherPkg)
           ];
           RunAtLoad = true;
