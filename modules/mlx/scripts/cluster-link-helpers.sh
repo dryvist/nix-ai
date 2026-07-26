@@ -78,9 +78,57 @@ alert_record() {
 # whichever one did it.
 #
 # $1 halt marker, $2 latch, $3 cause token, $4 free-text detail.
+# Drop a halt that was recorded before the current boot.
+#
+# Every cause a halt can record is process or kernel state: exhausted RDMA
+# protection domains, a wedged rank process, a precondition that was failing at
+# the time. None of it survives a reboot — and the project's own doctrine is that
+# PD exhaustion is reboot-only to clear. So a halt written before this boot is
+# stale by construction.
+#
+# Without this, a cold boot can never form the cluster: the marker and its latch
+# outlive the machine, the watcher takes the halted branch forever, and only a
+# link cycle or a human clears it. That was masked for a long time because every
+# test cleared the marker by hand first, which quietly made "unattended
+# formation" untested.
+#
+# This is not a bypass. rank_start_preconditions_ok still runs before any start,
+# so a cause that really does still hold re-halts on its own evidence. All this
+# removes is a dead generation's verdict outliving the generation.
+# Seconds since epoch at which this kernel booted, or empty if unavailable.
+#
+# Anchored on purpose. kern.boottime reads
+#   { sec = 1785031601, usec = 233215 } Sat Jul 25 22:06:41 2026
+# so an unanchored `.*sec = ` matches through "usec = " and captures the
+# MICROSECONDS instead — a value so small that nothing ever looks older than it,
+# which silently disables every check built on this.
+current_boot_epoch() {
+  sysctl -n kern.boottime 2> /dev/null | sed -n 's/^{ *sec *= *\([0-9]*\).*/\1/p'
+}
+
+halt_drop_if_pre_boot() {
+  local halt_file="$1" latch_file="$2" kicks_file="$3" now_boot recorded
+  now_boot="$(current_boot_epoch)"
+  # Unknown boot time: leave the halt alone. Failing closed keeps the PD guard.
+  [ -n "$now_boot" ] || return 0
+  [ -e "$halt_file" ] || return 0
+  # Field-exact, not a greedy regex: the detail text is operator-facing prose and
+  # must never be able to spoof the field this decision reads.
+  recorded="$(awk -F'\t' '{for (i = 1; i <= NF; i++) if ($i ~ /^boot=/) { sub(/^boot=/, "", $i); print $i; exit }}' "$halt_file" 2> /dev/null)"
+  if [ "$recorded" != "$now_boot" ]; then
+    echo "cluster-link: halt was recorded under boot '${recorded:-unknown}' but this is boot '$now_boot'; dropping it — a reboot clears every cause a halt can record, and keeping it would make cold-boot formation impossible"
+    rm -f "$halt_file" "$latch_file" "$kicks_file"
+  fi
+  return 0
+}
+
 halt_write() {
   local halt_file="$1" latch_file="$2" cause="$3" detail="$4"
-  printf '%s\tcause=%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$cause" "$detail" > "$halt_file"
+  # boot= is what makes the halt scoped to the machine's current life. Read back
+  # by halt_drop_if_pre_boot: a halt from a previous boot cannot still be true,
+  # because every cause recorded here is process or kernel state.
+  printf '%s\tcause=%s\tboot=%s\t%s\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$cause" "$(current_boot_epoch)" "$detail" > "$halt_file"
   # The latch outlives a manual `rm` of the marker and is cleared only by a real
   # link cycle, an accepted clear, or cluster-join. It is what makes the halt
   # more than a file someone can delete (see halt_clear_accepted).
