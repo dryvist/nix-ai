@@ -91,6 +91,11 @@ def record_cycle_failure(reason: str, max_consecutive: int) -> int:
     # A give-up is a resolved outcome, not an ongoing one: the next legitimate
     # trigger deserves its own fresh budget rather than starting pre-exhausted.
     clear_failure_streak()
+    # CAVEAT for anything that ever reads this process's exit status directly
+    # (not just launchd): 0 here does NOT mean warmup succeeded, only that it
+    # stopped trying. Something wiring monitoring to "warmup exited 0 ->
+    # healthy" would misread a give-up as a good outcome; the loud stderr
+    # lines above are what actually distinguishes the two.
     return 0
 
 
