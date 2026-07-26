@@ -101,20 +101,8 @@ let
   # with no backports while unstable kept moving (currently v211). See nix-ai#801.
   llamaSwapPkg = nixpkgs-unstable.legacyPackages.${pkgs.stdenv.hostPlatform.system}.llama-swap;
 
-  # Proxy launcher — reaps orphaned mlx_lm.server workers, then execs llama-swap.
-  # A worker outliving its proxy keeps its engine port bound, which makes every
-  # subsequent start fail on bind and 429 forever; reaping on the way up is what
-  # keeps a restart an actual remedy. Rationale in llama-swap-launch.sh.
-  llamaSwapLaunchPkg = pkgs.writeShellApplication {
-    name = "llama-swap-launch";
-    # No procps: pgrep/pkill are called by absolute path (see the script) —
-    # Darwin's procps ships only ps/sysctl/top/watch.
-    runtimeInputs = [
-      llamaSwapPkg
-      pkgs.coreutils
-    ];
-    text = builtins.readFile ./scripts/llama-swap-launch.sh;
-  };
+  # Proxy launcher — split to llama-swap-launch-pkg.nix (12KB gate).
+  llamaSwapLaunchPkg = import ./llama-swap-launch-pkg.nix { inherit pkgs lib llamaSwapPkg; };
 
   apiUrl = "http://${cfg.host}:${toString cfg.port}/v1";
   launchAgentLabel = "dev.mlx-model-server";

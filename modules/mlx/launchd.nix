@@ -20,9 +20,16 @@ let
     mlxWarmupPkg
     llamaSwapLaunchPkg
     llamaSwapConfigFile
+    llamaSwapConfigAttrs
     llamaSwapRuntimeConfigPath
     modelServerProcessPattern
+    allModels
     ;
+  # Worker ports llama-swap could hand out to a model in the CURRENT config —
+  # an overestimate under programs.mlx.singleModel is safe (a few extra ports
+  # get scanned and come back empty), an underestimate would not be. See
+  # scripts/llama-swap-reap.sh for what these protect and why.
+  workerPortCount = builtins.length (builtins.attrNames allModels);
 in
 {
   config = lib.mkIf cfg.enable {
@@ -77,6 +84,12 @@ in
             EnvironmentVariables = {
               HF_HOME = cfg.huggingFaceHome;
               MLX_MODEL_SERVER_PROCESS_PATTERN = modelServerProcessPattern;
+              # Consumed by llama-swap-launch's port-ownership reap (see
+              # scripts/llama-swap-reap.sh) — NOT the process pattern above,
+              # which that reap no longer trusts.
+              MLX_PORT = toString cfg.port;
+              MLX_WORKER_PORT_RANGE_START = toString llamaSwapConfigAttrs.startPort;
+              MLX_WORKER_PORT_COUNT = toString workerPortCount;
             }
             // lib.optionalAttrs cfg.telemetry.enable {
               # Standard OTel env vars inherited by llama-swap and mlx_lm.server children.
