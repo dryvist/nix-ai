@@ -52,6 +52,10 @@ in
   CLUSTER_LINK_REPAIR = if ncfg.linkRepair then "1" else "0";
   CLUSTER_LINK_ACTIVATE_TIMEOUT_SECS = toString ncfg.linkRepairActivateTimeoutSecs;
   CLUSTER_LINK_DOWN_STRIKES = toString downStrikes;
+  # Shared wall-clock start boundary for BOTH ranks. Derived from the tick so the
+  # two cannot drift, and a multiple (never equal) so ticks either side of a
+  # boundary still map to the same one. See cluster-link-guards.sh.
+  CLUSTER_RANK_START_ALIGN_SECS = toString (ncfg.tickIntervalSecs * ncfg.rankStartAlignMultiple);
 }
 // lib.optionalAttrs isCoordinator {
   # Readiness probe target: launchctl liveness alone cannot see a rank hung in

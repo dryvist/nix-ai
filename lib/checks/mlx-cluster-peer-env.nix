@@ -83,5 +83,9 @@ in
         "CLUSTER_SERVER_PLIST"
       ]
       || throw "cluster: peer-liveness must be able to page AND restore standalone serving, or a confirmed wedge just sits there";
+    assert
+      watcherEnv ? CLUSTER_RANK_START_ALIGN_SECS
+      && pkgs.lib.toInt watcherEnv.CLUSTER_RANK_START_ALIGN_SECS > watcher.StartInterval
+      || throw "cluster: the shared rank-start boundary must be strictly greater than the watcher tick, or ticks either side of a boundary map to different boundaries and the two ranks never start together";
     helpers.mkMarker "check-mlx-cluster-peer-env" "MLX peer-liveness env contract: rendezvous port, busy-stall cap, progress log, endpoint/model agreement with the watcher, every threshold arriving from options, and the page+restore wiring verified";
 }
