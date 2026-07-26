@@ -54,16 +54,18 @@
       pattern =
         hmConfig.config.launchd.agents.mlx-model-server.config.EnvironmentVariables.MLX_MODEL_SERVER_PROCESS_PATTERN;
     in
-    pkgs.runCommand "check-mlx-model-server-pattern-matches-launcher" {
-      nativeBuildInputs = [ pkgs.gnugrep ];
-      MLX_MODEL_SERVER_PATTERN = pattern;
-      MLX_LM_SERVER_EXE = "${mlxLmServerExe}/bin/mlx-lm-server";
-    } ''
-      # `&&`, never `;`. With a semicolon `touch $out` runs even when the test
-      # exits non-zero, so the derivation succeeds and the check can never
-      # fail — a guard that always passes is worse than no guard, because it
-      # reports coverage it does not have. That is the same silent-no-op shape
-      # this very check exists to catch.
-      bash ${src}/tests/test-mlx-model-server-pattern.sh && touch $out
-    '';
+    pkgs.runCommand "check-mlx-model-server-pattern-matches-launcher"
+      {
+        nativeBuildInputs = [ pkgs.gnugrep ];
+        MLX_MODEL_SERVER_PATTERN = pattern;
+        MLX_LM_SERVER_EXE = "${mlxLmServerExe}/bin/mlx-lm-server";
+      }
+      ''
+        # `&&`, never `;`. With a semicolon `touch $out` runs even when the test
+        # exits non-zero, so the derivation succeeds and the check can never
+        # fail — a guard that always passes is worse than no guard, because it
+        # reports coverage it does not have. That is the same silent-no-op shape
+        # this very check exists to catch.
+        bash ${src}/tests/test-mlx-model-server-pattern.sh && touch $out
+      '';
 }
