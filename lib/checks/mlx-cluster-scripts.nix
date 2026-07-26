@@ -47,6 +47,21 @@ in
     GUARDS = "${src}/modules/mlx/scripts/cluster-link-guards.sh";
   } "bash ${src}/tests/test-rank-start-guards.sh && touch $out";
 
+  # Boot scoping of the halt marker, split out of the rank-guards test at the 12KB
+  # file cap. Unit-tests the halt helpers directly: a halt from a previous boot is
+  # dropped (else a cold boot can never form the cluster), a halt from THIS boot
+  # stands (the PD guard must not weaken), an unreadable boot time fails closed,
+  # and operator prose in the detail text cannot spoof the boot field.
+  mlx-cluster-halt-boot-scope = pkgs.runCommand "check-mlx-cluster-halt-boot-scope" {
+    nativeBuildInputs = [
+      pkgs.coreutils
+      pkgs.gnugrep
+      pkgs.gnused
+      pkgs.gawk
+    ];
+    HELPERS = "${src}/modules/mlx/scripts/cluster-link-helpers.sh";
+  } "bash ${src}/tests/test-halt-boot-scope.sh && touch $out";
+
   # Builds the three CONCATENATED cluster scripts for real. Nothing else does:
   # `nix flake check` only evaluates packages, and the repo-wide shellcheck check
   # lints each fragment on its own. Only an actual build runs

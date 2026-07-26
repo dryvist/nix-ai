@@ -62,36 +62,17 @@ let
   staticPeerIp = if isCoordinator then ncfg.staticLinkIps.worker else ncfg.staticLinkIps.coordinator;
   staticSelfIp = if isCoordinator then ncfg.staticLinkIps.coordinator else ncfg.staticLinkIps.worker;
 
-  clusterRankArgs = [
-    "${pkgs.uv}/bin/uvx"
-    # Pin the CPython minor so the coordinator and worker ranks resolve the same
-    # mlx ABI (single-source uvPythonVersion; see modules/mlx/default.nix).
-    "--python"
-    uvPythonVersion
-    "--from"
-    "mlx-lm==${versions.mlxLm}"
-    # mlx + mlx-lm are a lockstep pair (lib/versions.nix): pin mlx explicitly
-    # like the normal-mode stack does, instead of riding mlx-lm's transitive
-    # floor — otherwise the two ranks can resolve an mlx never validated here.
-    "--with"
-    "mlx==${versions.mlx}"
-    "--with"
-    "transformers==${versions.transformers}"
-    "mlx_lm.server"
-    "--model"
-    ncfg.model
-    "--host"
-    "127.0.0.1"
-    "--port"
-    (toString ncfg.httpPort)
-  ]
-  # Tensor parallelism is the mlx-lm default and emits no flag; --pipeline opts
-  # OUT of it and only glm4_moe/glm4_moe_lite implement it (see shardingMode).
-  # The two mlx_lm predicates, verbatim:
-  #   has_pipelining      = hasattr(model, "model") and hasattr(model.model, "pipeline")
-  #   has_tensor_parallel = hasattr(model, "shard")
-  ++ lib.optional (ncfg.shardingMode == "pipeline") "--pipeline"
-  ++ ncfg.extraServerArgs;
+  # Rank server argv lives in ./cluster-rank-args.nix (split out for the
+  # per-file byte cap), same pattern as ./cluster-cli-env.nix below.
+  clusterRankArgs = import ./cluster-rank-args.nix {
+    inherit
+      lib
+      pkgs
+      ncfg
+      uvPythonVersion
+      versions
+      ;
+  };
 
   # Thin wrapper in front of the rank: discovers the RDMA device, writes the
   # ibv matrix, execs clusterRankArgs. Everything else stays baked at eval.
@@ -204,20 +185,8 @@ in
   };
 
   config = lib.mkIf (cfg.enable && ncfg.enable) {
-    assertions = [
-      {
-        assertion = ncfg.httpPort != cfg.port && ncfg.rendezvousPort != cfg.port;
-        message = "programs.mlx.clusterMode: cluster ports must not clash with the normal-mode proxy port.";
-      }
-      {
-        assertion = ncfg.httpPort != ncfg.rendezvousPort;
-        message = "programs.mlx.clusterMode: httpPort and rendezvousPort must differ or the service cannot bind.";
-      }
-      {
-        assertion = ncfg.rankStartAlignMultiple >= 2;
-        message = "programs.mlx.clusterMode: rankStartAlignMultiple must be >= 2. The shared rank-start boundary only aligns two hosts when its period EXCEEDS the watcher tick; at exactly one tick, hosts whose ticks fall either side of a boundary map to different boundaries and the cluster never forms.";
-      }
-    ];
+    # Invariants live in ./cluster-assertions.nix (split out for the byte cap).
+    assertions = import ./cluster-assertions.nix { inherit ncfg cfg; };
 
     # Lifecycle commands on PATH on both nodes (one-click cluster bring-up /
     # safe-unplug over the watcher). Shipped only when clusterMode is enabled.
