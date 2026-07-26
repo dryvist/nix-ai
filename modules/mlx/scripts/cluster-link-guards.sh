@@ -68,20 +68,13 @@ repair_link_prep() {
   return 1
 }
 
-# Is rank 0 actually listening on the JACCL rendezvous port? A plain TCP connect,
-# because that is precisely what mx.distributed.init() does next — and when the
-# answer is "no", init burns a protection domain to find out.
-#
-# Bounded by coreutils `timeout`, not by nc's own flags: Apple's nc takes -w but
-# applies it to idle reads, NOT to connect setup — measured 2026-07-25, a
-# blackholed SYN with `-w 2` still took 75s (the kernel's SYN budget), while
-# `timeout 2 nc -z` returned at 2.01s. A probe that can outlive the 30s watcher
-# tick is not a probe. Verified on macOS the same day: listening -> rc 0,
-# closed port -> rc 1 in 4ms, blackhole -> rc 124 at the bound.
-peer_rendezvous_listening() {
-  local host="$1" port="$2" secs="${3:-2}"
-  timeout "$secs" /usr/bin/nc -z "$host" "$port" > /dev/null 2>&1
-}
+# A "is rank 0 listening?" rendezvous probe used to live here and gate every
+# worker rank start. It was removed 2026-07-25: the gate was the reason the
+# cluster never formed unattended. Waiting for rank 0 to listen guarantees the
+# worker reaches distributed init ~20-30s later than the coordinator, which is
+# far outside jaccl's fixed ~15s connect budget, so the coordinator has always
+# exited by the time the worker dials. Ranks are now aligned to a shared start
+# boundary instead of ordered — see rung 2 below.
 
 # Everything that must hold before a rank start is allowed to CONSUME a start
 # attempt. Nonzero return = do not start, do not count it.
@@ -106,16 +99,36 @@ rank_start_preconditions_ok() {
     fi
     return 1
   fi
-  # 2. WORKER ONLY: rank 0 must already be listening. The coordinator has no
-  #    such precondition — it is the one that must come up first, and gating it
-  #    on the worker would deadlock the cluster into mutual waiting.
-  if [ "$CLUSTER_ROLE" != "coordinator" ]; then
-    if ! peer_rendezvous_listening "$CLUSTER_STATIC_PEER_IP" \
-      "${CLUSTER_RENDEZVOUS_PORT:?CLUSTER_RENDEZVOUS_PORT is required}" \
-      "${CLUSTER_PEER_PROBE_TIMEOUT_SECS:-2}"; then
-      PRECONDITION_REASON="peer-rendezvous-absent"
-      echo "cluster-link: rank 0 is not listening on $CLUSTER_STATIC_PEER_IP:$CLUSTER_RENDEZVOUS_PORT; waiting for the coordinator (NOT starting the rank, no attempt consumed)"
-      return 1
+  # 2. BOTH ROLES: hold until the next shared wall-clock start boundary, so the
+  #    two ranks reach distributed init together.
+  #
+  #    This replaced a worker-only "rank 0 must already be listening" gate, which
+  #    was the direct cause of the cluster never forming unattended. jaccl's
+  #    client connect budget is hardcoded at ~15s (backoff 1s, 2s, 4s, 8s); the
+  #    library exposes no knob to raise it — the only variables it reads are the
+  #    coordinator address, ibv device list, rank index, and ring flag. But a
+  #    rank needs ~20-30s of dependency resolution, interpreter start and mlx
+  #    import before it reaches distributed init. So a worker that started the
+  #    moment it saw rank 0 listening arrived ~20-30s late, by which point the
+  #    coordinator had exhausted its own wait and exited, and the worker dialled
+  #    a dead port: errno 60, ETIMEDOUT. Waiting for the coordinator GUARANTEED
+  #    the worker was too late. Measured 2026-07-25 — sequential starts oscillate
+  #    (ranks alternate, never overlap) and both die within ~6 min, while
+  #    starting both in the same second held 200+s and served real tokens.
+  #
+  #    Alignment, not ordering, is what makes this work: there is no leader to
+  #    wait for. Both hosts compute the same boundary from an NTP-synced clock
+  #    and sleep to it, so they fire within about a second of each other.
+  #
+  #    The period MUST exceed the tick (enforced by the >= 2 multiple in
+  #    rankStartAlignMultiple). At exactly one tick, two hosts whose ticks fall
+  #    either side of a boundary map to different boundaries and never converge.
+  align="${CLUSTER_RANK_START_ALIGN_SECS:-0}"
+  if [ "$align" -gt 0 ]; then
+    remainder=$(( $(date +%s) % align ))
+    if [ "$remainder" -ne 0 ]; then
+      echo "cluster-link: holding $((align - remainder))s for the shared rank-start boundary (both ranks must reach rendezvous inside jaccl's fixed connect budget)"
+      sleep "$((align - remainder))"
     fi
   fi
   # 3. Never start a rank over a standalone-sized ceiling: a shard wiring out

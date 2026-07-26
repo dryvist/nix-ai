@@ -43,6 +43,18 @@
       '';
     };
 
+    rankStartAlignMultiple = lib.mkOption {
+      type = lib.types.int;
+      default = 2;
+      description = ''
+        Multiple of tickIntervalSecs giving the shared wall-clock start boundary
+        for BOTH ranks, exported as CLUSTER_RANK_START_ALIGN_SECS. Must be at
+        least 2; see the cluster-link-guards notes for why the period must
+        exceed the tick and why both ranks start together instead of the worker
+        waiting for rank 0.
+      '';
+    };
+
     peerRendezvousProbeTimeoutSecs = lib.mkOption {
       type = lib.types.int;
       default = 2;

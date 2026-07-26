@@ -209,6 +209,10 @@ in
         assertion = ncfg.httpPort != ncfg.rendezvousPort;
         message = "programs.mlx.clusterMode: httpPort and rendezvousPort must differ or the service cannot bind.";
       }
+      {
+        assertion = ncfg.rankStartAlignMultiple >= 2;
+        message = "programs.mlx.clusterMode: rankStartAlignMultiple must be >= 2. The shared rank-start boundary only aligns two hosts when its period EXCEEDS the watcher tick; at exactly one tick, hosts whose ticks fall either side of a boundary map to different boundaries and the cluster never forms.";
+      }
     ];
 
     # Lifecycle commands on PATH on both nodes (one-click cluster bring-up /
