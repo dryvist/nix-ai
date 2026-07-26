@@ -256,4 +256,28 @@ check "clear accepted, then the rank starts" start "$VERDICT"
 check "attempt counter was reset by the accepted clear" 1 "$(kicks_now)"
 check "latch cleared" missing "$([ -f "$latch_file" ] && echo latched || echo missing)"
 
+echo "a halt from BEFORE this boot is stale and dropped:"
+# Every cause a halt records is process/kernel state that a reboot clears. Left in
+# place the marker outlives the machine and cold-boot formation is impossible —
+# the defect that hid behind every test clearing markers by hand first.
+reset_state
+halt_write "$halt_file" "$latch_file" rank-start-failures "3 consecutive failed rank starts"
+check "halt exists to begin with" latched "$([ -f "$halt_file" ] && echo latched || echo missing)"
+# Year 2000 is unambiguously before any boot of this machine, and avoids
+# depending on whether PATH's date is BSD (-r epoch) or GNU (-d @epoch).
+touch -t 200001010000 "$halt_file" "$latch_file"
+halt_drop_if_pre_boot "$halt_file" "$latch_file" "$kicks_file" > /dev/null
+check "stale halt dropped" missing "$([ -f "$halt_file" ] && echo latched || echo missing)"
+check "stale latch dropped" missing "$([ -f "$latch_file" ] && echo latched || echo missing)"
+tick
+check "and the rank may start again" start "$VERDICT"
+
+echo "a halt from THIS boot still stands (PD guard not weakened):"
+reset_state
+halt_write "$halt_file" "$latch_file" rank-start-failures "3 consecutive failed rank starts"
+halt_drop_if_pre_boot "$halt_file" "$latch_file" "$kicks_file" > /dev/null
+check "current-boot halt kept" latched "$([ -f "$halt_file" ] && echo latched || echo missing)"
+tick
+check "and the tick stays halted" halted "$VERDICT"
+
 exit "$fail"

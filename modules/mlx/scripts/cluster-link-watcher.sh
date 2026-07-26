@@ -273,7 +273,8 @@ if [ "$cur" = "up" ]; then
         fi
       fi
     fi
-  elif [ -f "$halt_file" ]; then
+  elif halt_drop_if_pre_boot "$halt_file" "$halt_latch_file" "$kicks_file" &&
+    [ -f "$halt_file" ]; then
     : # halted — no more PD-burning retries until the link cycles
   elif [ -f "$halt_latch_file" ] &&
     ! halt_clear_accepted "$halt_file" "$halt_latch_file" "$kicks_file"; then

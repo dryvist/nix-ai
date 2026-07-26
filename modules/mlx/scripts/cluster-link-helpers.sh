@@ -78,6 +78,44 @@ alert_record() {
 # whichever one did it.
 #
 # $1 halt marker, $2 latch, $3 cause token, $4 free-text detail.
+# Drop a halt that was recorded before the current boot.
+#
+# Every cause a halt can record is process or kernel state: exhausted RDMA
+# protection domains, a wedged rank process, a precondition that was failing at
+# the time. None of it survives a reboot — and the project's own doctrine is that
+# PD exhaustion is reboot-only to clear. So a halt written before this boot is
+# stale by construction.
+#
+# Without this, a cold boot can never form the cluster: the marker and its latch
+# outlive the machine, the watcher takes the halted branch forever, and only a
+# link cycle or a human clears it. That was masked for a long time because every
+# test cleared the marker by hand first, which quietly made "unattended
+# formation" untested.
+#
+# This is not a bypass. rank_start_preconditions_ok still runs before any start,
+# so a cause that really does still hold re-halts on its own evidence. All this
+# removes is a dead generation's verdict outliving the generation.
+halt_drop_if_pre_boot() {
+  local halt_file="$1" latch_file="$2" kicks_file="$3" boot mtime f
+  # Anchored on purpose. kern.boottime reads
+  #   { sec = 1785031601, usec = 233215 } Sat Jul 25 22:06:41 2026
+  # so an unanchored `.*sec = ` matches through "usec = " and captures the
+  # MICROSECONDS instead. That yields a tiny boot value, no marker is ever older
+  # than it, and this guard silently never fires.
+  boot="$(sysctl -n kern.boottime 2> /dev/null | sed -n 's/^{ *sec *= *\([0-9]*\).*/\1/p')"
+  [ -n "$boot" ] || return 0
+  for f in "$halt_file" "$latch_file"; do
+    [ -e "$f" ] || continue
+    mtime="$(/usr/bin/stat -f %m "$f" 2> /dev/null || echo 0)"
+    if [ "$mtime" -lt "$boot" ]; then
+      echo "cluster-link: halt predates this boot (marker=$mtime boot=$boot); dropping it — a reboot clears every cause a halt can record, and keeping it would make cold-boot formation impossible"
+      rm -f "$halt_file" "$latch_file" "$kicks_file"
+      return 0
+    fi
+  done
+  return 0
+}
+
 halt_write() {
   local halt_file="$1" latch_file="$2" cause="$3" detail="$4"
   printf '%s\tcause=%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$cause" "$detail" > "$halt_file"
