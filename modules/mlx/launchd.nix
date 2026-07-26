@@ -45,7 +45,14 @@ in
           enable = true;
           config = {
             Label = launchAgentLabel;
-            ProgramArguments = [
+            # Apple's interpreter, per programs.mlx.appleInterpreter — the same
+            # convention the cluster agents use. This one serves on loopback, so
+            # it is not currently gated on Local Network; it follows the
+            # convention anyway because the estate keeps ONE way of launching a
+            # shell agent rather than two. The moment an agent's traffic leaves
+            # loopback the Nix-shebang form starts failing silently, and by then
+            # nobody remembers which form this file happened to use.
+            ProgramArguments = lib.optional (cfg.appleInterpreter != null) cfg.appleInterpreter ++ [
               (lib.getExe llamaSwapLaunchPkg)
               "--config"
               llamaSwapRuntimeConfigPath
