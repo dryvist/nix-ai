@@ -132,6 +132,16 @@ in
       watcherEnv ? CLUSTER_RANK_SETTLE_SECS
       && builtins.match "[0-9]+" watcherEnv.CLUSTER_RANK_SETTLE_SECS != null
       || throw "cluster: watcher must carry the rank settle window; without it `state = running` clears the PD guard on a rank still inside the jaccl back-off, and the guard retries forever while reporting it is protecting the budget";
+    # The watcher must be launched by Apple's interpreter, not its own Nix
+    # shebang. macOS keys a Local Network grant to the code-signing identity,
+    # and a Nix binary's identity is its content hash — so a Nix shebang here
+    # means the grant dies on every rebuild and the cluster silently stops being
+    # able to probe its peer. Apple's binary is identity-stable, so the agent
+    # needs no grant at all. Regressing this looks like nothing until a cold
+    # boot fails to form the cluster.
+    assert
+      builtins.head watcher.ProgramArguments == "/bin/bash"
+      || throw "cluster: the watcher must be launched via Apple's /bin/bash, not its Nix shebang — a Nix interpreter's TCC identity is its content hash, so its Local Network grant dies on every rebuild and the probe starts returning 'No route to host'";
     # The peer-liveness supervisor's own env contract lives in
     # ./mlx-cluster-peer-env.nix — same fixture, split for the per-file size cap.
     assert

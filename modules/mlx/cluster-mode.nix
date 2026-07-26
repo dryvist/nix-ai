@@ -260,7 +260,13 @@ in
         enable = true;
         config = {
           Label = watcherLabel;
-          ProgramArguments = [ (lib.getExe clusterWatcherPkg) ];
+          # Launched through Apple's interpreter, not the script's Nix shebang,
+          # so the whole chain is Apple-signed and macOS grants it Local Network
+          # unconditionally. See clusterMode.appleInterpreter for why a Nix
+          # shebang here made the cluster unable to self-form.
+          ProgramArguments = lib.optional (
+            ncfg.appleInterpreter != null
+          ) ncfg.appleInterpreter ++ [ (lib.getExe clusterWatcherPkg) ];
           RunAtLoad = true;
           # The convergence quantum. Every seconds-valued watcher threshold is
           # converted into ticks against this one number (see
