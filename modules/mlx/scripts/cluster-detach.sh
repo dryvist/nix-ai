@@ -25,9 +25,10 @@
 # Grants used (nix-darwin sudoers, cluster-ops): `ifconfig en[0-9]* down` to drop
 # the link. launchctl verbs run in the caller's own gui/$uid domain (no sudo).
 #
-# Exit codes: 0 = OK; 3 = OK but reboot recommended before the next join (stale
-# swap, or the rank had to be SIGKILL'd and its wired shard memory likely
-# leaked); 1 = a postcondition failed.
+# Exit codes: 0 = OK; 3 = OK but reboot REQUIRED before the next join (stale
+# swap, or the rank had to be SIGKILL'd — which leaks its RDMA protection domain
+# as well as its wired shard memory, and is recorded as PD debt); 1 = a
+# postcondition failed.
 
 uid="$(id -u)"
 state_dir="$(dirname "$CLUSTER_STATE_FILE")"
@@ -70,13 +71,16 @@ markers_clear() {
   done
   return 0
 }
-# Match the real python server by its venv script PATH (/…/bin/mlx_lm.server),
-# never the bare 'mlx_lm.server' token: uvx carries that same token in its own
-# argv, so an unanchored -f match reports the rank alive after the python child
-# has already exited (a lingering uvx wrapper) and also latches onto unrelated
-# monitoring/bash loops that merely mention the name — both false-positively
-# block detach (INC-17075). The escaped dot keeps it literal, not a wildcard.
-rank_gone() { ! /usr/bin/pgrep -f '/mlx_lm\.server' > /dev/null 2>&1; }
+# rank_process_absent comes from scripts/cluster-rank-proc.sh and matches on
+# CLUSTER_RANK_PROCESS_PATTERN — one definition (modules/mlx/cluster-rank-pattern.nix),
+# derived from the same entry-point string that builds the rank argv. Two inline
+# copies of '/mlx_lm\.server' used to live in this file.
+#
+# It is a POSITIVE proof of absence, not `! pgrep`: pgrep exits 1 for "no match"
+# and 2/127 for "I could not answer", and collapsing those is how an unusable
+# probe reports a node as safe to unplug while a rank still holds its RDMA
+# protection domain.
+rank_gone() { rank_process_absent; }
 ceiling_restored() {
   [ -z "${CLUSTER_WIRED_LIMIT_MB:-}" ] && return 0
   [ "$(/usr/sbin/sysctl -n iogpu.wired_limit_mb 2>/dev/null || echo '')" = "${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}" ]
@@ -102,19 +106,51 @@ while [ "$(date +%s)" -lt "$deadline" ]; do
   sleep 5
 done
 
-# Last resort: a rank still up here ignored SIGTERM (deep native/RDMA wedge).
-# SIGKILL it so the node is at least serving-safe, but warn that its wired shard
-# memory likely leaked and the node needs a reboot before the next join.
+# GRACEFUL FIRST, AND AT THE PROCESS, NOT THE JOB. The SIGTERM above went to the
+# launchd label; an engine that has been re-parented is no longer part of that
+# job, so that signal reached nothing while the process kept its protection
+# domain. rank_reap_verified signals the pids directly and then PROVES they are
+# gone, using the same implementation the link watcher runs before every start —
+# one definition, so the daily unplug and the unattended restart cannot drift
+# into two different ideas of "the rank is gone".
 if ! rank_gone; then
-  echo "cluster-detach: rank ignored SIGTERM; escalating to SIGKILL (wired shard memory may leak)" >&2
+  rank_reap_verified "$timeout" || true
+fi
+
+# LAST RESORT, AND THE ONE AUDITED EXCEPTION. A rank still up here ignored
+# SIGTERM twice (deep native/RDMA wedge). SIGKILL leaves the node serving-safe,
+# but a SIGKILLed rank never runs its RDMA teardown, so it takes TWO things with
+# it:
+#
+#   wired shard memory      — the loss this warning used to name
+#   its protection domain   — the more expensive one, and the reason a reboot
+#                             stops being "recommended" and becomes required
+#
+# So the kill is WRITTEN DOWN, in a boot-scoped ledger, before anything else
+# happens. From that moment this host is one protection domain poorer for the
+# rest of the boot, cluster-join refuses at the cap, and the link watcher halts
+# rank starts BEFORE the kernel runs out instead of after errno 96 proves it did.
+# An unaudited SIGKILL is exactly how the debt used to accumulate invisibly
+# across sessions.
+if ! rank_gone; then
+  echo "cluster-detach: rank ignored SIGTERM; escalating to SIGKILL — this LEAKS its RDMA protection domain (reboot-only recovery) as well as its wired shard memory" >&2
+  pd_debt_record "${CLUSTER_PD_DEBT_FILE:-}" 1 "detach-sigkill" \
+    "rank $CLUSTER_RANK_LABEL ignored SIGTERM for ${timeout}s and was SIGKILLed"
   /bin/launchctl kill SIGKILL "gui/$uid/${CLUSTER_RANK_LABEL}" > /dev/null 2>&1 || true
-  /usr/bin/pkill -9 -f '/mlx_lm\.server' > /dev/null 2>&1 || true
+  # NEVER pkill on an empty pattern: `pkill -f ''` matches every process on the
+  # machine. An unset pattern is a configuration failure, not a licence to kill
+  # the session.
+  if [ -n "${CLUSTER_RANK_PROCESS_PATTERN:-}" ]; then
+    /usr/bin/pkill -9 -f "$CLUSTER_RANK_PROCESS_PATTERN" > /dev/null 2>&1 || true
+  else
+    echo "cluster-detach: WARN CLUSTER_RANK_PROCESS_PATTERN unset; skipped the pattern-based kill (an empty pattern would match every process)" >&2
+  fi
   sleep 3
   rank_gone && sigkilled_rank=1
 fi
 
 markers_clear || note_fail "PD-guard/readiness markers still present in $state_dir"
-rank_gone || note_fail "mlx_lm.server rank process still running"
+rank_gone || note_fail "rank process still running (pattern ${CLUSTER_RANK_PROCESS_PATTERN:-unset})"
 ceiling_restored ||
   note_fail "iogpu.wired_limit_mb=$(/usr/sbin/sysctl -n iogpu.wired_limit_mb 2>/dev/null) != standalone ${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}"
 [ "$failed" -eq 0 ] && echo "cluster-detach: teardown verified (markers clear, rank gone, standalone ceiling restored)"
@@ -172,7 +208,16 @@ ceiling="$(/usr/sbin/sysctl -n iogpu.wired_limit_mb 2>/dev/null || echo '?')"
 
 if [ -n "$port" ]; then link_state="$port down"; else link_state="already down"; fi
 if markers_clear; then markers_state="clear"; else markers_state="PRESENT"; fi
-if rank_gone; then rank_state="stopped"; else rank_state="RUNNING"; fi
+# Three states, because "not proven gone" and "definitely still up" are
+# different operator actions and collapsing them is how an unusable pgrep gets
+# read as safe-to-unplug.
+if rank_gone; then
+  rank_state="stopped"
+elif rank_process_running; then
+  rank_state="RUNNING"
+else
+  rank_state="UNKNOWN (process probe could not answer)"
+fi
 
 echo "======================================================================"
 if [ "$failed" -eq 0 ]; then
@@ -184,6 +229,11 @@ echo "  link       : $link_state"
 echo "  markers    : $markers_state"
 echo "  rank       : $rank_state"
 echo "  wired ceil : iogpu.wired_limit_mb=$ceiling (standalone ${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0})"
+# The number that decides whether this node may join again without a reboot.
+# Reported unconditionally, including when it is 0/N: a debt line that only
+# appears once there is debt is a line nobody learns to look for.
+pd_debt_now="$(pd_debt_count "${CLUSTER_PD_DEBT_FILE:-}")"
+echo "  PD debt    : ${pd_debt_now:-0}/${CLUSTER_PD_DEBT_MAX:-?} leaked this boot (cleared only by a reboot)"
 if [ "$CLUSTER_ROLE" = "coordinator" ]; then
   if [ "$serve_ok" = true ]; then standalone_state="restored"; else standalone_state="NOT-RESTORED"; fi
   echo "  standalone serving: $standalone_state"
@@ -195,8 +245,12 @@ if [ "$failed" -ne 0 ]; then
   exit 1
 fi
 if [ "${sigkilled_rank:-0}" -eq 1 ]; then
-  echo "cluster-detach: WARNING rank was SIGKILL'd -- its wired shard memory likely leaked;" >&2
-  echo "                reboot this node before the next join (leaked wired -> INC-17076 panic risk)." >&2
+  echo "cluster-detach: WARNING rank was SIGKILL'd -- it leaked its RDMA protection domain" >&2
+  echo "                AND its wired shard memory. Recorded as PD debt ${pd_debt_now:-?}/${CLUSTER_PD_DEBT_MAX:-?}" >&2
+  echo "                in ${CLUSTER_PD_DEBT_FILE:-unset}. Reboot this node before the next join:" >&2
+  echo "                a protection domain is returned by nothing else, and leaked wired" >&2
+  echo "                memory is the INC-17076 panic risk. At the cap, cluster-join refuses" >&2
+  echo "                and the link watcher halts rank starts on its own." >&2
   exit 3
 fi
 if [ "$stale_swap" = true ]; then

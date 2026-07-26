@@ -24,8 +24,15 @@
 #          cluster-link-watcher.sh.
 #
 # Usage:
+#   BOOT_SCOPE=/path/to/cluster-boot-scope.sh \
+#   LEDGER=/path/to/cluster-pd-ledger.sh \
 #   HELPERS=/path/to/cluster-link-helpers.sh \
 #   GUARDS=/path/to/cluster-link-guards.sh bash test-rank-start-guards.sh
+#
+# The RDMA protection-domain rungs the guards gained (ledger cap, reap-before-
+# start) have their own file, tests/test-pd-debt.sh. Here they are configured
+# inert — a real ledger path with no debt, and a reap stub that succeeds — so
+# these cases keep testing what they were written to test.
 set -o errexit -o nounset -o pipefail
 
 state_dir="$(mktemp -d)"
@@ -39,10 +46,21 @@ export CLUSTER_ROLE=worker
 export CLUSTER_STATIC_PEER_IP=192.0.2.1
 export CLUSTER_RENDEZVOUS_PORT=11441
 export CLUSTER_STATE_FILE="$state_dir/link-state"
+# Rung 0 refuses outright when the PD guard is not wired up, so these must be
+# present for any other rung to be reachable at all. That refusal is asserted in
+# tests/test-pd-debt.sh; here the guard is simply configured and idle.
+export CLUSTER_PD_DEBT_FILE="$state_dir/pd-debt"
+export CLUSTER_PD_DEBT_MAX=3
+export CLUSTER_RANK_PROCESS_PATTERN='/mlx_lm\.server'
 
-# Sourced in the module's concatenation order: halt_write lives in the helpers
-# (the peer-liveness supervisor sets the same latch), halt_clear_accepted and the
-# preconditions in the guards.
+# Sourced in the module's concatenation order: current_boot_epoch in the boot
+# scope, pd_debt_count in the ledger, halt_write in the helpers (the peer-liveness
+# supervisor sets the same latch), halt_clear_accepted and the preconditions in
+# the guards.
+# shellcheck disable=SC1090
+source "${BOOT_SCOPE:?set BOOT_SCOPE to the path of cluster-boot-scope.sh}"
+# shellcheck disable=SC1090
+source "${LEDGER:?set LEDGER to the path of cluster-pd-ledger.sh}"
 # shellcheck disable=SC1090
 source "${HELPERS:?set HELPERS to the path of cluster-link-helpers.sh}"
 # shellcheck disable=SC1090
@@ -64,6 +82,11 @@ repair_link_prep() {
   return 1
 }
 set_wired_limit() { [ "$ceiling_ok" = 1 ]; }
+# The reap-before-start rung. Stubbed to "no survivor" here; the real function
+# and its fail-closed behaviour are exercised in tests/test-pd-debt.sh, which
+# drives it through the CLUSTER_PGREP_BIN / CLUSTER_KILL_BIN seams.
+reap_ok=1
+rank_reap_verified() { [ "$reap_ok" = 1 ]; }
 date() {
   case "$1" in
     +%s) echo "$align_now" ;;
@@ -118,9 +141,10 @@ check() {
   fi
 }
 reset_state() {
-  rm -f "$halt_file" "$latch_file" "$kicks_file"
+  rm -f "$halt_file" "$latch_file" "$kicks_file" "$CLUSTER_PD_DEBT_FILE"
   link_ok=1
   ceiling_ok=1
+  reap_ok=1
   repairs=0
   slept=0
   align_now=0

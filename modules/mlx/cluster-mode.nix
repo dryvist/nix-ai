@@ -53,6 +53,14 @@ let
   watcherLabel = "dev.mlx-cluster.watcher";
   logDir = "${config.home.homeDirectory}/Library/Logs/mlx-cluster";
   stateFile = "${config.home.homeDirectory}/Library/Application Support/mlx-cluster/link-state";
+  # Ledger of RDMA protection domains leaked during the current boot: written by
+  # cluster-detach when it must SIGKILL, read by the watcher's start guard and by
+  # cluster-join. Defined ONCE, here, because a writer and a reader that each
+  # derive the path are a writer and a reader on different files. Not a "marker":
+  # a link cycle, a manual clear and cluster-join all reset the halt state, and
+  # none of them returns a protection domain — only a reboot does, and the ledger
+  # is boot-scoped so a reboot is exactly what clears it.
+  pdDebtFile = "${config.home.homeDirectory}/Library/Application Support/mlx-cluster/pd-debt";
   # Written by the rank launcher at start (not a nix-managed file — its content
   # depends on which physical Thunderbolt port has the cable).
   ibvMatrixFile = "${config.home.homeDirectory}/Library/Application Support/mlx-cluster/ibv-matrix.json";
@@ -74,6 +82,12 @@ let
       ;
   };
 
+  # Which shell layers each cluster script is assembled from, and why each
+  # consumer gets exactly the layers it calls (shellcheck SC2329 enforces it).
+  # Shared with ./peer-liveness.nix so there is one place that answers "what is
+  # this script made of".
+  scriptLayers = import ./cluster-script-layers.nix;
+
   # Thin wrapper in front of the rank: discovers the RDMA device, writes the
   # ibv matrix, execs clusterRankArgs. Everything else stays baked at eval.
   clusterRankLaunchPkg = pkgs.writeShellApplication {
@@ -91,16 +105,12 @@ let
       pkgs.jq
       pkgs.coreutils
     ];
-    # Function definitions first, then the state machine (split for the per-file
-    # size cap). Concatenation, not sourcing: the helper bodies read `uid` and
-    # the CLUSTER_* env from the watcher's own scope, resolved at call time.
-    text = lib.concatStrings [
-      (builtins.readFile ./scripts/cluster-link-helpers.sh)
-      (builtins.readFile ./scripts/cluster-link-locate.sh)
-      (builtins.readFile ./scripts/cluster-link-repair.sh)
-      (builtins.readFile ./scripts/cluster-link-guards.sh)
-      (builtins.readFile ./scripts/cluster-link-watcher.sh)
-    ];
+    # Function definitions first, then the state machine. Concatenation, not
+    # sourcing: the helper bodies read `uid` and the CLUSTER_* env from the
+    # watcher's own scope, resolved at call time. The layer list — and why each
+    # consumer gets exactly the layers it calls — lives in
+    # ./cluster-script-layers.nix.
+    text = lib.concatStrings (map builtins.readFile scriptLayers.watcher);
   };
 
   # Lifecycle-command builder lives in ./cluster-cli-builder.nix (split out for
@@ -123,6 +133,7 @@ let
       launchAgentLabel
       warmupAgentLabel
       stateFile
+      pdDebtFile
       apiUrl
       modelServerProcessPattern
       ;
@@ -130,19 +141,11 @@ let
 
   # Both lifecycle commands consume the shared link-prep primitives (each used to
   # carry its own copy of iface_holding_self_ip), so each is built from the layers
-  # it uses plus its own body. Each gets EXACTLY the layers it calls:
-  # writeShellApplication runs shellcheck at default severity, so shipping a
-  # function a consumer never invokes fails the build (SC2329) — which is a
-  # useful pressure toward finely-split libraries, not an inconvenience.
-  clusterJoinPkg = mkClusterCli "cluster-join" [
-    ./scripts/cluster-link-locate.sh
-    ./scripts/cluster-link-repair.sh
-    ./scripts/cluster-join.sh
-  ] clusterCliEnv.clusterJoinEnv;
-  clusterDetachPkg = mkClusterCli "cluster-detach" [
-    ./scripts/cluster-link-locate.sh
-    ./scripts/cluster-detach.sh
-  ] clusterCliEnv.clusterDetachEnv;
+  # it uses plus its own body. Those layer sets, and the privilege boundary they
+  # encode between the PD ledger's read and write sides, live in
+  # ./cluster-script-layers.nix.
+  clusterJoinPkg = mkClusterCli "cluster-join" scriptLayers.join clusterCliEnv.clusterJoinEnv;
+  clusterDetachPkg = mkClusterCli "cluster-detach" scriptLayers.detach clusterCliEnv.clusterDetachEnv;
 
   # Watcher env contract lives in ./cluster-watcher-env.nix (split out for the
   # per-file size cap, same as ./cluster-cli-env.nix); it also derives the
@@ -160,6 +163,7 @@ let
       launchAgentLabel
       launchAgentsDir
       stateFile
+      pdDebtFile
       ;
   };
 in

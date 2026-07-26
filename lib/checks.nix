@@ -104,6 +104,7 @@ in
 // (import ./checks/mlx-catalog.nix { inherit pkgs hmConfigCatalog; })
 // (import ./checks/mlx-cluster.nix { inherit pkgs hmConfigCluster src; })
 // (import ./checks/mlx-cluster-peer-env.nix { inherit pkgs hmConfigCluster src; })
+// (import ./checks/mlx-cluster-pd-env.nix { inherit pkgs hmConfigCluster src; })
 // (import ./checks/mlx-cluster-scripts.nix { inherit pkgs hmConfigCluster src; })
 // (import ./checks/fabric.nix {
   inherit

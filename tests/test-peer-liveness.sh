@@ -37,6 +37,7 @@ shebang="#!$BASH"
 # under writeShellApplication's shell flags.
 {
   printf '%s\nset -o errexit -o nounset -o pipefail\n' "$shebang"
+  cat "$script_dir/cluster-boot-scope.sh"
   cat "$script_dir/cluster-link-helpers.sh"
   cat "$script_dir/cluster-peer-observe.sh"
   cat "$script_dir/cluster-peer-liveness.sh"

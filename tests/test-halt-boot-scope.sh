@@ -18,6 +18,7 @@
 #        between writing the halt and evaluating it.
 #
 # Usage:
+#   BOOT_SCOPE=/path/to/cluster-boot-scope.sh \
 #   HELPERS=/path/to/cluster-link-helpers.sh bash test-halt-boot-scope.sh
 set -o errexit -o nounset -o pipefail
 
@@ -30,6 +31,11 @@ kicks_file="$state_dir/rank-kickstarts"
 
 export CLUSTER_STATE_FILE="$state_dir/link-state"
 
+# Sourced in the module's concatenation order: current_boot_epoch lives in the
+# boot-scope layer (shared with the PD ledger, which cluster-detach and
+# cluster-join need without the serving helpers), halt_write in the helpers.
+# shellcheck disable=SC1090
+source "${BOOT_SCOPE:?set BOOT_SCOPE to the path of cluster-boot-scope.sh}"
 # shellcheck disable=SC1090
 source "${HELPERS:?set HELPERS to the path of cluster-link-helpers.sh}"
 

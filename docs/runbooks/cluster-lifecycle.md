@@ -131,6 +131,9 @@ debounce is asymmetric on purpose: "up" is believed at the first reply, "down"
 must be earned, because a false down tears the rank down *and* resets the PD
 guard — a flapping link could otherwise never accumulate toward a halt.
 
+**Leaked protection domains are counted, and only a reboot settles them.** See
+[rdma-protection-domains.md](rdma-protection-domains.md).
+
 **A page that reaches nobody still reaches the log.** Halt alerts log their full
 text on any non-delivery (no pager configured, encode failure, non-200) and
 append it to `alerts-undelivered.log` beside the link-state file.

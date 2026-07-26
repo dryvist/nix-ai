@@ -66,6 +66,32 @@ fail() {
   exit 1
 }
 
+# --- gate: RDMA protection-domain debt --------------------------------------
+# Runs FIRST, before anything destructive. Every later step tears something down —
+# standalone serving is booted out, the wired ceiling is repinned — and a join
+# that gets all the way to a rank start it cannot afford has already cost the
+# host its inference. A leaked protection domain is returned by nothing short of
+# a reboot, so at the cap the honest answer is "reboot", delivered before the
+# damage rather than after errno 96.
+#
+# This ledger is NEVER cleared here. Step 4 below clears the halt latch because a
+# fresh session resets a process-state verdict; it must not touch the ledger,
+# because no amount of restarting returns a kernel resource.
+pd_debt_max="${CLUSTER_PD_DEBT_MAX:-0}"
+case "$pd_debt_max" in
+  '' | *[!0-9]*) pd_debt_max=0 ;;
+esac
+if [ "$pd_debt_max" -gt 0 ]; then
+  pd_debt="$(pd_debt_count "${CLUSTER_PD_DEBT_FILE:-}")"
+  pd_debt="${pd_debt:-0}"
+  if [ "$pd_debt" -ge "$pd_debt_max" ]; then
+    fail "$pd_debt RDMA protection domain(s) leaked this boot (cap $pd_debt_max). \
+Reboot this host before joining — a leaked domain is not recoverable any other way, and \
+starting a rank now spends domains the kernel may no longer have. Ledger: ${CLUSTER_PD_DEBT_FILE:-unset}"
+  fi
+  echo "cluster-join: PD debt $pd_debt/$pd_debt_max this boot"
+fi
+
 # --- step 0: nix generation parity preflight --------------------------------
 # Every node must run the exact same committed system generation before any
 # clustering config begins: mixed generations mean mismatched mlx/JACCL stacks
@@ -228,6 +254,13 @@ fi
 # supervision, i.e. the causes this command owns are actually addressed, so the
 # worker returns to the ordinary "wait for rank 0, spend no attempts" path
 # instead of being re-halted for a coordinator that has not started yet.
+#
+# The KICKSTART budget, and nothing else. The protection-domain ledger is
+# deliberately untouched: consecutive failed starts are a property of the session
+# being abandoned, while a leaked domain is a property of the BOOT. The gate at
+# the top of this script already refused if the ledger is at its cap, so this
+# clear cannot smuggle a start past it — and if the watcher re-halts a tick later
+# with cause pd-debt-exhausted, that is the ledger working, not a stale marker.
 if [ -f "$halt_file" ] || [ -f "$halt_latch_file" ]; then
   rm -f "$halt_file" "$halt_latch_file" "$kicks_file"
   echo "cluster-join: cleared stale rank-halted latch"
@@ -248,11 +281,13 @@ fi
 timeout="${CLUSTER_JOIN_TIMEOUT_SECS:-600}"
 deadline=$(($(date +%s) + timeout))
 
-# Anchor to the venv script PATH (/…/bin/mlx_lm.server): the bare
-# 'mlx_lm.server' token also lives in the uvx wrapper's argv and in monitoring
-# loops, so an unanchored match sees the rank as "up" while the real python
-# child is dead (see cluster-detach.sh rank_gone). Escaped dot = literal.
-rank_pid() { /usr/bin/pgrep -f '/mlx_lm\.server' 2> /dev/null | head -n1; }
+# The rank pattern arrives as CLUSTER_RANK_PROCESS_PATTERN — one definition, in
+# modules/mlx/cluster-rank-pattern.nix, derived from the same entry-point string
+# that builds the rank argv. Three inline copies of '/mlx_lm\.server' used to
+# live in this file; a pattern that stops matching is indistinguishable from
+# "the rank is not up yet", so a stale one turns this wait into a guaranteed
+# timeout and every reap built on it into a silent no-op.
+rank_pid() { rank_process_pids 2> /dev/null | head -n1; }
 
 if [ "$CLUSTER_ROLE" = "coordinator" ]; then
   # Zero completions from join. The watcher fires exactly ONE warm generation
@@ -269,7 +304,7 @@ if [ "$CLUSTER_ROLE" = "coordinator" ]; then
   echo "cluster-join: waiting up to ${timeout}s for the watcher warm generation (rank-warmed)"
   warm_ok=false
   while [ "$(date +%s)" -lt "$deadline" ]; do
-    if /usr/bin/pgrep -f '/mlx_lm\.server' > /dev/null 2>&1 && [ -e "$warm_marker" ]; then
+    if rank_process_running && [ -e "$warm_marker" ]; then
       warm_ok=true
       break
     fi
@@ -286,7 +321,7 @@ else
   stable_ok=false
   while [ "$(date +%s)" -lt "$deadline" ]; do
     if /bin/launchctl print "gui/$uid/${CLUSTER_RANK_LABEL}" 2> /dev/null | /usr/bin/grep -q "state = running" &&
-      /usr/bin/pgrep -f '/mlx_lm\.server' > /dev/null 2>&1; then
+      rank_process_running; then
       [ "$running_since" -eq 0 ] && running_since="$(date +%s)"
       if [ $(($(date +%s) - running_since)) -ge "$stable" ]; then
         stable_ok=true
@@ -304,11 +339,19 @@ fi
 # --- step 6: state summary --------------------------------------------------
 ceiling="$(/usr/sbin/sysctl -n iogpu.wired_limit_mb 2>/dev/null || echo '?')"
 rp="$(rank_pid)"
+# Three states, not two: "no pid" is reported differently depending on whether
+# the probe actually answered. A probe that could not run must never render as
+# the same word as a rank that genuinely is not there.
+if rank_process_absent; then
+  rank_state="none running"
+else
+  rank_state="pid ${rp:-UNKNOWN (process probe could not answer)}"
+fi
 echo "======================================================================"
 echo "cluster-join OK ($CLUSTER_ROLE)"
 echo "  link       : $CLUSTER_STATIC_SELF_IP on $(iface_holding_self_ip) (peer $CLUSTER_STATIC_PEER_IP)"
 echo "  wired ceil : iogpu.wired_limit_mb=$ceiling"
-echo "  rank pid   : ${rp:-none}"
+echo "  rank       : $rank_state"
 if [ "$CLUSTER_ROLE" = "coordinator" ]; then
   echo "  generation : ok (watcher warm-gen consumed; rank-warmed present, no probe by join)"
 else
