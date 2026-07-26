@@ -31,13 +31,15 @@ source "${HELPERS:?set HELPERS to the path of cluster-link-helpers.sh}"
 export CLUSTER_STATIC_PEER_IP=192.168.208.2
 export CLUSTER_RENDEZVOUS_PORT=11441
 
-# The netstat seam: a script whose output we control per case.
-fake_netstat="$state_dir/netstat"
-export CLUSTER_NETSTAT_BIN="$fake_netstat"
-set_netstat() {
-  printf '#!/usr/bin/env bash\ncat <<'\''ROWS'\''\n%s\nROWS\n' "$1" > "$fake_netstat"
-  chmod +x "$fake_netstat"
-}
+# The netstat seam. A shell FUNCTION, not a generated script: the nix build sandbox
+# has no /usr/bin/env, so a shebang stub silently fails to execute and every case
+# reports "absent" — which passes the absent assertions and fails only the present
+# ones. That asymmetry is exactly how this was caught in CI. A function is
+# invoked by name through the same seam and needs no interpreter on disk.
+netstat_rows=""
+fake_netstat() { printf '%s\n' "$netstat_rows"; }
+export CLUSTER_NETSTAT_BIN=fake_netstat
+set_netstat() { netstat_rows="$1"; }
 
 fail=0
 check() {
@@ -92,6 +94,13 @@ export CLUSTER_RENDEZVOUS_PORT="$saved"
 echo "an unreadable netstat reports absent, never a false present:"
 export CLUSTER_NETSTAT_BIN="$state_dir/does-not-exist"
 check "missing netstat binary reports absent" absent "$(present)"
-export CLUSTER_NETSTAT_BIN="$fake_netstat"
+export CLUSTER_NETSTAT_BIN=fake_netstat
+
+echo "the stub itself is exercised (guards against a silently dead stub):"
+# The whole suite would pass vacuously if the stub produced nothing: every case
+# would read "absent", and only the two present-cases would notice. Assert the
+# seam directly so a dead stub fails loudly instead of hiding.
+set_netstat 'tcp4  0  0  192.168.208.1.11441  192.168.208.2.49223  ESTABLISHED'
+check "stub emits the row it was given" 1 "$(fake_netstat -an -p tcp | grep -c ESTABLISHED)"
 
 exit "$fail"
