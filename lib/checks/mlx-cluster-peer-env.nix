@@ -41,6 +41,13 @@ in
     assert
       peer.RunAtLoad == true && peer.StartInterval == 60
       || throw "cluster: peer-liveness must tick from load, slower than the watcher (its expensive step is separately rate-limited)";
+    # Same reasoning as the watcher: launched by Apple's interpreter so its
+    # network access does not depend on a TCC grant that dies with the store
+    # path. This agent's entire job is reaching the peer, so a Nix shebang here
+    # disables it completely and silently.
+    assert
+      builtins.head peer.ProgramArguments == "/bin/bash"
+      || throw "cluster: peer-liveness must be launched via Apple's /bin/bash — its whole job is reaching the peer, and a Nix interpreter's Local Network grant dies on every rebuild";
     assert
       peerEnv.CLUSTER_RENDEZVOUS_PORT == "11441"
       || throw "cluster: peer-liveness needs the rendezvous port — the JACCL session on it is the only no-SSH evidence about the PEER's rank process";

@@ -185,7 +185,12 @@ in
       enable = true;
       config = {
         Label = "dev.mlx-cluster.peer-liveness";
-        ProgramArguments = [ (lib.getExe peerLivenessPkg) ];
+        # Apple's interpreter, not the script's Nix shebang — same reason as the
+        # watcher: it is what lets this agent reach the peer at all. See
+        # clusterMode.appleInterpreter.
+        ProgramArguments = lib.optional (ncfg.appleInterpreter != null) ncfg.appleInterpreter ++ [
+          (lib.getExe peerLivenessPkg)
+        ];
         RunAtLoad = true;
         StartInterval = pcfg.intervalSecs;
         ProcessType = "Background";
