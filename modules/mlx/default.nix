@@ -111,19 +111,8 @@ let
   launchAgentLabel = "dev.mlx-model-server";
   warmupAgentLabel = "dev.mlx-model-server.warmup";
 
-
-  # Derived, not guessed (nix-ai warmup-restart-livelock fix). mlx-warmup.py
-  # shares ONE deadline across every preloaded model (one clock covering the
-  # whole run, not per-model), so the honest ceiling is the documented
-  # single-model load ceiling — cfg.proxy.healthCheckTimeout, sized so a 70GB
-  # model's 20-60s load stays comfortably inside 180s — multiplied by how
-  # many models this host actually has to warm, plus a fixed margin to cover
-  # the completion request and the proxy-readiness poll. A flat guessed
-  # constant here was half of the livelock: the other half, the unbounded
-  # restart, is fixed in mlx-warmup.py itself; lengthening this alone would
-  # not have fixed it.
-  warmupTimeoutSeconds =
-    cfg.proxy.healthCheckTimeout * (lib.max 1 (builtins.length cfg.preload)) + 60;
+  # See ./warmup-timeout.nix for why this is derived rather than guessed.
+  warmupTimeoutSeconds = import ./warmup-timeout.nix cfg lib;
 
   # Single definition of the model-server pgrep pattern, derived from the real
   # launcher — split to model-server-pattern.nix (12KB file-size gate). Its
