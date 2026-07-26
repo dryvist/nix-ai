@@ -62,7 +62,14 @@ in
   mlx-cluster-scripts-build =
     let
       agents = hmConfigCluster.config.launchd.agents;
-      agentExes = map (a: builtins.head agents.${a}.config.ProgramArguments) [
+      # LAST element, not the head: these agents are launched as
+      # `<interpreter> <script>` (clusterMode.appleInterpreter) so that macOS
+      # attributes their network access to Apple's stable, always-permitted
+      # binary rather than to a Nix store path whose TCC identity dies on every
+      # rebuild. The head is therefore /bin/bash, which does not exist in the
+      # Linux build sandbox — and is not what this check is about anyway. What
+      # must build is the SCRIPT.
+      agentExes = map (a: pkgs.lib.last agents.${a}.config.ProgramArguments) [
         "mlx-cluster-watcher"
         # Concatenates the same helpers, so a helper change must build here too.
         "mlx-cluster-peer-liveness"
