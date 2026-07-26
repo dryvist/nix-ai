@@ -289,6 +289,24 @@ check "current-boot halt kept" latched "$([ -f "$halt_file" ] && echo latched ||
 tick
 check "and the tick stays halted" halted "$VERDICT"
 
+echo "an unreadable boot time FAILS CLOSED (keeps the halt):"
+# This is the assertion that was missing when the deployed watcher could not read
+# sysctl at all — /usr/sbin is not on a writeShellApplication's PATH. halt_write
+# then recorded boot='unknown' and every halt was dropped on every tick, silently
+# disabling the PD guard. Whatever the cause, an unknown boot must never drop a
+# halt.
+reset_state
+halt_write "$halt_file" "$latch_file" rank-start-failures "3 consecutive failed rank starts"
+sysctl() { :; } # binary unreachable / no output
+check "sysctl stub yields nothing" "" "$(sysctl -n kern.boottime)"
+check "boot epoch empty when sysctl yields nothing" "" "$(current_boot_epoch)"
+halt_drop_if_pre_boot "$halt_file" "$latch_file" "$kicks_file" > /dev/null
+check "halt KEPT when the boot time is unknown" latched \
+  "$([ -f "$halt_file" ] && echo latched || echo missing)"
+sysctl() { echo "{ sec = $boot_now, usec = 233215 } Sat Jul 25 22:06:41 2026"; }
+check "sysctl stub restored" "$boot_now" \
+  "$(sysctl -n kern.boottime | sed -n 's/^{ *sec *= *\([0-9]*\).*/\1/p')"
+
 echo "detail prose cannot spoof the boot field:"
 # The detail is operator-facing text. A greedy regex would let it decide whether
 # the halt survives, so the field is extracted tab-exactly.
