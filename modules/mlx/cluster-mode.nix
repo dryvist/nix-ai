@@ -89,6 +89,45 @@ let
   ++ lib.optional (ncfg.shardingMode == "pipeline") "--pipeline"
   ++ ncfg.extraServerArgs;
 
+  # The rank's complete launch contract, defined ONCE. Exposed read-only below
+  # so a system-domain consumer (nix-darwin) can place this exact spec as a
+  # LaunchDaemon without restating any of it.
+  #
+  # Why that matters: the rank execs a Python interpreter, and a non-Apple binary
+  # becomes its own responsible process — so the Apple-interpreter convention
+  # that frees the shell agents cannot help it. Measured 2026-07-26, same
+  # interpreter and same peer in three contexts:
+  #
+  #   user LaunchAgent                      No route to host
+  #   system daemon, root                   CONNECTED
+  #   system daemon, UserName = <the user>  CONNECTED
+  #
+  # The exemption follows the DOMAIN, not the uid — so the rank can run in the
+  # system domain as the ordinary user, keeping HF/uv caches and $HOME, and
+  # needs no macOS Local Network grant at all.
+  rankLaunchSpec = {
+    ProgramArguments = [ (lib.getExe clusterRankLaunchPkg) ] ++ clusterRankArgs;
+    EnvironmentVariables = {
+      HF_HOME = cfg.huggingFaceHome;
+      MLX_RANK = if isCoordinator then "0" else "1";
+      MLX_JACCL_COORDINATOR = "${ncfg.staticLinkIps.coordinator}:${toString ncfg.rendezvousPort}";
+      # The launcher rewrites this file from the discovered device and
+      # re-exports the variable; setting it here keeps the contract visible and
+      # gives mlx a valid path if the launcher is bypassed.
+      MLX_IBV_DEVICES = ibvMatrixFile;
+      CLUSTER_IBV_MATRIX_FILE = ibvMatrixFile;
+      CLUSTER_RDMA_DEVICE = ncfg.rdmaDevice;
+    }
+    // lib.optionalAttrs ncfg.fastMetalSync {
+      # Faster GPU/CPU synchronization for distributed decode — and the reason a
+      # GPU failure hangs instead of raising (see fastMetalSync).
+      MLX_METAL_FAST_SYNCH = "1";
+    };
+    StandardOutPath = "${logDir}/cluster-rank.log";
+    StandardErrorPath = "${logDir}/cluster-rank.error.log";
+    Label = rankLabel;
+  };
+
   # Thin wrapper in front of the rank: discovers the RDMA device, writes the
   # ibv matrix, execs clusterRankArgs. Everything else stays baked at eval.
   clusterRankLaunchPkg = pkgs.writeShellApplication {
@@ -185,6 +224,22 @@ in
   # staticLinkIps stays here so the synthetic point-to-point link defaults sit
   # beside the config that consumes them.
   options.programs.mlx.clusterMode = {
+    # Read-only: the rank's complete launch contract, for a system-domain
+    # consumer to place as a LaunchDaemon. Exposed rather than duplicated so
+    # there is exactly one definition of how the rank starts.
+    #
+    # The rank cannot use the Apple-interpreter convention that frees the shell
+    # agents: it execs a Python interpreter, and a non-Apple binary becomes its
+    # own responsible process. A system-domain daemon IS exempt from the Local
+    # Network gate — and the exemption follows the domain, not the uid, so it can
+    # still run as the ordinary user and keep HF/uv caches and $HOME.
+    rankLaunchSpec = lib.mkOption {
+      type = lib.types.attrs;
+      readOnly = true;
+      internal = true;
+      description = "Computed rank launch contract (ProgramArguments, EnvironmentVariables, log paths, Label).";
+    };
+
     staticLinkIps = lib.mkOption {
       type = lib.types.attrsOf lib.types.str;
       default = {
@@ -200,6 +255,8 @@ in
   };
 
   config = lib.mkIf (cfg.enable && ncfg.enable) {
+    programs.mlx.clusterMode.rankLaunchSpec = rankLaunchSpec;
+
     assertions = [
       {
         assertion = ncfg.httpPort != cfg.port && ncfg.rendezvousPort != cfg.port;
@@ -227,28 +284,12 @@ in
         enable = true;
         config = {
           Label = rankLabel;
-          ProgramArguments = [ (lib.getExe clusterRankLaunchPkg) ] ++ clusterRankArgs;
+          inherit (rankLaunchSpec) ProgramArguments EnvironmentVariables;
           RunAtLoad = false;
           KeepAlive = false;
           ThrottleInterval = 60;
           ProcessType = "Interactive";
           AbandonProcessGroup = false;
-          EnvironmentVariables = {
-            HF_HOME = cfg.huggingFaceHome;
-            MLX_RANK = if isCoordinator then "0" else "1";
-            MLX_JACCL_COORDINATOR = "${ncfg.staticLinkIps.coordinator}:${toString ncfg.rendezvousPort}";
-            # The launcher rewrites this file from the discovered device and
-            # re-exports the variable; setting it here keeps the contract
-            # visible and gives mlx a valid path if the launcher is bypassed.
-            MLX_IBV_DEVICES = ibvMatrixFile;
-            CLUSTER_IBV_MATRIX_FILE = ibvMatrixFile;
-            CLUSTER_RDMA_DEVICE = ncfg.rdmaDevice;
-          }
-          // lib.optionalAttrs ncfg.fastMetalSync {
-            # Faster GPU/CPU synchronization for distributed decode — and the
-            # reason a GPU failure hangs instead of raising (see fastMetalSync).
-            MLX_METAL_FAST_SYNCH = "1";
-          };
           StandardOutPath = "${logDir}/cluster-rank.log";
           StandardErrorPath = "${logDir}/cluster-rank.error.log";
         };
