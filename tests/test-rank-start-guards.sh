@@ -142,6 +142,12 @@ check "set_wired_limit true under the ceiling" 0 "$(set_wired_limit && echo 0 ||
 ceiling_ok=0
 check "set_wired_limit false when the ceiling is refused" 1 \
   "$(set_wired_limit && echo 0 || echo 1)"
+align_now=4242
+check "date +%s returns the stubbed clock" 4242 "$(date +%s)"
+check "date passes other formats to the real binary" ok \
+  "$(date -u +%Y > /dev/null && echo ok || echo broken)"
+sleep 7
+check "sleep records instead of sleeping" 7 "$slept"
 # repair_link_prep always reports failure (the stub models a repair that did not
 # take), and must count the attempt. Called in this shell so the counter sticks.
 reset_state
