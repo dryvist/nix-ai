@@ -256,19 +256,28 @@ check "clear accepted, then the rank starts" start "$VERDICT"
 check "attempt counter was reset by the accepted clear" 1 "$(kicks_now)"
 check "latch cleared" missing "$([ -f "$latch_file" ] && echo latched || echo missing)"
 
-echo "a halt from BEFORE this boot is stale and dropped:"
+echo "boot scoping of the halt marker:"
 # Every cause a halt records is process/kernel state that a reboot clears. Left in
 # place the marker outlives the machine and cold-boot formation is impossible —
 # the defect that hid behind every test clearing markers by hand first.
+#
+# `sysctl` is stubbed for the same reason the other macOS wrappers are: the Linux
+# CI runner has no kern.boottime. Stubbing it also lets a reboot be simulated
+# exactly, by changing the reported boot between writing and evaluating the halt.
+boot_now=1785031601
+sysctl() { echo "{ sec = $boot_now, usec = 233215 } Sat Jul 25 22:06:41 2026"; }
+check "sysctl stub reports a boottime line" 1785031601 \
+  "$(sysctl -n kern.boottime | sed -n 's/^{ *sec *= *\([0-9]*\).*/\1/p')"
+check "boot epoch parsed, not the usec field" 1785031601 "$(current_boot_epoch)"
+
 reset_state
 halt_write "$halt_file" "$latch_file" rank-start-failures "3 consecutive failed rank starts"
-check "halt exists to begin with" latched "$([ -f "$halt_file" ] && echo latched || echo missing)"
-# Year 2000 is unambiguously before any boot of this machine, and avoids
-# depending on whether PATH's date is BSD (-r epoch) or GNU (-d @epoch).
-touch -t 200001010000 "$halt_file" "$latch_file"
+check "halt records the boot it was written under" 1785031601 \
+  "$(awk -F'\t' '{for (i=1;i<=NF;i++) if ($i ~ /^boot=/) {sub(/^boot=/,"",$i); print $i; exit}}' "$halt_file")"
+boot_now=1785099999 # simulate a reboot
 halt_drop_if_pre_boot "$halt_file" "$latch_file" "$kicks_file" > /dev/null
-check "stale halt dropped" missing "$([ -f "$halt_file" ] && echo latched || echo missing)"
-check "stale latch dropped" missing "$([ -f "$latch_file" ] && echo latched || echo missing)"
+check "halt from a previous boot dropped" missing "$([ -f "$halt_file" ] && echo latched || echo missing)"
+check "its latch dropped too" missing "$([ -f "$latch_file" ] && echo latched || echo missing)"
 tick
 check "and the rank may start again" start "$VERDICT"
 
@@ -279,5 +288,16 @@ halt_drop_if_pre_boot "$halt_file" "$latch_file" "$kicks_file" > /dev/null
 check "current-boot halt kept" latched "$([ -f "$halt_file" ] && echo latched || echo missing)"
 tick
 check "and the tick stays halted" halted "$VERDICT"
+
+echo "detail prose cannot spoof the boot field:"
+# The detail is operator-facing text. A greedy regex would let it decide whether
+# the halt survives, so the field is extracted tab-exactly.
+reset_state
+boot_now=1785031601 # halt is written under THIS boot...
+halt_write "$halt_file" "$latch_file" rank-start-failures "peer said boot=1785099999 which must not be believed"
+boot_now=1785099999 # ...and the machine then reboots to the value the prose claims
+halt_drop_if_pre_boot "$halt_file" "$latch_file" "$kicks_file" > /dev/null
+check "dropped on the real field despite matching prose" missing \
+  "$([ -f "$halt_file" ] && echo latched || echo missing)"
 
 exit "$fail"
