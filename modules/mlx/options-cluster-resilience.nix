@@ -43,6 +43,22 @@
       '';
     };
 
+    peerSessionStrikes = lib.mkOption {
+      type = lib.types.ints.positive;
+      default = 3;
+      description = ''
+        Consecutive ticks the peer's JACCL rendezvous session must be absent,
+        while this rank is running and settled, before this rank is stood down
+        so the pair re-arms together (exported as CLUSTER_PEER_SESSION_STRIKES).
+
+        A jaccl group cannot re-admit a rank, so a rank whose peer has gone can
+        never generate again — it must not be left running. Absence is an
+        accepted trigger because session persistence across a full generation is
+        measured, not assumed; see peer_rendezvous_session. Strikes rather than a
+        single tick so one missed sample cannot tear down a healthy pair.
+      '';
+    };
+
     rankStartAlignMultiple = lib.mkOption {
       type = lib.types.int;
       default = 2;

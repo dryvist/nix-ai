@@ -136,6 +136,37 @@ halt_drop_if_pre_boot() {
   return 0
 }
 
+# Direct evidence about the PEER's rank process, with no SSH between the nodes:
+# the JACCL rendezvous is a TCP session between the two ranks, so its presence is
+# observable from either end with netstat alone. Rank 0 binds
+# CLUSTER_RENDEZVOUS_PORT on the coordinator's link address and rank 1 dials it,
+# so the ESTABLISHED row carries the peer IP and that port whichever side looks —
+# one predicate serves both roles.
+#
+# Lives HERE, not in cluster-peer-observe.sh, because both the link watcher and
+# the peer-liveness supervisor concatenate this file and both now need it. One
+# definition, no drift.
+#
+# PERSISTENCE IS MEASURED, not assumed: sampling every 2s across a 1000-token /
+# 38.9s generation on the live cluster, 24 of 24 samples showed the session
+# ESTABLISHED and 0 showed it absent. So ABSENCE is actionable. PRESENCE still
+# proves only that a socket is open — a wedged rank holds it exactly as a healthy
+# one does.
+#
+# netstat prints the port BEFORE the state:
+#   tcp4  0  0  192.168.208.1.11441  192.168.208.2.49223  ESTABLISHED
+# so a naive `grep 'ESTABLISHED.*\.11441'` matches nothing and reports a healthy
+# cluster as dead. The awk below is order-independent on purpose. netstat is in
+# /usr/sbin, which is NOT on a writeShellApplication PATH, so the default is an
+# absolute path (same trap that disabled the PD guard via sysctl).
+peer_rendezvous_session() {
+  [ -n "${CLUSTER_RENDEZVOUS_PORT:-}" ] || return 1
+  "${CLUSTER_NETSTAT_BIN:-/usr/sbin/netstat}" -an -p tcp 2> /dev/null |
+    awk -v ip="${CLUSTER_STATIC_PEER_IP}" -v port=".${CLUSTER_RENDEZVOUS_PORT}" '
+      /ESTABLISHED/ && index($0, ip) && index($0, port) { found = 1 }
+      END { exit(found ? 0 : 1) }'
+}
+
 halt_write() {
   local halt_file="$1" latch_file="$2" cause="$3" detail="$4"
   # boot= is what makes the halt scoped to the machine's current life. Read back

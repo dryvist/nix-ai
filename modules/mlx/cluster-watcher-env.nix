@@ -56,6 +56,12 @@ in
   # two cannot drift, and a multiple (never equal) so ticks either side of a
   # boundary still map to the same one. See cluster-link-guards.sh.
   CLUSTER_RANK_START_ALIGN_SECS = toString (ncfg.tickIntervalSecs * ncfg.rankStartAlignMultiple);
+  # Pair-wide standdown: how many consecutive ticks the peer's rendezvous session
+  # must be absent before this rank stands down so both re-arm together.
+  CLUSTER_PEER_SESSION_STRIKES = toString ncfg.peerSessionStrikes;
+  # netstat path is a test seam; production absolute path, because /usr/sbin is
+  # not on a writeShellApplication PATH.
+  CLUSTER_NETSTAT_BIN = "/usr/sbin/netstat";
 }
 // lib.optionalAttrs isCoordinator {
   # Readiness probe target: launchctl liveness alone cannot see a rank hung in
