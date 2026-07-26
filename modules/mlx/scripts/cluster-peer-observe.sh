@@ -67,13 +67,29 @@ peer_reachable() {
 # session that is PRESENT proves only that a socket is open — a wedged rank
 # holds it exactly as a healthy one does.
 #
-# ponytail: classification only, deliberately. Whether JACCL keeps this session
-# open for the life of the run or drops it after bootstrap is UNVERIFIED here
-# (confirming it needs the live cluster), and a wrong assumption would kill
-# healthy ranks. So token progress stays the sole teardown authority and this
-# only decides which cause the page names. Promote it to a trigger — which
-# would cut dead-peer detection from ~15 minutes to one tick — once a converge
-# has shown the session persists across a full generation.
+# GATE SATISFIED 2026-07-26 — persistence is now MEASURED, not assumed.
+#
+# This was classification-only pending evidence that JACCL keeps the session open
+# for the life of the run rather than dropping it after bootstrap, because a wrong
+# assumption here kills healthy ranks mid-generation. Measured on the live
+# cluster, sampling every 2s across a 1000-token / 38.9s generation: 24 of 24
+# samples showed the session ESTABLISHED, 0 showed it absent.
+#
+# So this MAY now be promoted to a teardown trigger, which cuts dead-peer
+# detection from ~15 minutes to one tick and is the basis for a pair-wide
+# standdown (a halt on one rank should stand the other down instead of leaving it
+# waiting in distributed init). Not yet wired up — token progress is still the
+# sole teardown authority until that change lands with its own tests.
+#
+# Caution for whoever wires it: a session that is PRESENT still proves only that a
+# socket is open — a wedged rank holds it exactly as a healthy one does. Only
+# ABSENCE is now actionable.
+#
+# When sampling this by hand, note that netstat prints the port BEFORE the state:
+#   tcp4  0  0  192.168.208.1.11441  192.168.208.2.49223  ESTABLISHED
+# so a naive `grep 'ESTABLISHED.*\.11441'` matches nothing and reports a healthy
+# cluster as dead. That false negative nearly inverted the conclusion above. The
+# awk below is order-independent on purpose.
 peer_rendezvous_session() {
   [ -n "${CLUSTER_RENDEZVOUS_PORT:-}" ] || return 1
   "${CLUSTER_NETSTAT_BIN:-/usr/sbin/netstat}" -an -p tcp 2> /dev/null |
