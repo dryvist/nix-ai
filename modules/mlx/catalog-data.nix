@@ -32,7 +32,7 @@ in
     };
   };
 
-  # Small on-demand summarizer. The screenpipe hourly-obsidian pipe requests
+  # Small on-demand summarizer. An hourly note-capture pipe requests
   # this exact physical id ("mlx-community/Qwen3.5-9B-MLX-4bit"); registering it
   # swap-class (no roles -> compiles to a llama-swap models.<id> entry keyed by
   # the physical id) lets that request route without evicting a resident. Weights
