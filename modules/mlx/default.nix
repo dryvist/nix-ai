@@ -110,27 +110,12 @@ let
   apiUrl = "http://${cfg.host}:${toString cfg.port}/v1";
   launchAgentLabel = "dev.mlx-model-server";
   warmupAgentLabel = "dev.mlx-model-server.warmup";
-  # mlx-lm value is DERIVED from mlxLmServer.launchScriptBasename (the same
-  # path reference that builds the actual launcher), never a hand-typed
-  # literal — a literal is exactly what silently drifted from the real
-  # invocation after #1368 (see mlx-lm-server.nix). NO leading "/" anchor:
-  # unlike the old pattern's venv-installed console script
-  # (".../bin/mlx_lm.server", a real "/" before the name), this script is a
-  # bare Nix store path interpolation — its argv is
-  # ".../store/<hash>-mlx-lm-launch.py", where the character immediately
-  # before the basename is the store naming convention's "-", never "/".
-  # Confirmed live (verified against a real running worker, not just this
-  # reasoning) that a leading "/" anchor never matches; see the PR description
-  # for the exact pgrep proof. A bare substring match is safe here — this
-  # name is never typed as a naked CLI argument anywhere in this codebase (the
-  # thing the old anchor actually guarded against for cluster mode's
-  # `uvx ... mlx_lm.server` invocation), only ever a path suffix.
-  modelServerProcessPattern =
-    {
-      mlx-lm = lib.escapeRegex mlxLmServer.launchScriptBasename;
-      vllm-mlx = "vllm-mlx serve";
-    }
-    .${cfg.modelServerBackend};
+  # Single definition of the model-server pgrep pattern, derived from the real
+  # launcher — split to model-server-pattern.nix (12KB file-size gate). Its
+  # header carries the measured evidence for why it is derived and unanchored.
+  inherit (import ./model-server-pattern.nix { inherit lib cfg mlxLmServer; })
+    modelServerProcessPattern
+    ;
 
   # Shared per-backend env — split to worker-env.nix (12KB file-size gate).
   inherit (import ./worker-env.nix { inherit lib cfg; }) workerEnv;
