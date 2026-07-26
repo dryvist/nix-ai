@@ -60,8 +60,10 @@ let
   '';
 
   # Official mlx_lm.server wrapper with the in-process L2 memory limit —
-  # split to mlx-lm-server.nix for the 12 KB file-size gate.
-  mlxLmServerPkg = import ./mlx-lm-server.nix {
+  # split to mlx-lm-server.nix for the 12 KB file-size gate. Also carries
+  # launchScriptBasename, the single source modelServerProcessPattern.mlx-lm
+  # derives from below.
+  mlxLmServer = import ./mlx-lm-server.nix {
     inherit
       pkgs
       lib
@@ -72,6 +74,7 @@ let
       transformersPin
       ;
   };
+  mlxLmServerPkg = mlxLmServer.pkg;
   mlxModelServerPkg =
     {
       mlx-lm = mlxLmServerPkg;
@@ -107,9 +110,24 @@ let
   apiUrl = "http://${cfg.host}:${toString cfg.port}/v1";
   launchAgentLabel = "dev.mlx-model-server";
   warmupAgentLabel = "dev.mlx-model-server.warmup";
+  # mlx-lm value is DERIVED from mlxLmServer.launchScriptBasename (the same
+  # path reference that builds the actual launcher), never a hand-typed
+  # literal — a literal is exactly what silently drifted from the real
+  # invocation after #1368 (see mlx-lm-server.nix). NO leading "/" anchor:
+  # unlike the old pattern's venv-installed console script
+  # (".../bin/mlx_lm.server", a real "/" before the name), this script is a
+  # bare Nix store path interpolation — its argv is
+  # ".../store/<hash>-mlx-lm-launch.py", where the character immediately
+  # before the basename is the store naming convention's "-", never "/".
+  # Confirmed live (verified against a real running worker, not just this
+  # reasoning) that a leading "/" anchor never matches; see the PR description
+  # for the exact pgrep proof. A bare substring match is safe here — this
+  # name is never typed as a naked CLI argument anywhere in this codebase (the
+  # thing the old anchor actually guarded against for cluster mode's
+  # `uvx ... mlx_lm.server` invocation), only ever a path suffix.
   modelServerProcessPattern =
     {
-      mlx-lm = "/mlx_lm\\.server";
+      mlx-lm = lib.escapeRegex mlxLmServer.launchScriptBasename;
       vllm-mlx = "vllm-mlx serve";
     }
     .${cfg.modelServerBackend};

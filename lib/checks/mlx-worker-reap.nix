@@ -1,6 +1,14 @@
 # Worker-port reap checks.
 #
-# Two checks, same shape as mlx-cluster-scripts.nix's build+behavior split:
+# mlx-model-server-pattern-matches-launcher is the regression guard for the
+# root cause, not just the symptom: modelServerProcessPattern.mlx-lm
+# (default.nix) is now derived from mlxLmServer.launchScriptBasename
+# (mlx-lm-server.nix) instead of a hand-typed literal -- a hand-typed literal
+# is exactly what silently drifted from the real invocation once #1368
+# introduced mlx-lm-launch.py. This check proves the derivation actually
+# lands where it must: grepping the pattern against the REAL built
+# mlx-lm-server launcher script (tests/test-mlx-model-server-pattern.sh).
+#
 #   mlx-worker-port-reap-build — forces a real build of the llama-swap-launch
 #     exe, the only thing that runs writeShellApplication's checkPhase (bash
 #     -n + shellcheck at DEFAULT severity — stricter than the repo-wide
@@ -37,4 +45,25 @@
       pkgs.gnugrep
     ];
   } "bash ${src}/tests/test-worker-port-reap.sh && touch $out";
+
+  mlx-model-server-pattern-matches-launcher =
+    let
+      mlxLmServerExe = pkgs.lib.findFirst (
+        p: (p.name or "") == "mlx-lm-server"
+      ) null hmConfig.config.home.packages;
+      pattern =
+        hmConfig.config.launchd.agents.mlx-model-server.config.EnvironmentVariables.MLX_MODEL_SERVER_PROCESS_PATTERN;
+    in
+    pkgs.runCommand "check-mlx-model-server-pattern-matches-launcher" {
+      nativeBuildInputs = [ pkgs.gnugrep ];
+      MLX_MODEL_SERVER_PATTERN = pattern;
+      MLX_LM_SERVER_EXE = "${mlxLmServerExe}/bin/mlx-lm-server";
+    } ''
+      # `&&`, never `;`. With a semicolon `touch $out` runs even when the test
+      # exits non-zero, so the derivation succeeds and the check can never
+      # fail — a guard that always passes is worse than no guard, because it
+      # reports coverage it does not have. That is the same silent-no-op shape
+      # this very check exists to catch.
+      bash ${src}/tests/test-mlx-model-server-pattern.sh && touch $out
+    '';
 }
