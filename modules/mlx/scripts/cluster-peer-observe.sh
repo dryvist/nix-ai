@@ -55,48 +55,10 @@ peer_reachable() {
   "${CLUSTER_PING_BIN:-/sbin/ping}" -c 3 -t 2 -q "${CLUSTER_STATIC_PEER_IP}" > /dev/null 2>&1
 }
 
-# Direct evidence about the PEER's rank process, with no SSH between the nodes:
-# the JACCL rendezvous is a TCP session between the two ranks, so its presence
-# is observable from either end with netstat alone. Rank 0 binds
-# CLUSTER_RENDEZVOUS_PORT on the coordinator's link address and rank 1 dials
-# it, so the ESTABLISHED row carries the peer IP and that port whichever side
-# looks — one predicate serves both roles.
-#
-# Read the ASYMMETRY carefully, because it is the whole point. A session that
-# is GONE while the cable is still in means the peer's rank process is gone. A
-# session that is PRESENT proves only that a socket is open — a wedged rank
-# holds it exactly as a healthy one does.
-#
-# GATE SATISFIED 2026-07-26 — persistence is now MEASURED, not assumed.
-#
-# This was classification-only pending evidence that JACCL keeps the session open
-# for the life of the run rather than dropping it after bootstrap, because a wrong
-# assumption here kills healthy ranks mid-generation. Measured on the live
-# cluster, sampling every 2s across a 1000-token / 38.9s generation: 24 of 24
-# samples showed the session ESTABLISHED, 0 showed it absent.
-#
-# So this MAY now be promoted to a teardown trigger, which cuts dead-peer
-# detection from ~15 minutes to one tick and is the basis for a pair-wide
-# standdown (a halt on one rank should stand the other down instead of leaving it
-# waiting in distributed init). Not yet wired up — token progress is still the
-# sole teardown authority until that change lands with its own tests.
-#
-# Caution for whoever wires it: a session that is PRESENT still proves only that a
-# socket is open — a wedged rank holds it exactly as a healthy one does. Only
-# ABSENCE is now actionable.
-#
-# When sampling this by hand, note that netstat prints the port BEFORE the state:
-#   tcp4  0  0  192.168.208.1.11441  192.168.208.2.49223  ESTABLISHED
-# so a naive `grep 'ESTABLISHED.*\.11441'` matches nothing and reports a healthy
-# cluster as dead. That false negative nearly inverted the conclusion above. The
-# awk below is order-independent on purpose.
-peer_rendezvous_session() {
-  [ -n "${CLUSTER_RENDEZVOUS_PORT:-}" ] || return 1
-  "${CLUSTER_NETSTAT_BIN:-/usr/sbin/netstat}" -an -p tcp 2> /dev/null |
-    awk -v ip="${CLUSTER_STATIC_PEER_IP}" -v port=".${CLUSTER_RENDEZVOUS_PORT}" '
-      /ESTABLISHED/ && index($0, ip) && index($0, port) { found = 1 }
-      END { exit(found ? 0 : 1) }'
-}
+# peer_rendezvous_session moved to cluster-link-helpers.sh, which both this
+# supervisor and the link watcher concatenate — the watcher now needs it too, and
+# one definition beats two that can drift. Persistence across a full generation is
+# measured there.
 
 # A request is in flight when something holds an ESTABLISHED connection on the
 # endpoint port. Probing then is how a HEALTHY busy rank gets killed:

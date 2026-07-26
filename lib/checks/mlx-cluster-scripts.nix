@@ -62,6 +62,22 @@ in
     HELPERS = "${src}/modules/mlx/scripts/cluster-link-helpers.sh";
   } "bash ${src}/tests/test-halt-boot-scope.sh && touch $out";
 
+  # The predicate the pair-wide standdown trusts. Absence of the peer's rendezvous
+  # session tears this rank down, so a false negative kills a healthy rank
+  # mid-generation. Pins the case an ad-hoc probe got wrong in practice: netstat
+  # prints the port BEFORE the state, so a `grep 'ESTABLISHED.*\.PORT'` matches
+  # nothing and reports a serving cluster as dead. Also pins CLOSE_WAIT as absent,
+  # which is what a SIGKILLed peer leaves behind.
+  mlx-cluster-peer-rendezvous = pkgs.runCommand "check-mlx-cluster-peer-rendezvous" {
+    nativeBuildInputs = [
+      pkgs.coreutils
+      pkgs.gnugrep
+      pkgs.gnused
+      pkgs.gawk
+    ];
+    HELPERS = "${src}/modules/mlx/scripts/cluster-link-helpers.sh";
+  } "bash ${src}/tests/test-peer-rendezvous-session.sh && touch $out";
+
   # Builds the three CONCATENATED cluster scripts for real. Nothing else does:
   # `nix flake check` only evaluates packages, and the repo-wide shellcheck check
   # lints each fragment on its own. Only an actual build runs

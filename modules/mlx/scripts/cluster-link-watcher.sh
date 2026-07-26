@@ -63,6 +63,9 @@ ready_file="$state_dir/rank-ready"
 warm_file="$state_dir/rank-warmed"
 warm_fails_file="$state_dir/rank-warm-failures"
 down_strikes_file="$state_dir/link-down-strikes"
+# Consecutive ticks the PEER's rendezvous session has been absent while this
+# rank is running and settled. Drives the pair-wide standdown below.
+peer_session_strikes_file="$state_dir/peer-session-strikes"
 # Consecutive ticks the probe has failed while the link was ALREADY down. Used
 # only to make a permanently-failing probe audible on a cadence — see the
 # else-branch of the probe below.
@@ -172,6 +175,48 @@ if [ "$cur" = "up" ]; then
     if [ "$settled_at" -gt 0 ] &&
       [ "$(($(date +%s) - settled_at))" -ge "${CLUSTER_RANK_SETTLE_SECS:-60}" ]; then
       rm -f "$kicks_file" "$halt_file" "$halt_latch_file"
+    fi
+    # PAIR-WIDE STANDDOWN. A jaccl group cannot re-admit a rank, so a rank whose
+    # peer has gone can never generate again — yet nothing here noticed. Measured
+    # 2026-07-26: killing the worker left the coordinator's process alive and
+    # answering /v1/models while every request hung to timeout with zero bytes,
+    # and the restarted worker could not rejoin (errno 60). Separately, a worker
+    # that halts on its own leaves the coordinator waiting in distributed init
+    # until the ~1800s load grace expires, then restarting into the same wait.
+    # Both are the same defect: one rank holding state its peer abandoned.
+    #
+    # Absence of the rendezvous session is now an accepted trigger — its
+    # persistence across a full generation is MEASURED (see
+    # peer_rendezvous_session in cluster-link-helpers.sh), which is what the old
+    # classification-only gate was waiting for. Strikes, not one tick, because a
+    # single missed sample must not tear down a healthy pair.
+    if [ -f "$started_file" ]; then
+      settle="$(/usr/bin/stat -f %m "$started_file" 2> /dev/null || echo 0)"
+      if [ "$settle" -gt 0 ] &&
+        [ "$(($(date +%s) - settle))" -ge "${CLUSTER_RANK_SETTLE_SECS:-60}" ]; then
+        if peer_rendezvous_session; then
+          rm -f "$peer_session_strikes_file"
+        else
+          # Same read idiom as the link-down strikes above; read_int lives in
+          # cluster-peer-observe.sh, which the watcher does not concatenate.
+          strikes=0
+          [ -f "$peer_session_strikes_file" ] && strikes="$(cat "$peer_session_strikes_file")"
+          strikes=$((strikes + 1))
+          printf '%s\n' "$strikes" > "$peer_session_strikes_file"
+          echo "cluster-link: peer rendezvous session ABSENT ($strikes/${CLUSTER_PEER_SESSION_STRIKES:-3})"
+          if [ "$strikes" -ge "${CLUSTER_PEER_SESSION_STRIKES:-3}" ]; then
+            echo "cluster-link: peer rank is gone; standing this rank down so the pair re-arms together (a jaccl group cannot re-admit a rank)"
+            launchctl kill SIGTERM "gui/$uid/$CLUSTER_RANK_LABEL" 2> /dev/null || true
+            rm -f "$started_file" "$ready_file" "$warm_file" "$peer_session_strikes_file"
+            if [ -n "${CLUSTER_WIRED_LIMIT_MB:-}" ]; then
+              set_wired_limit "${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}" || true
+            fi
+            restore_normal_serving || true
+            alert "$(hostname -s): peer rank vanished; this rank was stood down and the host restored to standalone serving so both sides re-arm on the same start boundary." \
+              "mlx-cluster pair-wide standdown"
+          fi
+        fi
+      fi
     fi
     # Readiness probe (coordinator): launchctl "running" cannot see a rank
     # that hung inside distributed init or the model load. Until the endpoint
