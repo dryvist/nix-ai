@@ -46,6 +46,29 @@ link_prep_ok() {
   return 0
 }
 
+# The first Thunderbolt port showing carrier, or empty. A FUNCTION, deliberately:
+# this `case` used to sit inline inside the `active="$( ... )"` substitution
+# below, and Apple's bash 3.2 — which launchd uses to start the watcher, see
+# modules/mlx/options-launch.nix — terminates a command substitution at the
+# first `)` of a case PATTERN. Under 3.2 that inline form raised
+# `syntax error near unexpected token 'newline'`, exited 0, and substituted the
+# raw tail of the script as the "device name". bash 5 parses it fine, so it was
+# invisible everywhere except production. Parsed at top level the same `case` is
+# fine in both. tests/bash32-scan.py fails the build if it moves back inside.
+first_carrier_tb_device() {
+  local dev
+  while IFS= read -r dev; do
+    [ -n "$dev" ] || continue
+    case "$(/sbin/ifconfig "$dev" 2> /dev/null)" in
+      *"status: active"*)
+        printf '%s' "$dev"
+        return 0
+        ;;
+    esac
+  done < <(tb_devices)
+  return 1
+}
+
 # Direct, granted link repair for when activation cannot (it can hang on an
 # unrelated activation step, or need a second pass to bring a just-freed port
 # up). Frees every Thunderbolt port from bridge0 and admin-ups it (no address,
@@ -64,11 +87,8 @@ repair_link_direct() {
   done < <(tb_devices)
   # carrier can take a moment after admin-up; retry briefly.
   for _ in 1 2 3 4 5; do
-    active="$(tb_devices | while IFS= read -r dev; do
-      case "$(/sbin/ifconfig "$dev" 2>/dev/null)" in
-        *"status: active"*) echo "$dev"; break ;;
-      esac
-    done)"
+    # `|| true`: no carrier yet is a normal retry, not an errexit abort.
+    active="$(first_carrier_tb_device || true)"
     [ -n "$active" ] && break
     sleep 2
   done
