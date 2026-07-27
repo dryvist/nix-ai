@@ -74,6 +74,13 @@ down_quiet_file="$state_dir/link-down-quiet-ticks"
 # next tick can re-verify the cause before the first retry (see
 # halt_clear_accepted). Cleared only by a real link cycle or an accepted clear.
 halt_latch_file="$state_dir/rank-halt-latched"
+# Ledger of RDMA protection domains this boot has already leaked. Path comes from
+# the module (single definition) — deliberately NOT derived here, because
+# cluster-detach writes it and this agent reads it, and two derivations of one
+# path is how a writer and a reader end up on different files. Deliberately NOT
+# in the marker list either: a link cycle, a manual clear and cluster-join all
+# reset the halt state, and none of them returns a protection domain.
+pd_debt_file="${CLUSTER_PD_DEBT_FILE:-}"
 
 # Link probe, debounced ASYMMETRICALLY — a false "down" is destructive, a false
 # "up" is not. Declaring down tears the rank down, restores standalone serving,
@@ -159,6 +166,19 @@ if [ "$cur" = "up" ]; then
   if launchctl print "gui/$uid/$CLUSTER_RANK_LABEL" 2>/dev/null | grep -q "state = running"; then
     if [ ! -f "$started_file" ]; then
       touch "$started_file"
+    fi
+    # OBSERVATION ONLY — no branch below depends on this.
+    #
+    # launchd owns the JOB, not necessarily the engine. The two disagree in both
+    # directions and each direction matters: during the ~20-30s a rank spends
+    # resolving dependencies the job is running before any engine exists, and a
+    # re-parented engine keeps its protection domain long after the job is gone.
+    # Logging the disagreement makes the second case visible as it develops,
+    # instead of only when the start guard later refuses to start over the
+    # survivor. Deliberately inert: a wrong pattern must never be able to tear
+    # down a healthy rank, so it may inform an operator and nothing else.
+    if ! rank_process_running; then
+      echo "cluster-link: NOTE launchd reports $CLUSTER_RANK_LABEL running but no engine process matches '${CLUSTER_RANK_PROCESS_PATTERN:-unset}' (normal briefly at start; persistent = the pattern or the launcher changed)"
     fi
     # `state = running` is NOT evidence the rank started. mlx_lm.server reaches
     # it immediately and then sits in the jaccl connect back-off (2s+4s+8s)
@@ -319,8 +339,15 @@ if [ "$cur" = "up" ]; then
       fi
     fi
   elif halt_drop_if_pre_boot "$halt_file" "$halt_latch_file" "$kicks_file" &&
+    pd_debt_halt_if_exhausted "$halt_file" "$halt_latch_file" "$pd_debt_file" &&
     [ -f "$halt_file" ]; then
-    : # halted — no more PD-burning retries until the link cycles
+    # Halted — no more PD-burning retries until the link cycles.
+    #
+    # Order matters and is the point: halt_drop_if_pre_boot first, so a reboot
+    # really does clear a stale verdict, then the ledger re-halts if THIS boot
+    # has already lost domains. Both are boot-scoped off the same field, so a
+    # reboot lifts both and nothing else does.
+    :
   elif [ -f "$halt_latch_file" ] &&
     ! halt_clear_accepted "$halt_file" "$halt_latch_file" "$kicks_file"; then
     : # cleared by hand while the cause persists — re-halted, logged, no retry
@@ -331,6 +358,18 @@ if [ "$cur" = "up" ]; then
       echo "cluster-link: rank failed $kicks consecutive starts; HALTING kickstarts (RDMA PD guard); restoring normal serving"
       halt_write "$halt_file" "$halt_latch_file" "rank-start-failures" \
         "$kicks consecutive failed rank starts"
+      # THE LEAK IS NOW WRITTEN DOWN, not just halted on. Every one of those
+      # $kicks failed distributed inits leaked a protection domain — that is the
+      # entire reason this counter exists. Until now the loss lived only in the
+      # counter, and the counter is SESSION-scoped: a link cycle, a settled rank
+      # or a cluster-join resets it, so the next session started again from a
+      # full budget of $kicks while the kernel had already lost that many
+      # domains. Repeat a few times and the host reaches "reboot or nothing"
+      # with every guard still reporting green. The ledger is boot-scoped, so
+      # this debt now survives every one of those resets and only a reboot
+      # settles it.
+      pd_debt_record "$pd_debt_file" "$kicks" "rank-start-failures" \
+        "$kicks consecutive failed distributed inits, one protection domain each"
       # Every attempt was preceded by quiesce_normal_serving, which boots the
       # standalone model server out. Halting without undoing that leaves the
       # host serving NOTHING for as long as the link stays up, because the only

@@ -18,8 +18,14 @@
   launchAgentLabel,
   launchAgentsDir,
   stateFile,
+  pdDebtFile,
 }:
 let
+  # The CLUSTER RANK process pattern. Single definition, derived from the same
+  # entry-point string that builds the rank argv — see ./cluster-rank-pattern.nix
+  # for why this is NOT modelServerProcessPattern and must never become it.
+  inherit (import ./cluster-rank-pattern.nix { inherit lib; }) clusterRankProcessPattern;
+
   # The link-down settle window in the unit the watcher actually counts in:
   # consecutive failed probes. Rounded UP (integer ceil) with a floor of one, so
   # a settle window shorter than one tick still means "one confirming probe"
@@ -62,6 +68,36 @@ in
   # netstat path is a test seam; production absolute path, because /usr/sbin is
   # not on a writeShellApplication PATH.
   CLUSTER_NETSTAT_BIN = "/usr/sbin/netstat";
+  # --- RDMA protection-domain guard, proactive half --------------------------
+  # The pattern that finds a SURVIVING rank before a new one is started. Without
+  # it rank_start_preconditions_ok refuses outright: a guard that cannot see the
+  # process it guards against must not pretend the coast is clear.
+  CLUSTER_RANK_PROCESS_PATTERN = clusterRankProcessPattern;
+  # pgrep/kill live in /usr/bin and /bin, neither of which is on a
+  # writeShellApplication PATH. Absolute, and test seams, like CLUSTER_NETSTAT_BIN.
+  CLUSTER_PGREP_BIN = "/usr/bin/pgrep";
+  CLUSTER_KILL_BIN = "/bin/kill";
+  # How long a surviving rank gets to honour SIGTERM before the reap gives up and
+  # the start is refused. Derived from the tick because the reap runs INSIDE one:
+  # a grace longer than the convergence quantum would have a tick still reaping
+  # when the next one is due. Same rule as every other seconds-valued watcher
+  # threshold here — expressed against the one number, never configured twice.
+  CLUSTER_RANK_REAP_GRACE_SECS = toString ncfg.tickIntervalSecs;
+  # The ledger of protection domains this boot has already leaked, and the cap at
+  # which rank starts halt.
+  #
+  # The cap is maxKickstarts BY DERIVATION, not by coincidence of shape. That
+  # option's meaning is "how many protection-domain-leaking events this host will
+  # tolerate before it refuses to start a rank" — each failed rank start leaks
+  # exactly one domain, which is the entire reason the kickstart counter exists.
+  # A SIGKILLed rank leaks exactly one domain too. Same resource, same budget, so
+  # raising one raises the other and neither can drift into permitting more leaks
+  # than the operator agreed to. They differ only in reset semantics, and
+  # deliberately: kickstarts are consecutive-and-reset-on-success because a
+  # successful start proves the previous failures are over, while debt is
+  # cumulative-per-boot because nothing short of a reboot returns a domain.
+  CLUSTER_PD_DEBT_FILE = pdDebtFile;
+  CLUSTER_PD_DEBT_MAX = toString ncfg.maxKickstarts;
 }
 // lib.optionalAttrs isCoordinator {
   # Readiness probe target: launchctl liveness alone cannot see a rank hung in

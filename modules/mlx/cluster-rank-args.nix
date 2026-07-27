@@ -12,6 +12,12 @@
   uvPythonVersion,
   versions,
 }:
+let
+  # The uvx target, shared with ./cluster-rank-pattern.nix so the pgrep pattern
+  # that finds this process is derived from the same string that launches it. A
+  # literal here and a literal there is how a reap silently stops matching.
+  inherit (import ./cluster-rank-pattern.nix { inherit lib; }) rankEntryPoint;
+in
 [
   "${pkgs.uv}/bin/uvx"
   # Pin the CPython minor so the coordinator and worker ranks resolve the same
@@ -27,7 +33,7 @@
   "mlx==${versions.mlx}"
   "--with"
   "transformers==${versions.transformers}"
-  "mlx_lm.server"
+  rankEntryPoint
   "--model"
   ncfg.model
   "--host"

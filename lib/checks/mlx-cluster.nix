@@ -25,6 +25,7 @@ let
       launchAgentLabel = "dev.test.server";
       launchAgentsDir = "/tmp/LaunchAgents";
       stateFile = "/tmp/link-state";
+      pdDebtFile = "/tmp/pd-debt";
       ncfg = {
         role = "worker";
         maxKickstarts = 3;

@@ -45,7 +45,32 @@ in
     ];
     HELPERS = "${src}/modules/mlx/scripts/cluster-link-helpers.sh";
     GUARDS = "${src}/modules/mlx/scripts/cluster-link-guards.sh";
+    BOOT_SCOPE = "${src}/modules/mlx/scripts/cluster-boot-scope.sh";
+    LEDGER = "${src}/modules/mlx/scripts/cluster-pd-ledger.sh";
   } "bash ${src}/tests/test-rank-start-guards.sh && touch $out";
+
+  # THE CHECK THAT FAILS IF RDMA PROTECTION-DOMAIN EXHAUSTION CAN RECUR. Four
+  # properties, against the shipped layers sourced in the module's own
+  # concatenation order: a start is refused while a previous rank survives; both
+  # a SIGKILL and a PD-guard halt are recorded as debt; debt at the cap refuses
+  # and halts; and only a reboot settles the ledger — not a link cycle, not a
+  # by-hand marker delete, not cluster-join. The test header states what is real,
+  # what is stubbed, and why the process probe cannot be the real one here.
+  mlx-cluster-pd-debt = pkgs.runCommand "check-mlx-cluster-pd-debt" {
+    nativeBuildInputs = [
+      pkgs.coreutils
+      pkgs.gnugrep
+      pkgs.gnused
+      pkgs.gawk
+    ];
+    BOOT_SCOPE = "${src}/modules/mlx/scripts/cluster-boot-scope.sh";
+    LEDGER = "${src}/modules/mlx/scripts/cluster-pd-ledger.sh";
+    RECORD = "${src}/modules/mlx/scripts/cluster-pd-record.sh";
+    HELPERS = "${src}/modules/mlx/scripts/cluster-link-helpers.sh";
+    STATUS = "${src}/modules/mlx/scripts/cluster-rank-status.sh";
+    REAP = "${src}/modules/mlx/scripts/cluster-rank-reap.sh";
+    GUARDS = "${src}/modules/mlx/scripts/cluster-link-guards.sh";
+  } "bash ${src}/tests/test-pd-debt.sh && touch $out";
 
   # Boot scoping of the halt marker, split out of the rank-guards test at the 12KB
   # file cap. Unit-tests the halt helpers directly: a halt from a previous boot is
@@ -60,6 +85,7 @@ in
       pkgs.gawk
     ];
     HELPERS = "${src}/modules/mlx/scripts/cluster-link-helpers.sh";
+    BOOT_SCOPE = "${src}/modules/mlx/scripts/cluster-boot-scope.sh";
   } "bash ${src}/tests/test-halt-boot-scope.sh && touch $out";
 
   # The predicate the pair-wide standdown trusts. Absence of the peer's rendezvous

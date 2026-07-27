@@ -88,7 +88,52 @@ repair_link_prep() {
 #
 # Sets PRECONDITION_REASON to a stable cause token for the halt marker.
 rank_start_preconditions_ok() {
+  local pd_max pd_debt
   PRECONDITION_REASON=""
+  # 0. THE LEDGER MUST BE WIRED UP. Rungs 0a and 0b below are the only things
+  #    standing between a leaked protection domain and an unbounded accumulation
+  #    of them, and both are driven entirely by environment this module bakes at
+  #    eval. An absent variable would make them silently inert — which is the
+  #    single most repeated defect in this subsystem's history (a sysctl off the
+  #    sanitized PATH disabled the halt marker; a stale process pattern disabled
+  #    a reap; both reported success throughout). So a missing setting is a
+  #    refusal, not a default. Nothing is launched, so nothing leaks, so no
+  #    attempt is consumed and the next tick retries.
+  if [ -z "${CLUSTER_PD_DEBT_MAX:-}" ] || [ -z "${CLUSTER_PD_DEBT_FILE:-}" ] ||
+    [ -z "${CLUSTER_RANK_PROCESS_PATTERN:-}" ]; then
+    PRECONDITION_REASON="pd-guard-unconfigured"
+    echo "cluster-link: PD guard is not fully configured (need CLUSTER_PD_DEBT_MAX, CLUSTER_PD_DEBT_FILE and CLUSTER_RANK_PROCESS_PATTERN); NOT starting the rank rather than starting one it cannot protect (no attempt consumed)" >&2
+    return 1
+  fi
+  # 0a. PROTECTION-DOMAIN DEBT. Every domain this boot is known to have leaked is
+  #     in the ledger; at the cap the rank does not start. This is the proactive
+  #     half of the guard — the kickstart counter below only reacts once errno 96
+  #     proves the domains are already gone, and by then a reboot is mandatory.
+  pd_max="${CLUSTER_PD_DEBT_MAX}"
+  case "$pd_max" in
+    '' | *[!0-9]*) pd_max=0 ;;
+  esac
+  if [ "$pd_max" -gt 0 ]; then
+    pd_debt="$(pd_debt_count "$CLUSTER_PD_DEBT_FILE")"
+    pd_debt="${pd_debt:-0}"
+    if [ "$pd_debt" -ge "$pd_max" ]; then
+      PRECONDITION_REASON="pd-debt-exhausted"
+      echo "cluster-link: $pd_debt RDMA protection domain(s) leaked this boot (cap $pd_max); NOT starting the rank. Only a reboot returns a leaked domain — clearing markers will not." >&2
+      return 1
+    fi
+  fi
+  # 0b. NO SURVIVING RANK. Never start a rank while another still holds an RDMA
+  #     context. launchd reporting the agent as not running is not evidence: a
+  #     re-parented or SIGKILL-orphaned engine keeps its protection domain, and
+  #     starting a second rank over it is how debt accumulates across restarts.
+  #     rank_reap_verified SIGTERMs a survivor and re-verifies; it returns
+  #     success only when absence is PROVEN, so an unanswerable probe blocks the
+  #     start too. Nothing was launched, so no attempt is consumed.
+  if ! rank_reap_verified; then
+    PRECONDITION_REASON="rank-survivor"
+    echo "cluster-link: a previous rank process could not be confirmed gone; NOT starting the rank (no attempt consumed)" >&2
+    return 1
+  fi
   # 1. This host must hold its own link address. A boot does not guarantee one
   #    (see repair_link_prep): the rank would die with errno 49 EADDRNOTAVAIL.
   if ! link_prep_ok; then
@@ -138,6 +183,51 @@ rank_start_preconditions_ok() {
     echo "cluster-link: wired ceiling not applied; NOT starting the rank (no attempt consumed)"
     return 1
   fi
+  return 0
+}
+
+# HALT BEFORE EXHAUSTION, NOT AFTER.
+#
+# The kickstart counter below is the reactive half of the PD guard: it halts once
+# N distributed inits have already failed, i.e. once N protection domains are
+# already gone and errno 96 is the proof. This is the proactive half. It reads
+# the boot-scoped ledger of domains ALREADY known lost (./cluster-pd-ledger.sh)
+# and halts while there are still domains left to protect.
+#
+# It closes the accumulation path the counter cannot: the counter is
+# SESSION-scoped, so a link cycle, a settled rank or a cluster-join all reset it,
+# and a boot could therefore lose three domains, forget, lose three more, without
+# bound. The ledger is BOOT-scoped, so a reboot — the one event that actually
+# returns a domain — is the only thing that lifts this halt. No second marker
+# scheme: the same boot= field the halt marker already uses is the mechanism.
+#
+# Always returns 0 so it composes into the watcher's existing
+# `halt_drop_if_pre_boot … && [ -f "$halt_file" ]` chain without a new branch.
+# Logs and pages exactly once per halt — it runs on every tick.
+#
+# $1 halt marker, $2 latch, $3 ledger file.
+pd_debt_halt_if_exhausted() {
+  local halt_file="$1" latch_file="$2" debt_file="$3" max debt
+  max="${CLUSTER_PD_DEBT_MAX:-0}"
+  case "$max" in
+    '' | *[!0-9]*) return 0 ;;
+  esac
+  if [ "$max" -le 0 ]; then
+    return 0
+  fi
+  debt="$(pd_debt_count "$debt_file")"
+  debt="${debt:-0}"
+  if [ "$debt" -lt "$max" ]; then
+    return 0
+  fi
+  if [ -f "$halt_file" ]; then
+    return 0
+  fi
+  echo "cluster-link: $debt RDMA protection domain(s) recorded leaked this boot (cap $max); HALTING rank starts before the kernel runs out. A leaked domain is returned only by a reboot." >&2
+  halt_write "$halt_file" "$latch_file" "pd-debt-exhausted" \
+    "$debt protection domain(s) leaked this boot (cap $max); reboot required to return them"
+  alert "$(hostname -s): $debt RDMA protection domain(s) leaked this boot (cap $max). Rank starts are halted BEFORE exhaustion rather than after errno 96. Reboot this host to return the domains — clearing the marker will not, and the guard re-halts on the ledger's own evidence." \
+    "mlx-cluster PD debt exhausted"
   return 0
 }
 

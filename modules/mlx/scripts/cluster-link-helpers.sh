@@ -95,31 +95,11 @@ alert_record() {
 # This is not a bypass. rank_start_preconditions_ok still runs before any start,
 # so a cause that really does still hold re-halts on its own evidence. All this
 # removes is a dead generation's verdict outliving the generation.
-# Seconds since epoch at which this kernel booted, or empty if unavailable.
 #
-# Anchored on purpose. kern.boottime reads
-#   { sec = 1785031601, usec = 233215 } Sat Jul 25 22:06:41 2026
-# so an unanchored `.*sec = ` matches through "usec = " and captures the
-# MICROSECONDS instead — a value so small that nothing ever looks older than it,
-# which silently disables every check built on this.
-current_boot_epoch() {
-  local sysctl_bin
-  # sysctl lives in /usr/sbin, which is NOT on this script's PATH: the module
-  # builds it with writeShellApplication, whose PATH is restricted to
-  # runtimeInputs (curl, jq, coreutils). A bare `sysctl` therefore produced
-  # nothing in the DEPLOYED watcher even though it works in a normal shell, so
-  # halt_write recorded boot='unknown', halt_drop_if_pre_boot saw a mismatch on
-  # EVERY tick, and EVERY halt was dropped — silently disabling the RDMA PD
-  # guard, which is the direct path to protection-domain exhaustion and a
-  # mandatory reboot. Observed live 2026-07-26:
-  #   halt was recorded under boot 'unknown' but this is boot '1785040009'
-  #
-  # Resolved through PATH first so a test can stub it, with the absolute OS path
-  # as the fallback that is what actually applies in production.
-  sysctl_bin="$(command -v sysctl 2> /dev/null || echo /usr/sbin/sysctl)"
-  "$sysctl_bin" -n kern.boottime 2> /dev/null | sed -n 's/^{ *sec *= *\([0-9]*\).*/\1/p'
-}
-
+# current_boot_epoch — the primitive this and halt_write are stamped with — moved
+# to ./cluster-boot-scope.sh, concatenated AHEAD of this file. It went there with
+# the PD ledger because cluster-detach and cluster-join need boot scoping and
+# none of the serving helpers around it.
 halt_drop_if_pre_boot() {
   local halt_file="$1" latch_file="$2" kicks_file="$3" now_boot recorded
   now_boot="$(current_boot_epoch)"

@@ -61,11 +61,11 @@ let
     # rather than sourcing, so every body reads the CLUSTER_* env from the
     # caller's own scope at call time — and so this agent's teardown is
     # byte-identical to the watcher's instead of a second, drifting copy.
-    text = lib.concatStrings [
-      (builtins.readFile ./scripts/cluster-link-helpers.sh)
-      (builtins.readFile ./scripts/cluster-peer-observe.sh)
-      (builtins.readFile ./scripts/cluster-peer-liveness.sh)
-    ];
+    # Layer list in ./cluster-script-layers.nix, shared with cluster-mode.nix so
+    # there is one place that answers "what is this script made of" — and one
+    # place that records why this agent gets boot scoping (its halt marker is
+    # stamped with it) and none of the RDMA protection-domain ledger.
+    text = lib.concatStrings (map builtins.readFile (import ./cluster-script-layers.nix).peerLiveness);
   };
 in
 {

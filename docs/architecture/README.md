@@ -82,3 +82,4 @@ If you find yourself wondering "why does it work this way?", the ADR index is th
 | Runbook | Purpose |
 |---------|---------|
 | [galileo-onboarding.md](../runbooks/galileo-onboarding.md) | Galileo AI observability setup, daily use, denylist management, and kill switches |
+| [rdma-protection-domains.md](../runbooks/rdma-protection-domains.md) | Why a leaked RDMA protection domain needs a reboot, the boot-scoped ledger that counts them, and the guards that halt before exhaustion |
