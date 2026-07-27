@@ -78,15 +78,32 @@ mlx_reap_ports() {
   done
 }
 
+# NO BASH 4 SYNTAX BELOW THIS LINE. This file is concatenated into the
+# llama-swap-launch agent, which launchd starts via Apple's /bin/bash 3.2 (the
+# TCC convention in modules/mlx/options-launch.nix). `mapfile` is a bash 4
+# builtin: under 3.2 it is not "a syntax error you would notice", it is
+# `mapfile: command not found` on stderr followed by an EMPTY array — so the
+# reaper concluded "nothing is holding our ports" every single time and the
+# orphan it exists to kill survived. Confirmed live in
+# ~/Library/Logs/mlx-model-server/server.error.log. PID lists are therefore
+# carried as newline-delimited STRINGS, not arrays: 3.2 also errors on
+# `"${arr[@]}"` / `${#arr[@]}` for an empty array under `set -u`, which
+# writeShellApplication always sets. tests/bash32-scan.py fails the build if
+# either construct comes back.
+
+# Newline-delimited PID list rendered on one line, for a log message.
+mlx_pid_list() {
+  printf '%s' "$1" | tr '\n' ' ' | sed 's/ *$//'
+}
+
 # Every distinct PID currently bound to one of those ports, one per line.
 mlx_port_holders() {
   local lsof_bin="${MLX_LSOF_BIN:-/usr/sbin/lsof}"
-  local -a ports
-  mapfile -t ports < <(mlx_reap_ports)
   local port
-  for port in "${ports[@]}"; do
-    "$lsof_bin" -ti ":${port}" 2>/dev/null || true
-  done | sort -un
+  while IFS= read -r port; do
+    [ -n "$port" ] || continue
+    "$lsof_bin" -ti ":${port}" 2> /dev/null || true
+  done < <(mlx_reap_ports) | sort -un
 }
 
 # Reap everything currently bound to our port block. Returns 0 once clear
@@ -94,33 +111,32 @@ mlx_port_holders() {
 # survived SIGKILL. Never touches a PID outside mlx_reap_ports's block.
 mlx_reap_orphan_ports() {
   local kill_bin="${MLX_KILL_BIN:-/bin/kill}"
-  local -a holders
-  local pid
-  mapfile -t holders < <(mlx_port_holders)
-  [ "${#holders[@]}" -eq 0 ] && return 0
+  local holders pid
+  holders="$(mlx_port_holders)"
+  [ -n "$holders" ] || return 0
 
-  echo "$(date -u +%FT%TZ) llama-swap-launch: reaping orphan(s) holding our ports (pid: ${holders[*]})" >&2
-  for pid in "${holders[@]}"; do
-    "$kill_bin" -TERM "$pid" 2>/dev/null || true
+  echo "$(date -u +%FT%TZ) llama-swap-launch: reaping orphan(s) holding our ports (pid: $(mlx_pid_list "$holders"))" >&2
+  for pid in $holders; do
+    "$kill_bin" -TERM "$pid" 2> /dev/null || true
   done
 
   # Give them a graceful window, then escalate. A wedged engine (the
   # broadcast_shapes batch-scheduler hang) ignores SIGTERM, and it is exactly
   # the case that must not survive into the new proxy's port.
   for _ in $(seq 1 10); do
-    mapfile -t holders < <(mlx_port_holders)
-    [ "${#holders[@]}" -eq 0 ] && return 0
+    holders="$(mlx_port_holders)"
+    [ -n "$holders" ] || return 0
     sleep 1
   done
 
-  echo "$(date -u +%FT%TZ) llama-swap-launch: escalating to SIGKILL (pid: ${holders[*]})" >&2
-  for pid in "${holders[@]}"; do
-    "$kill_bin" -KILL "$pid" 2>/dev/null || true
+  echo "$(date -u +%FT%TZ) llama-swap-launch: escalating to SIGKILL (pid: $(mlx_pid_list "$holders"))" >&2
+  for pid in $holders; do
+    "$kill_bin" -KILL "$pid" 2> /dev/null || true
   done
   sleep 2
 
-  mapfile -t holders < <(mlx_port_holders)
-  [ "${#holders[@]}" -eq 0 ] && return 0
-  echo "$(date -u +%FT%TZ) llama-swap-launch: port(s) still held after SIGKILL (pid: ${holders[*]})" >&2
+  holders="$(mlx_port_holders)"
+  [ -n "$holders" ] || return 0
+  echo "$(date -u +%FT%TZ) llama-swap-launch: port(s) still held after SIGKILL (pid: $(mlx_pid_list "$holders"))" >&2
   return 1
 }
