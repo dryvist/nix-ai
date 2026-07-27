@@ -105,6 +105,7 @@ in
 // (import ./checks/mlx-worker-reap.nix { inherit pkgs hmConfig src; })
 // (import ./checks/mlx-warmup.nix { inherit pkgs src; })
 // (import ./checks/mlx-catalog.nix { inherit pkgs hmConfigCatalog; })
+// (import ./checks/mlx-harmony.nix { inherit pkgs hmConfigCatalog; })
 // (import ./checks/mlx-cluster.nix { inherit pkgs hmConfigCluster src; })
 // (import ./checks/mlx-cluster-peer-env.nix { inherit pkgs hmConfigCluster src; })
 // (import ./checks/mlx-cluster-pd-env.nix { inherit pkgs hmConfigCluster src; })

@@ -4,17 +4,23 @@
 # which sets mx.set_memory_limit + mx.set_cache_limit before serving and then
 # hands off to the server's own argv-parsing entry point. GiB option values
 # become bytes here and are passed in the environment.
+#
+# mlx-lm resolves from the harmony-patched wheel rather than the plain
+# `mlx-lm==<version>` pin: upstream infers no tool parser for gpt-oss, so its
+# harmony tool calls come back as raw markup inside `content` with
+# `tool_calls: null`. See mlx-lm-patch.nix for the defect and the patch.
 {
   pkgs,
   lib,
   cfg,
   uvPythonVersion,
-  mlxLmPin,
+  mlxLmVersion,
   mlxPin,
   transformersPin,
 }:
 let
   gib = 1024 * 1024 * 1024;
+  mlxLmWheel = import ./mlx-lm-patch.nix { inherit pkgs mlxLmVersion; };
 in
 {
   pkg = pkgs.writeShellScriptBin "mlx-lm-server" ''
@@ -22,7 +28,7 @@ in
     ${lib.optionalString (cfg.bufferCacheLimitGb != null)
       "export MLX_L1_CACHE_LIMIT_BYTES=${toString (cfg.bufferCacheLimitGb * gib)}"
     }
-    exec ${pkgs.uv}/bin/uv run --python ${uvPythonVersion} --with "${mlxLmPin}" --with "${mlxPin}" --with "${transformersPin}" python ${./scripts/mlx-lm-launch.py} "$@"
+    exec ${pkgs.uv}/bin/uv run --python ${uvPythonVersion} --with "${mlxLmWheel}" --with "${mlxPin}" --with "${transformersPin}" python ${./scripts/mlx-lm-launch.py} "$@"
   '';
 
   # Basename of the in-process launcher this wrapper execs into. Single
