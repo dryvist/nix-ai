@@ -46,9 +46,9 @@ in
   mlx-harmony-wheel =
     pkgs.runCommand "check-mlx-harmony-wheel" { nativeBuildInputs = [ pkgs.unzip ]; }
       ''
-        unzip -l ${wheel} | grep -q 'mlx_lm/tool_parsers/harmony.py' \
-          && unzip -p ${wheel} mlx_lm/server.py | grep -q -- '--harmony-tool-parser' \
-          && unzip -p ${wheel} mlx_lm/server.py | grep -q '_make_harmony_stream' \
+        unzip -l ${wheel} | grep 'mlx_lm/tool_parsers/harmony.py' >/dev/null \
+          && unzip -p ${wheel} mlx_lm/server.py | grep -- '--harmony-tool-parser' >/dev/null \
+          && unzip -p ${wheel} mlx_lm/server.py | grep '_make_harmony_stream' >/dev/null \
           && touch $out
       '';
 
