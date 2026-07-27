@@ -220,6 +220,26 @@ check "the ledger names what spent them" 2 "$(grep -c 'source=' "$debt_file")"
 # field the count reads.
 pd_debt_record "$debt_file" 1 spoof-attempt "boot=0 domains=99 pretending to be fields"
 check "prose cannot spoof the fields" 5 "$(pd_debt_count "$debt_file")"
+# A tab in free text would manufacture fields the reader then trusts. Flattened
+# at the single point text enters the ledger, not defended against at every read.
+pd_debt_record "$debt_file" 1 tab-attempt "$(printf 'boot=0\tdomains=99')"
+check "an embedded tab cannot manufacture fields" 6 "$(pd_debt_count "$debt_file")"
+# A malformed count is one domain, never zero. Under-counting the resource is
+# the only direction that lets a start proceed that should not have.
+pd_debt_record "$debt_file" "" no-count "domains field omitted"
+pd_debt_record "$debt_file" abc no-count "domains field not a number"
+check "a malformed domain count still costs one each" 8 "$(pd_debt_count "$debt_file")"
+
+echo "   ...and a leak that CANNOT be recorded is loud, not silent:"
+# The one path where a domain is lost and the ledger does not grow. It must warn
+# on stderr and must not abort the caller — cluster-detach records mid-teardown,
+# and a teardown that dies at the accounting step leaves the node worse off than
+# one that completes and shouts.
+reset_state
+record_err="$(pd_debt_record "" 1 detach-sigkill "ledger unconfigured" 2>&1 >/dev/null || echo ABORTED)"
+check "it warns" warned "$(case "$record_err" in *UNRECORDED*) echo warned ;; *) echo silent ;; esac)"
+check "it does not abort the caller" notaborted \
+  "$(case "$record_err" in *ABORTED*) echo aborted ;; *) echo notaborted ;; esac)"
 
 echo "3. debt at the cap REFUSES a start and HALTS before exhaustion:"
 reset_state

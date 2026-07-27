@@ -38,7 +38,8 @@ in
       # same way mlx-cluster.nix reads cluster-join.sh: the invariant is about
       # what is written, and a build artefact cannot show a re-introduced literal
       # as clearly as the file can.
-      rankScripts = map (f: builtins.readFile (src + "/modules/mlx/scripts/${f}")) [
+      readScript = f: builtins.readFile (src + "/modules/mlx/scripts/${f}");
+      rankScripts = map readScript [
         "cluster-join.sh"
         "cluster-detach.sh"
         "cluster-rank-status.sh"
@@ -46,6 +47,19 @@ in
         "cluster-link-guards.sh"
         "cluster-link-watcher.sh"
       ];
+      joinSrc = readScript "cluster-join.sh";
+      detachSrc = readScript "cluster-detach.sh";
+      watcherSrc = readScript "cluster-link-watcher.sh";
+      inherit (pkgs.lib) hasInfix splitString;
+      # Code lines only. Comments legitimately name tests/test-pd-debt.sh, and a
+      # guard that fires on prose is a guard the next person weakens instead of
+      # obeying.
+      codeLines = builtins.filter (l: builtins.match "[[:space:]]*#.*" l == null) (
+        builtins.concatMap (splitString "\n") rankScripts
+      );
+      # "pd-debt" as a filename or bare marker, never as the "pd-debt-exhausted"
+      # halt cause — hence the required non-hyphen after it.
+      namesLedgerFile = l: builtins.match ".*pd-debt([^-].*)?" l != null;
     in
     # The rank pattern must be the ANCHORED entry point, and it must be the
     # entry point that is actually in the rank argv. Measured 2026-07-26 against
@@ -98,5 +112,27 @@ in
     assert
       builtins.elem "cluster-join" cliEnvs && builtins.elem "cluster-detach" cliEnvs
       || throw "cluster: both lifecycle commands must ship — cluster-detach is the only writer of the PD ledger and cluster-join is the operator-facing gate that reads it";
+    # --- the ledger's CALL SITES, not just its plumbing ------------------------
+    # tests/test-pd-debt.sh proves the ledger functions behave. It cannot prove
+    # anyone still CALLS them: delete the pd_debt_record line from cluster-detach
+    # and all 39 of those assertions still pass while a SIGKILLed rank silently
+    # stops costing anything. Same shape as "a reap that matches nothing looks
+    # exactly like nothing to clean up", which is what this whole change is about.
+    #
+    # Live cluster formation cannot be exercised in CI — and, while the Proxmox
+    # estate is down, not by hand either — so the wiring is asserted rather than
+    # observed. These are the cheapest checks that fail when a call site vanishes.
+    assert
+      hasInfix "pd_debt_record" detachSrc
+      || throw "cluster: cluster-detach must record its SIGKILL as PD debt. It is the only command allowed to spend a protection domain, and an unaudited kill is exactly how debt accumulated invisibly across sessions";
+    assert
+      hasInfix "pd_debt_record" watcherSrc
+      || throw "cluster: the watcher must record the domains its PD-guard halt proves were lost. Otherwise the loss lives only in rank-kickstarts, which a link cycle, a settled rank and cluster-join all reset — so a boot can leak three domains, forget, and leak three more without bound";
+    assert
+      !(hasInfix "pd_debt_record" joinSrc)
+      || throw "cluster: cluster-join must NOT write the PD ledger. Its only job at the cap is to refuse, and a command that can only refuse must not also be able to spend a protection domain";
+    assert
+      !(builtins.any namesLedgerFile codeLines)
+      || throw "cluster: a cluster script spells the PD ledger's filename literally. It has ONE definition (cluster-mode.nix) and arrives as CLUSTER_PD_DEBT_FILE; a second spelling is one typo from a writer and a reader on different files, and is also how the ledger would get named in a marker list the teardown clears";
     helpers.mkMarker "check-mlx-cluster-pd-env" "MLX RDMA protection-domain guard env contract: anchored rank pattern derived from the rank argv, absolute pgrep/kill seams, tick-derived reap grace, and a boot-scoped ledger with a maxKickstarts-derived cap verified";
 }
