@@ -282,6 +282,9 @@ in
         enablePrefixCaching = false;
         maxNumSeqs = 1;
         autoUnloadIdleSeconds = 900;
+        # The only harmony-family entry in the catalog: pinned rather than
+        # left to "auto" so the mode is stated, not re-inferred per turn.
+        harmonyToolParser = "on";
       };
     };
   };

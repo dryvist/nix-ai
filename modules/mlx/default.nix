@@ -69,10 +69,10 @@ let
       lib
       cfg
       uvPythonVersion
-      mlxLmPin
       mlxPin
       transformersPin
       ;
+    mlxLmVersion = versions.mlxLm;
   };
   mlxLmServerPkg = mlxLmServer.pkg;
   mlxModelServerPkg =
