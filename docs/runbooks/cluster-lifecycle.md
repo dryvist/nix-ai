@@ -99,15 +99,15 @@ minutes of provably zero tokens. Thresholds are
 unplugging the cable is meant to be sufficient on its own, and since 2026-07-25
 the watcher enforces the parts a human used to have to get right.
 
-**Start order no longer matters.** A worker whose coordinator has no rank yet
+**Start order no longer matters.** A worker whose coordinator had no rank yet
 used to kickstart into a rendezvous that did not exist (`[jaccl] Couldn't
 connect (error: 60)`), and every failed `mx.distributed.init()` leaks a
-**reboot-only** RDMA protection domain — so three attempts turned "peer not up
-yet" into a mandatory reboot (2026-07-24). The worker now confirms rank 0 is
-listening (a `timeout`-bounded TCP connect) before starting, and a peer that is
-not listening yet is a *wait*, not a failed start: it consumes no attempt from
-the PD-guard budget. The coordinator has no such precondition — it must come up
-first, and gating it would deadlock both nodes into waiting for each other.
+**reboot-only** RDMA protection domain — three attempts turned "peer not up yet"
+into a mandatory reboot (2026-07-24). Both ranks now hold for a shared
+wall-clock boundary and reach distributed init together, inside jaccl's fixed
+~15 s connect budget. Domains lost anyway are counted in a boot-scoped ledger,
+and a start is refused before the kernel runs out — see
+[rdma-protection-domains.md](rdma-protection-domains.md).
 
 **A boot does not produce a usable link.** cluster-link prep runs in root
 `postActivation`, before Thunderbolt carrier settles, so it can find no
@@ -130,9 +130,6 @@ longer happen. Sanctioned resets: a real link cycle, or `cluster-join`.
 debounce is asymmetric on purpose: "up" is believed at the first reply, "down"
 must be earned, because a false down tears the rank down *and* resets the PD
 guard — a flapping link could otherwise never accumulate toward a halt.
-
-**Leaked protection domains are counted, and only a reboot settles them.** See
-[rdma-protection-domains.md](rdma-protection-domains.md).
 
 **A page that reaches nobody still reaches the log.** Halt alerts log their full
 text on any non-delivery (no pager configured, encode failure, non-200) and
