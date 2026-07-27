@@ -1,5 +1,28 @@
 # Changelog
 
+## [3.9.0](https://github.com/dryvist/nix-ai/compare/v3.8.1...v3.9.0) (2026-07-27)
+
+
+### Features
+
+* **mlx-cluster:** launch the shell agents via Apple's interpreter, so they need no TCC grant at all ([#1414](https://github.com/dryvist/nix-ai/issues/1414)) ([3f752ac](https://github.com/dryvist/nix-ai/commit/3f752ac24cbe0307bc2397d9e3eefe8f0de9265c))
+* **mlx-cluster:** stand a rank down when its peer's rendezvous session is gone ([#1422](https://github.com/dryvist/nix-ai/issues/1422)) ([7764ba0](https://github.com/dryvist/nix-ai/commit/7764ba0256d39466296cf220e827d54b93844a27))
+* **mlx:** parse harmony tool calls from gpt-oss into OpenAI tool_calls ([#1429](https://github.com/dryvist/nix-ai/issues/1429)) ([a72a957](https://github.com/dryvist/nix-ai/commit/a72a957e71581a7ffd1adf715410982994b4f441))
+
+
+### Bug Fixes
+
+* **catalog:** scrub a private product name from a public repo ([#1416](https://github.com/dryvist/nix-ai/issues/1416)) ([e9f0a48](https://github.com/dryvist/nix-ai/commit/e9f0a486a69745cb133f4a0a2135abeed5ea227f))
+* **mlx-cluster:** a wedged rank must not be able to silence its own supervisor ([#1413](https://github.com/dryvist/nix-ai/issues/1413)) ([44844ca](https://github.com/dryvist/nix-ai/commit/44844ca625a17dee3472d88eceea969a363a4872))
+* **mlx-cluster:** drop a halt recorded before the current boot ([#1419](https://github.com/dryvist/nix-ai/issues/1419)) ([3a3b3cc](https://github.com/dryvist/nix-ai/commit/3a3b3cc65ca0d30a7b2a5fb5a8350bb09b935c84))
+* **mlx-cluster:** make RDMA protection-domain exhaustion structurally impossible ([#1426](https://github.com/dryvist/nix-ai/issues/1426)) ([82ceee4](https://github.com/dryvist/nix-ai/commit/82ceee4f9f249c0b2e27336a5eedec710c8ff557))
+* **mlx-cluster:** resolve sysctl outside PATH so the PD guard engages ([#1420](https://github.com/dryvist/nix-ai/issues/1420)) ([5411e8b](https://github.com/dryvist/nix-ai/commit/5411e8ba4aa462601834e4479d4ed700dd26aebf))
+* **mlx-cluster:** start both ranks on a shared boundary, not in order ([#1418](https://github.com/dryvist/nix-ai/issues/1418)) ([3123982](https://github.com/dryvist/nix-ai/commit/3123982e68f49eadbdb1cf4de7633cdcbc949523))
+* **mlx-cluster:** stop the PD guard clearing itself, and never halt into a dead host ([#1411](https://github.com/dryvist/nix-ai/issues/1411)) ([c7a7327](https://github.com/dryvist/nix-ai/commit/c7a732724851815aa78d1b055f19cb26d6ab7280))
+* **mlx:** bound the warmup restart loop instead of retrying forever ([#1425](https://github.com/dryvist/nix-ai/issues/1425)) ([8909aeb](https://github.com/dryvist/nix-ai/commit/8909aebc3a3fe676a9718add24cdd9a77f57a0b0))
+* **mlx:** make the Apple-bash-launched agents actually parse under bash 3.2 ([#1427](https://github.com/dryvist/nix-ai/issues/1427)) ([6eb9682](https://github.com/dryvist/nix-ai/commit/6eb968270e6a2714bf75381470442861cadbe137))
+* **mlx:** reap llama-swap workers by port ownership, not process pattern ([#1424](https://github.com/dryvist/nix-ai/issues/1424)) ([a7b94fd](https://github.com/dryvist/nix-ai/commit/a7b94fddca51689ef1c81b02f2a22a753396490c))
+
 ## [3.8.1](https://github.com/dryvist/nix-ai/compare/v3.8.0...v3.8.1) (2026-07-25)
 
 
