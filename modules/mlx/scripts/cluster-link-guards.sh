@@ -68,20 +68,13 @@ repair_link_prep() {
   return 1
 }
 
-# Is rank 0 actually listening on the JACCL rendezvous port? A plain TCP connect,
-# because that is precisely what mx.distributed.init() does next — and when the
-# answer is "no", init burns a protection domain to find out.
-#
-# Bounded by coreutils `timeout`, not by nc's own flags: Apple's nc takes -w but
-# applies it to idle reads, NOT to connect setup — measured 2026-07-25, a
-# blackholed SYN with `-w 2` still took 75s (the kernel's SYN budget), while
-# `timeout 2 nc -z` returned at 2.01s. A probe that can outlive the 30s watcher
-# tick is not a probe. Verified on macOS the same day: listening -> rc 0,
-# closed port -> rc 1 in 4ms, blackhole -> rc 124 at the bound.
-peer_rendezvous_listening() {
-  local host="$1" port="$2" secs="${3:-2}"
-  timeout "$secs" /usr/bin/nc -z "$host" "$port" > /dev/null 2>&1
-}
+# A "is rank 0 listening?" rendezvous probe used to live here and gate every
+# worker rank start. It was removed 2026-07-25: the gate was the reason the
+# cluster never formed unattended. Waiting for rank 0 to listen guarantees the
+# worker reaches distributed init ~20-30s later than the coordinator, which is
+# far outside jaccl's fixed ~15s connect budget, so the coordinator has always
+# exited by the time the worker dials. Ranks are now aligned to a shared start
+# boundary instead of ordered — see rung 2 below.
 
 # Everything that must hold before a rank start is allowed to CONSUME a start
 # attempt. Nonzero return = do not start, do not count it.
@@ -95,7 +88,52 @@ peer_rendezvous_listening() {
 #
 # Sets PRECONDITION_REASON to a stable cause token for the halt marker.
 rank_start_preconditions_ok() {
+  local pd_max pd_debt
   PRECONDITION_REASON=""
+  # 0. THE LEDGER MUST BE WIRED UP. Rungs 0a and 0b below are the only things
+  #    standing between a leaked protection domain and an unbounded accumulation
+  #    of them, and both are driven entirely by environment this module bakes at
+  #    eval. An absent variable would make them silently inert — which is the
+  #    single most repeated defect in this subsystem's history (a sysctl off the
+  #    sanitized PATH disabled the halt marker; a stale process pattern disabled
+  #    a reap; both reported success throughout). So a missing setting is a
+  #    refusal, not a default. Nothing is launched, so nothing leaks, so no
+  #    attempt is consumed and the next tick retries.
+  if [ -z "${CLUSTER_PD_DEBT_MAX:-}" ] || [ -z "${CLUSTER_PD_DEBT_FILE:-}" ] ||
+    [ -z "${CLUSTER_RANK_PROCESS_PATTERN:-}" ]; then
+    PRECONDITION_REASON="pd-guard-unconfigured"
+    echo "cluster-link: PD guard is not fully configured (need CLUSTER_PD_DEBT_MAX, CLUSTER_PD_DEBT_FILE and CLUSTER_RANK_PROCESS_PATTERN); NOT starting the rank rather than starting one it cannot protect (no attempt consumed)" >&2
+    return 1
+  fi
+  # 0a. PROTECTION-DOMAIN DEBT. Every domain this boot is known to have leaked is
+  #     in the ledger; at the cap the rank does not start. This is the proactive
+  #     half of the guard — the kickstart counter below only reacts once errno 96
+  #     proves the domains are already gone, and by then a reboot is mandatory.
+  pd_max="${CLUSTER_PD_DEBT_MAX}"
+  case "$pd_max" in
+    '' | *[!0-9]*) pd_max=0 ;;
+  esac
+  if [ "$pd_max" -gt 0 ]; then
+    pd_debt="$(pd_debt_count "$CLUSTER_PD_DEBT_FILE")"
+    pd_debt="${pd_debt:-0}"
+    if [ "$pd_debt" -ge "$pd_max" ]; then
+      PRECONDITION_REASON="pd-debt-exhausted"
+      echo "cluster-link: $pd_debt RDMA protection domain(s) leaked this boot (cap $pd_max); NOT starting the rank. Only a reboot returns a leaked domain — clearing markers will not." >&2
+      return 1
+    fi
+  fi
+  # 0b. NO SURVIVING RANK. Never start a rank while another still holds an RDMA
+  #     context. launchd reporting the agent as not running is not evidence: a
+  #     re-parented or SIGKILL-orphaned engine keeps its protection domain, and
+  #     starting a second rank over it is how debt accumulates across restarts.
+  #     rank_reap_verified SIGTERMs a survivor and re-verifies; it returns
+  #     success only when absence is PROVEN, so an unanswerable probe blocks the
+  #     start too. Nothing was launched, so no attempt is consumed.
+  if ! rank_reap_verified; then
+    PRECONDITION_REASON="rank-survivor"
+    echo "cluster-link: a previous rank process could not be confirmed gone; NOT starting the rank (no attempt consumed)" >&2
+    return 1
+  fi
   # 1. This host must hold its own link address. A boot does not guarantee one
   #    (see repair_link_prep): the rank would die with errno 49 EADDRNOTAVAIL.
   if ! link_prep_ok; then
@@ -106,16 +144,36 @@ rank_start_preconditions_ok() {
     fi
     return 1
   fi
-  # 2. WORKER ONLY: rank 0 must already be listening. The coordinator has no
-  #    such precondition — it is the one that must come up first, and gating it
-  #    on the worker would deadlock the cluster into mutual waiting.
-  if [ "$CLUSTER_ROLE" != "coordinator" ]; then
-    if ! peer_rendezvous_listening "$CLUSTER_STATIC_PEER_IP" \
-      "${CLUSTER_RENDEZVOUS_PORT:?CLUSTER_RENDEZVOUS_PORT is required}" \
-      "${CLUSTER_PEER_PROBE_TIMEOUT_SECS:-2}"; then
-      PRECONDITION_REASON="peer-rendezvous-absent"
-      echo "cluster-link: rank 0 is not listening on $CLUSTER_STATIC_PEER_IP:$CLUSTER_RENDEZVOUS_PORT; waiting for the coordinator (NOT starting the rank, no attempt consumed)"
-      return 1
+  # 2. BOTH ROLES: hold until the next shared wall-clock start boundary, so the
+  #    two ranks reach distributed init together.
+  #
+  #    This replaced a worker-only "rank 0 must already be listening" gate, which
+  #    was the direct cause of the cluster never forming unattended. jaccl's
+  #    client connect budget is hardcoded at ~15s (backoff 1s, 2s, 4s, 8s); the
+  #    library exposes no knob to raise it — the only variables it reads are the
+  #    coordinator address, ibv device list, rank index, and ring flag. But a
+  #    rank needs ~20-30s of dependency resolution, interpreter start and mlx
+  #    import before it reaches distributed init. So a worker that started the
+  #    moment it saw rank 0 listening arrived ~20-30s late, by which point the
+  #    coordinator had exhausted its own wait and exited, and the worker dialled
+  #    a dead port: errno 60, ETIMEDOUT. Waiting for the coordinator GUARANTEED
+  #    the worker was too late. Measured 2026-07-25 — sequential starts oscillate
+  #    (ranks alternate, never overlap) and both die within ~6 min, while
+  #    starting both in the same second held 200+s and served real tokens.
+  #
+  #    Alignment, not ordering, is what makes this work: there is no leader to
+  #    wait for. Both hosts compute the same boundary from an NTP-synced clock
+  #    and sleep to it, so they fire within about a second of each other.
+  #
+  #    The period MUST exceed the tick (enforced by the >= 2 multiple in
+  #    rankStartAlignMultiple). At exactly one tick, two hosts whose ticks fall
+  #    either side of a boundary map to different boundaries and never converge.
+  align="${CLUSTER_RANK_START_ALIGN_SECS:-0}"
+  if [ "$align" -gt 0 ]; then
+    remainder=$(( $(date +%s) % align ))
+    if [ "$remainder" -ne 0 ]; then
+      echo "cluster-link: holding $((align - remainder))s for the shared rank-start boundary (both ranks must reach rendezvous inside jaccl's fixed connect budget)"
+      sleep "$((align - remainder))"
     fi
   fi
   # 3. Never start a rank over a standalone-sized ceiling: a shard wiring out
@@ -125,6 +183,51 @@ rank_start_preconditions_ok() {
     echo "cluster-link: wired ceiling not applied; NOT starting the rank (no attempt consumed)"
     return 1
   fi
+  return 0
+}
+
+# HALT BEFORE EXHAUSTION, NOT AFTER.
+#
+# The kickstart counter below is the reactive half of the PD guard: it halts once
+# N distributed inits have already failed, i.e. once N protection domains are
+# already gone and errno 96 is the proof. This is the proactive half. It reads
+# the boot-scoped ledger of domains ALREADY known lost (./cluster-pd-ledger.sh)
+# and halts while there are still domains left to protect.
+#
+# It closes the accumulation path the counter cannot: the counter is
+# SESSION-scoped, so a link cycle, a settled rank or a cluster-join all reset it,
+# and a boot could therefore lose three domains, forget, lose three more, without
+# bound. The ledger is BOOT-scoped, so a reboot — the one event that actually
+# returns a domain — is the only thing that lifts this halt. No second marker
+# scheme: the same boot= field the halt marker already uses is the mechanism.
+#
+# Always returns 0 so it composes into the watcher's existing
+# `halt_drop_if_pre_boot … && [ -f "$halt_file" ]` chain without a new branch.
+# Logs and pages exactly once per halt — it runs on every tick.
+#
+# $1 halt marker, $2 latch, $3 ledger file.
+pd_debt_halt_if_exhausted() {
+  local halt_file="$1" latch_file="$2" debt_file="$3" max debt
+  max="${CLUSTER_PD_DEBT_MAX:-0}"
+  case "$max" in
+    '' | *[!0-9]*) return 0 ;;
+  esac
+  if [ "$max" -le 0 ]; then
+    return 0
+  fi
+  debt="$(pd_debt_count "$debt_file")"
+  debt="${debt:-0}"
+  if [ "$debt" -lt "$max" ]; then
+    return 0
+  fi
+  if [ -f "$halt_file" ]; then
+    return 0
+  fi
+  echo "cluster-link: $debt RDMA protection domain(s) recorded leaked this boot (cap $max); HALTING rank starts before the kernel runs out. A leaked domain is returned only by a reboot." >&2
+  halt_write "$halt_file" "$latch_file" "pd-debt-exhausted" \
+    "$debt protection domain(s) leaked this boot (cap $max); reboot required to return them"
+  alert "$(hostname -s): $debt RDMA protection domain(s) leaked this boot (cap $max). Rank starts are halted BEFORE exhaustion rather than after errno 96. Reboot this host to return the domains — clearing the marker will not, and the guard re-halts on the ledger's own evidence." \
+    "mlx-cluster PD debt exhausted"
   return 0
 }
 

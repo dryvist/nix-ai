@@ -20,9 +20,9 @@
 #     need deeper packaging work).
 #
 # The brew install itself lives in nix-darwin (homebrew.brews is a
-# nix-darwin option, not a home-manager one). This module exposes the
-# required formula list via the lib.brewFormulae flake output for
-# nix-darwin to consume; the module itself just handles config.
+# nix-darwin option, not a home-manager one). lib/homebrew.nix owns the
+# package identity; nix-darwin enables its capability. This module only
+# handles configuration.
 #
 {
   config,

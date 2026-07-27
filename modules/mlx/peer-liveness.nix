@@ -26,6 +26,10 @@
 let
   inherit (mlxShared) cfg warmupAgentLabel launchAgentLabel;
   ncfg = cfg.clusterMode;
+  # Cluster override if set, else the module-wide convention
+  # (./options-launch.nix). Resolved once, here, so both agents
+  # cannot disagree about how they are launched.
+  appleInterp = if ncfg.appleInterpreter != null then ncfg.appleInterpreter else cfg.appleInterpreter;
   pcfg = ncfg.peerLiveness;
 
   rankLabel = "dev.mlx-cluster.rank";
@@ -57,11 +61,11 @@ let
     # rather than sourcing, so every body reads the CLUSTER_* env from the
     # caller's own scope at call time — and so this agent's teardown is
     # byte-identical to the watcher's instead of a second, drifting copy.
-    text = lib.concatStrings [
-      (builtins.readFile ./scripts/cluster-link-helpers.sh)
-      (builtins.readFile ./scripts/cluster-peer-observe.sh)
-      (builtins.readFile ./scripts/cluster-peer-liveness.sh)
-    ];
+    # Layer list in ./cluster-script-layers.nix, shared with cluster-mode.nix so
+    # there is one place that answers "what is this script made of" — and one
+    # place that records why this agent gets boot scoping (its halt marker is
+    # stamped with it) and none of the RDMA protection-domain ledger.
+    text = lib.concatStrings (map builtins.readFile (import ./cluster-script-layers.nix).peerLiveness);
   };
 in
 {
@@ -118,8 +122,35 @@ in
         Consecutive failed token probes before the rank is declared
         no-progress and torn down to standalone serving. Any success — a probe,
         or real traffic appearing in the log — clears the count. At the defaults
-        this is roughly 15 minutes of provably zero tokens with no client
-        request open.
+        this is roughly 15 minutes of provably zero tokens, plus at most
+        busyStallSecs more if a stalled request is holding the endpoint open.
+      '';
+    };
+
+    busyStallSecs = lib.mkOption {
+      type = lib.types.int;
+      default = 900;
+      description = ''
+        Cap on backing off behind an in-flight request that is producing no
+        tokens. 0 disables the back-off entirely (not recommended — it is what
+        stops a long generation being mistaken for a wedge).
+
+        An ESTABLISHED client connection on the endpoint normally means a request
+        is genuinely in flight, and deferring is what protects a healthy rank
+        mid-generation from a timed probe. But that back-off used to be
+        UNBOUNDED, and a WEDGED rank holds its client connection open forever —
+        so the supervisor deferred on every tick and never ran at all. Not a slow
+        detection: none.
+
+        Measured 2026-07-25 by an induced kill drill. With the worker killed, the
+        coordinator did not crash — its rendezvous socket went to CLOSE_WAIT, its
+        process stayed up, its port kept accepting, and a real request returned
+        http=000 after 60s with zero bytes and nothing in its log. That request
+        held the connection, so every later tick deferred behind it.
+
+        Safe to bound, because a real generation emits token lines and those
+        short-circuit the whole check before the back-off is reached. Busy WITH
+        zero new tokens for this long is a wedge, not a long answer.
       '';
     };
 
@@ -158,7 +189,12 @@ in
       enable = true;
       config = {
         Label = "dev.mlx-cluster.peer-liveness";
-        ProgramArguments = [ (lib.getExe peerLivenessPkg) ];
+        # Apple's interpreter, not the script's Nix shebang — same reason as the
+        # watcher: it is what lets this agent reach the peer at all. See
+        # programs.mlx.appleInterpreter.
+        ProgramArguments = lib.optional (appleInterp != null) appleInterp ++ [
+          (lib.getExe peerLivenessPkg)
+        ];
         RunAtLoad = true;
         StartInterval = pcfg.intervalSecs;
         ProcessType = "Background";
@@ -182,6 +218,7 @@ in
           CLUSTER_PEER_PROBE_INTERVAL_SECS = toString pcfg.probeIntervalSecs;
           CLUSTER_PEER_PROBE_TIMEOUT_SECS = toString pcfg.probeTimeoutSecs;
           CLUSTER_PEER_STRIKES = toString pcfg.strikes;
+          CLUSTER_PEER_BUSY_STALL_SECS = toString pcfg.busyStallSecs;
           CLUSTER_PEER_DEAD_TICKS = toString pcfg.deadTicks;
           CLUSTER_PEER_LOG_TAIL_LINES = toString pcfg.logTailLines;
         }

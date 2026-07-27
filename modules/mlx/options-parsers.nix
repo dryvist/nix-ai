@@ -75,5 +75,24 @@
       description = "Reasoning content extraction parser. Disabled by default — conflicts with tool-call-parser in streaming mode (vllm-mlx bug).";
     };
 
+    # harmonyToolParser — mlx-lm only (--harmony-tool-parser), a flag added by
+    # the patched wheel in mlx-lm-patch.nix. Upstream mlx-lm infers no tool
+    # parser for gpt-oss, so its harmony tool calls come back as raw markup in
+    # `content` with `tool_calls: null`, and the analysis channel leaks into
+    # ordinary completions. This translates both into real OpenAI fields.
+    # "auto" engages only on turns that actually open with harmony markup, so
+    # it is inert for every non-harmony model; "on" pins it for a known
+    # harmony-family model; "off" restores the unpatched behaviour.
+    # Per-model divergence is deliberate — pin it in the catalog entry
+    # (modules/mlx/catalog-data.nix), not globally.
+    harmonyToolParser = lib.mkOption {
+      type = lib.types.enum [
+        "auto"
+        "on"
+        "off"
+      ];
+      default = "auto";
+      description = "Harmony (gpt-oss) channel and tool-call translation for the mlx-lm backend.";
+    };
   };
 }

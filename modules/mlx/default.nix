@@ -60,18 +60,21 @@ let
   '';
 
   # Official mlx_lm.server wrapper with the in-process L2 memory limit —
-  # split to mlx-lm-server.nix for the 12 KB file-size gate.
-  mlxLmServerPkg = import ./mlx-lm-server.nix {
+  # split to mlx-lm-server.nix for the 12 KB file-size gate. Also carries
+  # launchScriptBasename, the single source modelServerProcessPattern.mlx-lm
+  # derives from below.
+  mlxLmServer = import ./mlx-lm-server.nix {
     inherit
       pkgs
       lib
       cfg
       uvPythonVersion
-      mlxLmPin
       mlxPin
       transformersPin
       ;
+    mlxLmVersion = versions.mlxLm;
   };
+  mlxLmServerPkg = mlxLmServer.pkg;
   mlxModelServerPkg =
     {
       mlx-lm = mlxLmServerPkg;
@@ -101,30 +104,22 @@ let
   # with no backports while unstable kept moving (currently v211). See nix-ai#801.
   llamaSwapPkg = nixpkgs-unstable.legacyPackages.${pkgs.stdenv.hostPlatform.system}.llama-swap;
 
-  # Proxy launcher — reaps orphaned mlx_lm.server workers, then execs llama-swap.
-  # A worker outliving its proxy keeps its engine port bound, which makes every
-  # subsequent start fail on bind and 429 forever; reaping on the way up is what
-  # keeps a restart an actual remedy. Rationale in llama-swap-launch.sh.
-  llamaSwapLaunchPkg = pkgs.writeShellApplication {
-    name = "llama-swap-launch";
-    # No procps: pgrep/pkill are called by absolute path (see the script) —
-    # Darwin's procps ships only ps/sysctl/top/watch.
-    runtimeInputs = [
-      llamaSwapPkg
-      pkgs.coreutils
-    ];
-    text = builtins.readFile ./scripts/llama-swap-launch.sh;
-  };
+  # Proxy launcher — split to llama-swap-launch-pkg.nix (12KB gate).
+  llamaSwapLaunchPkg = import ./llama-swap-launch-pkg.nix { inherit pkgs lib llamaSwapPkg; };
 
   apiUrl = "http://${cfg.host}:${toString cfg.port}/v1";
   launchAgentLabel = "dev.mlx-model-server";
   warmupAgentLabel = "dev.mlx-model-server.warmup";
-  modelServerProcessPattern =
-    {
-      mlx-lm = "/mlx_lm\\.server";
-      vllm-mlx = "vllm-mlx serve";
-    }
-    .${cfg.modelServerBackend};
+
+  # See ./warmup-timeout.nix for why this is derived rather than guessed.
+  warmupTimeoutSeconds = import ./warmup-timeout.nix cfg lib;
+
+  # Single definition of the model-server pgrep pattern, derived from the real
+  # launcher — split to model-server-pattern.nix (12KB file-size gate). Its
+  # header carries the measured evidence for why it is derived and unanchored.
+  inherit (import ./model-server-pattern.nix { inherit lib cfg mlxLmServer; })
+    modelServerProcessPattern
+    ;
 
   # Shared per-backend env — split to worker-env.nix (12KB file-size gate).
   inherit (import ./worker-env.nix { inherit lib cfg; }) workerEnv;
@@ -261,6 +256,9 @@ in
     ./options-proxy.nix
     ./options-server.nix
     ./options-cache.nix
+    # How every shell-script launchd agent here is launched. One option, because
+    # getting it wrong costs the agent its network access, silently.
+    ./options-launch.nix
     ./options-batching.nix
     ./options-catalog.nix
     ./options-filters.nix
@@ -269,6 +267,7 @@ in
     ./options-cluster.nix
     ./options-cluster-lifecycle.nix
     ./options-cluster-resilience.nix
+    ./options-cluster-rank-health.nix
     ./assertions.nix
     ./packages.nix
     ./launchd.nix
@@ -293,6 +292,7 @@ in
       uvPythonVersion
       launchAgentLabel
       warmupAgentLabel
+      warmupTimeoutSeconds
       modelServerProcessPattern
       llamaSwapPkg
       llamaSwapLaunchPkg

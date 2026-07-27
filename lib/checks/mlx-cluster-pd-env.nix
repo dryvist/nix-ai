@@ -1,0 +1,138 @@
+# RDMA protection-domain guard — env-wiring contract.
+#
+# Split out of ./mlx-cluster.nix for the per-file size cap, the same seam as
+# ./mlx-cluster-peer-env.nix. What it pins is a category of its own: every input
+# to the guard that makes protection-domain exhaustion structurally impossible.
+#
+# THIS IS THE FILE THAT FAILS WHEN THE GUARD IS SILENTLY DISABLED. That failure
+# mode is not hypothetical here — it is the subsystem's most repeated defect:
+#
+#   * sysctl resolved off a writeShellApplication PATH, so every halt recorded
+#     boot='unknown', every halt was dropped as stale, and the PD guard did
+#     nothing while reporting that it was protecting the budget;
+#   * a model-server process pattern that drifted from the real launcher, so a
+#     pattern-based reap matched NOTHING for months and "no match" was
+#     indistinguishable from "nothing to clean up".
+#
+# Both were absent or wrong CONFIGURATION reaching a correct script, so this
+# check asserts the configuration and not the script. Every value below has a
+# script-side `:-default` behind it; a missing one does not crash, it quietly
+# reverts the guard to a weaker version of itself.
+{
+  pkgs,
+  hmConfigCluster,
+  src,
+}:
+let
+  helpers = import ./helpers.nix { inherit pkgs; };
+in
+{
+  mlx-cluster-pd-env =
+    let
+      agents = hmConfigCluster.config.launchd.agents;
+      watcher = agents.mlx-cluster-watcher.config;
+      watcherEnv = watcher.EnvironmentVariables;
+      rankArgs = agents.mlx-cluster-rank.config.ProgramArguments;
+      cliEnvs = map (p: p.name or "") hmConfigCluster.config.home.packages;
+      # Every script allowed to look for the rank process. Read as SOURCE, the
+      # same way mlx-cluster.nix reads cluster-join.sh: the invariant is about
+      # what is written, and a build artefact cannot show a re-introduced literal
+      # as clearly as the file can.
+      readScript = f: builtins.readFile (src + "/modules/mlx/scripts/${f}");
+      rankScripts = map readScript [
+        "cluster-join.sh"
+        "cluster-detach.sh"
+        "cluster-rank-status.sh"
+        "cluster-rank-reap.sh"
+        "cluster-link-guards.sh"
+        "cluster-link-watcher.sh"
+      ];
+      joinSrc = readScript "cluster-join.sh";
+      detachSrc = readScript "cluster-detach.sh";
+      watcherSrc = readScript "cluster-link-watcher.sh";
+      inherit (pkgs.lib) hasInfix splitString;
+      # Code lines only. Comments legitimately name tests/test-pd-debt.sh, and a
+      # guard that fires on prose is a guard the next person weakens instead of
+      # obeying.
+      codeLines = builtins.filter (l: builtins.match "[[:space:]]*#.*" l == null) (
+        builtins.concatMap (splitString "\n") rankScripts
+      );
+      # "pd-debt" as a filename or bare marker, never as the "pd-debt-exhausted"
+      # halt cause — hence the required non-hyphen after it.
+      namesLedgerFile = l: builtins.match ".*pd-debt([^-].*)?" l != null;
+    in
+    # The rank pattern must be the ANCHORED entry point, and it must be the
+    # entry point that is actually in the rank argv. Measured 2026-07-26 against
+    # the real invocation: the resolved console script carries the token as a
+    # path suffix while the uvx supervisor carries it as a naked argument, so the
+    # leading "/" is what separates the process that owns the protection domain
+    # from its parent. Drop the anchor and a reap latches onto the wrapper; drop
+    # the derivation and the pattern outlives the entry point it names.
+    assert
+      watcherEnv.CLUSTER_RANK_PROCESS_PATTERN == "/mlx_lm\\.server"
+      || throw "cluster: the rank process pattern must be the anchored entry point '/mlx_lm\\.server'. Unanchored also matches the uvx supervisor (which owns no protection domain); a stale one matches nothing at all, and a reap that matches nothing is indistinguishable from a reap with nothing to do";
+    assert
+      builtins.elem (builtins.replaceStrings [ "/" "\\" ] [ "" "" ]
+        watcherEnv.CLUSTER_RANK_PROCESS_PATTERN
+      ) rankArgs
+      || throw "cluster: the rank process pattern must name the entry point that is actually in the rank argv — both come from modules/mlx/cluster-rank-pattern.nix so they cannot drift, and this pins that they still do";
+    # NO INLINE LITERAL, ANYWHERE. Five copies of '/mlx_lm\.server' used to be
+    # hardcoded across cluster-join.sh and cluster-detach.sh while a single
+    # derived definition sat unused beside them. That is how a pattern goes stale
+    # in one place and not another, and a stale pattern is a reap that silently
+    # does nothing. Every lookup now goes through CLUSTER_RANK_PROCESS_PATTERN.
+    assert
+      builtins.all (s: builtins.match ".*-f '/mlx_lm.*" s == null) rankScripts
+      || throw "cluster: a cluster script hardcodes the rank pattern again (`-f '/mlx_lm…`). It has ONE definition, modules/mlx/cluster-rank-pattern.nix, threaded in as CLUSTER_RANK_PROCESS_PATTERN — an inline copy is a pattern that can go stale on its own, and a pgrep that matches nothing looks exactly like nothing to clean up";
+    assert
+      watcherEnv.CLUSTER_PGREP_BIN == "/usr/bin/pgrep" && watcherEnv.CLUSTER_KILL_BIN == "/bin/kill"
+      || throw "cluster: pgrep and kill must arrive as absolute paths — /usr/bin and /bin are NOT on a writeShellApplication PATH, and a reap whose binary cannot be found reports 'nothing running', which is the answer that lets a second rank start over the first";
+    # The reap grace is derived from the tick, not configured twice: the reap runs
+    # inside a tick, so a grace longer than the convergence quantum leaves a tick
+    # still reaping when the next is due.
+    assert
+      watcherEnv.CLUSTER_RANK_REAP_GRACE_SECS == toString watcher.StartInterval
+      || throw "cluster: the SIGTERM reap grace must be derived from the watcher tick (${toString watcher.StartInterval}s), or a reap can outlive the tick that started it";
+    # The ledger, and the cap that halts BEFORE exhaustion rather than after
+    # errno 96. The cap is maxKickstarts by derivation — both count the same
+    # resource, one domain per event — so raising one raises the other.
+    assert
+      watcherEnv.CLUSTER_PD_DEBT_MAX
+      == toString hmConfigCluster.config.programs.mlx.clusterMode.maxKickstarts
+      || throw "cluster: the PD debt cap must be derived from maxKickstarts. Both count protection domains this host is willing to lose before refusing to start a rank — a failed init leaks one, a SIGKILLed rank leaks one — so a second independent number would let one budget silently exceed the other";
+    assert
+      builtins.match ".*/mlx-cluster/pd-debt" watcherEnv.CLUSTER_PD_DEBT_FILE != null
+      || throw "cluster: the watcher must carry the PD ledger path. cluster-detach WRITES it and the watcher READS it, so it is defined once in cluster-mode.nix; two derivations of one path are a writer and a reader on different files";
+    # The ledger must NOT live at the link-state path or share a name with a
+    # marker the teardown clears. A link cycle, a manual clear and cluster-join
+    # all reset halt state; none of them returns a protection domain.
+    assert
+      watcherEnv.CLUSTER_PD_DEBT_FILE != watcherEnv.CLUSTER_STATE_FILE
+      || throw "cluster: the PD ledger must be its own file — anything the teardown clears would erase debt that only a reboot can actually settle";
+    assert
+      builtins.elem "cluster-join" cliEnvs && builtins.elem "cluster-detach" cliEnvs
+      || throw "cluster: both lifecycle commands must ship — cluster-detach is the only writer of the PD ledger and cluster-join is the operator-facing gate that reads it";
+    # --- the ledger's CALL SITES, not just its plumbing ------------------------
+    # tests/test-pd-debt.sh proves the ledger functions behave. It cannot prove
+    # anyone still CALLS them: delete the pd_debt_record line from cluster-detach
+    # and all 39 of those assertions still pass while a SIGKILLed rank silently
+    # stops costing anything. Same shape as "a reap that matches nothing looks
+    # exactly like nothing to clean up", which is what this whole change is about.
+    #
+    # Live cluster formation cannot be exercised in CI — and, while the Proxmox
+    # estate is down, not by hand either — so the wiring is asserted rather than
+    # observed. These are the cheapest checks that fail when a call site vanishes.
+    assert
+      hasInfix "pd_debt_record" detachSrc
+      || throw "cluster: cluster-detach must record its SIGKILL as PD debt. It is the only command allowed to spend a protection domain, and an unaudited kill is exactly how debt accumulated invisibly across sessions";
+    assert
+      hasInfix "pd_debt_record" watcherSrc
+      || throw "cluster: the watcher must record the domains its PD-guard halt proves were lost. Otherwise the loss lives only in rank-kickstarts, which a link cycle, a settled rank and cluster-join all reset — so a boot can leak three domains, forget, and leak three more without bound";
+    assert
+      !(hasInfix "pd_debt_record" joinSrc)
+      || throw "cluster: cluster-join must NOT write the PD ledger. Its only job at the cap is to refuse, and a command that can only refuse must not also be able to spend a protection domain";
+    assert
+      !(builtins.any namesLedgerFile codeLines)
+      || throw "cluster: a cluster script spells the PD ledger's filename literally. It has ONE definition (cluster-mode.nix) and arrives as CLUSTER_PD_DEBT_FILE; a second spelling is one typo from a writer and a reader on different files, and is also how the ledger would get named in a marker list the teardown clears";
+    helpers.mkMarker "check-mlx-cluster-pd-env" "MLX RDMA protection-domain guard env contract: anchored rank pattern derived from the rank argv, absolute pgrep/kill seams, tick-derived reap grace, and a boot-scoped ledger with a maxKickstarts-derived cap verified";
+}

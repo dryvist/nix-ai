@@ -12,13 +12,11 @@
 #   REAL — rank_start_preconditions_ok, halt_write and halt_clear_accepted are
 #          sourced from the shipped script and called as the watcher calls them.
 #          This is the part the older tests/test-link-debounce.sh could not do.
-#   STUB — link_prep_ok / repair_link_prep / peer_rendezvous_listening /
-#          set_wired_limit, because each is a thin wrapper over a macOS-only
-#          binary (ifconfig, networksetup, nc, sysctl) that does not exist on the
-#          Linux CI runner. Their own behaviour is verified on hardware:
-#          `timeout 2 nc -z` returned rc 0 against a listener, rc 1 in 4 ms
-#          against a closed port, and rc 124 at the bound against a blackhole
-#          (macOS, 2026-07-25).
+#   STUB — link_prep_ok / repair_link_prep / set_wired_limit, because each is a
+#          thin wrapper over a macOS-only binary (ifconfig, networksetup,
+#          sysctl) absent on the Linux CI runner; plus date and sleep, so the
+#          shared start boundary is asserted by the wait it COMPUTES rather than
+#          by really sleeping through it.
 #   MIRROR — rank_start_tick below reproduces ONLY the watcher's elif skeleton,
 #          because the watcher body also pings, calls launchctl and writes a
 #          launchd state file at import time. The skeleton is 6 lines and the
@@ -26,8 +24,15 @@
 #          cluster-link-watcher.sh.
 #
 # Usage:
+#   BOOT_SCOPE=/path/to/cluster-boot-scope.sh \
+#   LEDGER=/path/to/cluster-pd-ledger.sh \
 #   HELPERS=/path/to/cluster-link-helpers.sh \
 #   GUARDS=/path/to/cluster-link-guards.sh bash test-rank-start-guards.sh
+#
+# The RDMA protection-domain rungs the guards gained (ledger cap, reap-before-
+# start) have their own file, tests/test-pd-debt.sh. Here they are configured
+# inert — a real ledger path with no debt, and a reap stub that succeeds — so
+# these cases keep testing what they were written to test.
 set -o errexit -o nounset -o pipefail
 
 state_dir="$(mktemp -d)"
@@ -41,10 +46,21 @@ export CLUSTER_ROLE=worker
 export CLUSTER_STATIC_PEER_IP=192.0.2.1
 export CLUSTER_RENDEZVOUS_PORT=11441
 export CLUSTER_STATE_FILE="$state_dir/link-state"
+# Rung 0 refuses outright when the PD guard is not wired up, so these must be
+# present for any other rung to be reachable at all. That refusal is asserted in
+# tests/test-pd-debt.sh; here the guard is simply configured and idle.
+export CLUSTER_PD_DEBT_FILE="$state_dir/pd-debt"
+export CLUSTER_PD_DEBT_MAX=3
+export CLUSTER_RANK_PROCESS_PATTERN='/mlx_lm\.server'
 
-# Sourced in the module's concatenation order: halt_write lives in the helpers
-# (the peer-liveness supervisor sets the same latch), halt_clear_accepted and the
-# preconditions in the guards.
+# Sourced in the module's concatenation order: current_boot_epoch in the boot
+# scope, pd_debt_count in the ledger, halt_write in the helpers (the peer-liveness
+# supervisor sets the same latch), halt_clear_accepted and the preconditions in
+# the guards.
+# shellcheck disable=SC1090
+source "${BOOT_SCOPE:?set BOOT_SCOPE to the path of cluster-boot-scope.sh}"
+# shellcheck disable=SC1090
+source "${LEDGER:?set LEDGER to the path of cluster-pd-ledger.sh}"
 # shellcheck disable=SC1090
 source "${HELPERS:?set HELPERS to the path of cluster-link-helpers.sh}"
 # shellcheck disable=SC1090
@@ -52,21 +68,32 @@ source "${GUARDS:?set GUARDS to the path of cluster-link-guards.sh}"
 
 # --- stubs for the macOS-only wrappers, plus call counters ------------------
 link_ok=1
-peer_listening=1
 ceiling_ok=1
-peer_probes=0
 repairs=0
+# Clock and sleep are stubbed so the shared-start-boundary barrier is asserted by
+# the wait it COMPUTES, not by really sleeping. Only `date +%s` is intercepted;
+# anything else defers to the real binary so helpers that timestamp still work.
+align_now=0
+slept=0
 
 link_prep_ok() { [ "$link_ok" = 1 ]; }
 repair_link_prep() {
   repairs=$((repairs + 1))
   return 1
 }
-peer_rendezvous_listening() {
-  peer_probes=$((peer_probes + 1))
-  [ "$peer_listening" = 1 ]
-}
 set_wired_limit() { [ "$ceiling_ok" = 1 ]; }
+# The reap-before-start rung. Stubbed to "no survivor" here; the real function
+# and its fail-closed behaviour are exercised in tests/test-pd-debt.sh, which
+# drives it through the CLUSTER_PGREP_BIN / CLUSTER_KILL_BIN seams.
+reap_ok=1
+rank_reap_verified() { [ "$reap_ok" = 1 ]; }
+date() {
+  case "$1" in
+    +%s) echo "$align_now" ;;
+    *) command date "$@" ;;
+  esac
+}
+sleep() { slept="$1"; }
 
 # --- the watcher's rank-start branch skeleton (MIRROR — see header) ---------
 # The verdict lands in VERDICT rather than on stdout, and the guards' own log
@@ -114,12 +141,14 @@ check() {
   fi
 }
 reset_state() {
-  rm -f "$halt_file" "$latch_file" "$kicks_file"
+  rm -f "$halt_file" "$latch_file" "$kicks_file" "$CLUSTER_PD_DEBT_FILE"
   link_ok=1
-  peer_listening=1
   ceiling_ok=1
-  peer_probes=0
+  reap_ok=1
   repairs=0
+  slept=0
+  align_now=0
+  unset CLUSTER_RANK_START_ALIGN_SECS
 }
 kicks_now() { cat "$kicks_file" 2> /dev/null || echo absent; }
 halt_cause() { sed -n 's/.*cause=\([^	]*\).*/\1/p' "$halt_file" 2> /dev/null || echo none; }
@@ -133,15 +162,16 @@ reset_state
 check "link_prep_ok true when the link is up" 0 "$(link_prep_ok && echo 0 || echo 1)"
 link_ok=0
 check "link_prep_ok false when the link is down" 1 "$(link_prep_ok && echo 0 || echo 1)"
-check "peer_rendezvous_listening true when the peer answers" 0 \
-  "$(peer_rendezvous_listening && echo 0 || echo 1)"
-peer_listening=0
-check "peer_rendezvous_listening false when it does not" 1 \
-  "$(peer_rendezvous_listening && echo 0 || echo 1)"
 check "set_wired_limit true under the ceiling" 0 "$(set_wired_limit && echo 0 || echo 1)"
 ceiling_ok=0
 check "set_wired_limit false when the ceiling is refused" 1 \
   "$(set_wired_limit && echo 0 || echo 1)"
+align_now=4242
+check "date +%s returns the stubbed clock" 4242 "$(date +%s)"
+check "date passes other formats to the real binary" ok \
+  "$(date -u +%Y > /dev/null && echo ok || echo broken)"
+sleep 7
+check "sleep records instead of sleeping" 7 "$slept"
 # repair_link_prep always reports failure (the stub models a repair that did not
 # take), and must count the attempt. Called in this shell so the counter sticks.
 reset_state
@@ -150,31 +180,47 @@ check "repair_link_prep reports failure" 1 "$(repair_link_prep > /dev/null 2>&1 
 check "repair_link_prep counted its attempt" 1 "$repairs"
 reset_state
 
-echo "peer not listening does NOT consume an attempt:"
-# THE incident. Three attempts against an absent rank 0 = three leaked
-# protection domains = a mandatory reboot. Waiting costs nothing.
+echo "both ranks hold for the shared start boundary:"
+# The worker used to wait for rank 0 to be listening. That GUARANTEED it reached
+# distributed init ~20-30s after the coordinator — far outside jaccl's fixed
+# ~15s connect budget — so the coordinator had already exited and the worker
+# dialled a dead port (errno 60). Measured 2026-07-25: sequential starts
+# oscillate and both ranks die; starting together holds and serves. There is no
+# leader to wait for now, only a boundary both hosts compute identically.
 reset_state
-peer_listening=0
+export CLUSTER_RANK_START_ALIGN_SECS=60
+align_now=100 # 40s past a boundary, so 20s remain
 tick
-check "start is skipped" skip "$VERDICT"
-check "reason recorded" peer-rendezvous-absent "$PRECONDITION_REASON"
-check "no attempt consumed" absent "$(kicks_now)"
-tick
-tick
-check "still no attempts after three ticks" absent "$(kicks_now)"
-check "and no halt" none "$(halt_cause)"
-peer_listening=1
-tick
-check "coordinator appears -> the rank starts" start "$VERDICT"
-check "now one attempt is counted" 1 "$(kicks_now)"
+check "start still proceeds" start "$VERDICT"
+check "waited exactly to the next boundary" 20 "$slept"
+check "attempt consumed once started" 1 "$(kicks_now)"
 
-echo "the coordinator never waits on the worker (no mutual deadlock):"
+reset_state
+export CLUSTER_RANK_START_ALIGN_SECS=60
+align_now=120 # already exactly on a boundary
+tick
+check "no wait when already on the boundary" 0 "$slept"
+check "start proceeds" start "$VERDICT"
+
+reset_state
+export CLUSTER_RANK_START_ALIGN_SECS=0
+align_now=100
+tick
+check "alignment disabled means no wait" 0 "$slept"
+check "start proceeds" start "$VERDICT"
+reset_state
+
+echo "both roles observe the SAME boundary (alignment, not ordering):"
+# The point of the boundary is that neither rank leads. Feed the coordinator the
+# identical clock the worker saw above and it must compute the identical wait —
+# that is what puts the two inside jaccl's connect budget together.
 reset_state
 CLUSTER_ROLE=coordinator
-peer_listening=0
+export CLUSTER_RANK_START_ALIGN_SECS=60
+align_now=100
 tick
-check "coordinator starts regardless" start "$VERDICT"
-check "peer was never probed" 0 "$peer_probes"
+check "coordinator starts too" start "$VERDICT"
+check "coordinator waits the same 20s the worker did" 20 "$slept"
 CLUSTER_ROLE=worker
 
 echo "missing local link address blocks the start:"
@@ -186,7 +232,6 @@ check "start is blocked" skip "$VERDICT"
 check "reason recorded" link-address-missing "$PRECONDITION_REASON"
 check "no attempt consumed" absent "$(kicks_now)"
 check "repair was attempted" 1 "$repairs"
-check "peer probe never reached" 0 "$peer_probes"
 
 echo "repair is overridable but the block is not:"
 reset_state
@@ -219,20 +264,23 @@ echo "clearing the halt by hand re-verifies the cause (rejected):"
 # What actually happened: a human deleted the marker on an unverified hypothesis
 # and burned the remaining protection domains.
 rm -f "$halt_file"
-peer_listening=0
+link_ok=0
 tick
 check "clear is rejected" re-halted "$VERDICT"
 check "marker is back" manual-clear-rejected "$(halt_cause)"
 check "no attempt consumed" 3 "$(kicks_now)"
-grep -q 'still-failing=peer-rendezvous-absent' "$halt_file" ||
+grep -q 'still-failing=link-address-missing' "$halt_file" ||
   { echo "  FAIL re-halt marker must name the still-failing precondition"; fail=1; }
 
 echo "clearing the halt by hand is accepted once the cause is gone:"
 rm -f "$halt_file"
-peer_listening=1
+link_ok=1
 tick
 check "clear accepted, then the rank starts" start "$VERDICT"
 check "attempt counter was reset by the accepted clear" 1 "$(kicks_now)"
 check "latch cleared" missing "$([ -f "$latch_file" ] && echo latched || echo missing)"
+
+# Boot scoping of the halt marker lives in tests/test-halt-boot-scope.sh
+# (split out at the 12KB file cap); it unit-tests the halt helpers directly.
 
 exit "$fail"

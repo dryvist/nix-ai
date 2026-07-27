@@ -45,7 +45,64 @@ in
     ];
     HELPERS = "${src}/modules/mlx/scripts/cluster-link-helpers.sh";
     GUARDS = "${src}/modules/mlx/scripts/cluster-link-guards.sh";
+    BOOT_SCOPE = "${src}/modules/mlx/scripts/cluster-boot-scope.sh";
+    LEDGER = "${src}/modules/mlx/scripts/cluster-pd-ledger.sh";
   } "bash ${src}/tests/test-rank-start-guards.sh && touch $out";
+
+  # THE CHECK THAT FAILS IF RDMA PROTECTION-DOMAIN EXHAUSTION CAN RECUR. Four
+  # properties, against the shipped layers sourced in the module's own
+  # concatenation order: a start is refused while a previous rank survives; both
+  # a SIGKILL and a PD-guard halt are recorded as debt; debt at the cap refuses
+  # and halts; and only a reboot settles the ledger — not a link cycle, not a
+  # by-hand marker delete, not cluster-join. The test header states what is real,
+  # what is stubbed, and why the process probe cannot be the real one here.
+  mlx-cluster-pd-debt = pkgs.runCommand "check-mlx-cluster-pd-debt" {
+    nativeBuildInputs = [
+      pkgs.coreutils
+      pkgs.gnugrep
+      pkgs.gnused
+      pkgs.gawk
+    ];
+    BOOT_SCOPE = "${src}/modules/mlx/scripts/cluster-boot-scope.sh";
+    LEDGER = "${src}/modules/mlx/scripts/cluster-pd-ledger.sh";
+    RECORD = "${src}/modules/mlx/scripts/cluster-pd-record.sh";
+    HELPERS = "${src}/modules/mlx/scripts/cluster-link-helpers.sh";
+    STATUS = "${src}/modules/mlx/scripts/cluster-rank-status.sh";
+    REAP = "${src}/modules/mlx/scripts/cluster-rank-reap.sh";
+    GUARDS = "${src}/modules/mlx/scripts/cluster-link-guards.sh";
+  } "bash ${src}/tests/test-pd-debt.sh && touch $out";
+
+  # Boot scoping of the halt marker, split out of the rank-guards test at the 12KB
+  # file cap. Unit-tests the halt helpers directly: a halt from a previous boot is
+  # dropped (else a cold boot can never form the cluster), a halt from THIS boot
+  # stands (the PD guard must not weaken), an unreadable boot time fails closed,
+  # and operator prose in the detail text cannot spoof the boot field.
+  mlx-cluster-halt-boot-scope = pkgs.runCommand "check-mlx-cluster-halt-boot-scope" {
+    nativeBuildInputs = [
+      pkgs.coreutils
+      pkgs.gnugrep
+      pkgs.gnused
+      pkgs.gawk
+    ];
+    HELPERS = "${src}/modules/mlx/scripts/cluster-link-helpers.sh";
+    BOOT_SCOPE = "${src}/modules/mlx/scripts/cluster-boot-scope.sh";
+  } "bash ${src}/tests/test-halt-boot-scope.sh && touch $out";
+
+  # The predicate the pair-wide standdown trusts. Absence of the peer's rendezvous
+  # session tears this rank down, so a false negative kills a healthy rank
+  # mid-generation. Pins the case an ad-hoc probe got wrong in practice: netstat
+  # prints the port BEFORE the state, so a `grep 'ESTABLISHED.*\.PORT'` matches
+  # nothing and reports a serving cluster as dead. Also pins CLOSE_WAIT as absent,
+  # which is what a SIGKILLed peer leaves behind.
+  mlx-cluster-peer-rendezvous = pkgs.runCommand "check-mlx-cluster-peer-rendezvous" {
+    nativeBuildInputs = [
+      pkgs.coreutils
+      pkgs.gnugrep
+      pkgs.gnused
+      pkgs.gawk
+    ];
+    HELPERS = "${src}/modules/mlx/scripts/cluster-link-helpers.sh";
+  } "bash ${src}/tests/test-peer-rendezvous-session.sh && touch $out";
 
   # Builds the three CONCATENATED cluster scripts for real. Nothing else does:
   # `nix flake check` only evaluates packages, and the repo-wide shellcheck check
@@ -62,7 +119,14 @@ in
   mlx-cluster-scripts-build =
     let
       agents = hmConfigCluster.config.launchd.agents;
-      agentExes = map (a: builtins.head agents.${a}.config.ProgramArguments) [
+      # LAST element, not the head: these agents are launched as
+      # `<interpreter> <script>` (clusterMode.appleInterpreter) so that macOS
+      # attributes their network access to Apple's stable, always-permitted
+      # binary rather than to a Nix store path whose TCC identity dies on every
+      # rebuild. The head is therefore /bin/bash, which does not exist in the
+      # Linux build sandbox — and is not what this check is about anyway. What
+      # must build is the SCRIPT.
+      agentExes = map (a: pkgs.lib.last agents.${a}.config.ProgramArguments) [
         "mlx-cluster-watcher"
         # Concatenates the same helpers, so a helper change must build here too.
         "mlx-cluster-peer-liveness"
@@ -107,4 +171,11 @@ in
   mlx-cluster-link-debounce = pkgs.runCommand "check-mlx-cluster-link-debounce" {
     nativeBuildInputs = [ pkgs.coreutils ];
   } "bash ${src}/tests/test-link-debounce.sh && touch $out";
+
+  # RDMA PD guard integrity: the halt is not cleared by a rank that merely
+  # reached `state = running`, and halting always restores standalone serving.
+  # Mirror-style by necessity (see the test header).
+  mlx-cluster-pd-guard-integrity = pkgs.runCommand "check-mlx-cluster-pd-guard-integrity" {
+    nativeBuildInputs = [ pkgs.coreutils ];
+  } "bash ${src}/tests/test-pd-guard-integrity.sh && touch $out";
 }

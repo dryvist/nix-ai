@@ -1,0 +1,90 @@
+--- a/mlx_lm/server.py	2026-07-27 08:06:40
++++ b/mlx_lm/server.py	2026-07-27 08:06:56
+@@ -43,9 +43,23 @@
+     make_prompt_cache,
+ )
+ from .sample_utils import make_logits_processors, make_sampler
++from .tool_parsers.harmony import HarmonyStream as _HarmonyStream
++from .tool_parsers.harmony import parse_tool_call as _harmony_parse_tool_call
+ from .utils import _parse_size, load, sharded_load
+ 
+ 
++def _make_harmony_stream(cli_args):
++    """HarmonyStream for this completion, or None when disabled.
++
++    gpt-oss emits harmony channel markup that no chat template in this package
++    infers a tool parser for, so without this the markup lands verbatim in
++    `content` and `tool_calls` stays null. "auto" engages only when the turn
++    actually opens with harmony markup, so every other model is untouched.
++    """
++    mode = getattr(cli_args, "harmony_tool_parser", "auto")
++    return None if mode == "off" else _HarmonyStream(mode)
++
++
+ def get_system_fingerprint():
+     gpu_arch = mx.device_info()["architecture"]
+     return f"{__version__}-{mx.__version__}-{platform.platform()}-{gpu_arch}"
+@@ -1437,7 +1451,12 @@
+             logging.debug("Starting completion:")
+ 
+         # Tool call formatter
+-        tool_formatter = ToolCallFormatter(ctx.tool_parser, request.tools, self.stream)
++        harmony_stream = _make_harmony_stream(self.response_generator.cli_args)
++        tool_formatter = ToolCallFormatter(
++            _harmony_parse_tool_call if harmony_stream is not None else ctx.tool_parser,
++            request.tools,
++            self.stream,
++        )
+ 
+         # Variables to save the generated text, tokens, logprobs, tools etc
+         prev_state = None
+@@ -1466,7 +1485,15 @@
+                         tool_calls.append(tool_text)
+                         tool_text = ""
+                         made_tool_call = True
+-                    text += gen.text
++                    if harmony_stream is None:
++                        text += gen.text
++                    else:
++                        delta = harmony_stream.push(gen.text)
++                        text += delta.content
++                        reasoning_text += delta.reasoning
++                        if delta.tool_calls:
++                            tool_calls.extend(delta.tool_calls)
++                            made_tool_call = True
+ 
+                 # Add the tokens and logprobs to the vars.
+                 tokens.append(gen.token)
+@@ -1500,6 +1527,14 @@
+             if prev_state == "tool" and tool_text:
+                 tool_calls.append(tool_text)
+                 made_tool_call = True
++
++            if harmony_stream is not None:
++                delta = harmony_stream.finish()
++                text += delta.content
++                reasoning_text += delta.reasoning
++                if delta.tool_calls:
++                    tool_calls.extend(delta.tool_calls)
++                    made_tool_call = True
+ 
+             if finish_reason == "stop" and made_tool_call:
+                 finish_reason = "tool_calls"
+@@ -1884,6 +1919,17 @@
+         action="store_true",
+         help="Use pipelining instead of tensor parallelism",
+     )
++    parser.add_argument(
++        "--harmony-tool-parser",
++        type=str,
++        choices=["auto", "on", "off"],
++        default="auto",
++        help=(
++            "Translate harmony channel markup (gpt-oss) into tool_calls and "
++            "reasoning. 'auto' engages only on turns that open with harmony "
++            "markup; 'off' restores the unpatched behaviour."
++        ),
++    )
+     args = parser.parse_args()
+     if mx.metal.is_available():
+         wired_limit = mx.device_info()["max_recommended_working_set_size"]

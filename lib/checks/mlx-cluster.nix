@@ -25,6 +25,7 @@ let
       launchAgentLabel = "dev.test.server";
       launchAgentsDir = "/tmp/LaunchAgents";
       stateFile = "/tmp/link-state";
+      pdDebtFile = "/tmp/pd-debt";
       ncfg = {
         role = "worker";
         maxKickstarts = 3;
@@ -50,20 +51,8 @@ in
       agents = hmConfigCluster.config.launchd.agents;
       rank = agents.mlx-cluster-rank.config;
       watcher = agents.mlx-cluster-watcher.config;
-      peer = agents.mlx-cluster-peer-liveness.config;
       rankEnv = rank.EnvironmentVariables;
       watcherEnv = watcher.EnvironmentVariables;
-      peerEnv = peer.EnvironmentVariables;
-      # Compared as a whole below, so a threshold that silently stops reaching
-      # the agent fails the check instead of falling back to a script default.
-      peerThresholds = {
-        inherit (peerEnv)
-          CLUSTER_PEER_STRIKES
-          CLUSTER_PEER_PROBE_INTERVAL_SECS
-          CLUSTER_PEER_PROBE_TIMEOUT_SECS
-          CLUSTER_PEER_DEAD_TICKS
-          ;
-      };
       rankArgs = rank.ProgramArguments;
       pkgNames = map (p: p.name or "") hmConfigCluster.config.home.packages;
       joinScript = builtins.readFile (src + "/modules/mlx/scripts/cluster-join.sh");
@@ -135,40 +124,27 @@ in
     assert
       watcherEnv.CLUSTER_MAX_WARM_FAILURES == "3"
       || throw "cluster: coordinator watcher must carry the post-readiness warm-failure cap; without it a rank wedged after readiness retries forever (INC-17070)";
-    # Peer-liveness supervisor. Its whole job is telling a dead peer from a
-    # wedged one, and every input to that decision is env wiring — so a silent
-    # drop here would restore the exact blind spot it exists to remove.
+    # The settle window is the ONLY thing standing between a failing rank and an
+    # unbounded retry loop that burns reboot-only RDMA protection domains. Drop
+    # it from the env and the script's `:-60` fallback silently takes over, so
+    # the option stops controlling anything — the exact drift the derived-value
+    # pins above exist to prevent.
     assert
-      peer.RunAtLoad == true && peer.StartInterval == 60
-      || throw "cluster: peer-liveness must tick from load, slower than the watcher (its expensive step is separately rate-limited)";
+      watcherEnv ? CLUSTER_RANK_SETTLE_SECS
+      && builtins.match "[0-9]+" watcherEnv.CLUSTER_RANK_SETTLE_SECS != null
+      || throw "cluster: watcher must carry the rank settle window; without it `state = running` clears the PD guard on a rank still inside the jaccl back-off, and the guard retries forever while reporting it is protecting the budget";
+    # The watcher must be launched by Apple's interpreter, not its own Nix
+    # shebang. macOS keys a Local Network grant to the code-signing identity,
+    # and a Nix binary's identity is its content hash — so a Nix shebang here
+    # means the grant dies on every rebuild and the cluster silently stops being
+    # able to probe its peer. Apple's binary is identity-stable, so the agent
+    # needs no grant at all. Regressing this looks like nothing until a cold
+    # boot fails to form the cluster.
     assert
-      peerEnv.CLUSTER_RENDEZVOUS_PORT == "11441"
-      || throw "cluster: peer-liveness needs the rendezvous port — the JACCL session on it is the only no-SSH evidence about the PEER's rank process";
-    assert
-      peerEnv.CLUSTER_RANK_PROGRESS_LOG == rank.StandardErrorPath
-      || throw "cluster: peer-liveness must count token progress from the rank's stderr, where mlx_lm.server writes generation timings";
-    assert
-      peerEnv.CLUSTER_RANK_URL == watcherEnv.CLUSTER_RANK_URL
-      && peerEnv.CLUSTER_MODEL == watcherEnv.CLUSTER_MODEL
-      || throw "cluster: coordinator peer-liveness must probe the same endpoint and model the watcher warms";
-    assert
-      peerEnv.CLUSTER_HTTP_PORT == watcherEnv.CLUSTER_HTTP_PORT
-      || throw "cluster: peer-liveness needs the endpoint port to see an in-flight request; probing over one is how a HEALTHY busy rank gets killed";
-    assert
-      peerThresholds == {
-        CLUSTER_PEER_STRIKES = "3";
-        CLUSTER_PEER_PROBE_INTERVAL_SECS = "300";
-        CLUSTER_PEER_PROBE_TIMEOUT_SECS = "120";
-        CLUSTER_PEER_DEAD_TICKS = "3";
-      }
-      || throw "cluster: every peer-liveness threshold must arrive from the options — the script's inline defaults are a last resort, never the configured value";
-    assert
-      builtins.all (k: peerEnv ? ${k}) [
-        "CLUSTER_ALERT_URL_FILE"
-        "CLUSTER_WARMUP_LABEL"
-        "CLUSTER_SERVER_PLIST"
-      ]
-      || throw "cluster: peer-liveness must be able to page AND restore standalone serving, or a confirmed wedge just sits there";
+      builtins.head watcher.ProgramArguments == "/bin/bash"
+      || throw "cluster: the watcher must be launched via Apple's /bin/bash, not its Nix shebang — a Nix interpreter's TCC identity is its content hash, so its Local Network grant dies on every rebuild and the probe starts returning 'No route to host'";
+    # The peer-liveness supervisor's own env contract lives in
+    # ./mlx-cluster-peer-env.nix — same fixture, split for the per-file size cap.
     assert
       watcherEnv.CLUSTER_WARM_RECHECK_SECS == "1800"
       || throw "cluster: coordinator watcher must carry the warm-marker re-arm interval, or the wedge detector runs at most once per link session";

@@ -100,9 +100,15 @@ in
 // (import ./checks/autonomous-profile.nix { inherit pkgs; })
 // (import ./checks/mlx.nix { inherit pkgs hmConfig; })
 // (import ./checks/mlx-single-model.nix { inherit pkgs; })
+// (import ./checks/mlx-bash32.nix { inherit pkgs hmConfig src; })
 // (import ./checks/mlx-watchdog.nix { inherit pkgs src; })
+// (import ./checks/mlx-worker-reap.nix { inherit pkgs hmConfig src; })
+// (import ./checks/mlx-warmup.nix { inherit pkgs src; })
 // (import ./checks/mlx-catalog.nix { inherit pkgs hmConfigCatalog; })
+// (import ./checks/mlx-harmony.nix { inherit pkgs hmConfigCatalog; })
 // (import ./checks/mlx-cluster.nix { inherit pkgs hmConfigCluster src; })
+// (import ./checks/mlx-cluster-peer-env.nix { inherit pkgs hmConfigCluster src; })
+// (import ./checks/mlx-cluster-pd-env.nix { inherit pkgs hmConfigCluster src; })
 // (import ./checks/mlx-cluster-scripts.nix { inherit pkgs hmConfigCluster src; })
 // (import ./checks/fabric.nix {
   inherit

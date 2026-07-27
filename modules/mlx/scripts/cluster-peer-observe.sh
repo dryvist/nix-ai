@@ -55,32 +55,10 @@ peer_reachable() {
   "${CLUSTER_PING_BIN:-/sbin/ping}" -c 3 -t 2 -q "${CLUSTER_STATIC_PEER_IP}" > /dev/null 2>&1
 }
 
-# Direct evidence about the PEER's rank process, with no SSH between the nodes:
-# the JACCL rendezvous is a TCP session between the two ranks, so its presence
-# is observable from either end with netstat alone. Rank 0 binds
-# CLUSTER_RENDEZVOUS_PORT on the coordinator's link address and rank 1 dials
-# it, so the ESTABLISHED row carries the peer IP and that port whichever side
-# looks — one predicate serves both roles.
-#
-# Read the ASYMMETRY carefully, because it is the whole point. A session that
-# is GONE while the cable is still in means the peer's rank process is gone. A
-# session that is PRESENT proves only that a socket is open — a wedged rank
-# holds it exactly as a healthy one does.
-#
-# ponytail: classification only, deliberately. Whether JACCL keeps this session
-# open for the life of the run or drops it after bootstrap is UNVERIFIED here
-# (confirming it needs the live cluster), and a wrong assumption would kill
-# healthy ranks. So token progress stays the sole teardown authority and this
-# only decides which cause the page names. Promote it to a trigger — which
-# would cut dead-peer detection from ~15 minutes to one tick — once a converge
-# has shown the session persists across a full generation.
-peer_rendezvous_session() {
-  [ -n "${CLUSTER_RENDEZVOUS_PORT:-}" ] || return 1
-  "${CLUSTER_NETSTAT_BIN:-/usr/sbin/netstat}" -an -p tcp 2> /dev/null |
-    awk -v ip="${CLUSTER_STATIC_PEER_IP}" -v port=".${CLUSTER_RENDEZVOUS_PORT}" '
-      /ESTABLISHED/ && index($0, ip) && index($0, port) { found = 1 }
-      END { exit(found ? 0 : 1) }'
-}
+# peer_rendezvous_session moved to cluster-link-helpers.sh, which both this
+# supervisor and the link watcher concatenate — the watcher now needs it too, and
+# one definition beats two that can drift. Persistence across a full generation is
+# measured there.
 
 # A request is in flight when something holds an ESTABLISHED connection on the
 # endpoint port. Probing then is how a HEALTHY busy rank gets killed:

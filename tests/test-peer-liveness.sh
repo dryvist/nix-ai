@@ -37,6 +37,7 @@ shebang="#!$BASH"
 # under writeShellApplication's shell flags.
 {
   printf '%s\nset -o errexit -o nounset -o pipefail\n' "$shebang"
+  cat "$script_dir/cluster-boot-scope.sh"
   cat "$script_dir/cluster-link-helpers.sh"
   cat "$script_dir/cluster-peer-observe.sh"
   cat "$script_dir/cluster-peer-liveness.sh"
@@ -195,6 +196,32 @@ tick coordinator
 check "client request in flight -> no probe sent" 0 "$(probe_count)"
 check "client request in flight -> no teardown" no "$(torn_down)"
 
+# ...but that back-off must be BOUNDED. It used to be unbounded, and a wedged
+# rank holds its client connection open forever, so this branch returned on
+# every tick and the supervisor below it never ran at all. Measured 2026-07-25
+# by an induced kill drill: worker killed, coordinator did not crash, its port
+# kept accepting, and a real request returned http=000 after 60s with zero bytes
+# and nothing in the log. That request pinned this branch open.
+#
+# busyStallSecs=0 is the "back-off already exhausted" case, which is what makes
+# the bound observable without the test having to control the clock.
+reset
+printf '%s%s' "$rendezvous_open" "$client_in_flight" > "$tmp/netstat.out"
+CLUSTER_PEER_BUSY_STALL_SECS=0 tick coordinator
+check "a stalled in-flight request stops being deferred behind" 1 "$(probe_count)"
+CLUSTER_PEER_BUSY_STALL_SECS=0 tick coordinator
+CLUSTER_PEER_BUSY_STALL_SECS=0 tick coordinator
+check "and the strike ladder then runs to teardown" yes "$(torn_down)"
+
+# The same fixture with the back-off intact must still defer — otherwise the
+# check above would pass for the wrong reason (i.e. the brake removed entirely).
+reset
+printf '%s%s' "$rendezvous_open" "$client_in_flight" > "$tmp/netstat.out"
+CLUSTER_PEER_BUSY_STALL_SECS=99999 tick coordinator
+CLUSTER_PEER_BUSY_STALL_SECS=99999 tick coordinator
+check "an in-flight request within the window still defers" 0 "$(probe_count)"
+check "and is never torn down inside the window" no "$(torn_down)"
+
 # Below the strike threshold nothing happens, however loud the failure.
 reset
 tick coordinator
@@ -235,6 +262,31 @@ check "3 failed probes -> torn down" yes "$(torn_down)"
 check "cause names the dead peer rank" yes "$(alert_says "rendezvous session is GONE")"
 check "evidence records the absent rendezvous" yes "$(alert_says "rendezvous=absent")"
 check "not misreported as wedged" no "$(alert_says "peer rank is WEDGED")"
+
+# A vanished rendezvous session is CONCLUSIVE, not statistical: a healthy cluster
+# always holds it open, so its absence cannot be a busy healthy rank. Waiting out
+# the strike ladder there buys no information and costs minutes of hung
+# inference, so it escalates on the first tick.
+reset
+printf '%s' "$rendezvous_gone" > "$tmp/netstat.out"
+tick coordinator
+check "a vanished rendezvous tears down on the FIRST tick" yes "$(torn_down)"
+check "no probe is wasted on a group that no longer exists" 0 "$(probe_count)"
+
+# The same shortcut must NOT fire while the session is healthy, or every tick
+# would kill a working cluster.
+reset
+tick coordinator
+check "an open rendezvous is never shortcut to teardown" no "$(torn_down)"
+
+# ...nor when the peer is simply unreachable: that is the link being down, a
+# different cause with a different page, and it must keep its own path.
+reset
+export FAKE_PING_RC=1
+printf '%s' "$rendezvous_gone" > "$tmp/netstat.out"
+tick coordinator
+check "an unreachable peer does not take the vanished-rendezvous shortcut" no "$(torn_down)"
+export FAKE_PING_RC=0
 
 reset
 export FAKE_PING_RC=1

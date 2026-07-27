@@ -1,0 +1,17 @@
+{
+  "toolcall_after_analysis": {
+    "content": "<|channel|>analysis<|message|>We need to call get_weather with city \"Tokyo\", unit \"celsius\".<|end|><|start|>assistant<|channel|>commentary to=functions.get_weather <|constrain|>json<|message|>{\n  \"city\": \"Tokyo\",\n  \"unit\": \"celsius\"\n}",
+    "finish_reason": "stop",
+    "tool_calls": null
+  },
+  "toolcall_paris": {
+    "content": "<|channel|>analysis<|message|>We need to call get_weather with city \"Paris, France\". Probably just \"Paris\". Use unit maybe default. We'll call function.<|end|><|start|>assistant<|channel|>commentary to=functions.get_weather <|constrain|>json<|message|>{\n  \"city\": \"Paris, France\"\n}",
+    "finish_reason": "stop",
+    "tool_calls": null
+  },
+  "plain_completion": {
+    "content": "<|channel|>analysis<|message|>The user asks: \"Reply with exactly this sentence and nothing else: The quick brown fox jumps over the lazy dog.\"\n\nWe must output exactly that sentence, no extra punctuation, no extra whitespace, no quotes. So output:\n\nThe quick brown fox jumps over the lazy dog.\n\nMake sure no extra newline? Usually a newline is okay but it's part of output. The instruction: \"Reply with exactly this sentence and nothing else\". So we should output exactly that line. Probably include a trailing newline is fine. We'll output exactly that.<|end|><|start|>assistant<|channel|>final<|message|>The quick brown fox jumps over the lazy dog.",
+    "finish_reason": "stop",
+    "tool_calls": null
+  }
+}

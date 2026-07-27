@@ -43,6 +43,34 @@
       '';
     };
 
+    peerSessionStrikes = lib.mkOption {
+      type = lib.types.ints.positive;
+      default = 3;
+      description = ''
+        Consecutive ticks the peer's JACCL rendezvous session must be absent,
+        while this rank is running and settled, before this rank is stood down
+        so the pair re-arms together (exported as CLUSTER_PEER_SESSION_STRIKES).
+
+        A jaccl group cannot re-admit a rank, so a rank whose peer has gone can
+        never generate again — it must not be left running. Absence is an
+        accepted trigger because session persistence across a full generation is
+        measured, not assumed; see peer_rendezvous_session. Strikes rather than a
+        single tick so one missed sample cannot tear down a healthy pair.
+      '';
+    };
+
+    rankStartAlignMultiple = lib.mkOption {
+      type = lib.types.int;
+      default = 2;
+      description = ''
+        Multiple of tickIntervalSecs giving the shared wall-clock start boundary
+        for BOTH ranks, exported as CLUSTER_RANK_START_ALIGN_SECS. Must be at
+        least 2; see the cluster-link-guards notes for why the period must
+        exceed the tick and why both ranks start together instead of the worker
+        waiting for rank 0.
+      '';
+    };
+
     peerRendezvousProbeTimeoutSecs = lib.mkOption {
       type = lib.types.int;
       default = 2;
@@ -80,6 +108,19 @@
       '';
     };
 
+    appleInterpreter = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = ''
+        Per-cluster override for programs.mlx.appleInterpreter. null (the
+        default) inherits the module-wide value, which is where the convention
+        and its rationale live — see ./options-launch.nix.
+
+        Present only so a single host can opt one cluster agent out without
+        changing the estate default. Almost nothing should set this.
+      '';
+    };
+
     linkRepairActivateTimeoutSecs = lib.mkOption {
       type = lib.types.int;
       default = 150;
@@ -95,24 +136,5 @@
       '';
     };
 
-    warmRecheckSecs = lib.mkOption {
-      type = lib.types.int;
-      default = 1800;
-      description = ''
-        Re-arm the warm marker after this long, so the post-readiness wedge
-        detector can run more than once per link session; 0 disables re-checks.
-
-        Readiness is a one-shot latch and the wedge detector is gated on the
-        warm marker being absent, so without this a single successful warm
-        disables the detector for the rest of the session — which is how a rank
-        that wedged AFTER its first warm (2026-07-25: an 8-token completion
-        returning 0 bytes after 900s, both ranks at ~100% CPU) sat for over an
-        hour with nothing escalating.
-
-        Deliberately long: mlx_lm.server blocks HTTP during a generation, so a
-        healthy rank mid-answer fails a probe, and only maxWarmFailures
-        CONSECUTIVE failures escalate.
-      '';
-    };
   };
 }

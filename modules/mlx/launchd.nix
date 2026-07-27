@@ -18,11 +18,19 @@ let
     warmupAgentLabel
     apiUrl
     mlxWarmupPkg
+    warmupTimeoutSeconds
     llamaSwapLaunchPkg
     llamaSwapConfigFile
+    llamaSwapConfigAttrs
     llamaSwapRuntimeConfigPath
     modelServerProcessPattern
+    allModels
     ;
+  # Worker ports llama-swap could hand out to a model in the CURRENT config —
+  # an overestimate under programs.mlx.singleModel is safe (a few extra ports
+  # get scanned and come back empty), an underestimate would not be. See
+  # scripts/llama-swap-reap.sh for what these protect and why.
+  workerPortCount = builtins.length (builtins.attrNames allModels);
 in
 {
   config = lib.mkIf cfg.enable {
@@ -45,7 +53,14 @@ in
           enable = true;
           config = {
             Label = launchAgentLabel;
-            ProgramArguments = [
+            # Apple's interpreter, per programs.mlx.appleInterpreter — the same
+            # convention the cluster agents use. This one serves on loopback, so
+            # it is not currently gated on Local Network; it follows the
+            # convention anyway because the estate keeps ONE way of launching a
+            # shell agent rather than two. The moment an agent's traffic leaves
+            # loopback the Nix-shebang form starts failing silently, and by then
+            # nobody remembers which form this file happened to use.
+            ProgramArguments = lib.optional (cfg.appleInterpreter != null) cfg.appleInterpreter ++ [
               (lib.getExe llamaSwapLaunchPkg)
               "--config"
               llamaSwapRuntimeConfigPath
@@ -70,6 +85,12 @@ in
             EnvironmentVariables = {
               HF_HOME = cfg.huggingFaceHome;
               MLX_MODEL_SERVER_PROCESS_PATTERN = modelServerProcessPattern;
+              # Consumed by llama-swap-launch's port-ownership reap (see
+              # scripts/llama-swap-reap.sh) — NOT the process pattern above,
+              # which that reap no longer trusts.
+              MLX_PORT = toString cfg.port;
+              MLX_WORKER_PORT_RANGE_START = toString llamaSwapConfigAttrs.startPort;
+              MLX_WORKER_PORT_COUNT = toString workerPortCount;
             }
             // lib.optionalAttrs cfg.telemetry.enable {
               # Standard OTel env vars inherited by llama-swap and mlx_lm.server children.
@@ -92,6 +113,14 @@ in
         # this is the ONLY preload path; llama-swap's hooks.on_startup.preload
         # is deliberately not emitted because its request shape is not
         # portable across the preserved MLX backends.
+        #
+        # KeepAlive.SuccessfulExit=false restarts on ANY nonzero exit, with no
+        # ceiling of its own — mlx-warmup.py bounds that itself: after a
+        # capped run of consecutive full-cycle failures it exits 0 (a clean,
+        # deliberate give-up, not a success) so this stops restarting it
+        # rather than re-acquiring the model's concurrency slot forever. See
+        # mlx-warmup.py's MAX_CONSECUTIVE_FAILURES for the restart-livelock
+        # fix itself; ThrottleInterval below only paces each individual retry.
         mlx-model-server-warmup = {
           enable = true;
           config = {
@@ -107,6 +136,7 @@ in
               MLX_API_URL = apiUrl;
               MLX_PRELOAD_MODELS = lib.concatStringsSep " " cfg.preload;
               MLX_PRELOAD_MODELS_JSON = builtins.toJSON cfg.preload;
+              MLX_WARMUP_TIMEOUT_SECONDS = toString warmupTimeoutSeconds;
             };
             StandardOutPath = "${config.home.homeDirectory}/Library/Logs/mlx-model-server/warmup.log";
             StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/mlx-model-server/warmup.error.log";

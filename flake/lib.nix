@@ -109,20 +109,25 @@
   # default — one source of truth.
   aiStackModels = import ../lib/ai-stack-models.nix;
 
-  # Homebrew formula list required by per-agent modules whose
-  # preferred install path is brew. nix-darwin reads this from the
-  # nix-ai flake input and merges into homebrew.brews. Keeps each
-  # agent module self-contained and ready for future graduation
-  # to its own flake — see docs/architecture/per-agent-flakes.md.
-  brewFormulae = [
-    "qwen-code" # programs.qwen-code with installVia = "brew"
-  ];
-
-  # AI-tool Homebrew taps and casks. nix-darwin merges these into
-  # homebrew.taps and homebrew.casks. Source of truth: lib/homebrew.nix
-  # (same file drives the trust.json written by the home-manager module).
-  homebrewTaps = homebrewNix.taps;
-  homebrewCasks = homebrewNix.casks;
+  # AI-tool Homebrew packages. nix-darwin passes its injected, default-off
+  # capability attrset once; package names and package types stay in nix-ai.
+  # Source of truth: lib/homebrew.nix (its taps also drive trust.json).
+  homebrewFor =
+    capabilities:
+    let
+      enabled =
+        packages:
+        nixpkgs.lib.concatLists (
+          nixpkgs.lib.mapAttrsToList (
+            capability: values: nixpkgs.lib.optionals (capabilities.${capability} or false) values
+          ) packages
+        );
+    in
+    {
+      inherit (homebrewNix) taps;
+      brews = enabled homebrewNix.brews;
+      casks = enabled homebrewNix.casks;
+    };
 
   # Shared permission + formatter engine. Exposed for cross-flake consumers
   # (e.g., nix-ai-claude) so the source of truth for tool-agnostic command
