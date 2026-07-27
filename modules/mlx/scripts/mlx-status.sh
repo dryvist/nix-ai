@@ -25,6 +25,18 @@ if lsof -ti :"$port" 2>/dev/null | head -1 > /dev/null; then
   fi
 
   if [ -n "$model_server_pid" ]; then
+    # The pattern matches both the `uv run` supervisor (llama-swap's direct
+    # child, found above) and the real engine one level under it -- a Nix
+    # store path invocation forks rather than execs (confirmed live: RSS
+    # ~70MB on the supervisor vs several GB on the engine). Descend when
+    # there is a child, so memory/uptime are read from the process that
+    # actually holds them instead of quietly reporting a healthy-looking
+    # near-zero number for the supervisor.
+    child_pid=$(pgrep -P "$model_server_pid" 2>/dev/null | head -1)
+    [ -n "$child_pid" ] && model_server_pid="$child_pid"
+  fi
+
+  if [ -n "$model_server_pid" ]; then
     mem_mb=$(/usr/bin/footprint -p "$model_server_pid" 2>/dev/null \
       | awk '/Footprint:/ { for(i=1;i<=NF;i++) if($i=="Footprint:") {
           val=$(i+1); unit=$(i+2)
