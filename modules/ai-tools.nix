@@ -41,10 +41,10 @@
 # NIXPKGS PACKAGES (from nixpkgs, available on stable 25.11):
 #   github-mcp-server, terraform-mcp-server, whisper-cpp, openai-whisper, entire
 #
-# HOMEBREW PACKAGES (from modules/darwin/homebrew.nix):
-#   codex: OpenAI Codex CLI (moved from nixpkgs to match claude/gemini pattern)
+# HOMEBREW PACKAGES (from lib/homebrew.nix):
+#   codex: OpenAI Codex CLI
 #   block-goose-cli: Block's AI agent (nixpkgs outdated at time of addition)
-#   gemini-cli: Google Gemini CLI (moved from nixpkgs due to severe version lag)
+#   antigravity-cli: Google Antigravity CLI (`agy`)
 #
 # BUNX WRAPPER PACKAGES (npm packages not in nixpkgs/homebrew):
 #   cclint: @felixgeelhaar/cclint (CLAUDE.md linter)

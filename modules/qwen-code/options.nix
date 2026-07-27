@@ -17,7 +17,7 @@ in
       default = "brew";
       description = ''
         Install source. Currently brew-only — declared via nix-darwin's
-        homebrew.brews, sourced from this flake's lib.brewFormulae.
+        homebrew.brews, sourced from this flake's lib.homebrewFor.
         The npm activation-script fallback was removed in favor of
         proper Nix derivations elsewhere; a buildNpmPackage derivation
         for qwen-code's workspace + cross-platform optionalDependencies

@@ -1,32 +1,76 @@
-# AI tool Homebrew taps and casks managed by nix-ai.
+# AI tool Homebrew packages managed by nix-ai.
 # Single source of truth consumed by:
-#   - flake.nix lib exports  → nix-darwin homebrew.nix (taps + casks)
+#   - flake.nix lib exports  → nix-darwin homebrew.nix (host capabilities)
 #   - modules/default.nix   → ~/.homebrew/trust.json (macOS only)
 #
-# Homebrew 5.2.0/6.0.0 enforces HOMEBREW_REQUIRE_TAP_TRUST. Having the tap
-# list here means adding a new AI tap is one edit that updates both the
-# nix-darwin tap declaration and the trust.json simultaneously.
+# Packages are keyed by injected, default-off host capabilities so consumers
+# never repeat package names or embed host-class policy.
 {
-  taps = [
-    "anthropics/tap" # claude-code@latest
-  ];
+  # claude-code@latest is now in Homebrew core, so no vendor tap is required.
+  taps = [ ];
 
-  casks = [
-    {
-      name = "claude-code@latest";
-      greedy = true;
-    }
-    # antigravity suite ships in the default homebrew-cask tap — no vendor tap needed.
-    # `antigravity` (umbrella) already ships the `agy` CLI binary, so the separate
-    # `antigravity-cli` cask is omitted — both target /opt/homebrew/bin/agy and
-    # collide ("already a Binary at '/opt/homebrew/bin/agy'") during brew bundle.
-    {
-      name = "antigravity";
-      greedy = true;
-    }
-    {
-      name = "antigravity-ide";
-      greedy = true;
-    }
-  ];
+  brews = {
+    goose = [ "block-goose-cli" ];
+    qwenCode = [ "qwen-code" ];
+  };
+
+  casks = {
+    claudeCode = [
+      {
+        name = "claude-code@latest";
+        greedy = true;
+      }
+    ];
+
+    codex = [
+      {
+        name = "codex";
+        greedy = true;
+      }
+    ];
+
+    claudeDesktop = [
+      {
+        name = "claude";
+        greedy = true;
+      }
+    ];
+
+    codexDesktop = [
+      {
+        name = "codex-app";
+        greedy = true;
+      }
+    ];
+
+    chatgptDesktop = [
+      {
+        name = "chatgpt";
+        greedy = true;
+      }
+    ];
+
+    # Google ships three independent Antigravity products. The standalone
+    # desktop no longer provides `agy`; the CLI cask owns that binary.
+    antigravityCli = [
+      {
+        name = "antigravity-cli";
+        greedy = true;
+      }
+    ];
+
+    antigravityDesktop = [
+      {
+        name = "antigravity";
+        greedy = true;
+      }
+    ];
+
+    antigravityIde = [
+      {
+        name = "antigravity-ide";
+        greedy = true;
+      }
+    ];
+  };
 }
