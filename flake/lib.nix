@@ -109,34 +109,25 @@
   # default — one source of truth.
   aiStackModels = import ../lib/ai-stack-models.nix;
 
-  # Homebrew formula list required by per-agent modules whose
-  # preferred install path is brew. nix-darwin reads this from the
-  # nix-ai flake input and merges into homebrew.brews. Keeps each
-  # agent module self-contained and ready for future graduation
-  # to its own flake — see docs/architecture/per-agent-flakes.md.
-  brewFormulae = [
-    "qwen-code" # programs.qwen-code with installVia = "brew"
-  ];
-
-  # AI-tool Homebrew casks. nix-darwin passes its injected capability attrset
-  # to the selector, so it never repeats package names or host-class policy.
+  # AI-tool Homebrew packages. nix-darwin passes its injected, default-off
+  # capability attrset once; package names and package types stay in nix-ai.
   # Source of truth: lib/homebrew.nix (its taps also drive trust.json).
-  homebrewTaps = homebrewNix.taps;
-  homebrewCasksFor =
+  homebrewFor =
     capabilities:
     let
-      unknownCapabilities = nixpkgs.lib.subtractLists (builtins.attrNames capabilities) (
-        builtins.attrNames homebrewNix.casks
-      );
+      enabled =
+        packages:
+        nixpkgs.lib.concatLists (
+          nixpkgs.lib.mapAttrsToList (
+            capability: values: nixpkgs.lib.optionals (capabilities.${capability} or false) values
+          ) packages
+        );
     in
-    assert
-      unknownCapabilities == [ ]
-      || builtins.throw "Unknown nix-ai Homebrew capability: ${builtins.head unknownCapabilities}";
-    nixpkgs.lib.concatLists (
-      nixpkgs.lib.mapAttrsToList (
-        capability: casks: nixpkgs.lib.optionals (capabilities.${capability} or false) casks
-      ) homebrewNix.casks
-    );
+    {
+      inherit (homebrewNix) taps;
+      brews = enabled homebrewNix.brews;
+      casks = enabled homebrewNix.casks;
+    };
 
   # Shared permission + formatter engine. Exposed for cross-flake consumers
   # (e.g., nix-ai-claude) so the source of truth for tool-agnostic command

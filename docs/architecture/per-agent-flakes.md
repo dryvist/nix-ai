@@ -40,7 +40,8 @@ Reference implementations:
   refreshes).
 - `modules/qwen-code/` — brew-only install on darwin. The formula is
   declared by nix-darwin's `homebrew.brews`, sourced from this
-  flake's `lib.brewFormulae` output. A `buildNpmPackage` derivation
+  flake's capability-driven `lib.homebrewFor` output. A
+  `buildNpmPackage` derivation
   was attempted; qwen-code's workspace + cross-platform
   `optionalDependencies` need deeper packaging work and that path is
   deferred.
@@ -90,12 +91,12 @@ strings. Reach into the registry instead.
 Brew lives in nix-darwin (`homebrew.brews`), not home-manager. The
 contract:
 
-1. Agent's `packages.nix` adds the formula name to a list visible from
-   the flake.
-2. nix-ai's `flake.nix` aggregates those into the `lib.brewFormulae`
-   output.
-3. nix-darwin's host config consumes `inputs.nix-ai.lib.brewFormulae`
-   and merges into `homebrew.brews`.
+1. `lib/homebrew.nix` assigns the package to one default-off
+   capability.
+2. nix-darwin enables that capability in its central host profile.
+3. nix-darwin passes the capability set once to
+   `inputs.nix-ai.lib.homebrewFor` and merges the returned formulae and
+   casks into Homebrew.
 4. Agent's module includes a soft activation-time check that the
    binary is on PATH (warns rather than aborts, so users get a clear
    pointer when they enable the home-manager module without the
@@ -205,8 +206,8 @@ or `modules/fabric/` to this pattern:
       is implemented today.
 - [ ] Remove any hardcoded model IDs / endpoint URLs / version strings
       that should be in `vars/ai-stack.nix` (or already are).
-- [ ] If the agent's preferred install source is brew, surface it via
-      `lib.brewFormulae`.
+- [ ] If the agent's preferred install source is brew, add it to
+      `lib/homebrew.nix` under one default-off capability.
 - [ ] If the agent isn't in nixpkgs and brew isn't suitable, package
       it as a real Nix derivation in `modules/<agent>/package.nix`
       (see cecli for the Python pattern). NEVER add an

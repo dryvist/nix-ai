@@ -9,7 +9,7 @@ OpenAI/Anthropic/Gemini-compatible endpoint. Apache-2.0.
 - A soft activation check that the brew-installed `qwen` binary is on
   PATH (only fires on darwin). The actual brew install lives in
   nix-darwin's `homebrew.brews`, sourced from nix-ai's
-  `lib.brewFormulae` flake output.
+  capability-driven `lib.homebrewFor` flake output.
 - A generated `~/.qwen/settings.json` wired to local llama-swap with
   one provider entry per capability-class alias from
   `services.aiStack.models`. Default startup model is the `coding`
