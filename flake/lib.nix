@@ -118,11 +118,25 @@
     "qwen-code" # programs.qwen-code with installVia = "brew"
   ];
 
-  # AI-tool Homebrew taps and casks. nix-darwin merges these into
-  # homebrew.taps and homebrew.casks. Source of truth: lib/homebrew.nix
-  # (same file drives the trust.json written by the home-manager module).
+  # AI-tool Homebrew casks. nix-darwin passes its injected capability attrset
+  # to the selector, so it never repeats package names or host-class policy.
+  # Source of truth: lib/homebrew.nix (its taps also drive trust.json).
   homebrewTaps = homebrewNix.taps;
-  homebrewCasks = homebrewNix.casks;
+  homebrewCasksFor =
+    capabilities:
+    let
+      unknownCapabilities = nixpkgs.lib.subtractLists (builtins.attrNames capabilities) (
+        builtins.attrNames homebrewNix.casks
+      );
+    in
+    assert
+      unknownCapabilities == [ ]
+      || builtins.throw "Unknown nix-ai Homebrew capability: ${builtins.head unknownCapabilities}";
+    nixpkgs.lib.concatLists (
+      nixpkgs.lib.mapAttrsToList (
+        capability: casks: nixpkgs.lib.optionals (capabilities.${capability} or false) casks
+      ) homebrewNix.casks
+    );
 
   # Shared permission + formatter engine. Exposed for cross-flake consumers
   # (e.g., nix-ai-claude) so the source of truth for tool-agnostic command
