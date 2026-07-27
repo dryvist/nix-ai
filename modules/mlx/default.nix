@@ -110,6 +110,10 @@ let
   apiUrl = "http://${cfg.host}:${toString cfg.port}/v1";
   launchAgentLabel = "dev.mlx-model-server";
   warmupAgentLabel = "dev.mlx-model-server.warmup";
+
+  # See ./warmup-timeout.nix for why this is derived rather than guessed.
+  warmupTimeoutSeconds = import ./warmup-timeout.nix cfg lib;
+
   # Single definition of the model-server pgrep pattern, derived from the real
   # launcher — split to model-server-pattern.nix (12KB file-size gate). Its
   # header carries the measured evidence for why it is derived and unanchored.
@@ -288,6 +292,7 @@ in
       uvPythonVersion
       launchAgentLabel
       warmupAgentLabel
+      warmupTimeoutSeconds
       modelServerProcessPattern
       llamaSwapPkg
       llamaSwapLaunchPkg

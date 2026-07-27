@@ -18,6 +18,7 @@ let
     warmupAgentLabel
     apiUrl
     mlxWarmupPkg
+    warmupTimeoutSeconds
     llamaSwapLaunchPkg
     llamaSwapConfigFile
     llamaSwapConfigAttrs
@@ -112,6 +113,14 @@ in
         # this is the ONLY preload path; llama-swap's hooks.on_startup.preload
         # is deliberately not emitted because its request shape is not
         # portable across the preserved MLX backends.
+        #
+        # KeepAlive.SuccessfulExit=false restarts on ANY nonzero exit, with no
+        # ceiling of its own — mlx-warmup.py bounds that itself: after a
+        # capped run of consecutive full-cycle failures it exits 0 (a clean,
+        # deliberate give-up, not a success) so this stops restarting it
+        # rather than re-acquiring the model's concurrency slot forever. See
+        # mlx-warmup.py's MAX_CONSECUTIVE_FAILURES for the restart-livelock
+        # fix itself; ThrottleInterval below only paces each individual retry.
         mlx-model-server-warmup = {
           enable = true;
           config = {
@@ -127,6 +136,7 @@ in
               MLX_API_URL = apiUrl;
               MLX_PRELOAD_MODELS = lib.concatStringsSep " " cfg.preload;
               MLX_PRELOAD_MODELS_JSON = builtins.toJSON cfg.preload;
+              MLX_WARMUP_TIMEOUT_SECONDS = toString warmupTimeoutSeconds;
             };
             StandardOutPath = "${config.home.homeDirectory}/Library/Logs/mlx-model-server/warmup.log";
             StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/mlx-model-server/warmup.error.log";
