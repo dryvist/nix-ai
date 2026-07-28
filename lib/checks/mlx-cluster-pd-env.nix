@@ -100,6 +100,21 @@ in
       watcherEnv.CLUSTER_PD_DEBT_MAX
       == toString hmConfigCluster.config.programs.mlx.clusterMode.maxKickstarts
       || throw "cluster: the PD debt cap must be derived from maxKickstarts. Both count protection domains this host is willing to lose before refusing to start a rank — a failed init leaks one, a SIGKILLed rank leaks one — so a second independent number would let one budget silently exceed the other";
+    # THE CAP MUST RESERVE, NOT MERELY AVOID EXHAUSTION. The device budget is a
+    # measured fact — ibv_devinfo -v reports max_pd = 11 on every RDMA device of
+    # this hardware, NOT the ~60 sessions ml-explore/mlx#3207 quotes for other
+    # machines. A cap of 10 would clear "below 11" and still be wrong, which is
+    # why the invariant is a reserve rather than a ceiling: see
+    # docs/runbooks/rdma-protection-domains.md and the maxKickstarts option for
+    # the full reasoning. It holds at 5 and fails at 6, which is the point.
+    assert
+      watcherEnv.CLUSTER_PD_DEVICE_BUDGET
+      == toString hmConfigCluster.config.programs.mlx.clusterMode.devicePdBudget
+      || throw "cluster: the watcher must carry the measured device PD budget (ibv_devinfo -v max_pd). Every operator message states debt as a fraction of it, and a missing budget renders those as '? ' — a denominator nobody can act on";
+    assert
+      2 * hmConfigCluster.config.programs.mlx.clusterMode.maxKickstarts
+      <= hmConfigCluster.config.programs.mlx.clusterMode.devicePdBudget
+      || throw "cluster: the PD debt cap must RESERVE at least as many protection domains as it is willing to lose (2 * maxKickstarts <= devicePdBudget). The cap is not a distance from exhaustion: a live session allocates domains of its own, max_qp and max_cq are equally scarce, and free domains are unobservable — so a cap that walks up to the measured budget leaves the attempt that would have worked with nothing to allocate";
     assert
       builtins.match ".*/mlx-cluster/pd-debt" watcherEnv.CLUSTER_PD_DEBT_FILE != null
       || throw "cluster: the watcher must carry the PD ledger path. cluster-detach WRITES it and the watcher READS it, so it is defined once in cluster-mode.nix; two derivations of one path are a writer and a reader on different files";
@@ -134,5 +149,5 @@ in
     assert
       !(builtins.any namesLedgerFile codeLines)
       || throw "cluster: a cluster script spells the PD ledger's filename literally. It has ONE definition (cluster-mode.nix) and arrives as CLUSTER_PD_DEBT_FILE; a second spelling is one typo from a writer and a reader on different files, and is also how the ledger would get named in a marker list the teardown clears";
-    helpers.mkMarker "check-mlx-cluster-pd-env" "MLX RDMA protection-domain guard env contract: anchored rank pattern derived from the rank argv, absolute pgrep/kill seams, tick-derived reap grace, and a boot-scoped ledger with a maxKickstarts-derived cap verified";
+    helpers.mkMarker "check-mlx-cluster-pd-env" "MLX RDMA protection-domain guard env contract: anchored rank pattern derived from the rank argv, absolute pgrep/kill seams, tick-derived reap grace, and a boot-scoped ledger whose maxKickstarts-derived cap reserves at least half the measured device budget verified";
 }

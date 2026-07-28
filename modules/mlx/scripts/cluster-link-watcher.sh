@@ -382,7 +382,10 @@ if [ "$cur" = "up" ]; then
         set_wired_limit "${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}" || true
       fi
       restore_normal_serving || true
-      alert "$(hostname -s): cluster rank failed $kicks consecutive starts; kickstarts halted to protect RDMA protection domains and the host restored to standalone serving. errno 60 = reboot needed. Replug the link to reset, or clear the rank-halted marker — the watcher re-verifies the cause before retrying and will re-halt if it persists." \
+      # Report the cost as a fraction of the device's own budget, not as a bare
+      # count of failed starts: the operator needs to know how much of an
+      # eleven-domain pool this just spent, not only that a counter hit its cap.
+      alert "$(hostname -s): cluster rank failed $kicks consecutive starts; $(pd_debt_phrase "$(pd_debt_count "$pd_debt_file")" "${CLUSTER_MAX_KICKSTARTS:-?}"). Kickstarts halted and the host restored to standalone serving. errno 60 = reboot needed. Replug the link to reset, or clear the rank-halted marker — the watcher re-verifies the cause before retrying and will re-halt if it persists." \
         "mlx-cluster rank halted (PD guard)"
     elif ! rank_start_preconditions_ok; then
       # A precondition that is not yet met is NOT a failed start: nothing was

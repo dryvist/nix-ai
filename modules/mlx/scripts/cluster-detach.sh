@@ -233,7 +233,7 @@ echo "  wired ceil : iogpu.wired_limit_mb=$ceiling (standalone ${CLUSTER_STANDAL
 # Reported unconditionally, including when it is 0/N: a debt line that only
 # appears once there is debt is a line nobody learns to look for.
 pd_debt_now="$(pd_debt_count "${CLUSTER_PD_DEBT_FILE:-}")"
-echo "  PD debt    : ${pd_debt_now:-0}/${CLUSTER_PD_DEBT_MAX:-?} leaked this boot (cleared only by a reboot)"
+echo "  PD debt    : $(pd_debt_phrase "${pd_debt_now:-0}" "${CLUSTER_PD_DEBT_MAX:-?}")"
 if [ "$CLUSTER_ROLE" = "coordinator" ]; then
   if [ "$serve_ok" = true ]; then standalone_state="restored"; else standalone_state="NOT-RESTORED"; fi
   echo "  standalone serving: $standalone_state"
@@ -246,7 +246,7 @@ if [ "$failed" -ne 0 ]; then
 fi
 if [ "${sigkilled_rank:-0}" -eq 1 ]; then
   echo "cluster-detach: WARNING rank was SIGKILL'd -- it leaked its RDMA protection domain" >&2
-  echo "                AND its wired shard memory. Recorded as PD debt ${pd_debt_now:-?}/${CLUSTER_PD_DEBT_MAX:-?}" >&2
+  echo "                AND its wired shard memory. Recorded: $(pd_debt_phrase "${pd_debt_now:-?}" "${CLUSTER_PD_DEBT_MAX:-?}")" >&2
   echo "                in ${CLUSTER_PD_DEBT_FILE:-unset}. Reboot this node before the next join:" >&2
   echo "                a protection domain is returned by nothing else, and leaked wired" >&2
   echo "                memory is the INC-17076 panic risk. At the cap, cluster-join refuses" >&2
