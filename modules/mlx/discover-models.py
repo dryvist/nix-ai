@@ -76,6 +76,48 @@ def scan_models(hf_home: Path) -> list[tuple[str, Path]]:
     return models
 
 
+# How a serving command names the model it loads. `--model <id>` is what
+# mlx-lm-server takes; `serve <id>` covers vllm-style templates. Ordered by
+# how specific the token is, so the first hit wins.
+MODEL_TOKEN_FORMS = ("--model {}", "serve {}")
+
+
+def model_token(cmd: str, model_id: str) -> str | None:
+    """Return the substring of `cmd` that names `model_id`, or None."""
+    for form in MODEL_TOKEN_FORMS:
+        token = form.format(model_id)
+        if token in cmd:
+            return token
+    return None
+
+
+def substitute_model(cmd_template: str, default_model: str, model_id: str) -> str:
+    """Rewrite `cmd_template` so it loads `model_id` instead of `default_model`.
+
+    Hard-fails rather than returning a command that still loads the default
+    weights. Getting this wrong is silent and expensive: llama-swap happily
+    serves the default checkpoint under every discovered model's name, and
+    the OpenAI-compatible response echoes the *requested* model id, so
+    nothing downstream can tell. That produced benchmark results published
+    under the wrong model names before this check existed.
+    """
+    token = model_token(cmd_template, default_model)
+    if token is None:
+        raise ValueError(
+            f"cmd template for default model {default_model!r} does not name it "
+            f"via any known form ({', '.join(MODEL_TOKEN_FORMS)}). Refusing to "
+            f"emit an entry for {model_id!r} that would silently load the "
+            f"default weights.\n  template: {cmd_template}"
+        )
+    model_cmd = cmd_template.replace(token, token.replace(default_model, model_id))
+    if model_token(model_cmd, model_id) is None:
+        raise ValueError(
+            f"substitution did not take: emitted cmd for {model_id!r} does not "
+            f"name it.\n  template: {cmd_template}\n  emitted: {model_cmd}"
+        )
+    return model_cmd
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Auto-discover MLX models")
     parser.add_argument("--quiet", action="store_true", help="Suppress output")
@@ -121,7 +163,7 @@ def main() -> None:
     # physical model id; llama-swap resolves the alias at lookup time. When
     # that's the case, walk the aliases tables to find the physical entry,
     # then update default_model so the cmd_template substitution below
-    # targets the right `serve <model>` token. Sourced from
+    # targets the right model token. Sourced from
     # MLX_PRELOAD_MODELS_JSON (the warmup agent's list) — the config no
     # longer carries hooks.on_startup.preload (its request shape 404s
     # vllm-mlx, #1175).
@@ -155,6 +197,16 @@ def main() -> None:
         print(
             f"ERROR: Resolved preload entry {preload[0]!r} to model {default_model!r} "
             "but the entry has no 'cmd' template",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    if model_token(cmd_template, default_model) is None:
+        print(
+            f"ERROR: cmd template for default model {default_model!r} does not "
+            f"name it via any known form ({', '.join(MODEL_TOKEN_FORMS)}). "
+            "Every discovered entry would silently load the default weights, "
+            "so nothing is written.\n"
+            f"  template: {cmd_template}",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -202,9 +254,7 @@ def main() -> None:
             skipped += 1
             continue
 
-        model_cmd = cmd_template.replace(
-            f"serve {default_model}", f"serve {model_id}"
-        )
+        model_cmd = substitute_model(cmd_template, default_model, model_id)
 
         entry = {
             "cmd": model_cmd,
