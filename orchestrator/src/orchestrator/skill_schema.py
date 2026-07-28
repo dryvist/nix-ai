@@ -17,7 +17,24 @@ from pydantic import BaseModel, ConfigDict, Field
 from orchestrator.common import load_yaml_file
 from orchestrator.prompts import load_prompt_resource
 
-_DEFAULT_MODEL = os.environ.get("MLX_DEFAULT_MODEL", "default")
+def _require_default_model() -> str:
+    """Return the exact physical model ID the local gateway serves.
+
+    Deliberately has no fallback. A request that names a model must be served
+    by that exact model's weights or fail loudly; defaulting to a role alias
+    such as ``"default"`` is precisely the silent-substitution behaviour this
+    module must never reintroduce.
+    """
+    model = os.environ.get("MLX_DEFAULT_MODEL")
+    if not model:
+        raise RuntimeError(
+            "MLX_DEFAULT_MODEL is unset. Set it to the exact physical model ID "
+            "served by the local MLX gateway; there is no default alias."
+        )
+    return model
+
+
+_DEFAULT_MODEL = _require_default_model()
 
 
 class ModelSize(str, Enum):
