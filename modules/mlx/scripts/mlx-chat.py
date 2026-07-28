@@ -24,10 +24,18 @@ def resolution_note(requested, running):
     `running` is the parsed /running payload. Returns None when the two agree,
     or when nothing is loaded yet (a cold proxy is not a substitution).
 
-    Best-effort audit signal, NOT a guarantee: a multi-resident host lists
-    several models, and the model can swap between the request and this probe.
-    It makes a substitution visible; it does not make one impossible. The
-    structural guarantee is that an unserved name now 404s.
+    Best-effort audit signal, NOT a guarantee: the model can swap between the
+    request and this probe. A multi-resident host is NOT a false positive --
+    the test below is membership, so the requested model being one of several
+    loaded is silence.
+
+    This is not made redundant by the 404 on an unserved name. That closes the
+    UNCONFIGURED-name path. The incident was a CONFIGURED alias resolving to
+    the wrong weights, where no 404 ever fires. The build-time alias assertion
+    closes that for config we generate -- it cannot see a hand-edited
+    llama-swap config on a host, or an upstream routing change. This reads what
+    is actually loaded, which is a different failure surface, not a duplicate
+    one.
     """
     loaded = [m.get("model") for m in (running or {}).get("running", []) if m.get("model")]
     if not loaded or requested in loaded:
