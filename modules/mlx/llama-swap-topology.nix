@@ -3,10 +3,11 @@
 # model-server-cmd.nix). Two modes:
 #   singleModel == null -> normal multi-model registry (models + groups).
 #   singleModel != null -> single-model mode: only that physical id is
-#     servable (ttl=0, aliased to every other model's own id so any caller
-#     naming any known model still resolves to it); everything else is kept
-#     but demoted to disabledModels/disabledGroups (llama-swap ignores those
-#     keys) — disable, never delete.
+#     servable (ttl=0, keeping its OWN role aliases and nothing else);
+#     everything else is kept but demoted to disabledModels/disabledGroups
+#     (llama-swap ignores those keys) — disable, never delete. A request
+#     naming a disabled model's id therefore 404s, naming the model it asked
+#     for, instead of being served the resident's weights.
 #     Escape hatch: alwaysAvailableModels names small physical ids that stay
 #     servable (on-demand swap tier) beside the single resident instead of
 #     being disabled — the resident is pinned persistent so a small-model
@@ -49,12 +50,19 @@ if singleModel != null then
   in
   {
     models = {
+      # EXACT-NAME RESOLUTION. The resident keeps its own deliberate role
+      # aliases ("default", "goal-judge", …) — those name a capability and
+      # have always meant "whatever currently serves this role". It must NOT
+      # inherit any *other model's physical id* as an alias.
+      #
+      # This previously grafted every disabled model's id onto this entry, so
+      # a request for e.g. a 120B returned the resident's weights with a 200
+      # and the requested name echoed back in the response. Nothing
+      # downstream could tell. It attributed one model's benchmark numbers to
+      # three others and those results were published (#1431). A model that
+      # is not loaded must 404, naming what was asked for.
       ${singleModel} = allModels.${singleModel} // {
         ttl = 0;
-        aliases = lib.unique (
-          (allModels.${singleModel}.aliases or [ ])
-          ++ (lib.filter (id: !(builtins.elem id keep)) (builtins.attrNames allModels))
-        );
       };
     }
     // smallModels;
