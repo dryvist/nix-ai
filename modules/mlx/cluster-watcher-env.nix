@@ -98,6 +98,13 @@ in
   # cumulative-per-boot because nothing short of a reboot returns a domain.
   CLUSTER_PD_DEBT_FILE = pdDebtFile;
   CLUSTER_PD_DEBT_MAX = toString ncfg.maxKickstarts;
+  # The device's own budget — measured max_pd, 11 on this hardware. Carried so
+  # every operator-facing message can state the debt as a FRACTION of what the
+  # device has ("3 of 11 consumed until reboot") rather than a bare count. A
+  # bare "3 leaked" reads as trivial; the fraction is the severity. It is also
+  # the number the reserve invariant in lib/checks/mlx-cluster-pd-env.nix
+  # measures the cap against.
+  CLUSTER_PD_DEVICE_BUDGET = toString ncfg.devicePdBudget;
 }
 // lib.optionalAttrs isCoordinator {
   # Readiness probe target: launchctl liveness alone cannot see a rank hung in

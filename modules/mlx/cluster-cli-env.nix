@@ -45,6 +45,10 @@ let
     # different files.
     CLUSTER_PD_DEBT_FILE = pdDebtFile;
     CLUSTER_PD_DEBT_MAX = toString ncfg.maxKickstarts;
+    # Measured device max_pd (11 here). Both commands report debt as a fraction
+    # of it — "2 of 11 device protection domains consumed until reboot" — since
+    # a bare count hides how small the pool actually is.
+    CLUSTER_PD_DEVICE_BUDGET = toString ncfg.devicePdBudget;
     # /usr/bin is not on a writeShellApplication PATH; absolute, and a test seam,
     # exactly like CLUSTER_NETSTAT_BIN.
     CLUSTER_PGREP_BIN = "/usr/bin/pgrep";
