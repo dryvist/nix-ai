@@ -194,7 +194,16 @@ if [ "$cur" = "up" ]; then
     settled_at="$(/usr/bin/stat -f %m "$started_file" 2> /dev/null || echo 0)"
     if [ "$settled_at" -gt 0 ] &&
       [ "$(($(date +%s) - settled_at))" -ge "${CLUSTER_RANK_SETTLE_SECS:-60}" ]; then
-      rm -f "$kicks_file" "$halt_file" "$halt_latch_file"
+      # A settled rank vindicates exactly ONE attempt — the last one, which is
+      # the rank now running and holding its domain live. Every earlier attempt
+      # in this counter was superseded by another kickstart, so it failed, and a
+      # failed distributed init leaks a domain whether or not a later one
+      # succeeded. Deleting the counter here (as this line used to) wrote those
+      # losses off, which is how a boot could reach exhaustion with the ledger
+      # still reading empty.
+      pd_debt_settle_counter "$pd_debt_file" "$kicks_file" 1 "rank-settled" \
+        "attempts that failed before the rank that settled"
+      rm -f "$halt_file" "$halt_latch_file"
     fi
     # PAIR-WIDE STANDDOWN. A jaccl group cannot re-admit a rank, so a rank whose
     # peer has gone can never generate again — yet nothing here noticed. Measured
@@ -368,7 +377,13 @@ if [ "$cur" = "up" ]; then
       # with every guard still reporting green. The ledger is boot-scoped, so
       # this debt now survives every one of those resets and only a reboot
       # settles it.
-      pd_debt_record "$pd_debt_file" "$kicks" "rank-start-failures" \
+      # Recorded AND the counter zeroed, in one operation. Leaving the counter
+      # at the cap after recording it meant the next path to reset it (an
+      # accepted manual clear, a link cycle, cluster-join) would see a non-zero
+      # count that had ALREADY been paid for — so the same attempts would be
+      # billed to the ledger twice. The counter now holds only what is still
+      # unrecorded, which is what makes every other reset site safe to settle.
+      pd_debt_settle_counter "$pd_debt_file" "$kicks_file" 0 "rank-start-failures" \
         "$kicks consecutive failed distributed inits, one protection domain each"
       # Every attempt was preceded by quiesce_normal_serving, which boots the
       # standalone model server out. Halting without undoing that leaves the
@@ -419,7 +434,15 @@ elif [ "$prev" = "up" ]; then
   # marker so the next link session re-warms its freshly started rank. This is
   # the ONE legitimate reset of the halt latch: the cable really did move, so
   # the cause the halt recorded is no longer assumed to hold.
-  rm -f "$kicks_file" "$halt_file" "$halt_latch_file" "$started_file" "$ready_file" \
+  # The cable really did move, so the halt's recorded cause is no longer assumed
+  # to hold — but the DOMAINS those attempts leaked did not come back with it.
+  # Only a reboot returns one. So the counter is transferred to the boot-scoped
+  # ledger before the link cycle clears it; unplugging and replugging must not
+  # be a way to launder protection-domain debt out of the accounting, which is
+  # exactly what deleting the counter here used to make it.
+  pd_debt_settle_counter "$pd_debt_file" "$kicks_file" 0 "link-cycle" \
+    "attempts outstanding when the link went down and reset the session"
+  rm -f "$halt_file" "$halt_latch_file" "$started_file" "$ready_file" \
     "$warm_file" "$warm_fails_file"
   launchctl kill SIGTERM "gui/$uid/$CLUSTER_RANK_LABEL" 2> /dev/null || true
   if [ -n "${CLUSTER_WIRED_LIMIT_MB:-}" ]; then

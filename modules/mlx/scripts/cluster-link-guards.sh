@@ -262,6 +262,22 @@ halt_clear_accepted() {
   prior="$(cat "$latch_file" 2> /dev/null || echo unknown)"
   if rank_start_preconditions_ok; then
     echo "cluster-link: halt marker cleared by hand and preconditions RE-VERIFIED (prior cause: $prior); allowing one retry"
+    # THE ONE RESET THAT DOES NOT SETTLE, AND WHY. Every other path that clears
+    # the kickstart counter transfers it to the boot-scoped ledger first
+    # (pd_debt_settle_counter). This one must not, because by the time it runs
+    # the counter is already empty and settling again would double-bill:
+    #
+    #   - a cap-halt settles at the cap, which records the debt AND zeroes the
+    #     counter, so an accepted clear finds nothing outstanding;
+    #   - the wedge detector and the peer-liveness supervisor only halt a rank
+    #     that had already reached readiness, and a rank that settles zeroes the
+    #     counter on the same tick.
+    #
+    # Settling here anyway was tried and is wrong in the one direction that
+    # matters: it re-records the capped attempts, pushes the ledger back to the
+    # cap, and the very next tick re-halts with pd-debt-exhausted — turning the
+    # documented recovery into a permanent no-op. tests/test-rank-start-guards.sh
+    # asserts the recovery still works, and it is what caught this.
     rm -f "$latch_file" "$kicks_file"
     return 0
   fi

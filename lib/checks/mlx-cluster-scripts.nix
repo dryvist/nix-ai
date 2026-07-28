@@ -72,6 +72,33 @@ in
     GUARDS = "${src}/modules/mlx/scripts/cluster-link-guards.sh";
   } "bash ${src}/tests/test-pd-debt.sh && touch $out";
 
+  # THE CHECK THAT FAILS IF A COUNTER RESET CAN DISCARD LEAKED DOMAINS.
+  # mlx-cluster-pd-debt above covers the ledger at the CAP; this covers the hole
+  # underneath it. The kickstart counter is session-scoped and four paths reset
+  # it, but the ledger was only written at the cap — so a counter at 1 or 2 when
+  # a link cycle, a settled rank or cluster-join fired was simply deleted, and
+  # the domains those attempts leaked left no trace. That reopened the exact
+  # accumulation the ledger closes, one level down. Asserts the transfer
+  # arithmetic (including the fail-closed direction, where an unguarded
+  # subtraction would compute a NEGATIVE debt and record nothing) AND pins the
+  # call sites as source, because a correct function nobody calls passes every
+  # behavioural assertion while the defect is fully back.
+  mlx-cluster-pd-counter-settle = pkgs.runCommand "check-mlx-cluster-pd-counter-settle" {
+    nativeBuildInputs = [
+      pkgs.coreutils
+      pkgs.gnugrep
+      pkgs.gnused
+      pkgs.gawk
+    ];
+    BOOT_SCOPE = "${src}/modules/mlx/scripts/cluster-boot-scope.sh";
+    LEDGER = "${src}/modules/mlx/scripts/cluster-pd-ledger.sh";
+    RECORD = "${src}/modules/mlx/scripts/cluster-pd-record.sh";
+    SETTLE = "${src}/modules/mlx/scripts/cluster-pd-settle.sh";
+    WATCHER = "${src}/modules/mlx/scripts/cluster-link-watcher.sh";
+    JOIN = "${src}/modules/mlx/scripts/cluster-join.sh";
+    GUARDS = "${src}/modules/mlx/scripts/cluster-link-guards.sh";
+  } "bash ${src}/tests/test-pd-counter-settle.sh && touch $out";
+
   # Boot scoping of the halt marker, split out of the rank-guards test at the 12KB
   # file cap. Unit-tests the halt helpers directly: a halt from a previous boot is
   # dropped (else a cold boot can never form the cluster), a halt from THIS boot

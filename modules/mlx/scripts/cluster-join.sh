@@ -256,14 +256,28 @@ fi
 # worker returns to the ordinary "wait for rank 0, spend no attempts" path
 # instead of being re-halted for a coordinator that has not started yet.
 #
-# The KICKSTART budget, and nothing else. The protection-domain ledger is
-# deliberately untouched: consecutive failed starts are a property of the session
-# being abandoned, while a leaked domain is a property of the BOOT. The gate at
-# the top of this script already refused if the ledger is at its cap, so this
-# clear cannot smuggle a start past it — and if the watcher re-halts a tick later
-# with cause pd-debt-exhausted, that is the ledger working, not a stale marker.
+# The KICKSTART budget, and nothing else — but the budget is SETTLED into the
+# ledger, not discarded.
+#
+# This paragraph used to say the ledger is "deliberately untouched" because
+# failed starts belong to the session while a leaked domain belongs to the boot.
+# The first half was right and the second half is exactly why the old behaviour
+# was wrong: those attempts leaked BOOT-scoped domains, so deleting the
+# session-scoped counter that was still holding them wrote a boot-scoped loss
+# off against a session-scoped reset. Re-running cluster-join then reopened a
+# full budget over a kernel that was already poorer, without a single line of
+# evidence that it had happened. Transferring the count keeps the session reset
+# (which is this command's job) while the domains stay on the boot's books
+# (which is the ledger's).
+#
+# The gate at the top of this script already refused if the ledger is at its
+# cap, so this clear cannot smuggle a start past it — and if the settle below
+# pushes the ledger TO the cap, the watcher halts a tick later with cause
+# pd-debt-exhausted. That is the ledger working, not a stale marker.
 if [ -f "$halt_file" ] || [ -f "$halt_latch_file" ]; then
-  rm -f "$halt_file" "$halt_latch_file" "$kicks_file"
+  pd_debt_settle_counter "${CLUSTER_PD_DEBT_FILE:-}" "$kicks_file" 0 "cluster-join" \
+    "attempts outstanding when cluster-join reset the session"
+  rm -f "$halt_file" "$halt_latch_file"
   echo "cluster-join: cleared stale rank-halted latch"
 fi
 

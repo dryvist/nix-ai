@@ -74,6 +74,18 @@ all reset it. A boot could therefore lose three domains, forget, lose three
 more, without bound, while every guard reported green. The ledger survives all
 three resets.
 
+**Every reset settles into the ledger rather than discarding.** The ledger was
+originally written only at the cap, so a counter sitting at 1 or 2 when one of
+those resets fired was simply deleted and the domains those attempts had already
+leaked left no trace — the same unbounded accumulation, one level down.
+`pd_debt_settle_counter` now transfers the count at every reset site, so
+`rank-kickstarts` means "launched attempts whose cost is not yet in the ledger"
+and nothing can launder debt out of the accounting by cycling the link. A
+settled rank vindicates exactly one attempt (the one now running, holding its
+domain live); every earlier attempt in the counter was superseded by another
+kickstart, so it failed, and a failed init leaks whether or not a later one
+worked.
+
 ## The cap is a RESERVE, not a distance from exhaustion
 
 The cap is `programs.mlx.clusterMode.maxKickstarts`, currently **5** — not a
@@ -157,3 +169,6 @@ next `cluster-join` that is gated.
 - `modules/mlx/cluster-rank-pattern.nix` — the single definition of the pattern
   that finds the domain-owning process, and the measurement behind its anchor.
 - `tests/test-pd-debt.sh` — the test that fails if any of the above regresses.
+- `tests/test-pd-counter-settle.sh` — the test that fails if a counter reset can
+  discard leaked domains, pinning both the transfer arithmetic and every call
+  site that performs it.
