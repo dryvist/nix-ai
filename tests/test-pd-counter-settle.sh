@@ -97,6 +97,29 @@ check "and the counter is cleared" missing \
   "$([ -f "$kicks_file" ] && echo present || echo missing)"
 check "the ledger names what settled it" 1 "$(grep -c 'source=link-cycle' "$debt_file")"
 
+echo "   ...and the transfer is NOT silent — it names the fraction of the budget:"
+# The reset paths are exactly the moments an operator reads as "fine, it
+# recovered". Booking domains there without saying so reproduces the original
+# defect's experience even with correct accounting. Reported through the same
+# pd_debt_phrase every other operator surface uses, so the denominator (the
+# measured device budget) travels with the number.
+reset_state
+printf '2\n' > "$kicks_file"
+settle_said="$(CLUSTER_PD_DEVICE_BUDGET=11 CLUSTER_PD_DEBT_MAX=5 \
+  pd_debt_settle_counter "$debt_file" "$kicks_file" 0 link-cycle "link went down" 2>&1 >/dev/null)"
+check "it says how many it charged" yes \
+  "$(case "$settle_said" in *"2 protection domain(s) charged"*) echo yes ;; *) echo no ;; esac)"
+check "it names the device budget as the denominator" yes \
+  "$(case "$settle_said" in *"of 11 device protection domains"*) echo yes ;; *) echo no ;; esac)"
+check "it names what spent them" yes \
+  "$(case "$settle_said" in *link-cycle*) echo yes ;; *) echo no ;; esac)"
+
+echo "   ...and stays quiet when it charges nothing:"
+reset_state
+printf '1\n' > "$kicks_file"
+quiet_said="$(pd_debt_settle_counter "$debt_file" "$kicks_file" 1 rank-settled "first-time start" 2>&1 >/dev/null)"
+check "no page-worthy noise on a clean start" "" "$quiet_said"
+
 echo "   ...and a settled rank vindicates exactly ONE attempt, never all of them:"
 # The rank now running holds its domain live rather than having leaked it. Every
 # EARLIER attempt in the counter was superseded by another kickstart, so it

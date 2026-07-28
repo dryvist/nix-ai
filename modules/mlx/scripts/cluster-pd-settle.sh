@@ -66,6 +66,17 @@ pd_debt_settle_counter() {
   leaked=$((kicks - vindicated))
   if [ "$leaked" -gt 0 ]; then
     pd_debt_record "$debt_file" "$leaked" "$source" "$detail"
+    # A SILENT TRANSFER WOULD DEFEAT THE POINT. This runs on the reset paths —
+    # a link cycle, a settled rank, cluster-join — which are precisely the
+    # moments an operator reads as "fine, it recovered". Booking two domains
+    # there without saying so reproduces the original defect's *experience*
+    # (debt accruing invisibly) even though the accounting is now correct.
+    #
+    # Reported as a FRACTION of the measured device budget, through the same
+    # pd_debt_phrase every other operator surface uses. "2 domains leaked"
+    # reads as trivial; "4 of 11 device protection domains consumed until
+    # reboot" does not, and 11 is the number that makes it legible.
+    echo "cluster: $leaked protection domain(s) charged to the ledger on $source — $(pd_debt_phrase "$(pd_debt_count "$debt_file")" "${CLUSTER_PD_DEBT_MAX:-?}")" >&2
   fi
   # Cleared LAST and unconditionally: the transfer is the only thing that may
   # precede the reset, and a reset that failed to happen would re-record the
