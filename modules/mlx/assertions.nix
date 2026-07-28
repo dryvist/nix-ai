@@ -49,8 +49,7 @@ in
           emitted = llamaSwapConfigAttrs.models;
           physicalIds = lib.attrNames allModels;
           foreignAliases = lib.concatMap (
-            id:
-            lib.filter (alias: alias != id && lib.elem alias physicalIds) (emitted.${id}.aliases or [ ])
+            id: lib.filter (alias: alias != id && lib.elem alias physicalIds) (emitted.${id}.aliases or [ ])
           ) (lib.attrNames emitted);
         in
         foreignAliases == [ ];

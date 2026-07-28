@@ -1,5 +1,5 @@
 # programs.mlx.singleModel unit test — split from mlx.nix (12KB gate).
-{ pkgs }:
+{ pkgs, src }:
 let
   helpers = import ./helpers.nix { inherit pkgs; };
 
@@ -98,9 +98,8 @@ in
     assert assertMsg (
       escapeAliases == [ "default" ]
     ) "escape: the resident must keep ONLY its own role aliases";
-    assert assertMsg (
-      graftedInto escape.models.brain.aliases == [ ]
-    ) "escape: no model's physical id may be grafted onto the resident — disabled ids must 404, not resolve to the resident";
+    assert assertMsg (graftedInto escape.models.brain.aliases == [ ])
+      "escape: no model's physical id may be grafted onto the resident — disabled ids must 404, not resolve to the resident";
     assert assertMsg (
       (escape.models.sidekick.ttl or null) == null
     ) "escape: kept small models stay on-demand (no forced ttl=0 resident promotion)";
@@ -116,4 +115,14 @@ in
       !escape.groups.mlx-small-models.persistent
     ) "escape: the kept-small swap group must be non-persistent (on-demand, idle-unloaded)";
     helpers.mkMarker "check-mlx-single-model-escape" "MLX singleModel escape: alwaysAvailableModels stay on-demand servable beside a pinned resident, no physical-id graft, others still disabled";
+
+  # The client-side substitution probe. Wired here because it guards the same
+  # invariant from the runtime side: the topology checks above prove no graft is
+  # COMPILED, this proves a substitution would be VISIBLE if one occurred anyway.
+  #
+  # `&&`, never `;`. With a semicolon `touch $out` runs even when the test exits
+  # non-zero, so the derivation succeeds and the check can never fail.
+  mlx-model-resolution-note = pkgs.runCommand "check-mlx-model-resolution-note" { } ''
+    ${pkgs.python3}/bin/python3 ${src}/tests/test-model-resolution-note.py && touch $out
+  '';
 }
