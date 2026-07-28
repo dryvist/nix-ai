@@ -6,7 +6,7 @@ import sys
 from openai import OpenAI
 
 client = OpenAI(base_url=os.environ.get("MLX_API_URL", "http://127.0.0.1:11434/v1"), api_key="n/a")
-model = os.environ.get("MLX_DEFAULT_MODEL", "default")
+model = os.environ["MLX_DEFAULT_MODEL"]
 messages = []
 
 # One-shot from stdin

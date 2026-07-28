@@ -37,5 +37,29 @@ in
       ) (lib.attrNames config.services.aiStack.models);
       message = "Every AI-stack logical role must resolve to a non-empty physical model and compile into that llama-swap backend's aliases.";
     }
+    {
+      # A request naming a model must be served by that model's weights or
+      # must error. An alias is legitimate only when it is a ROLE name bound
+      # to the one entry that serves it; an alias equal to some OTHER entry's
+      # physical id makes llama-swap answer with the wrong weights, 200 OK and
+      # the requested name echoed back. That is how one model's throughput was
+      # published under two other models' names.
+      assertion =
+        let
+          emitted = llamaSwapConfigAttrs.models;
+          physicalIds = lib.attrNames allModels;
+          foreignAliases = lib.concatMap (
+            id:
+            lib.filter (alias: alias != id && lib.elem alias physicalIds) (emitted.${id}.aliases or [ ])
+          ) (lib.attrNames emitted);
+        in
+        foreignAliases == [ ];
+      message = ''
+        A llama-swap entry declares an alias that is another model's physical
+        id. Aliases may only be role names bound to the entry that actually
+        serves them — never a different model's id, which would silently
+        substitute weights. A caller naming an unserved model must get a 404.
+      '';
+    }
   ];
 }

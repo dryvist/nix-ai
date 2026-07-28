@@ -3,10 +3,10 @@
 # model-server-cmd.nix). Two modes:
 #   singleModel == null -> normal multi-model registry (models + groups).
 #   singleModel != null -> single-model mode: only that physical id is
-#     servable (ttl=0, aliased to every other model's own id so any caller
-#     naming any known model still resolves to it); everything else is kept
-#     but demoted to disabledModels/disabledGroups (llama-swap ignores those
-#     keys) — disable, never delete.
+#     servable (ttl=0), keeping ONLY its own role aliases; everything else is
+#     kept but demoted to disabledModels/disabledGroups (llama-swap ignores
+#     those keys) — disable, never delete. A caller naming a disabled model
+#     gets a 404, never the resident's weights under the requested name.
 #     Escape hatch: alwaysAvailableModels names small physical ids that stay
 #     servable (on-demand swap tier) beside the single resident instead of
 #     being disabled — the resident is pinned persistent so a small-model
@@ -49,12 +49,14 @@ if singleModel != null then
   in
   {
     models = {
+      # The resident keeps ONLY its own role aliases. Grafting other models'
+      # physical ids on here is banned: it made llama-swap answer a request
+      # naming model A with model B's weights, 200 OK and the requested name
+      # echoed back, which published one model's throughput under two other
+      # models' names. A request for a disabled model must 404.
       ${singleModel} = allModels.${singleModel} // {
         ttl = 0;
-        aliases = lib.unique (
-          (allModels.${singleModel}.aliases or [ ])
-          ++ (lib.filter (id: !(builtins.elem id keep)) (builtins.attrNames allModels))
-        );
+        aliases = lib.unique (allModels.${singleModel}.aliases or [ ]);
       };
     }
     // smallModels;
