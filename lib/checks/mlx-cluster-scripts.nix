@@ -93,6 +93,7 @@ in
     BOOT_SCOPE = "${src}/modules/mlx/scripts/cluster-boot-scope.sh";
     LEDGER = "${src}/modules/mlx/scripts/cluster-pd-ledger.sh";
     RECORD = "${src}/modules/mlx/scripts/cluster-pd-record.sh";
+    SETTLE = "${src}/modules/mlx/scripts/cluster-pd-settle.sh";
     WATCHER = "${src}/modules/mlx/scripts/cluster-link-watcher.sh";
     JOIN = "${src}/modules/mlx/scripts/cluster-join.sh";
     GUARDS = "${src}/modules/mlx/scripts/cluster-link-guards.sh";

@@ -38,7 +38,7 @@
 #           reporting success), so the call sites are pinned as text.
 #
 # Usage:
-#   BOOT_SCOPE=… LEDGER=… RECORD=… WATCHER=… JOIN=… GUARDS=… \
+#   BOOT_SCOPE=… LEDGER=… RECORD=… SETTLE=… WATCHER=… JOIN=… GUARDS=… \
 #     bash test-pd-counter-settle.sh
 set -o errexit -o nounset -o pipefail
 
@@ -70,6 +70,8 @@ export CLUSTER_SYSCTL_BIN
 . "${LEDGER:?LEDGER is required}"
 # shellcheck source=/dev/null
 . "${RECORD:?RECORD is required}"
+# shellcheck source=/dev/null
+. "${SETTLE:?SETTLE is required}"
 
 failures=0
 check() {

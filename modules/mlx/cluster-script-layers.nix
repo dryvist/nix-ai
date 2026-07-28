@@ -16,7 +16,10 @@
 # just a size one:
 #
 #   cluster-pd-ledger.sh   READ side  — watcher, join, detach
-#   cluster-pd-record.sh   WRITE side — watcher, detach only
+#   cluster-pd-record.sh   WRITE side — watcher, join, detach
+#   cluster-pd-settle.sh   COUNTER-SETTLE — watcher, join only (detach resets
+#                          no counter, and a function it cannot call is dead
+#                          code the linter rejects)
 #
 # cluster-join reads the ledger so it can REFUSE at the cap, and is deliberately
 # denied the write side: a command whose only job is to refuse must not also be
@@ -32,6 +35,7 @@
     ./scripts/cluster-boot-scope.sh
     ./scripts/cluster-pd-ledger.sh
     ./scripts/cluster-pd-record.sh
+    ./scripts/cluster-pd-settle.sh
     ./scripts/cluster-link-helpers.sh
     ./scripts/cluster-link-locate.sh
     ./scripts/cluster-link-repair.sh
@@ -64,6 +68,7 @@
     ./scripts/cluster-boot-scope.sh
     ./scripts/cluster-pd-ledger.sh
     ./scripts/cluster-pd-record.sh
+    ./scripts/cluster-pd-settle.sh
     ./scripts/cluster-link-locate.sh
     ./scripts/cluster-link-repair.sh
     ./scripts/cluster-rank-status.sh
