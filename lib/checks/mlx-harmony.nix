@@ -47,14 +47,13 @@ in
   # The patch is only useful if it lands in the wheel the worker actually runs.
   # Building this check applies it against the pinned mlx-lm release, so an
   # upstream bump that moves an anchor fails here instead of at model-load time.
-  mlx-harmony-wheel =
-    pkgs.runCommand "check-mlx-harmony-wheel" { nativeBuildInputs = [ pkgs.unzip ]; }
-      ''
-        unzip -l ${wheel} | grep 'mlx_lm/tool_parsers/harmony.py' >/dev/null \
-          && unzip -p ${wheel} mlx_lm/server.py | grep -- '--harmony-tool-parser' >/dev/null \
-          && unzip -p ${wheel} mlx_lm/server.py | grep '_make_harmony_stream' >/dev/null \
-          && touch $out
-      '';
+  # It also pins the SELECTION gate, which is what #1429 shipped without: asking
+  # only whether harmony is present kept this green while harmony was replacing
+  # every other model's parser. See scripts/harmony-wheel-test.sh.
+  mlx-harmony-wheel = pkgs.runCommand "check-mlx-harmony-wheel" {
+    nativeBuildInputs = [ pkgs.unzip ];
+    inherit wheel;
+  } (builtins.readFile ../../modules/mlx/scripts/harmony-wheel-test.sh);
 
   # The flag must reach the serve command, and the catalog's per-model pin must
   # beat the global default — per-model divergence is the point here.
