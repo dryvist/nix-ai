@@ -46,6 +46,56 @@ all reset it. A boot could therefore lose three domains, forget, lose three
 more, without bound, while every guard reported green. The ledger survives all
 three resets.
 
+**Every reset settles into the ledger rather than discarding.** The ledger was
+originally written only at the cap, so a counter sitting at 1 or 2 when one of
+those resets fired was simply deleted and the domains those attempts had already
+leaked left no trace — the same unbounded accumulation, one level down.
+`pd_debt_settle_counter` now transfers the count at every reset site, so
+`rank-kickstarts` means "launched attempts whose cost is not yet in the ledger"
+and nothing can launder debt out of the accounting by cycling the link. A
+settled rank vindicates exactly one attempt (the one now running, holding its
+domain live); every earlier attempt in the counter was superseded by another
+kickstart, so it failed, and a failed init leaks whether or not a later one
+worked.
+
+## How big the budget actually is
+
+Measured on this hardware, not assumed — `ibv_devinfo -v`:
+
+```text
+hca_id: rdma_en2      transport: Thunderbolt (100)
+        max_pd:   11
+        max_qp:   11
+        max_cq:   11
+        max_mr:  100
+```
+
+**Eleven protection domains per RDMA device.** All three `rdma_en*` devices
+report the same, and only the carrier-active one is in play. `max_qp` is also
+11, which is consistent with the observed terminal error being errno 96 on
+`Changing queue pair to RTR` — QPs run out alongside PDs, from the same budget.
+
+Two things follow, and both matter when someone proposes raising the cap:
+
+- **The upstream "~60 sessions" figure does not describe this device.**
+  [ml-explore/mlx#3207](https://github.com/ml-explore/mlx/issues/3207) reports
+  exhaustion after ~60 file transfers. That is one reporter's observation about
+  a file-transfer workload, with no maintainer confirmation and no measurement
+  of the underlying limit; 60 exceeds what this hardware advertises by more than
+  fivefold. Do not size a cap against it.
+- **Current usage is not observable.** `ibv_devinfo` reports capabilities only —
+  there is no counter for domains currently allocated, and no way to release one
+  short of a reboot. The ledger exists precisely because the kernel will not
+  tell us; a cap therefore has to be conservative under unobservable state.
+
+Against that measurement the default cap of 3 is roughly a quarter of the
+device's total, leaving the rest for a healthy session and anything else on the
+port. The asymmetry that argues for staying conservative: halting costs degraded
+service (the watcher restores standalone serving and the host keeps answering),
+while exhausting costs a **mandatory reboot** — and the reason this guard exists
+is that a reboot is sometimes not available. Raising the cap does not create
+domains; it only spends more of them per episode before the guard notices.
+
 ## What happens at the cap
 
 The cap is `programs.mlx.clusterMode.maxKickstarts` — not a separate number.
@@ -102,3 +152,6 @@ next `cluster-join` that is gated.
 - `modules/mlx/cluster-rank-pattern.nix` — the single definition of the pattern
   that finds the domain-owning process, and the measurement behind its anchor.
 - `tests/test-pd-debt.sh` — the test that fails if any of the above regresses.
+- `tests/test-pd-counter-settle.sh` — the test that fails if a counter reset can
+  discard leaked domains, pinning both the transfer arithmetic and every call
+  site that performs it.
