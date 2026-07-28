@@ -1,0 +1,10 @@
+{
+  "_comment": "Verbatim excerpt of mlx-community/Qwen3.6-35B-A3B-4bit's chat_template.jinja, read 2026-07-28 from the Studio's model cache — the model the Studio actually serves with --harmony-tool-parser auto. The backslash-n runs are literal two-character escapes inside the Jinja string, exactly as they appear in the template. mlx_lm.tokenizer_utils._infer_tool_parser reads this to pick qwen3_coder. tool_text is what the token state machine hands the parser: the span between tool_call_start and tool_call_end, markers excluded.",
+  "chat_template_excerpt": "ction ONLY reply in the following format with NO suffix:\\n\\n<tool_call>\\n<function=example_function_name>\\n<parameter=example_parameter_1>\\nvalue_1\\n</parameter>\\n<parameter=example_parameter_2>\\nThis is the value for the second parameter\\nthat can span\\nmultiple lines\\n</parameter>\\n</function>\\n</tool_call>\\n\\n<IMPORTANT>\\nReminder:\\n- Function calls MUST follow the specified format: a",
+  "expected_parser": "qwen3_coder",
+  "tool_text": "\n<function=get_weather>\n<parameter=city>\nTokyo\n</parameter>\n<parameter=unit>\ncelsius\n</parameter>\n</function>\n",
+  "expected_tool_call": {
+    "name": "get_weather",
+    "arguments": { "city": "Tokyo", "unit": "celsius" }
+  }
+}

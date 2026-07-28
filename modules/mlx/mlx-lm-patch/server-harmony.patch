@@ -1,6 +1,6 @@
---- a/mlx_lm/server.py	2026-07-27 08:06:40
-+++ b/mlx_lm/server.py	2026-07-27 08:06:56
-@@ -43,9 +43,23 @@
+--- a/mlx_lm/server.py
++++ b/mlx_lm/server.py
+@@ -43,9 +43,46 @@
      make_prompt_cache,
  )
  from .sample_utils import make_logits_processors, make_sampler
@@ -9,36 +9,106 @@
  from .utils import _parse_size, load, sharded_load
  
  
-+def _make_harmony_stream(cli_args):
-+    """HarmonyStream for this completion, or None when disabled.
++def _make_harmony_stream(cli_args, ctx):
++    """HarmonyStream for this completion, or None when harmony must stay out.
 +
 +    gpt-oss emits harmony channel markup that no chat template in this package
 +    infers a tool parser for, so without this the markup lands verbatim in
-+    `content` and `tool_calls` stays null. "auto" engages only when the turn
-+    actually opens with harmony markup, so every other model is untouched.
++    `content` and `tool_calls` stays null.
++
++    Selection is gated here, not only inside HarmonyStream. "auto" engages only
++    when the model has no tool parser of its own — `ctx.tool_parser is None`,
++    which is exactly the condition that leaves harmony markup unhandled. A model
++    whose chat template does infer a parser (qwen3_coder, mistral, ...) keeps
++    that parser: harmony cannot read its dialect, so replacing it would make
++    every well-formed call raise and return an empty tool_calls array. A
++    harmony-family model that some future mlx-lm does infer a parser for is
++    served with "on", which is what the gpt-oss catalog entry pins.
 +    """
 +    mode = getattr(cli_args, "harmony_tool_parser", "auto")
-+    return None if mode == "off" else _HarmonyStream(mode)
++    if mode == "off":
++        return None
++    if mode == "auto" and getattr(ctx, "tool_parser", None) is not None:
++        return None
++    return _HarmonyStream(mode)
++
++
++def _select_tool_parser(harmony_stream, ctx):
++    """The parse function ToolCallFormatter must use for this completion.
++
++    It has to agree with whatever filled `tool_calls`: harmony segments when
++    HarmonyStream is running, the model's own state-machine captures otherwise.
++    Mismatch is silent — the parser raises on every call and the formatter
++    returns an empty list.
++    """
++    return _harmony_parse_tool_call if harmony_stream is not None else ctx.tool_parser
 +
 +
  def get_system_fingerprint():
      gpu_arch = mx.device_info()["architecture"]
      return f"{__version__}-{mx.__version__}-{platform.platform()}-{gpu_arch}"
-@@ -1437,7 +1451,12 @@
+@@ -91,6 +128,46 @@
+         return result
+ 
+ 
++class _LoudToolCallFormatter(ToolCallFormatter):
++    """ToolCallFormatter that never silently drops a tool call.
++
++    Upstream logs a warning and skips a tool call whose parse raised. Because
++    `generate_response` omits `tool_calls` when the list is empty, a turn where
++    every call failed reaches the client with no tool calls and no content —
++    indistinguishable from a turn the model never made. Keep the unparsed text
++    so the caller can hand it back as content, and count what actually went out
++    so `finish_reason` cannot claim "tool_calls" with none attached.
++    """
++
++    def __init__(self, *args, **kwargs):
++        super().__init__(*args, **kwargs)
++        self.emitted = 0
++        self._unparsed = []
++
++    def __call__(self, tool_calls):
++        result = []
++        for tool_text in tool_calls or []:
++            try:
++                parsed = self._tool_parser(tool_text, self._tools)
++            except (ValueError, json.JSONDecodeError) as e:
++                logging.error(
++                    f"Failed to parse tool call ({type(e).__name__}: {e}) — "
++                    f"returning it as content rather than dropping it."
++                )
++                self._unparsed.append(tool_text)
++                continue
++            if not isinstance(parsed, list):
++                parsed = [parsed]
++            result.extend(self._format(tc) for tc in parsed)
++        self.emitted += len(result)
++        return result
++
++    def drain_unparsed(self) -> str:
++        """Text of every tool call that failed to parse since the last drain."""
++        out, self._unparsed = "".join(self._unparsed), []
++        return out
++
++
+ def convert_chat(messages: List[dict], role_mapping: Optional[dict] = None):
+     default_role_mapping = {
+         "system_prompt": (
+@@ -1437,7 +1514,12 @@
              logging.debug("Starting completion:")
  
          # Tool call formatter
 -        tool_formatter = ToolCallFormatter(ctx.tool_parser, request.tools, self.stream)
-+        harmony_stream = _make_harmony_stream(self.response_generator.cli_args)
-+        tool_formatter = ToolCallFormatter(
-+            _harmony_parse_tool_call if harmony_stream is not None else ctx.tool_parser,
++        harmony_stream = _make_harmony_stream(self.response_generator.cli_args, ctx)
++        tool_formatter = _LoudToolCallFormatter(
++            _select_tool_parser(harmony_stream, ctx),
 +            request.tools,
 +            self.stream,
 +        )
  
          # Variables to save the generated text, tokens, logprobs, tools etc
          prev_state = None
-@@ -1466,7 +1485,15 @@
+@@ -1466,7 +1548,15 @@
                          tool_calls.append(tool_text)
                          tool_text = ""
                          made_tool_call = True
@@ -55,11 +125,25 @@
  
                  # Add the tokens and logprobs to the vars.
                  tokens.append(gen.token)
-@@ -1500,6 +1527,14 @@
-             if prev_state == "tool" and tool_text:
+@@ -1480,10 +1570,12 @@
+                     and gen.state != "tool"
+                     and (text or tool_calls or reasoning_text)
+                 ):
++                    formatted = tool_formatter(tool_calls)
++                    text += tool_formatter.drain_unparsed()
+                     resp = self.generate_response(
+                         text,
+                         None,
+-                        tool_calls=tool_formatter(tool_calls),
++                        tool_calls=formatted,
+                         reasoning_text=reasoning_text,
+                     )
+                     self.wfile.write(f"data: {json.dumps(resp)}\n\n".encode())
+@@ -1501,14 +1593,28 @@
                  tool_calls.append(tool_text)
                  made_tool_call = True
-+
+ 
+-            if finish_reason == "stop" and made_tool_call:
 +            if harmony_stream is not None:
 +                delta = harmony_stream.finish()
 +                text += delta.content
@@ -67,10 +151,35 @@
 +                if delta.tool_calls:
 +                    tool_calls.extend(delta.tool_calls)
 +                    made_tool_call = True
- 
-             if finish_reason == "stop" and made_tool_call:
++
++            # Format before the finish_reason flip: a turn whose every tool call
++            # failed to parse must not report "tool_calls" with none attached.
++            # The unparsed text goes back into content instead of vanishing.
++            formatted_tool_calls = tool_formatter(tool_calls)
++            text += tool_formatter.drain_unparsed()
++
++            if finish_reason == "stop" and made_tool_call and tool_formatter.emitted:
                  finish_reason = "tool_calls"
-@@ -1884,6 +1919,17 @@
+ 
+             if self.stream:
+                 resp = self.generate_response(
+                     text,
+                     finish_reason,
+-                    tool_calls=tool_formatter(tool_calls),
++                    tool_calls=formatted_tool_calls,
+                     reasoning_text=reasoning_text,
+                 )
+                 self.wfile.write(f"data: {json.dumps(resp)}\n\n".encode())
+@@ -1537,7 +1643,7 @@
+                     top_tokens=top_tokens,
+                     tokens=tokens,
+                     reasoning_text=reasoning_text,
+-                    tool_calls=tool_formatter(tool_calls),
++                    tool_calls=formatted_tool_calls,
+                 )
+                 if logging.getLogger().isEnabledFor(logging.DEBUG):
+                     response_debug = json.dumps(resp, indent="\t")
+@@ -1884,6 +1990,17 @@
          action="store_true",
          help="Use pipelining instead of tensor parallelism",
      )
