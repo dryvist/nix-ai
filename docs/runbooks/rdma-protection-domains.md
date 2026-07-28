@@ -11,6 +11,34 @@ ValueError: [jaccl] Changing queue pair to RTR failed with errno 96
 By the time errno 96 appears the domains are already gone. This page describes
 the accounting that stops a host reaching that state.
 
+## The budget is 11, and it is measured
+
+`ibv_devinfo -v` reports the same three limits on **every** RDMA device of both
+Apple Silicon hosts here — MacBook `rdma_en1`/`en2`/`en3`, Studio
+`rdma_en2`/`en3`/`en4`:
+
+```text
+max_pd: 11    max_qp: 11    max_cq: 11
+```
+
+Eleven. Not the ~60 concurrent sessions [ml-explore/mlx#3207][mlx3207] quotes —
+that figure describes different hardware and does not apply here. Run
+`ibv_devinfo -v` on a host before reasoning about its budget rather than carrying
+this number to other hardware unchecked.
+
+Two properties of that number drive everything below:
+
+- **It is a maximum, not a free count.** `ibv_devinfo` reports what a device
+  *can* allocate, never what is allocated right now. Other processes — the
+  standalone model server, prefetch, peer-liveness — may hold some. So the
+  domains actually available are **unknown**, and at most `11 - leaked`.
+- **A live session spends from three of these pools at once.** `max_qp` and
+  `max_cq` are 11 as well, and a working rank allocates queue pairs and
+  completion queues alongside its protection domain. "Domains left" is therefore
+  an optimistic view of "sessions left".
+
+[mlx3207]: https://github.com/ml-explore/mlx/issues/3207
+
 ## A leaked domain is a leaked process
 
 The domain is held by a **process**, not by damaged kernel state. Measured:
@@ -58,49 +86,31 @@ domain live); every earlier attempt in the counter was superseded by another
 kickstart, so it failed, and a failed init leaks whether or not a later one
 worked.
 
-## How big the budget actually is
+## The cap is a RESERVE, not a distance from exhaustion
 
-Measured on this hardware, not assumed — `ibv_devinfo -v`:
+The cap is `programs.mlx.clusterMode.maxKickstarts`, currently **5** — not a
+separate number from the kickstart counter. Both count the same resource, one
+domain per event, so raising one raises the other and neither budget can
+silently exceed the other.
 
-```text
-hca_id: rdma_en2      transport: Thunderbolt (100)
-        max_pd:   11
-        max_qp:   11
-        max_cq:   11
-        max_mr:  100
-```
+The non-obvious part is what the number means. It is **not** "how close to 11 we
+dare walk". It is **how much of 11 may be burned on failure while still leaving
+enough for the attempt we actually want to succeed**. A working cluster session
+allocates protection domains of its own — plus queue pairs and completion
+queues, from pools that are also 11 — and free domains are not observable at
+all. Burn 10 of 11 proving a peer is absent and the run that would have worked
+may find nothing left to allocate. "Not yet exhausted" is not the same as "able
+to succeed".
 
-**Eleven protection domains per RDMA device.** All three `rdma_en*` devices
-report the same, and only the carrier-active one is in play. `max_qp` is also
-11, which is consistent with the observed terminal error being errno 96 on
-`Changing queue pair to RTR` — QPs run out alongside PDs, from the same budget.
+So: **5**. Five failed attempts leave six domains — comfortably a working
+session plus margin. Three, the previous value, was over-cautious: it spent a
+halt on a recoverable "peer not up yet" while eight domains sat unused. Ten
+would clear the "below 11" bar and still leave no room to succeed.
 
-Two things follow, and both matter when someone proposes raising the cap:
-
-- **The upstream "~60 sessions" figure does not describe this device.**
-  [ml-explore/mlx#3207](https://github.com/ml-explore/mlx/issues/3207) reports
-  exhaustion after ~60 file transfers. That is one reporter's observation about
-  a file-transfer workload, with no maintainer confirmation and no measurement
-  of the underlying limit; 60 exceeds what this hardware advertises by more than
-  fivefold. Do not size a cap against it.
-- **Current usage is not observable.** `ibv_devinfo` reports capabilities only —
-  there is no counter for domains currently allocated, and no way to release one
-  short of a reboot. The ledger exists precisely because the kernel will not
-  tell us; a cap therefore has to be conservative under unobservable state.
-
-Against that measurement the default cap of 3 is roughly a quarter of the
-device's total, leaving the rest for a healthy session and anything else on the
-port. The asymmetry that argues for staying conservative: halting costs degraded
-service (the watcher restores standalone serving and the host keeps answering),
-while exhausting costs a **mandatory reboot** — and the reason this guard exists
-is that a reboot is sometimes not available. Raising the cap does not create
-domains; it only spends more of them per episode before the guard notices.
-
-## What happens at the cap
-
-The cap is `programs.mlx.clusterMode.maxKickstarts` — not a separate number.
-Both count the same resource, one domain per event, so raising one raises the
-other and neither budget can silently exceed the other.
+`lib/checks/mlx-cluster-pd-env.nix` enforces the reserve as an invariant —
+`2 * maxKickstarts <= devicePdBudget`, i.e. hold back at least as many domains
+as you are willing to lose — so the cap cannot be raised into the budget without
+the build failing.
 
 At the cap:
 
@@ -139,8 +149,15 @@ required before the next join:
 
 ```text
   rank       : stopped
-  PD debt    : 1/3 leaked this boot (cleared only by a reboot)
+  PD debt    : 1 of 11 device protection domains consumed until reboot (guard cap 5)
 ```
+
+Every operator-facing message states the debt this way — as a fraction of the
+device's measured budget, never as a bare count. "1 domain leaked" reads as a
+rounding error; "1 of 11 … until reboot" is the actual severity. The wording has
+one definition, `pd_debt_phrase` in `modules/mlx/scripts/cluster-pd-ledger.sh`,
+so it cannot drift back to a bare count in one command while the others stay
+honest.
 
 Exit 3 also covers stale swap. Either way the node is serving-safe; it is the
 next `cluster-join` that is gated.

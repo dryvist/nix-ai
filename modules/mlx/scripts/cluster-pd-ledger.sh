@@ -64,3 +64,27 @@ pd_debt_count() {
     END { print n + 0 }
   ' "$file" 2> /dev/null
 }
+
+# The one operator-facing rendering of the debt, used by every consumer.
+#
+# ALWAYS A FRACTION OF THE DEVICE BUDGET, NEVER A BARE COUNT. "3 domains leaked"
+# reads as a rounding error. "3 of 11 device protection domains consumed until
+# reboot" is the actual severity: the pool is tiny — measured max_pd = 11 by
+# ibv_devinfo -v on every RDMA device of this hardware, NOT the ~60 sessions
+# ml-explore/mlx#3207 reports for other machines — and nothing short of a reboot
+# returns one. The phrasing is defined once here so a message cannot drift back
+# to a bare count in one place while the others stayed honest.
+#
+# The guard cap rides alongside as a SEPARATE fact, because the two answer
+# different questions: the fraction says how much of the device is already gone,
+# the cap says when this host stops spending. The cap sits well under the budget
+# on purpose — it reserves domains for a session that actually works, rather than
+# marking the distance to exhaustion.
+#
+# The budget renders as "?" when unset rather than defaulting to a number: an
+# invented denominator is worse than a visibly missing one.
+#
+# $1 domains consumed this boot, $2 the guard cap.
+pd_debt_phrase() {
+  echo "$1 of ${CLUSTER_PD_DEVICE_BUDGET:-?} device protection domains consumed until reboot (guard cap $2)"
+}

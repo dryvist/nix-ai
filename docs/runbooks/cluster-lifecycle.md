@@ -106,8 +106,8 @@ connect (error: 60)`), and every failed `mx.distributed.init()` leaks a
 into a mandatory reboot (2026-07-24). Both ranks now hold for a shared
 wall-clock boundary and reach distributed init together, inside jaccl's fixed
 ~15 s connect budget. Domains lost anyway are counted in a boot-scoped ledger,
-and a start is refused before the kernel runs out — see
-[rdma-protection-domains.md](rdma-protection-domains.md).
+and a start is refused at a cap that *reserves* what is left of the device's 11
+— see [rdma-protection-domains.md](rdma-protection-domains.md).
 
 **A boot does not produce a usable link.** cluster-link prep runs in root
 `postActivation`, before Thunderbolt carrier settles, so it can find no

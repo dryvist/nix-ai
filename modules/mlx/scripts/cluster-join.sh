@@ -85,11 +85,12 @@ if [ "$pd_debt_max" -gt 0 ]; then
   pd_debt="$(pd_debt_count "${CLUSTER_PD_DEBT_FILE:-}")"
   pd_debt="${pd_debt:-0}"
   if [ "$pd_debt" -ge "$pd_debt_max" ]; then
-    fail "$pd_debt RDMA protection domain(s) leaked this boot (cap $pd_debt_max). \
+    fail "$(pd_debt_phrase "$pd_debt" "$pd_debt_max"). \
 Reboot this host before joining — a leaked domain is not recoverable any other way, and \
-starting a rank now spends domains the kernel may no longer have. Ledger: ${CLUSTER_PD_DEBT_FILE:-unset}"
+the cap exists to RESERVE what is left for a session that can succeed, not to mark the \
+distance to exhaustion. Ledger: ${CLUSTER_PD_DEBT_FILE:-unset}"
   fi
-  echo "cluster-join: PD debt $pd_debt/$pd_debt_max this boot"
+  echo "cluster-join: PD debt $(pd_debt_phrase "$pd_debt" "$pd_debt_max")"
 fi
 
 # --- step 0: nix generation parity preflight --------------------------------

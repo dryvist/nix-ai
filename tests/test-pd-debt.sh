@@ -64,7 +64,14 @@ export CLUSTER_STATIC_PEER_IP=192.0.2.1
 export CLUSTER_RENDEZVOUS_PORT=11441
 export CLUSTER_RANK_PROCESS_PATTERN='/mlx_lm\.server'
 export CLUSTER_PD_DEBT_FILE="$debt_file"
-export CLUSTER_PD_DEBT_MAX=3
+# The shipped cap and the measured device budget, so the assertions below exercise
+# the real numbers rather than a fixture that could drift away from them:
+# programs.mlx.clusterMode.maxKickstarts = 5 and devicePdBudget = 11 (max_pd as
+# reported by ibv_devinfo -v on this hardware). The cap RESERVES the remaining six
+# domains for a session that can actually succeed; it does not mark the distance
+# to exhaustion.
+export CLUSTER_PD_DEBT_MAX=5
+export CLUSTER_PD_DEVICE_BUDGET=11
 export CLUSTER_RANK_REAP_GRACE_SECS=30
 export CLUSTER_ALERT_URL_FILE="$state_dir/no-such-alert-url"
 
@@ -241,16 +248,23 @@ check "it warns" warned "$(case "$record_err" in *UNRECORDED*) echo warned ;; *)
 check "it does not abort the caller" notaborted \
   "$(case "$record_err" in *ABORTED*) echo aborted ;; *) echo notaborted ;; esac)"
 
-echo "3. debt at the cap REFUSES a start and HALTS before exhaustion:"
+echo "3. debt at the cap REFUSES a start and HALTS with domains still in reserve:"
 reset_state
-pd_debt_record "$debt_file" 2 detach-sigkill "two domains gone"
+pd_debt_record "$debt_file" 4 detach-sigkill "four domains gone"
 check "below the cap, starts still proceed" start "$(verdict)"
 check "and nothing is halted yet" missing "$([ -f "$halt_file" ] && echo latched || echo missing)"
-pd_debt_record "$debt_file" 1 detach-sigkill "third domain gone"
+pd_debt_record "$debt_file" 1 detach-sigkill "fifth domain gone"
 check "at the cap, the start is refused" pd-debt-exhausted "$(verdict)"
 pd_debt_halt_if_exhausted "$halt_file" "$latch_file" "$debt_file"
 check "and the watcher halts on it" pd-debt-exhausted "$(halt_cause)"
 check "with the sticky latch set" latched "$([ -f "$latch_file" ] && echo latched || echo missing)"
+# THE HALT IS A RESERVE, NOT EXHAUSTION. Six of the device's eleven domains are
+# still unspent at the moment the guard stops trying, which is the entire design:
+# a working session must allocate domains of its own, max_qp and max_cq are 11
+# too, and free domains are unobservable — so the guard must stop while there is
+# still enough left to succeed with.
+check "the cap leaves a reserve, it is not exhaustion" 6 \
+  "$((CLUSTER_PD_DEVICE_BUDGET - $(pd_debt_count "$debt_file")))"
 
 echo "   ...and a by-hand clear of the marker does NOT buy a retry:"
 # 2026-07-24: the guard fired correctly and a human deleted the marker on an
@@ -267,7 +281,7 @@ echo "   ...and a link cycle does NOT clear the debt either:"
 # kickstart counter. That is the SESSION reset, and it is exactly the path that
 # used to hand a fresh budget to a boot that had already lost its domains.
 rm -f "$halt_file" "$latch_file" "$kicks_file"
-check "ledger survives the teardown" 3 "$(pd_debt_count "$debt_file")"
+check "ledger survives the teardown" 5 "$(pd_debt_count "$debt_file")"
 check "so the very next start is still refused" pd-debt-exhausted "$(verdict)"
 pd_debt_halt_if_exhausted "$halt_file" "$latch_file" "$debt_file"
 check "and the halt comes straight back" pd-debt-exhausted "$(halt_cause)"
@@ -280,8 +294,8 @@ check "starts are allowed again" start "$(verdict)"
 pd_debt_halt_if_exhausted "$halt_file" "$latch_file" "$debt_file"
 check "and nothing re-halts" missing "$([ -f "$halt_file" ] && echo latched || echo missing)"
 # Debt taken AFTER the reboot counts again, so the guard is armed, not disarmed.
-pd_debt_record "$debt_file" 3 detach-sigkill "post-reboot losses"
-check "post-reboot debt counts" 3 "$(pd_debt_count "$debt_file")"
+pd_debt_record "$debt_file" 5 detach-sigkill "post-reboot losses"
+check "post-reboot debt counts" 5 "$(pd_debt_count "$debt_file")"
 check "and refuses again at the cap" pd-debt-exhausted "$(verdict)"
 
 echo "   ...and an unreadable boot time fails CLOSED, never open:"
@@ -289,17 +303,41 @@ echo "   ...and an unreadable boot time fails CLOSED, never open:"
 # how the sysctl-off-PATH defect silently disabled the halt marker while still
 # reporting that it was protecting the budget.
 reset_state
-pd_debt_record "$debt_file" 3 detach-sigkill "recorded while sysctl worked"
+pd_debt_record "$debt_file" 5 detach-sigkill "recorded while sysctl worked"
 sysctl() { return 1; }
-check "unknown boot counts every entry" 3 "$(pd_debt_count "$debt_file")"
+check "unknown boot counts every entry" 5 "$(pd_debt_count "$debt_file")"
 check "so the start is still refused" pd-debt-exhausted "$(verdict)"
 # An entry whose own boot field could not be stamped counts too.
 rm -f "$debt_file"
-pd_debt_record "$debt_file" 3 detach-sigkill "recorded with no readable boot"
+pd_debt_record "$debt_file" 5 detach-sigkill "recorded with no readable boot"
 grep -q 'boot=unknown' "$debt_file" ||
   { echo "  FAIL an unstampable entry must record boot=unknown, not an empty field"; fail=1; }
 boot_now=1785031601
 sysctl() { echo "{ sec = $boot_now, usec = 233215 } Sat Jul 25 22:06:41 2026"; }
-check "an unknown-boot entry still counts under a known boot" 3 "$(pd_debt_count "$debt_file")"
+check "an unknown-boot entry still counts under a known boot" 5 "$(pd_debt_count "$debt_file")"
+
+echo "5. every operator-facing message states the debt as a FRACTION of the device budget:"
+# A bare "3 domains leaked" reads as a rounding error. "3 of 11 device protection
+# domains consumed until reboot" is the actual severity — the pool is eleven, as
+# measured by ibv_devinfo -v, not the ~60 sessions ml-explore/mlx#3207 reports for
+# other hardware. This is what fails if any message drifts back to a bare count.
+reset_state
+check "the phrase carries numerator, denominator and the reboot" \
+  "3 of 11 device protection domains consumed until reboot (guard cap 5)" \
+  "$(pd_debt_phrase 3 5)"
+pd_debt_record "$debt_file" 5 detach-sigkill "at the cap"
+refusal="$(verdict 2>&1 > /dev/null)"
+check "the start refusal names the device budget" yes \
+  "$(case "$refusal" in *"of 11 device protection domains consumed until reboot"*) echo yes ;; *) echo no ;; esac)"
+halt_msg="$(pd_debt_halt_if_exhausted "$halt_file" "$latch_file" "$debt_file" 2>&1 > /dev/null)"
+check "the halt message names the device budget" yes \
+  "$(case "$halt_msg" in *"5 of 11 device protection domains consumed until reboot"*) echo yes ;; *) echo no ;; esac)"
+check "and the halt marker records the fraction, not a bare count" yes \
+  "$(grep -q "of 11 device protection domains consumed until reboot" "$halt_file" && echo yes || echo no)"
+# An unset budget must render as "?", never as an invented denominator: a made-up
+# number is worse than a visibly missing one.
+check "an unset budget renders as ?, never a guess" \
+  "3 of ? device protection domains consumed until reboot (guard cap 5)" \
+  "$(CLUSTER_PD_DEVICE_BUDGET="" pd_debt_phrase 3 5)"
 
 exit "$fail"
