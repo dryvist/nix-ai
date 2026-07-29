@@ -179,7 +179,9 @@ in
     assert lib.hasInfix "[[rule]]" policyContent || throw "No [[rule]] entries found";
     assert lib.hasInfix ''decision = "allow"'' policyContent || throw "No allow rules found";
     assert lib.hasInfix ''decision = "deny"'' policyContent || throw "No deny rules found";
-    assert lib.hasInfix ''decision = "ask_user"'' policyContent || throw "No ask_user rules found";
+    assert
+      !lib.hasInfix ''decision = "ask_user"'' policyContent
+      || throw "ask_user rules present — the two-tier model renders allow/deny only";
     assert
       lib.hasInfix ''toolName = "read_file"'' policyContent || throw "Missing read_file tool mapping";
     assert
@@ -187,5 +189,5 @@ in
       || throw "No run_shell_command rules found";
     assert
       lib.hasInfix ''commandPrefix = "git"'' policyContent || throw "Missing git commandPrefix rule";
-    helpers.mkMarker "check-antigravity-cli-policy-engine" "Antigravity Policy Engine: TOML structure verified (8 assertions: non-empty, [[rule]], 3 decision types, tool mappings, git rule)";
+    helpers.mkMarker "check-antigravity-cli-policy-engine" "Antigravity Policy Engine: TOML structure verified (8 assertions: non-empty, [[rule]], allow/deny present, ask_user absent, tool mappings, git rule)";
 }

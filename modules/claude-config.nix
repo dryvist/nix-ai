@@ -29,16 +29,11 @@ let
   # (allow/ask/deny/domains) now comes from `nix-claude-code.lib.permissions`
   # (Checkpoint 3, step 2; data true-up verified in dryvist/nix-claude-code#50);
   # only the formatter API stays local.
+  # No exclusions: the categories Claude used to trim (shell, network) and
+  # the individual commands (npm run, npm test) were removed from the
+  # upstream deny data itself, so every consumer now gets the same list.
   aiCommon = import ./common {
     inherit lib config nix-claude-code;
-    excludeDenyCategories = [
-      "shell"
-      "network"
-    ];
-    excludeDenyCommands = [
-      "npm run"
-      "npm test"
-    ];
   };
   inherit (aiCommon) permissions;
   inherit (aiCommon) formatters;
