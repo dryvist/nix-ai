@@ -28,7 +28,8 @@ let
       pdDebtFile = "/tmp/pd-debt";
       ncfg = {
         role = "worker";
-        maxKickstarts = 3;
+        maxKickstarts = 5;
+        devicePdBudget = 11;
         alertUrlFile = "/tmp/alert-url";
         rendezvousPort = 11441;
         peerRendezvousProbeTimeoutSecs = 2;

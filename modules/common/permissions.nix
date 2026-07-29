@@ -36,60 +36,15 @@ let
   # Deny categories that callers may exclude from the static deny list
   # (excluded categories are handled by auto mode's AI classifier instead).
   #
-  # The vendored deny list in nix-claude-code is flat, so the per-category
-  # split lives here. Keys are the legacy deny/*.json category names; values
-  # are snapshots of those files' command lists (derived once from
-  # ai-assistant-instructions deny/{shell,network}.json, which match the
-  # correspondingly commented blocks in nix-claude-code's
-  # data/permissions/deny.nix). Exclusion is by membership, so ordering here
-  # is irrelevant; entries are sorted for stable diffs.
-  denyCategoryCommands = {
-    # network: mutating HTTP verbs and inbound listeners
-    network = [
-      "curl --data"
-      "curl --request DELETE"
-      "curl --request PATCH"
-      "curl --request POST"
-      "curl --request PUT"
-      "curl -X DELETE"
-      "curl -X PATCH"
-      "curl -X POST"
-      "curl -X PUT"
-      "curl -d"
-      "nc -l"
-      "ncat -l"
-      "socat"
-    ];
-
-    # shell: inline interpreter execution and temp-file writes
-    shell = [
-      "bash -c"
-      "cat > /tmp/"
-      "cat >> /tmp/"
-      "dash -c"
-      "fish -c"
-      "ksh -c"
-      "node --eval"
-      "node -e"
-      "perl -c"
-      "perl -e"
-      "python -"
-      "python -c"
-      "python /dev/"
-      "python /tmp/"
-      "python <<"
-      "python3 -"
-      "python3 -c"
-      "python3 /dev/"
-      "python3 /tmp/"
-      "python3 <<"
-      "ruby --eval"
-      "ruby -e"
-      "sh -c"
-      "tee /tmp/"
-      "zsh -c"
-    ];
-  };
+  # Empty as of the 2026-07 ask-tier removal. The `shell` and `network`
+  # categories used to live here as local snapshots so consumers could trim
+  # them; both were dropped from the upstream deny data outright
+  # (dryvist/nix-claude-code, "remove the ASK tier" commit), so there is
+  # nothing left to exclude. The mechanism is kept because it is the
+  # supported way for a consumer to trim a future category — but a snapshot
+  # of commands that no longer exist upstream is drift waiting to happen, so
+  # only add a key here when the upstream category actually exists.
+  denyCategoryCommands = { };
 
   # Full set of deny commands to drop: whole excluded categories plus any
   # individually excluded commands.

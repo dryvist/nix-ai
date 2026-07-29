@@ -16,7 +16,10 @@
 # just a size one:
 #
 #   cluster-pd-ledger.sh   READ side  — watcher, join, detach
-#   cluster-pd-record.sh   WRITE side — watcher, detach only
+#   cluster-pd-record.sh   WRITE side — watcher, join, detach
+#   cluster-pd-settle.sh   COUNTER-SETTLE — watcher, join only (detach resets
+#                          no counter, and a function it cannot call is dead
+#                          code the linter rejects)
 #
 # cluster-join reads the ledger so it can REFUSE at the cap, and is deliberately
 # denied the write side: a command whose only job is to refuse must not also be
@@ -32,6 +35,7 @@
     ./scripts/cluster-boot-scope.sh
     ./scripts/cluster-pd-ledger.sh
     ./scripts/cluster-pd-record.sh
+    ./scripts/cluster-pd-settle.sh
     ./scripts/cluster-link-helpers.sh
     ./scripts/cluster-link-locate.sh
     ./scripts/cluster-link-repair.sh
@@ -50,11 +54,21 @@
     ./scripts/cluster-peer-liveness.sh
   ];
 
-  # cluster-join: reads the ledger, never writes it, and never reaps — the
-  # watcher owns rank starts, so join has no business stopping a rank.
+  # cluster-join: reads the ledger, and never reaps — the watcher owns rank
+  # starts, so join has no business stopping a rank.
+  #
+  # It now gets the WRITE side too, and the reason is narrow: join resets the
+  # kickstart counter, and that counter can be holding attempts whose leaked
+  # domains are not yet in the ledger. The old rule ("a command that can only
+  # refuse cannot also spend") described the reap, and it still holds there —
+  # but discarding unrecorded debt IS spending, silently, which is the one thing
+  # the ledger exists to prevent. Join may only settle a count it did not
+  # create; it never records a fresh leak of its own.
   join = [
     ./scripts/cluster-boot-scope.sh
     ./scripts/cluster-pd-ledger.sh
+    ./scripts/cluster-pd-record.sh
+    ./scripts/cluster-pd-settle.sh
     ./scripts/cluster-link-locate.sh
     ./scripts/cluster-link-repair.sh
     ./scripts/cluster-rank-status.sh

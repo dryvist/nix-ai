@@ -114,8 +114,17 @@ in
         "on-request"
         "never"
       ];
-      default = "untrusted";
-      description = "Default approval policy for Codex sessions";
+      default = "never";
+      description = ''
+        Default approval policy for Codex sessions.
+
+        `never` by design: an approval prompt stalls any unattended run
+        (cron, CI, container) on a question nobody is there to answer.
+        Safety comes from `sandbox_mode = "workspace-write"` plus the
+        execpolicy `forbidden` rules rendered from the shared deny list —
+        both of which hold without a human present. This mirrors the
+        empty ASK tier in the shared permission data.
+      '';
     };
 
     # excludedMcpServers + mcpServerNames come from the shared MCP client helper.

@@ -59,14 +59,58 @@ in
       description = "JACCL coordinator rendezvous port (MLX_JACCL_COORDINATOR).";
     };
 
+    devicePdBudget = lib.mkOption {
+      type = lib.types.int;
+      default = 11;
+      description = ''
+        RDMA protection domains one device on THIS hardware can hand out.
+        Measured, never assumed: ibv_devinfo -v reports max_pd = 11 on every
+        RDMA device of both Apple Silicon hosts (MacBook rdma_en1/en2/en3,
+        Studio rdma_en2/en3/en4). The ~60 concurrent sessions quoted upstream
+        in ml-explore/mlx#3207 describe other hardware, not this.
+
+        A per-device MAXIMUM, not a live free count: ibv_devinfo reports what
+        the device can allocate, never what is allocated right now, and other
+        processes may already hold some. Remaining budget is unknowable, at
+        most (this number minus leaked). Change it only against a fresh
+        ibv_devinfo -v on the deployed hardware.
+      '';
+    };
+
     maxKickstarts = lib.mkOption {
       type = lib.types.int;
-      default = 3;
+      default = 5;
       description = ''
-        Consecutive failed rank starts before the watcher halts kickstarts
-        and pages once. Every failed distributed init leaks a kernel RDMA
-        Protection Domain and exhaustion is reboot-only (ml-explore/mlx#3207),
-        so an unbounded crash loop forces a reboot.
+        Protection-domain-leaking events tolerated in one boot before this host
+        refuses to start a rank — consecutive failed rank starts (the kickstart
+        counter) and cumulative leaks (the boot-scoped PD ledger) draw on the
+        same budget. Every failed distributed init leaks one kernel RDMA
+        protection domain, a SIGKILLed rank leaks one, and exhaustion is
+        reboot-only (ml-explore/mlx#3207).
+
+        WHY 5 — IT IS A RESERVE, NOT A DISTANCE FROM EXHAUSTION. The device
+        budget is 11 (devicePdBudget above, measured via ibv_devinfo -v; the
+        ~60 sessions upstream reports are other hardware). The question is not
+        "how close to 11 dare we walk" but "how much of 11 may be burned on
+        failure while still leaving enough to succeed". A working cluster
+        session must itself allocate protection domains, and max_qp plus max_cq
+        are 11 as well — a live session draws on three equally scarce pools at
+        once. Burn 10 of 11 proving the peer absent, and the attempt actually
+        wanted may have nothing left to allocate.
+
+        Free domains are not observable either: ibv_devinfo reports the maximum,
+        never the current allocation, and unrelated processes (model server,
+        prefetch, peer-liveness) may hold some. Remaining budget is unknown, at
+        most (11 minus leaked) — another reason to reserve rather than to walk
+        up to the edge.
+
+        Hence 5: after five failed attempts six domains remain, comfortably a
+        working session plus margin. Three was over-cautious, spending a halt
+        on a recoverable "peer not up yet" with eight domains still unused. Ten
+        satisfies "not yet exhausted" and leaves no room to succeed.
+
+        Only a reboot returns a leaked domain. Clearing the halt marker does
+        not — the guard re-verifies the ledger and re-halts on its evidence.
       '';
     };
 

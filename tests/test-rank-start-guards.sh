@@ -50,7 +50,8 @@ export CLUSTER_STATE_FILE="$state_dir/link-state"
 # present for any other rung to be reachable at all. That refusal is asserted in
 # tests/test-pd-debt.sh; here the guard is simply configured and idle.
 export CLUSTER_PD_DEBT_FILE="$state_dir/pd-debt"
-export CLUSTER_PD_DEBT_MAX=3
+export CLUSTER_PD_DEBT_MAX=5
+export CLUSTER_PD_DEVICE_BUDGET=11
 export CLUSTER_RANK_PROCESS_PATTERN='/mlx_lm\.server'
 
 # Sourced in the module's concatenation order: current_boot_epoch in the boot

@@ -17,6 +17,15 @@
 # it over the `normal` text stream in both the streaming and non-streaming
 # paths. See mlx-lm-patch/harmony.py for the grammar and degradation contract.
 #
+# `auto` gates PARSER SELECTION, not only content. The first cut gated the
+# content path alone, so `auto` still handed ToolCallFormatter the harmony
+# parser on every model — including Qwen3.6-35B-A3B-4bit, whose template
+# correctly infers qwen3_coder. Each well-formed Qwen tool call raised inside
+# the formatter, got swallowed to `[]`, and the response omitted `tool_calls`
+# entirely though `finish_reason` already said "tool_calls": a turn carrying
+# neither calls nor content. `_make_harmony_stream` now engages in `auto` only
+# on a model that inferred no parser of its own. See mlx-lm-patch/test_selection.py.
+#
 # Patches the prebuilt wheel, not the sdist: a wheel is a zip, so unzip/patch/
 # rezip needs no build step and never writes to a read-only store path. Same
 # reasoning as vllm-mlx-patch.nix, which patches its wheel the same way.

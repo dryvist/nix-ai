@@ -118,7 +118,7 @@ rank_start_preconditions_ok() {
     pd_debt="${pd_debt:-0}"
     if [ "$pd_debt" -ge "$pd_max" ]; then
       PRECONDITION_REASON="pd-debt-exhausted"
-      echo "cluster-link: $pd_debt RDMA protection domain(s) leaked this boot (cap $pd_max); NOT starting the rank. Only a reboot returns a leaked domain — clearing markers will not." >&2
+      echo "cluster-link: $(pd_debt_phrase "$pd_debt" "$pd_max"); NOT starting the rank. Only a reboot returns a leaked domain — clearing markers will not." >&2
       return 1
     fi
   fi
@@ -186,13 +186,24 @@ rank_start_preconditions_ok() {
   return 0
 }
 
-# HALT BEFORE EXHAUSTION, NOT AFTER.
+# HALT AT THE RESERVE, NOT AT EXHAUSTION.
 #
 # The kickstart counter below is the reactive half of the PD guard: it halts once
 # N distributed inits have already failed, i.e. once N protection domains are
 # already gone and errno 96 is the proof. This is the proactive half. It reads
 # the boot-scoped ledger of domains ALREADY known lost (./cluster-pd-ledger.sh)
 # and halts while there are still domains left to protect.
+#
+# THE CAP IS A RESERVE, NOT A DISTANCE FROM EXHAUSTION. The device budget is 11
+# (measured max_pd, ibv_devinfo -v; the ~60 sessions ml-explore/mlx#3207 quotes
+# are other hardware). A working cluster session must itself allocate protection
+# domains, and max_qp and max_cq are 11 too — a live session draws on three
+# equally scarce pools at once. Free domains are not observable either: the
+# device reports its maximum, never its current allocation, and other processes
+# may hold some, so what is left is unknown and at most (11 - leaked). Burning 10
+# of 11 on failed attempts would satisfy "not yet exhausted" and still leave the
+# attempt that mattered with nothing to allocate. The cap therefore stops at 5,
+# holding six domains back for the session we actually want.
 #
 # It closes the accumulation path the counter cannot: the counter is
 # SESSION-scoped, so a link cycle, a settled rank or a cluster-join all reset it,
@@ -223,11 +234,11 @@ pd_debt_halt_if_exhausted() {
   if [ -f "$halt_file" ]; then
     return 0
   fi
-  echo "cluster-link: $debt RDMA protection domain(s) recorded leaked this boot (cap $max); HALTING rank starts before the kernel runs out. A leaked domain is returned only by a reboot." >&2
+  echo "cluster-link: $(pd_debt_phrase "$debt" "$max"); HALTING rank starts before the kernel runs out. A leaked domain is returned only by a reboot." >&2
   halt_write "$halt_file" "$latch_file" "pd-debt-exhausted" \
-    "$debt protection domain(s) leaked this boot (cap $max); reboot required to return them"
-  alert "$(hostname -s): $debt RDMA protection domain(s) leaked this boot (cap $max). Rank starts are halted BEFORE exhaustion rather than after errno 96. Reboot this host to return the domains — clearing the marker will not, and the guard re-halts on the ledger's own evidence." \
-    "mlx-cluster PD debt exhausted"
+    "$(pd_debt_phrase "$debt" "$max"); reboot required to return them"
+  alert "$(hostname -s): $(pd_debt_phrase "$debt" "$max"). Rank starts are halted at the cap, which RESERVES the rest of the device budget for a session that can actually succeed — not at exhaustion, and not after errno 96. Reboot this host to return the domains — clearing the marker will not, and the guard re-halts on the ledger's own evidence." \
+    "mlx-cluster PD debt at cap"
   return 0
 }
 
@@ -251,6 +262,22 @@ halt_clear_accepted() {
   prior="$(cat "$latch_file" 2> /dev/null || echo unknown)"
   if rank_start_preconditions_ok; then
     echo "cluster-link: halt marker cleared by hand and preconditions RE-VERIFIED (prior cause: $prior); allowing one retry"
+    # THE ONE RESET THAT DOES NOT SETTLE, AND WHY. Every other path that clears
+    # the kickstart counter transfers it to the boot-scoped ledger first
+    # (pd_debt_settle_counter). This one must not, because by the time it runs
+    # the counter is already empty and settling again would double-bill:
+    #
+    #   - a cap-halt settles at the cap, which records the debt AND zeroes the
+    #     counter, so an accepted clear finds nothing outstanding;
+    #   - the wedge detector and the peer-liveness supervisor only halt a rank
+    #     that had already reached readiness, and a rank that settles zeroes the
+    #     counter on the same tick.
+    #
+    # Settling here anyway was tried and is wrong in the one direction that
+    # matters: it re-records the capped attempts, pushes the ledger back to the
+    # cap, and the very next tick re-halts with pd-debt-exhausted — turning the
+    # documented recovery into a permanent no-op. tests/test-rank-start-guards.sh
+    # asserts the recovery still works, and it is what caught this.
     rm -f "$latch_file" "$kicks_file"
     return 0
   fi
