@@ -47,7 +47,10 @@
     # and the byte-equivalence CI fixture. The 20 marketplace inputs that
     # previously lived in nix-ai are now transitive inputs of this flake.
     nix-claude-code = {
-      url = "github:dryvist/nix-claude-code";
+      # Pinned to main explicitly: nix-claude-code is git-flow (default
+      # branch develop), so an unref'd url resolves to develop and tracks
+      # unreleased commits instead of release-please-tagged releases.
+      url = "github:dryvist/nix-claude-code/main";
       inputs = {
         nixpkgs.follows = "nixpkgs";
         home-manager.follows = "home-manager";
