@@ -66,6 +66,15 @@
       };
     };
 
+    # The other two per-CLI leaves. Each owns its own tool's autonomous
+    # renderer, which flake/lib.nix composes into `lib.renderAutonomous`
+    # rather than nix-ai keeping a fourth copy. That duplication was not
+    # cosmetic: the same invalid-`defaultApprovalMode` bug shipped in two
+    # copies and had to be fixed twice (nix-ai#1464, dryvist/nix-agy#1).
+    # Pinned to main for the same git-flow reason as nix-claude-code above.
+    nix-codex.url = "github:dryvist/nix-codex/main";
+    nix-agy.url = "github:dryvist/nix-agy/main";
+
     # Behavioral/workflow skills from Andrej Karpathy. Lives here (not in
     # nix-claude-code) because it's a nix-ai-specific addition that landed
     # on main after PR3 started; promote upstream when convenient.
@@ -136,6 +145,8 @@
       ai-assistant-instructions,
       jacobpevans-cc-plugins,
       nix-claude-code,
+      nix-codex,
+      nix-agy,
       karpathy-skills,
       fabric-src,
       dashmotion,
@@ -151,6 +162,18 @@
       ];
       forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
       homebrewNix = import ./lib/homebrew.nix;
+      # Hoisted into `let` (not just the outputs attrset) so `checks` can
+      # reference the composed renderAutonomous — attrset siblings are not in
+      # scope for one another.
+      nixAiLib = import ./flake/lib.nix {
+        inherit
+          nixpkgs
+          nix-claude-code
+          nix-codex
+          nix-agy
+          homebrewNix
+          ;
+      };
       orchestratorPromptNames = [
         "nix-ai-code-explain-example"
         "nix-ai-code-review-analysis-example"
@@ -181,7 +204,7 @@
       # CI-friendly and cross-flake outputs. Extracted to flake/lib.nix to keep
       # this file under the file-size budget while preserving the explanatory
       # comments — see that file. The public `nix-ai.lib.*` shape is unchanged.
-      lib = import ./flake/lib.nix { inherit nixpkgs nix-claude-code homebrewNix; };
+      lib = nixAiLib;
 
       # Quality checks (formatting, linting, dead code, shellcheck, module-eval).
       #
@@ -205,6 +228,7 @@
                 ;
               src = ./.;
               aiModule = self.homeManagerModules.default;
+              inherit (nixAiLib) renderAutonomous;
             })
             // {
               # `nix flake check` only *evaluates* packages.<system> (reports

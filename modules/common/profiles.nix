@@ -19,7 +19,7 @@
 # INVARIANT: the autonomous/ci configs are only ever baked into container
 # images (see dryvist/nix-agent-sandbox). No home-manager code path may
 # render them onto a host filesystem. Renderers live in
-# render-autonomous.nix and are exposed via the flake's lib for image
+# each per-CLI leaf repo, composed into the flake's lib for image
 # builds, not via the home-manager module.
 { lib }:
 
