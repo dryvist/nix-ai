@@ -131,6 +131,13 @@ source "${GUARDS:?set GUARDS to cluster-link-guards.sh}"
 boot_now=1785031601
 sysctl() { echo "{ sec = $boot_now, usec = 233215 } Sat Jul 25 22:06:41 2026"; }
 link_prep_ok() { return 0; }
+# The peer rung, held open: this file is about the LEDGER's arithmetic, so the
+# peer is assumed present. Overriding it here (rather than letting the real
+# helper run) also keeps the suite off the network — the shipped function pings
+# CLUSTER_STATIC_PEER_IP, which on a build sandbox refuses and would block every
+# start these cases expect to proceed. Its own behaviour is covered by
+# tests/test-rank-start-guards.sh.
+peer_reachable() { return 0; }
 set_wired_limit() { return 0; }
 hostname() { echo test-host; }
 # The reap's wait loop must advance without really sleeping, or a stubbed clock

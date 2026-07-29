@@ -51,10 +51,11 @@ rank_running() {
     grep -q "state = running"
 }
 
-peer_reachable() {
-  "${CLUSTER_PING_BIN:-/sbin/ping}" -c 3 -t 2 -q "${CLUSTER_STATIC_PEER_IP}" > /dev/null 2>&1
-}
-
+# peer_reachable moved to cluster-link-helpers.sh for the same reason, and on
+# the same day the link watcher gained a peer rung of its own: a rank started
+# against a host that is not there fails rendezvous every time and leaks a
+# protection domain doing it, so the watcher needs this probe too.
+#
 # peer_rendezvous_session moved to cluster-link-helpers.sh, which both this
 # supervisor and the link watcher concatenate — the watcher now needs it too, and
 # one definition beats two that can drift. Persistence across a full generation is
