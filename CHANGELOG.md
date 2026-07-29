@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.0.2](https://github.com/dryvist/nix-ai/compare/v4.0.1...v4.0.2) (2026-07-29)
+
+
+### Bug Fixes
+
+* **mlx-cluster:** refuse a rank start when no peer is on the link ([#1458](https://github.com/dryvist/nix-ai/issues/1458)) ([54854f3](https://github.com/dryvist/nix-ai/commit/54854f375e398f6056772ee12b4adfe87318bd07))
+
 ## [4.0.1](https://github.com/dryvist/nix-ai/compare/v4.0.0...v4.0.1) (2026-07-29)
 
 
