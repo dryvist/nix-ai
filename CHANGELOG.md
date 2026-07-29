@@ -1,5 +1,20 @@
 # Changelog
 
+## [4.0.0](https://github.com/dryvist/nix-ai/compare/v3.9.0...v4.0.0) (2026-07-29)
+
+
+### ⚠ BREAKING CHANGES
+
+* **mlx:** in programs.mlx.singleModel mode a request naming a disabled model now returns 404 instead of being served by the resident. Callers relying on that substitution must send a served model id.
+
+### Bug Fixes
+
+* **mlx-cluster:** settle the kickstart counter into the PD ledger on every reset ([#1437](https://github.com/dryvist/nix-ai/issues/1437)) ([1345882](https://github.com/dryvist/nix-ai/commit/13458823e15458a5ec1a246b5f333fce6fd0296d))
+* **mlx:** gate harmony parser SELECTION, not just its content path ([#1445](https://github.com/dryvist/nix-ai/issues/1445)) ([3bf6113](https://github.com/dryvist/nix-ai/commit/3bf6113fdeabde9112e183ccd315393e527e36dd))
+* **mlx:** make the wheel check able to catch an ungated harmony selection ([#1448](https://github.com/dryvist/nix-ai/issues/1448)) ([5100528](https://github.com/dryvist/nix-ai/commit/510052843fb2616ddb7844bf0b48751c76f91742))
+* **mlx:** never answer a request with a different model's weights ([#1441](https://github.com/dryvist/nix-ai/issues/1441)) ([514fe86](https://github.com/dryvist/nix-ai/commit/514fe86a7f9b15b6885a853ef531d7ff14a9e2cd))
+* **mlx:** raise the RDMA PD debt cap to 5 and report debt as a fraction of the device budget ([#1438](https://github.com/dryvist/nix-ai/issues/1438)) ([d1c5341](https://github.com/dryvist/nix-ai/commit/d1c534172bedfba4bab41b4fd7c88983ebd15a43))
+
 ## [3.9.0](https://github.com/dryvist/nix-ai/compare/v3.8.1...v3.9.0) (2026-07-27)
 
 
