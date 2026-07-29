@@ -78,6 +78,12 @@ align_now=0
 slept=0
 
 link_prep_ok() { [ "$link_ok" = 1 ]; }
+# The peer rung. Stubbed rather than driven through CLUSTER_PING_BIN because the
+# cases below care only about the VERDICT each answer produces; that the real
+# probe is a ping of CLUSTER_STATIC_PEER_IP is pinned by the stub contract
+# assertions, same as link_prep_ok.
+peer_ok=1
+peer_reachable() { [ "$peer_ok" = 1 ]; }
 repair_link_prep() {
   repairs=$((repairs + 1))
   return 1
@@ -144,6 +150,7 @@ check() {
 reset_state() {
   rm -f "$halt_file" "$latch_file" "$kicks_file" "$CLUSTER_PD_DEBT_FILE"
   link_ok=1
+  peer_ok=1
   ceiling_ok=1
   reap_ok=1
   repairs=0
@@ -163,6 +170,10 @@ reset_state
 check "link_prep_ok true when the link is up" 0 "$(link_prep_ok && echo 0 || echo 1)"
 link_ok=0
 check "link_prep_ok false when the link is down" 1 "$(link_prep_ok && echo 0 || echo 1)"
+check "peer_reachable true when the peer answers" 0 "$(peer_reachable && echo 0 || echo 1)"
+peer_ok=0
+check "peer_reachable false when the peer is absent" 1 "$(peer_reachable && echo 0 || echo 1)"
+peer_ok=1
 check "set_wired_limit true under the ceiling" 0 "$(set_wired_limit && echo 0 || echo 1)"
 ceiling_ok=0
 check "set_wired_limit false when the ceiling is refused" 1 \
@@ -233,6 +244,45 @@ check "start is blocked" skip "$VERDICT"
 check "reason recorded" link-address-missing "$PRECONDITION_REASON"
 check "no attempt consumed" absent "$(kicks_now)"
 check "repair was attempted" 1 "$repairs"
+
+echo "an absent peer blocks the start and costs nothing:"
+# THE MOST AVOIDABLE PD LEAK. A rank started against a host that is not there
+# still reaches distributed init, still allocates a protection domain, and still
+# dies with errno 60 when jaccl's connect budget runs out — a certain failure
+# billed to a boot-scoped, reboot-only resource. Three pings prevent it.
+reset_state
+peer_ok=0
+tick
+check "start is blocked" skip "$VERDICT"
+check "reason recorded" peer-unreachable "$PRECONDITION_REASON"
+check "no attempt consumed" absent "$(kicks_now)"
+
+echo "the peer rung runs BEFORE the alignment hold:"
+# A dead peer must cost neither a domain nor a wait. If this rung ran after the
+# hold, every tick against an absent peer would burn up to a full alignment
+# period before refusing — and re-probing after the hold would spend part of the
+# ~15s connect budget the hold exists to protect.
+reset_state
+peer_ok=0
+export CLUSTER_RANK_START_ALIGN_SECS=60
+align_now=100 # 40s past a boundary: 20s would be slept if the rung came later
+tick
+check "start is blocked" skip "$VERDICT"
+check "no time slept on a dead peer" 0 "$slept"
+unset CLUSTER_RANK_START_ALIGN_SECS
+
+echo "a peer that comes back unblocks the start:"
+# The rung must be a hold, not a halt: no marker, no latch, no consumed attempt,
+# so the next tick after the peer returns simply proceeds.
+reset_state
+peer_ok=0
+tick
+check "blocked while absent" skip "$VERDICT"
+check "no halt marker written" missing "$([ -f "$halt_file" ] && echo latched || echo missing)"
+peer_ok=1
+tick
+check "starts once the peer answers" start "$VERDICT"
+check "first attempt consumed only now" 1 "$(kicks_now)"
 
 echo "repair is overridable but the block is not:"
 reset_state

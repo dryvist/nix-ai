@@ -160,6 +160,24 @@ halt_write() {
   printf '%s\n' "$cause" > "$latch_file"
 }
 
+# Is the peer host answering on the cluster link at all?
+#
+# Lives here, not in cluster-peer-observe.sh, because BOTH the peer-liveness
+# supervisor and the link watcher need it and one definition beats two that can
+# drift — the same reason peer_rendezvous_session moved here. The watcher layer
+# cannot simply take cluster-peer-observe.sh instead: writeShellApplication lints
+# at default severity, so the observer's other functions would ship uncalled and
+# fail the build as SC2329.
+#
+# Deliberately a HOST liveness probe, never a "is rank 0 listening" probe. The
+# latter was removed on 2026-07-25 because waiting on the peer's PROCESS forced
+# the two ranks into a sequence jaccl's ~15s connect budget cannot absorb. Host
+# reachability carries none of that hazard: it does not order the ranks, it only
+# establishes that there is a peer to rendezvous WITH.
+peer_reachable() {
+  "${CLUSTER_PING_BIN:-/sbin/ping}" -c 3 -t 2 -q "${CLUSTER_STATIC_PEER_IP}" > /dev/null 2>&1
+}
+
 # Idempotent wired-ceiling write through the exact-value sudoers grant.
 # No-op when unset or already at the target; returns nonzero on failure.
 set_wired_limit() {

@@ -144,6 +144,30 @@ rank_start_preconditions_ok() {
     fi
     return 1
   fi
+  # 1b. THERE MUST BE A PEER TO RENDEZVOUS WITH. Rung 1 proves this host holds a
+  #    link address; it says nothing about whether anything is on the other end.
+  #    A rank started against an absent peer does not fail cheaply: it reaches
+  #    distributed init, allocates a protection domain, waits out jaccl's connect
+  #    budget and dies with errno 60 — one boot-scoped domain spent, every time,
+  #    on an outcome that was certain before the process started. That is the
+  #    single most avoidable way this host reaches "reboot or nothing", and it is
+  #    avoidable for the cost of three pings.
+  #
+  #    THIS IS NOT THE GATE THAT WAS REMOVED. The 2026-07-25 removal was of a
+  #    worker-only "rank 0 must already be LISTENING" probe, which ordered the
+  #    ranks and so guaranteed the worker arrived ~20-30s outside jaccl's fixed
+  #    ~15s budget. This asks a different question — is the peer HOST up — whose
+  #    answer does not depend on the peer's rank having started, and so imposes
+  #    no ordering. It runs BEFORE the alignment hold below deliberately: a dead
+  #    peer should cost neither a domain nor a wait, and re-probing after the
+  #    hold would spend part of the connect budget the hold exists to protect.
+  #
+  #    Nothing is launched, so nothing leaks, so no attempt is consumed.
+  if ! peer_reachable; then
+    PRECONDITION_REASON="peer-unreachable"
+    echo "cluster-link: peer $CLUSTER_STATIC_PEER_IP is not answering on the link; NOT starting the rank — a rendezvous with an absent peer leaks a protection domain for a certain failure (no attempt consumed)" >&2
+    return 1
+  fi
   # 2. BOTH ROLES: hold until the next shared wall-clock start boundary, so the
   #    two ranks reach distributed init together.
   #
