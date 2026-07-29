@@ -72,8 +72,16 @@
     # cosmetic: the same invalid-`defaultApprovalMode` bug shipped in two
     # copies and had to be fixed twice (nix-ai#1464, dryvist/nix-agy#1).
     # Pinned to main for the same git-flow reason as nix-claude-code above.
-    nix-codex.url = "github:dryvist/nix-codex/main";
-    nix-agy.url = "github:dryvist/nix-agy/main";
+    # `follows` purely to keep the lock lean: their renderers are imported by
+    # path and evaluated with OUR lib, so their nixpkgs is never used.
+    nix-codex = {
+      url = "github:dryvist/nix-codex/main";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    nix-agy = {
+      url = "github:dryvist/nix-agy/main";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
 
     # Behavioral/workflow skills from Andrej Karpathy. Lives here (not in
     # nix-claude-code) because it's a nix-ai-specific addition that landed
