@@ -7,7 +7,8 @@
 #   a trusted host with a human present. This is the existing Mac behavior;
 #   the vendored nix-claude-code permission data remains its source of truth.
 # - autonomous: safety = the container boundary. Tool permissions are
-#   maximally lenient (bypass/never/yolo) because the agent runs inside an
+#   maximally lenient (bypass/never, and a launch-flag skip for agy) because
+#   the agent runs inside an
 #   ephemeral container with scoped credentials and default-deny egress.
 #   Only a small residual deny list survives: operations the agent's
 #   *credentials* could perform even though the filesystem/network boundary
@@ -50,8 +51,10 @@ let
     # Rendered per tool: Claude defaultMode = "bypassPermissions",
     # Codex approval_policy = "never" + sandbox_mode = "danger-full-access"
     # (the container IS the sandbox; bwrap cannot nest in unprivileged
-    # containers), Gemini --approval-mode yolo with Gemini's own sandbox
-    # disabled.
+    # containers). The third CLI (agy, which superseded gemini-cli) carries
+    # its posture via the --dangerously-skip-permissions launch flag with
+    # its own sandbox disabled — NOT a settings key: gemini-cli 0.53
+    # hard-errors on defaultApprovalMode = "yolo" and refuses to start.
     approvalPosture = "bypass";
 
     # The ~640-entry interactive permission data does not apply: inside a

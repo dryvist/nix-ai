@@ -2,8 +2,10 @@
 #
 # Asserts the container-image configs produced by
 # modules/common/render-autonomous.nix carry the expected postures —
-# Claude bypassPermissions, Codex never/danger-full-access, Gemini yolo
-# with its own sandbox disabled — and that ALL THREE tools inherit the
+# Claude bypassPermissions, Codex never/danger-full-access, and for the
+# Gemini/agy leg its own sandbox disabled with the autonomous posture
+# carried at launch rather than in settings — and that ALL THREE tools
+# inherit the
 # same residualDeny list in their native formats. Guards against a
 # refactor silently weakening (or accidentally host-deploying) the
 # autonomous profile.
