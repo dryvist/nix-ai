@@ -182,8 +182,7 @@
       claudeSettingsJson = claude.settingsJson;
       codexConfigToml = codex.configToml;
       codexRules = codex.rules;
-      geminiSettingsJson = agy.geminiSettingsJson;
-      geminiPolicyToml = agy.geminiPolicyToml;
+      inherit (agy) geminiSettingsJson geminiPolicyToml;
       files = {
         ".claude/settings.json" = claude.settingsJson;
         ".codex/config.toml" = codex.configToml;

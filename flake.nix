@@ -66,14 +66,10 @@
       };
     };
 
-    # The other two per-CLI leaves. Each owns its own tool's autonomous
-    # renderer, which flake/lib.nix composes into `lib.renderAutonomous`
-    # rather than nix-ai keeping a fourth copy. That duplication was not
-    # cosmetic: the same invalid-`defaultApprovalMode` bug shipped in two
-    # copies and had to be fixed twice (nix-ai#1464, dryvist/nix-agy#1).
-    # Pinned to main for the same git-flow reason as nix-claude-code above.
-    # `follows` purely to keep the lock lean: their renderers are imported by
-    # path and evaluated with OUR lib, so their nixpkgs is never used.
+    # The other two per-CLI leaves, composed into `lib.renderAutonomous` by
+    # flake/lib.nix (see there for why nix-ai keeps no copy of its own).
+    # Pinned to main for the same git-flow reason as nix-claude-code above;
+    # `follows` only to keep the lock lean — their nixpkgs is never used.
     nix-codex = {
       url = "github:dryvist/nix-codex/main";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -170,9 +166,8 @@
       ];
       forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
       homebrewNix = import ./lib/homebrew.nix;
-      # Hoisted into `let` (not just the outputs attrset) so `checks` can
-      # reference the composed renderAutonomous — attrset siblings are not in
-      # scope for one another.
+      # In `let`, not just the outputs attrset, so `checks` can reference the
+      # composed renderAutonomous — attrset siblings are not in scope.
       nixAiLib = import ./flake/lib.nix {
         inherit
           nixpkgs
