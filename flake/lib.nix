@@ -8,6 +8,8 @@
 {
   nixpkgs,
   nix-claude-code,
+  nix-codex,
+  nix-agy,
   homebrewNix,
 }:
 {
@@ -143,7 +145,50 @@
   # Autonomous-profile config renderers for agent container images
   # (dryvist/nix-agent-sandbox). Pure strings, never written to a host
   # filesystem by any home-manager code path.
-  renderAutonomous = import ../modules/common/render-autonomous.nix {
-    inherit (nixpkgs) lib;
-  };
+  #
+  # COMPOSED from the per-CLI leaves rather than rendered here. Each leaf owns
+  # its own tool's config and takes the shared residualDeny as a parameter, so
+  # there is exactly one renderer per CLI instead of a copy here and a copy
+  # there. That duplication was not cosmetic: the same invalid
+  # `defaultApprovalMode` bug shipped in two copies and had to be fixed twice
+  # (nix-ai#1464, dryvist/nix-agy#1). See nix-ai#1465.
+  #
+  # `files` is the contract nix-agent-sandbox bakes (it mapAttrs over this
+  # opaquely), so the composed set is asserted byte-identical to the previous
+  # local render by lib/checks/autonomous-profile.nix.
+  #
+  # nix-claude-code additionally renders `.claude.json`
+  # (remoteControlAtStartup). It is deliberately NOT included here: adding a
+  # file would change the image contract, which is a separate decision from
+  # this behaviour-neutral refactor.
+  renderAutonomous =
+    let
+      # Imported here rather than reusing the `profiles` attribute below:
+      # that is a sibling in this (non-recursive) attrset, so it is not in
+      # scope. Same pure import, same value.
+      inherit (import ../modules/common/profiles.nix { inherit (nixpkgs) lib; })
+        residualDeny
+        ;
+      args = {
+        inherit (nixpkgs) lib;
+        inherit residualDeny;
+      };
+      claude = import "${nix-claude-code}/lib/render-autonomous.nix" args;
+      codex = import "${nix-codex}/lib/render-autonomous.nix" args;
+      agy = import "${nix-agy}/lib/render-autonomous.nix" args;
+    in
+    {
+      inherit residualDeny;
+      claudeSettingsJson = claude.settingsJson;
+      codexConfigToml = codex.configToml;
+      codexRules = codex.rules;
+      inherit (agy) geminiSettingsJson geminiPolicyToml;
+      files = {
+        ".claude/settings.json" = claude.settingsJson;
+        ".codex/config.toml" = codex.configToml;
+        ".codex/rules/default.rules" = codex.rules;
+        ".gemini/settings.json" = agy.geminiSettingsJson;
+        ".gemini/policies/autonomous.toml" = agy.geminiPolicyToml;
+      };
+    };
 }

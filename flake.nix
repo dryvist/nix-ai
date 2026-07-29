@@ -66,6 +66,19 @@
       };
     };
 
+    # The other two per-CLI leaves, composed into `lib.renderAutonomous` by
+    # flake/lib.nix (see there for why nix-ai keeps no copy of its own).
+    # Pinned to main for the same git-flow reason as nix-claude-code above;
+    # `follows` only to keep the lock lean — their nixpkgs is never used.
+    nix-codex = {
+      url = "github:dryvist/nix-codex/main";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    nix-agy = {
+      url = "github:dryvist/nix-agy/main";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # Behavioral/workflow skills from Andrej Karpathy. Lives here (not in
     # nix-claude-code) because it's a nix-ai-specific addition that landed
     # on main after PR3 started; promote upstream when convenient.
@@ -136,6 +149,8 @@
       ai-assistant-instructions,
       jacobpevans-cc-plugins,
       nix-claude-code,
+      nix-codex,
+      nix-agy,
       karpathy-skills,
       fabric-src,
       dashmotion,
@@ -151,6 +166,17 @@
       ];
       forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
       homebrewNix = import ./lib/homebrew.nix;
+      # In `let`, not just the outputs attrset, so `checks` can reference the
+      # composed renderAutonomous — attrset siblings are not in scope.
+      nixAiLib = import ./flake/lib.nix {
+        inherit
+          nixpkgs
+          nix-claude-code
+          nix-codex
+          nix-agy
+          homebrewNix
+          ;
+      };
       orchestratorPromptNames = [
         "nix-ai-code-explain-example"
         "nix-ai-code-review-analysis-example"
@@ -181,7 +207,7 @@
       # CI-friendly and cross-flake outputs. Extracted to flake/lib.nix to keep
       # this file under the file-size budget while preserving the explanatory
       # comments — see that file. The public `nix-ai.lib.*` shape is unchanged.
-      lib = import ./flake/lib.nix { inherit nixpkgs nix-claude-code homebrewNix; };
+      lib = nixAiLib;
 
       # Quality checks (formatting, linting, dead code, shellcheck, module-eval).
       #
@@ -205,6 +231,7 @@
                 ;
               src = ./.;
               aiModule = self.homeManagerModules.default;
+              inherit (nixAiLib) renderAutonomous;
             })
             // {
               # `nix flake check` only *evaluates* packages.<system> (reports

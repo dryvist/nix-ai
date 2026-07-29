@@ -1,7 +1,7 @@
 # Autonomous-profile render checks
 #
 # Asserts the container-image configs produced by
-# modules/common/render-autonomous.nix carry the expected postures —
+# the composed flake `lib.renderAutonomous` carry the expected postures —
 # Claude bypassPermissions, Codex never/danger-full-access, and for the
 # Gemini/agy leg its own sandbox disabled with the autonomous posture
 # carried at launch rather than in settings — and that ALL THREE tools
@@ -9,11 +9,13 @@
 # same residualDeny list in their native formats. Guards against a
 # refactor silently weakening (or accidentally host-deploying) the
 # autonomous profile.
-{ pkgs }:
+#
+# `render` is the COMPOSED value from flake/lib.nix (assembled from the
+# per-CLI leaf repos), not a local module — so this asserts the postures of
+# what consumers actually bake, and there is no fourth copy of the renderer
+# here to drift from theirs.
+{ pkgs, render }:
 
-let
-  render = import ../../modules/common/render-autonomous.nix { inherit (pkgs) lib; };
-in
 {
   autonomous-profile-render =
     pkgs.runCommand "autonomous-profile-render"
