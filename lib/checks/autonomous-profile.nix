@@ -2,8 +2,10 @@
 #
 # Asserts the container-image configs produced by
 # modules/common/render-autonomous.nix carry the expected postures —
-# Claude bypassPermissions, Codex never/danger-full-access, Gemini yolo
-# with its own sandbox disabled — and that ALL THREE tools inherit the
+# Claude bypassPermissions, Codex never/danger-full-access, and for the
+# Gemini/agy leg its own sandbox disabled with the autonomous posture
+# carried at launch rather than in settings — and that ALL THREE tools
+# inherit the
 # same residualDeny list in their native formats. Guards against a
 # refactor silently weakening (or accidentally host-deploying) the
 # autonomous profile.
@@ -44,10 +46,18 @@ in
         grep -q '"forbidden"' "$codexRulesPath"
         grep -Fq '["gh","repo","delete"]' "$codexRulesPath"
 
-        # Gemini: yolo under general, own sandbox disabled, policy referenced
-        jq -e '.general.defaultApprovalMode == "yolo"' "$geminiSettingsPath"
+        # Gemini: own sandbox disabled, policy referenced, auth pinned so a
+        # headless run does not stop at the interactive picker.
         jq -e '.tools.sandbox == false' "$geminiSettingsPath"
         jq -e '.policyPaths | length == 1' "$geminiSettingsPath"
+        jq -e '.security.auth.selectedType == "oauth-personal"' "$geminiSettingsPath"
+
+        # ASSERT ABSENT, not present: gemini-cli 0.53 hard-errors on
+        # general.defaultApprovalMode = "yolo" (invalid enum) and refuses to
+        # start, so rendering it would break the tool. The autonomous posture
+        # rides the launch flag instead. This check previously REQUIRED the
+        # key — it was enforcing a config that could not run.
+        jq -e '.general.defaultApprovalMode == null' "$geminiSettingsPath"
 
         # Gemini Policy Engine TOML: deny rules from the same shared list
         grep -q 'commandPrefix = "gh repo delete"' "$geminiPolicyTomlPath"
