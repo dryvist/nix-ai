@@ -75,17 +75,31 @@ let
   # deploys to, carrying the same residual deny list.
   codexRules = formatters.codex.formatRulesFile residualDenyPermissions;
 
-  # ~/.gemini/settings.json inside the image. Same shape the
-  # antigravity-cli module generates: approval mode under `general`,
-  # Policy Engine TOML referenced via `policyPaths`. Gemini's own container
-  # sandbox is disabled — we are already inside one. The yolo posture is
-  # reinforced at launch (`gemini --approval-mode yolo`).
+  # ~/.gemini/settings.json inside the image. Policy Engine TOML referenced
+  # via `policyPaths`; the CLI's own container sandbox is disabled because we
+  # are already inside one.
+  #
+  # `general.defaultApprovalMode = "yolo"` is deliberately NOT set. Verified
+  # live on gemini-cli 0.53: the key does not merely get ignored, the CLI
+  # hard-errors and refuses to start —
+  #   Invalid enum value. Expected 'default' | 'auto_edit' | 'plan',
+  #   received 'yolo'
+  # so rendering it would break the tool this file configures. The autonomous
+  # posture is carried at launch instead (`--dangerously-skip-permissions` for
+  # agy, which superseded gemini-cli here after Google terminated individual
+  # OAuth on it). That launch flag is the documented exception to the
+  # otherwise filesystem-only rule.
+  #
+  # `security.auth.selectedType` is pinned so a headless run does not stop at
+  # the interactive auth picker.
   geminiSettingsJson = builtins.toJSON {
     "$schema" =
       "https://raw.githubusercontent.com/google-gemini/gemini-cli/main/schemas/settings.schema.json";
     policyPaths = [ geminiPolicyPath ];
-    general = {
-      defaultApprovalMode = "yolo";
+    security = {
+      auth = {
+        selectedType = "oauth-personal";
+      };
     };
     tools = {
       sandbox = false;
