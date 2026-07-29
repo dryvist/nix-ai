@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.0.1](https://github.com/dryvist/nix-ai/compare/v4.0.0...v4.0.1) (2026-07-29)
+
+
+### Bug Fixes
+
+* **deps:** pin nix-claude-code input to main, not its develop default ([#1454](https://github.com/dryvist/nix-ai/issues/1454)) ([c1b7fbf](https://github.com/dryvist/nix-ai/commit/c1b7fbfcf2ca480fae4fa9e74e9831a08129c82b))
+
 ## [4.0.0](https://github.com/dryvist/nix-ai/compare/v3.9.0...v4.0.0) (2026-07-29)
 
 
