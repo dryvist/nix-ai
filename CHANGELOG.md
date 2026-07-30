@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.0.3](https://github.com/dryvist/nix-ai/compare/v4.0.2...v4.0.3) (2026-07-30)
+
+
+### Bug Fixes
+
+* **autonomous:** stop rendering a gemini setting the CLI rejects ([#1464](https://github.com/dryvist/nix-ai/issues/1464)) ([a2a7678](https://github.com/dryvist/nix-ai/commit/a2a7678c28017d8bc2c278ee2b98f3a66dc5155a))
+
 ## [4.0.2](https://github.com/dryvist/nix-ai/compare/v4.0.1...v4.0.2) (2026-07-29)
 
 
