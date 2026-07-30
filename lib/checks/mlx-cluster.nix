@@ -73,9 +73,27 @@ in
     assert
       !(hmConfigCluster.config.home.file ? ".config/mlx-cluster/ibv-matrix.json")
       || throw "cluster: the ibv matrix must NOT be pinned at eval — it names a physical Thunderbolt port, so it is discovered and written at rank start";
+    # Two assertions, because either alone permits the other's failure.
+    #
+    # The interpreter first. The rank is the only agent that opens the jaccl
+    # rendezvous across the link, so it is the only one whose Local Network
+    # grant decides whether the cluster can form at all — and a Nix interpreter
+    # at the head of the chain is the responsible process, with a code-signing
+    # identity that is its own content hash. Every rebuild therefore revokes
+    # the grant. Apple's binary is identity-stable and needs no grant.
+    #
+    # The cost of regressing this is not a retry: every rank start consumes a
+    # boot-scoped RDMA protection domain, and a denial is indistinguishable at
+    # the call site from an absent peer. The budget gets spent proving a
+    # privacy grant expired.
     assert
-      builtins.match ".*/bin/mlx-cluster-rank-launch" (builtins.head rankArgs) != null
-      || throw "cluster: rank ProgramArguments must start with the RDMA-discovery launcher, which execs the uvx server invocation after it";
+      builtins.head rankArgs == "/bin/bash"
+      || throw "cluster: the rank must be launched via Apple's /bin/bash, not its Nix shebang — a Nix interpreter's TCC identity is its content hash, so its Local Network grant dies on every rebuild and the jaccl rendezvous starts failing like an absent peer, one protection domain per attempt";
+    # ...and the launcher second, so the interpreter cannot be pointed at
+    # something other than the RDMA-discovery wrapper that execs the uvx server.
+    assert
+      builtins.match ".*/bin/mlx-cluster-rank-launch" (builtins.elemAt rankArgs 1) != null
+      || throw "cluster: rank ProgramArguments must run the RDMA-discovery launcher (after the Apple interpreter), which execs the uvx server invocation after it";
     assert
       (rankEnv.MLX_METAL_FAST_SYNCH or null) == "1"
       || throw "cluster: fastMetalSync defaults to true, so MLX_METAL_FAST_SYNCH=1 must reach the rank env (latency vs. observability — see the option)";

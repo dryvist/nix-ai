@@ -208,7 +208,28 @@ in
         enable = true;
         config = {
           Label = rankLabel;
-          ProgramArguments = [ (lib.getExe clusterRankLaunchPkg) ] ++ clusterRankArgs;
+          # Launched through Apple's interpreter, like the watcher and the
+          # peer-liveness agent beside it. This was the ONE cluster agent still
+          # exec'd straight from its Nix shebang, and it is the agent that can
+          # least afford it: the rank is the only one that opens the jaccl
+          # rendezvous to the peer across the link, so it is the only one whose
+          # Local Network privacy grant is load-bearing for cluster formation.
+          #
+          # A Nix interpreter anywhere in the chain becomes the responsible
+          # process, and its code-signing identity is its content hash — so a
+          # grant made against it is inert after the next rebuild. See
+          # programs.mlx.appleInterpreter for the measured table.
+          #
+          # Why this matters more here than anywhere else: a denied rendezvous
+          # is not free. Every rank start consumes a protection domain, the
+          # domains are boot-scoped, and a TCC denial is indistinguishable at
+          # the call site from a peer that is genuinely absent. Spending the
+          # boot's PD budget proving a privacy grant expired is the most
+          # expensive way possible to learn it.
+          ProgramArguments =
+            lib.optional (appleInterp != null) appleInterp
+            ++ [ (lib.getExe clusterRankLaunchPkg) ]
+            ++ clusterRankArgs;
           RunAtLoad = false;
           KeepAlive = false;
           ThrottleInterval = 60;
