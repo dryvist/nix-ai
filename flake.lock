@@ -3,11 +3,11 @@
     "ai-assistant-instructions": {
       "flake": false,
       "locked": {
-        "lastModified": 1785246104,
+        "lastModified": 1785440170,
         "narHash": "sha256-o8o9WyqXCgToWgmXqVwrg1EnGQtKPR83aLsglw8GACI=",
         "owner": "JacobPEvans",
         "repo": "ai-assistant-instructions",
-        "rev": "01610e81875d6b289a53558d6dea63e87afbce14",
+        "rev": "ab7cc75427cd67124763016f30e5f7a94c752fcd",
         "type": "github"
       },
       "original": {
@@ -518,6 +518,27 @@
         "type": "github"
       }
     },
+    "nix-agy": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1785346339,
+        "narHash": "sha256-Nz+3GR4MBKk02AZVhRU+UXw/BNQhNXbdqLbstcLuuWk=",
+        "owner": "dryvist",
+        "repo": "nix-agy",
+        "rev": "ea175909c59f03e8a357f3747866d0128e0f8381",
+        "type": "github"
+      },
+      "original": {
+        "owner": "dryvist",
+        "ref": "main",
+        "repo": "nix-agy",
+        "type": "github"
+      }
+    },
     "nix-claude-code": {
       "inputs": {
         "ai-assistant-instructions": [
@@ -574,6 +595,27 @@
         "owner": "dryvist",
         "ref": "main",
         "repo": "nix-claude-code",
+        "type": "github"
+      }
+    },
+    "nix-codex": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1785321946,
+        "narHash": "sha256-8r/qm7huFsURh0M62QNwHvM8hOv2XAD0HTbaBbBVhH0=",
+        "owner": "dryvist",
+        "repo": "nix-codex",
+        "rev": "9b5d50fcdca0d9bd4dd7f72b06dc792a9ce8b962",
+        "type": "github"
+      },
+      "original": {
+        "owner": "dryvist",
+        "ref": "main",
+        "repo": "nix-codex",
         "type": "github"
       }
     },
@@ -669,7 +711,9 @@
         "jacobpevans-cc-plugins": "jacobpevans-cc-plugins",
         "karpathy-skills": "karpathy-skills",
         "last30days-skill": "last30days-skill",
+        "nix-agy": "nix-agy",
         "nix-claude-code": "nix-claude-code",
+        "nix-codex": "nix-codex",
         "nixpkgs": "nixpkgs",
         "nixpkgs-unstable": "nixpkgs-unstable",
         "ponytail": "ponytail"

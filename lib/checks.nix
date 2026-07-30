@@ -5,6 +5,7 @@
   src,
   home-manager,
   aiModule,
+  renderAutonomous,
 }:
 let
   # Placeholder physical model id for regression tests. The real value is
@@ -97,7 +98,10 @@ in
 // (import ./checks/qwen-code.nix { inherit pkgs hmConfig; })
 // (import ./checks/antigravity-cli.nix { inherit pkgs hmConfig; })
 // (import ./checks/mcp.nix { inherit pkgs hmConfig; })
-// (import ./checks/autonomous-profile.nix { inherit pkgs; })
+// (import ./checks/autonomous-profile.nix {
+  inherit pkgs;
+  render = renderAutonomous;
+})
 // (import ./checks/mlx.nix { inherit pkgs hmConfig; })
 // (import ./checks/mlx-single-model.nix { inherit pkgs src; })
 // (import ./checks/mlx-bash32.nix { inherit pkgs hmConfig src; })
