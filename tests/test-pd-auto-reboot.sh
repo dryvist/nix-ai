@@ -60,10 +60,15 @@ source "${GUARDS:?set GUARDS to cluster-link-guards.sh}"
 # --- stubs -------------------------------------------------------------------
 sysctl() { echo "{ sec = 1785031601, usec = 0 } stub boottime"; }
 hostname() { echo test-host; }
-now=1000
+# NOT named `now`: pd_auto_reboot_if_warranted has its own `local now`, and
+# bash locals are dynamically scoped — a nested `date()` call from inside that
+# function would shadow this test's clock with the callee's still-unset local
+# and blow up under `set -u`. Same reason test-rank-start-guards.sh calls its
+# clock `align_now` rather than `now`.
+fake_now=1000
 date() {
   case "$1" in
-    +%s) echo "$now" ;;
+    +%s) echo "$fake_now" ;;
     *) command date "$@" ;;
   esac
 }
@@ -76,7 +81,7 @@ sudo() {
   printf '%s\n' "$*" >> "$reboot_log"
   return "$reboot_rc"
 }
-reboots() { wc -l < "$reboot_log" 2> /dev/null | tr -d ' ' || echo 0; }
+reboots() { wc -l < "$reboot_log" | tr -d ' '; }
 
 # fdesetup status -- FileVault state under test.
 filevault=off
@@ -90,14 +95,17 @@ fdesetup() {
 # neither is set (CLUSTER_ROLE=worker, no CLUSTER_QUIESCE_CMD), so it is
 # already a real no-op — no stub needed, same as other tests leave it alone.
 
-# alert() -- through a fake curl that records the payload, mirroring
-# alert-payload-test.sh, so "an alert fired" is observable without a network.
+# alert() -- through a fake curl that records one marker per call, so "an
+# alert fired" is observable without a network. Not the raw args: jq's default
+# pretty-printed JSON and alert()'s own `-w $'\n%{http_code}'` both embed real
+# newlines INSIDE a single curl invocation's argv, which would inflate a
+# line-count taken over "$*".
 curl_log="$state_dir/curl-log"
 curl() {
-  printf '%s\n' "$*" >> "$curl_log"
+  echo call >> "$curl_log"
   echo '200'
 }
-alerts() { wc -l < "$curl_log" 2> /dev/null | tr -d ' ' || echo 0; }
+alerts() { wc -l < "$curl_log" | tr -d ' '; }
 
 fail=0
 check() {
@@ -113,11 +121,14 @@ write_halt() {
   printf '2026-08-01T00:00:00Z\tcause=%s\tboot=1785031601\t%s\n' "$1" "${2:-detail}" > "$halt_file"
 }
 reset_state() {
-  rm -f "$halt_file" "$marker_file" "$reboot_log" "$curl_log" "$debt_file"
-  now=1000
+  rm -f "$halt_file" "$marker_file" "$debt_file"
+  : > "$reboot_log"
+  : > "$curl_log"
+  fake_now=1000
   filevault=off
   reboot_rc=0
 }
+reset_state
 
 echo "1. link down -- never reboots, whatever the halt says:"
 reset_state
@@ -148,7 +159,7 @@ pd_auto_reboot_if_warranted "$halt_file" "$marker_file" up
 check "reboot was issued" 1 "$(reboots)"
 check "through sudo -n /sbin/reboot" "-n /sbin/reboot" "$(cat "$reboot_log")"
 check "the page went out" 1 "$(alerts)"
-check "the rate-limit marker now holds this tick's clock" "$now" "$(cat "$marker_file")"
+check "the rate-limit marker now holds this tick's clock" "$fake_now" "$(cat "$marker_file")"
 
 echo "   ...and the same is true of the OTHER PD-exhaustion cause:"
 reset_state
@@ -161,12 +172,12 @@ reset_state
 write_halt pd-debt-exhausted
 pd_auto_reboot_if_warranted "$halt_file" "$marker_file" up
 check "first reboot fires" 1 "$(reboots)"
-now=$((now + 60)) # 1 minute later, well inside the 6h window
+fake_now=$((fake_now + 60)) # 1 minute later, well inside the 6h window
 pd_auto_reboot_if_warranted "$halt_file" "$marker_file" up
 check "second attempt inside the window is refused" 1 "$(reboots)"
 check "no second page either" 1 "$(alerts)"
 echo "   ...and fires again once the window has actually elapsed:"
-now=$((now + 21600))
+fake_now=$((fake_now + 21600))
 pd_auto_reboot_if_warranted "$halt_file" "$marker_file" up
 check "past the window, a fresh reboot is allowed" 2 "$(reboots)"
 
@@ -193,6 +204,6 @@ write_halt pd-debt-exhausted
 reboot_rc=1
 pd_auto_reboot_if_warranted "$halt_file" "$marker_file" up
 check "the attempt was made" 1 "$(reboots)"
-check "the marker is still recorded" "$now" "$(cat "$marker_file" 2> /dev/null || echo missing)"
+check "the marker is still recorded" "$fake_now" "$(cat "$marker_file" 2> /dev/null || echo missing)"
 
 exit "$fail"
