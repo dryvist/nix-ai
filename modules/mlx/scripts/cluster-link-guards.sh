@@ -101,14 +101,24 @@ repair_link_prep() {
 #
 # CORRECTED 2026-08-01 — this comment previously asserted that "MLX holds a
 # loaded shard's weights in ordinary resident memory, not wired", citing a
-# ~49 GiB shard serving real tokens at only ~3.5 GiB wired. **That measurement
-# is wrong.** The REALVMSTAT fixture in tests/test-mem-headroom.sh — a
-# byte-for-byte real capture, not prose — reads `Pages wired down: 3348211`
-# = ~51.1 GiB, and nix-darwin's cluster-wired-limit.nix independently recorded
-# 3271199 pages (~49.9 GiB) with both ranks serving. The two agree within 2.3%
-# and are ~15x the retracted figure. The retracted claim also contradicted this
-# same file, which elsewhere treats tens of GiB of wired memory as what a
-# CRASHED rank leaves behind — impossible had shard weights never been wired.
+# ~49 GiB shard serving real tokens at only ~3.5 GiB wired. The NUMBER is
+# reproducible; the DESCRIPTION attached to it is wrong. A ~3.5-4 GiB reading
+# is what a rank process that has STARTED but not yet made its shard resident
+# looks like — measured directly on jevans-mbp 2026-08-01: with a freshly
+# kickstarted rank alive (mlx_lm.server running, weights not yet loaded)
+# `Pages wired down` read 3936 MB, and minutes earlier, with the previous
+# instance's shard resident, the same host read ~50.4 GiB. A live rank PROCESS
+# is therefore not evidence of a LOADED shard, and that is the trap this
+# figure fell into.
+#
+# What a resident shard actually costs is corroborated three ways, all within
+# ~3%: the REALVMSTAT fixture in tests/test-mem-headroom.sh (a byte-for-byte
+# capture, not prose) reads `Pages wired down: 3348211` = ~51.1 GiB;
+# nix-darwin's cluster-wired-limit.nix recorded 3271199 pages (~49.9 GiB) with
+# both ranks serving; and the direct ~50.4 GiB observation above. The retracted
+# description also contradicted this same file, which elsewhere treats tens of
+# GiB of wired memory as what a CRASHED rank leaves behind — impossible had
+# shard weights never been wired at all.
 #
 # So: A HEALTHY SERVING RANK WIRES APPROXIMATELY ITS WHOLE SHARD. Any guard
 # thresholded on wired MUST clear one full shard, or it fires on every healthy
