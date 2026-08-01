@@ -41,6 +41,45 @@
       '';
     };
 
+    wiredCeilingMb = lib.mkOption {
+      type = lib.types.int;
+      default = 0;
+      description = ''
+        Runtime ceiling (MB) on the "Pages wired down" figure of a RUNNING
+        rank. Above it the watcher reaps the rank and restores standalone
+        serving. 0 (default) disables the guard with no vm_stat read at all,
+        same convention as shardMemoryMb above.
+
+        WHY A RUNTIME GUARD, GIVEN shardMemoryMb ALREADY GATES THE START. That
+        rung is a precondition: it runs only ahead of a start, and asks whether
+        FREE memory fits a shard. Neither property helps once a rank is up. On
+        2026-08-01 a rank started legally, and wired later climbed to 96.7 GiB
+        against this host's 100 GiB iogpu.wired_limit_mb. WindowServer asked
+        Metal to hand over a command buffer, got nothing, and blocked inside the
+        GPU driver (IOGPUFamily, AGXG16X) 80 seconds; watchdogd killed it, and
+        the hardware watchdog hard-reset the machine, recording the boot fault
+        "wdog,reset_in_1". Every existing rung stayed green throughout, having
+        already run. The compositor competes over the same wired GPU budget as
+        the shard, so a rank may take most of that budget but never all of it.
+
+        WHY WIRED SUITS THIS QUESTION, HAVING BEEN WRONG ABOVE. mem_stat_mb's
+        own note records a healthy ~49 GiB shard serving real tokens at only
+        ~3.5 GiB wired — exactly why wired cannot answer "does this shard fit".
+        The same measurement makes it answer THIS question well: healthy sits
+        near 3.5 GiB and the hang sat at 96.7 GiB, so the two states differ by
+        more than an order of magnitude, and any ceiling between them is
+        unambiguous. High wired is the unreclaimed-Metal leak signature, which
+        is precisely what must never reach the cap.
+
+        SET IT BELOW THE WIRED CEILING, NOT NEAR IT. What matters is the margin
+        left to the compositor, so derive this from
+        clusterLinkPrep.clusterWiredLimitMb (the iogpu ceiling actually applied
+        to the host), never from shard size. No safe universal default exists —
+        the ceiling is per-host — so this stays opt-in, exactly like
+        shardMemoryMb and wiredLimitMb.
+      '';
+    };
+
     memHeadroomHaltSecs = lib.mkOption {
       type = lib.types.int;
       default = 300;

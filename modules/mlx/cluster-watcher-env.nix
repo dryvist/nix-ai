@@ -124,6 +124,12 @@ in
   # memory, never wired, and mem_headroom_ok / mem_headroom_halt_if_persistent
   # in cluster-link-guards.sh for the rung itself.
   CLUSTER_SHARD_MEMORY_MB = toString ncfg.shardMemoryMb;
+  # Runtime ceiling on the wired figure of a RUNNING rank; 0 disables the guard
+  # with no vm_stat read. Distinct from CLUSTER_WIRED_LIMIT_MB above, which is
+  # the iogpu ceiling APPLIED to the host — this is the level at which the
+  # watcher reaps a rank to keep the compositor's own Metal allocations
+  # serviceable. See rank_wired_ceiling_ok in cluster-link-guards.sh.
+  CLUSTER_WIRED_CEILING_MB = toString ncfg.wiredCeilingMb;
   # Consecutive ticks the rung may refuse before the watcher escalates from a
   # free per-tick skip to a HALT that pd_auto_reboot_if_warranted can act on.
   CLUSTER_MEM_HEADROOM_DWELL_TICKS = toString memHeadroomDwellTicks;
