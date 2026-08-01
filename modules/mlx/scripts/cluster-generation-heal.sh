@@ -21,8 +21,9 @@
 # the same label.
 #
 # Function definitions ONLY, concatenated into the link watcher (the single
-# consumer). Reads the watcher-scope vars `uid` and `gen_parity_file` at call
-# time, the same contract as every other watcher helper.
+# consumer). Reads the watcher-scope var `gen_parity_file` at call time, the
+# same contract as every other watcher helper; uid is derived locally, the
+# cluster-serving-restore.sh convention, so this file lints standalone.
 #
 # Consumed environment:
 #   CLUSTER_GENERATION_REPO        deploy source of truth (owner/repo)
@@ -37,7 +38,8 @@
 # serving — the rebuild's activation reloads launchd agents, and tearing down a
 # healthy rank to chase HEAD is churn the drift page already covers.
 generation_heal_maybe() {
-  local fact="$1" attempts_file="$2" rev lc max last_rev attempts flag heal_log
+  local fact="$1" attempts_file="$2" rev lc max last_rev attempts flag heal_log uid
+  uid="$(id -u)"
   case "$fact" in
     *'state=drift'*) ;;
     *) return 0 ;;
