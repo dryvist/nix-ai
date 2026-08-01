@@ -41,6 +41,53 @@
       '';
     };
 
+    wiredCeilingMb = lib.mkOption {
+      type = lib.types.int;
+      default = 0;
+      description = ''
+        Runtime ceiling (MB) on the "Pages wired down" figure of a RUNNING
+        rank. Above it the watcher reaps the rank and restores standalone
+        serving. 0 (default) disables the guard with no vm_stat read at all,
+        same convention as shardMemoryMb above.
+
+        WHY A RUNTIME GUARD, GIVEN shardMemoryMb ALREADY GATES THE START. That
+        rung is a precondition: it runs only ahead of a start, and asks whether
+        FREE memory fits a shard. Neither property helps once a rank is up. On
+        2026-08-01 a rank started legally, and wired later climbed to 96.7 GiB
+        against this host's 100 GiB iogpu.wired_limit_mb. WindowServer asked
+        Metal to hand over a command buffer, got nothing, and blocked inside the
+        GPU driver (IOGPUFamily, AGXG16X) 80 seconds; watchdogd killed it, and
+        the hardware watchdog hard-reset the machine, recording the boot fault
+        "wdog,reset_in_1". Every existing rung stayed green throughout, having
+        already run. The compositor competes over the same wired GPU budget as
+        the shard, so a rank may take most of that budget but never all of it.
+
+        HOW HIGH TO SET IT — AND AN UNRESOLVED CONTRADICTION IN THE EVIDENCE.
+        Two live measurements of a HEALTHY serving rank disagree. mem_stat_mb's
+        note in cluster-link-guards.sh records ~3.5 GiB wired against a ~49 GiB
+        shard; nix-darwin's hosts/common/cluster-wired-limit.nix records
+        3271199 pages (~49.9 GiB) wired on the coordinator with both ranks
+        serving, verified by a real completion. Both claim a live measurement,
+        so one is wrong and neither has been re-run.
+
+        Until that is settled, assume the LARGER: a healthy rank may wire
+        approximately its whole shard. A ceiling chosen from the smaller figure
+        would reap every healthy rank on sight, which is far worse than a
+        ceiling set too high. Set it clear of ONE shard, never near it. The
+        2026-08-01 hang read 96.7 GiB, close to two shards and consistent with
+        a second rank or a leaked predecessor, so a ceiling placed between one
+        shard and two separates healthy from dangerous under EITHER
+        measurement — which is the point of choosing it that way.
+
+        SET IT BELOW THE WIRED CEILING, NOT NEAR IT. What matters is the margin
+        left to the compositor, so derive this from
+        clusterLinkPrep.clusterWiredLimitMb (the iogpu ceiling actually applied
+        to the host), never from shard size. No safe universal default exists —
+        the ceiling is per-host — so this stays opt-in, exactly like
+        shardMemoryMb and wiredLimitMb.
+      '';
+    };
+
     memHeadroomHaltSecs = lib.mkOption {
       type = lib.types.int;
       default = 300;

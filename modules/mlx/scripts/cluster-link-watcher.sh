@@ -226,6 +226,32 @@ if [ "$cur" = "up" ]; then
         "attempts that failed before the rank that settled"
       rm -f "$halt_file" "$halt_latch_file"
     fi
+    # RUNTIME WIRED CEILING. Every rung in rank_start_preconditions_ok is a
+    # START precondition, so all of them had already run AND PASSED when this
+    # host hard-reset on 2026-08-01: the rank was legal at start, and wired
+    # climbed to 96.7 GiB afterwards, until WindowServer's Metal allocation
+    # blocked in the GPU driver (IOGPUFamily/AGXG16X) for 80s and the hardware
+    # watchdog reset the machine. Nothing watched a rank once it was up.
+    #
+    # REAP, DO NOT HALT. A halt would be wrong twice over: the breach may be
+    # this rank's own live memory, which its exit returns, and a halt would
+    # strand the host without the standalone serving restored just below. The
+    # persistent case needs no new escalation path — wired that does NOT come
+    # back is the unreclaimed-Metal signature, which mem_headroom_ok refuses at
+    # the next start, memHeadroomHaltSecs escalates to a halt, and
+    # pd_auto_reboot_if_warranted acts on. This rung only has to stop the climb
+    # before the compositor starves.
+    if ! wired_detail="$(rank_wired_ceiling_ok "${CLUSTER_WIRED_CEILING_MB:-0}")"; then
+      echo "cluster-link: $wired_detail" >&2
+      launchctl kill SIGTERM "gui/$uid/$CLUSTER_RANK_LABEL" 2> /dev/null || true
+      rm -f "$started_file" "$ready_file" "$warm_file"
+      if [ -n "${CLUSTER_WIRED_LIMIT_MB:-}" ]; then
+        set_wired_limit "${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}" || true
+      fi
+      restore_normal_serving || true
+      alert "$(hostname -s): $wired_detail" \
+        "mlx-cluster rank reaped (wired ceiling)"
+    fi
     # PAIR-WIDE STANDDOWN. A jaccl group cannot re-admit a rank, so a rank whose
     # peer has gone can never generate again — yet nothing here noticed. Measured
     # 2026-07-26: killing the worker left the coordinator's process alive and
