@@ -287,7 +287,9 @@ else
 fi
 gate_line="$(first_line "$guards" 'PRECONDITION_REASON="generation-parity"')"
 reap_line="$(first_line "$guards" 'rank_reap_verified')"
-prep_line="$(first_line "$guards" 'link_prep_ok')"
+# `! link_prep_ok` is the RUNG; a bare link_prep_ok also matches the repair
+# helper defined above the preconditions.
+prep_line="$(first_line "$guards" '! link_prep_ok')"
 if [ -n "$gate_line" ] && [ -n "$reap_line" ] && [ -n "$prep_line" ] &&
   [ "$gate_line" -lt "$reap_line" ] && [ "$gate_line" -lt "$prep_line" ]; then
   echo "  ok   the parity rung precedes every setup rung (reap, link prep)"

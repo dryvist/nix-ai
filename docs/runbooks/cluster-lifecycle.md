@@ -34,9 +34,9 @@ environment and behave identically on the coordinator and the worker.
    to a panic (INC-17075) — then quiesce standalone serving (bootout the server +
    warmup agents, wait for zero `vllm-mlx serve` processes, reap orphans after a
    grace).
-4. Clear a stale `rank-halted` PD-guard latch, ensure the watcher agent is
-   loaded (bootstrap in the caller's own `gui/$uid` domain if not), then let the
-   watcher kickstart the rank.
+4. Clear a stale `rank-halted` PD-guard latch and any standalone lease, ensure
+   the watcher agent is loaded (bootstrap in the caller's own `gui/$uid` domain
+   if not), then let the watcher kickstart the rank.
 5. Block (bounded by `joinTimeoutSecs`, default 600 s) until the cluster is
    serving. The coordinator issues **no completion of its own**: the link
    watcher fires exactly one warm generation (request #1) at bring-up and records
@@ -68,11 +68,10 @@ Operationally, two things to know:
   coordinator sees `peerLiveness.strikes` consecutive bounded generations return
   no token, it stops the rank, sets the latch, restores standalone serving and
   pages. Clearing it is unchanged: replug the link, or remove the marker.
-- **The worker pages separately, with the traceback.** There is no SSH between
-  the nodes, so the coordinator can never read the worker's log. The worker's own
-  supervisor reports its rank dying and attaches the exception — which is usually
-  the actual cause (e.g. a `shardingMode` mismatch raising `ValueError: The model
-  does not support pipelining...`). Correlate the two pages by hostname.
+- **The worker pages separately, with the traceback.** No SSH between the
+  nodes, so the coordinator can never read the worker's log; the worker's own
+  supervisor attaches the exception, which is usually the actual cause (e.g. a
+  `shardingMode` mismatch). Correlate the two pages by hostname.
 
 It is deliberately reluctant: real traffic in the rank log, or any ESTABLISHED
 connection on the endpoint, suppresses the probe entirely, so a healthy rank
@@ -82,6 +81,10 @@ minutes of provably zero tokens. Thresholds are
 
 ## `cluster-detach` — the daily safe-unplug
 
+0. Record the **standalone lease** (`cluster-detach [secs [reason]]`, default
+   `standaloneLeaseSecs`). The watcher holds off while it is unexpired, then
+   auto-rejoins with the cable in — plugged in means clustered, and the lease
+   is the one self-expiring exception (cluster-link-truths.md §1).
 1. Take the Thunderbolt link admin-down (`ifconfig <port> down`) so both watchers
    observe peer loss and run their up→down teardown, then **verify against live
    state** (bounded by `detachTimeoutSecs`, default 300 s): PD-guard/readiness
@@ -138,6 +141,11 @@ guard — a flapping link could otherwise never accumulate toward a halt.
 text on any non-delivery (no pager configured, encode failure, non-200) and
 append it to `alerts-undelivered.log` beside the link-state file.
 
+**Detached-while-plugged self-corrects.** Once no standalone lease holds, the
+watcher re-admin-ups the port cluster-detach downed and rejoins; generation
+drift heals via a detached rebuild job before any rank start (hard gate). Both
+in [cluster-link-truths.md](cluster-link-truths.md) §1–§2.
+
 Tunables — all under `programs.mlx.clusterMode`, each documented at its
 declaration in `modules/mlx/options-cluster-resilience.nix`:
 `tickIntervalSecs`, `linkDownSettleSecs`, `peerRendezvousProbeTimeoutSecs`,
@@ -155,11 +163,10 @@ cluster-detach     # -> standalone serving restored, node safe to unplug/sleep/r
 
 ## Local end-to-end testing before the module ships
 
-These are per-host home-manager packages (all `CLUSTER_*` env is baked at eval
-from that host's `programs.mlx.clusterMode`), not flake apps — this flake
-exposes no `apps`/`packages`, so `nix run .#cluster-join` does NOT work. Build
-the exact per-node binary straight from the consuming nix-darwin host config
-with this branch pinned, then run the store path on that node:
+These are per-host home-manager packages, not flake apps — `nix run
+.#cluster-join` does NOT work. Build the exact per-node binary straight from
+the consuming nix-darwin host config with this branch pinned, then run the
+store path on that node:
 
 ```bash
 # in the nix-darwin repo; HOST is the coordinator or worker host attr
@@ -182,10 +189,9 @@ Used by these commands and already granted: exact-value
 `ifconfig bridge0 deletem *`, and `ifconfig en[0-9]* up` / `en[0-9]* down`. All
 `launchctl` verbs run in the caller's own `gui/$uid` domain and need no sudo.
 
-**Link repair is fully granted and auto-run**, by `cluster-join` and now by the
-watcher on its own tick. The alias form rides the `ifconfig en[0-9]* up` grant —
-the sudoers `*` glob spans its spaces (verified 2026-07-19, rc=0 on both nodes).
-What the repair does, when it fires and how it is bounded:
+**Link repair is fully granted and auto-run** by `cluster-join` and the
+watcher. The alias form rides the `ifconfig en[0-9]* up` grant — the sudoers
+`*` glob spans its spaces (verified 2026-07-19). Details:
 [cluster-link-truths.md](cluster-link-truths.md).
 
 ## Related

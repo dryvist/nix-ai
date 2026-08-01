@@ -1,223 +1,206 @@
-# The cluster link: what is true, what is automatic, what a message means
+# The cluster: every rule, in one place
 
-The one authoritative page for diagnosing the two-Mac Thunderbolt link. Every
-statement below has already cost real downtime.
+The single authoritative page for the two-Mac Thunderbolt cluster. Every rule
+below cost real downtime. **The automation is primary, the prose is the
+fallback**: each rule states what the code enforces, then what a human needs
+during a failure. A rule only a human can honour is a gap to file, not a rule
+to write.
 
-**Read it before typing a command.** Most of it says the system already fixes
-what you are about to; the rest tells apart observations that look identical and
-are not.
-
-Companions describe the *procedure*; this describes the *evidence*:
-[cluster-lifecycle.md](cluster-lifecycle.md),
-[rdma-protection-domains.md](rdma-protection-domains.md), and `dryvist/nix-darwin`
-`docs/CLUSTER*.md`.
+Procedure: [cluster-lifecycle.md](cluster-lifecycle.md). RDMA detail:
+[rdma-protection-domains.md](rdma-protection-domains.md). The
+`dryvist/nix-darwin` `docs/CLUSTER*.md` pages are pointers here.
 
 ## 0. The rule that outranks the rest
 
-**Any enumerated cause list is non-exhaustive — including every list here.** On
-2026-08-01 the watcher logged one two-item list 10,440 times over 86 hours
-("cable out, OR denied macOS Local Network permission") and the truth was
-neither. A reader given two candidates picks one of them.
+**Any enumerated cause list is non-exhaustive — including every list here.**
+The 86-hour outage's watcher logged a two-item guess 10,440 times; the truth
+was neither item. The next incident (2026-08-02) was nearly misdiagnosed as a
+cable, then as generation drift; it was a Metal OOM. So the watcher reports
+**measured fields** (per-port carrier, where the self address is, prep
+usability, peer answer, generation parity, lease), never candidates. Read the
+fields; never reason from a heading, and never stop at the first matching
+cause.
 
-So the watcher no longer offers candidates. It reports measured fields:
+## 1. Plugged in means clustered. No exceptions
 
-```text
-cluster-link: DOWN 42 consecutive tick(s) — tb-ports[ en1=inactive en2=active ]
-  self <link-ip> NOT-ALIASED prep MISSING-WITH-CARRIER(link prep never ran on
-  en2; not a cable fault) peer <peer-ip> answered=no generation state=drift
-  local=a1b2c3d4e5f6 deploy=0f9e8d7c6b5a
-```
+Operator: *"TB5 plugged-in time is NEVER wasted. If they are plugged
+in, they MUST be clustered."* Detached-while-plugged must be
+**self-correcting, never stable**.
 
-Read the fields; never reason from a heading.
+Enforced: the watcher re-admin-ups any Thunderbolt port `cluster-detach`
+downed (carrier is unobservable on an admin-down port — what used to make the
+detached state stable), repairs link prep, and starts the rank through the
+normal guards. A real unplug changes nothing: no carrier, nothing to fix, the
+watcher stays quiet.
 
-## 1. `RUNNING` is not carrier
+The **one** sanctioned exception is the **standalone lease**
+(`cluster-detach [secs [reason]]`, default `clusterMode.standaloneLeaseSecs`):
+recorded, reason-stamped, **self-expiring**. At expiry the watcher rejoins
+unattended; `cluster-join` ends it early; a garbage or unreadable lease reads
+as **expired**. There is deliberately no indefinite form — an opt-out that
+cannot expire is the same failure with extra steps.
 
-`ifconfig` flags carry `RUNNING` on an administratively-up interface with
-nothing plugged into it. It has never been a cable-presence signal. The
-authoritative field is the per-port `status:` line — `active` means the cable is
-in and the link negotiated, `inactive` means nothing is on that port.
+## 2. Generation parity is a hard gate — before everything else
 
-`bridge0`'s own status is **irrelevant**. It is not the link (see §3). The
-watcher renders `status:` per port in the `tb-ports[...]` field.
+Operator: *"the actual, automated, non-AI steps enforce the nix
+generations to march exactly on both / all devices before continuing with
+other setup automated steps."* Drift is how the 86-hour outage happened: the
+activation that aliases the link address had never run.
 
-## 2. No link address means link prep did not run — it says nothing about the cable
+Enforced: parity (against `clusterMode.generationRepo` HEAD) is the **first
+read of every watcher tick** and a precondition rung — under `drift` or
+`unstamped`, no reap, link prep, quiesce, ceiling write or rank start happens,
+and no attempt is consumed. Drift is **reconciled unattended**: the watcher
+submits a detached launchd job (`dev.mlx-cluster.generation-heal`) rebuilding
+from `github:<repo>/<rev>` — detached because a rebuild fired from the
+watcher's own tree is SIGKILLed by the very activation it runs. Bounded per
+deploy revision, single-flight, never on a machine whose rank is serving;
+success is judged by re-reading parity. `cluster-join` still heals supervised;
+a by-hand halt clear during drift is re-halted naming the gate.
 
-The cluster aliases a static address from its point-to-point `/24`
-(`programs.mlx.clusterMode.staticLinkIps`) onto whichever physical Thunderbolt
-port has carrier. That is done by nix-darwin's `cluster-link-prep` at
-activation, and repeated by `cluster-join` and the watcher.
+Parity is a *preventive control*, not the usual suspect: on 2026-08-02 all
+nodes matched deploy HEAD exactly and the cause was a Metal OOM (§6). See §0.
 
-**If no interface holds that address, the thing that assigns it did not run.**
-That is a statement about activation, not about copper, and it is fully
-compatible with a seated cable and a port at `status: active` — exactly the
-state that produced the 86-hour outage, where the node had drifted off the
-deployed generation so the activation never ran.
+## 3. The budget is 200 GB aggregate, never 100 GB per host
 
-| Facts field | Means |
-| --- | --- |
-| `prep OK` | address aliased on a carrier-active port outside `bridge0` |
-| `prep MISSING-WITH-CARRIER(...)` | cable is in; the prep that assigns the address did not run |
-| `prep NO-CARRIER(...)` | no Thunderbolt port reports `status: active` — this one is the cable |
+Operator: *"WE HAVE TWO 128GB Macs. AT A MINIMUM, THE MAXIMUM IS
+200GB right now and ALWAYS, 100% of the time WHILE PLUGGED IN."* Clustered
+capacity is the **sum** of the members' wired ceilings (2 × 102400 MB ≈
+200 GB). Any sentence, sizing decision or guard that treats one host's
+102400 MB as what the *cluster* can hold is a prose bug. Detaching to "free
+memory" for a workload that fits under the aggregate is exactly the waste §1
+forbids — run it clustered. Per-host ceilings stay real as single-host safety
+guards (a shard must fit its own host beside the ~28 GiB OS reserve), never as
+cluster capacity.
 
-**This now repairs itself.** Carrier present and address absent makes the
-watcher run the same repair `cluster-join` runs — free the port from `bridge0`,
-admin-up, re-alias — bounded by `clusterMode.linkPrepMaxRepairs` consecutive
-failures, with the counter reset the instant prep is healthy. If you are about
-to do this by hand, read the facts line first.
+## 4. Reading the machine — the observation traps
 
-## 3. An empty, disabled Thunderbolt Bridge is the CORRECT state
+Each produced a confident wrong diagnosis at least once.
 
-macOS puts Thunderbolt ports into `bridge0` by default. Cluster mode
-deliberately takes them out, because a port enslaved in the bridge cannot hold
-the link address. So on a healthy cluster host, **Thunderbolt Bridge is disabled
-with zero members** — do not "fix" that in System Settings.
+- **`RUNNING` in ifconfig flags is NOT carrier.** It is set on an admin-up
+  port with nothing plugged in. Carrier is the per-port `status:` line —
+  `active`/`inactive`, read on `en1`/`en2`/`en3` individually. `bridge0`'s own
+  status is irrelevant. The facts line renders this per port.
+- **A missing link address means link prep did not run.** It says *nothing*
+  about the cable — fully compatible with a seated cable and `status: active`.
+  Only the cluster tooling aliases it, never DHCP or the bridge service.
+  Enforced: carrier present + address absent self-repairs, bounded
+  (`linkPrepMaxRepairs`).
+- **A disabled Thunderbolt Bridge with zero members is the CORRECT state.**
+  The tooling deliberately frees TB ports *from* `bridge0`; `member: enX`
+  reappearing is the classic prep loss, undone by `repair_link_direct`. Do not
+  "fix" it in System Settings.
+- **macOS TCC has a distinct signature and never removes an address**:
+  same-subnet `EHOSTUNREACH` for non-Apple-signed processes while
+  `/usr/bin/curl` succeeds in the same second, interface/route/ARP all valid.
+  `NOT-ALIASED` is never TCC. Both agents launch through Apple's interpreter
+  (`programs.mlx.appleInterpreter`) for this reason.
+- **Never read halt state by file existence.** `[ -f rank-halted ]` reports
+  the automation's own self-healing as an outage: post-reboot the marker
+  legitimately exists for a tick before `halt_drop_if_pre_boot` drops it. Test
+  the marker's `boot=` field against `sysctl -n kern.boottime`. Same family: a
+  `quiesced-agents` marker is not evidence the agents are quiesced — observe
+  the processes, never trust a marker over the machine.
+- **Read a failure burst from the FIRST error, not the last.** 2026-08-02: the
+  first rank failure was a Metal OOM
+  (`kIOGPUCommandBufferCallbackErrorOutOfMemory`); every later attempt died
+  `[jaccl] Couldn't connect (error: 60)` — a downstream symptom pointing at
+  the network. The last error names the aftermath; the first names the cause.
+- **`errno 60` never names the machine that is wrong.** It is `ETIMEDOUT`.
+  Enforced: `cluster-join` probes the peer (`peerReadyTimeoutSecs`) before the
+  long wait and refuses naming which side is unverified; the watcher's peer
+  rung refuses a start against an absent peer — no rank, no domain spent.
+- **A worker rank can die SIGSEGV (exit 139) when its peer vanishes.**
+  `launchctl list`'s second column is the last exit status; a bare
+  running/not-running check hides it.
 
-A port reappearing as `member: enX` in `ifconfig bridge0` is **the classic prep
-loss**: it is how the link address gets dropped, and it is what
-`repair_link_direct` undoes. Re-enabling the bridge re-creates the failure.
+## 5. Serving truths
 
-## 4. macOS Local Network privacy (TCC) is real, with a DIFFERENT signature
+- **The endpoint lives on the COORDINATOR only** (rank 0 binds `:11440`).
+  Probing `:11440` on the worker means nothing.
+- **Acceptance is a real completion returning coherent text — never a
+  `/v1/models` 200.** The readiness latch is one-shot (nix-ai#1275): a 200 can
+  persist over a rank that generates nothing (observed repeatedly, latest
+  2026-08-02). Enforced: the watcher's warm generation and re-check
+  (`warmRecheckSecs`), the peer-liveness probe and `cluster-detach`'s restore
+  check all require a generated token. Any monitor treating a 200 as health is
+  wrong.
+- **`cluster-join` on the coordinator boots out standalone serving.** Anything
+  depending on that backend needs a working failover *before* the join.
+- **"Teardown verified" is not "serving restored".** Both roles restore
+  through the one shared `restore_normal_serving` (worker: `cluster-restore`,
+  exactly the set `cluster-quiesce` recorded) and must prove it with a real
+  completion; a missing restore hook or probe URL is a **failure**, not a
+  pass. The summary names only what it verified.
+- **Never `pkill -9` a serving process.** A SIGKILLed rank leaks its RDMA
+  protection domain *and* its wired shard memory. Use the supervised tools;
+  the one audited SIGKILL lives in `cluster-detach`, which records the debt.
+- **The alert channel is not load-bearing.** Pages fail (observed `http=502`);
+  every non-delivery logs the full text into `alerts-undelivered.log`. Never
+  build a recovery step that waits on a page.
 
-It exists, it was not what happened on 2026-08-01, and confusing the two sends
-you to the wrong machine. TCC gates connections to hosts on the Mac's own subnet
-and the verdict attaches to the responsible GUI app, which every spawned process
-inherits. Its signature:
+## 6. The boot boundary: what only a reboot returns
 
-- a non-Apple-signed process gets `EHOSTUNREACH` to a same-subnet peer **while
-  `/usr/bin/curl` or `/sbin/ping` succeeds against the same host and port in the
-  same second** (measured 2026-07-25: a shell pinged 75/75, the agent 0/5);
-- the interface, its address, the route and the ARP entry are all **valid**
-  throughout.
+**Only a reboot returns RDMA protection domains and unreclaimed wired Metal
+memory.** Both are boot-scoped kernel state. A PD-exhausted host **cannot
+cluster again until it reboots** — clearing `rank-halted` returns nothing, and
+`halt_clear_accepted` re-verifies and re-halts on the still-true cause.
+Routing around the guard is never the answer; it burned the remaining domains
+on 2026-07-24.
 
-**TCC never removes an interface address**, so `self <ip> NOT-ALIASED` is never
-TCC. Address present, carrier active, peer answering a shell but not the agent —
-that is TCC, and the fix is the launch path. Both cluster agents already launch
-through Apple's interpreter for this reason (`programs.mlx.appleInterpreter`); a
-Nix shebang anywhere in the chain makes the store path the responsible binary
-and its grant dies on every rebuild.
+Enforced: every leak is written to the boot-scoped `pd-debt` ledger (failed
+distributed inits, audited SIGKILLs); starts halt at a cap that *reserves*
+domains (device budget: 11); `cluster-join` refuses at the cap. The design
+completes with a memory-headroom precondition (a shard that cannot fit is a
+refused start, not a leak — the 2026-08-02 Metal OOM) and automatic
+self-reboot at exhaustion, so the terminal state needs no human.
 
-## 5. Coordinator readiness is a ONE-SHOT latch — a `/v1/models` 200 is not health
+The ledger goes **inert if mis-assembled**: `cluster-boot-scope.sh` must be
+concatenated first, and every system binary absolute or behind its
+`CLUSTER_*_BIN` seam (`writeShellApplication` sanitizes PATH; a bare `sysctl`
+silently disabled the guard once).
 
-The readiness probe fires until `:$httpPort/v1/models` answers once, then never
-again. That is deliberate: `mlx_lm.server` blocks HTTP for the duration of a
-generation, so a timed probe would kill healthy ranks mid-answer.
+## 7. The reboot recovery path is VERIFIED end-to-end, zero AI
 
-The consequence: **a 200 can persist over a rank that can no longer generate at
-all.** Measured 2026-07-25 — an 8-token completion returned 0 bytes after 900s
-while both ranks spun at ~100% CPU (coordinator in `jaccl::MeshImpl::recv`,
-worker in `mlx::core::Fence::wait`), readiness still latched, endpoint still
-answering.
+Observed 2026-08-02 on the coordinator, unattended: stale halt dropped by
+boot-scope comparison; link prep self-repaired; PD debt read 0 for the new
+boot; `iogpu.wired_limit_mb` restored by activation — it needs **no**
+re-applying by hand. Post-reboot transients (a `rank-halted` file for one
+tick, "no carrier-active link address" while prep settles) are the automation
+working; see §4 before declaring an outage.
 
-**Verify with a real completion, never with `/v1/models`.** The watcher's warm
-generation, the peer-liveness token probe and `cluster-detach`'s restore check
-all require a generated token. The wedge detector re-arms on
-`clusterMode.warmRecheckSecs`, so it catches a rank that wedges *after* its
-first warm, not only before.
+## 8. Where the state lives
 
-## 6. The RDMA protection-domain ledger is BOOT-scoped, and goes inert if mis-assembled
-
-Every failed `mx.distributed.init()` leaks a kernel RDMA protection domain, the
-device budget is small (measured `max_pd` = 11), and **only a reboot returns
-one**. The ledger records what this boot has lost so the guard halts while
-domains remain, rather than after `errno 96` proves they are gone.
-
-Two ways it silently stops working, both observed:
-
-- **Sourced without the boot-scope helper.** `current_boot_epoch` lives in
-  `modules/mlx/scripts/cluster-boot-scope.sh` and must be concatenated **first**.
-  Without it every halt records `boot=unknown`, mismatches on every tick, and is
-  dropped — the guard reports green while doing nothing.
-- **A binary off the sanitized PATH.** `writeShellApplication` restricts PATH to
-  `runtimeInputs`, so `sysctl`, `netstat`, `ifconfig`, `pgrep` and `kill` must be
-  absolute or reached through their `CLUSTER_*_BIN` seams. A bare `sysctl`
-  produced nothing in the deployed watcher while working in a shell — how the
-  guard was disabled on 2026-07-26.
-
-Detail: [rdma-protection-domains.md](rdma-protection-domains.md).
-
-## 7. "Teardown verified" is not "serving restored"
-
-`cluster-detach` used to print `teardown verified (markers clear, rank gone,
-standalone ceiling restored)` and exit 0. On 2026-08-01 that was **true** on a
-worker whose quiesced agents were all still booted out and whose endpoint refused
-connections: the restore was coordinator-only. Both roles now run the same
-`restore_normal_serving` — on a worker that is `cluster-restore`, which brings
-back **exactly** the set `cluster-quiesce` recorded — and both must answer a
-**real completion**. No restore hook or no probe URL is a **failure**, not a
-pass.
-
-## 8. Generation drift is checked on a clock, not when someone remembers
-
-Parity against the deploy branch (`clusterMode.generationRepo`) used to be
-checked only inside `cluster-join`, a command a human starts, so a drifted node
-stayed drifted and its activation-managed link address was never applied.
-
-The watcher now reads parity every `clusterMode.generationCheckSecs` (cached —
-one `git ls-remote` per interval, not per tick), reports it as a facts field in
-every link state, and pages **once per distinct drift**:
-
-| State | Meaning |
-| --- | --- |
-| `state=ok` | this node is at deploy HEAD |
-| `state=drift` | it is not — activation-managed state may be stale |
-| `state=unstamped` | dirty/unstamped build; it can never match a deploy revision |
-| `state=unverified` | deploy branch unreachable (offline is legitimate) |
-| `state=disabled` | no `generationRepo` configured |
-
-**The heal stays in `cluster-join`, deliberately.** A `darwin-rebuild switch`
-fired from a launchd agent can be SIGKILLed mid-activation by the very
-activation it is running — home-manager boots agents out to reload them — and a
-half-applied activation is worse than drift. Tradeoff: correcting drift still
-takes one `cluster-join`, but drift no longer costs the link, because §2's
-self-heal restores the address either way.
-
-## 9. `errno 60` never names the machine that is wrong
-
-`RuntimeError: [jaccl] Couldn't connect (error: 60)` is `ETIMEDOUT`. It reports
-that a connection did not complete and cannot say why or which end failed. On
-2026-08-01 it appeared on the worker after a full 600s wait, and the cause was
-the coordinator's missing link address.
-
-`cluster-join` now probes the peer for `clusterMode.peerReadyTimeoutSecs` before
-the long wait and, on silence, refuses with an attribution instead of an errno:
-this side named as verified, the peer's as **unverified** — not "broken",
-because the link address is the only channel to the peer, so its silence proves
-nothing beyond itself. No rank starts, so no protection domain is spent.
-
-## 10. Where the state lives
-
-All under `~/Library/Application Support/mlx-cluster/`:
+All under `~/Library/Application Support/mlx-cluster/`. Deleting a marker is a
+**request**, not a fact — the watcher re-verifies the cause and re-halts if it
+holds. Deleting `pd-debt` returns no domain.
 
 | File | Meaning |
 | --- | --- |
-| `link-state` | last observed link state (`up`/`down`) |
-| `link-down-strikes` | failed probes while up (asymmetric debounce) |
-| `link-down-quiet-ticks` | failed probes while down (report cadence) |
-| `link-facts-last` | last DOWN facts line logged — a CHANGE reports at once |
-| `link-prep-repairs` | failed self-heal attempts; cleared when prep is healthy |
-| `generation-parity` | `<epoch> <fact>` parity cache |
-| `generation-alerted` | last drift paged, so one drift pages once |
-| `rank-halted` / `rank-halt-latched` | PD-guard halt and its sticky latch |
+| `link-state`, `link-down-strikes`, `link-down-quiet-ticks` | probe state, asymmetric debounce |
+| `link-facts-last` | last DOWN facts line — a CHANGE reports at once |
+| `link-prep-repairs`, `port-reups` | bounded self-heal counters |
+| `standalone-lease` | the §1 lease: `<expiry-epoch> <created> <reason>` |
+| `generation-parity/-alerted/-heal-attempts` | §2 cache, once-per-drift page, heal budget |
+| `rank-halted` / `rank-halt-latched` | halt + sticky latch (read `boot=`, §4) |
 | `rank-kickstarts` | session-scoped failed-start counter |
-| `pd-debt` | **boot-scoped** ledger of leaked protection domains |
-| `quiesced-agents` | worker: exactly what `cluster-quiesce` booted out |
+| `pd-debt` | **boot-scoped** leaked-domain ledger |
+| `quiesced-agents` | worker: what `cluster-quiesce` booted out |
 
-Deleting a marker is a **request**, not a fact: the watcher re-verifies the
-cause before the first retry and re-halts if it still holds. Deleting `pd-debt`
-returns no protection domain — nothing but a reboot does.
+## 9. What is automatic (do not do these by hand)
 
-## 11. What is automatic now (do not do these by hand)
-
-| Condition | What happens, unattended |
+| Condition | Unattended behaviour |
 | --- | --- |
-| Carrier present, link address absent | watcher repairs prep, bounded, and says so |
-| Link down, state unchanged | reported on a cadence; a CHANGE reports immediately |
-| Generation drift | detected on a timer in every link state, paged once |
-| Peer absent | no rank started, no domain spent; `cluster-join` refuses fast and names the side |
-| Rank wedged after readiness | warm re-check tears it down to standalone serving |
-| Peer rank vanished | pair-wide standdown so both sides re-arm together |
-| Any teardown | serving restored via the shared path, proven with a real completion |
+| Detached with cable in, no lease | ports re-upped, prep repaired, rejoined |
+| Standalone lease expires | rejoin resumes that tick |
+| Carrier present, address absent | link prep repaired, bounded |
+| Generation drift | detected on a clock, healed detached, paged once |
+| Peer absent / unprepared | start refused, no domain spent, side named |
+| Rank wedged after readiness | torn down to standalone on failed warm re-checks |
+| Peer rank vanished | pair-wide standdown so both re-arm together |
+| Any teardown | serving restored via the shared path, proven by a completion |
+| Reboot | stale verdicts dropped, prep repaired, ledger reset — §7 |
 
-Before running `ifconfig`, `launchctl bootstrap` or `darwin-rebuild` here, read
-`~/Library/Logs/mlx-cluster/cluster-watcher.log`: the facts line gives the state
-without inference, and in most rows above the system is already fixing it.
+Before touching `ifconfig`, `launchctl` or `darwin-rebuild` by hand, read
+`~/Library/Logs/mlx-cluster/cluster-watcher.log`: the system is usually
+already fixing it.
