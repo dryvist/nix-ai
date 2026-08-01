@@ -105,12 +105,17 @@ secrets manager per command:
   at launch (see [Adding New Servers](#adding-new-servers)). `AI_DOPPLER_PROJECT`
   arrives ambiently (see `modules/ai-aliases.zsh`); no project name is committed
   to this repo. Non-secret config (log levels, flags) belongs in the Nix-managed
-  `env` attribute, not Doppler.
+  `env` attribute, not Doppler. Codex forwards stdio-server environment
+  variables only when the catalog declares them in `env_vars`; keep that list
+  limited to the wrapper's bootstrap selectors. Package-backed active servers
+  use a 300-second startup and tool timeout so first-run `uvx`/`bunx` installs
+  can complete before the MCP handshake deadline.
 - Splunk uses `splunk-mcp-connect`. At each launch it takes `BAO_ADDR`, an AppRole
   secret-zero (`AI_READONLY_ROLE_ID`, `AI_READONLY_SECRET_ID`), and the KV path
   (`SPLUNK_MCP_OPENBAO_PATH`) from the ambient environment — delivered by shell
   init or `doppler run`, per the `ai-agent-access-openbao` runbook on the docs
-  site — authenticates to OpenBao, and reads that path. The resulting
+  site — authenticates to OpenBao, and reads that path. Codex receives exactly
+  those four bootstrap variables for this launcher. The resulting
   `SPLUNK_MCP_URL` and `SPLUNK_MCP_TOKEN` exist only in the MCP child process.
 - Env-var-backed servers (HF_TOKEN, GitHub PAT, UniFi, …) read from the process
   environment, injected directly (e.g. an inline Keychain read or `doppler run`).
