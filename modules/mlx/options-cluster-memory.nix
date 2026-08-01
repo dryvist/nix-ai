@@ -62,22 +62,21 @@
         already run. The compositor competes over the same wired GPU budget as
         the shard, so a rank may take most of that budget but never all of it.
 
-        HOW HIGH TO SET IT — AND AN UNRESOLVED CONTRADICTION IN THE EVIDENCE.
-        Two live measurements of a HEALTHY serving rank disagree. mem_stat_mb's
-        note in cluster-link-guards.sh records ~3.5 GiB wired against a ~49 GiB
-        shard; nix-darwin's hosts/common/cluster-wired-limit.nix records
-        3271199 pages (~49.9 GiB) wired on the coordinator with both ranks
-        serving, verified by a real completion. Both claim a live measurement,
-        so one is wrong and neither has been re-run.
+        HOW HIGH TO SET IT. A healthy serving rank wires approximately its
+        WHOLE shard. Two independent captures agree within 2.3%: the REALVMSTAT
+        fixture in tests/test-mem-headroom.sh (a byte-for-byte real capture)
+        reads 3348211 pages, ~51.1 GiB, and nix-darwin's
+        hosts/common/cluster-wired-limit.nix recorded 3271199 pages, ~49.9 GiB,
+        with both ranks serving. An earlier note in cluster-link-guards.sh
+        claiming ~3.5 GiB was RETRACTED 2026-08-01 as a bad measurement, ~15x
+        adrift of both captures.
 
-        Until that is settled, assume the LARGER: a healthy rank may wire
-        approximately its whole shard. A ceiling chosen from the smaller figure
-        would reap every healthy rank on sight, which is far worse than a
-        ceiling set too high. Set it clear of ONE shard, never near it. The
-        2026-08-01 hang read 96.7 GiB, close to two shards and consistent with
-        a second rank or a leaked predecessor, so a ceiling placed between one
-        shard and two separates healthy from dangerous under EITHER
-        measurement — which is the point of choosing it that way.
+        So set it clear of ONE shard, never near it: a ceiling below one shard
+        reaps every healthy rank on sight, which is far worse than a ceiling
+        set somewhat high. The 2026-08-01 hang read 96.7 GiB, close to two
+        shards and consistent with a second rank or a leaked predecessor, so a
+        ceiling placed between one shard and two separates healthy from
+        dangerous.
 
         SET IT BELOW THE WIRED CEILING, NOT NEAR IT. What matters is the margin
         left to the compositor, so derive this from

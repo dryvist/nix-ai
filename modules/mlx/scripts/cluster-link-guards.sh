@@ -95,14 +95,41 @@ repair_link_prep() {
 #
 # Free-ish = free pages plus what the kernel can reclaim without paging
 # anything out (inactive + speculative) — NEVER wired down. WHY FREE, NOT
-# WIRED, DECIDES WHETHER A SHARD FITS: MLX holds a loaded shard's weights in
-# ordinary resident memory, not wired. Measured 2026-08-01: a ~49 GiB shard
-# served real tokens while `Pages wired down` read only ~3.5 GiB. So a low
-# wired figure says nothing about what is loaded, and a high one is the
-# unreclaimed-Metal LEAK signature (see mem_headroom_ok below), never a fit
-# signal. `--list-devices`'s own free-memory report is per-process fiction
-# too — it claimed 102399 MiB free on a host actually holding 68 GiB wired —
-# so this reads vm_stat directly rather than trusting either of MLX's numbers.
+# WIRED, DECIDES WHETHER A SHARD FITS: the question is whether room exists for
+# a NEW shard, and only free + reclaimable can answer that. Memory a live rank
+# already holds is, correctly, not free.
+#
+# CORRECTED 2026-08-01 — this comment previously asserted that "MLX holds a
+# loaded shard's weights in ordinary resident memory, not wired", citing a
+# ~49 GiB shard serving real tokens at only ~3.5 GiB wired. The NUMBER is
+# reproducible; the DESCRIPTION attached to it is wrong. A ~3.5-4 GiB reading
+# is what a rank process that has STARTED but not yet made its shard resident
+# looks like — measured directly on jevans-mbp 2026-08-01: with a freshly
+# kickstarted rank alive (mlx_lm.server running, weights not yet loaded)
+# `Pages wired down` read 3936 MB, and minutes earlier, with the previous
+# instance's shard resident, the same host read ~50.4 GiB. A live rank PROCESS
+# is therefore not evidence of a LOADED shard, and that is the trap this
+# figure fell into.
+#
+# What a resident shard actually costs is corroborated three ways, all within
+# ~3%: the REALVMSTAT fixture in tests/test-mem-headroom.sh (a byte-for-byte
+# capture, not prose) reads `Pages wired down: 3348211` = ~51.1 GiB;
+# nix-darwin's cluster-wired-limit.nix recorded 3271199 pages (~49.9 GiB) with
+# both ranks serving; and the direct ~50.4 GiB observation above. The retracted
+# description also contradicted this same file, which elsewhere treats tens of
+# GiB of wired memory as what a CRASHED rank leaves behind — impossible had
+# shard weights never been wired at all.
+#
+# So: A HEALTHY SERVING RANK WIRES APPROXIMATELY ITS WHOLE SHARD. Any guard
+# thresholded on wired MUST clear one full shard, or it fires on every healthy
+# rank (see rank_wired_ceiling_ok, deliberately set between one shard and two).
+# High wired is the unreclaimed-Metal LEAK signature ONLY once no rank process
+# survives to hold it — which is exactly what mem_headroom_ok gates that branch
+# on, so the code was right even while this prose was not.
+#
+# `--list-devices`'s own free-memory report is per-process fiction — it claimed
+# 102399 MiB free on a host actually holding 68 GiB wired — so this reads
+# vm_stat directly rather than trusting MLX's numbers.
 #
 # Page size is READ from vm_stat's own header line, never assumed: a
 # hardcoded 16384 silently breaks the day Apple changes it, or on hardware
