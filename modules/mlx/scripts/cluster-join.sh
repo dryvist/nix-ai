@@ -103,29 +103,45 @@ fi
 # by rebuilding DIRECTLY from the remote flake ref (github:<repo>/<rev>) — no
 # local checkout is referenced. Unreachable remote only WARNS (offline joins
 # stay possible); a dirty/unstamped local generation always fails.
-if [ -n "${CLUSTER_GENERATION_REPO:-}" ]; then
-  local_rev="$(/run/current-system/sw/bin/darwin-version --json 2>/dev/null |
-    jq -r '.configurationRevision // empty')"
-  remote_rev="$(git ls-remote "https://github.com/$CLUSTER_GENERATION_REPO" refs/heads/main 2>/dev/null |
-    cut -f1)"
-  if [ -z "$local_rev" ]; then
+#
+# The COMPARISON now comes from scripts/cluster-generation-parity.sh, shared with
+# the link watcher — which reads it on a timer so drift is found without anyone
+# running this command. Two copies of the comparison would be two answers; the
+# heal stays here because it is the supervised path (see that file's header for
+# why a launchd agent must not fire darwin-rebuild at itself).
+parity="$(generation_parity_fact)"
+parity_state="${parity#state=}"
+parity_state="${parity_state%% *}"
+local_rev="${parity#*local=}"
+local_rev="${local_rev%% *}"
+remote_rev="${parity##*deploy=}"
+case "$parity_state" in
+  disabled) ;;
+  unstamped)
     fail "system generation carries no configurationRevision (dirty or unstamped build) — darwin-rebuild switch from a committed revision before clustering"
-  elif [ -z "$remote_rev" ]; then
+    ;;
+  unverified)
     echo "cluster-join: WARN generation parity unverified (deploy branch unreachable)" >&2
-  elif [ "$local_rev" != "$remote_rev" ]; then
+    ;;
+  drift)
     echo "cluster-join: generation drift (local ${local_rev:0:12} != deploy ${remote_rev:0:12}); auto-healing from remote flake"
     sudo /run/current-system/sw/bin/darwin-rebuild switch \
       --flake "github:$CLUSTER_GENERATION_REPO/$remote_rev" ||
       fail "auto-heal rebuild from github:$CLUSTER_GENERATION_REPO/$remote_rev failed"
-    local_rev="$(/run/current-system/sw/bin/darwin-version --json 2>/dev/null |
-      jq -r '.configurationRevision // empty')"
-    [ "$local_rev" = "$remote_rev" ] ||
-      fail "still off deploy HEAD after auto-heal (local ${local_rev:0:12}) — investigate before clustering"
-    echo "cluster-join: generation parity restored (${local_rev:0:12})"
-  else
+    parity="$(generation_parity_fact)"
+    case "$parity" in
+      *'state=ok'*) ;;
+      *) fail "still off deploy HEAD after auto-heal ($parity) — investigate before clustering" ;;
+    esac
+    echo "cluster-join: generation parity restored (${remote_rev:0:12})"
+    ;;
+  ok)
     echo "cluster-join: generation parity OK (${local_rev:0:12} = deploy HEAD)"
-  fi
-fi
+    ;;
+  *)
+    fail "generation parity check returned an unrecognised state ($parity) — refusing to cluster on an answer nothing here knows how to read"
+    ;;
+esac
 
 # --- step 1: verify/repair link prep on THIS node --------------------------
 # Prep is healthy when the node's own static link IP is aliased on a physical
@@ -155,6 +171,23 @@ else
 Expected $CLUSTER_STATIC_SELF_IP aliased on a carrier-active Thunderbolt port outside bridge0."
   fi
   echo "cluster-join: link prep repaired ($CLUSTER_STATIC_SELF_IP on $(iface_holding_self_ip))"
+fi
+
+# --- step 1b: is there a prepared peer to rendezvous with? ------------------
+# Fails FAST and names the side, instead of spending the 600s block-until-serving
+# wait on a rank that cannot possibly connect and then surfacing jaccl's errno 60
+# (which says only "did not connect", never "and it was the other machine").
+# Rationale in scripts/cluster-join-preflight.sh.
+echo "cluster-join: probing the peer on the link (up to ${CLUSTER_PEER_READY_TIMEOUT_SECS:-120}s)"
+if peer_link_preflight; then
+  echo "cluster-join: peer $CLUSTER_STATIC_PEER_IP answers on the link"
+else
+  fail "peer unreachable at the rendezvous address $CLUSTER_STATIC_PEER_IP after \
+${CLUSTER_PEER_READY_TIMEOUT_SECS:-120}s — ITS link prep is UNVERIFIED. THIS side is prepared \
+($CLUSTER_STATIC_SELF_IP on $(iface_holding_self_ip), carrier active), so nothing here needs fixing. \
+On the peer, absence of a link address means link prep did not run and says NOTHING about the cable; \
+its watcher self-heals that within a tick or two, and cluster-join there repairs generation drift. \
+No rank was started, so no RDMA protection domain was spent."
 fi
 
 # --- step 2: pin the wired ceiling BEFORE anything loads (non-negotiable) ---

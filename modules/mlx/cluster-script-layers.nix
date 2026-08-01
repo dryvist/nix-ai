@@ -37,8 +37,12 @@
     ./scripts/cluster-pd-record.sh
     ./scripts/cluster-pd-settle.sh
     ./scripts/cluster-link-helpers.sh
+    ./scripts/cluster-serving-restore.sh
+    ./scripts/cluster-peer-probe.sh
     ./scripts/cluster-link-locate.sh
     ./scripts/cluster-link-repair.sh
+    ./scripts/cluster-generation-parity.sh
+    ./scripts/cluster-link-facts.sh
     ./scripts/cluster-rank-status.sh
     ./scripts/cluster-rank-reap.sh
     ./scripts/cluster-link-guards.sh
@@ -50,6 +54,8 @@
   peerLiveness = [
     ./scripts/cluster-boot-scope.sh
     ./scripts/cluster-link-helpers.sh
+    ./scripts/cluster-serving-restore.sh
+    ./scripts/cluster-peer-probe.sh
     ./scripts/cluster-peer-observe.sh
     ./scripts/cluster-peer-liveness.sh
   ];
@@ -71,17 +77,27 @@
     ./scripts/cluster-pd-settle.sh
     ./scripts/cluster-link-locate.sh
     ./scripts/cluster-link-repair.sh
+    ./scripts/cluster-generation-parity.sh
+    ./scripts/cluster-peer-probe.sh
+    ./scripts/cluster-join-preflight.sh
     ./scripts/cluster-rank-status.sh
     ./scripts/cluster-join.sh
   ];
 
   # cluster-detach: the one command allowed to escalate to SIGKILL, so it gets
   # the graceful reap it must try first AND the write side it must pay with.
+  #
+  # It also gets ./scripts/cluster-serving-restore.sh, and that is a correctness
+  # fix rather than tidying: detach used to carry a coordinator-only copy of half
+  # the restore and no worker path at all, so on a worker it reported "teardown
+  # verified" and exit 0 over a host that was serving nothing (2026-08-01, 86h).
+  # Every path that claims to restore serving now runs the same function.
   detach = [
     ./scripts/cluster-boot-scope.sh
     ./scripts/cluster-pd-ledger.sh
     ./scripts/cluster-pd-record.sh
     ./scripts/cluster-link-locate.sh
+    ./scripts/cluster-serving-restore.sh
     ./scripts/cluster-rank-status.sh
     ./scripts/cluster-rank-reap.sh
     ./scripts/cluster-detach.sh

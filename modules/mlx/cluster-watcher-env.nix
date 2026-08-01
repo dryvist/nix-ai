@@ -36,6 +36,17 @@ let
       ticks = (ncfg.linkDownSettleSecs + ncfg.tickIntervalSecs - 1) / ncfg.tickIntervalSecs;
     in
     if ticks < 1 then 1 else ticks;
+
+  # How often the still-down report repeats, in the unit the watcher counts in.
+  # Same derivation rule as downStrikes: the operator configures seconds, the
+  # script counts ticks, and neither number exists twice. This was a bare `:-20`
+  # default inside the script with nothing setting it — so the cadence could not
+  # be tuned and, on a node running an older generation, was not applied at all.
+  downReportEveryTicks =
+    let
+      ticks = (ncfg.downReportEverySecs + ncfg.tickIntervalSecs - 1) / ncfg.tickIntervalSecs;
+    in
+    if ticks < 1 then 1 else ticks;
 in
 {
   CLUSTER_ROLE = ncfg.role;
@@ -58,6 +69,22 @@ in
   CLUSTER_LINK_REPAIR = if ncfg.linkRepair then "1" else "0";
   CLUSTER_LINK_ACTIVATE_TIMEOUT_SECS = toString ncfg.linkRepairActivateTimeoutSecs;
   CLUSTER_LINK_DOWN_STRIKES = toString downStrikes;
+  CLUSTER_DOWN_REPORT_EVERY = toString downReportEveryTicks;
+  # --- self-heal and drift detection, the 2026-08-01 pair ---------------------
+  # The watcher probes the peer; until now it never checked its OWN link prep, so
+  # a host with carrier and no link address probed, failed and logged forever —
+  # 86 hours, 10,440 identical lines, with the fix (the same repair the up-path
+  # already ran) one function call away. This bounds how many consecutive repair
+  # attempts it makes before it stops trying and only reports; the counter resets
+  # the instant prep is healthy.
+  CLUSTER_LINK_PREP_MAX_REPAIRS = toString ncfg.linkPrepMaxRepairs;
+  # Generation parity on the timer. The only parity check in the system used to
+  # live in cluster-join, which a human has to run — so the drift that disarmed
+  # link prep went unnoticed indefinitely. Same repo the join preflight uses (one
+  # definition); the TTL keeps this to one `git ls-remote` per interval rather
+  # than one per tick.
+  CLUSTER_GENERATION_REPO = ncfg.generationRepo;
+  CLUSTER_GENERATION_CHECK_SECS = toString ncfg.generationCheckSecs;
   # Shared wall-clock start boundary for BOTH ranks. Derived from the tick so the
   # two cannot drift, and a multiple (never equal) so ticks either side of a
   # boundary still map to the same one. See cluster-link-guards.sh.

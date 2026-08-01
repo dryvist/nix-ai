@@ -1,5 +1,12 @@
 # Cluster lifecycle: `cluster-join` / `cluster-detach`
 
+> **Diagnosing a link that will not come up? Read
+> [cluster-link-truths.md](cluster-link-truths.md) FIRST.** It is the one
+> authoritative page for what the observable states actually mean — `RUNNING` is
+> not carrier, a missing link address says nothing about the cable, an empty
+> Thunderbolt Bridge is correct, and a `/v1/models` 200 is not health. Most of
+> what it lists the system now repairs on its own.
+
 Two `pkgs.writeShellApplication` commands (shipped on PATH on both nodes when
 `programs.mlx.clusterMode.enable = true`) that make two-Mac JACCL cluster
 bring-up and safe-unplug a single, verifiable step each. They are supervised

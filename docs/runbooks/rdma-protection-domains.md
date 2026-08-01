@@ -1,5 +1,12 @@
 # RDMA protection domains: the ledger, the cap, and the reboot
 
+> **Diagnosing a link that will not come up? Read
+> [cluster-link-truths.md](cluster-link-truths.md) FIRST.** It is the one
+> authoritative page for what the observable states actually mean — `RUNNING` is
+> not carrier, a missing link address says nothing about the cable, an empty
+> Thunderbolt Bridge is correct, and a `/v1/models` 200 is not health. Most of
+> what it lists the system now repairs on its own.
+
 A JACCL rank allocates a kernel **RDMA protection domain**. Nothing but a reboot
 returns one. A host that loses enough of them stops being able to form a cluster
 at all, and the symptom is late and unhelpful:

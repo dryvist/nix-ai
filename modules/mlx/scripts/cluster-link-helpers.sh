@@ -6,6 +6,12 @@
 # bodies read is resolved at call time. Every function here is idempotent and
 # safe to re-run, which is what lets the watcher retry an incomplete teardown
 # instead of consuming the link-state edge on a swallowed error.
+#
+# Two functions LEFT this file, both because a consumer needed one of them
+# without the rest (shellcheck SC2329 makes "ship the whole library" a build
+# failure, which is what keeps these layers matched to real call graphs):
+#   peer_reachable         -> ./cluster-peer-probe.sh      (+ cluster-join)
+#   restore_normal_serving -> ./cluster-serving-restore.sh (+ cluster-detach)
 
 # Page once via Slack incoming webhook, only if the untracked url file exists.
 # Slack needs application/json {"text": ...} — a raw ntfy-style body is rejected
@@ -160,24 +166,6 @@ halt_write() {
   printf '%s\n' "$cause" > "$latch_file"
 }
 
-# Is the peer host answering on the cluster link at all?
-#
-# Lives here, not in cluster-peer-observe.sh, because BOTH the peer-liveness
-# supervisor and the link watcher need it and one definition beats two that can
-# drift — the same reason peer_rendezvous_session moved here. The watcher layer
-# cannot simply take cluster-peer-observe.sh instead: writeShellApplication lints
-# at default severity, so the observer's other functions would ship uncalled and
-# fail the build as SC2329.
-#
-# Deliberately a HOST liveness probe, never a "is rank 0 listening" probe. The
-# latter was removed on 2026-07-25 because waiting on the peer's PROCESS forced
-# the two ranks into a sequence jaccl's ~15s connect budget cannot absorb. Host
-# reachability carries none of that hazard: it does not order the ranks, it only
-# establishes that there is a peer to rendezvous WITH.
-peer_reachable() {
-  "${CLUSTER_PING_BIN:-/sbin/ping}" -c 3 -t 2 -q "${CLUSTER_STATIC_PEER_IP}" > /dev/null 2>&1
-}
-
 # Idempotent wired-ceiling write through the exact-value sudoers grant.
 # No-op when unset or already at the target; returns nonzero on failure.
 set_wired_limit() {
@@ -201,38 +189,5 @@ quiesce_normal_serving() {
     curl -fsS -m 60 -X POST "$CLUSTER_NORMAL_PROXY/api/models/unload" || true
   elif [ -n "${CLUSTER_QUIESCE_CMD:-}" ]; then
     sh -c "$CLUSTER_QUIESCE_CMD" || true
-  fi
-}
-
-# Bring normal serving back. Returns nonzero if it could not, so the caller can
-# decline to consume the link-state edge and retry on the next tick.
-restore_normal_serving() {
-  local uid
-  uid="$(id -u)"
-  if [ "$CLUSTER_ROLE" = "coordinator" ]; then
-    # INC-17071: the warmup one-shot re-warms the preload list by POSTing to
-    # llama-swap over loopback, so if the server agent is not loaded the
-    # kickstart hits nothing and no-ops SILENTLY -- serving never comes back.
-    # cluster-join boots that agent out, so any session that used it left the
-    # unattended cable-yank path unable to restore. Bootstrap it first, the
-    # same way cluster-detach does, so both paths converge.
-    if [ -n "${CLUSTER_SERVER_LABEL:-}" ] &&
-      ! launchctl print "gui/$uid/$CLUSTER_SERVER_LABEL" > /dev/null 2>&1; then
-      if [ ! -f "${CLUSTER_SERVER_PLIST:-}" ]; then
-        echo "cluster-link: WARN $CLUSTER_SERVER_LABEL not loaded and no plist to bootstrap" >&2
-        return 1
-      fi
-      echo "cluster-link: standalone server agent not loaded; bootstrapping"
-      if ! launchctl bootstrap "gui/$uid" "$CLUSTER_SERVER_PLIST" > /dev/null 2>&1; then
-        echo "cluster-link: WARN failed to bootstrap $CLUSTER_SERVER_LABEL" >&2
-        return 1
-      fi
-    fi
-    # Re-warm the declared preload list through the existing warmup one-shot.
-    launchctl kickstart -k "gui/$uid/$CLUSTER_WARMUP_LABEL" || true
-  elif [ -n "${CLUSTER_RESTORE_CMD:-}" ]; then
-    # cluster-restore keeps the labels it could not bootstrap and exits nonzero
-    # precisely so a later tick retries them; propagate that.
-    sh -c "$CLUSTER_RESTORE_CMD" || return 1
   fi
 }

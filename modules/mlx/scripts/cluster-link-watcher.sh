@@ -70,6 +70,18 @@ peer_session_strikes_file="$state_dir/peer-session-strikes"
 # only to make a permanently-failing probe audible on a cadence — see the
 # else-branch of the probe below.
 down_quiet_file="$state_dir/link-down-quiet-ticks"
+# Last DOWN facts line actually logged, so a state CHANGE is reported the tick it
+# happens instead of waiting out the quiet cadence. 10,440 identical lines is not
+# reporting; it is the thing that hides the one line that mattered.
+facts_file="$state_dir/link-facts-last"
+# Consecutive failed link-prep self-heal attempts. Reset the moment prep is
+# healthy, so a repair that works costs one attempt and one that cannot work
+# stops instead of thrashing bridge0 membership every 30s for days.
+link_prep_repairs_file="$state_dir/link-prep-repairs"
+# Generation-parity cache (`<epoch> <fact>`), TTL CLUSTER_GENERATION_CHECK_SECS,
+# and the marker that keeps a drift page to one per distinct drift.
+gen_parity_file="$state_dir/generation-parity"
+gen_alerted_file="$state_dir/generation-alerted"
 # Sticky companion to halt_file: survives a manual `rm` of the marker so the
 # next tick can re-verify the cause before the first retry (see
 # halt_clear_accepted). Cleared only by a real link cycle or an accepted clear.
@@ -108,7 +120,7 @@ pd_debt_file="${CLUSTER_PD_DEBT_FILE:-}"
 #      ~1 extra tick while a multi-second transient is absorbed.
 if /sbin/ping -c 3 -t 2 -q "$CLUSTER_STATIC_PEER_IP" > /dev/null 2>&1; then
   cur="up"
-  rm -f "$down_strikes_file" "$down_quiet_file"
+  rm -f "$down_strikes_file" "$down_quiet_file" "$facts_file"
 elif [ "$prev" = "up" ]; then
   strikes=0
   [ -f "$down_strikes_file" ] && strikes="$(cat "$down_strikes_file")"
@@ -131,28 +143,51 @@ else
   # minutes on 2026-07-25: the agent ticked 115 times, exited 0 every time,
   # wrote nothing to stdout OR stderr, and `launchctl print` reported
   # `runs = 115, last exit code = 0`. Every health signal read green while the
-  # cluster could not form. A watchdog whose own failure mode is indistinguishable
-  # from "nothing to do" is the certify-by-proxy trap this repo keeps finding.
+  # cluster could not form.
   #
-  # An unplugged cable is a legitimate, possibly days-long down — so this must
-  # not spam. Report on a cadence instead: once when down is first confirmed,
-  # then every CLUSTER_DOWN_REPORT_EVERY ticks (default 20 ≈ 10 min at the 30s
-  # interval). The message names the two causes that look identical from here,
-  # because the second one is invisible without it: on macOS a DENIED Local
-  # Network permission makes the probe fail with "No route to host" even though
-  # the cable is in, the address is assigned and the route and ARP entry are
-  # both valid (jevans-ms, 2026-07-25 — shell pinged 75/75 while the agent
-  # failed 5/5).
+  # It then went the other way, and that was worse. The replacement logged a
+  # two-item GUESS — "cable out, OR ... denied macOS Local Network permission" —
+  # 10,440 times across 86 hours on 2026-08-01, while the truth was neither: the
+  # cable was seated, a Thunderbolt port had carrier throughout, and this host
+  # simply held no link address because it had drifted off the deployed
+  # generation and the activation that aliases the address never ran. Any
+  # enumerated cause list is non-exhaustive; offering two makes a reader pick one
+  # and diagnose the wrong machine.
+  #
+  # So: REPAIR FIRST, then report MEASURED STATE. link_prep_self_heal fixes
+  # exactly the condition that caused the outage — carrier present, address
+  # absent — with the same repair the up-path already used, bounded so it cannot
+  # thrash. link_facts then renders per-port carrier, where the self address
+  # actually is, whether prep is usable, whether the peer answered and whether
+  # this node is running the deployed generation, with no inference beyond one
+  # definitional statement. Reported when the facts CHANGE (so a state change is
+  # never buried under a quiet window) and otherwise on the existing cadence.
   cur="down"
   downs=0
   [ -f "$down_quiet_file" ] && downs="$(cat "$down_quiet_file")"
   downs=$((downs + 1))
   printf '%s\n' "$downs" > "$down_quiet_file"
-  if [ "$downs" -eq 1 ] \
+  link_prep_self_heal "$link_prep_repairs_file" || true
+  facts="$(link_facts no "$gen_parity_file")"
+  last_facts=""
+  [ -f "$facts_file" ] && last_facts="$(cat "$facts_file")"
+  if [ "$facts" != "$last_facts" ] \
     || [ "$((downs % ${CLUSTER_DOWN_REPORT_EVERY:-20}))" -eq 0 ]; then
-    echo "cluster-link: probe to $CLUSTER_STATIC_PEER_IP has failed $downs consecutive tick(s) while down — cable out, OR this host cannot reach the peer subnet at all (check: ping works from a shell but not from this agent = denied macOS Local Network permission). The cluster cannot form until this clears."
+    printf '%s\n' "$facts" > "$facts_file"
+    echo "cluster-link: DOWN $downs consecutive tick(s) — $facts"
   fi
 fi
+
+# GENERATION PARITY, ON THE TIMER, IN EVERY LINK STATE. Until 2026-08-01 the only
+# parity check in the system lived in cluster-join, which is human-initiated —
+# so a node that drifted stayed drifted, its activation-managed link address was
+# never applied, and nothing anywhere noticed for 86 hours. Reading it here puts
+# the check on a clock instead of on someone remembering. It matters with the
+# link UP as well: mixed generations mean mismatched mlx/JACCL stacks on the two
+# ranks, the untestable config-parity variable behind the INC-17070 deadlock
+# family. Cached with a TTL, so this costs one `git ls-remote` an hour, not one
+# per tick, and pages at most once per distinct drift.
+generation_drift_report "$(generation_parity_cached "$gen_parity_file")" "$gen_alerted_file"
 
 if [ "$cur" = "up" ]; then
   if [ "$prev" = "down" ]; then
