@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.0.4](https://github.com/dryvist/nix-ai/compare/v4.0.3...v4.0.4) (2026-08-01)
+
+
+### Bug Fixes
+
+* **codex:** forward MCP launch environment ([#1473](https://github.com/dryvist/nix-ai/issues/1473)) ([9c5e9af](https://github.com/dryvist/nix-ai/commit/9c5e9afc2c8077c7f5ee84f04366768d8ad5b818))
+
 ## [4.0.3](https://github.com/dryvist/nix-ai/compare/v4.0.2...v4.0.3) (2026-07-30)
 
 
