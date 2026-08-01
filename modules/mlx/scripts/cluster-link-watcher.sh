@@ -29,6 +29,10 @@
 #   CLUSTER_QUIESCE_CMD     optional worker-side quiesce hook (run via sh -c)
 #   CLUSTER_RESTORE_CMD     optional worker-side restore hook (run via sh -c)
 #   CLUSTER_MAX_KICKSTARTS  consecutive failed rank starts before halting
+#   CLUSTER_PD_AUTO_REBOOT_WINDOW_SECS  minimum seconds between unattended
+#                         reboots issued to clear a PD-exhaustion halt (0
+#                         disables auto-reboot; see cluster-link-guards.sh
+#                         pd_auto_reboot_if_warranted)
 #   CLUSTER_LINK_DOWN_STRIKES  consecutive failed link probes before the link
 #                         is declared down (default 2). Debounce only applies
 #                         to down; up is believed on the first reply.
@@ -49,6 +53,12 @@
 #                         so the wedge detector can run more than once per link
 #                         session instead of being disabled by the first
 #                         successful warm (default 1800; 0 disables re-checks)
+#   CLUSTER_SHARD_MEMORY_MB  expected per-rank working set in MB; 0 disables
+#                         the memory-headroom rung with no vm_stat read at all
+#                         (see mem_headroom_ok in cluster-link-guards.sh)
+#   CLUSTER_MEM_HEADROOM_DWELL_TICKS  consecutive refused ticks before the
+#                         memory rung escalates to a HALT that
+#                         pd_auto_reboot_if_warranted can act on
 
 mkdir -p "$(dirname "$CLUSTER_STATE_FILE")"
 prev="down"
@@ -81,6 +91,17 @@ halt_latch_file="$state_dir/rank-halt-latched"
 # in the marker list either: a link cycle, a manual clear and cluster-join all
 # reset the halt state, and none of them returns a protection domain.
 pd_debt_file="${CLUSTER_PD_DEBT_FILE:-}"
+# Wall-clock rate-limit marker for the PD-exhaustion auto-reboot (see
+# pd_auto_reboot_if_warranted in cluster-link-guards.sh). Lives in state_dir
+# like every OTHER marker here — unlike pd_debt_file, this one is watcher-only
+# (cluster-join and cluster-detach never read or write it), so it does not need
+# the module-derived single-definition treatment the ledger path gets.
+pd_auto_reboot_marker_file="$state_dir/pd-auto-reboot-last"
+# Consecutive ticks the memory-headroom rung has refused a start. Session-
+# scoped like the other strike counters above (down_strikes_file, peer_
+# session_strikes_file) — a shortfall is not a leaked kernel resource, so a
+# link cycle resetting it is correct rather than laundering anything.
+mem_dwell_file="$state_dir/mem-headroom-refused"
 
 # Link probe, debounced ASYMMETRICALLY — a false "down" is destructive, a false
 # "up" is not. Declaring down tears the rank down, restores standalone serving,
@@ -204,6 +225,32 @@ if [ "$cur" = "up" ]; then
       pd_debt_settle_counter "$pd_debt_file" "$kicks_file" 1 "rank-settled" \
         "attempts that failed before the rank that settled"
       rm -f "$halt_file" "$halt_latch_file"
+    fi
+    # RUNTIME WIRED CEILING. Every rung in rank_start_preconditions_ok is a
+    # START precondition, so all of them had already run AND PASSED when this
+    # host hard-reset on 2026-08-01: the rank was legal at start, and wired
+    # climbed to 96.7 GiB afterwards, until WindowServer's Metal allocation
+    # blocked in the GPU driver (IOGPUFamily/AGXG16X) for 80s and the hardware
+    # watchdog reset the machine. Nothing watched a rank once it was up.
+    #
+    # REAP, DO NOT HALT. A halt would be wrong twice over: the breach may be
+    # this rank's own live memory, which its exit returns, and a halt would
+    # strand the host without the standalone serving restored just below. The
+    # persistent case needs no new escalation path — wired that does NOT come
+    # back is the unreclaimed-Metal signature, which mem_headroom_ok refuses at
+    # the next start, memHeadroomHaltSecs escalates to a halt, and
+    # pd_auto_reboot_if_warranted acts on. This rung only has to stop the climb
+    # before the compositor starves.
+    if ! wired_detail="$(rank_wired_ceiling_ok "${CLUSTER_WIRED_CEILING_MB:-0}")"; then
+      echo "cluster-link: $wired_detail" >&2
+      launchctl kill SIGTERM "gui/$uid/$CLUSTER_RANK_LABEL" 2> /dev/null || true
+      rm -f "$started_file" "$ready_file" "$warm_file"
+      if [ -n "${CLUSTER_WIRED_LIMIT_MB:-}" ]; then
+        set_wired_limit "${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}" || true
+      fi
+      restore_normal_serving || true
+      alert "$(hostname -s): $wired_detail" \
+        "mlx-cluster rank reaped (wired ceiling)"
     fi
     # PAIR-WIDE STANDDOWN. A jaccl group cannot re-admit a rank, so a rank whose
     # peer has gone can never generate again — yet nothing here noticed. Measured
@@ -349,14 +396,25 @@ if [ "$cur" = "up" ]; then
     fi
   elif halt_drop_if_pre_boot "$halt_file" "$halt_latch_file" "$kicks_file" &&
     pd_debt_halt_if_exhausted "$halt_file" "$halt_latch_file" "$pd_debt_file" &&
+    mem_headroom_halt_if_persistent "$halt_file" "$halt_latch_file" "$mem_dwell_file" &&
     [ -f "$halt_file" ]; then
     # Halted — no more PD-burning retries until the link cycles.
     #
     # Order matters and is the point: halt_drop_if_pre_boot first, so a reboot
     # really does clear a stale verdict, then the ledger re-halts if THIS boot
-    # has already lost domains. Both are boot-scoped off the same field, so a
-    # reboot lifts both and nothing else does.
-    :
+    # has already lost domains, and the memory rung re-halts if a shortfall is
+    # still persisting. All three run every tick and always return 0, so
+    # `[ -f "$halt_file" ]` is the actual gate.
+    #
+    # ...and a reboot is exactly what this next line can now issue itself: a
+    # PD-exhaustion halt (pd-debt-exhausted or rank-start-failures) or a
+    # persistent memory shortfall (insufficient-memory-persistent) is a
+    # verdict whose own doctrine is "only a reboot clears this", so waiting on
+    # a human to notice the alert is a manual interlock, not a design choice.
+    # No-ops for every other halt cause, is its own rate limiter, and refuses
+    # outright on a FileVault host with no credential to answer an unattended
+    # authenticated restart — see pd_auto_reboot_if_warranted for all three.
+    pd_auto_reboot_if_warranted "$halt_file" "$pd_auto_reboot_marker_file" "$cur"
   elif [ -f "$halt_latch_file" ] &&
     ! halt_clear_accepted "$halt_file" "$halt_latch_file" "$kicks_file"; then
     : # cleared by hand while the cause persists — re-halted, logged, no retry
@@ -443,7 +501,7 @@ elif [ "$prev" = "up" ]; then
   pd_debt_settle_counter "$pd_debt_file" "$kicks_file" 0 "link-cycle" \
     "attempts outstanding when the link went down and reset the session"
   rm -f "$halt_file" "$halt_latch_file" "$started_file" "$ready_file" \
-    "$warm_file" "$warm_fails_file"
+    "$warm_file" "$warm_fails_file" "$mem_dwell_file"
   launchctl kill SIGTERM "gui/$uid/$CLUSTER_RANK_LABEL" 2> /dev/null || true
   if [ -n "${CLUSTER_WIRED_LIMIT_MB:-}" ]; then
     set_wired_limit "${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}" || down_failed=1

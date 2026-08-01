@@ -99,6 +99,29 @@ in
     GUARDS = "${src}/modules/mlx/scripts/cluster-link-guards.sh";
   } "bash ${src}/tests/test-pd-counter-settle.sh && touch $out";
 
+  # THE CHECK THAT FAILS IF A PD-EXHAUSTION HALT CAN SIT WAITING FOR A HUMAN
+  # AGAIN. On 2026-08-01 a host reached the kickstart cap, halted correctly,
+  # paged correctly, and then sat for hours with the cable plugged in — nothing
+  # issued the reboot the halt's own alert text says is required. Asserts the
+  # fix against the shipped function: only the two PD-exhaustion causes reboot,
+  # never while the link is down, the rate-limit marker survives across calls
+  # (it must survive the reboot it is limiting), and a FileVault host refuses —
+  # pages instead — rather than stranding itself at the pre-boot unlock screen
+  # with no SSH.
+  mlx-cluster-pd-auto-reboot = pkgs.runCommand "check-mlx-cluster-pd-auto-reboot" {
+    nativeBuildInputs = [
+      pkgs.coreutils
+      pkgs.gnugrep
+      pkgs.gnused
+      pkgs.gawk
+      pkgs.jq
+    ];
+    BOOT_SCOPE = "${src}/modules/mlx/scripts/cluster-boot-scope.sh";
+    LEDGER = "${src}/modules/mlx/scripts/cluster-pd-ledger.sh";
+    HELPERS = "${src}/modules/mlx/scripts/cluster-link-helpers.sh";
+    GUARDS = "${src}/modules/mlx/scripts/cluster-link-guards.sh";
+  } "bash ${src}/tests/test-pd-auto-reboot.sh && touch $out";
+
   # Boot scoping of the halt marker, split out of the rank-guards test at the 12KB
   # file cap. Unit-tests the halt helpers directly: a halt from a previous boot is
   # dropped (else a cold boot can never form the cluster), a halt from THIS boot

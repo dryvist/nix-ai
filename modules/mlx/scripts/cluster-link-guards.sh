@@ -32,6 +32,19 @@
 #                                  host holds no link address
 #   CLUSTER_LINK_ACTIVATE_TIMEOUT_SECS  bound on the activation repair fallback
 #   CLUSTER_WIRED_LIMIT_MB           optional cluster wired ceiling
+#   CLUSTER_PD_AUTO_REBOOT_WINDOW_SECS  minimum seconds between unattended
+#                                  reboots issued to clear a PD-exhaustion halt
+#                                  (0 disables auto-reboot)
+#   CLUSTER_PD_DEBT_FILE / CLUSTER_PD_DEBT_MAX / CLUSTER_PD_DEVICE_BUDGET
+#                                  read by pd_auto_reboot_if_warranted to phrase
+#                                  its alert; see cluster-pd-ledger.sh
+#   CLUSTER_SHARD_MEMORY_MB          expected per-rank working set in MB; 0
+#                                  disables the memory-headroom rung with no
+#                                  vm_stat read at all
+#   CLUSTER_MEM_HEADROOM_DWELL_TICKS  consecutive refused ticks before the
+#                                  memory rung escalates from a per-tick skip
+#                                  to a HALT (see mem_headroom_halt_if_persistent)
+#   CLUSTER_VMSTAT_BIN               vm_stat path/seam for the memory rung
 
 # Unattended repair for a host that came up WITHOUT its link address.
 #
@@ -75,6 +88,123 @@ repair_link_prep() {
 # far outside jaccl's fixed ~15s connect budget, so the coordinator has always
 # exited by the time the worker dials. Ranks are now aligned to a shared start
 # boundary instead of ordered — see rung 2 below.
+
+# Free-ish and wired memory this host currently holds, in MB, from ONE vm_stat
+# read: prints "<free_mb> <wired_mb>" on stdout, nothing and nonzero on any
+# parse failure.
+#
+# Free-ish = free pages plus what the kernel can reclaim without paging
+# anything out (inactive + speculative) — NEVER wired down. WHY FREE, NOT
+# WIRED, DECIDES WHETHER A SHARD FITS: MLX holds a loaded shard's weights in
+# ordinary resident memory, not wired. Measured 2026-08-01: a ~49 GiB shard
+# served real tokens while `Pages wired down` read only ~3.5 GiB. So a low
+# wired figure says nothing about what is loaded, and a high one is the
+# unreclaimed-Metal LEAK signature (see mem_headroom_ok below), never a fit
+# signal. `--list-devices`'s own free-memory report is per-process fiction
+# too — it claimed 102399 MiB free on a host actually holding 68 GiB wired —
+# so this reads vm_stat directly rather than trusting either of MLX's numbers.
+#
+# Page size is READ from vm_stat's own header line, never assumed: a
+# hardcoded 16384 silently breaks the day Apple changes it, or on hardware
+# with a different page size.
+#
+# CLUSTER_VMSTAT_BIN is a test seam, like CLUSTER_NETSTAT_BIN /
+# CLUSTER_PGREP_BIN / CLUSTER_KILL_BIN — vm_stat is not on a
+# writeShellApplication PATH.
+mem_stat_mb() {
+  local out page_size free inactive speculative wired v
+  out="$("${CLUSTER_VMSTAT_BIN:-/usr/bin/vm_stat}" 2> /dev/null)" || return 1
+  page_size="$(printf '%s\n' "$out" | sed -n 's/.*page size of \([0-9][0-9]*\) bytes.*/\1/p')"
+  # $(NF-1), not a fixed column: "Pages wired down" is three words where every
+  # other counter here is two, so a fixed $3 silently reads "down" instead of
+  # the count on that one line alone. The trailing "." on every vm_stat count
+  # splits off an empty final field, which is what makes NF-1 the count on
+  # every line regardless of how many words the label has.
+  free="$(printf '%s\n' "$out" | awk -F'[ :.]+' '/^Pages free/ {print $(NF - 1)}')"
+  inactive="$(printf '%s\n' "$out" | awk -F'[ :.]+' '/^Pages inactive/ {print $(NF - 1)}')"
+  speculative="$(printf '%s\n' "$out" | awk -F'[ :.]+' '/^Pages speculative/ {print $(NF - 1)}')"
+  wired="$(printf '%s\n' "$out" | awk -F'[ :.]+' '/^Pages wired down/ {print $(NF - 1)}')"
+  # Field-by-field, not concatenated: a concatenated check can pass with one
+  # field silently empty as long as the others are still all-digits.
+  for v in "$page_size" "$free" "$inactive" "$speculative" "$wired"; do
+    case "$v" in
+      '' | *[!0-9]*) return 1 ;;
+    esac
+  done
+  printf '%s %s\n' \
+    $(((free + inactive + speculative) * page_size / 1048576)) \
+    $((wired * page_size / 1048576))
+}
+
+# Precondition wrapper over mem_stat_mb. $1 = required shard size in MB.
+# 0/unset disables the rung cleanly — no vm_stat read at all, same "0 = off"
+# convention as CLUSTER_WARM_RECHECK_SECS and CLUSTER_PD_AUTO_REBOOT_WINDOW_SECS.
+# Sets MEM_HEADROOM_DETAIL on refusal (and on an unreadable probe), for the
+# caller's log line.
+mem_headroom_ok() {
+  local required="$1" stat_out free wired
+  case "$required" in
+    '' | *[!0-9]*) return 0 ;;
+  esac
+  [ "$required" -gt 0 ] || return 0
+  if ! stat_out="$(mem_stat_mb)"; then
+    MEM_HEADROOM_DETAIL="could not read vm_stat; refusing to guess whether the shard fits"
+    return 1
+  fi
+  read -r free wired <<< "$stat_out"
+  [ "$free" -ge "$required" ] && return 0
+  MEM_HEADROOM_DETAIL="${free}MB free (+reclaimable) against ${required}MB required for the shard"
+  if [ "$wired" -ge "$required" ]; then
+    # By the time this rung runs, rung 0b (rank_reap_verified) has already
+    # proven no rank process survives — so wired this high with nothing left
+    # to hold it is the unreclaimed-Metal signature from a prior crashed rank,
+    # not a live session. Log-only: this never gates the verdict, it only
+    # tells the operator a reboot is the remedy.
+    MEM_HEADROOM_DETAIL="$MEM_HEADROOM_DETAIL (${wired}MB is wired with no surviving rank process — the unreclaimed-Metal signature; only a reboot returns it)"
+  fi
+  return 1
+}
+
+# Runtime companion to mem_headroom_ok, and the only guard in this file that
+# judges a rank ALREADY RUNNING. $1 = ceiling in MB; 0/unset disables it with no
+# vm_stat read, same convention as the rung above. Nonzero return = wired has
+# crossed the ceiling and the rank must be reaped before the compositor starves.
+#
+# WHY A RUNNING RANK NEEDS WATCHING AT ALL. Every other rung here is a start
+# precondition, so all of them had already run — and passed — when this host
+# hard-reset on 2026-08-01. A rank started legally, wired climbed to 96.7 GiB
+# against a 100 GiB iogpu.wired_limit_mb, WindowServer's Metal allocation
+# blocked in IOGPUFamily/AGXG16X for 80s, and the hardware watchdog reset the
+# machine. Guards that only run before a start cannot see that develop.
+#
+# WHY THIS FAILS OPEN WHERE mem_headroom_ok FAILS CLOSED. An unreadable probe
+# makes that rung refuse to START, which costs nothing, since nothing was
+# running. The same refusal here would REAP a rank that may be serving
+# perfectly, so an unreadable probe must never be grounds to tear one down —
+# the reasoning the watcher already applies to a stale process pattern, where a
+# wrong pattern is deliberately inert rather than allowed to kill a healthy
+# rank. A missed tick costs one interval; a wrong teardown costs a live
+# generation plus a fresh distributed init, which leaks a protection domain
+# whenever it races.
+#
+# On breach, PRINTS the detail on stdout and returns 1; prints nothing and
+# returns 0 otherwise. A returned string rather than a MEM_HEADROOM_DETAIL-style
+# global on purpose: the only consumer is in cluster-link-watcher.sh, a separate
+# file concatenated with this one at build, so a global here is written in one
+# file and read in another — invisible to shellcheck, which flags it unused
+# (SC2034) and is right to. Capturing the string keeps the contract local.
+rank_wired_ceiling_ok() {
+  local ceiling="$1" stat_out free wired
+  case "$ceiling" in
+    '' | *[!0-9]*) return 0 ;;
+  esac
+  [ "$ceiling" -gt 0 ] || return 0
+  stat_out="$(mem_stat_mb)" || return 0
+  read -r free wired <<< "$stat_out"
+  [ "$wired" -lt "$ceiling" ] && return 0
+  printf '%s' "${wired}MB wired against a ${ceiling}MB runtime ceiling (${free}MB free); reaping the rank before the compositor's next Metal allocation blocks in the GPU driver and the hardware watchdog resets the host"
+  return 1
+}
 
 # Everything that must hold before a rank start is allowed to CONSUME a start
 # attempt. Nonzero return = do not start, do not count it.
@@ -166,6 +296,28 @@ rank_start_preconditions_ok() {
   if ! peer_reachable; then
     PRECONDITION_REASON="peer-unreachable"
     echo "cluster-link: peer $CLUSTER_STATIC_PEER_IP is not answering on the link; NOT starting the rank — a rendezvous with an absent peer leaks a protection domain for a certain failure (no attempt consumed)" >&2
+    return 1
+  fi
+  # 1c. THIS HOST MUST HAVE ROOM TO LOAD THE SHARD. A rank started anyway still
+  #    reaches mx.distributed.init(), still allocates a protection domain, and
+  #    then MLX dies loading weights into ordinary resident memory —
+  #    `[METAL] Command buffer execution failed: Insufficient Memory` — so the
+  #    domain is gone just the same as an errno-60 timeout. Measured
+  #    2026-08-01: a rank started while ~72 GiB of unreclaimed wired Metal
+  #    memory sat on the host from previously-crashed rank processes, leaving
+  #    only ~25 GiB free against a ~49 GiB shard; that failed init leaked a
+  #    domain, four retries failed differently and leaked four more, and the
+  #    guard's cap halted the host. It happened on BOTH Macs the same
+  #    afternoon. mem_headroom_ok is 0 (disabled) unless shardMemoryMb is set.
+  #
+  #    Same "no wait wasted" reasoning as the rung above: this runs BEFORE the
+  #    alignment hold, because a shard that will not fit should cost neither a
+  #    wait nor an attempt.
+  #
+  #    Nothing is launched, so nothing leaks, so no attempt is consumed.
+  if ! mem_headroom_ok "${CLUSTER_SHARD_MEMORY_MB:-0}"; then
+    PRECONDITION_REASON="insufficient-memory"
+    echo "cluster-link: $MEM_HEADROOM_DETAIL; NOT starting the rank (no attempt consumed)" >&2
     return 1
   fi
   # 2. BOTH ROLES: hold until the next shared wall-clock start boundary, so the
@@ -264,6 +416,193 @@ pd_debt_halt_if_exhausted() {
   alert "$(hostname -s): $(pd_debt_phrase "$debt" "$max"). Rank starts are halted at the cap, which RESERVES the rest of the device budget for a session that can actually succeed — not at exhaustion, and not after errno 96. Reboot this host to return the domains — clearing the marker will not, and the guard re-halts on the ledger's own evidence." \
     "mlx-cluster PD debt at cap"
   return 0
+}
+
+# HALT AT PERSISTENT MEMORY SHORTFALL, NOT AT A SINGLE REFUSED TICK.
+#
+# mem_headroom_ok's rung above is a per-tick skip: free, silent, retried next
+# tick — correct for a shortfall that clears on its own (another process
+# finishing, a warm cache draining). But the 2026-08-01 shortfall was
+# unreclaimed wired Metal memory, which is boot-scoped and does NOT clear on
+# its own. Left as a bare skip, that shape is invisible: the watcher ticks
+# green forever, refusing every start, and the host never clusters even with
+# the cable plugged in the whole time — the "plugged in but not clustered"
+# state the operator's chaos-monkey doctrine rules out.
+#
+# So a shortfall that holds for CLUSTER_MEM_HEADROOM_DWELL_TICKS consecutive
+# ticks escalates from a skip to a HALT, putting it in front of
+# pd_auto_reboot_if_warranted exactly as pd-debt-exhausted and
+# rank-start-failures already are — see that function's cause gate below. A
+# halt here is not a promise the reboot fixes it (see that function's own
+# note); the dwell only tells "stuck" from "transient" apart.
+#
+# Always returns 0, same composition contract as pd_debt_halt_if_exhausted: it
+# slots into the watcher's `... && [ -f "$halt_file" ]` chain without a new
+# branch, and runs every tick regardless of whether a halt already stands.
+#
+# $1 halt marker, $2 latch, $3 dwell-count file (consecutive refusals; reset
+# to absent the moment a tick sees enough memory, or when CLUSTER_MEM_
+# HEADROOM_DWELL_TICKS is 0/unset — same "0 = off" convention the threshold
+# rungs elsewhere in this file use).
+mem_headroom_halt_if_persistent() {
+  local halt_file="$1" latch_file="$2" dwell_file="$3" required threshold dwell
+  required="${CLUSTER_SHARD_MEMORY_MB:-0}"
+  case "$required" in
+    '' | *[!0-9]*) return 0 ;;
+  esac
+  [ "$required" -gt 0 ] || return 0
+  if mem_headroom_ok "$required"; then
+    rm -f "$dwell_file"
+    return 0
+  fi
+  if [ -f "$halt_file" ]; then
+    return 0
+  fi
+  threshold="${CLUSTER_MEM_HEADROOM_DWELL_TICKS:-0}"
+  case "$threshold" in
+    '' | *[!0-9]*) return 0 ;;
+  esac
+  [ "$threshold" -gt 0 ] || return 0
+  dwell=0
+  [ -f "$dwell_file" ] && dwell="$(cat "$dwell_file" 2> /dev/null || echo 0)"
+  dwell=$((dwell + 1))
+  printf '%s\n' "$dwell" > "$dwell_file"
+  if [ "$dwell" -lt "$threshold" ]; then
+    return 0
+  fi
+  echo "cluster-link: $MEM_HEADROOM_DETAIL; refused $dwell consecutive ticks — HALTING rank starts rather than refusing forever with the cable plugged in" >&2
+  halt_write "$halt_file" "$latch_file" "insufficient-memory-persistent" \
+    "$MEM_HEADROOM_DETAIL; refused $dwell consecutive ticks"
+  alert "$(hostname -s): insufficient memory for the cluster shard has persisted $dwell consecutive ticks ($MEM_HEADROOM_DETAIL). Rank starts are halted rather than left refusing forever with the link up." \
+    "mlx-cluster halted (insufficient memory)"
+  return 0
+}
+
+# AUTO-REBOOT ON PD EXHAUSTION — AND ON A MEMORY SHORTFALL THAT WON'T CLEAR.
+#
+# Every prior guard in this file stops SHORT of the actual fix: they halt the
+# rank-start loop and page, then wait for a human to notice the alert and
+# reboot by hand. On 2026-08-01 that wait cost hours of cluster downtime with
+# the Thunderbolt cable plugged in the whole time — a manual interlock the
+# operator's chaos-monkey doctrine explicitly bans ("cables plugged in means
+# clustered, unattended, no exceptions"). This closes that gap: the watcher
+# reboots itself once the doctrine ("only a reboot returns a leaked domain")
+# is actually true of the halt standing in front of it.
+#
+# Called from the watcher's halted branch, so it runs once per tick for as
+# long as a halt marker stands — cheap by necessity, and its own rate limiter
+# by necessity, because the same standing halt is seen again and again until
+# either a reboot or a link cycle clears it.
+#
+# GATED TO THE CAUSES A REBOOT ACTUALLY ADDRESSES: pd-debt-exhausted and
+# rank-start-failures (both this file's own PD-exhaustion halts — see above),
+# plus insufficient-memory-persistent (mem_headroom_halt_if_persistent, above)
+# — a shortfall that survived its own dwell window rather than clearing on its
+# own, the same shape a leaked-and-never-freed RDMA domain has. Every one of
+# these already states in its own alert text that only a reboot clears it. A
+# wedged warm generation or a rejected manual clear is a different problem a
+# reboot does not fix, so every other cause is a deliberate no-op here.
+#
+# UNLIKE THE PD LEDGER, A MEMORY HALT IS NOT A GUARANTEE THE REBOOT HELPS. The
+# ledger's cause is always the same kernel resource; a memory shortfall could
+# instead be some other process legitimately holding it, which a reboot may
+# not touch. If it does not, the guard halts again on the next occurrence and
+# this function's own rate limit below (not a retry loop) is what keeps that
+# from repeating unbounded — the same safety net every other cause here already
+# relies on.
+#
+# $1 halt marker (read for cause=, never written here), $2 rate-limit marker.
+# The rate-limit marker MUST survive the reboot it gates, so it lives in
+# state_dir beside the watcher's other markers — never in the boot-scoped PD
+# ledger, which resets on the very reboot this is limiting the frequency of.
+# $3 link state ("up" | anything else). Explicit rather than assumed from call
+# position: the cluster is only expected to form with the cable in, so a link
+# that is down has nothing to reclaim a domain FOR, and a caller mistake here
+# must fail closed rather than reboot a host with no peer to rejoin.
+pd_auto_reboot_if_warranted() {
+  local halt_file="$1" marker_file="$2" link="$3"
+  local cause window now last elapsed budget_phrase
+
+  [ "$link" = "up" ] || return 0
+
+  cause="$(awk -F'\t' '{for (i = 1; i <= NF; i++) if ($i ~ /^cause=/) { sub(/^cause=/, "", $i); print $i; exit }}' "$halt_file" 2> /dev/null)"
+  case "$cause" in
+    pd-debt-exhausted | rank-start-failures | insufficient-memory-persistent) ;;
+    *) return 0 ;;
+  esac
+
+  # 0 disables auto-reboot outright — same "0 = off" convention as
+  # CLUSTER_WARM_RECHECK_SECS.
+  window="${CLUSTER_PD_AUTO_REBOOT_WINDOW_SECS:-0}"
+  case "$window" in
+    '' | *[!0-9]*) window=0 ;;
+  esac
+  [ "$window" -gt 0 ] || return 0
+
+  now="$(date +%s)"
+  last=0
+  [ -f "$marker_file" ] && last="$(cat "$marker_file" 2> /dev/null || echo 0)"
+  case "$last" in
+    '' | *[!0-9]*) last=0 ;;
+  esac
+  elapsed=$((now - last))
+  if [ "$last" -gt 0 ] && [ "$elapsed" -lt "$window" ]; then
+    echo "cluster-link: PD-exhaustion auto-reboot already used ${elapsed}s ago (< ${window}s window); staying halted rather than rebooting again" >&2
+    return 0
+  fi
+
+  # The memory cause has no protection-domain budget to phrase as a fraction —
+  # its own halt-marker detail (written by mem_headroom_halt_if_persistent)
+  # already states the free-vs-required numbers, so that is read back verbatim
+  # rather than reusing a PD phrase that would not describe it.
+  if [ "$cause" = "insufficient-memory-persistent" ]; then
+    budget_phrase="$(awk -F'\t' '{print $NF}' "$halt_file" 2> /dev/null)"
+  else
+    budget_phrase="$(pd_debt_phrase "$(pd_debt_count "${CLUSTER_PD_DEBT_FILE:-}")" "${CLUSTER_PD_DEBT_MAX:-?}")"
+  fi
+
+  # FILEVAULT CAVEAT. fdesetup(8)'s authrestart verb itself PROMPTS for the
+  # FileVault password — it is not a passwordless pre-authorization by design.
+  # nix-darwin's cluster-ops sudoers grant (security.nix) documents exactly
+  # this and deliberately stores no credential to answer that prompt
+  # unattended, leaving it "a separate security decision left to the user". So
+  # there is no safe unattended path on a FileVault host today: a plain reboot
+  # would instead strand it at the pre-boot unlock screen with no SSH, which is
+  # worse than staying halted. Fail closed.
+  # ponytail: refuse rather than attempt authrestart non-interactively — with
+  # no stored credential to answer its password prompt it can only hang or
+  # fail, and building a safe non-interactive path means deciding how to store
+  # a FileVault credential, which is exactly the decision nix-darwin's own
+  # sudoers grant declines to make. Upgrade path: a securely-stored recovery
+  # key fed via `fdesetup authrestart -inputplist`, if the operator ever wants
+  # that trade-off.
+  if ! pd_reboot_filevault_off; then
+    echo "cluster-link: WARN FileVault is on; NOT auto-rebooting — a plain reboot strands this host at the pre-boot unlock screen with no SSH, and no credential is stored for an unattended fdesetup authrestart. Staying halted; reboot by hand and the watcher resumes on the new boot." >&2
+    alert "$(hostname -s): $budget_phrase. Auto-reboot was NOT attempted: FileVault is on and this host stores no credential for an unattended authenticated restart. Reboot it by hand." \
+      "mlx-cluster $cause — FileVault blocks auto-reboot"
+    return 0
+  fi
+
+  printf '%s\n' "$now" > "$marker_file"
+  echo "cluster-link: $cause halt standing ($budget_phrase); FileVault off and auto-reboot last used $([ "$last" -gt 0 ] && echo "${elapsed}s ago" || echo never) — auto-rebooting, which this halt's own cause says is the fix"
+  alert "$(hostname -s): $budget_phrase. Auto-rebooting now — this is the automatic recovery path, no human action needed." \
+    "mlx-cluster auto-reboot ($cause)"
+  quiesce_normal_serving || true
+  sudo -n /sbin/reboot || echo "cluster-link: WARN auto-reboot command failed; host remains halted for manual recovery" >&2
+}
+
+# FileVault status, resolved through PATH first (so a test can stub it) with
+# the absolute OS path as the production fallback — same idiom
+# current_boot_epoch uses for sysctl, and for the same reason: this script's
+# PATH is restricted to writeShellApplication's runtimeInputs, which do not
+# include /usr/bin.
+pd_reboot_filevault_off() {
+  local fdesetup_bin
+  fdesetup_bin="$(command -v fdesetup 2> /dev/null || echo /usr/bin/fdesetup)"
+  case "$("$fdesetup_bin" status 2> /dev/null)" in
+    "FileVault is Off."*) return 0 ;;
+    *) return 1 ;;
+  esac
 }
 
 # Decide whether a by-hand clear of the halt marker may stand.

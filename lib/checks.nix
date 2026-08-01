@@ -114,6 +114,8 @@ in
 // (import ./checks/mlx-cluster-peer-env.nix { inherit pkgs hmConfigCluster src; })
 // (import ./checks/mlx-cluster-pd-env.nix { inherit pkgs hmConfigCluster src; })
 // (import ./checks/mlx-cluster-pd-callsites.nix { inherit pkgs src; })
+// (import ./checks/mlx-cluster-mem-headroom.nix { inherit pkgs src; })
+// (import ./checks/mlx-cluster-wired-ceiling.nix { inherit pkgs src; })
 // (import ./checks/mlx-cluster-scripts.nix { inherit pkgs hmConfigCluster src; })
 // (import ./checks/fabric.nix {
   inherit
