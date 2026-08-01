@@ -76,6 +76,22 @@
       '';
     };
 
+    generationHealMaxAttempts = lib.mkOption {
+      type = lib.types.ints.positive;
+      default = 2;
+      description = ''
+        Detached rebuild attempts the watcher makes per distinct deploy
+        revision when generation drift is detected (RULE 2: parity is a hard
+        gate, reconciled automatically). The rebuild runs as a transient
+        launchd job — never from the watcher's own process tree, which the
+        rebuild's activation SIGKILLs when it reloads agents — and success is
+        judged by re-reading parity after the job exits. At the cap the heal
+        pages once and stops; rank starts stay refused until parity is
+        restored, so a rebuild that cannot succeed is loud, bounded, and never
+        a loop. A new deploy revision opens a fresh budget.
+      '';
+    };
+
     peerReadyTimeoutSecs = lib.mkOption {
       type = lib.types.ints.positive;
       default = 120;

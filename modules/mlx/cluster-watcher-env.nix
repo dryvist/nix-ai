@@ -85,6 +85,13 @@ in
   # than one per tick.
   CLUSTER_GENERATION_REPO = ncfg.generationRepo;
   CLUSTER_GENERATION_CHECK_SECS = toString ncfg.generationCheckSecs;
+  # RULE 2's automatic key: drift is RECONCILED, not only paged. The watcher
+  # submits a transient launchd job under this label (deliberately not a
+  # home-manager-managed agent, so the rebuild survives the activation booting
+  # the watcher out — the SIGKILL hazard that kept the heal manual). Bounded per
+  # distinct deploy revision; see cluster-generation-heal.sh.
+  CLUSTER_GENERATION_HEAL_LABEL = "dev.mlx-cluster.generation-heal";
+  CLUSTER_GENERATION_HEAL_MAX = toString ncfg.generationHealMaxAttempts;
   # Shared wall-clock start boundary for BOTH ranks. Derived from the tick so the
   # two cannot drift, and a multiple (never equal) so ticks either side of a
   # boundary still map to the same one. See cluster-link-guards.sh.

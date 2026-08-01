@@ -45,6 +45,10 @@
     ./scripts/cluster-link-facts.sh
     ./scripts/cluster-rank-status.sh
     ./scripts/cluster-rank-reap.sh
+    # RULE 2's automatic key: the detached generation heal. Watcher-only — the
+    # supervised heal in cluster-join stays in cluster-join.sh itself. After
+    # rank-status because it refuses to touch a machine whose rank is running.
+    ./scripts/cluster-generation-heal.sh
     ./scripts/cluster-link-guards.sh
     ./scripts/cluster-link-watcher.sh
   ];

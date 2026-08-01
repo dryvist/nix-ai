@@ -90,6 +90,10 @@ let
     // {
       CLUSTER_DETACH_SWAP_THRESHOLD_MB = toString ncfg.detachSwapThresholdMb;
       CLUSTER_DETACH_TIMEOUT_SECS = toString ncfg.detachTimeoutSecs;
+      # RULE 1: every detach records a self-expiring standalone lease; the
+      # watcher auto-rejoins at expiry while the cable is in. Default duration
+      # only — a per-call override is the command's first argument.
+      CLUSTER_STANDALONE_LEASE_SECS = toString ncfg.standaloneLeaseSecs;
       # BOTH ROLES. These were coordinator-only, which is why cluster-detach on a
       # worker could restore nothing, verify nothing, and still exit 0 with
       # "teardown verified" over a host serving connection-refused (2026-08-01,

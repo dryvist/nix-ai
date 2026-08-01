@@ -88,7 +88,7 @@ repair_link_prep() {
 #
 # Sets PRECONDITION_REASON to a stable cause token for the halt marker.
 rank_start_preconditions_ok() {
-  local pd_max pd_debt
+  local pd_max pd_debt parity_fact
   PRECONDITION_REASON=""
   # 0. THE LEDGER MUST BE WIRED UP. Rungs 0a and 0b below are the only things
   #    standing between a leaked protection domain and an unbounded accumulation
@@ -105,6 +105,29 @@ rank_start_preconditions_ok() {
     echo "cluster-link: PD guard is not fully configured (need CLUSTER_PD_DEBT_MAX, CLUSTER_PD_DEBT_FILE and CLUSTER_RANK_PROCESS_PATTERN); NOT starting the rank rather than starting one it cannot protect (no attempt consumed)" >&2
     return 1
   fi
+  # 0'. GENERATION PARITY — THE HARD GATE (RULE 2). Every node must run the
+  #    deployed generation BEFORE any setup step below acts: mixed generations
+  #    are mismatched mlx/JACCL stacks (the untestable config-parity variable
+  #    behind the INC-17070 deadlock family), and a drifted node's
+  #    activation-managed cluster state may never have applied. So no reap, no
+  #    link repair, no boundary hold, no ceiling write, no quiesce and no start
+  #    until parity holds. Reconciliation is not this rung's job: the watcher's
+  #    detached heal (generation_heal_maybe) rebuilds to the deploy revision on
+  #    its own clock; this rung only refuses to act while generations diverge —
+  #    which also makes a by-hand halt clear during drift re-halt with the
+  #    exact revisions named, instead of quietly starting a mixed-stack rank.
+  #    `unverified` (deploy branch unreachable) passes, join's WARN semantics:
+  #    refusing to cluster whenever GitHub is unreachable trades one outage for
+  #    another. Nothing is launched, so no attempt is consumed. Cached read —
+  #    one ls-remote per CLUSTER_GENERATION_CHECK_SECS, not per tick.
+  parity_fact="$(generation_parity_cached "${gen_parity_file:-}")"
+  case "$parity_fact" in
+    *'state=drift'* | *'state=unstamped'*)
+      PRECONDITION_REASON="generation-parity"
+      echo "cluster-link: generation parity FAILED ($parity_fact); NOT starting the rank (no attempt consumed) — the detached heal reconciles drift, and a start waits for state=ok" >&2
+      return 1
+      ;;
+  esac
   # 0a. PROTECTION-DOMAIN DEBT. Every domain this boot is known to have leaked is
   #     in the ledger; at the cap the rank does not start. This is the proactive
   #     half of the guard — the kickstart counter below only reacts once errno 96

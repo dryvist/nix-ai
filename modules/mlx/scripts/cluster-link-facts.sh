@@ -40,6 +40,80 @@
 #   CLUSTER_IFCONFIG_BIN          ifconfig path (test seam; /sbin is not on a
 #                               writeShellApplication PATH)
 
+# RULE 1 — PLUGGED IN MEANS CLUSTERED. The only sanctioned standalone window is
+# a LEASE: one line, `<expiry-epoch>\t<created>\t<reason>`, written by
+# cluster-detach and deleted by cluster-join. While it is unexpired the watcher
+# leaves the machine alone; the moment it expires the watcher resumes driving
+# toward clustered. There is deliberately no way to record an indefinite
+# opt-out — an unreadable or garbage expiry reads as EXPIRED, because a lease
+# that fails open toward "stay detached forever" recreates the exact failure
+# (detached-with-the-cable-in as a stable state) the rule exists to end.
+#
+# Silent on purpose: link_facts renders `lease active|none` and the watcher
+# reports any facts CHANGE immediately, so expiry is visible the tick it
+# happens without this function polluting a command substitution.
+#
+# $1 = lease file. 0 = an unexpired standalone lease exists.
+standalone_lease_active() {
+  local file="$1" expiry _rest
+  [ -n "$file" ] && [ -f "$file" ] || return 1
+  IFS=$'\t' read -r expiry _rest < "$file" || true
+  case "$expiry" in
+    '' | *[!0-9]*) expiry=0 ;;
+  esac
+  if [ "$(date +%s)" -lt "$expiry" ]; then
+    return 0
+  fi
+  rm -f "$file"
+  return 1
+}
+
+# RULE 1's missing rung. cluster-detach takes the cabled port ADMIN-down, and an
+# admin-down port reports `status: inactive` even with a live cable — so carrier
+# is unobservable, link_prep_self_heal below never fires, and detached-while-
+# plugged used to be a STABLE state. Once no lease holds, re-admin-up every
+# admin-down Thunderbolt port (the granted `ifconfig en[0-9]* up`, no address so
+# no stray route); the next tick then reads real carrier and the existing
+# machinery — self-heal, peer ping, rank preconditions — drives the rejoin.
+#
+# `<UP` in the flags is the ADMIN state (absent after `ifconfig down`); it is
+# not carrier — carrier stays `status: active`, per rule "RUNNING is not
+# carrier". Ports already admin-up make this a no-op and clear the counter, so
+# the sudo fires once per detach, not per tick; a port that will not come up
+# stops being retried at the same cap the prep self-heal uses.
+#
+# $1 = counter file. 0 = nothing was admin-down.
+tb_ports_readmin_up() {
+  local counter_file="$1" dev out downs="" attempts max
+  while IFS= read -r dev; do
+    [ -n "$dev" ] || continue
+    out="$("${CLUSTER_IFCONFIG_BIN:-/sbin/ifconfig}" "$dev" 2> /dev/null || true)"
+    case "$out" in
+      *'<UP'*) continue ;;
+    esac
+    downs="$downs$dev"$'\n'
+  done < <(tb_devices)
+  if [ -z "$downs" ]; then
+    rm -f "$counter_file"
+    return 0
+  fi
+  max="${CLUSTER_LINK_PREP_MAX_REPAIRS:-3}"
+  attempts=0
+  [ -f "$counter_file" ] && attempts="$(cat "$counter_file")"
+  case "$attempts" in
+    '' | *[!0-9]*) attempts=0 ;;
+  esac
+  if [ "$attempts" -ge "$max" ]; then
+    return 1
+  fi
+  printf '%s\n' "$((attempts + 1))" > "$counter_file"
+  echo "cluster-link: RE-UP admin-down Thunderbolt port(s) $(printf '%s' "$downs" | tr '\n' ' ')— no standalone lease holds, and plugged in means clustered (attempt $((attempts + 1))/$max)"
+  printf '%s' "$downs" | while IFS= read -r dev; do
+    [ -n "$dev" ] || continue
+    sudo -n /sbin/ifconfig "$dev" up > /dev/null 2>&1 || true
+  done
+}
+
 # Per-port carrier, verbatim from the only authoritative field.
 #
 # `RUNNING` in the ifconfig flags is NOT carrier — it is set on an
@@ -138,8 +212,13 @@ generation_drift_report() {
 # $1 = "yes" | "no" — did the peer answer THIS tick (the probe the watcher
 # already ran; never re-pinged here, so the line costs nothing extra).
 # $2 = generation-parity cache file.
+# $3 = standalone-lease file (optional) — rendered as a field so a lease
+#      expiring flips the facts and is therefore reported the tick it happens.
 link_facts() {
-  local peer_answer="$1" parity_cache="$2" prep carrier
+  local peer_answer="$1" parity_cache="$2" lease_state=none prep carrier
+  if standalone_lease_active "${3:-}"; then
+    lease_state=active
+  fi
   if link_prep_ok; then
     prep=OK
   else
@@ -153,12 +232,13 @@ link_facts() {
       prep="NO-CARRIER(no Thunderbolt port reports status: active)"
     fi
   fi
-  printf 'tb-ports[ %s] self %s %s prep %s peer %s answered=%s generation %s' \
+  printf 'tb-ports[ %s] self %s %s prep %s peer %s answered=%s generation %s lease %s' \
     "$(tb_carrier_facts)" \
     "$CLUSTER_STATIC_SELF_IP" "$(self_ip_fact)" \
     "$prep" \
     "$CLUSTER_STATIC_PEER_IP" "$peer_answer" \
-    "$(generation_parity_cached "$parity_cache")"
+    "$(generation_parity_cached "$parity_cache")" \
+    "$lease_state"
 }
 
 # Repair this host's own link prep, unattended and bounded.

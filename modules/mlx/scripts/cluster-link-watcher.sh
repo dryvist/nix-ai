@@ -49,6 +49,9 @@
 #                         so the wedge detector can run more than once per link
 #                         session instead of being disabled by the first
 #                         successful warm (default 1800; 0 disables re-checks)
+#   CLUSTER_GENERATION_HEAL_LABEL  launchd label of the detached generation-heal
+#                         job (RULE 2 — see cluster-generation-heal.sh)
+#   CLUSTER_GENERATION_HEAL_MAX  rebuild attempts per distinct deploy revision
 
 mkdir -p "$(dirname "$CLUSTER_STATE_FILE")"
 prev="down"
@@ -93,6 +96,30 @@ halt_latch_file="$state_dir/rank-halt-latched"
 # in the marker list either: a link cycle, a manual clear and cluster-join all
 # reset the halt state, and none of them returns a protection domain.
 pd_debt_file="${CLUSTER_PD_DEBT_FILE:-}"
+# RULE 1 — plugged in means clustered. The lease is the ONE sanctioned,
+# self-expiring standalone window (written by cluster-detach, deleted by
+# cluster-join or its own expiry); the re-up counter bounds the port
+# re-admin-up that makes a detached-while-plugged state self-correcting.
+lease_file="$state_dir/standalone-lease"
+port_reup_file="$state_dir/port-reups"
+# RULE 2 — the detached generation-heal's attempts ledger (`<rev> <count>`).
+heal_attempts_file="$state_dir/generation-heal-attempts"
+
+# GENERATION PARITY FIRST — RULE 2. Read (cached, one ls-remote per
+# CLUSTER_GENERATION_CHECK_SECS) before ANY other step of the tick, because
+# every later step's behaviour depends on the generation: link prep aliases
+# what the deployed activation says, quiesce and rank start assemble the stack
+# the deployed revision defines. Until 2026-08-01 the only parity check lived
+# in cluster-join, which is human-initiated — so a drifted node stayed drifted
+# for 86 hours. Now: reported every tick, paged once per distinct drift, and
+# RECONCILED unattended by a detached launchd job (see
+# cluster-generation-heal.sh — detached because a rebuild fired from this
+# agent would be SIGKILLed by its own activation). While drift persists,
+# rank_start_preconditions_ok refuses to start (hard gate) and the down path
+# below refuses to run link prep from the stale generation.
+parity_now="$(generation_parity_cached "$gen_parity_file")"
+generation_drift_report "$parity_now" "$gen_alerted_file"
+generation_heal_maybe "$parity_now" "$heal_attempts_file" || true
 
 # Link probe, debounced ASYMMETRICALLY — a false "down" is destructive, a false
 # "up" is not. Declaring down tears the rank down, restores standalone serving,
@@ -167,8 +194,27 @@ else
   [ -f "$down_quiet_file" ] && downs="$(cat "$down_quiet_file")"
   downs=$((downs + 1))
   printf '%s\n' "$downs" > "$down_quiet_file"
-  link_prep_self_heal "$link_prep_repairs_file" || true
-  facts="$(link_facts no "$gen_parity_file")"
+  # RULE 1 — PLUGGED IN MEANS CLUSTERED, NO EXCEPTIONS. A detached-while-plugged
+  # state must be self-correcting, never stable. The one sanctioned exception is
+  # an unexpired standalone lease (deliberate, recorded, self-expiring); while
+  # it holds, the watcher leaves the machine alone. Otherwise it first
+  # re-admin-ups any port cluster-detach downed — carrier is unobservable on an
+  # admin-down port, which is exactly why this state used to be stable — and
+  # then repairs link prep, EXCEPT while the generation has drifted (RULE 2:
+  # link prep from a stale generation applies stale config; the detached heal's
+  # own activation re-runs prep from the deploy revision instead). A genuinely
+  # absent carrier changes nothing here: re-up no-ops on admin-up ports and the
+  # self-heal is carrier-gated, so a real unplug stays quiet.
+  if standalone_lease_active "$lease_file"; then
+    :
+  else
+    tb_ports_readmin_up "$port_reup_file" || true
+    case "$parity_now" in
+      *'state=drift'*) : ;;
+      *) link_prep_self_heal "$link_prep_repairs_file" || true ;;
+    esac
+  fi
+  facts="$(link_facts no "$gen_parity_file" "$lease_file")"
   last_facts=""
   [ -f "$facts_file" ] && last_facts="$(cat "$facts_file")"
   if [ "$facts" != "$last_facts" ] \
@@ -177,17 +223,6 @@ else
     echo "cluster-link: DOWN $downs consecutive tick(s) — $facts"
   fi
 fi
-
-# GENERATION PARITY, ON THE TIMER, IN EVERY LINK STATE. Until 2026-08-01 the only
-# parity check in the system lived in cluster-join, which is human-initiated —
-# so a node that drifted stayed drifted, its activation-managed link address was
-# never applied, and nothing anywhere noticed for 86 hours. Reading it here puts
-# the check on a clock instead of on someone remembering. It matters with the
-# link UP as well: mixed generations mean mismatched mlx/JACCL stacks on the two
-# ranks, the untestable config-parity variable behind the INC-17070 deadlock
-# family. Cached with a TTL, so this costs one `git ls-remote` an hour, not one
-# per tick, and pages at most once per distinct drift.
-generation_drift_report "$(generation_parity_cached "$gen_parity_file")" "$gen_alerted_file"
 
 if [ "$cur" = "up" ]; then
   if [ "$prev" = "down" ]; then

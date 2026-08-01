@@ -56,6 +56,12 @@
 uid="$(id -u)"
 state_dir="$(dirname "$CLUSTER_STATE_FILE")"
 mkdir -p "$state_dir"
+# RULE 1: a join ends any standalone lease — the deliberate standalone window
+# cluster-detach recorded is over the moment a human asks for the cluster back.
+if [ -f "$state_dir/standalone-lease" ]; then
+  rm -f "$state_dir/standalone-lease"
+  echo "cluster-join: cleared the standalone lease (joining ends the standalone window)"
+fi
 halt_file="$state_dir/rank-halted"
 # Sticky companion the watcher writes beside the halt marker; see step 4.
 halt_latch_file="$state_dir/rank-halt-latched"

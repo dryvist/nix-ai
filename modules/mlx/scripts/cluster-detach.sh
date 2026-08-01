@@ -43,6 +43,31 @@ note_fail() {
   failed=1
 }
 
+# --- step 0: record the standalone lease (RULE 1: plugged in means clustered) --
+# A detach is a bounded EXCEPTION, never a state. Twice on 2026-08-01 machines
+# sat detached with the cable in — serving nothing clustered and running no
+# benchmark — because nothing recorded that the standalone window was over. So
+# every detach now writes a lease: `<expiry-epoch>\t<created>\t<reason>`, one
+# line. The watcher honours it while it is unexpired and resumes driving the
+# pair back to clustered the moment it expires; cluster-join ends it early.
+# There is deliberately NO indefinite form — an opt-out that cannot expire
+# recreates the exact failure the rule targets.
+#
+# Usage: cluster-detach [lease-secs [reason]]
+lease_secs="${1:-${CLUSTER_STANDALONE_LEASE_SECS:-7200}}"
+case "$lease_secs" in
+  '' | *[!0-9]*)
+    echo "cluster-detach: FAIL: lease duration '$lease_secs' is not a number of seconds (usage: cluster-detach [lease-secs [reason]])" >&2
+    exit 1
+    ;;
+esac
+lease_reason="${2:-cluster-detach}"
+lease_until=$(($(date +%s) + lease_secs))
+mkdir -p "$state_dir"
+printf '%s\t%s\t%s\n' "$lease_until" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$lease_reason" \
+  > "$state_dir/standalone-lease"
+echo "cluster-detach: standalone lease for ${lease_secs}s (reason: $lease_reason). While the cable is in, the watcher auto-rejoins when it expires; cluster-join ends it early."
+
 # --- step 1: take the link admin-down ---------------------------------------
 # iface_holding_self_ip comes from scripts/cluster-link-locate.sh, concatenated
 # ahead of this body by cluster-cli-builder.nix and shared with cluster-join and
@@ -256,6 +281,7 @@ pd_debt_now="$(pd_debt_count "${CLUSTER_PD_DEBT_FILE:-}")"
 echo "  PD debt    : $(pd_debt_phrase "${pd_debt_now:-0}" "${CLUSTER_PD_DEBT_MAX:-?}")"
 if [ "$serve_ok" = true ]; then standalone_state="restored"; else standalone_state="NOT-RESTORED"; fi
 echo "  standalone serving: $standalone_state"
+echo "  lease      : ${lease_secs}s ($lease_reason) — the watcher auto-rejoins at expiry while plugged in"
 echo "  swap used  : ${used}M (threshold ${swap_threshold}M)"
 echo "======================================================================"
 
