@@ -198,6 +198,43 @@ export CLUSTER_SHARD_MEMORY_MB=1000
 write_vmstat 65536 16000 0 0 0 # 16000 pages * 65536 bytes / 1048576 = 1000MB
 check "the real (non-16384) page size is used, not a hardcoded one" start "$(verdict)"
 
+echo "4b. a VERBATIM real vm_stat capture parses correctly (not a hand-built fixture):"
+# write_vmstat above is a template written from memory of the format; a
+# reproduction written from the same mental model as the code under test can
+# share that model's own gaps. This is a byte-for-byte capture (macOS,
+# 2026-08-01, `vm_stat > fixture`) frozen as a literal, so the awk field
+# splitting is exercised against the real thing, not a paraphrase of it.
+# Expected MB figures are independently cross-checked by hand below the
+# assertion, not merely "whatever the code currently outputs".
+cat > "$vmstat_fixture" << 'REALVMSTAT'
+Mach Virtual Memory Statistics: (page size of 16384 bytes)
+Pages free:                                  2639858.
+Pages active:                                1164841.
+Pages inactive:                              1116526.
+Pages speculative:                             53146.
+Pages throttled:                                   0.
+Pages wired down:                            3348211.
+Pages purgeable:                               69080.
+"Translation faults":                       72587661.
+Pages copy-on-write:                         7850919.
+Pages zero filled:                         111307069.
+Pages reactivated:                             69193.
+Pages purged:                                 402130.
+File-backed pages:                            496308.
+Anonymous pages:                             1838205.
+Pages stored in compressor:                    17979.
+Pages occupied by compressor:                   5321.
+Decompressions:                                 8893.
+Compressions:                                  30403.
+Pageins:                                    10264647.
+Pageouts:                                        192.
+Swapins:                                           0.
+Swapouts:                                          0.
+REALVMSTAT
+# By hand: free_mb = (2639858+1116526+53146)*16384/1048576 = 59523
+#          wired_mb = 3348211*16384/1048576 = 52315
+check "mem_stat_mb on a verbatim real capture" "59523 52315" "$(mem_stat_mb)"
+
 echo "5. an unreadable vm_stat refuses rather than guessing (fails closed):"
 reset_state
 export CLUSTER_SHARD_MEMORY_MB=1000
