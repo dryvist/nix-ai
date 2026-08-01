@@ -9,6 +9,7 @@ let
     "huggingface"
     "splunk"
     "time"
+    "zammad"
   ]
   ++ pkgs.lib.optional pkgs.stdenv.isDarwin "apple-events";
   missingGlobalServers = builtins.filter (
@@ -25,6 +26,42 @@ let
   rendererMismatches = builtins.filter (name: rendererNames.${name} != cfg.enabledServerNames) (
     builtins.attrNames rendererNames
   );
+  codexLaunchContracts = {
+    time = { };
+    huggingface = { };
+    fabric = { };
+    apple-events = { };
+    splunk = {
+      env_vars = [
+        "BAO_ADDR"
+        "AI_READONLY_ROLE_ID"
+        "AI_READONLY_SECRET_ID"
+        "SPLUNK_MCP_OPENBAO_PATH"
+      ];
+    };
+    vikunja = {
+      env_vars = [
+        "AI_DOPPLER_PROJECT"
+        "AI_DOPPLER_CONFIG"
+      ];
+    };
+    zammad = {
+      env_vars = [
+        "AI_DOPPLER_PROJECT"
+        "AI_DOPPLER_CONFIG"
+      ];
+    };
+  };
+  codexLaunchContractMismatches = builtins.filter (
+    name:
+    let
+      expected = codexLaunchContracts.${name};
+      actual = cfg.servers.${name};
+    in
+    actual.startup_timeout_sec != 300
+    || actual.tool_timeout_sec != 300
+    || (expected ? env_vars && actual.env_vars != expected.env_vars)
+  ) (builtins.attrNames codexLaunchContracts);
 in
 {
   shared-mcp-global-profile =
@@ -44,6 +81,12 @@ in
       cfg.servers.splunk.command == "splunk-mcp-connect" && cfg.servers.splunk.args == [ ]
       || throw "Splunk MCP must launch directly through splunk-mcp-connect: ${builtins.toJSON cfg.servers.splunk}";
     helpers.mkMarker "check-splunk-mcp-canonical-launcher" "Splunk MCP uses the OpenBao launcher without Doppler wiring";
+
+  codex-mcp-launch-contract =
+    assert
+      codexLaunchContractMismatches == [ ]
+      || throw "Codex MCP launch contract mismatch: ${builtins.toJSON codexLaunchContractMismatches}";
+    helpers.mkMarker "check-codex-mcp-launch-contract" "Codex MCP servers have scoped environment forwarding and 300-second startup/tool timeouts";
 
   splunk-mcp-openbao-wrapper =
     pkgs.runCommand "check-splunk-mcp-openbao-wrapper"
