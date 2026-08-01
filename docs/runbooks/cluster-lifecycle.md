@@ -1,11 +1,7 @@
 # Cluster lifecycle: `cluster-join` / `cluster-detach`
 
-> **Diagnosing a link that will not come up? Read
-> [cluster-link-truths.md](cluster-link-truths.md) FIRST.** It is the one
-> authoritative page for what the observable states actually mean — `RUNNING` is
-> not carrier, a missing link address says nothing about the cable, an empty
-> Thunderbolt Bridge is correct, and a `/v1/models` 200 is not health. Most of
-> what it lists the system now repairs on its own.
+> Link will not come up? Read [cluster-link-truths.md](cluster-link-truths.md)
+> first — the authoritative page on what each observable state means.
 
 Two `pkgs.writeShellApplication` commands (shipped on PATH on both nodes when
 `programs.mlx.clusterMode.enable = true`) that make two-Mac JACCL cluster
@@ -186,15 +182,11 @@ Used by these commands and already granted: exact-value
 `ifconfig bridge0 deletem *`, and `ifconfig en[0-9]* up` / `en[0-9]* down`. All
 `launchctl` verbs run in the caller's own `gui/$uid` domain and need no sudo.
 
-**Link repair is fully granted and auto-run.** `cluster-join` repairs a lost
-link (port re-enslaved in `bridge0` after a reboot) by (1) a bounded
-`activation` pass, then (2) a direct fallback that frees the Thunderbolt ports
-from `bridge0` and aliases the link IP up on the carrier port. The fallback
-`ifconfig <port> alias <ip> <mask> up` **is** covered by the `ifconfig en[0-9]* up`
-grant: the sudoers `*` glob spans the alias form's spaces (verified 2026-07-19,
-rc=0 on both nodes). The bounded activation matters because a full system
-activation can wedge on an unrelated step (observed: a home-manager symlink hung
-on a stale mount), which would otherwise block bring-up indefinitely.
+**Link repair is fully granted and auto-run**, by `cluster-join` and now by the
+watcher on its own tick. The alias form rides the `ifconfig en[0-9]* up` grant —
+the sudoers `*` glob spans its spaces (verified 2026-07-19, rc=0 on both nodes).
+What the repair does, when it fires and how it is bounded:
+[cluster-link-truths.md](cluster-link-truths.md).
 
 ## Related
 
