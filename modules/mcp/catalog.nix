@@ -15,6 +15,18 @@ let
     inherit args;
   };
 
+  codexMcp =
+    server:
+    server
+    // {
+      startup_timeout_sec = 300;
+      tool_timeout_sec = 300;
+    };
+  dopplerEnv = [
+    "AI_DOPPLER_PROJECT"
+    "AI_DOPPLER_CONFIG"
+  ];
+
   # Version pins live in lib/versions.nix, where the org-wide Renovate
   # customManager regex tracks the annotations; refer to them directly.
   versions = import ../../lib/versions.nix;
@@ -34,7 +46,7 @@ in
   memory = bunx [ "@modelcontextprotocol/server-memory@${versions.mcpMemory}" ] // {
     disabled = true;
   };
-  time = {
+  time = codexMcp {
     command = "uvx";
     args = [
       "--from"
@@ -88,7 +100,7 @@ in
   # ================================================================
   # Community stdio package: https://github.com/shreyaskarnik/huggingface-mcp-server
   # Requires: HF_TOKEN — inject at runtime (see .env.example).
-  huggingface = {
+  huggingface = codexMcp {
     command = "uvx";
     args = [
       "--from"
@@ -101,7 +113,7 @@ in
 
   # Fabric MCP - community-maintained (ksylvan/fabric-mcp), exposes fabric
   # patterns as MCP tools. Requires fabric CLI setup (see modules/fabric/).
-  fabric = {
+  fabric = codexMcp {
     command = "uvx";
     args = [
       "--from"
@@ -115,8 +127,16 @@ in
   # Splunk MCP via OpenBao. The helper authenticates with an ambient-env
   # AppRole and injects the canonical connection only into its MCP child
   # process.
-  splunk = {
+  splunk = codexMcp {
     command = "splunk-mcp-connect";
+    # Codex forwards stdio-server environment variables only when they are
+    # explicitly declared. Keep the OpenBao bootstrap scoped to this launcher.
+    env_vars = [
+      "BAO_ADDR"
+      "AI_READONLY_ROLE_ID"
+      "AI_READONLY_SECRET_ID"
+      "SPLUNK_MCP_OPENBAO_PATH"
+    ];
   };
 
   # ================================================================
@@ -139,7 +159,7 @@ in
   # ================================================================
   # Source: https://github.com/FradSer/mcp-server-apple-events
   # First call triggers macOS TCC prompts for Reminders + Calendar.
-  apple-events = bunx [ "mcp-server-apple-events@${versions.mcpAppleEvents}" ];
+  apple-events = codexMcp (bunx [ "mcp-server-apple-events@${versions.mcpAppleEvents}" ]);
 
   # ================================================================
   # Database (disabled by default)
@@ -198,18 +218,17 @@ in
   # forks: most contributors/stars by far and the widest tool surface (task/
   # project/label CRUD, batch import, webhooks) with rate limiting + circuit
   # breakers — built for autonomous agents. Requires VIKUNJA_URL (instance API
-  # base, ends in /api/v1) and VIKUNJA_API_TOKEN (a tk_ service-account token,
-  # svc-mcp-rw tier) — injected at launch by doppler-mcp from ai-ci-automation/
-  # prd, same pattern as google-workspace. Canonical token home is the secrets
-  # engine's apps/vikunja secret (promoted from the app role's SOPS mint).
+  # base, ends in /api/v1) and VIKUNJA_API_TOKEN — injected at launch by
+  # doppler-mcp from the shared AI project.
   # Ships disabled — a consumer enables it deliberately once the Doppler
   # secrets exist for that machine.
-  vikunja = {
+  vikunja = codexMcp {
     command = "doppler-mcp";
     args = [
       "bunx"
       "@democratize-technology/vikunja-mcp@${versions.vikunjaMcp}"
     ];
+    env_vars = dopplerEnv;
     disabled = true;
   };
 
@@ -224,13 +243,10 @@ in
   # token) — injected at launch by doppler-mcp from ai-ci-automation/prd, same
   # pattern as vikunja/google-workspace. `uvx` must not inherit the Nix shell's
   # PYTHONPATH: the pinned server creates a Python 3.14 environment, while the
-  # inherited 3.13 package path makes its native rpds extension fail at import
-  # time before MCP can complete its initialize handshake. Canonical token home
-  # is the secrets
-  # engine's secret/ai/mcp/zammad (ZAMMAD_MCP_URL + ZAMMAD_MCP_TOKEN fields).
-  # Ships disabled — the host opt-in + Doppler seeding follow Zammad's deploy
-  # (task #10); enabling before that would spawn a failing server.
-  zammad = {
+  # inherited 3.13 package path makes its native rpds extension fail at import.
+  # Enabled in the shared profile. Its Doppler wrapper receives only the
+  # project/config selectors; Zammad credentials stay in Doppler.
+  zammad = codexMcp {
     command = "env";
     args = [
       "-u"
@@ -243,6 +259,7 @@ in
       "git+https://github.com/basher83/zammad-mcp.git@v${versions.zammadMcp}"
       "mcp-zammad"
     ];
+    env_vars = dopplerEnv;
   };
 
   # ================================================================
