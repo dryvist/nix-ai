@@ -32,6 +32,12 @@
 #                                  host holds no link address
 #   CLUSTER_LINK_ACTIVATE_TIMEOUT_SECS  bound on the activation repair fallback
 #   CLUSTER_WIRED_LIMIT_MB           optional cluster wired ceiling
+#   CLUSTER_PD_AUTO_REBOOT_WINDOW_SECS  minimum seconds between unattended
+#                                  reboots issued to clear a PD-exhaustion halt
+#                                  (0 disables auto-reboot)
+#   CLUSTER_PD_DEBT_FILE / CLUSTER_PD_DEBT_MAX / CLUSTER_PD_DEVICE_BUDGET
+#                                  read by pd_auto_reboot_if_warranted to phrase
+#                                  its alert; see cluster-pd-ledger.sh
 
 # Unattended repair for a host that came up WITHOUT its link address.
 #
@@ -264,6 +270,115 @@ pd_debt_halt_if_exhausted() {
   alert "$(hostname -s): $(pd_debt_phrase "$debt" "$max"). Rank starts are halted at the cap, which RESERVES the rest of the device budget for a session that can actually succeed — not at exhaustion, and not after errno 96. Reboot this host to return the domains — clearing the marker will not, and the guard re-halts on the ledger's own evidence." \
     "mlx-cluster PD debt at cap"
   return 0
+}
+
+# AUTO-REBOOT ON PD EXHAUSTION.
+#
+# Every prior guard in this file stops SHORT of the actual fix: they halt the
+# rank-start loop and page, then wait for a human to notice the alert and
+# reboot by hand. On 2026-08-01 that wait cost hours of cluster downtime with
+# the Thunderbolt cable plugged in the whole time — a manual interlock the
+# operator's chaos-monkey doctrine explicitly bans ("cables plugged in means
+# clustered, unattended, no exceptions"). This closes that gap: the watcher
+# reboots itself once the doctrine ("only a reboot returns a leaked domain")
+# is actually true of the halt standing in front of it.
+#
+# Called from the watcher's halted branch, so it runs once per tick for as
+# long as a halt marker stands — cheap by necessity, and its own rate limiter
+# by necessity, because the same standing halt is seen again and again until
+# either a reboot or a link cycle clears it.
+#
+# GATED TO THE TWO CAUSES THAT ARE ACTUALLY PD EXHAUSTION: pd-debt-exhausted
+# (this file's own proactive halt, above) and rank-start-failures (the
+# kickstart counter's reactive halt in cluster-link-watcher.sh) — both already
+# state in their own alert text that only a reboot clears them. A wedged warm
+# generation or a rejected manual clear is a different problem a reboot does
+# not fix, so every other cause is a deliberate no-op here.
+#
+# $1 halt marker (read for cause=, never written here), $2 rate-limit marker.
+# The rate-limit marker MUST survive the reboot it gates, so it lives in
+# state_dir beside the watcher's other markers — never in the boot-scoped PD
+# ledger, which resets on the very reboot this is limiting the frequency of.
+# $3 link state ("up" | anything else). Explicit rather than assumed from call
+# position: the cluster is only expected to form with the cable in, so a link
+# that is down has nothing to reclaim a domain FOR, and a caller mistake here
+# must fail closed rather than reboot a host with no peer to rejoin.
+pd_auto_reboot_if_warranted() {
+  local halt_file="$1" marker_file="$2" link="$3"
+  local cause window now last elapsed budget_phrase
+
+  [ "$link" = "up" ] || return 0
+
+  cause="$(awk -F'\t' '{for (i = 1; i <= NF; i++) if ($i ~ /^cause=/) { sub(/^cause=/, "", $i); print $i; exit }}' "$halt_file" 2> /dev/null)"
+  case "$cause" in
+    pd-debt-exhausted | rank-start-failures) ;;
+    *) return 0 ;;
+  esac
+
+  # 0 disables auto-reboot outright — same "0 = off" convention as
+  # CLUSTER_WARM_RECHECK_SECS.
+  window="${CLUSTER_PD_AUTO_REBOOT_WINDOW_SECS:-0}"
+  case "$window" in
+    '' | *[!0-9]*) window=0 ;;
+  esac
+  [ "$window" -gt 0 ] || return 0
+
+  now="$(date +%s)"
+  last=0
+  [ -f "$marker_file" ] && last="$(cat "$marker_file" 2> /dev/null || echo 0)"
+  case "$last" in
+    '' | *[!0-9]*) last=0 ;;
+  esac
+  elapsed=$((now - last))
+  if [ "$last" -gt 0 ] && [ "$elapsed" -lt "$window" ]; then
+    echo "cluster-link: PD-exhaustion auto-reboot already used ${elapsed}s ago (< ${window}s window); staying halted rather than rebooting again" >&2
+    return 0
+  fi
+
+  budget_phrase="$(pd_debt_phrase "$(pd_debt_count "${CLUSTER_PD_DEBT_FILE:-}")" "${CLUSTER_PD_DEBT_MAX:-?}")"
+
+  # FILEVAULT CAVEAT. fdesetup(8)'s authrestart verb itself PROMPTS for the
+  # FileVault password — it is not a passwordless pre-authorization by design.
+  # nix-darwin's cluster-ops sudoers grant (security.nix) documents exactly
+  # this and deliberately stores no credential to answer that prompt
+  # unattended, leaving it "a separate security decision left to the user". So
+  # there is no safe unattended path on a FileVault host today: a plain reboot
+  # would instead strand it at the pre-boot unlock screen with no SSH, which is
+  # worse than staying halted. Fail closed.
+  # ponytail: refuse rather than attempt authrestart non-interactively — with
+  # no stored credential to answer its password prompt it can only hang or
+  # fail, and building a safe non-interactive path means deciding how to store
+  # a FileVault credential, which is exactly the decision nix-darwin's own
+  # sudoers grant declines to make. Upgrade path: a securely-stored recovery
+  # key fed via `fdesetup authrestart -inputplist`, if the operator ever wants
+  # that trade-off.
+  if ! pd_reboot_filevault_off; then
+    echo "cluster-link: WARN FileVault is on; NOT auto-rebooting — a plain reboot strands this host at the pre-boot unlock screen with no SSH, and no credential is stored for an unattended fdesetup authrestart. Staying halted; reboot by hand and the watcher resumes on the new boot." >&2
+    alert "$(hostname -s): $budget_phrase. Auto-reboot was NOT attempted: FileVault is on and this host stores no credential for an unattended authenticated restart. Reboot it by hand." \
+      "mlx-cluster PD debt — FileVault blocks auto-reboot"
+    return 0
+  fi
+
+  printf '%s\n' "$now" > "$marker_file"
+  echo "cluster-link: $cause halt standing ($budget_phrase); FileVault off and auto-reboot last used $([ "$last" -gt 0 ] && echo "${elapsed}s ago" || echo never) — auto-rebooting to return the leaked domains, since only a reboot does"
+  alert "$(hostname -s): $budget_phrase. Auto-rebooting now — this is the automatic recovery path, no human action needed." \
+    "mlx-cluster auto-reboot (PD guard)"
+  quiesce_normal_serving || true
+  sudo -n /sbin/reboot || echo "cluster-link: WARN auto-reboot command failed; host remains halted for manual recovery" >&2
+}
+
+# FileVault status, resolved through PATH first (so a test can stub it) with
+# the absolute OS path as the production fallback — same idiom
+# current_boot_epoch uses for sysctl, and for the same reason: this script's
+# PATH is restricted to writeShellApplication's runtimeInputs, which do not
+# include /usr/bin.
+pd_reboot_filevault_off() {
+  local fdesetup_bin
+  fdesetup_bin="$(command -v fdesetup 2> /dev/null || echo /usr/bin/fdesetup)"
+  case "$("$fdesetup_bin" status 2> /dev/null)" in
+    "FileVault is Off."*) return 0 ;;
+    *) return 1 ;;
+  esac
 }
 
 # Decide whether a by-hand clear of the halt marker may stand.

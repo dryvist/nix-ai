@@ -93,7 +93,7 @@ in
         ~60 sessions upstream reports are other hardware). The question is not
         "how close to 11 dare we walk" but "how much of 11 may be burned on
         failure while still leaving enough to succeed". A working cluster
-        session must itself allocate protection domains, and max_qp plus max_cq
+        session must itself allocate protection domains, and max_qp and max_cq
         are 11 as well — a live session draws on three equally scarce pools at
         once. Burn 10 of 11 proving the peer absent, and the attempt actually
         wanted may have nothing left to allocate.
@@ -111,6 +111,47 @@ in
 
         Only a reboot returns a leaked domain. Clearing the halt marker does
         not — the guard re-verifies the ledger and re-halts on its evidence.
+      '';
+    };
+
+    pdAutoRebootWindowSecs = lib.mkOption {
+      type = lib.types.int;
+      default = 21600; # 6h
+      description = ''
+        Seconds between UNATTENDED reboots the watcher may issue to clear a
+        PD-exhaustion halt (cause pd-debt-exhausted or rank-start-failures)
+        while the link is up. 0 disables auto-reboot outright, leaving the
+        halt-and-alert-only behaviour this repo shipped with originally: a
+        human has to notice the alert and reboot by hand. That manual step is
+        the interlock the operator's chaos-monkey doctrine bans — cables
+        plugged in is supposed to mean clustered, unattended, no exceptions —
+        and it cost real cluster downtime on 2026-08-01 sitting on exactly this
+        halt with the cable plugged in the whole time.
+
+        THE RATE LIMIT, NOT AN ENABLE FLAG, IS THE SAFETY VALVE. A reboot that
+        does not resolve the underlying cause (a genuinely absent or
+        misconfigured peer, not merely a slow one) would otherwise repeat on
+        every tick, without bound. The marker recording the wall-clock time of
+        the last auto-reboot lives beside the watcher's other state markers,
+        deliberately NOT in the boot-scoped PD ledger everything else here
+        resets on — the entire point is that it must outlive the very reboot
+        it is rate-limiting.
+
+        6h is a starting guess, not a measurement: generous enough that a
+        genuine transient (peer mid-rebuild, a flaky cable) gets one shot at
+        unattended recovery per shift, tight enough that a real fault does not
+        sit unaddressed until the next business day. Revisit once this has
+        actually fired in production.
+
+        FILEVAULT CAVEAT: a FileVault-enabled host is never auto-rebooted,
+        regardless of this setting. fdesetup(8)'s authrestart verb itself
+        prompts for the FileVault password, and nix-darwin's cluster-ops
+        sudoers grant (security.nix) deliberately stores no credential to
+        answer that prompt unattended — feeding one automatically is called
+        out there as a separate security decision left to the operator. A
+        plain reboot on such a host would instead strand it at the pre-boot
+        unlock screen with no SSH, which is worse than staying halted. See
+        pd_auto_reboot_if_warranted in cluster-link-guards.sh.
       '';
     };
 

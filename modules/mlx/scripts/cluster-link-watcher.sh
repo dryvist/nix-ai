@@ -29,6 +29,10 @@
 #   CLUSTER_QUIESCE_CMD     optional worker-side quiesce hook (run via sh -c)
 #   CLUSTER_RESTORE_CMD     optional worker-side restore hook (run via sh -c)
 #   CLUSTER_MAX_KICKSTARTS  consecutive failed rank starts before halting
+#   CLUSTER_PD_AUTO_REBOOT_WINDOW_SECS  minimum seconds between unattended
+#                         reboots issued to clear a PD-exhaustion halt (0
+#                         disables auto-reboot; see cluster-link-guards.sh
+#                         pd_auto_reboot_if_warranted)
 #   CLUSTER_LINK_DOWN_STRIKES  consecutive failed link probes before the link
 #                         is declared down (default 2). Debounce only applies
 #                         to down; up is believed on the first reply.
@@ -81,6 +85,12 @@ halt_latch_file="$state_dir/rank-halt-latched"
 # in the marker list either: a link cycle, a manual clear and cluster-join all
 # reset the halt state, and none of them returns a protection domain.
 pd_debt_file="${CLUSTER_PD_DEBT_FILE:-}"
+# Wall-clock rate-limit marker for the PD-exhaustion auto-reboot (see
+# pd_auto_reboot_if_warranted in cluster-link-guards.sh). Lives in state_dir
+# like every OTHER marker here — unlike pd_debt_file, this one is watcher-only
+# (cluster-join and cluster-detach never read or write it), so it does not need
+# the module-derived single-definition treatment the ledger path gets.
+pd_auto_reboot_marker_file="$state_dir/pd-auto-reboot-last"
 
 # Link probe, debounced ASYMMETRICALLY — a false "down" is destructive, a false
 # "up" is not. Declaring down tears the rank down, restores standalone serving,
@@ -356,7 +366,15 @@ if [ "$cur" = "up" ]; then
     # really does clear a stale verdict, then the ledger re-halts if THIS boot
     # has already lost domains. Both are boot-scoped off the same field, so a
     # reboot lifts both and nothing else does.
-    :
+    #
+    # ...and a reboot is exactly what this next line can now issue itself: a
+    # PD-exhaustion halt (pd-debt-exhausted or rank-start-failures) is the one
+    # verdict whose own doctrine is "only a reboot clears this", so waiting on
+    # a human to notice the alert is a manual interlock, not a design choice.
+    # No-ops for every other halt cause, is its own rate limiter, and refuses
+    # outright on a FileVault host with no credential to answer an unattended
+    # authenticated restart — see pd_auto_reboot_if_warranted for all three.
+    pd_auto_reboot_if_warranted "$halt_file" "$pd_auto_reboot_marker_file" "$cur"
   elif [ -f "$halt_latch_file" ] &&
     ! halt_clear_accepted "$halt_file" "$halt_latch_file" "$kicks_file"; then
     : # cleared by hand while the cause persists — re-halted, logged, no retry
