@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.1.0](https://github.com/dryvist/nix-ai/compare/v4.0.4...v4.1.0) (2026-08-01)
+
+
+### Features
+
+* **mlx-cluster:** reap a rank whose wired memory crosses a runtime ceiling ([#1481](https://github.com/dryvist/nix-ai/issues/1481)) ([079ae0a](https://github.com/dryvist/nix-ai/commit/079ae0a014a15956d52f735180de36c07e187f7a))
+* **mlx-cluster:** reboot to self-heal a PD-exhaustion halt ([#1478](https://github.com/dryvist/nix-ai/issues/1478)) ([0109b83](https://github.com/dryvist/nix-ai/commit/0109b839359efebde2b08d10ab9db4ec4af0cccd))
+
 ## [4.0.4](https://github.com/dryvist/nix-ai/compare/v4.0.3...v4.0.4) (2026-08-01)
 
 
