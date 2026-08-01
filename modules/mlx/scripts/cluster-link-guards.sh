@@ -95,14 +95,31 @@ repair_link_prep() {
 #
 # Free-ish = free pages plus what the kernel can reclaim without paging
 # anything out (inactive + speculative) — NEVER wired down. WHY FREE, NOT
-# WIRED, DECIDES WHETHER A SHARD FITS: MLX holds a loaded shard's weights in
-# ordinary resident memory, not wired. Measured 2026-08-01: a ~49 GiB shard
-# served real tokens while `Pages wired down` read only ~3.5 GiB. So a low
-# wired figure says nothing about what is loaded, and a high one is the
-# unreclaimed-Metal LEAK signature (see mem_headroom_ok below), never a fit
-# signal. `--list-devices`'s own free-memory report is per-process fiction
-# too — it claimed 102399 MiB free on a host actually holding 68 GiB wired —
-# so this reads vm_stat directly rather than trusting either of MLX's numbers.
+# WIRED, DECIDES WHETHER A SHARD FITS: the question is whether room exists for
+# a NEW shard, and only free + reclaimable can answer that. Memory a live rank
+# already holds is, correctly, not free.
+#
+# CORRECTED 2026-08-01 — this comment previously asserted that "MLX holds a
+# loaded shard's weights in ordinary resident memory, not wired", citing a
+# ~49 GiB shard serving real tokens at only ~3.5 GiB wired. **That measurement
+# is wrong.** The REALVMSTAT fixture in tests/test-mem-headroom.sh — a
+# byte-for-byte real capture, not prose — reads `Pages wired down: 3348211`
+# = ~51.1 GiB, and nix-darwin's cluster-wired-limit.nix independently recorded
+# 3271199 pages (~49.9 GiB) with both ranks serving. The two agree within 2.3%
+# and are ~15x the retracted figure. The retracted claim also contradicted this
+# same file, which elsewhere treats tens of GiB of wired memory as what a
+# CRASHED rank leaves behind — impossible had shard weights never been wired.
+#
+# So: A HEALTHY SERVING RANK WIRES APPROXIMATELY ITS WHOLE SHARD. Any guard
+# thresholded on wired MUST clear one full shard, or it fires on every healthy
+# rank (see rank_wired_ceiling_ok, deliberately set between one shard and two).
+# High wired is the unreclaimed-Metal LEAK signature ONLY once no rank process
+# survives to hold it — which is exactly what mem_headroom_ok gates that branch
+# on, so the code was right even while this prose was not.
+#
+# `--list-devices`'s own free-memory report is per-process fiction — it claimed
+# 102399 MiB free on a host actually holding 68 GiB wired — so this reads
+# vm_stat directly rather than trusting MLX's numbers.
 #
 # Page size is READ from vm_stat's own header line, never assumed: a
 # hardcoded 16384 silently breaks the day Apple changes it, or on hardware

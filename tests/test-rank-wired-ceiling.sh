@@ -124,12 +124,12 @@ check "empty disables the guard" keep "$(verdict '')"
 check "a non-numeric ceiling disables it rather than guessing" keep "$(verdict abc)"
 
 echo "1. BOTH measured healthy shapes are left alone:"
-# Two live measurements of a healthy serving rank disagree (see wiredCeilingMb):
-# ~3.5 GiB wired against a ~49 GiB shard, and 3271199 pages (~49.9 GiB) wired
-# with both ranks serving, each claiming a real completion. A ceiling is only
-# safe once it clears the LARGER, so the guard is asserted against both here.
-# Reaping a healthy rank on sight is far worse than a ceiling set high: the
-# cluster could never stay up at all.
+# A healthy serving rank wires approximately its whole shard — 3271199 pages
+# (~49.9 GiB) with both ranks serving, corroborated within 2.3% by the
+# REALVMSTAT capture in test-mem-headroom.sh. An earlier ~3.5 GiB claim was
+# retracted as a bad measurement, but the low-wired case is asserted anyway:
+# it is the pre-load state every rank passes through on the way up, and
+# reaping there would kill a rank that is still loading its shard.
 reset_state
 write_vmstat 16384 3276800 229376 # 3.5 GiB wired — the smaller measurement
 check "healthy rank, smaller measurement, is not reaped" keep "$(verdict 76800)"
