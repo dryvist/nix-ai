@@ -269,6 +269,7 @@ in
     ./options-cluster-lifecycle.nix
     ./options-cluster-resilience.nix
     ./options-cluster-rank-health.nix
+    ./options-cluster-memory.nix
     ./assertions.nix
     ./packages.nix
     ./launchd.nix

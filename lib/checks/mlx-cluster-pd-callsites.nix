@@ -91,5 +91,13 @@ in
     assert
       hasInfix "pd_auto_reboot_if_warranted" watcherSrc
       || throw "cluster: the watcher must call pd_auto_reboot_if_warranted from its halted branch. Without it, a PD-exhaustion halt (pd-debt-exhausted or rank-start-failures) sits waiting for a human to notice the alert and reboot by hand — the manual interlock the operator's chaos-monkey doctrine bans, and the exact gap that cost hours of cluster downtime on 2026-08-01";
-    helpers.mkMarker "check-mlx-cluster-pd-callsites" "MLX RDMA protection-domain ledger call sites: detach records its SIGKILL, watcher and join settle the kickstart counter, join never records a leak of its own, and no script spells the ledger path literally";
+    # tests/test-mem-headroom.sh proves mem_headroom_halt_if_persistent behaves;
+    # it cannot prove the watcher still calls it. Without this call site a
+    # persistent memory shortfall (the 2026-08-01 unreclaimed-Metal shape) sits
+    # refusing every start FOREVER with no escalation — the cluster never forms,
+    # even with the cable plugged in the whole time.
+    assert
+      hasInfix "mem_headroom_halt_if_persistent" watcherSrc
+      || throw "cluster: the watcher must call mem_headroom_halt_if_persistent from its halted-branch chain. Without it a persistent memory shortfall only ever produces a silent per-tick skip (rank_start_preconditions_ok's own rung) and never escalates to a halt pd_auto_reboot_if_warranted can act on";
+    helpers.mkMarker "check-mlx-cluster-pd-callsites" "MLX RDMA protection-domain ledger call sites: detach records its SIGKILL, watcher and join settle the kickstart counter, join never records a leak of its own, no script spells the ledger path literally, and the watcher still calls both the PD and memory-headroom auto-reboot triggers";
 }

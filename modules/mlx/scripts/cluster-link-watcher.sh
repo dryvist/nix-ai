@@ -53,6 +53,12 @@
 #                         so the wedge detector can run more than once per link
 #                         session instead of being disabled by the first
 #                         successful warm (default 1800; 0 disables re-checks)
+#   CLUSTER_SHARD_MEMORY_MB  expected per-rank working set in MB; 0 disables
+#                         the memory-headroom rung with no vm_stat read at all
+#                         (see mem_headroom_ok in cluster-link-guards.sh)
+#   CLUSTER_MEM_HEADROOM_DWELL_TICKS  consecutive refused ticks before the
+#                         memory rung escalates to a HALT that
+#                         pd_auto_reboot_if_warranted can act on
 
 mkdir -p "$(dirname "$CLUSTER_STATE_FILE")"
 prev="down"
@@ -91,6 +97,11 @@ pd_debt_file="${CLUSTER_PD_DEBT_FILE:-}"
 # (cluster-join and cluster-detach never read or write it), so it does not need
 # the module-derived single-definition treatment the ledger path gets.
 pd_auto_reboot_marker_file="$state_dir/pd-auto-reboot-last"
+# Consecutive ticks the memory-headroom rung has refused a start. Session-
+# scoped like the other strike counters above (down_strikes_file, peer_
+# session_strikes_file) — a shortfall is not a leaked kernel resource, so a
+# link cycle resetting it is correct rather than laundering anything.
+mem_dwell_file="$state_dir/mem-headroom-refused"
 
 # Link probe, debounced ASYMMETRICALLY — a false "down" is destructive, a false
 # "up" is not. Declaring down tears the rank down, restores standalone serving,
@@ -359,16 +370,19 @@ if [ "$cur" = "up" ]; then
     fi
   elif halt_drop_if_pre_boot "$halt_file" "$halt_latch_file" "$kicks_file" &&
     pd_debt_halt_if_exhausted "$halt_file" "$halt_latch_file" "$pd_debt_file" &&
+    mem_headroom_halt_if_persistent "$halt_file" "$halt_latch_file" "$mem_dwell_file" &&
     [ -f "$halt_file" ]; then
     # Halted — no more PD-burning retries until the link cycles.
     #
     # Order matters and is the point: halt_drop_if_pre_boot first, so a reboot
     # really does clear a stale verdict, then the ledger re-halts if THIS boot
-    # has already lost domains. Both are boot-scoped off the same field, so a
-    # reboot lifts both and nothing else does.
+    # has already lost domains, and the memory rung re-halts if a shortfall is
+    # still persisting. All three run every tick and always return 0, so
+    # `[ -f "$halt_file" ]` is the actual gate.
     #
     # ...and a reboot is exactly what this next line can now issue itself: a
-    # PD-exhaustion halt (pd-debt-exhausted or rank-start-failures) is the one
+    # PD-exhaustion halt (pd-debt-exhausted or rank-start-failures) or a
+    # persistent memory shortfall (insufficient-memory-persistent) is a
     # verdict whose own doctrine is "only a reboot clears this", so waiting on
     # a human to notice the alert is a manual interlock, not a design choice.
     # No-ops for every other halt cause, is its own rate limiter, and refuses
@@ -461,7 +475,7 @@ elif [ "$prev" = "up" ]; then
   pd_debt_settle_counter "$pd_debt_file" "$kicks_file" 0 "link-cycle" \
     "attempts outstanding when the link went down and reset the session"
   rm -f "$halt_file" "$halt_latch_file" "$started_file" "$ready_file" \
-    "$warm_file" "$warm_fails_file"
+    "$warm_file" "$warm_fails_file" "$mem_dwell_file"
   launchctl kill SIGTERM "gui/$uid/$CLUSTER_RANK_LABEL" 2> /dev/null || true
   if [ -n "${CLUSTER_WIRED_LIMIT_MB:-}" ]; then
     set_wired_limit "${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}" || down_failed=1
