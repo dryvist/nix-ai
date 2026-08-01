@@ -123,28 +123,33 @@ check "0 disables the guard" keep "$(verdict 0)"
 check "empty disables the guard" keep "$(verdict '')"
 check "a non-numeric ceiling disables it rather than guessing" keep "$(verdict abc)"
 
-echo "1. a healthy rank is left alone (the measured ~3.5 GiB shape):"
-# The 2026-08-01 measurement: a ~49 GiB shard served real tokens at ~3.5 GiB
-# wired. That is the state this guard must NEVER touch, or it reaps every
-# healthy cluster rank and the cluster can never stay up.
+echo "1. BOTH measured healthy shapes are left alone:"
+# Two live measurements of a healthy serving rank disagree (see wiredCeilingMb):
+# ~3.5 GiB wired against a ~49 GiB shard, and 3271199 pages (~49.9 GiB) wired
+# with both ranks serving, each claiming a real completion. A ceiling is only
+# safe once it clears the LARGER, so the guard is asserted against both here.
+# Reaping a healthy rank on sight is far worse than a ceiling set high: the
+# cluster could never stay up at all.
 reset_state
-write_vmstat 16384 3276800 229376 # 50 GiB free, 3.5 GiB wired
-check "healthy serving rank is not reaped" keep "$(verdict 49152)"
+write_vmstat 16384 3276800 229376 # 3.5 GiB wired — the smaller measurement
+check "healthy rank, smaller measurement, is not reaped" keep "$(verdict 76800)"
+write_vmstat 16384 1048576 3271199 # the larger measurement, verbatim page count
+check "healthy rank, larger measurement, is not reaped" keep "$(verdict 76800)"
 
 echo "2. wired at or above the ceiling reaps:"
 reset_state
 # 16384-byte pages: MB * 64 = pages. 96768MB * 64 = 6193152; 1024MB * 64 = 65536.
 write_vmstat 16384 65536 6193152 # 1 GiB free, 96768MB (~94.5 GiB) wired: the incident
-check "the incident shape is reaped" reap "$(verdict 49152)"
+check "the incident shape is reaped" reap "$(verdict 76800)"
 check "exactly at the ceiling reaps (>= not >)" reap "$(verdict 96768)"
 check "one MB above the incident value keeps" keep "$(verdict 96770)"
 
 echo "   ...and the detail names both numbers, for the page:"
-breach_detail="$(detail_of 49152)"
+breach_detail="$(detail_of 76800)"
 check "detail states the wired figure" yes \
   "$(case "$breach_detail" in *"96768MB wired"*) echo yes ;; *) echo no ;; esac)"
 check "detail states the ceiling it crossed" yes \
-  "$(case "$breach_detail" in *"49152MB runtime ceiling"*) echo yes ;; *) echo no ;; esac)"
+  "$(case "$breach_detail" in *"76800MB runtime ceiling"*) echo yes ;; *) echo no ;; esac)"
 check "a passing check prints nothing at all" "" "$(detail_of 96770)"
 
 echo "3. page size is READ from vm_stat, never assumed 16384:"
@@ -170,9 +175,9 @@ echo "5. the guard reads wired, not free (the rung above reads free):"
 # numbers move in opposite directions: the incident had wired HIGH and free
 # LOW. Plenty free with wired over the ceiling must still reap.
 reset_state
-write_vmstat 16384 6553600 3276800 # 100 GiB free, 50 GiB wired
-check "high free does not excuse wired over the ceiling" reap "$(verdict 49152)"
+write_vmstat 16384 6553600 5242880 # 100 GiB free, 80 GiB wired
+check "high free does not excuse wired over the ceiling" reap "$(verdict 76800)"
 write_vmstat 16384 65536 65536 # 1 GiB free, 1 GiB wired
-check "low free alone does not reap (that is mem_headroom_ok's job)" keep "$(verdict 49152)"
+check "low free alone does not reap (that is mem_headroom_ok's job)" keep "$(verdict 76800)"
 
 exit "$fail"
