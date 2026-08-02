@@ -1,5 +1,14 @@
 # Changelog
 
+## [4.1.1](https://github.com/dryvist/nix-ai/compare/v4.1.0...v4.1.1) (2026-08-02)
+
+
+### Bug Fixes
+
+* **mlx-cluster:** remove the dead wiredCeilingMb runtime-reap guard ([#1486](https://github.com/dryvist/nix-ai/issues/1486)) ([aa63f0b](https://github.com/dryvist/nix-ai/commit/aa63f0bcada50cd089e139eb632fcf184835bff0))
+* **mlx-cluster:** retract the ~3.5 GiB healthy-rank wired measurement ([#1485](https://github.com/dryvist/nix-ai/issues/1485)) ([660981f](https://github.com/dryvist/nix-ai/commit/660981f43f959f8c2f3fd281c2a2880f1fb3241b))
+* **mlx-cluster:** the original wired note was right; retract the retraction ([#1487](https://github.com/dryvist/nix-ai/issues/1487)) ([5bc7f6c](https://github.com/dryvist/nix-ai/commit/5bc7f6c2206f1ab1136b28583739de5fec7a268a))
+
 ## [4.1.0](https://github.com/dryvist/nix-ai/compare/v4.0.4...v4.1.0) (2026-08-01)
 
 
