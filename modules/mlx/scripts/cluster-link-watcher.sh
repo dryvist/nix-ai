@@ -53,9 +53,6 @@
 #                         so the wedge detector can run more than once per link
 #                         session instead of being disabled by the first
 #                         successful warm (default 1800; 0 disables re-checks)
-#   CLUSTER_GENERATION_HEAL_LABEL  launchd label of the detached generation-heal
-#                         job (RULE 2 — see cluster-generation-heal.sh)
-#   CLUSTER_GENERATION_HEAL_MAX  rebuild attempts per distinct deploy revision
 #   CLUSTER_SHARD_MEMORY_MB  expected per-rank working set in MB; 0 disables
 #                         the memory-headroom rung with no vm_stat read at all
 #                         (see mem_headroom_ok in cluster-link-guards.sh)

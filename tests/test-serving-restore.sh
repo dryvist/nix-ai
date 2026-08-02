@@ -202,7 +202,7 @@ detach="${DETACH:?set DETACH to the path of cluster-detach.sh}"
 code() { grep -v '^[[:space:]]*#' "$detach"; }
 pin() {
   local label="$1" pattern="$2"
-  if code | grep -Eq "$pattern"; then
+  if grep -Eq "$pattern" <<< "$(code)"; then
     echo "  ok   $label"
   else
     echo "  FAIL $label -> no code line matching /$pattern/"
@@ -211,7 +211,7 @@ pin() {
 }
 anti_pin() {
   local label="$1" pattern="$2"
-  if code | grep -Eq "$pattern"; then
+  if grep -Eq "$pattern" <<< "$(code)"; then
     echo "  FAIL $label -> code line matching /$pattern/ is back"
     fail=1
   else
