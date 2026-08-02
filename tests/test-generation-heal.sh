@@ -53,7 +53,6 @@ lc_log="$state_dir/launchctl-calls"
 : > "$pages"
 : > "$lc_log"
 
-uid=501
 export CLUSTER_ROLE=worker
 export CLUSTER_STATIC_PEER_IP=192.0.2.1
 export CLUSTER_RENDEZVOUS_PORT=11441
