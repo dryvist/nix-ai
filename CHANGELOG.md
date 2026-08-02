@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.1.4](https://github.com/dryvist/nix-ai/compare/v4.1.3...v4.1.4) (2026-08-02)
+
+
+### Bug Fixes
+
+* **cluster:** never rebuild the host automatically; drift pages instead ([#1500](https://github.com/dryvist/nix-ai/issues/1500)) ([3551861](https://github.com/dryvist/nix-ai/commit/355186124184e2d672df132368b0744947adf35a))
+
 ## [4.1.3](https://github.com/dryvist/nix-ai/compare/v4.1.2...v4.1.3) (2026-08-02)
 
 
