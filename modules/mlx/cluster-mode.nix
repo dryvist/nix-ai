@@ -208,7 +208,15 @@ in
         enable = true;
         config = {
           Label = rankLabel;
-          ProgramArguments = [ (lib.getExe clusterRankLaunchPkg) ] ++ clusterRankArgs;
+          # Apple's interpreter, like the watcher and peer-liveness agents
+          # beside it: a Nix binary's signing identity is its content hash, so
+          # a Local Network grant dies on the next rebuild. Worst here — the
+          # rank alone opens the jaccl rendezvous, and each denied start burns
+          # a boot-scoped protection domain. See programs.mlx.appleInterpreter.
+          ProgramArguments =
+            lib.optional (appleInterp != null) appleInterp
+            ++ [ (lib.getExe clusterRankLaunchPkg) ]
+            ++ clusterRankArgs;
           RunAtLoad = false;
           KeepAlive = false;
           ThrottleInterval = 60;
