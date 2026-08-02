@@ -23,7 +23,7 @@
 #   - axton-obsidian-visual-skills (axtonliu/..., 2651★)
 #   - visual-explainer-marketplace (nicobailon/..., 7816★)
 #   - browser-use-skills (browser-use/browser-use, 91681★ upstream, synthetic)
-#   - vct-cribl-pack-validator-skills (VisiCore/..., 0★, synthetic)
+#   - vct-cribl-pack-validator-skills (private source, 0★, synthetic)
 #   - wakatime (wakatime/claude-code-wakatime, 73★)         — telemetry
 
 _:
@@ -133,7 +133,7 @@ _:
     "browser-use@browser-use-skills" = false;
 
     # ========================================================================
-    # vct-cribl-pack-validator-skills — VisiCore/vct-cribl-pack-validator (synthetic)
+    # vct-cribl-pack-validator-skills — private source (synthetic)
     # ========================================================================
     # DISABLED globally — re-enable in Cribl pack repos (cribl, cc-edge-*,
     # cc-stream-*) via per-repo .claude/settings.json overrides.

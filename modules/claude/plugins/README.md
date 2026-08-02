@@ -69,7 +69,7 @@ priority system above.
 | `wakatime` | `wakatime/claude-code-wakatime` | 73 | 5 |
 | `cc-dev-tools` | `Lucklyric/cc-dev-tools` | 29 | 5 |
 | `lunar-claude` | `basher83/lunar-claude` | 18 | 5 |
-| `vct-cribl-pack-validator-skills` | `VisiCore/vct-cribl-pack-validator` (synthetic) | 0 | 5 |
+| `vct-cribl-pack-validator-skills` | private source (synthetic) | 0 | 5 |
 | `bills-claude-skills` | `BillChirico/bills-claude-skills` (registered, no plugins enabled) | — | — |
 
 `claude-plugins-official` is split across Tier 1 (Anthropic-authored core plugins
@@ -151,7 +151,7 @@ Nix wraps them via derivations (the marketplace-overrides derivation lives in th
 | Marketplace | Upstream Repo | Wrapping Strategy |
 | ----------- | ------------- | ----------------- |
 | `browser-use-skills` | `browser-use/browser-use` | Wraps upstream skills directory |
-| `vct-cribl-pack-validator-skills` | `VisiCore/vct-cribl-pack-validator` | Wraps bare `.claude/skills/` layout |
+| `vct-cribl-pack-validator-skills` | private source | Wraps bare `.claude/skills/` layout |
 | `fabric-patterns` | `danielmiessler/fabric` | Wraps a curated subset of patterns as individual skills |
 | `jacobpevans-cc-plugins` | `JacobPEvans/claude-code-plugins` | Auto-generates `marketplace.json` from discovered `plugin.json` files |
 
