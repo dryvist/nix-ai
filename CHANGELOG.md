@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.1.3](https://github.com/dryvist/nix-ai/compare/v4.1.2...v4.1.3) (2026-08-02)
+
+
+### Bug Fixes
+
+* **cluster:** launch the rank through Apple's interpreter ([#1472](https://github.com/dryvist/nix-ai/issues/1472)) ([2671e44](https://github.com/dryvist/nix-ai/commit/2671e442d08b722036873ec419a7f988b12befb1))
+* **mlx-cluster:** self-heal the link, report facts, and restore serving on both roles ([#1477](https://github.com/dryvist/nix-ai/issues/1477)) ([5cfd4b5](https://github.com/dryvist/nix-ai/commit/5cfd4b5c8c2aa24f2af23476063b1738f5a455bd))
+
 ## [4.1.2](https://github.com/dryvist/nix-ai/compare/v4.1.1...v4.1.2) (2026-08-02)
 
 
