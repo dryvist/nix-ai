@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.2.0](https://github.com/dryvist/nix-ai/compare/v4.1.4...v4.2.0) (2026-08-02)
+
+
+### Features
+
+* **ai-stack:** let a consumer-provided bearer satisfy the router gate ([#1502](https://github.com/dryvist/nix-ai/issues/1502)) ([ef5a7a7](https://github.com/dryvist/nix-ai/commit/ef5a7a729f99b56e1157c8569848cd0a428d2974))
+
 ## [4.1.4](https://github.com/dryvist/nix-ai/compare/v4.1.3...v4.1.4) (2026-08-02)
 
 
