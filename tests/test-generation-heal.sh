@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# THE CHECK THAT FAILS IF GENERATION PARITY STOPS BEING A HARD, SELF-HEALING GATE.
+# THE CHECK THAT FAILS IF GENERATION PARITY STOPS BEING A HARD GATE,
+# OR IF ANYTHING STARTS REBUILDING THE HOST AUTOMATICALLY.
 #
 # RULE 2 (operator, verbatim): "make sure the actual, automated, non-AI steps
 # enforce the nix generations to march exactly on both / all devices before
@@ -14,12 +15,11 @@
 #      consumed), passes on ok / unverified / disabled;
 #   2. a by-hand halt clear during drift is REJECTED and re-halts naming
 #      generation-parity;
-#   3. the heal is DETACHED (a transient launchd job the watcher submits, so
-#      the rebuild survives its own activation booting the watcher out),
-#      BOUNDED per distinct deploy revision, single-flight, and never touches
-#      a machine whose rank is serving;
-#   4. a finished heal invalidates the parity cache, so success is judged by
-#      re-reading the truth rather than trusting the job.
+#   3. drift PAGES once per distinct deploy revision, never pages a machine
+#      whose rank is serving, and NEVER rebuilds the host;
+#   4. no shipped cluster script runs `darwin-rebuild switch` — an automatic
+#      rebuild toward one repo's HEAD silently reverts any host deployed from
+#      a different flake, on a timer.
 #
 # WHAT IS REAL AND WHAT IS NOT:
 #   REAL  — rank_start_preconditions_ok, halt_clear_accepted, halt_write,
@@ -197,67 +197,60 @@ contains "and the re-halt names the parity gate" "still-failing=generation-parit
 rm -f "$halt_file" "$latch_file" "$kicks_file"
 
 echo
-echo "the DETACHED heal: submits a launchd job toward the deploy revision:"
+echo "drift PAGES — and never rebuilds the machine:"
 parity_is aaaaaaaaaaaa bbbbbbbbbbbb
 fact="$(generation_parity_cached "$gen_parity_file")"
 generation_heal_maybe "$fact" "$attempts_file" || true
-check "one submission" 1 "$(submits)"
-contains "under its own label (not the watcher's process tree)" \
-  "dev.mlx-cluster.generation-heal" "$(grep '^submit' "$lc_log")"
-contains "rebuilding from the remote flake ref, pinned to the deploy rev" \
-  "github:example/deploy/bbbbbbbbbbbb" "$(grep '^submit' "$lc_log")"
-contains "always-exit-0 so launchctl submit cannot restart-loop a failing rebuild" \
-  "|| true" "$(grep '^submit' "$lc_log")"
-check "one attempt recorded for this rev" "bbbbbbbbbbbb 1" "$(cat "$attempts_file")"
+check "exactly one page for this deploy revision" 1 "$(pages_sent)"
+check "NO launchd job is ever submitted" 0 "$(submits)"
+check "the deploy revision is recorded as paged" "bbbbbbbbbbbb paged" "$(cat "$attempts_file")"
 
 echo
-echo "...single-flight: a heal in progress is never doubled:"
-touch "$FAKE_JOB_RUNNING"
+echo "...a host that stays drifted does not page every tick:"
 generation_heal_maybe "$fact" "$attempts_file" || true
-check "no second submission while the job runs" 1 "$(submits)"
+generation_heal_maybe "$fact" "$attempts_file" || true
+check "still exactly one page" 1 "$(pages_sent)"
+check "still no submission" 0 "$(submits)"
 
 echo
-echo "...a finished heal is judged by RE-READING parity, not by trusting the job:"
-rm -f "$FAKE_JOB_RUNNING"
-generation_heal_maybe "$fact" "$attempts_file" || true
-check "the finished job is removed" 1 "$(grep -c '^remove' "$lc_log" || true)"
-check "and the parity cache is invalidated for a fresh read" absent \
-  "$([ -f "$gen_parity_file" ] && echo present || echo absent)"
-
-echo
-echo "...still drifted after the retry budget: page ONCE and stop:"
-fact="$(generation_parity_cached "$gen_parity_file")" # still drift (attempt 2)
-generation_heal_maybe "$fact" "$attempts_file" || true
-check "second (final) attempt submitted" 2 "$(submits)"
-rm -f "$FAKE_JOB_EXISTS" # that attempt finished too
-generation_heal_maybe "$fact" "$attempts_file" || true
-generation_heal_maybe "$fact" "$attempts_file" || true
-check "no third attempt (cap 2)" 2 "$(submits)"
-check "exactly one page at the cap" 1 "$(pages_sent)"
-
-echo
-echo "...a NEW deploy revision opens a fresh budget:"
+echo "...a NEW deploy revision pages again:"
 parity_is aaaaaaaaaaaa cccccccccccc
 fact="$(generation_parity_cached "$gen_parity_file")"
 generation_heal_maybe "$fact" "$attempts_file" || true
-check "new rev submits again" 3 "$(submits)"
-check "attempts reset to the new rev" "cccccccccccc 1" "$(cat "$attempts_file")"
+check "the new revision pages" 2 "$(pages_sent)"
+check "ledger tracks the new revision" "cccccccccccc paged" "$(cat "$attempts_file")"
 
 echo
-echo "...and a machine that is SERVING is never touched:"
-rm -f "$FAKE_JOB_EXISTS"
+echo "...a machine that is SERVING is never paged:"
+parity_is aaaaaaaaaaaa dddddddddddd
 touch "$FAKE_RANK_RUNNING_MARKER"
-generation_heal_maybe "$fact" "$attempts_file" || true
-check "no submission while the rank runs" 3 "$(submits)"
+generation_heal_maybe "$(generation_parity_cached "$gen_parity_file")" "$attempts_file" || true
+check "no page while the rank runs" 2 "$(pages_sent)"
 rm -f "$FAKE_RANK_RUNNING_MARKER"
 
 echo
-echo "...healthy parity heals nothing:"
+echo "...healthy parity does nothing at all:"
 parity_is aaaaaaaaaaaa aaaaaaaaaaaa
 generation_heal_maybe "$(generation_parity_cached "$gen_parity_file")" "$attempts_file" || true
-check "no submission at state=ok" 3 "$(submits)"
+check "no page at state=ok" 2 "$(pages_sent)"
+check "no submission at state=ok" 0 "$(submits)"
 
 echo
+echo "THE REGRESSION GUARD: nothing in the shipped cluster scripts rebuilds"
+echo "this host from a remote flake ref — that is what silently reverted a"
+echo "wrapper-managed host on a timer."
+for shipped in "${HEAL:?}" "${WATCHER:?}" "${GUARDS:?}"; do
+  # Comments are stripped first: these files must be free to EXPLAIN why the
+  # automatic rebuild was removed without the explanation tripping the guard.
+  if grep -vE '^[[:space:]]*#' "$shipped" | grep -qE 'darwin-rebuild[[:space:]]+switch'; then
+    echo "FAIL: $shipped runs darwin-rebuild switch; deploying a host is a"
+    echo "      deliberate operator action, never an automatic repair."
+    fail=1
+  else
+    echo "  ok  $(basename "$shipped") does not rebuild the host"
+  fi
+done
+
 echo "call sites and ORDER (a gate nothing runs before is not a gate):"
 watcher="${WATCHER:?set WATCHER to cluster-link-watcher.sh}"
 guards="${GUARDS:?}"
