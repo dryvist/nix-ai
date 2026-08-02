@@ -61,6 +61,26 @@ in
         Nix store — only the path is committed, mirroring the HF_TOKEN /
         sops-rendered-file pattern. Unused (and unnecessary) when
         `llmEndpoint = "mlx_local"`; the loopback hop is unauthenticated.
+
+        Leave null when the consumer already exports the bearer by another
+        runtime path and sets `llmEndpointBearerFromEnv`.
+      '';
+    };
+
+    llmEndpointBearerFromEnv = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        Set when the consumer already exports `OPENAI_API_KEY` for the router
+        by its own runtime mechanism (a keychain read at shell init, an agent
+        sidecar, a credential helper) rather than through a token file. It
+        satisfies the bearer requirement for `llmEndpoint = "router"` without
+        this module owning a secret path.
+
+        This exists because a consumer that provisions the bearer from a
+        secret store has no file to point at, and inventing one would mean
+        writing the secret to disk purely to satisfy an assertion — the
+        opposite of what the token-file indirection is for.
       '';
     };
 
@@ -86,8 +106,15 @@ in
       }
       {
         assertion =
-          cfg.llmEndpoint == "router" -> (cfg.llmEndpointTokenFile != null && cfg.llmEndpointTokenFile != "");
-        message = "services.aiStack.llmEndpoint = \"router\" requires services.aiStack.llmEndpointTokenFile to be a non-empty path to the bearer token file.";
+          cfg.llmEndpoint == "router"
+          -> (
+            cfg.llmEndpointBearerFromEnv || (cfg.llmEndpointTokenFile != null && cfg.llmEndpointTokenFile != "")
+          );
+        message = "services.aiStack.llmEndpoint = \"router\" is bearer-gated: set services.aiStack.llmEndpointTokenFile to a non-empty path, or set services.aiStack.llmEndpointBearerFromEnv when the consumer already exports OPENAI_API_KEY itself.";
+      }
+      {
+        assertion = !(cfg.llmEndpointBearerFromEnv && cfg.llmEndpointTokenFile != null);
+        message = "services.aiStack.llmEndpointBearerFromEnv and services.aiStack.llmEndpointTokenFile are mutually exclusive — pick the one path that actually provisions the bearer.";
       }
     ];
 
@@ -96,6 +123,14 @@ in
     # (cecli, qwen-code, fabric) authenticate to the router. Only the path is
     # in the Nix store; the secret is read at runtime (HF_TOKEN pattern). The
     # loopback default sets nothing — its hop is unauthenticated.
+    #
+    # The `:-` guard makes this non-clobbering. Shell init order between
+    # modules is not guaranteed, so an unconditional assignment here can run
+    # after a consumer that provisions the same variable from its own secret
+    # store and replace a good bearer with the empty string that `|| echo ""`
+    # produces — a failure that surfaces as router 401s far from its cause.
+    # Deferring to an already-set value also makes llmEndpointBearerFromEnv a
+    # no-op here rather than a second competing writer.
     #
     # zsh only, deliberately: this repo's shell layer is zsh (see ai-shell.nix,
     # the only other shell-init here). The path is escapeShellArg'd, and the
@@ -109,7 +144,7 @@ in
         )
         (
           lib.mkAfter ''
-            export OPENAI_API_KEY="$(cat ${lib.escapeShellArg cfg.llmEndpointTokenFile} 2>/dev/null || echo "")"
+            export OPENAI_API_KEY="''${OPENAI_API_KEY:-"$(cat ${lib.escapeShellArg cfg.llmEndpointTokenFile} 2>/dev/null || echo "")"}"
           ''
         );
   };
