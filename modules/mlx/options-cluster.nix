@@ -93,7 +93,7 @@ in
         ~60 sessions upstream reports are other hardware). The question is not
         "how close to 11 dare we walk" but "how much of 11 may be burned on
         failure while still leaving enough to succeed". A working cluster
-        session must itself allocate protection domains, and max_qp plus max_cq
+        session must itself allocate protection domains, and max_qp and max_cq
         are 11 as well — a live session draws on three equally scarce pools at
         once. Burn 10 of 11 proving the peer absent, and the attempt actually
         wanted may have nothing left to allocate.
@@ -113,6 +113,9 @@ in
         not — the guard re-verifies the ledger and re-halts on its evidence.
       '';
     };
+
+    # pdAutoRebootWindowSecs moved to ./options-cluster-pd-reboot.nix (12KB
+    # file-size split; option path unchanged).
 
     maxWarmFailures = lib.mkOption {
       type = lib.types.int;

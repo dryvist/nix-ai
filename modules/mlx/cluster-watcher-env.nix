@@ -47,6 +47,14 @@ let
       ticks = (ncfg.downReportEverySecs + ncfg.tickIntervalSecs - 1) / ncfg.tickIntervalSecs;
     in
     if ticks < 1 then 1 else ticks;
+
+  # Same ceil-against-the-tick derivation as downStrikes, for the
+  # memory-headroom rung's escalate-to-halt dwell. See options-cluster-memory.nix.
+  memHeadroomDwellTicks =
+    let
+      ticks = (ncfg.memHeadroomHaltSecs + ncfg.tickIntervalSecs - 1) / ncfg.tickIntervalSecs;
+    in
+    if ticks < 1 then 1 else ticks;
 in
 {
   CLUSTER_ROLE = ncfg.role;
@@ -132,6 +140,11 @@ in
   # cumulative-per-boot because nothing short of a reboot returns a domain.
   CLUSTER_PD_DEBT_FILE = pdDebtFile;
   CLUSTER_PD_DEBT_MAX = toString ncfg.maxKickstarts;
+  # Unattended-reboot rate limit for a PD-exhaustion halt (pd-debt-exhausted or
+  # rank-start-failures). 0 disables auto-reboot outright. See
+  # pd_auto_reboot_if_warranted in cluster-link-guards.sh and the option's own
+  # doc comment for the FileVault caveat.
+  CLUSTER_PD_AUTO_REBOOT_WINDOW_SECS = toString ncfg.pdAutoRebootWindowSecs;
   # The device's own budget — measured max_pd, 11 on this hardware. Carried so
   # every operator-facing message can state the debt as a FRACTION of what the
   # device has ("3 of 11 consumed until reboot") rather than a bare count. A
@@ -139,6 +152,18 @@ in
   # the number the reserve invariant in lib/checks/mlx-cluster-pd-env.nix
   # measures the cap against.
   CLUSTER_PD_DEVICE_BUDGET = toString ncfg.devicePdBudget;
+  # --- memory-headroom guard --------------------------------------------------
+  # Expected per-rank working set; 0 disables the rung with no vm_stat read at
+  # all. See options-cluster-memory.nix for why this is measured against FREE
+  # memory, never wired, and mem_headroom_ok / mem_headroom_halt_if_persistent
+  # in cluster-link-guards.sh for the rung itself.
+  CLUSTER_SHARD_MEMORY_MB = toString ncfg.shardMemoryMb;
+  # Consecutive ticks the rung may refuse before the watcher escalates from a
+  # free per-tick skip to a HALT that pd_auto_reboot_if_warranted can act on.
+  CLUSTER_MEM_HEADROOM_DWELL_TICKS = toString memHeadroomDwellTicks;
+  # vm_stat is not on a writeShellApplication PATH; test seam, like
+  # CLUSTER_NETSTAT_BIN / CLUSTER_PGREP_BIN / CLUSTER_KILL_BIN above.
+  CLUSTER_VMSTAT_BIN = "/usr/bin/vm_stat";
 }
 // lib.optionalAttrs isCoordinator {
   # Readiness probe target: launchctl liveness alone cannot see a rank hung in

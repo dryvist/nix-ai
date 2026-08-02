@@ -131,6 +131,34 @@ At the cap:
 The only remedy is a reboot. That is not a policy choice; it is what a
 protection domain is.
 
+### The watcher reboots itself
+
+The watcher does not stop at halting and paging: once a halt's cause is
+`pd-debt-exhausted` or `rank-start-failures` — the two causes whose own alert
+text already says "only a reboot clears this" — and the link is up, it issues
+the reboot itself (`pd_auto_reboot_if_warranted` in
+`modules/mlx/scripts/cluster-link-guards.sh`). Waiting for a human to notice
+the alert was the gap: on 2026-08-01 a host sat halted for hours with the
+cable plugged in, which is exactly the manual interlock this project's
+chaos-monkey doctrine bans.
+
+Three guards keep it from becoming its own hazard:
+
+- **Rate-limited**, `programs.mlx.clusterMode.pdAutoRebootWindowSecs` (default
+  6h), so a fault a reboot cannot actually fix does not loop. The marker
+  tracking the last auto-reboot is wall-clock and lives in state_dir — it must
+  survive the very reboot it is limiting, so it is deliberately NOT in the
+  boot-scoped ledger above. `0` disables auto-reboot outright, restoring the
+  halt-and-page-only behaviour.
+- **Link-gated**: it never fires with the cable out — there is no peer to
+  reclaim a domain for.
+- **FileVault-gated**: `fdesetup authrestart` itself prompts for the FileVault
+  password, and this project stores no credential to answer that unattended
+  (see nix-darwin's `security.nix` cluster-ops sudoers comment). A FileVault
+  host is never auto-rebooted — it pages and stays halted, because a plain
+  reboot would strand it at the pre-boot unlock screen with no SSH, which is
+  worse.
+
 ## Reap before start
 
 Before any rank start, the watcher proves no previous rank process survives. If
@@ -179,3 +207,6 @@ next `cluster-join` that is gated.
 - `tests/test-pd-counter-settle.sh` — the test that fails if a counter reset can
   discard leaked domains, pinning both the transfer arithmetic and every call
   site that performs it.
+- `tests/test-pd-auto-reboot.sh` — the test that fails if the unattended
+  reboot fires for the wrong cause, ignores the rate limit, fires with the
+  link down, or strands a FileVault host.
