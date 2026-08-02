@@ -167,7 +167,7 @@ tick() { CLUSTER_ROLE="${1:-coordinator}" "$tmp/peer-liveness.sh" > "$tmp/tick.o
 torn_down() { [ -f "$tmp/state/rank-halted" ] && echo yes || echo no; }
 probe_count() { grep -c probe "$tmp/probe.log" 2> /dev/null || echo 0; }
 alert_text() { cat "$tmp/alerts.jsonl" 2> /dev/null || true; }
-alert_says() { alert_text | grep -qF "$1" && echo yes || echo no; }
+alert_says() { grep -qF "$1" <<< "$(alert_text)" && echo yes || echo no; }
 alert_count() { grep -c alert "$tmp/alert-count" 2> /dev/null || echo 0; }
 
 echo "a healthy rank is never killed:"

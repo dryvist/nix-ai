@@ -224,9 +224,16 @@ echo "call sites (a function nobody calls fixes nothing):"
 watcher="${WATCHER:?set WATCHER to the path of cluster-link-watcher.sh}"
 detach="${DETACH:?set DETACH to the path of cluster-detach.sh}"
 join="${JOIN:?set JOIN to the path of cluster-join.sh}"
+# The comment-stripped body is materialised before matching. Under
+# `set -o pipefail`, `grep -v ... | grep -Eq` fails whenever the second grep
+# exits on its first match and the first takes SIGPIPE — so a pattern matching
+# EARLY in the file reports as not found. GNU grep -q exits immediately; BSD
+# grep drains its input, so this is invisible on macOS and only fires in the
+# Linux sandbox.
 pin() {
-  local label="$1" file="$2" pattern="$3"
-  if grep -v '^[[:space:]]*#' "$file" | grep -Eq "$pattern"; then
+  local label="$1" file="$2" pattern="$3" body
+  body="$(grep -v '^[[:space:]]*#' "$file")"
+  if grep -Eq "$pattern" <<< "$body"; then
     echo "  ok   $label"
   else
     echo "  FAIL $label -> no code line matching /$pattern/ in $file"

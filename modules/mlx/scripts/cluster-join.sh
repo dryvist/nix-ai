@@ -103,18 +103,22 @@ fi
 # Every node must run the exact same committed system generation before any
 # clustering config begins: mixed generations mean mismatched mlx/JACCL stacks
 # on the two ranks — the untestable config-parity variable behind the
-# INC-17070 deadlock family. Parity is judged against the shared deploy branch
-# (origin main of the flake repo) rather than peer SSH: two nodes both at
-# remote HEAD are identical by construction, and a node behind HEAD is healed
-# by rebuilding DIRECTLY from the remote flake ref (github:<repo>/<rev>) — no
-# local checkout is referenced. Unreachable remote only WARNS (offline joins
-# stay possible); a dirty/unstamped local generation always fails.
+# INC-17070 deadlock family.
 #
-# The COMPARISON now comes from scripts/cluster-generation-parity.sh, shared with
+# Drift is a GATE, never a repair. This script reports it and stops; deploying
+# a host is a deliberate `darwin-rebuild switch`, run by whoever owns that
+# host's flake.
+#
+# It must not rebuild, because it cannot know what to rebuild INTO. Parity is
+# judged against one repo's origin/main, so a host deployed from any other
+# flake — a private wrapper extending this one, say — reports drift on every
+# single invocation, forever. A rebuild there does not heal anything: it
+# replaces the host's correct configuration with a different repo's. Making it
+# fail instead bounds the worst case to "refuses to cluster, and says why".
+#
+# The COMPARISON comes from scripts/cluster-generation-parity.sh, shared with
 # the link watcher — which reads it on a timer so drift is found without anyone
-# running this command. Two copies of the comparison would be two answers; the
-# heal stays here because it is the supervised path (see that file's header for
-# why a launchd agent must not fire darwin-rebuild at itself).
+# running this command. Two copies of the comparison would be two answers.
 parity="$(generation_parity_fact)"
 parity_state="${parity#state=}"
 parity_state="${parity_state%% *}"
@@ -130,16 +134,8 @@ case "$parity_state" in
     echo "cluster-join: WARN generation parity unverified (deploy branch unreachable)" >&2
     ;;
   drift)
-    echo "cluster-join: generation drift (local ${local_rev:0:12} != deploy ${remote_rev:0:12}); auto-healing from remote flake"
-    sudo /run/current-system/sw/bin/darwin-rebuild switch \
-      --flake "github:$CLUSTER_GENERATION_REPO/$remote_rev" ||
-      fail "auto-heal rebuild from github:$CLUSTER_GENERATION_REPO/$remote_rev failed"
-    parity="$(generation_parity_fact)"
-    case "$parity" in
-      *'state=ok'*) ;;
-      *) fail "still off deploy HEAD after auto-heal ($parity) — investigate before clustering" ;;
-    esac
-    echo "cluster-join: generation parity restored (${remote_rev:0:12})"
+    fail "generation drift: local ${local_rev:0:12} != deploy ${remote_rev:0:12}. \
+Deploy this host, then re-run: darwin-rebuild switch --flake <this host's flake>"
     ;;
   ok)
     echo "cluster-join: generation parity OK (${local_rev:0:12} = deploy HEAD)"
