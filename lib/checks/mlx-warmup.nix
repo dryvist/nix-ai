@@ -26,7 +26,7 @@
     # check would stop testing anything.
     export MLX_WARMUP_LAST_ATTEMPT_MARKER="$TMPDIR/warmup-last-attempt"
     export MLX_WARMUP_MIN_INTERVAL_SECONDS=0
-    bash ${./scripts/mlx-warmup-failure-bound.sh}
+    ${pkgs.bash}/bin/bash ${./scripts/mlx-warmup-failure-bound.sh}
   '';
 
   mlx-warmup-min-interval = pkgs.runCommand "check-mlx-warmup-min-interval" { } ''
@@ -43,6 +43,6 @@
     # A large window so the immediate 2nd invocation is unambiguously inside
     # it regardless of how long this check's own steps take to run.
     export MLX_WARMUP_MIN_INTERVAL_SECONDS=1000
-    bash ${./scripts/mlx-warmup-min-interval.sh}
+    ${pkgs.bash}/bin/bash ${./scripts/mlx-warmup-min-interval.sh}
   '';
 }
