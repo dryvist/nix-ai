@@ -15,12 +15,15 @@
 #   CLUSTER_STANDALONE_WIRED_LIMIT_MB  standalone ceiling the watcher restores (default 0)
 #   CLUSTER_DETACH_SWAP_THRESHOLD_MB  warn+exit-3 above this vm.swapusage used (MB)
 #   CLUSTER_DETACH_TIMEOUT_SECS bound on the teardown/restore waits
+#   CLUSTER_STANDALONE_PROBE_URL       normal-mode proxy /v1 base URL
+#   CLUSTER_STANDALONE_PROBE_MODEL     primary resident model id (real-completion probe)
 #   coordinator only:
 #   CLUSTER_SERVER_LABEL        normal-mode server (llama-swap) launchd label
 #   CLUSTER_SERVER_PLIST        path to the server agent plist (for bootstrap)
 #   CLUSTER_WARMUP_LABEL        normal-mode warmup one-shot launchd label
-#   CLUSTER_STANDALONE_PROBE_URL       normal-mode proxy /v1 base URL
-#   CLUSTER_STANDALONE_PROBE_MODEL     primary resident model id (real-completion probe)
+#   worker only:
+#   CLUSTER_RESTORE_CMD         cluster-restore — bootstraps back exactly the
+#                             agents cluster-quiesce recorded booting out
 #
 # Grants used (nix-darwin sudoers, cluster-ops): `ifconfig en[0-9]* down` to drop
 # the link. launchctl verbs run in the caller's own gui/$uid domain (no sudo).
@@ -39,6 +42,31 @@ note_fail() {
   echo "cluster-detach: FAIL: $*" >&2
   failed=1
 }
+
+# --- step 0: record the standalone lease (RULE 1: plugged in means clustered) --
+# A detach is a bounded EXCEPTION, never a state. Twice on 2026-08-01 machines
+# sat detached with the cable in — serving nothing clustered and running no
+# benchmark — because nothing recorded that the standalone window was over. So
+# every detach now writes a lease: `<expiry-epoch>\t<created>\t<reason>`, one
+# line. The watcher honours it while it is unexpired and resumes driving the
+# pair back to clustered the moment it expires; cluster-join ends it early.
+# There is deliberately NO indefinite form — an opt-out that cannot expire
+# recreates the exact failure the rule targets.
+#
+# Usage: cluster-detach [lease-secs [reason]]
+lease_secs="${1:-${CLUSTER_STANDALONE_LEASE_SECS:-7200}}"
+case "$lease_secs" in
+  '' | *[!0-9]*)
+    echo "cluster-detach: FAIL: lease duration '$lease_secs' is not a number of seconds (usage: cluster-detach [lease-secs [reason]])" >&2
+    exit 1
+    ;;
+esac
+lease_reason="${2:-cluster-detach}"
+lease_until=$(($(date +%s) + lease_secs))
+mkdir -p "$state_dir"
+printf '%s\t%s\t%s\n' "$lease_until" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$lease_reason" \
+  > "$state_dir/standalone-lease"
+echo "cluster-detach: standalone lease for ${lease_secs}s (reason: $lease_reason). While the cable is in, the watcher auto-rejoins when it expires; cluster-join ends it early."
 
 # --- step 1: take the link admin-down ---------------------------------------
 # iface_holding_self_ip comes from scripts/cluster-link-locate.sh, concatenated
@@ -153,25 +181,37 @@ markers_clear || note_fail "PD-guard/readiness markers still present in $state_d
 rank_gone || note_fail "rank process still running (pattern ${CLUSTER_RANK_PROCESS_PATTERN:-unset})"
 ceiling_restored ||
   note_fail "iogpu.wired_limit_mb=$(/usr/sbin/sysctl -n iogpu.wired_limit_mb 2>/dev/null) != standalone ${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}"
-[ "$failed" -eq 0 ] && echo "cluster-detach: teardown verified (markers clear, rank gone, standalone ceiling restored)"
+# Deliberately NOT called "teardown verified" any more. That wording was true and
+# read as false: on 2026-08-01 it printed on a worker that was serving NOTHING,
+# and exit 0 said the node was fine. Naming exactly the three postconditions it
+# covers — and nothing about serving — is what stops the next reader making the
+# same jump.
+[ "$failed" -eq 0 ] && echo "cluster-detach: rank teardown verified (markers clear, rank gone, standalone ceiling restored); serving NOT yet restored — step 2"
 
-# --- step 2: coordinator -- verify standalone serving actually came back ------------
-# The watcher restore assumes the standalone agents are still loaded and silently no-ops
-# otherwise (INC-17071). Ensure the server agent is loaded, (re)kick it and the
-# warmup, then require a REAL completion from the primary resident.
-if [ "$CLUSTER_ROLE" = "coordinator" ]; then
-  if ! /bin/launchctl print "gui/$uid/${CLUSTER_SERVER_LABEL}" > /dev/null 2>&1; then
-    echo "cluster-detach: standalone server agent not loaded; bootstrapping"
-    if [ -f "${CLUSTER_SERVER_PLIST:-}" ]; then
-      /bin/launchctl bootstrap "gui/$uid" "$CLUSTER_SERVER_PLIST" > /dev/null 2>&1 || true
-    fi
-  fi
-  /bin/launchctl kickstart "gui/$uid/${CLUSTER_SERVER_LABEL}" > /dev/null 2>&1 || true
-  /bin/launchctl kickstart -k "gui/$uid/${CLUSTER_WARMUP_LABEL}" > /dev/null 2>&1 || true
+# --- step 2: BOTH ROLES -- put standalone serving back and prove it serves ---
+# THE 86-HOUR DEFECT. This step used to be coordinator-only. On a worker,
+# cluster-detach downed the link, verified markers/rank/ceiling, printed
+# "teardown verified" and exited 0 — while the seven agents cluster-quiesce had
+# booted out (dev.mlx-model-server and its warmup among them) stayed booted out
+# and the host answered connection-refused. The teardown really was verified. The
+# machine really was serving nothing. Both at once, exit 0.
+#
+# Two changes make that unreachable:
+#   1. restore_normal_serving is now the SHARED function the watcher and the
+#      peer-liveness supervisor already call (scripts/cluster-serving-restore.sh),
+#      so every path that claims to restore serving runs the same code. On a
+#      worker it invokes cluster-restore, which bootstraps back EXACTLY the set
+#      cluster-quiesce recorded — never a hardcoded list.
+#   2. The real-completion probe runs for BOTH roles. A restore that cannot be
+#      demonstrated with a generated token is not a restore.
+if ! restore_normal_serving; then
+  note_fail "standalone serving restore failed (role=$CLUSTER_ROLE)"
+fi
 
+serve_ok=false
+if [ -n "${CLUSTER_STANDALONE_PROBE_URL:-}" ]; then
   echo "cluster-detach: waiting up to ${timeout}s for standalone serving to answer a real completion"
   deadline=$(($(date +%s) + timeout))
-  serve_ok=false
   while [ "$(date +%s)" -lt "$deadline" ]; do
     if curl -fsS -m 5 "${CLUSTER_STANDALONE_PROBE_URL}/models" > /dev/null 2>&1; then
       body="$(curl -fsS -m 240 -X POST "${CLUSTER_STANDALONE_PROBE_URL}/chat/completions" \
@@ -191,6 +231,11 @@ if [ "$CLUSTER_ROLE" = "coordinator" ]; then
   else
     note_fail "standalone serving did not return a real completion within ${timeout}s"
   fi
+else
+  # No probe URL is a CONFIGURATION gap, not a pass. Reporting it as a failure is
+  # the point: an unverifiable restore is exactly the state this whole step
+  # exists to stop being reported as success.
+  note_fail "no CLUSTER_STANDALONE_PROBE_URL configured; standalone serving CANNOT be verified on this node"
 fi
 
 # --- step 3: swap check (distinct exit so a wrapper can chain a reboot) ------
@@ -234,10 +279,9 @@ echo "  wired ceil : iogpu.wired_limit_mb=$ceiling (standalone ${CLUSTER_STANDAL
 # appears once there is debt is a line nobody learns to look for.
 pd_debt_now="$(pd_debt_count "${CLUSTER_PD_DEBT_FILE:-}")"
 echo "  PD debt    : $(pd_debt_phrase "${pd_debt_now:-0}" "${CLUSTER_PD_DEBT_MAX:-?}")"
-if [ "$CLUSTER_ROLE" = "coordinator" ]; then
-  if [ "$serve_ok" = true ]; then standalone_state="restored"; else standalone_state="NOT-RESTORED"; fi
-  echo "  standalone serving: $standalone_state"
-fi
+if [ "$serve_ok" = true ]; then standalone_state="restored"; else standalone_state="NOT-RESTORED"; fi
+echo "  standalone serving: $standalone_state"
+echo "  lease      : ${lease_secs}s ($lease_reason) — the watcher auto-rejoins at expiry while plugged in"
 echo "  swap used  : ${used}M (threshold ${swap_threshold}M)"
 echo "======================================================================"
 

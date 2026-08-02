@@ -94,6 +94,9 @@ set_wired_limit() { [ "$ceiling_ok" = 1 ]; }
 # drives it through the CLUSTER_PGREP_BIN / CLUSTER_KILL_BIN seams.
 reap_ok=1
 rank_reap_verified() { [ "$reap_ok" = 1 ]; }
+# The generation-parity rung (RULE 2), stubbed healthy here; its refuse/pass
+# matrix and the drift heal are exercised in tests/test-generation-heal.sh.
+generation_parity_cached() { printf 'state=ok local=aaaa deploy=aaaa'; }
 date() {
   case "$1" in
     +%s) echo "$align_now" ;;

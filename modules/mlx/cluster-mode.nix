@@ -98,12 +98,16 @@ let
   clusterWatcherPkg = pkgs.writeShellApplication {
     name = "mlx-cluster-link-watcher";
     # jq: the Slack alert payload is JSON-encoded, never string-interpolated.
-    # coreutils: `timeout` bounds both the rendezvous probe and the activation
-    # repair pass, and macOS ships no timeout(1).
+    # coreutils: `timeout` bounds the rendezvous probe, the activation repair
+    # pass and the parity ls-remote, and macOS ships no timeout(1).
+    # git: the periodic generation-parity check reads the deploy branch HEAD with
+    # `ls-remote` — the drift that disarmed link prep for 86 hours was invisible
+    # because nothing on a timer ever asked.
     runtimeInputs = [
       pkgs.curl
       pkgs.jq
       pkgs.coreutils
+      pkgs.git
     ];
     # Function definitions first, then the state machine. Concatenation, not
     # sourcing: the helper bodies read `uid` and the CLUSTER_* env from the
@@ -208,7 +212,15 @@ in
         enable = true;
         config = {
           Label = rankLabel;
-          ProgramArguments = [ (lib.getExe clusterRankLaunchPkg) ] ++ clusterRankArgs;
+          # Apple's interpreter, like the watcher and peer-liveness agents
+          # beside it: a Nix binary's signing identity is its content hash, so
+          # a Local Network grant dies on the next rebuild. Worst here — the
+          # rank alone opens the jaccl rendezvous, and each denied start burns
+          # a boot-scoped protection domain. See programs.mlx.appleInterpreter.
+          ProgramArguments =
+            lib.optional (appleInterp != null) appleInterp
+            ++ [ (lib.getExe clusterRankLaunchPkg) ]
+            ++ clusterRankArgs;
           RunAtLoad = false;
           KeepAlive = false;
           ThrottleInterval = 60;
