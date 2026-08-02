@@ -34,6 +34,22 @@
       '';
     };
 
+    standaloneLeaseSecs = lib.mkOption {
+      type = lib.types.ints.positive;
+      default = 7200;
+      description = ''
+        Default duration (s) of the standalone lease cluster-detach records —
+        the ONE sanctioned way to hold a plugged-in machine out of the cluster
+        (RULE 1: plugged in means clustered). While the lease is unexpired the
+        watcher leaves the machine standalone; at expiry it re-admin-ups the
+        detached Thunderbolt port and drives the pair back to clustered,
+        unattended. Overridable per call (`cluster-detach <secs> [reason]`);
+        cluster-join ends a lease early. Deliberately no indefinite form: an
+        opt-out that cannot expire is detached-while-plugged with extra steps —
+        the exact stable waste state the rule exists to end.
+      '';
+    };
+
     detachSwapThresholdMb = lib.mkOption {
       type = lib.types.int;
       default = 20000;

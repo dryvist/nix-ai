@@ -53,6 +53,9 @@
 #                         so the wedge detector can run more than once per link
 #                         session instead of being disabled by the first
 #                         successful warm (default 1800; 0 disables re-checks)
+#   CLUSTER_GENERATION_HEAL_LABEL  launchd label of the detached generation-heal
+#                         job (RULE 2 — see cluster-generation-heal.sh)
+#   CLUSTER_GENERATION_HEAL_MAX  rebuild attempts per distinct deploy revision
 #   CLUSTER_SHARD_MEMORY_MB  expected per-rank working set in MB; 0 disables
 #                         the memory-headroom rung with no vm_stat read at all
 #                         (see mem_headroom_ok in cluster-link-guards.sh)
@@ -80,6 +83,18 @@ peer_session_strikes_file="$state_dir/peer-session-strikes"
 # only to make a permanently-failing probe audible on a cadence — see the
 # else-branch of the probe below.
 down_quiet_file="$state_dir/link-down-quiet-ticks"
+# Last DOWN facts line actually logged, so a state CHANGE is reported the tick it
+# happens instead of waiting out the quiet cadence. 10,440 identical lines is not
+# reporting; it is the thing that hides the one line that mattered.
+facts_file="$state_dir/link-facts-last"
+# Consecutive failed link-prep self-heal attempts. Reset the moment prep is
+# healthy, so a repair that works costs one attempt and one that cannot work
+# stops instead of thrashing bridge0 membership every 30s for days.
+link_prep_repairs_file="$state_dir/link-prep-repairs"
+# Generation-parity cache (`<epoch> <fact>`), TTL CLUSTER_GENERATION_CHECK_SECS,
+# and the marker that keeps a drift page to one per distinct drift.
+gen_parity_file="$state_dir/generation-parity"
+gen_alerted_file="$state_dir/generation-alerted"
 # Sticky companion to halt_file: survives a manual `rm` of the marker so the
 # next tick can re-verify the cause before the first retry (see
 # halt_clear_accepted). Cleared only by a real link cycle or an accepted clear.
@@ -91,6 +106,14 @@ halt_latch_file="$state_dir/rank-halt-latched"
 # in the marker list either: a link cycle, a manual clear and cluster-join all
 # reset the halt state, and none of them returns a protection domain.
 pd_debt_file="${CLUSTER_PD_DEBT_FILE:-}"
+# RULE 1 — plugged in means clustered. The lease is the ONE sanctioned,
+# self-expiring standalone window (written by cluster-detach, deleted by
+# cluster-join or its own expiry); the re-up counter bounds the port
+# re-admin-up that makes a detached-while-plugged state self-correcting.
+lease_file="$state_dir/standalone-lease"
+port_reup_file="$state_dir/port-reups"
+# RULE 2 — the detached generation-heal's attempts ledger (`<rev> <count>`).
+heal_attempts_file="$state_dir/generation-heal-attempts"
 # Wall-clock rate-limit marker for the PD-exhaustion auto-reboot (see
 # pd_auto_reboot_if_warranted in cluster-link-guards.sh). Lives in state_dir
 # like every OTHER marker here — unlike pd_debt_file, this one is watcher-only
@@ -102,6 +125,22 @@ pd_auto_reboot_marker_file="$state_dir/pd-auto-reboot-last"
 # session_strikes_file) — a shortfall is not a leaked kernel resource, so a
 # link cycle resetting it is correct rather than laundering anything.
 mem_dwell_file="$state_dir/mem-headroom-refused"
+
+# GENERATION PARITY FIRST — RULE 2. Read (cached, one ls-remote per
+# CLUSTER_GENERATION_CHECK_SECS) before ANY other step of the tick, because
+# every later step's behaviour depends on the generation: link prep aliases
+# what the deployed activation says, quiesce and rank start assemble the stack
+# the deployed revision defines. Until 2026-08-01 the only parity check lived
+# in cluster-join, which is human-initiated — so a drifted node stayed drifted
+# for 86 hours. Now: reported every tick, paged once per distinct drift, and
+# RECONCILED unattended by a detached launchd job (see
+# cluster-generation-heal.sh — detached because a rebuild fired from this
+# agent would be SIGKILLed by its own activation). While drift persists,
+# rank_start_preconditions_ok refuses to start (hard gate) and the down path
+# below refuses to run link prep from the stale generation.
+parity_now="$(generation_parity_cached "$gen_parity_file")"
+generation_drift_report "$parity_now" "$gen_alerted_file"
+generation_heal_maybe "$parity_now" "$heal_attempts_file" || true
 
 # Link probe, debounced ASYMMETRICALLY — a false "down" is destructive, a false
 # "up" is not. Declaring down tears the rank down, restores standalone serving,
@@ -129,7 +168,7 @@ mem_dwell_file="$state_dir/mem-headroom-refused"
 #      ~1 extra tick while a multi-second transient is absorbed.
 if /sbin/ping -c 3 -t 2 -q "$CLUSTER_STATIC_PEER_IP" > /dev/null 2>&1; then
   cur="up"
-  rm -f "$down_strikes_file" "$down_quiet_file"
+  rm -f "$down_strikes_file" "$down_quiet_file" "$facts_file"
 elif [ "$prev" = "up" ]; then
   strikes=0
   [ -f "$down_strikes_file" ] && strikes="$(cat "$down_strikes_file")"
@@ -152,26 +191,57 @@ else
   # minutes on 2026-07-25: the agent ticked 115 times, exited 0 every time,
   # wrote nothing to stdout OR stderr, and `launchctl print` reported
   # `runs = 115, last exit code = 0`. Every health signal read green while the
-  # cluster could not form. A watchdog whose own failure mode is indistinguishable
-  # from "nothing to do" is the certify-by-proxy trap this repo keeps finding.
+  # cluster could not form.
   #
-  # An unplugged cable is a legitimate, possibly days-long down — so this must
-  # not spam. Report on a cadence instead: once when down is first confirmed,
-  # then every CLUSTER_DOWN_REPORT_EVERY ticks (default 20 ≈ 10 min at the 30s
-  # interval). The message names the two causes that look identical from here,
-  # because the second one is invisible without it: on macOS a DENIED Local
-  # Network permission makes the probe fail with "No route to host" even though
-  # the cable is in, the address is assigned and the route and ARP entry are
-  # both valid (jevans-ms, 2026-07-25 — shell pinged 75/75 while the agent
-  # failed 5/5).
+  # It then went the other way, and that was worse. The replacement logged a
+  # two-item GUESS — "cable out, OR ... denied macOS Local Network permission" —
+  # 10,440 times across 86 hours on 2026-08-01, while the truth was neither: the
+  # cable was seated, a Thunderbolt port had carrier throughout, and this host
+  # simply held no link address because it had drifted off the deployed
+  # generation and the activation that aliases the address never ran. Any
+  # enumerated cause list is non-exhaustive; offering two makes a reader pick one
+  # and diagnose the wrong machine.
+  #
+  # So: REPAIR FIRST, then report MEASURED STATE. link_prep_self_heal fixes
+  # exactly the condition that caused the outage — carrier present, address
+  # absent — with the same repair the up-path already used, bounded so it cannot
+  # thrash. link_facts then renders per-port carrier, where the self address
+  # actually is, whether prep is usable, whether the peer answered and whether
+  # this node is running the deployed generation, with no inference beyond one
+  # definitional statement. Reported when the facts CHANGE (so a state change is
+  # never buried under a quiet window) and otherwise on the existing cadence.
   cur="down"
   downs=0
   [ -f "$down_quiet_file" ] && downs="$(cat "$down_quiet_file")"
   downs=$((downs + 1))
   printf '%s\n' "$downs" > "$down_quiet_file"
-  if [ "$downs" -eq 1 ] \
+  # RULE 1 — PLUGGED IN MEANS CLUSTERED, NO EXCEPTIONS. A detached-while-plugged
+  # state must be self-correcting, never stable. The one sanctioned exception is
+  # an unexpired standalone lease (deliberate, recorded, self-expiring); while
+  # it holds, the watcher leaves the machine alone. Otherwise it first
+  # re-admin-ups any port cluster-detach downed — carrier is unobservable on an
+  # admin-down port, which is exactly why this state used to be stable — and
+  # then repairs link prep, EXCEPT while the generation has drifted (RULE 2:
+  # link prep from a stale generation applies stale config; the detached heal's
+  # own activation re-runs prep from the deploy revision instead). A genuinely
+  # absent carrier changes nothing here: re-up no-ops on admin-up ports and the
+  # self-heal is carrier-gated, so a real unplug stays quiet.
+  if standalone_lease_active "$lease_file"; then
+    :
+  else
+    tb_ports_readmin_up "$port_reup_file" || true
+    case "$parity_now" in
+      *'state=drift'*) : ;;
+      *) link_prep_self_heal "$link_prep_repairs_file" || true ;;
+    esac
+  fi
+  facts="$(link_facts no "$gen_parity_file" "$lease_file")"
+  last_facts=""
+  [ -f "$facts_file" ] && last_facts="$(cat "$facts_file")"
+  if [ "$facts" != "$last_facts" ] \
     || [ "$((downs % ${CLUSTER_DOWN_REPORT_EVERY:-20}))" -eq 0 ]; then
-    echo "cluster-link: probe to $CLUSTER_STATIC_PEER_IP has failed $downs consecutive tick(s) while down — cable out, OR this host cannot reach the peer subnet at all (check: ping works from a shell but not from this agent = denied macOS Local Network permission). The cluster cannot form until this clears."
+    printf '%s\n' "$facts" > "$facts_file"
+    echo "cluster-link: DOWN $downs consecutive tick(s) — $facts"
   fi
 fi
 

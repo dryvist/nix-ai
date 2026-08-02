@@ -63,6 +63,10 @@ let
       CLUSTER_GENERATION_REPO = ncfg.generationRepo;
       CLUSTER_JOIN_SWAP_THRESHOLD_MB = toString ncfg.joinSwapThresholdMb;
       CLUSTER_JOIN_TIMEOUT_SECS = toString ncfg.joinTimeoutSecs;
+      # Peer preflight: fail fast and NAME the unprepared side rather than
+      # spending joinTimeoutSecs on a rank that cannot connect and then
+      # surfacing jaccl's errno 60, which cannot say which machine was wrong.
+      CLUSTER_PEER_READY_TIMEOUT_SECS = toString ncfg.peerReadyTimeoutSecs;
       CLUSTER_QUIESCE_GRACE_SECS = toString ncfg.quiesceGraceSecs;
       CLUSTER_WORKER_STABLE_SECS = toString ncfg.workerStableSecs;
     }
@@ -86,13 +90,35 @@ let
     // {
       CLUSTER_DETACH_SWAP_THRESHOLD_MB = toString ncfg.detachSwapThresholdMb;
       CLUSTER_DETACH_TIMEOUT_SECS = toString ncfg.detachTimeoutSecs;
+      # RULE 1: every detach records a self-expiring standalone lease; the
+      # watcher auto-rejoins at expiry while the cable is in. Default duration
+      # only — a per-call override is the command's first argument.
+      CLUSTER_STANDALONE_LEASE_SECS = toString ncfg.standaloneLeaseSecs;
+      # BOTH ROLES. These were coordinator-only, which is why cluster-detach on a
+      # worker could restore nothing, verify nothing, and still exit 0 with
+      # "teardown verified" over a host serving connection-refused (2026-08-01,
+      # 86h). Every node that can be quiesced must be able to prove it came back.
+      CLUSTER_STANDALONE_PROBE_URL = apiUrl;
+      CLUSTER_STANDALONE_PROBE_MODEL = cfg.defaultModel;
     }
     // lib.optionalAttrs isCoordinator {
       CLUSTER_SERVER_LABEL = launchAgentLabel;
       CLUSTER_SERVER_PLIST = "${launchAgentsDir}/${launchAgentLabel}.plist";
       CLUSTER_WARMUP_LABEL = warmupAgentLabel;
-      CLUSTER_STANDALONE_PROBE_URL = apiUrl;
-      CLUSTER_STANDALONE_PROBE_MODEL = cfg.defaultModel;
+    }
+    // lib.optionalAttrs (!isCoordinator && ncfg.restoreCommand != null) {
+      # The worker's restore hook — cluster-restore, which bootstraps back
+      # exactly the agent set cluster-quiesce recorded. The watcher and the
+      # peer-liveness supervisor have always carried this; detach never did, so
+      # the daily unplug was the one teardown path that could not restore.
+      CLUSTER_RESTORE_CMD = ncfg.restoreCommand;
+    }
+    // lib.optionalAttrs (!isCoordinator && ncfg.quiesceCommand != null) {
+      # Carried so restore_normal_serving can tell "this host never quiesces
+      # anything, so there is nothing to restore" (a pass) from "this host takes
+      # serving away and cannot give it back" (a failure). Collapsing those two
+      # into one silent success is the defect.
+      CLUSTER_QUIESCE_CMD = ncfg.quiesceCommand;
     };
 
 in

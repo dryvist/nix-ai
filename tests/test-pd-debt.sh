@@ -139,6 +139,9 @@ link_prep_ok() { return 0; }
 # tests/test-rank-start-guards.sh.
 peer_reachable() { return 0; }
 set_wired_limit() { return 0; }
+# The generation-parity rung (RULE 2), stubbed healthy — its own matrix lives
+# in tests/test-generation-heal.sh.
+generation_parity_cached() { printf 'state=ok local=aaaa deploy=aaaa'; }
 hostname() { echo test-host; }
 # The reap's wait loop must advance without really sleeping, or a stubbed clock
 # spins it forever. sleep moves the clock; date reports it.
