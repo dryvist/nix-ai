@@ -99,35 +99,41 @@ repair_link_prep() {
 # a NEW shard, and only free + reclaimable can answer that. Memory a live rank
 # already holds is, correctly, not free.
 #
-# CORRECTED 2026-08-01 — this comment previously asserted that "MLX holds a
-# loaded shard's weights in ordinary resident memory, not wired", citing a
-# ~49 GiB shard serving real tokens at only ~3.5 GiB wired. The NUMBER is
-# reproducible; the DESCRIPTION attached to it is wrong. A ~3.5-4 GiB reading
-# is what a rank process that has STARTED but not yet made its shard resident
-# looks like — measured directly on jevans-mbp 2026-08-01: with a freshly
-# kickstarted rank alive (mlx_lm.server running, weights not yet loaded)
-# `Pages wired down` read 3936 MB, and minutes earlier, with the previous
-# instance's shard resident, the same host read ~50.4 GiB. A live rank PROCESS
-# is therefore not evidence of a LOADED shard, and that is the trap this
-# figure fell into.
+# THE ORIGINAL NOTE HERE WAS RIGHT; A "CORRECTION" ON 2026-08-01 WAS NOT.
+# The original said MLX holds a loaded shard's weights in ordinary resident
+# memory rather than wired, citing a ~49 GiB shard serving real tokens at only
+# ~3.5 GiB wired. That was briefly replaced with the opposite claim — that a
+# healthy rank wires its whole shard. The replacement is retracted here.
 #
-# What a resident shard actually costs is corroborated three ways, all within
-# ~3%: the REALVMSTAT fixture in tests/test-mem-headroom.sh (a byte-for-byte
-# capture, not prose) reads `Pages wired down: 3348211` = ~51.1 GiB;
-# nix-darwin's cluster-wired-limit.nix recorded 3271199 pages (~49.9 GiB) with
-# both ranks serving; and the direct ~50.4 GiB observation above. The retracted
-# description also contradicted this same file, which elsewhere treats tens of
-# GiB of wired memory as what a CRASHED rank leaves behind — impossible had
-# shard weights never been wired at all.
+# Measured on the coordinator while it was demonstrably serving: a real
+# completion, 32 generated tokens, not a /v1/models probe.
 #
-# So: A HEALTHY SERVING RANK WIRES APPROXIMATELY ITS WHOLE SHARD. Any guard
-# thresholded on wired MUST clear one full shard, or it fires on every healthy
-# rank — in fact no such threshold is safe at all, since usage is DESIGNED to
-# run up toward the host's own wired ceiling (see docs-starlight
-# d/hosts/ai/mlx-memory-ceilings); that is why no runtime wired-ceiling guard
-# exists here. High wired is the unreclaimed-Metal LEAK signature ONLY once no
-# rank process survives to hold it — which is exactly what mem_headroom_ok
-# gates that branch on, so the code was right even while this prose was not.
+#   Pages wired down    3.1 GiB     <- the shard is NOT here
+#   Anonymous pages    53.1 GiB     <- the shard IS here
+#   File-backed        21.6 GiB
+#   rank process        rss ~0, vsz ~415 GiB   (mmap'd; RSS underreports too)
+#
+# So a healthy serving rank sits near 3 GiB wired while holding ~50 GiB of
+# shard as ANONYMOUS memory. Both halves of the original note stand: a low
+# wired figure says nothing about what is loaded, and a high one is the
+# unreclaimed-Metal leak signature — consistent with the 96.7 GiB wired seen
+# when this host starved its compositor and hard-reset.
+#
+# HOW THE BAD CORRECTION HAPPENED, recorded so it is not repeated. A ~50 GiB
+# wired reading on the worker was assumed to be "the shard resident". It was
+# not a healthy serving rank; wired that high is the leak signature described
+# above. Two different quantities were then compared as if they were one: a
+# TOTAL footprint model (weights + buffers + KV, which does approach the host
+# ceiling) and `Pages wired down` (which does not). Establish which quantity a
+# number measures before reasoning about a threshold on it.
+#
+# WHAT THIS DOES AND DOES NOT SAY ABOUT A RUNTIME WIRED GUARD. A guard of that
+# kind was added and removed on 2026-08-01. It was removed because it was
+# introduced without evidence and justified by the conflation above — not
+# because the measurements rule one out. On these numbers, healthy (~3 GiB) and
+# leaked (~50-96 GiB) are in fact widely separated. Whether a wired-thresholded
+# runtime guard is worth having is therefore OPEN, and would need its own
+# design and evidence rather than a heuristic.
 #
 # `--list-devices`'s own free-memory report is per-process fiction — it claimed
 # 102399 MiB free on a host actually holding 68 GiB wired — so this reads
