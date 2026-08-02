@@ -275,7 +275,11 @@ pin() {
 pin "the watcher calls the heal" "$watcher" '(^|[^_[:alnum:]])generation_heal_maybe'
 pin "the guards carry the parity rung" "$guards" 'PRECONDITION_REASON="generation-parity"'
 pin "the heal layer is shipped in the watcher build" "$layers" 'cluster-generation-heal\.sh'
-first_line() { grep -n "$2" "$1" | head -n1 | cut -d: -f1; }
+# CODE lines only. These pins compare the ORDER OF RUNGS, so a comment that
+# merely names a helper must not count as that rung: the memory-headroom rung
+# explains itself by referring to `rank_reap_verified` ~90 lines above the call,
+# which would otherwise be read as the reap rung and invert the comparison.
+first_line() { grep -n "$2" "$1" | grep -vE '^[0-9]+:[[:space:]]*#' | head -n1 | cut -d: -f1; }
 parity_line="$(first_line "$watcher" 'parity_now="\$(generation_parity_cached')"
 probe_line="$(first_line "$watcher" '/sbin/ping')"
 if [ -n "$parity_line" ] && [ -n "$probe_line" ] && [ "$parity_line" -lt "$probe_line" ]; then
