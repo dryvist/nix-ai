@@ -122,10 +122,12 @@ repair_link_prep() {
 #
 # So: A HEALTHY SERVING RANK WIRES APPROXIMATELY ITS WHOLE SHARD. Any guard
 # thresholded on wired MUST clear one full shard, or it fires on every healthy
-# rank (see rank_wired_ceiling_ok, deliberately set between one shard and two).
-# High wired is the unreclaimed-Metal LEAK signature ONLY once no rank process
-# survives to hold it — which is exactly what mem_headroom_ok gates that branch
-# on, so the code was right even while this prose was not.
+# rank — in fact no such threshold is safe at all, since usage is DESIGNED to
+# run up toward the host's own wired ceiling (see docs-starlight
+# d/hosts/ai/mlx-memory-ceilings); that is why no runtime wired-ceiling guard
+# exists here. High wired is the unreclaimed-Metal LEAK signature ONLY once no
+# rank process survives to hold it — which is exactly what mem_headroom_ok
+# gates that branch on, so the code was right even while this prose was not.
 #
 # `--list-devices`'s own free-memory report is per-process fiction — it claimed
 # 102399 MiB free on a host actually holding 68 GiB wired — so this reads
@@ -189,47 +191,6 @@ mem_headroom_ok() {
     # tells the operator a reboot is the remedy.
     MEM_HEADROOM_DETAIL="$MEM_HEADROOM_DETAIL (${wired}MB is wired with no surviving rank process — the unreclaimed-Metal signature; only a reboot returns it)"
   fi
-  return 1
-}
-
-# Runtime companion to mem_headroom_ok, and the only guard in this file that
-# judges a rank ALREADY RUNNING. $1 = ceiling in MB; 0/unset disables it with no
-# vm_stat read, same convention as the rung above. Nonzero return = wired has
-# crossed the ceiling and the rank must be reaped before the compositor starves.
-#
-# WHY A RUNNING RANK NEEDS WATCHING AT ALL. Every other rung here is a start
-# precondition, so all of them had already run — and passed — when this host
-# hard-reset on 2026-08-01. A rank started legally, wired climbed to 96.7 GiB
-# against a 100 GiB iogpu.wired_limit_mb, WindowServer's Metal allocation
-# blocked in IOGPUFamily/AGXG16X for 80s, and the hardware watchdog reset the
-# machine. Guards that only run before a start cannot see that develop.
-#
-# WHY THIS FAILS OPEN WHERE mem_headroom_ok FAILS CLOSED. An unreadable probe
-# makes that rung refuse to START, which costs nothing, since nothing was
-# running. The same refusal here would REAP a rank that may be serving
-# perfectly, so an unreadable probe must never be grounds to tear one down —
-# the reasoning the watcher already applies to a stale process pattern, where a
-# wrong pattern is deliberately inert rather than allowed to kill a healthy
-# rank. A missed tick costs one interval; a wrong teardown costs a live
-# generation plus a fresh distributed init, which leaks a protection domain
-# whenever it races.
-#
-# On breach, PRINTS the detail on stdout and returns 1; prints nothing and
-# returns 0 otherwise. A returned string rather than a MEM_HEADROOM_DETAIL-style
-# global on purpose: the only consumer is in cluster-link-watcher.sh, a separate
-# file concatenated with this one at build, so a global here is written in one
-# file and read in another — invisible to shellcheck, which flags it unused
-# (SC2034) and is right to. Capturing the string keeps the contract local.
-rank_wired_ceiling_ok() {
-  local ceiling="$1" stat_out free wired
-  case "$ceiling" in
-    '' | *[!0-9]*) return 0 ;;
-  esac
-  [ "$ceiling" -gt 0 ] || return 0
-  stat_out="$(mem_stat_mb)" || return 0
-  read -r free wired <<< "$stat_out"
-  [ "$wired" -lt "$ceiling" ] && return 0
-  printf '%s' "${wired}MB wired against a ${ceiling}MB runtime ceiling (${free}MB free); reaping the rank before the compositor's next Metal allocation blocks in the GPU driver and the hardware watchdog resets the host"
   return 1
 }
 
