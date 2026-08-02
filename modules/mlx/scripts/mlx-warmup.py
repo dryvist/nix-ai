@@ -23,6 +23,24 @@ streak is tracked in FAIL_MARKER — a plain integer file, one process's
 memory does not survive its own restart — mirroring mlx-watchdog.sh's own
 fail_marker/read_int convention so there is one established pattern for
 "bounded consecutive failures" in this module, not two.
+
+RE-INVOCATION BOUND (the kickstart-bypass gap): the restart bound above only
+covers launchd's OWN KeepAlive restarts, which are paced by the LaunchAgent's
+ThrottleInterval. `launchctl kickstart -k` is a SEPARATE trigger that exists
+specifically to force an immediate (re)start regardless of throttle state, and
+this process is kickstarted that way by more than just launchd itself — e.g.
+modules/mlx/scripts/cluster-link-helpers.sh's restore_normal_serving() and
+mlx-default.sh both do it. A caller that retries a failing operation in a
+tight loop and calls restore_normal_serving() on every attempt (observed:
+cluster-link-watcher.sh's peer-rendezvous-absent standdown, which has no cap
+of its own on that path) re-triggers a full warm cycle every time, and every
+cycle — successful or not — holds the preloaded model's llama-swap
+concurrency slot for as long as the warm takes. MIN_INTERVAL_SECONDS bounds
+how often this process will actually attempt a warm, independent of exit
+status and independent of who is asking, mirroring ThrottleInterval's own
+value (modules/mlx/launchd.nix) so there is one source of truth. A caller
+that needs the model sooner still gets it: llama-swap loads any named model
+on demand for a real request regardless of whether this background job ran.
 """
 
 from __future__ import annotations
@@ -54,6 +72,18 @@ FAIL_MARKER = Path(
         str(Path.home() / "Library/Caches/mlx-model-server/warmup-failures"),
     )
 )
+# Fallback cooldown when MLX_WARMUP_MIN_INTERVAL_SECONDS is unset: matches the
+# ThrottleInterval default on the LaunchAgent (modules/mlx/launchd.nix) so a
+# manual/non-Nix run behaves like the deployed one. See the module docstring's
+# RE-INVOCATION BOUND section for why this exists separately from
+# MAX_CONSECUTIVE_FAILURES.
+DEFAULT_MIN_INTERVAL_SECONDS = 120
+LAST_ATTEMPT_MARKER = Path(
+    os.environ.get(
+        "MLX_WARMUP_LAST_ATTEMPT_MARKER",
+        str(Path.home() / "Library/Caches/mlx-model-server/warmup-last-attempt"),
+    )
+)
 
 
 def read_int(path: Path) -> int:
@@ -66,6 +96,23 @@ def read_int(path: Path) -> int:
 
 def clear_failure_streak() -> None:
     FAIL_MARKER.unlink(missing_ok=True)
+
+
+def seconds_since_last_attempt() -> float | None:
+    """None means "no recorded attempt" (first run, or a corrupt marker) —
+    treated as "cooldown already elapsed" by the caller."""
+    try:
+        return time.time() - float(LAST_ATTEMPT_MARKER.read_text().strip())
+    except (OSError, ValueError):
+        return None
+
+
+def record_attempt_start() -> None:
+    """Stamped right before this process actually tries to reach the API —
+    not on a skip — so a min-interval violation is measured start-to-start
+    regardless of how the previous attempt ended."""
+    LAST_ATTEMPT_MARKER.parent.mkdir(parents=True, exist_ok=True)
+    LAST_ATTEMPT_MARKER.write_text(f"{time.time()}\n")
 
 
 def record_cycle_failure(reason: str, max_consecutive: int) -> int:
@@ -210,6 +257,12 @@ def main() -> int:
         default=int(os.environ.get("MLX_WARMUP_MAX_CONSECUTIVE_FAILURES", MAX_CONSECUTIVE_FAILURES)),
         help="Give up (exit 0, stop restarting) after this many consecutive full-cycle failures",
     )
+    parser.add_argument(
+        "--min-interval",
+        type=int,
+        default=int(os.environ.get("MLX_WARMUP_MIN_INTERVAL_SECONDS", DEFAULT_MIN_INTERVAL_SECONDS)),
+        help="Minimum seconds between warm attempts, regardless of trigger or outcome (see RE-INVOCATION BOUND)",
+    )
     args = parser.parse_args()
 
     api_url = os.environ.get("MLX_API_URL")
@@ -222,6 +275,18 @@ def main() -> int:
         print("No preload models configured; nothing to warm.")
         clear_failure_streak()
         return 0
+
+    since_last = seconds_since_last_attempt()
+    if since_last is not None and since_last < args.min_interval:
+        print(
+            f"Skipping warm attempt: the last one started {since_last:.1f}s ago, "
+            f"under the {args.min_interval}s minimum interval. Not a failure — a "
+            "real request to a preloaded model still loads it on demand; this "
+            "only bounds how often this background job re-acquires the "
+            "concurrency slot when something kickstarts it repeatedly."
+        )
+        return 0
+    record_attempt_start()
 
     deadline = time.monotonic() + args.timeout
     models_url = f"{api_url.rstrip('/')}/models"

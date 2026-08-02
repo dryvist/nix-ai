@@ -31,6 +31,14 @@ let
   # get scanned and come back empty), an underestimate would not be. See
   # scripts/llama-swap-reap.sh for what these protect and why.
   workerPortCount = builtins.length (builtins.attrNames allModels);
+  # Restart/re-attempt throttle shared by both agents below: 120s covers a
+  # 70GB model load (20-60s) with margin, and is also the min-interval floor
+  # handed to mlx-warmup.py (MLX_WARMUP_MIN_INTERVAL_SECONDS) so an external
+  # `launchctl kickstart -k` — which bypasses ThrottleInterval entirely, that
+  # is its whole purpose — cannot re-acquire the warmup concurrency slot any
+  # faster than launchd's own restart already paces it. One number, two
+  # enforcement points, so they cannot drift apart.
+  restartThrottleSeconds = 120;
 in
 {
   config = lib.mkIf cfg.enable {
@@ -70,8 +78,8 @@ in
             ];
             RunAtLoad = true;
             KeepAlive = true;
-            # 2 min throttle — 70GB model loads take 20-60s, prevents rapid crash-restart loops (closes #256)
-            ThrottleInterval = 120;
+            # 70GB model loads take 20-60s, prevents rapid crash-restart loops (closes #256)
+            ThrottleInterval = restartThrottleSeconds;
             # Interactive by default — Background QoS clamps Metal decode ~8x
             # (see options-runtime.nix processType). OOM backstop is the RSS
             # hard limit, not Jetsam eligibility.
@@ -120,7 +128,18 @@ in
         # deliberate give-up, not a success) so this stops restarting it
         # rather than re-acquiring the model's concurrency slot forever. See
         # mlx-warmup.py's MAX_CONSECUTIVE_FAILURES for the restart-livelock
-        # fix itself; ThrottleInterval below only paces each individual retry.
+        # fix itself; ThrottleInterval below only paces launchd's OWN restarts.
+        #
+        # ThrottleInterval does NOT pace an external `launchctl kickstart -k`
+        # of this label — bypassing the throttle is what kickstart -k is FOR.
+        # Both cluster-link-helpers.sh (restore_normal_serving) and
+        # mlx-default.sh kickstart this agent directly, and a caller that
+        # retries a failing operation in a loop and calls
+        # restore_normal_serving() on every attempt re-triggers a full warm
+        # cycle every time with no cooldown from launchd's side at all. See
+        # mlx-warmup.py's RE-INVOCATION BOUND (MLX_WARMUP_MIN_INTERVAL_SECONDS
+        # below) for the fix — a second, independent bound on how often this
+        # process will actually attempt a warm, regardless of trigger.
         mlx-model-server-warmup = {
           enable = true;
           config = {
@@ -130,10 +149,11 @@ in
             KeepAlive = {
               SuccessfulExit = false;
             };
-            ThrottleInterval = 120;
+            ThrottleInterval = restartThrottleSeconds;
             ProcessType = "Background";
             EnvironmentVariables = {
               MLX_API_URL = apiUrl;
+              MLX_WARMUP_MIN_INTERVAL_SECONDS = toString restartThrottleSeconds;
               MLX_PRELOAD_MODELS = lib.concatStringsSep " " cfg.preload;
               MLX_PRELOAD_MODELS_JSON = builtins.toJSON cfg.preload;
               MLX_WARMUP_TIMEOUT_SECONDS = toString warmupTimeoutSeconds;
