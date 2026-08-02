@@ -62,8 +62,6 @@ export CLUSTER_PD_DEBT_MAX=5
 export CLUSTER_PD_DEVICE_BUDGET=11
 export CLUSTER_RANK_PROCESS_PATTERN='/mlx_lm\.server'
 export CLUSTER_GENERATION_REPO=example/deploy
-export CLUSTER_GENERATION_HEAL_LABEL=dev.mlx-cluster.generation-heal
-export CLUSTER_GENERATION_HEAL_MAX=2
 
 # shellcheck disable=SC1090
 source "${BOOT_SCOPE:?set BOOT_SCOPE to cluster-boot-scope.sh}"
@@ -258,7 +256,7 @@ layers="${LAYERS:?set LAYERS to cluster-script-layers.nix}"
 code() { grep -v '^[[:space:]]*#' "$1"; }
 pin() {
   local label="$1" file="$2" pattern="$3"
-  if code "$file" | grep -Eq "$pattern"; then
+  if grep -Eq "$pattern" <<< "$(code "$file")"; then
     echo "  ok   $label"
   else
     echo "  FAIL $label -> no code line matching /$pattern/ in $file"

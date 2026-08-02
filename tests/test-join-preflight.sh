@@ -217,10 +217,16 @@ echo
 echo "call sites in cluster-join.sh (a function nobody calls fixes nothing):"
 join="${JOIN:?set JOIN to the path of cluster-join.sh}"
 # Code lines only: the comments legitimately quote the old behaviour.
+# Materialise the comment-stripped body ONCE rather than piping it into every
+# grep. Under `set -o pipefail`, `producer | grep -Eq` fails whenever grep exits
+# on its first match and the producer takes SIGPIPE — so a pattern that matches
+# EARLY reports as not found. GNU grep -q exits immediately; BSD grep drains its
+# input, so the bug is invisible on macOS and only fires in the Linux sandbox.
 code() { grep -v '^[[:space:]]*#' "$join"; }
+join_body="$(code)"
 pin() {
   local label="$1" pattern="$2"
-  if code | grep -Eq "$pattern"; then
+  if grep -Eq "$pattern" <<< "$join_body"; then
     echo "  ok   $label"
   else
     echo "  FAIL $label -> no code line matching /$pattern/"
@@ -229,7 +235,7 @@ pin() {
 }
 anti_pin() {
   local label="$1" pattern="$2"
-  if code | grep -Eq "$pattern"; then
+  if grep -Eq "$pattern" <<< "$join_body"; then
     echo "  FAIL $label -> code line matching /$pattern/ is back"
     fail=1
   else
