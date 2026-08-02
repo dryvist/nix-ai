@@ -62,6 +62,18 @@
         already run. The compositor competes over the same wired GPU budget as
         the shard, so a rank may take most of that budget but never all of it.
 
+        RETRACTED 2026-08-01: the paragraph below claimed a healthy serving
+        rank wires approximately its whole shard. It does not. Measured on the
+        coordinator while it was demonstrably serving a real completion:
+        3.1 GiB wired against 53.1 GiB anonymous. The shard lives in ANONYMOUS
+        memory; wired stays low. See the note above mem_stat_mb in
+        cluster-link-guards.sh for the full measurement and for the conflation
+        that produced the bad claim (a total-footprint model compared against
+        Pages wired down as though they measured the same quantity).
+
+        Kept below only so the wrong reasoning is visible rather than silently
+        rewritten:
+
         HOW HIGH TO SET IT. A healthy serving rank wires approximately its
         WHOLE shard. Two independent captures agree within 2.3%: the REALVMSTAT
         fixture in tests/test-mem-headroom.sh (a byte-for-byte real capture)
