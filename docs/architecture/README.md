@@ -36,7 +36,7 @@ after `darwin-rebuild switch`, or understanding which config files refresh betwe
 
 Secrets injection patterns and trust boundaries are documented on the
 [public docs site](https://docs.jacobpevans.com/security/overview), not in this repo.
-Per-secret runbooks live there and in `docs-starlight`.
+Per-secret runbooks live there and in the private docs repo.
 
 ### [mlx-stack.md](mlx-stack.md)
 

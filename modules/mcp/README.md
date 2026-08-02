@@ -124,7 +124,7 @@ The full variable catalog — required vs optional, purpose, and source manager 
 is [`.env.example`](../../.env.example). The local injection runbook (the
 direct-injection commands and which manager holds what) is `AGENTS.local.md`
 (gitignored). Design rationale and full per-secret runbooks live on the
-[docs site](https://docs.jacobpevans.com/security/overview) and `docs-starlight`.
+[docs site](https://docs.jacobpevans.com/security/overview) and the private docs repo.
 
 ### Plugin-managed servers (context7)
 

@@ -80,8 +80,8 @@ the existing OTEL Collector is sufficient. No Python SDK, no agent-side library.
 
 - `galileo-on` requires a deliberate opt-in per shell session. Passive tracing of
   ad-hoc inference is not supported by design.
-- VisiCore instrumentation (company) is deferred. When it lands, use a separate
-  Galileo log stream (`visicore-prod`) and apply stricter redaction there.
+- Employer-side instrumentation is deferred. When it lands, use a separate
+  Galileo log stream and apply stricter redaction there.
 
 ## Cross-Repo Dependencies
 

@@ -211,7 +211,7 @@ in
   }; # archived
 
   # ================================================================
-  # Vikunja - self-hosted task management (docs-starlight#141)
+  # Vikunja - self-hosted task management
   # ================================================================
   # Source: https://github.com/democratize-technology/vikunja-mcp (npm:
   # @democratize-technology/vikunja-mcp). Chosen over the newer one-author
