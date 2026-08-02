@@ -71,6 +71,12 @@ let
       source = "${sourcePath}/${name}.md";
     }) names;
 
+  mcpClient = import ./mcp/client.nix { inherit lib; };
+
+  # Claude Code's own key allowlist. Every client keeps its own normalizer
+  # because the target schemas genuinely differ (Codex takes env_vars and
+  # timeouts, opencode fuses command+args, qwen splits url/httpUrl); only the
+  # filter/exclude step is shared, via mcpClient.renderServers below.
   normalizeClaudeMcpServer =
     server:
     lib.filterAttrs (
@@ -90,152 +96,167 @@ let
       && !(name == "disabled" && !value)
     ) server;
 
+  mcpServers = mcpClient.renderServers {
+    inherit (config.programs.aiMcp) enabledServers;
+    excluded = config.programs.claude.excludedMcpServers;
+    normalize = normalizeClaudeMcpServer;
+  };
+
 in
 {
-  programs.claude = {
-    enable = true;
+  # excludedMcpServers + mcpServerNames come from the shared MCP client helper,
+  # same as every other client. Declared here rather than in nix-claude-code
+  # because the shared catalog and its per-client exclude semantics are nix-ai's
+  # concern; nix-claude-code owns only the rendering of programs.claude.mcpServers.
+  options.programs.claude = mcpClient.mkClientOptions "Claude Code";
 
-    # Binary comes from Homebrew (claude-code@latest cask in nix-darwin);
-    # Nix manages config only. Claude's native updater (latest channel)
-    # overlays the newest build at ~/.local/bin/claude on top of the brew
-    # baseline. See nix-claude-code core.nix: package = null skips home.packages.
-    package = null;
-
-    # API Key Helper for headless authentication (cron jobs, CI/CD)
-    # Uses Bitwarden Secrets Manager to securely fetch OAuth token
-    # Configuration: ~/.config/bws/.env (see bws-env.example)
-    apiKeyHelper = {
+  config = {
+    programs.claude = {
       enable = true;
-      # scriptPath default: .local/bin/claude-api-key-helper
-    };
 
-    # Model: opusplan — Opus for planning, Sonnet for execution (1M context).
-    model = "opusplan";
+      # Binary comes from Homebrew (claude-code@latest cask in nix-darwin);
+      # Nix manages config only. Claude's native updater (latest channel)
+      # overlays the newest build at ~/.local/bin/claude on top of the brew
+      # baseline. See nix-claude-code core.nix: package = null skips home.packages.
+      package = null;
 
-    # Effort intentionally left unset: nix-claude-code defaults `effortLevel`
-    # to null, which Claude Code reads as the upstream default. Override
-    # per-session via /effort.
-
-    # Enable Remote Control for all sessions (Feb 2026 feature).
-    remoteControlAtStartup = true;
-
-    # Auto-approve CLAUDE.md external imports under the consumer's workspace
-    # roots (userConfig.trustedProjectDirs, maintainer profile). Empty default
-    # so a fresh consumer is prompted; the maintainer sets their own roots.
-    trustedProjectDirs = userConfig.trustedProjectDirs or [ ];
-
-    # Commit trailer per https://docs.kernel.org/process/coding-assistants.html.
-    # Only `commit`/`pr` are valid attribution keys in Claude Code's settings
-    # schema; a `sessionUrl` toggle does not exist (the session link is just
-    # text inside the trailer string, omitted by leaving it out here).
-    attribution = {
-      commit = "Assisted-by: Claude:{model}";
-    };
-
-    plugins = {
-      # Marketplace catalog comes from nix-claude-code; we overlay each entry
-      # with the resolved flakeInput (synthetic for the four wrapper
-      # derivations; raw marketplace input otherwise).
-      # Full marketplace registry lives in ./claude/marketplaces.nix (extracted
-      # to keep this file under its file-size cap).
-      marketplaces = import ./claude/marketplaces.nix {
-        inherit
-          lib
-          pkgs
-          marketplaceInputs
-          fabric-src
-          nix-claude-code
-          ;
+      # API Key Helper for headless authentication (cron jobs, CI/CD)
+      # Uses Bitwarden Secrets Manager to securely fetch OAuth token
+      # Configuration: ~/.config/bws/.env (see bws-env.example)
+      apiKeyHelper = {
+        enable = true;
+        # scriptPath default: .local/bin/claude-api-key-helper
       };
 
-      enabled = enabledPlugins // {
-        # Host-specific opinion (was nix-darwin hosts/macbook-m4/home.nix):
-        # playwright plugin disabled globally — only useful in specific
-        # projects. playwright@claude-skills (skills-only, no MCP) stays
-        # enabled via 04-community.nix.
-        "playwright@claude-plugins-official" = false;
-      };
-      allowRuntimeInstall = true;
-    };
+      # Model: opusplan — Opus for planning, Sonnet for execution (1M context).
+      model = "opusplan";
 
-    commands = {
-      fromFlakeInputs = mkSourceEntries "${claude-cookbooks}/.claude/commands" cbCommands;
-    };
+      # Effort intentionally left unset: nix-claude-code defaults `effortLevel`
+      # to null, which Claude Code reads as the upstream default. Override
+      # per-session via /effort.
 
-    agents.fromFlakeInputs =
-      (mkSourceEntries "${ai-assistant-instructions}/agentsmd/agents" aiAgents)
-      ++ (mkSourceEntries "${claude-cookbooks}/.claude/agents" cbAgents);
+      # Enable Remote Control for all sessions (Feb 2026 feature).
+      remoteControlAtStartup = true;
 
-    # home-manager is the single canonical delivery pipe for agent instructions.
-    # Non-recursive discovery delivers only top-level `agentsmd/rules/*.md` flat to
-    # `~/.claude/rules/`: the always-on `soul.md` core plus path-scoped tier rules
-    # whose `paths:` frontmatter Claude Code's native loader honors. The opt-in
-    # `agentsmd/rules/on-demand/` tier lives in a subdir that discovery skips on
-    # purpose — it is read by path, never delivered. Do not make discovery recurse.
-    rules.fromFlakeInputs = mkSourceEntries "${ai-assistant-instructions}/agentsmd/rules" aiRules;
+      # Auto-approve CLAUDE.md external imports under the consumer's workspace
+      # roots (userConfig.trustedProjectDirs, maintainer profile). Empty default
+      # so a fresh consumer is prompted; the maintainer sets their own roots.
+      trustedProjectDirs = userConfig.trustedProjectDirs or [ ];
 
-    rules.local = {
-      "retrospective-report-location" = ./claude/rules/retrospective-report-location.md;
-    };
-
-    settings = {
-      advisorModel = "fable";
-      alwaysThinkingEnabled = true;
-      cleanupPeriodDays = 180;
-      env = import ./claude/settings-env.nix { inherit lib userConfig; };
-
-      permissions = {
-        allow = formatters.claude.formatAllowed permissions;
-        deny = formatters.claude.formatDenied permissions;
-        ask = formatters.claude.formatAsk permissions;
+      # Commit trailer per https://docs.kernel.org/process/coding-assistants.html.
+      # Only `commit`/`pr` are valid attribution keys in Claude Code's settings
+      # schema; a `sessionUrl` toggle does not exist (the session link is just
+      # text inside the trailer string, omitted by leaving it out here).
+      attribution = {
+        commit = "Assisted-by: Claude:{model}";
       };
 
-      skillOverrides =
-        let
-          file = "${ai-assistant-instructions}/agentsmd/settings/skill-overrides.json";
-        in
-        if builtins.pathExists file then (lib.importJSON file).skillOverrides or { } else { };
+      plugins = {
+        # Marketplace catalog comes from nix-claude-code; we overlay each entry
+        # with the resolved flakeInput (synthetic for the four wrapper
+        # derivations; raw marketplace input otherwise).
+        # Full marketplace registry lives in ./claude/marketplaces.nix (extracted
+        # to keep this file under its file-size cap).
+        marketplaces = import ./claude/marketplaces.nix {
+          inherit
+            lib
+            pkgs
+            marketplaceInputs
+            fabric-src
+            nix-claude-code
+            ;
+        };
 
-      additionalDirectories =
-        (import ./claude/settings-paths.nix) ++ (userConfig.extraTrustedPaths or [ ]);
-
-      sandbox = {
-        enabled = false;
+        enabled = enabledPlugins // {
+          # Host-specific opinion (was nix-darwin hosts/macbook-m4/home.nix):
+          # playwright plugin disabled globally — only useful in specific
+          # projects. playwright@claude-skills (skills-only, no MCP) stays
+          # enabled via 04-community.nix.
+          "playwright@claude-plugins-official" = false;
+        };
+        allowRuntimeInstall = true;
       };
-    };
 
-    # Auto-mode classifier configuration (top-level `autoMode` in settings.json).
-    # Prose rules describing trusted infrastructure (environment) plus the
-    # classifier allow/soft_deny overrides, so routine internal actions
-    # aren't flagged and destructive ones still ask. See ./claude/automode.nix.
-    autoMode = import ./claude/automode.nix {
-      inherit lib;
-      userConfig = userConfig // {
-        user = (userConfig.user or { }) // {
-          fullName = userConfig.user.fullName or "JacobPEvans";
+      commands = {
+        fromFlakeInputs = mkSourceEntries "${claude-cookbooks}/.claude/commands" cbCommands;
+      };
+
+      agents.fromFlakeInputs =
+        (mkSourceEntries "${ai-assistant-instructions}/agentsmd/agents" aiAgents)
+        ++ (mkSourceEntries "${claude-cookbooks}/.claude/agents" cbAgents);
+
+      # home-manager is the single canonical delivery pipe for agent instructions.
+      # Non-recursive discovery delivers only top-level `agentsmd/rules/*.md` flat to
+      # `~/.claude/rules/`: the always-on `soul.md` core plus path-scoped tier rules
+      # whose `paths:` frontmatter Claude Code's native loader honors. The opt-in
+      # `agentsmd/rules/on-demand/` tier lives in a subdir that discovery skips on
+      # purpose — it is read by path, never delivered. Do not make discovery recurse.
+      rules.fromFlakeInputs = mkSourceEntries "${ai-assistant-instructions}/agentsmd/rules" aiRules;
+
+      rules.local = {
+        "retrospective-report-location" = ./claude/rules/retrospective-report-location.md;
+      };
+
+      settings = {
+        advisorModel = "fable";
+        alwaysThinkingEnabled = true;
+        cleanupPeriodDays = 180;
+        env = import ./claude/settings-env.nix { inherit lib userConfig; };
+
+        permissions = {
+          allow = formatters.claude.formatAllowed permissions;
+          deny = formatters.claude.formatDenied permissions;
+          ask = formatters.claude.formatAsk permissions;
+        };
+
+        skillOverrides =
+          let
+            file = "${ai-assistant-instructions}/agentsmd/settings/skill-overrides.json";
+          in
+          if builtins.pathExists file then (lib.importJSON file).skillOverrides or { } else { };
+
+        additionalDirectories =
+          (import ./claude/settings-paths.nix) ++ (userConfig.extraTrustedPaths or [ ]);
+
+        sandbox = {
+          enabled = false;
         };
       };
-    };
 
-    # MCP Servers - deployed to ~/.claude.json via home.activation.
-    # Shared definitions are owned by modules/mcp and rendered per-client here.
-    mcpServers = lib.mapAttrs (_: normalizeClaudeMcpServer) config.programs.aiMcp.enabledServers;
+      # Auto-mode classifier configuration (top-level `autoMode` in settings.json).
+      # Prose rules describing trusted infrastructure (environment) plus the
+      # classifier allow/soft_deny overrides, so routine internal actions
+      # aren't flagged and destructive ones still ask. See ./claude/automode.nix.
+      autoMode = import ./claude/automode.nix {
+        inherit lib;
+        userConfig = userConfig // {
+          user = (userConfig.user or { }) // {
+            fullName = userConfig.user.fullName or "JacobPEvans";
+          };
+        };
+      };
 
-    statusline = {
-      enable = true;
-      # ccstatusline (sirmalloc/ccstatusline) — the statusline that was active
-      # in nix-ai before the nix-claude-code migration. Pinned explicitly so it
-      # does not fall back to nix-claude-code's powerline default.
-      theme = "ccstatusline";
-    };
+      # MCP Servers - deployed to ~/.claude.json via home.activation.
+      # Shared definitions are owned by modules/mcp and rendered per-client here.
+      inherit mcpServers;
+      mcpServerNames = lib.attrNames mcpServers;
 
-    # Hooks: Event-driven automation for Claude Code.
-    # captureSessionOutput wires postToolUse to the vendored capture script.
-    # refreshMarketplaces wires sessionStart to the vendored refresh helper.
-    # Both scripts live in nix-claude-code (modules/scripts/) post-PR2.
-    hooks = {
-      captureSessionOutput = true;
-      refreshMarketplaces = true;
+      statusline = {
+        enable = true;
+        # ccstatusline (sirmalloc/ccstatusline) — the statusline that was active
+        # in nix-ai before the nix-claude-code migration. Pinned explicitly so it
+        # does not fall back to nix-claude-code's powerline default.
+        theme = "ccstatusline";
+      };
+
+      # Hooks: Event-driven automation for Claude Code.
+      # captureSessionOutput wires postToolUse to the vendored capture script.
+      # refreshMarketplaces wires sessionStart to the vendored refresh helper.
+      # Both scripts live in nix-claude-code (modules/scripts/) post-PR2.
+      hooks = {
+        captureSessionOutput = true;
+        refreshMarketplaces = true;
+      };
     };
   };
 }
