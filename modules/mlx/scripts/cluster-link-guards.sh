@@ -95,14 +95,49 @@ repair_link_prep() {
 #
 # Free-ish = free pages plus what the kernel can reclaim without paging
 # anything out (inactive + speculative) — NEVER wired down. WHY FREE, NOT
-# WIRED, DECIDES WHETHER A SHARD FITS: MLX holds a loaded shard's weights in
-# ordinary resident memory, not wired. Measured 2026-08-01: a ~49 GiB shard
-# served real tokens while `Pages wired down` read only ~3.5 GiB. So a low
+# WIRED, DECIDES WHETHER A SHARD FITS: the question is whether room exists for
+# a NEW shard, and only free + reclaimable can answer that. Memory a live rank
+# already holds is, correctly, not free.
+#
+# THE ORIGINAL NOTE HERE WAS RIGHT; A "CORRECTION" ON 2026-08-01 WAS NOT.
+# The original said MLX holds a loaded shard's weights in ordinary resident
+# memory rather than wired, citing a ~49 GiB shard serving real tokens at only
+# ~3.5 GiB wired. That was briefly replaced with the opposite claim — that a
+# healthy rank wires its whole shard. The replacement is retracted here.
+#
+# Measured on the coordinator while it was demonstrably serving: a real
+# completion, 32 generated tokens, not a /v1/models probe.
+#
+#   Pages wired down    3.1 GiB     <- the shard is NOT here
+#   Anonymous pages    53.1 GiB     <- the shard IS here
+#   File-backed        21.6 GiB
+#   rank process        rss ~0, vsz ~415 GiB   (mmap'd; RSS underreports too)
+#
+# So a healthy serving rank sits near 3 GiB wired while holding ~50 GiB of
+# shard as ANONYMOUS memory. Both halves of the original note stand: a low
 # wired figure says nothing about what is loaded, and a high one is the
-# unreclaimed-Metal LEAK signature (see mem_headroom_ok below), never a fit
-# signal. `--list-devices`'s own free-memory report is per-process fiction
-# too — it claimed 102399 MiB free on a host actually holding 68 GiB wired —
-# so this reads vm_stat directly rather than trusting either of MLX's numbers.
+# unreclaimed-Metal leak signature — consistent with the 96.7 GiB wired seen
+# when this host starved its compositor and hard-reset.
+#
+# HOW THE BAD CORRECTION HAPPENED, recorded so it is not repeated. A ~50 GiB
+# wired reading on the worker was assumed to be "the shard resident". It was
+# not a healthy serving rank; wired that high is the leak signature described
+# above. Two different quantities were then compared as if they were one: a
+# TOTAL footprint model (weights + buffers + KV, which does approach the host
+# ceiling) and `Pages wired down` (which does not). Establish which quantity a
+# number measures before reasoning about a threshold on it.
+#
+# WHAT THIS DOES AND DOES NOT SAY ABOUT A RUNTIME WIRED GUARD. A guard of that
+# kind was added and removed on 2026-08-01. It was removed because it was
+# introduced without evidence and justified by the conflation above — not
+# because the measurements rule one out. On these numbers, healthy (~3 GiB) and
+# leaked (~50-96 GiB) are in fact widely separated. Whether a wired-thresholded
+# runtime guard is worth having is therefore OPEN, and would need its own
+# design and evidence rather than a heuristic.
+#
+# `--list-devices`'s own free-memory report is per-process fiction — it claimed
+# 102399 MiB free on a host actually holding 68 GiB wired — so this reads
+# vm_stat directly rather than trusting MLX's numbers.
 #
 # Page size is READ from vm_stat's own header line, never assumed: a
 # hardcoded 16384 silently breaks the day Apple changes it, or on hardware
@@ -162,47 +197,6 @@ mem_headroom_ok() {
     # tells the operator a reboot is the remedy.
     MEM_HEADROOM_DETAIL="$MEM_HEADROOM_DETAIL (${wired}MB is wired with no surviving rank process — the unreclaimed-Metal signature; only a reboot returns it)"
   fi
-  return 1
-}
-
-# Runtime companion to mem_headroom_ok, and the only guard in this file that
-# judges a rank ALREADY RUNNING. $1 = ceiling in MB; 0/unset disables it with no
-# vm_stat read, same convention as the rung above. Nonzero return = wired has
-# crossed the ceiling and the rank must be reaped before the compositor starves.
-#
-# WHY A RUNNING RANK NEEDS WATCHING AT ALL. Every other rung here is a start
-# precondition, so all of them had already run — and passed — when this host
-# hard-reset on 2026-08-01. A rank started legally, wired climbed to 96.7 GiB
-# against a 100 GiB iogpu.wired_limit_mb, WindowServer's Metal allocation
-# blocked in IOGPUFamily/AGXG16X for 80s, and the hardware watchdog reset the
-# machine. Guards that only run before a start cannot see that develop.
-#
-# WHY THIS FAILS OPEN WHERE mem_headroom_ok FAILS CLOSED. An unreadable probe
-# makes that rung refuse to START, which costs nothing, since nothing was
-# running. The same refusal here would REAP a rank that may be serving
-# perfectly, so an unreadable probe must never be grounds to tear one down —
-# the reasoning the watcher already applies to a stale process pattern, where a
-# wrong pattern is deliberately inert rather than allowed to kill a healthy
-# rank. A missed tick costs one interval; a wrong teardown costs a live
-# generation plus a fresh distributed init, which leaks a protection domain
-# whenever it races.
-#
-# On breach, PRINTS the detail on stdout and returns 1; prints nothing and
-# returns 0 otherwise. A returned string rather than a MEM_HEADROOM_DETAIL-style
-# global on purpose: the only consumer is in cluster-link-watcher.sh, a separate
-# file concatenated with this one at build, so a global here is written in one
-# file and read in another — invisible to shellcheck, which flags it unused
-# (SC2034) and is right to. Capturing the string keeps the contract local.
-rank_wired_ceiling_ok() {
-  local ceiling="$1" stat_out free wired
-  case "$ceiling" in
-    '' | *[!0-9]*) return 0 ;;
-  esac
-  [ "$ceiling" -gt 0 ] || return 0
-  stat_out="$(mem_stat_mb)" || return 0
-  read -r free wired <<< "$stat_out"
-  [ "$wired" -lt "$ceiling" ] && return 0
-  printf '%s' "${wired}MB wired against a ${ceiling}MB runtime ceiling (${free}MB free); reaping the rank before the compositor's next Metal allocation blocks in the GPU driver and the hardware watchdog resets the host"
   return 1
 }
 
