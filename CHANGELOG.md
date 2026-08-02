@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.1.2](https://github.com/dryvist/nix-ai/compare/v4.1.1...v4.1.2) (2026-08-02)
+
+
+### Bug Fixes
+
+* **mlx:** bound how often warmup re-acquires the concurrency slot ([#1491](https://github.com/dryvist/nix-ai/issues/1491)) ([49d0829](https://github.com/dryvist/nix-ai/commit/49d0829a95887f505a304d1949008482eaa8a478))
+
 ## [4.1.1](https://github.com/dryvist/nix-ai/compare/v4.1.0...v4.1.1) (2026-08-02)
 
 
