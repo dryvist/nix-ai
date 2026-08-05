@@ -143,6 +143,7 @@ in
         contextFileNames = settings.context.fileName;
         mcpServerNames = lib.attrNames mcpServers;
         sandboxAllowedPathsMerged = mergedSandboxAllowedPaths;
+        inherit policyRules;
       };
     }
     (lib.mkIf cfg.enable {
