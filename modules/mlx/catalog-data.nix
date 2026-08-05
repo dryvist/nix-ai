@@ -35,8 +35,17 @@ in
   # Small on-demand summarizer. An hourly note-capture pipe requests
   # this exact physical id ("mlx-community/Qwen3.5-9B-MLX-4bit"); registering it
   # swap-class (no roles -> compiles to a llama-swap models.<id> entry keyed by
-  # the physical id) lets that request route without evicting a resident. Weights
-  # fetch from HuggingFace on first load if not already cached.
+  # the physical id) lets that request route without evicting a resident.
+  #
+  # WEIGHTS MUST BE PRE-CACHED under HF_HOME. This comment used to promise they
+  # "fetch from HuggingFace on first load if not already cached" — a promise the
+  # runtime forbids: modules/mlx/worker-env.nix sets HF_HUB_OFFLINE=1, so a
+  # first load of an uncached id raises OfflineModeIsEnabled and the request
+  # 502s after minutes of retrying rather than failing fast. Observed on
+  # jevans-ms 2026-08-05: this exact id was registered and requested while only
+  # the OptiQ-4bit variant was on disk, so every call to it 502'd for weeks with
+  # nothing reporting why. Registration makes an id SERVABLE, never CACHED.
+  # `hf download <id>` (or the prefetch agent) is the step that caches it.
   qwen35-9b-mlx = {
     model = "mlx-community/Qwen3.5-9B-MLX-4bit";
     weightGb = 5.2;

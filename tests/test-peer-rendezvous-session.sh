@@ -103,4 +103,46 @@ echo "the stub itself is exercised (guards against a silently dead stub):"
 set_netstat 'tcp4  0  0  192.168.208.1.11441  192.168.208.2.49223  ESTABLISHED'
 check "stub emits the row it was given" 1 "$(fake_netstat -an -p tcp | grep -c ESTABLISHED)"
 
+# --- Source pins on the teardown this predicate feeds -------------------------
+#
+# The predicate above is only half the contract. What it triggers is the
+# pair-wide standdown, and that block deletes its own strike counter — so
+# without a halt marker nothing suppresses the next kickstart: the rank
+# restarts, settles, re-strikes, and stands down again forever. Measured on the
+# coordinator with the Thunderbolt cable out: 560 standdowns between 2026-07-12
+# and 2026-08-05, each one kickstarting the warmup agent and holding
+# llama-swap's single concurrency slot.
+#
+# Pinned by source inspection rather than executed, for the reason
+# tests/test-pd-guard-integrity.sh states plainly: the block is inline in a
+# script that calls launchctl, sysctl and curl at import time, so it cannot be
+# sourced in the build sandbox. These pins prove the call SITE exists and is
+# ordered correctly; they do not simulate a standdown.
+echo "the pair-wide standdown writes a halt so it cannot loop:"
+watcher="${WATCHER:?WATCHER is required}"
+# Code lines only — the comments around this block legitimately describe the
+# uncapped behaviour being replaced, and a prose-matching scan would pass on
+# its own changelog.
+code() { grep -vE '^[[:space:]]*#' "$watcher"; }
+
+# Ordering is the whole point: a halt written AFTER the kill is a halt the next
+# tick's kickstart has already raced past.
+halt_line="$(grep -n 'halt_write .* "peer-absent"' "$watcher" | head -1 | cut -d: -f1)"
+kill_line="$(awk -v start="${halt_line:-0}" 'NR > start && /launchctl kill SIGTERM/ { print NR; exit }' "$watcher")"
+check "the halt precedes its SIGTERM" yes \
+  "$([ -n "$halt_line" ] && [ -n "$kill_line" ] && [ "$halt_line" -lt "$kill_line" ] && echo yes || echo no)"
+
+# Every teardown that means "this rank cannot work" must halt, so none of them
+# can loop the way peer-absent did. Pinned by CAUSE rather than by count: a bare
+# total breaks the moment a legitimate fourth teardown is added, which trains
+# the next person to bump the number instead of reading the assertion.
+#
+# Deliberately NOT pinned: the readiness probe also sends SIGTERM but does not
+# halt, because that path is a restart-on-hung-init that is SUPPOSED to retry.
+# A blanket "every SIGTERM halts" rule would be wrong and would break it.
+for cause in peer-absent warm-wedged rank-start-failures; do
+  check "the $cause teardown halts" 1 \
+    "$(code | grep -c "halt_write .* \"$cause\"" || true)"
+done
+
 exit "$fail"
