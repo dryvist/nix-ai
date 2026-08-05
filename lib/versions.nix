@@ -84,14 +84,18 @@
   # no longer reproduces — validated with three concurrent completions against
   # a 30B-class 4-bit MoE under continuous batching + paged KV cache: zero
   # errors. Keep mlx and mlx-lm pinned together; they move in lockstep.
-  # Pinned back to 0.31.2 — the last release of the prior minor, never a
-  # #.#.0 — after serving instability on a freshly-bumped minor; mlx-lm 0.31.3
-  # declares mlx>=0.31.2, so this stays compatible. renovate.json5 encodes the
-  # no-.0 rule via allowedVersions, so this cannot be re-proposed silently.
+  #
+  # 0.31.2 was previously held as "the last release of the prior minor, never a
+  # #.#.0" after instability on a freshly-bumped minor. That policy is retired:
+  # mlx ships minors rarely — 0.31.0 in February, 0.31.1 in March, 0.31.2 in
+  # April, 0.32.0 in July — so skipping a .0 costs months of fixes rather than
+  # days. Track current instead. mlx-lm 0.31.3 declares mlx>=0.31.2, so 0.32.0
+  # satisfies it.
+  #
   # mlx-server/pyproject.toml must track this value; it is a dev environment no
   # build consumes, so drift there is invisible.
   # renovate: datasource=pypi depName=mlx
-  mlx = "0.31.2";
+  mlx = "0.32.0";
   # renovate: datasource=pypi depName=mlx-lm
   mlxLm = "0.31.3";
   # renovate.json5 blocks the exact 5.13.0 build via allowedVersions — that

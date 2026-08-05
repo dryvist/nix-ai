@@ -47,26 +47,17 @@
       "groupName": "mlx-core",
       "groupSlug": "mlx-core",
     },
-    {
-      "description": [
-        "Never ride a #.#.0 release of mlx, mlx-lm or mlx-metal. lib/versions.nix",
-        "records the pin being rolled BACK to the last release of the prior minor after",
-        "instability on a freshly-bumped minor, and states the rule in-line: take the",
-        "last release of the prior minor, never the .0.",
-        "",
-        "That convention previously lived only in a comment while the blanket freeze",
-        "below did the actual enforcing. With the freeze removed, encode it — Renovate",
-        "keeps proposing patch bumps and later releases within a minor, and skips only",
-        "the .0. Without this, unfreezing would immediately propose exactly the release",
-        "class the rollback was a response to.",
-        "",
-        "This is a cadence rule, not a correctness one: drop it if a .0 is ever needed",
-        "urgently, and prefer waiting for the .1.",
-      ],
-      "matchDatasources": ["pypi"],
-      "matchPackageNames": ["mlx", "mlx-lm", "mlx-metal"],
-      "allowedVersions": "!/^\\d+\\.\\d+\\.0$/",
-    },
+    // No #.#.0 avoidance rule for mlx, deliberately. An earlier comment in
+    // lib/versions.nix advised taking the last release of the prior minor and
+    // never the .0, after instability on a freshly-bumped minor. That is not
+    // the policy here: mlx ships minors rarely (0.31.0 in February, 0.31.1 in
+    // March, 0.31.2 in April, 0.32.0 in July), so skipping .0 releases means
+    // sitting months behind on fixes rather than days. Currency wins.
+    //
+    // The interlocks that remain are the mlx-core group above, which batches
+    // mlx, mlx-lm and mlx-metal into one PR, and the transformers 5.13.0 block
+    // below. Both are correctness guards against a broken COMBINATION, which is
+    // a different thing from avoiding a release because of its version number.
     {
       "description": [
         "transformers 5.13.0 breaks mlx-lm 0.31.3 at import (register() calls",
