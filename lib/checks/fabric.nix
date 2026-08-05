@@ -127,8 +127,18 @@ in
   # label drift. This check runs in every `nix flake check`.
   fabric-version-sync =
     let
-      flakeSrc = builtins.readFile "${src}/flake.nix";
-      versions = import "${src}/lib/versions.nix";
+      # `src + "/path"` keeps this a PATH. Writing `"${src}/path"` interpolates
+      # the path into a STRING, which forces the whole flake source into the
+      # store during evaluation — and `nix flake check --no-build` refuses to
+      # realise it, aborting with `path '<hash>-source' is not valid`. That
+      # broke the scheduled whole-lock relock on 2026-08-05, and it only ever
+      # reproduces on a cold store or with `--all-systems`: these checks are
+      # scoped to x86_64-linux, so an aarch64-darwin `nix flake check` skips
+      # them entirely and reports success. Sibling cluster checks interpolate
+      # `${src}` safely because they do it inside runCommand arguments, which
+      # are deferred to build time.
+      flakeSrc = builtins.readFile (src + "/flake.nix");
+      versions = import (src + "/lib/versions.nix");
       flakeMatch = builtins.match ".*github:danielmiessler/fabric/v([0-9][^\"]*)\".*" flakeSrc;
     in
     assert pkgs.lib.assertMsg (
