@@ -8,7 +8,7 @@
 # the server's own entry point, which parses sys.argv exactly as before.
 #
 # Both limits are guidelines, not hard caps: MLX raises only when RAM+swap is
-# genuinely exhausted (see docs.jacobpevans.com/local-llm/memory-ceilings). The
+# genuinely exhausted (docs-starlight, d/hosts/ai/mlx-memory-ceilings). The
 # real guarantee is structural — this budget sits below the wired ceiling, which
 # sits below physical RAM with the OS reserve. This just makes MLX shed cache
 # and fail allocation ahead of the wired ceiling instead of at 1.5x it (the MLX
@@ -40,7 +40,7 @@ if _cache:
 # the host sysctl iogpu.wired_limit_mb. Suppressing this leaves MLX at its
 # default of 0 (nothing pinned), which makes weights pageable — so the residency
 # budget k_max x L1_mem <= wired ceiling must hold, or this trades a panic for
-# swap thrash. See modules/mlx/options-runtime.nix.
+# swap thrash. See modules/mlx/options-residency.nix.
 if os.environ.get("MLX_SUPPRESS_WIRED_LIMIT") == "1":
     # Fail closed if upstream moves or renames the call site. A silently
     # non-intercepting shim reintroduces the kernel panic, so a hard error at
