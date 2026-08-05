@@ -7,6 +7,8 @@
 #                        launcher (mx.set_memory_limit / mx.set_cache_limit;
 #                        see modules/mlx/scripts/mlx-lm-launch.py).
 #   L1 OS wired ceiling — host iogpu.wired_limit_mb (nix-darwin tunables).
+# memoryHardLimitGb is DECLARED in ./options-residency.nix, together with
+# maxResidentWorkers and suppressWiredLimit — the residency-budget invariant.
 # Official mlx_lm additionally receives a prompt-cache byte limit. launchd
 # HardResourceLimits is absent: it would cap llama-swap, not its model-server
 # children. gpuMemoryUtilization and autoUnloadIdleSeconds apply to the
