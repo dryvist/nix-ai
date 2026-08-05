@@ -323,13 +323,30 @@ if [ "$cur" = "up" ]; then
           echo "cluster-link: peer rendezvous session ABSENT ($strikes/${CLUSTER_PEER_SESSION_STRIKES:-3})"
           if [ "$strikes" -ge "${CLUSTER_PEER_SESSION_STRIKES:-3}" ]; then
             echo "cluster-link: peer rank is gone; standing this rank down so the pair re-arms together (a jaccl group cannot re-admit a rank)"
+            # Halt FIRST, exactly as the warm-wedged teardown below does. Without
+            # it this teardown deletes its own strike counter two lines down and
+            # writes no suppression, so the next tick kickstarts the rank, it
+            # settles, the peer is still absent, strikes re-accumulate, and this
+            # block fires again — forever. Measured on jevans-ms with the
+            # Thunderbolt cable out: 560 standdowns and 1686 rendezvous-absent
+            # strikes between 2026-07-12 and 2026-08-05. Each pass calls
+            # restore_normal_serving below, which kickstarts the warmup agent and
+            # holds llama-swap's single concurrency slot for the length of the
+            # warm, so the loop starves normal serving (mlx-warmup.py names this
+            # path as the uncapped caller in its RE-INVOCATION BOUND note).
+            #
+            # No new knob is needed: halt_drop_if_pre_boot clears this on the
+            # next boot and a real link cycle clears the latch, so replugging the
+            # cable still recovers on its own.
+            halt_write "$halt_file" "$halt_latch_file" "peer-absent" \
+              "$strikes consecutive rendezvous-absent strikes; peer rank unreachable"
             launchctl kill SIGTERM "gui/$uid/$CLUSTER_RANK_LABEL" 2> /dev/null || true
             rm -f "$started_file" "$ready_file" "$warm_file" "$peer_session_strikes_file"
             if [ -n "${CLUSTER_WIRED_LIMIT_MB:-}" ]; then
               set_wired_limit "${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}" || true
             fi
             restore_normal_serving || true
-            alert "$(hostname -s): peer rank vanished; this rank was stood down and the host restored to standalone serving so both sides re-arm on the same start boundary." \
+            alert "$(hostname -s): peer rank vanished; this rank was stood down and the host restored to standalone serving so both sides re-arm on the same start boundary. Replug the link to retry — the halt is deliberate and suppresses restarts until the link cycles." \
               "mlx-cluster pair-wide standdown"
           fi
         fi
