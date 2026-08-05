@@ -5,7 +5,7 @@
     # Both are channel branches = the intended major-version pins. Renovate
     # cannot bump either: a branch's reference never changes, only the
     # commits on it do, so Renovate has nothing to diff.
-    # deps-refresh-nixpkgs.yml relocks both weekly.
+    # deps-flake-lock.yml relocks the whole file weekly, so both move together.
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-26.05-darwin";
     # Second nixpkgs only for llama-swap: 25.11-darwin froze it at v165 on
     # 2025-09-22 with no backports. See nix-ai#801.

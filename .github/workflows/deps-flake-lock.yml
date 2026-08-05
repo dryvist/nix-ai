@@ -1,0 +1,36 @@
+# Relock flake.lock — the single writer of this repo's lock file
+#
+# Every trigger below funnels into ONE pull request on the branch
+# `chore/flake-lock`, because the shared workflow runs a bare `nix flake update`
+# rather than bumping a named input. A dispatch arriving while that pull request
+# is open amends it instead of opening a second one.
+#
+# This replaced two workflows on 2026-08-05:
+#   deps-refresh-nixpkgs.yml  — weekly, one nixpkgs input per call
+#   update-flake-input.yml    — repository_dispatch, one input per branch
+#
+# Renovate does not and cannot do this job. It advances an input when the
+# input's REFERENCE changes; both nixpkgs pins here are moving channel branches
+# whose reference never changes, so Renovate has nothing to diff. Its `nix`
+# manager is disabled org-wide (renovate-nix.json) so this workflow stays the
+# only writer of flake.lock.
+name: Update flake.lock
+
+on:
+  schedule:
+    # Thursday 18:00 UTC. GitHub Actions cron is always UTC. The minute differs
+    # per repo so the six nix repos do not all fire in the same instant.
+    - cron: "3 18 * * 4"
+  repository_dispatch:
+    # Unchanged event type: upstream publishers dispatch this when they release.
+    # The payload's input name is informational — the whole lock is relocked.
+    types: [update-flake-input]
+  workflow_dispatch: {}
+
+permissions: {}
+
+jobs:
+  relock:
+    uses: dryvist/.github/.github/workflows/_update-flake-lock.yml@main
+    secrets:
+      GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}

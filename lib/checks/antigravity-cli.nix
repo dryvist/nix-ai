@@ -175,10 +175,11 @@ in
   # array — instead of reading the generated file back. Reading it back was
   # import-from-derivation, which `nix flake check --no-build` cannot satisfy;
   # it failed with "path '<hash>-antigravity-policy.toml.drv' is not valid".
-  # Because deps-refresh-nixpkgs.yml validates with that exact flag, the
+  # Because the scheduled relock workflow validates with that exact flag, the
   # failure took every weekly nixpkgs relock with it (2026-07-28, 2026-08-03),
   # leaving both channels ~1 month stale and llama-swap pinned at v224 while
-  # upstream shipped v247.
+  # upstream shipped v247. That workflow is now deps-flake-lock.yml, which
+  # still runs `nix flake check --no-build` — so keep this check IFD-free.
   #
   # Asserting on the attrset is also stricter: typed field lookups replace
   # substring matches, so text that merely appeared somewhere in the rendered
