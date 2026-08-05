@@ -106,12 +106,10 @@ let
 
   # Proxy launcher — split to llama-swap-launch-pkg.nix (12KB gate).
   llamaSwapLaunchPkg = import ./llama-swap-launch-pkg.nix { inherit pkgs lib llamaSwapPkg; };
-  mlxOrphanReapPkg = import ./mlx-orphan-reap-pkg.nix { inherit pkgs lib; };
 
   apiUrl = "http://${cfg.host}:${toString cfg.port}/v1";
   launchAgentLabel = "dev.mlx-model-server";
   warmupAgentLabel = "dev.mlx-model-server.warmup";
-  orphanReapAgentLabel = "dev.mlx-model-server.orphan-reap";
 
   # See ./warmup-timeout.nix for why this is derived rather than guessed.
   warmupTimeoutSeconds = import ./warmup-timeout.nix cfg lib;
@@ -278,6 +276,7 @@ in
     ./packages.nix
     ./launchd.nix
     ./launchd-watchdog.nix
+    ./launchd-orphan-reap.nix
     ./cluster-mode.nix
     ./cluster-mode-maintenance.nix
     ./peer-liveness.nix
@@ -289,7 +288,6 @@ in
       cfg
       mlxModelServerPkg
       vllmMlxPkg
-      mlxOrphanReapPkg
       mlxWarmupPkg
       mlxWatchdogPkg
       vllmMlxVersion
@@ -299,7 +297,6 @@ in
       uvPythonVersion
       launchAgentLabel
       warmupAgentLabel
-      orphanReapAgentLabel
       warmupTimeoutSeconds
       modelServerProcessPattern
       llamaSwapPkg
