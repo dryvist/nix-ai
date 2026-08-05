@@ -10,7 +10,7 @@
   # Older pins left typer unbounded (>=0.20.0), floating to 0.26.x which vendored
   # click and dropped the external dep the hf CLI imports → ModuleNotFoundError.
   # renovate: datasource=pypi depName=huggingface-hub
-  huggingfaceHub = "1.24.0";
+  huggingfaceHub = "1.26.0";
   # renovate: datasource=pypi depName=huggingface-mcp-server
   hfMcpServer = "0.1.0";
 
@@ -77,23 +77,31 @@
   # renovate: datasource=pypi depName=parakeet-mlx
   parakeetMlx = "0.5.2";
   # renovate: datasource=pypi depName=mlx-vlm
-  mlxVlm = "0.6.7";
+  mlxVlm = "0.6.10";
   # The nix-ai#751 hold at mlx 0.31.1 is RESOLVED: vllm-mlx 0.4.0 is built
   # against mlx 0.31.2 / mlx-lm 0.31.3 (it requires mlx-lm>=0.31.3), and the
   # cross-thread stream crash ("There is no Stream(gpu, N) in current thread")
-  # no longer reproduces — validated 2026-07-02 on jevans-mbp with three
-  # concurrent completions against Qwen3-30B-A3B-Instruct-2507-4bit under
-  # continuous batching + paged KV cache: zero errors. Keep mlx and mlx-lm
-  # pinned as a pair; they move in lockstep. Pinned back to 0.31.2 (last
-  # release of the prior minor — never ride a #.#.0) 2026-07-23 after serving
-  # instability on jevans-ms; mlx-lm 0.31.3 declares mlx>=0.31.2, so this
-  # stays compatible.
+  # no longer reproduces — validated with three concurrent completions against
+  # a 30B-class 4-bit MoE under continuous batching + paged KV cache: zero
+  # errors. Keep mlx and mlx-lm pinned together; they move in lockstep.
+  #
+  # 0.31.2 was previously held as "the last release of the prior minor, never a
+  # #.#.0" after instability on a freshly-bumped minor. That policy is retired:
+  # mlx ships minors rarely — 0.31.0 in February, 0.31.1 in March, 0.31.2 in
+  # April, 0.32.0 in July — so skipping a .0 costs months of fixes rather than
+  # days. Track current instead. mlx-lm 0.31.3 declares mlx>=0.31.2, so 0.32.0
+  # satisfies it.
+  #
+  # mlx-server/pyproject.toml must track this value; it is a dev environment no
+  # build consumes, so drift there is invisible.
   # renovate: datasource=pypi depName=mlx
-  mlx = "0.31.2";
+  mlx = "0.32.0";
   # renovate: datasource=pypi depName=mlx-lm
   mlxLm = "0.31.3";
-  # renovate.json5 blocks the exact 5.13.0 build via allowedVersions (see
-  # Zammad ticket 130 for the 2026-07-04 outage history behind that block).
+  # renovate.json5 blocks the exact 5.13.0 build via allowedVersions — that
+  # release breaks mlx-lm at import (register() calls key.__module__ on the
+  # string key mlx-lm passes), taking every worker down. The rule there carries
+  # the reproduction detail.
   # renovate: datasource=pypi depName=transformers
   transformers = "5.14.1";
   # renovate: datasource=pypi depName=lm-eval
@@ -101,7 +109,7 @@
 
   # AI tools (pypi)
   # renovate: datasource=pypi depName=browser-use
-  browserUse = "0.13.6";
+  browserUse = "0.13.7";
 
   # Fabric Go CLI (github-releases)
   # The flake input fabric-src is ALSO tracked by Renovate's nix manager and
