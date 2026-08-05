@@ -9,9 +9,25 @@
 #     gets a 404, never the resident's weights under the requested name.
 #     Escape hatch: alwaysAvailableModels names small physical ids that stay
 #     servable (on-demand swap tier) beside the single resident instead of
-#     being disabled — the resident is pinned persistent so a small-model
-#     load can never evict it. Empty (default) -> byte-identical to the
-#     historical single-model emission.
+#     being disabled. Empty (default) -> byte-identical to the historical
+#     single-model emission.
+#
+#     WHETHER A SMALL LOAD EVICTS THE RESIDENT DEPENDS ON maxResidentWorkers,
+#     and this header used to claim unconditionally that it "can never evict"
+#     the resident. At the DEFAULT maxResidentWorkers = 1 that is FALSE and
+#     backwards: collapseToOne merges the resident and the small ids into ONE
+#     swapping group precisely so they DO evict each other, keeping
+#     k_max * memoryHardLimitGb under the host wired ceiling. The
+#     never-evicts guarantee is the k_max >= 2 tiered shape (persistent
+#     resident + separate non-exclusive small tier), which is opt-in and needs
+#     memoryHardLimitGb lowered so two workers fit.
+#
+#     The unqualified claim cost a real misdiagnosis: an operator measured the
+#     small model evicting the resident on a k_max = 1 host, read this header,
+#     concluded the runtime was broken, and nearly shipped a rename that would
+#     have defeated the memory bound. The authoritative statement of the
+#     intended shape is the assertion set in lib/checks/mlx-single-model.nix —
+#     believe those over any prose here, including this paragraph.
 { lib }:
 {
   residentModels,
