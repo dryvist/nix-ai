@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.3.1](https://github.com/dryvist/nix-ai/compare/v4.3.0...v4.3.1) (2026-08-05)
+
+
+### Bug Fixes
+
+* **antigravity:** drop import-from-derivation from the policy-engine check ([#1520](https://github.com/dryvist/nix-ai/issues/1520)) ([f0727fb](https://github.com/dryvist/nix-ai/commit/f0727fb399b5a41746faefd716724ce27cd637f7))
+
 ## [4.3.0](https://github.com/dryvist/nix-ai/compare/v4.2.0...v4.3.0) (2026-08-05)
 
 
