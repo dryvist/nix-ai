@@ -18,17 +18,23 @@
     },
     {
       "description": [
-        "Force the mlx core trio (mlx, mlx-lm, mlx-metal) to upgrade as a single PR",
+        "Force mlx, mlx-lm and mlx-metal to upgrade as a single PR",
         "regardless of which manager surfaced the bump (pep621 in mlx-server/, custom",
         "regex in lib/versions.nix). These packages have hard version interlocks:",
         "mlx-lm imports mlx, and mlx-metal ships in lockstep with mlx. A partial bump",
         "of one without the others can land us on an install-time-broken combination",
         "(e.g. mlx-lm 0.31.3 requires mlx>=0.31.2, so a mlx-lm-only bump fails).",
         "",
+        "mlx-metal has no pin of its own in lib/versions.nix or mlx-server/",
+        "pyproject.toml — it is a TRANSITIVE dep that appears only in",
+        "mlx-server/uv.lock. The lockstep is observable there: resolving mlx back",
+        "from 0.32.0 to 0.31.2 moved mlx-metal 0.32.0 -> 0.31.2 in the same pass.",
+        "Keep it grouped so a lockfile update cannot move it away from mlx.",
+        "",
         "This groupName overrides the broader 'mlx-packages' rule above for these",
         "three specific packages (Renovate evaluates packageRules in order, later",
         "wins for overlapping options). vllm-mlx, parakeet-mlx, and mlx-vlm stay",
-        "in 'mlx-packages' since they consume the trio rather than being part of it.",
+        "in 'mlx-packages' since they consume mlx rather than being part of it.",
         "",
         "Downfall to know about: Renovate's grouping only batches packages that all",
         "have an available update at the same time. If only mlx-lm has a new release",
@@ -43,10 +49,30 @@
     },
     {
       "description": [
+        "Never ride a #.#.0 release of mlx, mlx-lm or mlx-metal. lib/versions.nix",
+        "records the pin being rolled BACK to the last release of the prior minor after",
+        "instability on a freshly-bumped minor, and states the rule in-line: take the",
+        "last release of the prior minor, never the .0.",
+        "",
+        "That convention previously lived only in a comment while the blanket freeze",
+        "below did the actual enforcing. With the freeze removed, encode it — Renovate",
+        "keeps proposing patch bumps and later releases within a minor, and skips only",
+        "the .0. Without this, unfreezing would immediately propose exactly the release",
+        "class the rollback was a response to.",
+        "",
+        "This is a cadence rule, not a correctness one: drop it if a .0 is ever needed",
+        "urgently, and prefer waiting for the .1.",
+      ],
+      "matchDatasources": ["pypi"],
+      "matchPackageNames": ["mlx", "mlx-lm", "mlx-metal"],
+      "allowedVersions": "!/^\\d+\\.\\d+\\.0$/",
+    },
+    {
+      "description": [
         "transformers 5.13.0 breaks mlx-lm 0.31.3 at import (register() calls",
         "key.__module__ on the string key mlx-lm passes -> AttributeError),",
-        "killing every vllm-mlx worker (fleet-wide serving outage 2026-07-04,",
-        "re-confirmed by import test 2026-07-09 after #1144 re-landed it).",
+        "killing every vllm-mlx worker on import. Re-confirmed by import test",
+        "after #1144 re-landed it.",
         "Allow anything except that exact release; drop this rule when mlx-lm",
         "registers a class or transformers restores string keys.",
       ],
@@ -54,37 +80,35 @@
       "matchPackageNames": ["transformers"],
       "allowedVersions": "!/^5\\.13\\.0$/",
     },
-    {
-      "description": [
-        "MLX-DRIVEN cluster pin set — python + mlx + mlx-lm + transformers move together as ONE set,",
-        "deliberately, never individually via Renovate. Core MLX's supported matrix",
-        "(https://ml-explore.github.io/mlx/build/html/install.html) is the primary driver: the",
-        "interpreter and the transformers version are chosen to match the mlx/mlx-lm release the",
-        "cluster is validated on, not bumped on each package's own upstream cadence.",
-        "The two-Mac cluster ranks build their mlx_lm.server invocation from these exact pins",
-        "(modules/mlx/cluster-mode.nix: mlx-lm==${versions.mlxLm}, mlx==${versions.mlx},",
-        "transformers==${versions.transformers}). Both ranks must resolve byte-identical versions or",
-        "distributed init/generation breaks, and a bad transformers/mlx-lm pairing is a fleet-wide",
-        "import outage (see the transformers 5.13.0 rule above). So Renovate must not open or auto-merge",
-        "bumps for any set member — a human edits lib/versions.nix deliberately once the cluster is",
-        "validated on a new MLX-matrix combination. mlx-metal is included because it ships in lockstep",
-        "with mlx (see the mlx-core group), so freezing mlx/mlx-lm while leaving mlx-metal free would let",
-        "the trio drift into exactly the install-time-broken combination that group guards against.",
-        "Package-scoped (NOT file-scoped): every other pin in lib/versions.nix keeps its normal cadence,",
-        "and flake.lock / flake-input maintenance is untouched. Placed last so enabled:false wins over the",
-        "mlx-core / transformers rules above.",
-        "SET MEMBER python — the single-source interpreter (lib/python.nix: `{ pkgs }: pkgs.python314`,",
-        "consumed as `.pythonVersion` by every uvx/uv-run --python in the mlx module) is a plain nixpkgs",
-        "attribute with NO `# renovate:` annotation and no version string, so it has no valid",
-        "datasource/depName and nothing here can package-match it — it is frozen BY CONSTRUCTION today",
-        "(only a human edit python314 -> python315 moves it, driven by MLX's matrix). It is guarded",
-        "file-scoped in the next rule as defense-in-depth against a future contributor annotating that",
-        "file. INC-17070 / INC-17076 / INC-17077.",
-      ],
-      "matchDatasources": ["pypi"],
-      "matchPackageNames": ["mlx", "mlx-lm", "mlx-metal", "transformers"],
-      "enabled": false,
-    },
+    // REMOVED — the MLX-driven cluster pin freeze (`enabled: false` on mlx,
+    // mlx-lm, mlx-metal, transformers), by operator decision.
+    //
+    // What it did: blocked Renovate from ever opening a bump for the MLX set,
+    // so a human edited lib/versions.nix only after validating the two-Mac
+    // cluster on a new combination from MLX's supported matrix. Installed after
+    // INC-17070 / INC-17076 / INC-17077.
+    //
+    // Why it is gone: the blackout was total, so the set went stale with no
+    // signal. mlx sat at 0.31.2 while 0.32.0 shipped 2026-07-07, and the pin
+    // silently disagreed with mlx-server/pyproject.toml, which required
+    // >=0.32.0,<0.32.1 — both frozen, at different versions, with nothing able
+    // to reconcile them.
+    //
+    // RESIDUAL RISK, deliberately accepted: the cluster ranks build their
+    // mlx_lm.server invocation from these pins (modules/mlx/cluster-mode.nix),
+    // and both ranks must resolve byte-identical versions or distributed
+    // init/generation breaks. Renovate changes the pin once for both, so the
+    // exposure is deploy TIMING — a window where one Mac has rebuilt and the
+    // other has not. That window already existed for every other pin in this
+    // file; the freeze narrowed it for this set only. The interlocks that
+    // remain are the mlx-core group (which batches mlx, mlx-lm and mlx-metal
+    // into one PR) and the transformers 5.13.0 block above, both of which are
+    // correctness guards rather than freezes and are kept.
+    //
+    // mlx-metal keeps its membership in the mlx-core group and the .0 guard
+    // above: it carries no pin of its own, but it is a transitive dep in
+    // mlx-server/uv.lock that moves in exact lockstep with mlx, so it must not
+    // be able to move independently of mlx via a lockfile update.
     {
       "description": [
         "MLX-driven set, python member — defense-in-depth. lib/python.nix (`pkgs.python314`) carries no",
