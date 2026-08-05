@@ -22,6 +22,7 @@ in
       "gemmaModelRouter"
       "hooks"
       "mcpServerNames"
+      "policyRules"
       "sandbox"
       "sandboxAllowedPaths"
       "sandboxAllowedPathsMerged"
@@ -168,26 +169,41 @@ in
       || throw "Antigravity must not deploy skills or GEMINI.md: ${builtins.toJSON disallowedAntigravityFiles}";
     helpers.mkMarker "check-antigravity-cli-module-loaded" "Antigravity module: .keep file present, module loaded successfully";
 
-  # Validate Policy Engine TOML is deployed and settings.json uses policyPaths.
+  # Validate the Policy Engine rules and that the TOML is deployed.
+  #
+  # Asserts on cfg.policyRules — the Nix list that becomes the TOML's `rule`
+  # array — instead of reading the generated file back. Reading it back was
+  # import-from-derivation, which `nix flake check --no-build` cannot satisfy;
+  # it failed with "path '<hash>-antigravity-policy.toml.drv' is not valid".
+  # Because deps-refresh-nixpkgs.yml validates with that exact flag, the
+  # failure took every weekly nixpkgs relock with it (2026-07-28, 2026-08-03),
+  # leaving both channels ~1 month stale and llama-swap pinned at v224 while
+  # upstream shipped v247.
+  #
+  # Asserting on the attrset is also stricter: typed field lookups replace
+  # substring matches, so text that merely appeared somewhere in the rendered
+  # TOML can no longer satisfy a rule assertion.
   antigravity-cli-policy-engine =
     let
-      policyFileEntry = hmConfig.config.home.file.".gemini/antigravity-cli/policies/nix-managed.toml";
-      policyContent = builtins.readFile policyFileEntry.source;
       inherit (pkgs) lib;
+      execToolName = "run_shell_command";
+      rules = cfg.policyRules;
+      decisions = map (r: r.decision or null) rules;
+      toolNames = map (r: r.toolName or null) rules;
+      prefixes = builtins.filter (p: p != null) (map (r: r.commandPrefix or null) rules);
+      # Assert the file is still deployed WITHOUT forcing its source
+      # derivation — forcing it is the import-from-derivation this removes.
+      policyDeployed = hmConfig.config.home.file ? ".gemini/antigravity-cli/policies/nix-managed.toml";
     in
-    assert lib.stringLength policyContent > 0 || throw "Policy TOML is empty";
-    assert lib.hasInfix "[[rule]]" policyContent || throw "No [[rule]] entries found";
-    assert lib.hasInfix ''decision = "allow"'' policyContent || throw "No allow rules found";
-    assert lib.hasInfix ''decision = "deny"'' policyContent || throw "No deny rules found";
-    assert
-      !lib.hasInfix ''decision = "ask_user"'' policyContent
-      || throw "ask_user rules present — the two-tier model renders allow/deny only";
-    assert
-      lib.hasInfix ''toolName = "read_file"'' policyContent || throw "Missing read_file tool mapping";
-    assert
-      lib.hasInfix ''toolName = "run_shell_command"'' policyContent
-      || throw "No run_shell_command rules found";
-    assert
-      lib.hasInfix ''commandPrefix = "git"'' policyContent || throw "Missing git commandPrefix rule";
-    helpers.mkMarker "check-antigravity-cli-policy-engine" "Antigravity Policy Engine: TOML structure verified (8 assertions: non-empty, [[rule]], allow/deny present, ask_user absent, tool mappings, git rule)";
+    assert lib.assertMsg (builtins.length rules > 0) "Policy rules list is empty";
+    assert lib.assertMsg policyDeployed "nix-managed.toml is not deployed via home.file";
+    assert lib.assertMsg (builtins.elem "allow" decisions) "No allow rules found";
+    assert lib.assertMsg (builtins.elem "deny" decisions) "No deny rules found";
+    assert lib.assertMsg (
+      !builtins.elem "ask_user" decisions
+    ) "ask_user rules present — the two-tier model renders allow/deny only";
+    assert lib.assertMsg (builtins.elem "read_file" toolNames) "Missing read_file tool mapping";
+    assert lib.assertMsg (builtins.elem execToolName toolNames) "No ${execToolName} rules found";
+    assert lib.assertMsg (builtins.elem "git" prefixes) "Missing git commandPrefix rule";
+    helpers.mkMarker "check-antigravity-cli-policy-engine" "Antigravity Policy Engine: rules verified on the Nix attrset, no import-from-derivation (8 assertions: non-empty, file deployed, allow/deny present, ask_user absent, tool mappings, git prefix)";
 }

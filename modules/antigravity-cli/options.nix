@@ -129,6 +129,18 @@ in
       description = "Merged sandbox allowed paths (default + sandboxAllowedPaths); read-only.";
     };
 
+    # Policy Engine rules, read-only — the same list that is rendered into
+    # nix-managed.toml. Exposed so regression checks can assert on the rules
+    # WITHOUT reading the generated file back. Reading it back is
+    # import-from-derivation, which `nix flake check --no-build` cannot do,
+    # and that failure took the weekly nixpkgs relock down with it.
+    policyRules = lib.mkOption {
+      type = lib.types.listOf (lib.types.attrsOf lib.types.anything);
+      readOnly = true;
+      internal = true;
+      description = "Policy Engine rules rendered into nix-managed.toml; read-only.";
+    };
+
     # Sandbox configuration
     sandbox = {
       enable = lib.mkOption {
