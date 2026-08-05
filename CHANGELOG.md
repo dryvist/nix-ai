@@ -1,5 +1,18 @@
 # Changelog
 
+## [4.4.0](https://github.com/dryvist/nix-ai/compare/v4.3.1...v4.4.0) (2026-08-05)
+
+
+### Features
+
+* **ci:** relock the whole flake into a single pull request ([#1526](https://github.com/dryvist/nix-ai/issues/1526)) ([d44537f](https://github.com/dryvist/nix-ai/commit/d44537f1d947908b5c91853884f633951279e7ce))
+
+
+### Bug Fixes
+
+* **checks:** read the flake source by path, not through a string ([#1527](https://github.com/dryvist/nix-ai/issues/1527)) ([63b4124](https://github.com/dryvist/nix-ai/commit/63b41240ace199e5781e6f260e5bb4d1b14a0e99))
+* **mlx:** halt the peer-absent standdown so it cannot loop ([#1524](https://github.com/dryvist/nix-ai/issues/1524)) ([3dc42a9](https://github.com/dryvist/nix-ai/commit/3dc42a97a07762ae068e773dcaaf8214ba4ac13d))
+
 ## [4.3.1](https://github.com/dryvist/nix-ai/compare/v4.3.0...v4.3.1) (2026-08-05)
 
 
