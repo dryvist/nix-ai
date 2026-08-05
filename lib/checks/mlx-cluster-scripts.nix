@@ -152,6 +152,9 @@ in
       pkgs.gawk
     ];
     HELPERS = "${src}/modules/mlx/scripts/cluster-link-helpers.sh";
+    # The teardown this predicate feeds is source-pinned in the same test: the
+    # peer-absent standdown must write a halt BEFORE its SIGTERM, or it loops.
+    WATCHER = "${src}/modules/mlx/scripts/cluster-link-watcher.sh";
   } "bash ${src}/tests/test-peer-rendezvous-session.sh && touch $out";
 
   # Builds the three CONCATENATED cluster scripts for real. Nothing else does:
