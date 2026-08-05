@@ -109,6 +109,63 @@ mlx_port_holders() {
 # Reap everything currently bound to our port block. Returns 0 once clear
 # (including "nothing was ever holding it" — the common case), 1 if a holder
 # survived SIGKILL. Never touches a PID outside mlx_reap_ports's block.
+# Port holders that have been RE-PARENTED TO LAUNCHD (ppid 1) — i.e. genuine
+# orphans, one per line.
+#
+# mlx_port_holders alone cannot tell an orphan from the proxy's own live
+# worker, which is why mlx_reap_orphan_ports is only safe at proxy START: at
+# that instant the proxy has bound nothing, so every holder is by definition
+# stale. Calling it at any other time would SIGKILL the worker currently
+# serving traffic.
+#
+# A live worker always has a real parent — the chain is
+# llama-swap -> uv run -> python mlx-lm-launch.py, three distinct PIDs — so its
+# ppid is never 1. An orphan's is, because that is exactly what "survived the
+# stop and was re-parented" means. That makes ppid the discriminator a
+# time-triggered reaper needs, and lets one run safely while the proxy is up.
+#
+# ps -o ppid= is deliberate: no bash 4 syntax, no /proc on Darwin.
+mlx_orphan_holders() {
+  local ps_bin="${MLX_PS_BIN:-/bin/ps}"
+  local pid ppid
+  while IFS= read -r pid; do
+    [ -n "$pid" ] || continue
+    ppid="$("$ps_bin" -o ppid= -p "$pid" 2> /dev/null | tr -d ' ')"
+    [ "$ppid" = "1" ] && printf '%s\n' "$pid"
+  done < <(mlx_port_holders)
+}
+
+# Reap only re-parented orphans. Safe to call at ANY time, including while the
+# proxy is serving — unlike mlx_reap_orphan_ports, which is start-path only.
+mlx_reap_reparented_only() {
+  local kill_bin="${MLX_KILL_BIN:-/bin/kill}"
+  local holders pid
+  holders="$(mlx_orphan_holders)"
+  [ -n "$holders" ] || return 0
+
+  echo "$(date -u +%FT%TZ) mlx-orphan-reap: reaping re-parented orphan(s) holding worker ports (pid: $(mlx_pid_list "$holders"))" >&2
+  for pid in $holders; do
+    "$kill_bin" -TERM "$pid" 2> /dev/null || true
+  done
+
+  for _ in $(seq 1 10); do
+    holders="$(mlx_orphan_holders)"
+    [ -n "$holders" ] || return 0
+    sleep 1
+  done
+
+  echo "$(date -u +%FT%TZ) mlx-orphan-reap: escalating to SIGKILL (pid: $(mlx_pid_list "$holders"))" >&2
+  for pid in $holders; do
+    "$kill_bin" -KILL "$pid" 2> /dev/null || true
+  done
+  sleep 2
+
+  holders="$(mlx_orphan_holders)"
+  [ -n "$holders" ] || return 0
+  echo "$(date -u +%FT%TZ) mlx-orphan-reap: port(s) still held after SIGKILL (pid: $(mlx_pid_list "$holders"))" >&2
+  return 1
+}
+
 mlx_reap_orphan_ports() {
   local kill_bin="${MLX_KILL_BIN:-/bin/kill}"
   local holders pid
