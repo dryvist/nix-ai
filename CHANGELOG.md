@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.3.0](https://github.com/dryvist/nix-ai/compare/v4.2.0...v4.3.0) (2026-08-05)
+
+
+### Features
+
+* **mlx:** bound resident workers and suppress the upstream wired-limit pin ([#1515](https://github.com/dryvist/nix-ai/issues/1515)) ([d392053](https://github.com/dryvist/nix-ai/commit/d3920530f0018e32bb94c0a01d5744c9efcd7111))
+
 ## [4.2.0](https://github.com/dryvist/nix-ai/compare/v4.1.4...v4.2.0) (2026-08-02)
 
 
