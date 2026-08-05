@@ -55,6 +55,31 @@ let
     alwaysAvailableModels = [ "sidekick" ];
   };
   escapeAliases = builtins.sort builtins.lessThan escape.models.brain.aliases;
+
+  # Same escape fixture with the residency budget widened to two workers. the
+  # default maxResidentWorkers = 1 collapses every model into one
+  # exclusive group so k_max stays 1; the tiered topology (persistent resident
+  # beside a non-exclusive small tier, i.e. k_max = 2) survives only when a host
+  # explicitly opts in by lowering memoryHardLimitGb to match. Both shapes are
+  # asserted so neither can regress into the other silently.
+  escapeTiered = import ../../modules/mlx/llama-swap-topology.nix { inherit (pkgs) lib; } {
+    residentModels = {
+      brain.aliases = [ "default" ];
+    };
+    swapModels = {
+      sidekick.aliases = [ "coding" ];
+      judge.aliases = [ "goal-judge" ];
+    };
+    allModels = {
+      brain.aliases = [ "default" ];
+      sidekick.aliases = [ "coding" ];
+      judge.aliases = [ "goal-judge" ];
+    };
+    groupSwap = false;
+    singleModel = "brain";
+    alwaysAvailableModels = [ "sidekick" ];
+    maxResidentWorkers = 2;
+  };
 in
 {
   mlx-single-model-mode =
@@ -103,17 +128,39 @@ in
     assert assertMsg (
       (escape.models.sidekick.ttl or null) == null
     ) "escape: kept small models stay on-demand (no forced ttl=0 resident promotion)";
+    # At the default maxResidentWorkers = 1 the kept-small tier joins the
+    # resident's exclusive group instead of sitting beside it, so only one worker
+    # can hold weights at a time and k_max * memoryHardLimitGb stays under the
+    # host wired ceiling. The old shape (persistent resident + non-exclusive
+    # small tier) permitted two workers at the full per-worker budget, which is
+    # the over-commit this default exists to prevent.
     assert assertMsg (
-      escape.groups.mlx-models.members == [ "brain" ]
-    ) "escape: the single resident must be the sole member of the pinned group";
-    assert assertMsg escape.groups.mlx-models.persistent
-      "escape: the single resident must be pinned persistent so a small load can't evict it";
+      escape.groups.mlx-models.members == [
+        "brain"
+        "sidekick"
+      ]
+    ) "escape: at k_max=1 the resident and kept-small models must share ONE group";
+    assert assertMsg escape.groups.mlx-models.exclusive
+      "escape: the merged group must stay exclusive so other groups cannot hold weights beside it";
+    assert assertMsg escape.groups.mlx-models.swap
+      "escape: the merged group must swap — members that do not evict each other defeat k_max=1";
+    assert assertMsg (!escape.groups.mlx-models.persistent)
+      "escape: the merged group must NOT be persistent — with one group there is nothing to protect it from, and persistence would pin weights across swaps";
+    assert assertMsg (!(escape.groups ? mlx-small-models))
+      "escape: no second group may exist at k_max=1 — a separate small tier is exactly the k_max=2 shape";
+    # The opt-in tiered shape must still compile for hosts that lower
+    # memoryHardLimitGb to fit two workers.
     assert assertMsg (
-      escape.groups.mlx-small-models.members == [ "sidekick" ]
-    ) "escape: kept small models must form their own swap group";
+      escapeTiered.groups.mlx-models.members == [ "brain" ]
+    ) "escapeTiered: the single resident must be the sole member of the pinned group";
+    assert assertMsg escapeTiered.groups.mlx-models.persistent
+      "escapeTiered: the single resident must be pinned persistent so a small load can't evict it";
     assert assertMsg (
-      !escape.groups.mlx-small-models.persistent
-    ) "escape: the kept-small swap group must be non-persistent (on-demand, idle-unloaded)";
+      escapeTiered.groups.mlx-small-models.members == [ "sidekick" ]
+    ) "escapeTiered: kept small models must form their own swap group";
+    assert assertMsg (
+      !escapeTiered.groups.mlx-small-models.persistent
+    ) "escapeTiered: the kept-small swap group must be non-persistent (on-demand, idle-unloaded)";
     helpers.mkMarker "check-mlx-single-model-escape" "MLX singleModel escape: alwaysAvailableModels stay on-demand servable beside a pinned resident, no physical-id graft, others still disabled";
 
   # The client-side substitution probe. Wired here because it guards the same

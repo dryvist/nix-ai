@@ -28,6 +28,7 @@ in
     ${lib.optionalString (cfg.bufferCacheLimitGb != null)
       "export MLX_L1_CACHE_LIMIT_BYTES=${toString (cfg.bufferCacheLimitGb * gib)}"
     }
+    ${lib.optionalString cfg.suppressWiredLimit "export MLX_SUPPRESS_WIRED_LIMIT=1"}
     exec ${pkgs.uv}/bin/uv run --python ${uvPythonVersion} --with "${mlxLmWheel}" --with "${mlxPin}" --with "${transformersPin}" python ${./scripts/mlx-lm-launch.py} "$@"
   '';
 
