@@ -7,6 +7,8 @@
 #                        launcher (mx.set_memory_limit / mx.set_cache_limit;
 #                        see modules/mlx/scripts/mlx-lm-launch.py).
 #   L1 OS wired ceiling — host iogpu.wired_limit_mb (nix-darwin tunables).
+# memoryHardLimitGb is DECLARED in ./options-residency.nix, together with
+# maxResidentWorkers and suppressWiredLimit — the residency-budget invariant.
 # Official mlx_lm additionally receives a prompt-cache byte limit. launchd
 # HardResourceLimits is absent: it would cap llama-swap, not its model-server
 # children. gpuMemoryUtilization and autoUnloadIdleSeconds apply to the
@@ -67,20 +69,9 @@
       description = "Implementation used by every standalone MLX model server. The selected value must also be present in enabledBackends.";
     };
 
-    memoryHardLimitGb = lib.mkOption {
-      type = lib.types.ints.positive;
-      default = 99;
-      description = ''
-        L2 process memory limit in GiB, enforced in-process before serving via
-        mx.set_memory_limit in the mlx_lm launcher (scripts/mlx-lm-launch.py).
-        A guideline in MLX terms — it forces cache shedding and allocation
-        failure ahead of the host wired ceiling (L1, iogpu.wired_limit_mb)
-        rather than at MLX's 1.5x-working-set default, so memory pressure
-        surfaces as an application error instead of host-wide swap. Set below
-        the wired ceiling with a small cushion (99 GiB under the 100 GiB /
-        102400 MiB ceiling on the 128 GiB Macs).
-      '';
-    };
+    # memoryHardLimitGb, maxResidentWorkers and suppressWiredLimit live in
+    # ./options-residency.nix — they form the residency-budget invariant and are
+    # only safe to change together.
 
     # autoUnloadIdleSeconds — Worker-side idle self-unload (--auto-unload-idle-seconds).
     # Defense in depth alongside llama-swap's proxy.idleTtl: the worker frees its
