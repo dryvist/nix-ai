@@ -20,9 +20,38 @@
   groupSwap,
   singleModel,
   alwaysAvailableModels ? [ ],
+  maxResidentWorkers ? 1,
 }:
 let
-  groups = {
+  # The memory invariant is k_max * memoryHardLimitGb <= host wired ceiling,
+  # where k_max is how many workers can hold weights at once. The two-tier
+  # topology below makes k_max = 2 by construction: mlx-models is persistent
+  # and mlx-swap-models is non-exclusive, so a swap-tier load sits BESIDE the
+  # resident rather than replacing it. That is deliberate (a small on-demand
+  # model must not evict the big one) and it is also what takes the permitted
+  # total from 1x to 2x the per-worker budget — 2 x 99 GiB against a 100 GiB
+  # ceiling on a 128 GiB host, which over-commits.
+  #
+  # Collapsing to ONE exclusive group is the fix that needs no new number:
+  # k_max = 1 satisfies the invariant at the existing memoryHardLimitGb. The
+  # cost is a model-swap reload (~10-20 s from NVMe) whenever traffic alternates
+  # between tiers, paid on a fleet whose consumers are autonomous rather than
+  # interactive. Raise maxResidentWorkers only alongside lowering
+  # memoryHardLimitGb so the product still fits.
+  collapseToOne = maxResidentWorkers == 1;
+
+  # swap is forced true when collapsed: a single group whose members do not
+  # evict each other would keep both resident and defeat the whole point.
+  mergedGroups = {
+    mlx-models = {
+      swap = true;
+      exclusive = true;
+      persistent = false;
+      members = builtins.attrNames residentModels ++ builtins.attrNames swapModels;
+    };
+  };
+
+  tieredGroups = {
     mlx-models = {
       swap = groupSwap;
       exclusive = true;
@@ -38,6 +67,8 @@ let
       members = builtins.attrNames swapModels;
     };
   };
+
+  groups = if collapseToOne then mergedGroups else tieredGroups;
 in
 if singleModel != null then
   let
@@ -64,20 +95,38 @@ if singleModel != null then
     # No small models -> groups = {} (historical emission). With small models,
     # pin the single resident persistent so an on-demand small load beside it
     # never evicts it, and keep the small tier non-persistent/non-exclusive.
-    groups = lib.optionalAttrs (keptSmall != [ ]) {
-      mlx-models = {
-        swap = groupSwap;
-        exclusive = true;
-        persistent = true;
-        members = [ singleModel ];
-      };
-      mlx-small-models = {
-        swap = true;
-        exclusive = false;
-        persistent = false;
-        members = keptSmall;
-      };
-    };
+    #
+    # That pairing is the same k_max = 2 shape as the multi-model branch —
+    # a persistent resident plus a non-exclusive small tier means two workers
+    # hold weights at once. Under maxResidentWorkers = 1 the small tier joins
+    # the resident's group instead, so an on-demand small load evicts the
+    # resident rather than sitting beside it.
+    groups = lib.optionalAttrs (keptSmall != [ ]) (
+      if collapseToOne then
+        {
+          mlx-models = {
+            swap = true;
+            exclusive = true;
+            persistent = false;
+            members = keep;
+          };
+        }
+      else
+        {
+          mlx-models = {
+            swap = groupSwap;
+            exclusive = true;
+            persistent = true;
+            members = [ singleModel ];
+          };
+          mlx-small-models = {
+            swap = true;
+            exclusive = false;
+            persistent = false;
+            members = keptSmall;
+          };
+        }
+    );
     disabledGroups = groups;
   }
 else
