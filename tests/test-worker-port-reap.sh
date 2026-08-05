@@ -76,28 +76,8 @@ FAKE
 chmod +x "$state_dir/bin/fake-kill"
 
 export STATE_DIR="$state_dir"
-{
-  printf '%s\n' "$shebang"
-  cat << 'FAKE'
-# fake ps -o ppid= -p <pid> -> the ppid recorded at $STATE_DIR/ppid-<pid>,
-# defaulting to a real-looking parent. Only ppid 1 means "re-parented orphan";
-# anything else is a live worker still under the llama-swap -> uv chain.
-#
-# The pid is $4, not $3: the invocation is `-o ppid= -p <pid>`, so
-# $1=-o $2=ppid= $3=-p $4=<pid>. Reading $3 silently returned the default for
-# every pid, which made the "orphan is reaped" cases look broken while the
-# "live worker survives" cases passed for the wrong reason.
-pid="$4"
-ppid_file="$STATE_DIR/ppid-$pid"
-if [ -f "$ppid_file" ]; then cat "$ppid_file"; else echo "  4242"; fi
-exit 0
-FAKE
-} > "$state_dir/bin/fake-ps"
-chmod +x "$state_dir/bin/fake-ps"
-
 export MLX_LSOF_BIN="$state_dir/bin/fake-lsof"
 export MLX_KILL_BIN="$state_dir/bin/fake-kill"
-export MLX_PS_BIN="$state_dir/bin/fake-ps"
 export MLX_PORT=11434
 export MLX_WORKER_PORT_RANGE_START=11436
 export MLX_WORKER_PORT_COUNT=2
@@ -183,65 +163,5 @@ check "reap succeeds" 0 "$rc"
 check "in-range orphan still reaped" 1 "$(exact_signal -TERM 9101)"
 check "out-of-range holder never signalled" 0 "$(signals_to 9104)"
 check "out-of-range port file untouched" 1 "$(port_file_exists 15000)"
-
-# --- mlx_reap_reparented_only: safe to run while the proxy is SERVING --------
-# mlx_reap_orphan_ports kills every holder, which is correct only at proxy
-# start (nothing legitimate is bound yet). A time-triggered reaper needs to run
-# while the proxy is up, so it must not touch the worker currently serving
-# traffic. ppid is the discriminator: a live worker sits under the
-# llama-swap -> uv -> python chain, so its ppid is never 1; an orphan was
-# re-parented to launchd, so its ppid is exactly 1.
-
-echo "a LIVE worker (real parent) is never reaped by the re-parented reaper:"
-reset_state
-printf '9101\n' > "$state_dir/port-11437"
-printf '  4242\n' > "$state_dir/ppid-9101"
-rc=0
-mlx_reap_reparented_only || rc=$?
-check "reap succeeds" 0 "$rc"
-check "live worker never signalled" 0 "$(signals_to 9101)"
-check "live worker still holds its port" 1 "$(port_file_exists 11437)"
-
-echo "a RE-PARENTED orphan (ppid 1) is reaped:"
-reset_state
-printf '9101\n' > "$state_dir/port-11437"
-printf '1\n' > "$state_dir/ppid-9101"
-rc=0
-mlx_reap_reparented_only || rc=$?
-check "reap succeeds" 0 "$rc"
-check "orphan got SIGTERM" 1 "$(exact_signal -TERM 9101)"
-check "orphan port released" 0 "$(port_file_exists 11437)"
-
-echo "a live worker beside an orphan: only the orphan dies:"
-reset_state
-printf '9101\n' > "$state_dir/port-11437"
-printf '1\n' > "$state_dir/ppid-9101"
-printf '9102\n' > "$state_dir/port-11438"
-printf '  4242\n' > "$state_dir/ppid-9102"
-rc=0
-mlx_reap_reparented_only || rc=$?
-check "reap succeeds" 0 "$rc"
-check "orphan reaped" 1 "$(exact_signal -TERM 9101)"
-check "live worker untouched" 0 "$(signals_to 9102)"
-check "live worker keeps its port" 1 "$(port_file_exists 11438)"
-
-echo "a re-parented orphan that ignores SIGTERM is escalated to SIGKILL:"
-reset_state
-printf '9101\n' > "$state_dir/port-11437"
-printf '1\n' > "$state_dir/ppid-9101"
-: > "$state_dir/stubborn-9101"
-rc=0
-mlx_reap_reparented_only || rc=$?
-check "reap succeeds after escalation" 0 "$rc"
-check "SIGTERM was tried first" 1 "$(exact_signal -TERM 9101)"
-check "escalated to SIGKILL" 1 "$(exact_signal -KILL 9101)"
-check "port finally released" 0 "$(port_file_exists 11437)"
-
-echo "nothing bound at all is a no-op for the re-parented reaper too:"
-reset_state
-rc=0
-mlx_reap_reparented_only || rc=$?
-check "reap succeeds" 0 "$rc"
-check "no kill issued" 0 "$(wc -l < "$kill_log" | tr -d ' ')"
 
 exit "$fail"

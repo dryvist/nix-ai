@@ -163,8 +163,6 @@ in
           };
         };
 
-        # Periodic orphan reap lives in launchd-orphan-reap.nix (split for size).
-
         # Serving watchdog lives in launchd-watchdog.nix (split for size).
       };
     };
