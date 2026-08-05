@@ -8,7 +8,7 @@
 # the server's own entry point, which parses sys.argv exactly as before.
 #
 # Both limits are guidelines, not hard caps: MLX raises only when RAM+swap is
-# genuinely exhausted (docs-starlight, d/hosts/ai/mlx-memory-ceilings). The
+# genuinely exhausted (see docs.jacobpevans.com/local-llm/memory-ceilings). The
 # real guarantee is structural — this budget sits below the wired ceiling, which
 # sits below physical RAM with the OS reserve. This just makes MLX shed cache
 # and fail allocation ahead of the wired ceiling instead of at 1.5x it (the MLX
