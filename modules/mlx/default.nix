@@ -264,6 +264,7 @@ in
     ./options-filters.nix
     ./options-parsers.nix
     ./options-runtime.nix
+    ./options-residency.nix
     ./options-cluster.nix
     ./options-cluster-pd-reboot.nix
     ./options-cluster-lifecycle.nix
