@@ -276,6 +276,7 @@ in
     ./packages.nix
     ./launchd.nix
     ./launchd-watchdog.nix
+    ./launchd-orphan-reap.nix
     ./cluster-mode.nix
     ./cluster-mode-maintenance.nix
     ./peer-liveness.nix
