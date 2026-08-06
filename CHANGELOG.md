@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.5.0](https://github.com/dryvist/nix-ai/compare/v4.4.0...v4.5.0) (2026-08-06)
+
+
+### Features
+
+* **mlx:** reap re-parented worker processes on a timer ([#1530](https://github.com/dryvist/nix-ai/issues/1530)) ([b207b29](https://github.com/dryvist/nix-ai/commit/b207b299734a07573fc98e95a398a3c1c5d41989))
+* **token-meter:** install, HTTPS gate, and MCP registration ([#1536](https://github.com/dryvist/nix-ai/issues/1536)) ([780c355](https://github.com/dryvist/nix-ai/commit/780c355b64a48f46819bb8651733cf3bd75aaa46))
+
 ## [4.4.0](https://github.com/dryvist/nix-ai/compare/v4.3.1...v4.4.0) (2026-08-05)
 
 
