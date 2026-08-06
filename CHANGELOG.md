@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.5.1](https://github.com/dryvist/nix-ai/compare/v4.5.0...v4.5.1) (2026-08-06)
+
+
+### Bug Fixes
+
+* **token-meter:** give the gate its own Caddy storage ([#1540](https://github.com/dryvist/nix-ai/issues/1540)) ([e8495aa](https://github.com/dryvist/nix-ai/commit/e8495aa1435e79ab1eb604d32429c223b3c09a19))
+
 ## [4.5.0](https://github.com/dryvist/nix-ai/compare/v4.4.0...v4.5.0) (2026-08-06)
 
 
