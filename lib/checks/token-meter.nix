@@ -34,6 +34,13 @@ in
       builtins.elemAt args 3 == "${expected}"
       || throw "token-meter Caddyfile drifted from ${cfg.bindAddress}:${toString cfg.gatePort} -> 127.0.0.1:8722";
     assert (agent.KeepAlive or false) || throw "token-meter gate must have KeepAlive = true";
+    # A host with the gate on also runs the llm-gate Caddy. On default paths the
+    # two share one data directory, so losing this isolation means two Caddies
+    # contending over a single local CA, instance id, and lock set.
+    assert
+      (agent.EnvironmentVariables.XDG_DATA_HOME or "") != ""
+      && (agent.EnvironmentVariables.XDG_CONFIG_HOME or "") != ""
+      || throw "token-meter gate must set XDG_DATA_HOME and XDG_CONFIG_HOME so its Caddy storage stays separate from llm-gate's";
     helpers.mkMarker "check-token-meter-gate" "token-meter gate: ${cfg.bindAddress}:${toString cfg.gatePort} -> 127.0.0.1:8722 verified";
 
   token-meter-gate-negative =
