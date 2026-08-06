@@ -31,6 +31,7 @@ let
     inherit (config.programs.aiMcp) enabledServers;
     excluded = cfg.excludedMcpServers;
     normalize = formatters.utils.normalizeMcpServer;
+    client = "antigravity-ide";
   };
 
   mcpConfig = {

@@ -9,13 +9,33 @@
 {
   # programs.aiMcp.enabledServers is already filtered for disabled/global-exclude
   # (modules/mcp/default.nix) — only the per-tool exclude list applies here.
+  #
+  # `client` is this renderer's own name, used to resolve a server's
+  # clientNameEnv. The key itself needs no stripping: every normalizer is a key
+  # allowlist and none of them list it.
   renderServers =
     {
       enabledServers,
       excluded ? [ ],
       normalize,
+      client ? null,
     }:
-    lib.mapAttrs (_: normalize) (lib.filterAttrs (name: _: !lib.elem name excluded) enabledServers);
+    let
+      withClientName =
+        server:
+        if client == null || server.clientNameEnv == null then
+          server
+        else
+          server
+          // {
+            env = server.env // {
+              ${server.clientNameEnv} = client;
+            };
+          };
+    in
+    lib.mapAttrs (_: server: normalize (withClientName server)) (
+      lib.filterAttrs (name: _: !lib.elem name excluded) enabledServers
+    );
 
   mkClientOptions = tool: {
     excludedMcpServers = lib.mkOption {

@@ -4,6 +4,7 @@
 # hardcoded loopback port and must never appear when the module is disabled.
 {
   pkgs,
+  src,
   hmConfig,
   hmConfigTokenMeter,
 }:
@@ -40,4 +41,45 @@ in
       !(hmConfig.config.launchd.agents ? token-meter-gate)
       || throw "token-meter gate must NOT be defined when programs.token-meter.enable = false (default)";
     helpers.mkMarker "check-token-meter-gate-negative" "token-meter gate correctly absent when disabled";
+
+  # token-meter labels every answer with the runtime that asked, so each client
+  # must render its own name — the one value the shared catalog cannot hold.
+  # Only Claude's rendered servers are reachable as an option; every other
+  # client folds its MCP block into an internal configAttrs, so their wiring is
+  # asserted at the call site instead — the same split as
+  # mlx-cluster-pd-callsites.nix. A seventh client added without a `client`
+  # argument renders token-meter unlabelled, and no other check would catch it.
+  token-meter-mcp-caller =
+    let
+      claudeServers = hmConfigTokenMeter.config.programs.claude.mcpServers;
+      # No other catalog entry sets clientNameEnv, so no other server may have
+      # picked the variable up from the shared render step.
+      leaked = builtins.attrNames (
+        pkgs.lib.filterAttrs (_: server: (server.env or { }) ? TOKEN_METER_CALLER) (
+          builtins.removeAttrs claudeServers [ "token-meter" ]
+        )
+      );
+      callSites = {
+        "modules/claude-config.nix" = "claude";
+        "modules/codex/settings.nix" = "codex";
+        "modules/qwen-code/settings.nix" = "qwen-code";
+        "modules/opencode/default.nix" = "opencode";
+        "modules/antigravity-cli/settings.nix" = "antigravity-cli";
+        "modules/antigravity-ide/default.nix" = "antigravity-ide";
+      };
+      unwired = pkgs.lib.filter (
+        f: !(pkgs.lib.hasInfix ''client = "${callSites.${f}}";'' (builtins.readFile (src + "/${f}")))
+      ) (builtins.attrNames callSites);
+    in
+    assert
+      (claudeServers.token-meter.env or { }) == {
+        TOKEN_METER_CALLER = "claude";
+      }
+      || throw "token-meter must reach Claude labelled claude, got ${
+        builtins.toJSON (claudeServers.token-meter.env or { })
+      }";
+    assert
+      unwired == [ ] || throw "MCP renderers missing their client name: ${builtins.toJSON unwired}";
+    assert leaked == [ ] || throw "TOKEN_METER_CALLER leaked onto: ${builtins.toJSON leaked}";
+    helpers.mkMarker "check-token-meter-mcp-caller" "token-meter MCP: Claude renders TOKEN_METER_CALLER=claude and all six renderers pass their own client name";
 }
