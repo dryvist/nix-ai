@@ -113,5 +113,12 @@ in
         StandardErrorPath = "${logDir}/gate.error.log";
       };
     };
+
+    # The catalog ships this entry disabled because it needs the local install
+    # that only this module performs — so the module enabling itself is exactly
+    # the condition that makes it usable. Without this, `enable = true` installs
+    # the dashboard but every agent's MCP config silently omits the server,
+    # since enabledServers filters `disabled` entries out.
+    programs.aiMcp.servers.token-meter.disabled = lib.mkForce false;
   };
 }
