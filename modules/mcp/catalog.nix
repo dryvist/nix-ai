@@ -8,6 +8,7 @@
 # Servers requiring API keys read them from environment variables. Use your
 # secrets manager (Doppler, Keychain, etc.) to inject env vars.
 
+{ homeDirectory }:
 let
   # bunx helper: command-only args for MCP server definitions.
   bunx = args: {
@@ -306,5 +307,11 @@ in
   cribl = {
     type = "http";
     url = "http://localhost:30030/mcp";
+  };
+
+  # splunk/token-meter. Off by default: needs nix-darwin's local install.
+  token-meter = {
+    command = "${homeDirectory}/Library/Application Support/Token Meter/runtime/scripts/run-token-meter-mcp";
+    disabled = true;
   };
 }
