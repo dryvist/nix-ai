@@ -20,16 +20,25 @@ fi
 head=$(git -C "$src" rev-parse --short HEAD 2>/dev/null || echo unknown)
 
 # Upstream's installer builds a Swift binary and then polls its own health
-# endpoint for up to 600s, exiting non-zero on timeout, so it runs detached
-# instead of blocking (and possibly failing) the activation. The stamp is
-# written only on success: upstream's own INSTALLED_REVISION is written before
-# that health check, so it cannot distinguish a half-finished install.
+# endpoint until the server finishes indexing every local session, so it runs
+# detached instead of blocking activation. The stamp is written only on success:
+# upstream's own INSTALLED_REVISION is written before that health check, so it
+# cannot distinguish a half-finished install.
+#
+# That indexing pass scales with session-history size and blows through
+# upstream's 600s default on a well-used machine (~2.7k sessions here). The
+# timeout is not cosmetic: it fires *before* the installer registers the menu
+# bar agent, so a machine that trips it loses both the menu bar and the stamp —
+# and without the stamp every activation re-runs the whole doomed install. Since
+# this already runs detached, a long ceiling costs nothing; keep it overridable
+# for a machine whose history outgrows even this.
+export TOKEN_METER_READINESS_TIMEOUT_SECONDS="${TOKEN_METER_READINESS_TIMEOUT_SECONDS:-7200}"
 {
   if [ "$head" != "$(cat "$stamp" 2>/dev/null || true)" ]; then
     if "$src/scripts/install"; then
       printf '%s' "$head" >"$stamp"
     else
-      echo "token-meter: scripts/install failed (it needs Xcode CLT swiftc)" >&2
+      echo "token-meter: scripts/install failed — see the error above and $log_dir/install.log" >&2
     fi
   fi
 
