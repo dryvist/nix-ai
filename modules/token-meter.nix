@@ -53,7 +53,7 @@ in
       '';
     };
 
-    httpsGate.enable = lib.mkOption {
+    httpsGate = lib.mkOption {
       type = lib.types.bool;
       default = true;
       description = "Front the loopback dashboard with a self-signed HTTPS reverse proxy.";
@@ -75,40 +75,24 @@ in
   config = lib.mkIf cfg.enable {
     assertions = [
       {
-        assertion = !cfg.httpsGate.enable || cfg.bindAddress != "";
-        message = "programs.token-meter.bindAddress must be set when httpsGate.enable is true — an empty value would expose the dashboard on every interface.";
+        assertion = !cfg.httpsGate || cfg.bindAddress != "";
+        message = "programs.token-meter.bindAddress must be set when httpsGate is true — an empty value would expose the dashboard on every interface.";
       }
     ];
 
     home.activation.tokenMeter = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-      export PATH="${lib.makeBinPath [ pkgs.git ]}:/usr/bin:/bin:$PATH"
-      src="${cfg.installDir}"
-
-      $DRY_RUN_CMD mkdir -p "${logDir}"
-
-      if [ -d "$src/.git" ]; then
-        $DRY_RUN_CMD git -C "$src" pull --quiet --ff-only \
-          || echo "token-meter: could not fast-forward $src" >&2
-      else
-        $DRY_RUN_CMD git clone --quiet "${cfg.repo}" "$src" \
-          || echo "token-meter: clone failed" >&2
-      fi
-
-      # Upstream's installer waits on a health check for up to 600s and exits
-      # non-zero on any failure, so run it only when the checkout moved and
-      # never let it abort the rest of the activation.
-      head=$(git -C "$src" rev-parse --short HEAD 2>/dev/null || echo unknown)
-      if [ "$head" != "$(cat "${supportDir}/runtime/INSTALLED_REVISION" 2>/dev/null || true)" ]; then
-        $DRY_RUN_CMD "$src/scripts/install" \
-          || echo "token-meter: scripts/install failed (it needs Xcode CLT swiftc)" >&2
-      fi
-      ${lib.optionalString (!cfg.menuBar) ''
-        $DRY_RUN_CMD launchctl bootout "gui/$(id -u)/com.token-meter.menubar" 2>/dev/null || true
-        $DRY_RUN_CMD rm -f "$HOME/Library/LaunchAgents/com.token-meter.menubar.plist"
-      ''}
+      PATH="${lib.makeBinPath [ pkgs.git ]}:/usr/bin:/bin:$PATH" $DRY_RUN_CMD ${./scripts/token-meter-install.sh} \
+        ${
+          lib.escapeShellArgs [
+            cfg.repo
+            cfg.installDir
+            "${supportDir}/.nix-install-stamp"
+            logDir
+          ]
+        } ${if cfg.menuBar then "1" else "0"}
     '';
 
-    launchd.agents.token-meter-gate = lib.mkIf cfg.httpsGate.enable {
+    launchd.agents.token-meter-gate = lib.mkIf cfg.httpsGate {
       enable = true;
       config = {
         Label = "dev.token-meter.gate";
