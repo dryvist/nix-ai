@@ -120,6 +120,7 @@ modules/
 ├── mlx/            # MLX local inference (vllm-mlx, macOS)
 ├── fabric/         # Fabric prompt patterns + CLI
 ├── agent-skills/   # Cross-tool skill deployment
+├── token-meter.nix # splunk/token-meter usage dashboard + HTTPS gate
 └── common/         # Shared permission engine and formatters
 lib/                # Pure helpers (settings/registry generators, CI exports)
 docs/               # Architecture notes (docs/architecture) and ADRs (docs/adr)
