@@ -101,7 +101,14 @@ let
   ];
 in
 (import ./checks/lint.nix { inherit pkgs src; })
-// (import ./checks/token-meter.nix { inherit pkgs hmConfig hmConfigTokenMeter; })
+// (import ./checks/token-meter.nix {
+  inherit
+    pkgs
+    src
+    hmConfig
+    hmConfigTokenMeter
+    ;
+})
 // (import ./checks/ai-stack.nix { inherit pkgs testLocalModelId; })
 // (import ./checks/ai-stack-endpoint.nix { inherit pkgs; })
 // (import ./checks/claude.nix { inherit pkgs hmConfig; })

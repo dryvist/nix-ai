@@ -51,6 +51,7 @@ let
     inherit (config.programs.aiMcp) enabledServers;
     excluded = cfg.excludedMcpServers;
     normalize = formatters.utils.normalizeMcpServer;
+    client = "antigravity-cli";
   };
 
   # Policy Engine: generate TOML rules from shared permissions

@@ -100,6 +100,7 @@ let
     inherit (config.programs.aiMcp) enabledServers;
     excluded = config.programs.claude.excludedMcpServers;
     normalize = normalizeClaudeMcpServer;
+    client = "claude";
   };
 
 in
