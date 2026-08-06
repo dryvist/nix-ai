@@ -162,54 +162,9 @@ in
   # First call triggers macOS TCC prompts for Reminders + Calendar.
   apple-events = codexMcp (bunx [ "mcp-server-apple-events@${versions.mcpAppleEvents}" ]);
 
-  # ================================================================
-  # Database (disabled by default)
-  # ================================================================
-
-  postgresql = bunx [ "@modelcontextprotocol/server-postgres@${versions.mcpPostgres}" ] // {
-    disabled = true;
-  };
-  sqlite = bunx [ "@modelcontextprotocol/server-sqlite" ] // {
-    disabled = true;
-  }; # archived
-
-  # ================================================================
-  # Additional (disabled - specialized use cases)
-  # ================================================================
-
-  brave-search = bunx [ "@modelcontextprotocol/server-brave-search@${versions.mcpBraveSearch}" ] // {
-    disabled = true;
-  };
-  # Google Workspace - Gmail, Drive, Calendar integration.
-  # Source: https://github.com/taylorwilsdon/google_workspace_mcp
-  # DISABLED but kept defined — "available in case we ever need it". Was leaking
-  # enabled (no flag) despite 0 use; this restores the intended off state.
-  google-workspace = {
-    command = "doppler-mcp";
-    args = [
-      "uvx"
-      "--from"
-      "google-workspace-mcp==${versions.gwsMcp}"
-      "workspace-mcp"
-      "--tools"
-      "gmail"
-      "drive"
-      "calendar"
-    ];
-    disabled = true;
-  };
-  google-maps = bunx [ "@modelcontextprotocol/server-google-maps@${versions.mcpGoogleMaps}" ] // {
-    disabled = true;
-  };
-  puppeteer = bunx [ "@modelcontextprotocol/server-puppeteer@${versions.mcpPuppeteer}" ] // {
-    disabled = true;
-  };
-  slack = bunx [ "@modelcontextprotocol/server-slack@${versions.mcpSlack}" ] // {
-    disabled = true;
-  };
-  sentry = bunx [ "@modelcontextprotocol/server-sentry" ] // {
-    disabled = true;
-  }; # archived
+  # Database and specialized servers, all shipped disabled, live in
+  # ./catalog-optional.nix — split for the .file-size.yml byte cap and merged
+  # back in below.
 
   # ================================================================
   # Vikunja - self-hosted task management
@@ -318,3 +273,4 @@ in
     disabled = true;
   };
 }
+// import ./catalog-optional.nix { inherit bunx versions; }
