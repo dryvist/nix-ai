@@ -89,8 +89,19 @@ let
       };
     }
   ];
+  # Fifth evaluation exercising the token-meter HTTPS gate (lib/checks/
+  # token-meter.nix): the module is off by default, so the agent only exists here.
+  hmConfigTokenMeter = mkHmConfig [
+    {
+      programs.token-meter = {
+        enable = true;
+        bindAddress = "127.0.0.1";
+      };
+    }
+  ];
 in
 (import ./checks/lint.nix { inherit pkgs src; })
+// (import ./checks/token-meter.nix { inherit pkgs hmConfig hmConfigTokenMeter; })
 // (import ./checks/ai-stack.nix { inherit pkgs testLocalModelId; })
 // (import ./checks/ai-stack-endpoint.nix { inherit pkgs; })
 // (import ./checks/claude.nix { inherit pkgs hmConfig; })

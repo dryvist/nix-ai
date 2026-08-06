@@ -94,6 +94,7 @@ in
     ./mlx
     ./opencode
     ./qwen-code
+    ./token-meter.nix
   ];
 
   config = {
