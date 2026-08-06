@@ -12,7 +12,17 @@ keep_menubar="$5"
 mkdir -p "$log_dir"
 
 if [ -d "$src/.git" ]; then
-  git -C "$src" pull --quiet --ff-only || echo "token-meter: could not fast-forward $src" >&2
+  # Upstream's in-app updater fast-forwards this very checkout on its own timer,
+  # so it can be left dirty or diverged by something other than us. A bare
+  # --ff-only then fails on every future activation, and because the recorded
+  # head still matches the stamp the installer is never re-run — pinning the
+  # install to an old revision silently and permanently. The checkout is a
+  # disposable mirror of upstream, so recover onto the fetched head instead.
+  if ! git -C "$src" pull --quiet --ff-only; then
+    echo "token-meter: fast-forward of $src failed; resetting onto origin" >&2
+    git -C "$src" fetch --quiet origin && git -C "$src" reset --quiet --hard FETCH_HEAD ||
+      echo "token-meter: could not reset $src onto origin" >&2
+  fi
 else
   git clone --quiet "$repo" "$src" || echo "token-meter: clone of $repo failed" >&2
 fi
