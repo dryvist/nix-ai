@@ -309,7 +309,7 @@ in
     url = "http://localhost:30030/mcp";
   };
 
-  # splunk/token-meter. Off by default: needs nix-darwin's local install.
+  # splunk/token-meter; programs.token-meter clears this once it installs.
   token-meter = {
     command = "${homeDirectory}/Library/Application Support/Token Meter/runtime/scripts/run-token-meter-mcp";
     disabled = true;
