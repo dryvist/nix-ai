@@ -80,6 +80,7 @@ let
     inherit (config.programs.aiMcp) enabledServers;
     excluded = cfg.excludedMcpServers;
     normalize = normalizeMcpServer;
+    client = "codex";
   };
 
   optionalValue = key: value: lib.optionalAttrs (value != null) { ${key} = value; };

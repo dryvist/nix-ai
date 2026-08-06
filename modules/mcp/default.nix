@@ -36,6 +36,14 @@ let
         type = lib.types.listOf lib.types.str;
         default = [ ];
       };
+      # Servers that report which agent runtime invoked them need a different
+      # value per client, which `env` (one attrset shared by every renderer)
+      # cannot express. Naming the variable here lets modules/mcp/client.nix
+      # fill in each client's own name as it renders.
+      clientNameEnv = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+      };
       cwd = lib.mkOption {
         type = lib.types.nullOr lib.types.str;
         default = null;

@@ -81,6 +81,7 @@ let
     inherit (config.programs.aiMcp) enabledServers;
     excluded = cfg.excludedMcpServers;
     normalize = normalizeMcpServer;
+    client = "qwen-code";
   };
 
   baseSettings = {
