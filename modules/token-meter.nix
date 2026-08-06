@@ -15,6 +15,7 @@ let
   cfg = config.programs.token-meter;
   supportDir = "${config.home.homeDirectory}/Library/Application Support/Token Meter";
   logDir = "${config.home.homeDirectory}/Library/Logs/token-meter";
+  gateStateDir = "${config.home.homeDirectory}/.local/share/token-meter-gate";
 
   caddyfile = pkgs.writeText "token-meter-Caddyfile" ''
     ${cfg.bindAddress}:${toString cfg.gatePort} {
@@ -108,7 +109,17 @@ in
         KeepAlive = true;
         ThrottleInterval = 30;
         ProcessType = "Background";
-        EnvironmentVariables.HOME = config.home.homeDirectory;
+        EnvironmentVariables = {
+          HOME = config.home.homeDirectory;
+          # Give this Caddy its own storage. A host running the gate is a host
+          # already running the llm-gate Caddy, and on the default paths both
+          # would share one data directory — including its local CA, its
+          # instance id, and its lock files. llm-gate isolates itself the same
+          # way, so matching it keeps the two from contending over state that
+          # is not designed to have two owners.
+          XDG_CONFIG_HOME = "${gateStateDir}/config";
+          XDG_DATA_HOME = "${gateStateDir}/data";
+        };
         StandardOutPath = "${logDir}/gate.log";
         StandardErrorPath = "${logDir}/gate.error.log";
       };
