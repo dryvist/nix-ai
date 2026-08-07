@@ -177,6 +177,31 @@ if ! rank_gone; then
   rank_gone && sigkilled_rank=1
 fi
 
+# SETTLE AFTER THE RANK IS ACTUALLY GONE, BEFORE JUDGING THE OTHER TWO ROWS.
+# Only the rank's exit is this script's to force. Clearing the markers and
+# restoring the standalone ceiling belong to the watcher's up->down teardown,
+# which cannot start until the rank is gone -- so both the wait above (which
+# ends the moment its combined condition holds) and every escalation branch
+# below it can leave those two rows read while that teardown has not begun.
+#
+# That is a FALSE failure, and it looks exactly like a real one: on 2026-08-06
+# detach exited 1 reporting markers present and the ceiling not reverted, and
+# an UNCHANGED re-run converged, because the second invocation read the state
+# the first one had already set in motion. A teardown that needs to be run
+# twice to report the truth trains the operator to ignore its exit code.
+#
+# Bounded by the same CLUSTER_DETACH_TIMEOUT_SECS that bounds the wait above,
+# and it breaks the instant both hold, so the ordinary unplug pays nothing.
+if rank_gone; then
+  settle_deadline=$(($(date +%s) + timeout))
+  while [ "$(date +%s)" -lt "$settle_deadline" ]; do
+    if markers_clear && ceiling_restored; then
+      break
+    fi
+    sleep 5
+  done
+fi
+
 markers_clear || note_fail "PD-guard/readiness markers still present in $state_dir"
 rank_gone || note_fail "rank process still running (pattern ${CLUSTER_RANK_PROCESS_PATTERN:-unset})"
 ceiling_restored ||

@@ -98,8 +98,8 @@ in
       (rankEnv.MLX_METAL_FAST_SYNCH or null) == "1"
       || throw "cluster: fastMetalSync defaults to true, so MLX_METAL_FAST_SYNCH=1 must reach the rank env (latency vs. observability — see the option)";
     assert
-      builtins.elem "mlx_lm.server" rankArgs && !(builtins.elem "--pipeline" rankArgs)
-      || throw "cluster: shardingMode defaults to tensor-parallel and must emit NO --pipeline; only glm4_moe/glm4_moe_lite implement pipelining, every other model dies at rank startup under the flag";
+      builtins.elem "mlx_lm.server" rankArgs && builtins.elem "--pipeline" rankArgs
+      || throw "cluster: the fixture entry is glm4_moe (pipeline-only), so --pipeline must reach the rank; without it mlx-lm makes no split and every rank loads the full model. Only glm4_moe/glm4_moe_lite may carry it — the clusterMode architecture assertion enforces that";
     assert
       builtins.any (a: builtins.match "mlx==.*" a != null) rankArgs
       || throw "cluster: rank must pin mlx explicitly (mlx/mlx-lm lockstep pair), not ride mlx-lm's transitive floor";
@@ -165,8 +165,8 @@ in
     # The peer-liveness supervisor's own env contract lives in
     # ./mlx-cluster-peer-env.nix — same fixture, split for the per-file size cap.
     assert
-      watcherEnv.CLUSTER_WARM_RECHECK_SECS == "1800"
-      || throw "cluster: coordinator watcher must carry the warm-marker re-arm interval, or the wedge detector runs at most once per link session";
+      watcherEnv.CLUSTER_WARM_RECHECK_SECS == "600"
+      || throw "cluster: coordinator watcher must carry the health-gate soak recheck interval (vk1188), or liveness is verified at most once per link session";
     assert
       watcherEnv.CLUSTER_STATIC_SELF_IP == "192.168.208.1"
       && watcherEnv.CLUSTER_RENDEZVOUS_PORT == "11441"

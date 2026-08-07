@@ -50,6 +50,9 @@
     # rank-status because it refuses to touch a machine whose rank is running.
     ./scripts/cluster-generation-heal.sh
     ./scripts/cluster-link-guards.sh
+    # Automated rank health gate + soak — reads mem_stat_mb from the guards
+    # file above, so it must come after it.
+    ./scripts/cluster-health-gate.sh
     ./scripts/cluster-link-watcher.sh
   ];
 

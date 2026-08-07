@@ -19,21 +19,21 @@
   options.programs.mlx.clusterMode = {
     warmRecheckSecs = lib.mkOption {
       type = lib.types.int;
-      default = 1800;
+      default = 600;
       description = ''
-        Re-arm the warm marker after this long, so the post-readiness wedge
-        detector can run more than once per link session; 0 disables re-checks.
+        Soak interval (vk1188): once the automated health gate has passed,
+        re-probe liveness this often for as long as the link session is up;
+        0 disables the soak. Appends PASS/FAIL evidence to the health-gate
+        state file every time it fires.
 
-        Readiness is a one-shot latch and the wedge detector is gated on the
-        warm marker being absent, so without this a single successful warm
-        disables the detector for the rest of the session — which is how a rank
-        that wedged AFTER its first warm (2026-07-25: an 8-token completion
-        returning 0 bytes after 900s, both ranks at ~100% CPU) sat for over an
-        hour with nothing escalating.
-
-        Deliberately long: mlx_lm.server blocks HTTP during a generation, so a
-        healthy rank mid-answer fails a probe, and only maxWarmFailures
-        CONSECUTIVE failures escalate.
+        Readiness is a one-shot latch, so without a periodic recheck a rank
+        that wedges AFTER its first pass (2026-07-25: an 8-token completion
+        returning 0 bytes after 900s, both ranks at ~100% CPU) sits for over
+        an hour with nothing escalating. A single soak failure halts
+        immediately — unlike maxWarmFailures below, which tolerates
+        CONSECUTIVE failures of the initial gate, a 10-minute-interval miss
+        is already a sustained symptom, not a transient one landing mid-
+        generation.
       '';
     };
 
@@ -59,6 +59,38 @@
         budget while reporting that it is protecting it.
 
         Must exceed the jaccl back-off; the default leaves ample margin.
+      '';
+    };
+
+    healthGateTimeoutSecs = lib.mkOption {
+      type = lib.types.int;
+      default = 120;
+      description = ''
+        vk1188: bound on one 1-token completion — the automated gate's probe
+        (b), and every soak recheck thereafter. Real timeout, not the untimed
+        curl the manual gate used to run: a rank that never answers must not be
+        able to hold the watcher open indefinitely.
+      '';
+    };
+
+    healthGateConcurrency = lib.mkOption {
+      type = lib.types.int;
+      default = 2;
+      description = ''
+        vk1188: N completions fired at once for the gate's probe (c), matching
+        the ethos of programs.mlx.proxy.concurrencyLimit — a rank can answer
+        one request fine and still fall over the moment real traffic overlaps
+        it, which one-at-a-time probing can never catch.
+      '';
+    };
+
+    healthGateConcurrentTimeoutSecs = lib.mkOption {
+      type = lib.types.int;
+      default = 180;
+      description = ''
+        vk1188: bound on EACH of the healthGateConcurrency completions above.
+        Longer than healthGateTimeoutSecs because N requests genuinely compete
+        for the same rank.
       '';
     };
   };

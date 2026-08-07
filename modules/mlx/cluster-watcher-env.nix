@@ -173,6 +173,10 @@ in
   CLUSTER_MODEL = ncfg.model;
   CLUSTER_MAX_WARM_FAILURES = toString ncfg.maxWarmFailures;
   CLUSTER_WARM_RECHECK_SECS = toString ncfg.warmRecheckSecs;
+  # vk1188 automated health gate + soak.
+  CLUSTER_HEALTH_GATE_TIMEOUT_SECS = toString ncfg.healthGateTimeoutSecs;
+  CLUSTER_HEALTH_GATE_CONCURRENCY = toString ncfg.healthGateConcurrency;
+  CLUSTER_HEALTH_GATE_CONCURRENT_TIMEOUT_SECS = toString ncfg.healthGateConcurrentTimeoutSecs;
   CLUSTER_RANK_SETTLE_SECS = toString ncfg.rankSettleSecs;
   # The link-down re-warm POSTs through llama-swap, so the watcher needs to be
   # able to bootstrap that agent when cluster-join has booted it out -- otherwise

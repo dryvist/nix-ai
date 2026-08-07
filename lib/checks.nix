@@ -84,6 +84,9 @@ let
         enable = true;
         role = "coordinator";
         modelCatalogKey = "glm47-reap50";
+        # glm4_moe is pipeline-only; the clusterMode assertions now reject
+        # tensor-parallel on it, so this fixture must name the real mode.
+        shardingMode = "pipeline";
         wiredLimitMb = 90000;
         standaloneWiredLimitMb = 118000;
       };
@@ -151,6 +154,7 @@ in
 // (import ./checks/mlx-cluster-pd-env.nix { inherit pkgs hmConfigCluster src; })
 // (import ./checks/mlx-cluster-pd-callsites.nix { inherit pkgs src; })
 // (import ./checks/mlx-cluster-mem-headroom.nix { inherit pkgs src; })
+// (import ./checks/mlx-cluster-health-gate.nix { inherit pkgs src; })
 // (import ./checks/mlx-cluster-scripts.nix { inherit pkgs hmConfigCluster src; })
 // (import ./checks/mlx-cluster-selfheal.nix { inherit pkgs src; })
 // (import ./checks/fabric.nix {

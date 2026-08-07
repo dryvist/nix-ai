@@ -211,6 +211,7 @@ in
   glm47-reap50 = {
     model = "mlx-community/GLM-4.7-REAP-50-mxfp4";
     weightGb = 98.0;
+    architecture = "glm4_moe";
     cluster = true;
     args = [ ];
     classes = { };

@@ -140,7 +140,7 @@ check "the halt precedes its SIGTERM" yes \
 # Deliberately NOT pinned: the readiness probe also sends SIGTERM but does not
 # halt, because that path is a restart-on-hung-init that is SUPPOSED to retry.
 # A blanket "every SIGTERM halts" rule would be wrong and would break it.
-for cause in peer-absent warm-wedged rank-start-failures; do
+for cause in peer-absent health-gate-fail health-gate-soak-fail rank-start-failures; do
   check "the $cause teardown halts" 1 \
     "$(code | grep -c "halt_write .* \"$cause\"" || true)"
 done
