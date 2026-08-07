@@ -34,6 +34,11 @@
 #                                      GLOBAL paged-KV pool (--max-cache-blocks is
 #                                      a whole-pool block count shared across all
 #                                      concurrent sequences, not per-sequence).
+#   architecture     (required on cluster entries) the model's config.json
+#                    model_type, verbatim. Read by the clusterMode assertions
+#                    to check shardingMode: mlx-lm's pipeline and tensor-parallel
+#                    paths support disjoint architecture sets, and the wrong
+#                    choice is silent — no split, full model on every rank.
 #   args             family serve args, applied in every class
 #   classes.<class>  validated profile: { flags = modelFlagOverrides attrs }
 #     resident — preload-capable agent brain (host preload list still decides

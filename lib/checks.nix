@@ -84,6 +84,9 @@ let
         enable = true;
         role = "coordinator";
         modelCatalogKey = "glm47-reap50";
+        # glm4_moe is pipeline-only; the clusterMode assertions now reject
+        # tensor-parallel on it, so this fixture must name the real mode.
+        shardingMode = "pipeline";
         wiredLimitMb = 90000;
         standaloneWiredLimitMb = 118000;
       };
