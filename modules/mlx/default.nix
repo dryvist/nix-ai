@@ -73,6 +73,7 @@ let
       transformersPin
       ;
     mlxLmVersion = versions.mlxLm;
+    inherit (versions) mlxLmGit;
   };
   mlxLmServerPkg = mlxLmServer.pkg;
   mlxModelServerPkg =
@@ -136,6 +137,7 @@ let
         lib
         cfg
         mlxModelServerPkg
+        mlxLmServer
         ;
     })
     mkModelCmd

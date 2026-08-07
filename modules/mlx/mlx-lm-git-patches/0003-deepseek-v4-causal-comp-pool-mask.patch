@@ -1,0 +1,63 @@
+diff --git a/mlx_lm/models/deepseek_v4.py b/mlx_lm/models/deepseek_v4.py
+index 16d497578..33d677b3e 100644
+--- a/mlx_lm/models/deepseek_v4.py
++++ b/mlx_lm/models/deepseek_v4.py
+@@ -897,9 +897,55 @@ def __call__(self, x: mx.array, mask=None, cache=None):
+             v = mx.concatenate([compressed_v, v], axis=2)
+             n_comp = compressed_k.shape[2]
+             if mask is not None:
+-                comp_shape = list(mask.shape)
+-                comp_shape[-1] = n_comp
+-                comp_mask = mx.zeros(comp_shape, dtype=mask.dtype)
++                # Compressed-pool columns carry the global context that
++                # sliding-window layers depend on once ``S > window``.
++                # Two requirements that the prior ``mx.zeros(...,
++                # dtype=mask.dtype)`` extension violated:
++                #
++                # (a) They must be ATTENDED TO. ``mask`` is a bool mask
++                # where True == "attend", False == "block"; the prior
++                # extension produced bool-zero == False everywhere,
++                # silently masking the entire DSA pool out. The bug is
++                # invisible inside the local sliding window (because
++                # the local cache already covers all of context) and
++                # collapses output into pathological repetition the
++                # moment ``S > sliding_window`` (oracle harness
++                # 2026-05-23, all bracket_* and long_prompt_* cases
++                # failed at prompts ≥ 210 tokens).
++                #
++                # (b) The extension must be CAUSAL over the compressed
++                # dimension: compressed row ``j`` summarizes prefill
++                # positions ``[r*j .. r*(j+1)-1]``, so query at
++                # prefill position ``i`` may only attend to it when
++                # ``r*(j+1)-1 <= i``. Otherwise the row summarizes
++                # future positions and leaks information across the
++                # causal boundary (empirically: model collapses into
++                # different but still-broken garbage). For the ratio=4
++                # overlap layout, ``Compressor._overlap_transform``
++                # reaches back into the previous chunk but does not
++                # extend the chunk's tail, so the cutoff is the same.
++                #
++                # Decode (``S == 1``) has ``mask is None`` so this
++                # branch is skipped: all pooled rows are already in
++                # the past relative to the new query, no extra masking
++                # is needed.
++                #
++                # A float-mask fallback is included for forward-compat
++                # in case ``create_causal_mask`` ever returns an
++                # additive mask: True/False -> 0.0 / -inf.
++                S_q = mask.shape[-2]
++                r = self.compress_ratio
++                q_pos = mx.arange(S_q)
++                comp_end = mx.arange(n_comp) * r + (r - 1)
++                comp_mask = q_pos[:, None] >= comp_end[None, :]  # (S_q, n_comp)
++                target = list(mask.shape[:-2]) + [S_q, n_comp]
++                comp_mask = mx.broadcast_to(comp_mask, target).astype(mask.dtype)
++                if mask.dtype != mx.bool_:
++                    comp_mask = mx.where(
++                        comp_mask.astype(mx.bool_),
++                        mx.array(0.0, mask.dtype),
++                        mx.array(float("-inf"), mask.dtype),
++                    )
+                 mask = mx.concatenate([comp_mask, mask], axis=-1)
+ 
+         out = scaled_dot_product_attention(

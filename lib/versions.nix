@@ -98,6 +98,36 @@
   mlx = "0.32.0";
   # renovate: datasource=pypi depName=mlx-lm
   mlxLm = "0.31.3";
+  # mlx-lm from git — a STAGED ROLLOUT state, not a second permanent version.
+  #
+  # No mlx-lm release supports deepseek_v4 (the pin above is the latest, and
+  # upstream main has no such model module), so DeepSeek-V4 is served from a
+  # pinned fork branch plus three vendored patches
+  # (modules/mlx/mlx-lm-git-patches). Deliberately carries NO `# renovate:`
+  # annotation, unlike every pin above: this is a branch head, not a published
+  # version, and it must move only by hand — with the patch set re-verified
+  # against the new revision in the same change.
+  #
+  # Provenance at pin time (2026-08-06, all three re-verified live):
+  #   rev        ml-explore/mlx-lm#1189 head, "add DeepSeek-V4 (Pro/Flash)"
+  #   patch 0002 machiabeli/mlx-lm-1#5 @ 556ac6c — per-layer RoPE base
+  #   patch 0003 machiabeli/mlx-lm-1#6 @ 0040900 — causal compressed-pool mask
+  #   patch 0001 local one-liner: deepseek_v4.py annotates with `Any` and never
+  #              imports it.
+  #
+  # REMOVAL CRITERION: as soon as a released mlx-lm supports deepseek_v4,
+  # delete this pin and modules/mlx/mlx-lm-git.nix with its patch directory,
+  # and flip every catalog entry's serverVariant back to "release".
+  mlxLmGit = {
+    owner = "machiabeli";
+    repo = "mlx-lm-1";
+    rev = "63a26625c7ba2ffb8159ff430e630321446c7df4";
+    hash = "sha256-ic7Q9I6+X54PYCByLPf3bFDDXFuNwqtLDL05Z9GLHg8=";
+    # mlx_lm/_version.py at that revision. The built wheel's filename is
+    # asserted against this, so a version move on the branch fails the build
+    # instead of yielding a path that does not exist at serve time.
+    version = "0.31.3";
+  };
   # renovate.json5 blocks the exact 5.13.0 build via allowedVersions — that
   # release breaks mlx-lm at import (register() calls key.__module__ on the
   # string key mlx-lm passes), taking every worker down. The rule there carries
