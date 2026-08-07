@@ -1,0 +1,34 @@
+--- a/mlx_lm/models/deepseek_v4.py
++++ b/mlx_lm/models/deepseek_v4.py
+@@ -1416,12 +1416,26 @@
+         n_layers = self.args.num_hidden_layers
+ 
+         # 1) Keep MTP weights only when self.mtp exists; drop layers beyond n_layers
+-        has_mtp = hasattr(self, "mtp")
+-        has_mtp_weights = any(k.startswith("mtp.") for k in weights)
+-        # Disable MTP module if weights are absent (e.g. quantized checkpoints)
+-        if has_mtp and not has_mtp_weights:
++        # MTP (multi-token prediction) is unused at inference here — see the
++        # ModelArgs comment on num_nextn_predict_layers — so the heads are
++        # dropped wholesale rather than loaded.
++        #
++        # Loading them is not merely wasteful, it fails. Two independent
++        # mismatches against the DeepSeek-V4-Flash checkpoints:
++        #   1. the checkpoint ships more heads (mtp.0/1/2) than the config's
++        #      num_nextn_predict_layers declares, so the surplus has no module;
++        #   2. its head layout (main_proj, main_norm, hc_attn, hc_ffn) is a
++        #      different MTP variant from the one MTPBlock implements
++        #      (e_proj, h_proj, enorm, hnorm).
++        # Either one makes load_weights(strict=True) reject the ENTIRE load, so
++        # the model cannot serve at all. Dropping MTP costs only speculative
++        # decoding, which nothing here enables.
++        #
++        # Re-enabling MTP means porting the head to match the checkpoint; the
++        # server's --mtp flag alone is not enough.
++        has_mtp = False
++        if hasattr(self, "mtp"):
+             del self.mtp
+-            has_mtp = False
+         new_weights = {}
+         for k, v in weights.items():
+             if k.startswith("mtp."):

@@ -42,6 +42,7 @@ let
       ./mlx-lm-git-patches/0001-deepseek-v4-import-any.patch
       ./mlx-lm-git-patches/0002-deepseek-v4-per-layer-rope.patch
       ./mlx-lm-git-patches/0003-deepseek-v4-causal-comp-pool-mask.patch
+      ./mlx-lm-git-patches/0004-deepseek-v4-drop-unused-mtp-heads.patch
     ];
   };
 
