@@ -174,6 +174,8 @@ let
   # overrides client values per llama-swap's documented semantics).
   inherit (cfg.proxy) defaultFilters;
 
+  proxyUrl = "http://127.0.0.1:\${PORT}";
+
   registryModels = lib.mapAttrs (
     physical: roles:
     let
@@ -185,10 +187,7 @@ let
       ttl = cfg.modelTtls.${physical} or cfg.proxy.idleTtl;
       env = workerEnv;
       checkEndpoint = "/v1/models";
-      # Explicit IPv4 loopback: llama-swap's "localhost" default resolves to
-      # ::1 first on macOS, but the worker binds 127.0.0.1 — mismatch caused
-      # "dial tcp [::1]:PORT: connect: connection refused" on every request.
-      proxy = "http://127.0.0.1:\${PORT}";
+      proxy = proxyUrl;
       aliases = roles;
       useModelName = physical;
       concurrencyLimit = effectiveConcurrency physical;
@@ -216,10 +215,7 @@ let
       ttl = if modelCfg.ttl > 0 then modelCfg.ttl else cfg.proxy.idleTtl;
       env = workerEnv;
       checkEndpoint = "/v1/models";
-      # Explicit IPv4 loopback: llama-swap's "localhost" default resolves to
-      # ::1 first on macOS, but the worker binds 127.0.0.1 — mismatch caused
-      # "dial tcp [::1]:PORT: connect: connection refused" on every request.
-      proxy = "http://127.0.0.1:\${PORT}";
+      proxy = proxyUrl;
       concurrencyLimit = effectiveConcurrency name;
     }
     // lib.optionalAttrs (modelCfg.aliases != [ ]) {
