@@ -56,7 +56,15 @@ in
     assert
       !(hmConfig.config.launchd.agents ? token-meter-gate)
       || throw "token-meter gate must NOT be defined when programs.token-meter.enable = false (default)";
-    helpers.mkMarker "check-token-meter-gate-negative" "token-meter gate correctly absent when disabled";
+    # Absence of the gate is not the same as the thing being off. Upstream's
+    # installer writes its own two LaunchAgents with RunAtLoad, which nix did
+    # not create and a rebuild therefore will not remove, so a disabled module
+    # must actively tear them down or `enable = false` silently leaves the
+    # dashboard running — measured at ~2.4 cores on the laptop.
+    assert
+      hmConfig.config.home.activation ? tokenMeterCleanup
+      || throw "programs.token-meter.enable = false must still run the cleanup activation that removes upstream's LaunchAgents";
+    helpers.mkMarker "check-token-meter-gate-negative" "token-meter disabled: gate absent and upstream agents torn down";
 
   # token-meter labels every answer with the runtime that asked, so each client
   # must render its own name — the one value the shared catalog cannot hold.

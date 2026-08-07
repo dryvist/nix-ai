@@ -97,67 +97,77 @@ in
     };
   };
 
-  config = lib.mkIf cfg.enable {
-    assertions = [
-      {
-        assertion = !cfg.httpsGate || cfg.bindAddress != "";
-        message = "programs.token-meter.bindAddress must be set when httpsGate is true — an empty value would expose the dashboard on every interface.";
-      }
-      {
-        assertion = !cfg.httpsGate || cfg.gatePort != cfg.dashboardPort;
-        message = "programs.token-meter.gatePort must differ from dashboardPort — equal ports make the gate proxy to itself.";
-      }
-    ];
+  config = lib.mkMerge [
+    # Turning the option off has to actually turn the thing off; see the
+    # script's own header for why a rebuild cannot do it on its own.
+    (lib.mkIf (!cfg.enable) {
+      home.activation.tokenMeterCleanup = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        $DRY_RUN_CMD ${./scripts/token-meter-cleanup.sh}
+      '';
+    })
 
-    home.activation.tokenMeter = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-      PATH="${lib.makeBinPath [ pkgs.git ]}:/usr/bin:/bin:$PATH" $DRY_RUN_CMD ${./scripts/token-meter-install.sh} \
-        ${
-          lib.escapeShellArgs [
-            cfg.repo
-            cfg.installDir
-            "${supportDir}/.nix-install-stamp"
-            logDir
-          ]
-        } ${if cfg.menuBar then "1" else "0"}
-    '';
+    (lib.mkIf cfg.enable {
+      assertions = [
+        {
+          assertion = !cfg.httpsGate || cfg.bindAddress != "";
+          message = "programs.token-meter.bindAddress must be set when httpsGate is true — an empty value would expose the dashboard on every interface.";
+        }
+        {
+          assertion = !cfg.httpsGate || cfg.gatePort != cfg.dashboardPort;
+          message = "programs.token-meter.gatePort must differ from dashboardPort — equal ports make the gate proxy to itself.";
+        }
+      ];
 
-    launchd.agents.token-meter-gate = lib.mkIf cfg.httpsGate {
-      enable = true;
-      config = {
-        Label = "dev.token-meter.gate";
-        ProgramArguments = [
-          (lib.getExe pkgs.caddy)
-          "run"
-          "--config"
-          "${caddyfile}"
-          "--adapter"
-          "caddyfile"
-        ];
-        RunAtLoad = true;
-        KeepAlive = true;
-        ThrottleInterval = 30;
-        ProcessType = "Background";
-        EnvironmentVariables = {
-          HOME = config.home.homeDirectory;
-          # Give this Caddy its own storage. A host running the gate is a host
-          # already running the llm-gate Caddy, and on the default paths both
-          # would share one data directory — including its local CA, its
-          # instance id, and its lock files. llm-gate isolates itself the same
-          # way, so matching it keeps the two from contending over state that
-          # is not designed to have two owners.
-          XDG_CONFIG_HOME = "${gateStateDir}/config";
-          XDG_DATA_HOME = "${gateStateDir}/data";
+      home.activation.tokenMeter = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        PATH="${lib.makeBinPath [ pkgs.git ]}:/usr/bin:/bin:$PATH" $DRY_RUN_CMD ${./scripts/token-meter-install.sh} \
+          ${
+            lib.escapeShellArgs [
+              cfg.repo
+              cfg.installDir
+              "${supportDir}/.nix-install-stamp"
+              logDir
+            ]
+          } ${if cfg.menuBar then "1" else "0"}
+      '';
+
+      launchd.agents.token-meter-gate = lib.mkIf cfg.httpsGate {
+        enable = true;
+        config = {
+          Label = "dev.token-meter.gate";
+          ProgramArguments = [
+            (lib.getExe pkgs.caddy)
+            "run"
+            "--config"
+            "${caddyfile}"
+            "--adapter"
+            "caddyfile"
+          ];
+          RunAtLoad = true;
+          KeepAlive = true;
+          ThrottleInterval = 30;
+          ProcessType = "Background";
+          EnvironmentVariables = {
+            HOME = config.home.homeDirectory;
+            # Give this Caddy its own storage. A host running the gate is a host
+            # already running the llm-gate Caddy, and on the default paths both
+            # would share one data directory — including its local CA, its
+            # instance id, and its lock files. llm-gate isolates itself the same
+            # way, so matching it keeps the two from contending over state that
+            # is not designed to have two owners.
+            XDG_CONFIG_HOME = "${gateStateDir}/config";
+            XDG_DATA_HOME = "${gateStateDir}/data";
+          };
+          StandardOutPath = "${logDir}/gate.log";
+          StandardErrorPath = "${logDir}/gate.error.log";
         };
-        StandardOutPath = "${logDir}/gate.log";
-        StandardErrorPath = "${logDir}/gate.error.log";
       };
-    };
 
-    # The catalog ships this entry disabled because it needs the local install
-    # that only this module performs — so the module enabling itself is exactly
-    # the condition that makes it usable. Without this, `enable = true` installs
-    # the dashboard but every agent's MCP config silently omits the server,
-    # since enabledServers filters `disabled` entries out.
-    programs.aiMcp.servers.token-meter.disabled = lib.mkForce false;
-  };
+      # The catalog ships this entry disabled because it needs the local install
+      # that only this module performs — so the module enabling itself is exactly
+      # the condition that makes it usable. Without this, `enable = true` installs
+      # the dashboard but every agent's MCP config silently omits the server,
+      # since enabledServers filters `disabled` entries out.
+      programs.aiMcp.servers.token-meter.disabled = lib.mkForce false;
+    })
+  ];
 }
