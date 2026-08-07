@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.6.3](https://github.com/dryvist/nix-ai/compare/v4.6.2...v4.6.3) (2026-08-07)
+
+
+### Bug Fixes
+
+* **mlx:** pin llama-swap proxy to explicit IPv4 loopback ([#1555](https://github.com/dryvist/nix-ai/issues/1555)) ([452dbc4](https://github.com/dryvist/nix-ai/commit/452dbc4f8e3f63e20ea144975a86437dc331167e))
+* **mlx:** verify devicePdBudget against ibv_devinfo at runtime ([#1556](https://github.com/dryvist/nix-ai/issues/1556)) ([05db5b4](https://github.com/dryvist/nix-ai/commit/05db5b4cbb79e5e74c3c67f0377487db968ca355))
+
 ## [4.6.2](https://github.com/dryvist/nix-ai/compare/v4.6.1...v4.6.2) (2026-08-07)
 
 
