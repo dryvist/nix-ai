@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.7.0](https://github.com/dryvist/nix-ai/compare/v4.6.4...v4.7.0) (2026-08-07)
+
+
+### Features
+
+* **mlx:** golden-config matrix audit + gemma4-31b-optiq entry ([#1564](https://github.com/dryvist/nix-ai/issues/1564)) ([08d3114](https://github.com/dryvist/nix-ai/commit/08d3114b9a49b0e0860fd8954ad54fbed69184cb))
+
 ## [4.6.4](https://github.com/dryvist/nix-ai/compare/v4.6.3...v4.6.4) (2026-08-07)
 
 
