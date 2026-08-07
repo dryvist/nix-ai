@@ -23,6 +23,32 @@ in
       '';
     };
 
+    # Sibling of programs.mlx.modelServerBackend (./options-runtime.nix, which
+    # is at the file-size ceiling): the backend picks the IMPLEMENTATION, this
+    # picks WHICH BUILD of the mlx-lm backend serves one model.
+    modelServerVariant = lib.mkOption {
+      type = lib.types.attrsOf (
+        lib.types.enum [
+          "release"
+          "git"
+        ]
+      );
+      default = { };
+      example = lib.literalExpression ''{ "mlx-community/<deepseek-v4-quant>" = "git"; }'';
+      description = ''
+        Per-physical-model choice of mlx-lm wrapper: "release" (default — the
+        harmony-patched release wheel) or "git" (the pinned git wheel, see
+        lib/versions.nix mlxLmGit). Only a model whose architecture no mlx-lm
+        release implements belongs on "git": that wheel does NOT carry the
+        harmony tool-call patch, so a harmony model served from it loses tool
+        calling with no error. ./options-catalog.nix compiles this from the
+        catalog entry's serverVariant and asserts which entries may say "git".
+
+        Temporary by construction — when a released mlx-lm covers the model,
+        move the entry back to "release" and retire the pin.
+      '';
+    };
+
     port = lib.mkOption {
       type = lib.types.port;
       default = 11434;

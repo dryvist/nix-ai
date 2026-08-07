@@ -79,6 +79,17 @@ let
     acc: name: acc // lib.genAttrs enabled.${name}.roles (_role: (entryFor name).model)
   ) { } (lib.attrNames enabled);
   selectedRoles = lib.concatMap (name: enabled.${name}.roles) (lib.attrNames enabled);
+
+  # Enabled entries asking for the git mlx-lm wheel that are not DeepSeek —
+  # empty is the only acceptable value (see the assertion below). Matched on
+  # the catalog entry NAME, which is ours, rather than the upstream model id.
+  gitVariantEntries = lib.attrNames (
+    lib.filterAttrs (
+      name: _sel:
+      ((entryFor name).serverVariant or "release") == "git"
+      && !(lib.hasPrefix "deepseek" (lib.toLower name))
+    ) enabled
+  );
 in
 {
   options.programs.mlx = {
@@ -176,6 +187,22 @@ in
         '';
       }
       {
+        # The git wheel exists solely because no mlx-lm release implements
+        # deepseek_v4, and it does NOT carry the harmony tool-call patch that
+        # the release wheel does. A non-DeepSeek entry pointed at it would lose
+        # harmony tool calling with no error — gpt-oss in particular hands its
+        # tool call back as raw markup inside `content`. Allowlist by entry
+        # name so the blast radius of the staged rollout cannot widen quietly.
+        assertion = gitVariantEntries == [ ];
+        message = ''
+          programs.mlx.catalog: serverVariant = "git" is only allowed on
+          DeepSeek entries, but these declare it: ${lib.concatStringsSep ", " gitVariantEntries}.
+          The pinned git wheel (lib/versions.nix mlxLmGit) omits the harmony
+          tool-call patch, so any other model served from it loses tool calling
+          silently. Serve them from the release wrapper instead.
+        '';
+      }
+      {
         assertion = cfg.gpuMemoryUtilization == null || cfg.gpuMemoryUtilization <= 0.85;
         message = ''
           programs.mlx.gpuMemoryUtilization must stay <= 0.85 on catalog hosts —
@@ -197,6 +224,12 @@ in
         name: sel:
         lib.nameValuePair (entryFor name).model (lib.mapAttrs (_: lib.mkDefault) (flagsFor name sel))
       ) enabled;
+
+      # A catalog entry may declare which mlx-lm wrapper serves it. Absent =
+      # "release", so nothing moves off the harmony-patched wheel by accident.
+      modelServerVariant = lib.mapAttrs' (
+        name: _sel: lib.nameValuePair (entryFor name).model (lib.mkDefault (entryFor name).serverVariant)
+      ) (lib.filterAttrs (name: _sel: (entryFor name) ? serverVariant) enabled);
 
       # A catalog entry may pin a proxy-side concurrency cap (e.g. the 80B that
       # aborts under parallel dispatch). Compile it to the per-physical-id

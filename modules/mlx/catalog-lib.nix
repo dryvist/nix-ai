@@ -35,6 +35,12 @@
 #                                      a whole-pool block count shared across all
 #                                      concurrent sequences, not per-sequence).
 #   args             family serve args, applied in every class
+#   serverVariant    (optional) which mlx-lm wrapper serves it: "release"
+#                    (default, harmony-patched release wheel) or "git" (the
+#                    pinned git wheel, lib/versions.nix mlxLmGit). Only for a
+#                    model no mlx-lm release implements; the git wheel omits
+#                    the harmony tool-call patch, so options-catalog.nix
+#                    restricts it to DeepSeek entries.
 #   classes.<class>  validated profile: { flags = modelFlagOverrides attrs }
 #     resident — preload-capable agent brain (host preload list still decides
 #                what actually warms at boot)

@@ -3,6 +3,13 @@
   lib,
   cfg,
   mlxModelServerPkg,
+  # The mlx-lm wrapper pair (./mlx-lm-server.nix), needed only to reach its
+  # `gitPkg`. Optional so a caller that serves nothing on the git wheel — the
+  # catalog regression checks in lib/checks/mlx-catalog.nix — can build this
+  # module with a stub server package alone. Asking for the git variant
+  # without it throws rather than silently falling back to the release
+  # wrapper, which would serve DeepSeek-V4 off a wheel that cannot load it.
+  mlxLmServer ? { },
 }:
 rec {
   # SINGLE DEFINITION of per-model concurrency. Both consumers derive from it:
@@ -55,6 +62,21 @@ rec {
           cfg // overrides
         else
           throw "programs.mlx.modelFlagOverrides.\"${modelId}\": not overridable serve option(s): ${lib.concatStringsSep ", " unknown}";
+      # Which mlx-lm wrapper serves this model: the harmony-patched release
+      # wheel unless a catalog entry declares otherwise. ./options-catalog.nix
+      # asserts WHICH entries may declare "git".
+      serverVariant = cfg.modelServerVariant.${modelId} or "release";
+      # Throws instead of degrading: the release wheel carries no deepseek_v4,
+      # so a quiet substitution would emit a command that dies at model load.
+      # Lazy attrset values keep the throw inert on the release path.
+      serverPkg =
+        {
+          release = mlxModelServerPkg;
+          git =
+            mlxLmServer.gitPkg
+              or (throw "\"${modelId}\" declares serverVariant = \"git\", but this command builder was instantiated without mlxLmServer, so the git wrapper is unreachable. Pass it — see modules/mlx/default.nix.");
+        }
+        .${serverVariant};
       effectiveMlxLmMaxTokens = if c.maxTokens == null then 8192 else c.maxTokens;
       # Honor the configured prompt-cache budget up to 16 GiB. The prior 8 GiB
       # clamp silently capped catalog entries that ask for more (e.g. the
@@ -161,10 +183,12 @@ rec {
           "--prefill-step-size"
           (toString c.prefillBatchSize)
         ]
-        # Flag added by the harmony-patched wheel (mlx-lm-patch.nix). Always
-        # emitted so the deployed command states the mode instead of leaving it
-        # to a package-side default.
-        ++ [
+        # Flag added by the harmony-patched wheel (mlx-lm-patch.nix). Emitted
+        # on the release wrapper so the deployed command states the mode
+        # instead of leaving it to a package-side default — and omitted on the
+        # git wrapper, which does not carry that patch and would reject the
+        # flag as unrecognised at startup.
+        ++ lib.optionals (serverVariant != "git") [
           "--harmony-tool-parser"
           c.harmonyToolParser
         ]
@@ -176,7 +200,7 @@ rec {
         }
         .${backend};
     in
-    "${lib.getExe mlxModelServerPkg} --model ${modelId} --port \${PORT} --host ${c.host}${
+    "${lib.getExe serverPkg} --model ${modelId} --port \${PORT} --host ${c.host}${
       lib.optionalString (mlxModelServerFlags != "") " ${mlxModelServerFlags}"
     }";
 
