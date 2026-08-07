@@ -165,8 +165,8 @@ in
     # The peer-liveness supervisor's own env contract lives in
     # ./mlx-cluster-peer-env.nix — same fixture, split for the per-file size cap.
     assert
-      watcherEnv.CLUSTER_WARM_RECHECK_SECS == "1800"
-      || throw "cluster: coordinator watcher must carry the warm-marker re-arm interval, or the wedge detector runs at most once per link session";
+      watcherEnv.CLUSTER_WARM_RECHECK_SECS == "600"
+      || throw "cluster: coordinator watcher must carry the health-gate soak recheck interval (vk1188), or liveness is verified at most once per link session";
     assert
       watcherEnv.CLUSTER_STATIC_SELF_IP == "192.168.208.1"
       && watcherEnv.CLUSTER_RENDEZVOUS_PORT == "11441"
