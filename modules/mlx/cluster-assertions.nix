@@ -6,7 +6,29 @@
 # that is hard to attribute, so it is asserted at eval instead.
 #
 { ncfg, cfg }:
+let
+  # mlx-lm's two sharding paths have DISJOINT architecture support, and naming
+  # the wrong one on a pipeline-only model is SILENT rather than fatal: the
+  # has_tensor_parallel predicate is simply false, so no split happens, every
+  # rank loads the FULL model, and generation wedges with both ranks at the
+  # wired ceiling. Nothing logs a cause, so assert it at eval instead.
+  pipelineOnly = [
+    "glm4_moe"
+    "glm4_moe_lite"
+  ];
+  entry =
+    if ncfg.modelCatalogKey == null then { } else (import ./catalog-data.nix).${ncfg.modelCatalogKey};
+  arch = entry.architecture or null;
+in
 [
+  {
+    assertion = (ncfg.modelCatalogKey != null) -> (arch != null);
+    message = "programs.mlx.clusterMode: catalog entry \"${toString ncfg.modelCatalogKey}\" is selected as the cluster model but declares no `architecture`. Add it to modules/mlx/catalog-data.nix, mirroring that model's config.json model_type, so the sharding mode can be checked.";
+  }
+  {
+    assertion = (builtins.elem (toString arch) pipelineOnly) -> (ncfg.shardingMode == "pipeline");
+    message = "programs.mlx.clusterMode: catalog entry \"${toString ncfg.modelCatalogKey}\" is architecture \"${toString arch}\", which implements pipelining and NOT tensor parallelism, so shardingMode must be \"pipeline\" (it is \"${ncfg.shardingMode}\"). Left tensor-parallel, mlx-lm performs no split at all and every rank loads the full model.";
+  }
   {
     assertion = ncfg.httpPort != cfg.port && ncfg.rendezvousPort != cfg.port;
     message = "programs.mlx.clusterMode: cluster ports must not clash with the normal-mode proxy port.";
