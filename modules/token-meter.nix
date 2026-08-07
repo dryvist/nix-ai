@@ -3,7 +3,7 @@
 # Upstream installs entirely user-space via its own ./scripts/install, which
 # writes and owns two LaunchAgents (server + menu bar). This module only
 # clones/updates the checkout, runs that installer, and optionally fronts the
-# hardcoded 127.0.0.1:8722 dashboard with a Caddy HTTPS gate for LAN access.
+# loopback dashboard with a Caddy HTTPS gate for LAN access.
 {
   config,
   lib,
@@ -17,11 +17,24 @@ let
   logDir = "${config.home.homeDirectory}/Library/Logs/token-meter";
   gateStateDir = "${config.home.homeDirectory}/.local/share/token-meter-gate";
 
+  # `auto_https disable_redirects` is load-bearing, not tidiness: by default
+  # Caddy also opens a redirect listener on port 80 to send http:// callers to
+  # https://. This runs as a user LaunchAgent, which cannot bind a privileged
+  # port, and Caddy treats the failed bind as fatal — so the entire config
+  # fails to load and the gate serves nothing at all. The redirect buys nothing
+  # here anyway; the only advertised URL is the https one on gatePort.
+  #
+  # Body indented with tabs because that is what `caddy fmt` emits; spaces make
+  # Caddy log an "input is not formatted" warning on every start.
   caddyfile = pkgs.writeText "token-meter-Caddyfile" ''
+    {
+    	auto_https disable_redirects
+    }
+
     ${cfg.bindAddress}:${toString cfg.gatePort} {
-      bind ${cfg.bindAddress}
-      tls internal
-      reverse_proxy 127.0.0.1:8722
+    	bind ${cfg.bindAddress}
+    	tls internal
+    	reverse_proxy 127.0.0.1:${toString cfg.dashboardPort}
     }
   '';
 in
@@ -60,10 +73,21 @@ in
       description = "Front the loopback dashboard with a self-signed HTTPS reverse proxy.";
     };
 
+    dashboardPort = lib.mkOption {
+      type = lib.types.port;
+      default = 8722;
+      description = ''
+        Loopback port token-meter's own server listens on. Upstream hardcodes
+        this, so changing it only makes sense alongside a patched install —
+        it exists so the gate and its check derive the value instead of each
+        restating it.
+      '';
+    };
+
     gatePort = lib.mkOption {
       type = lib.types.port;
       default = 8723;
-      description = "Port for the HTTPS gate; 8722 belongs to token-meter itself.";
+      description = "Port for the HTTPS gate. Must differ from dashboardPort.";
     };
 
     bindAddress = lib.mkOption {
@@ -78,6 +102,10 @@ in
       {
         assertion = !cfg.httpsGate || cfg.bindAddress != "";
         message = "programs.token-meter.bindAddress must be set when httpsGate is true — an empty value would expose the dashboard on every interface.";
+      }
+      {
+        assertion = !cfg.httpsGate || cfg.gatePort != cfg.dashboardPort;
+        message = "programs.token-meter.gatePort must differ from dashboardPort — equal ports make the gate proxy to itself.";
       }
     ];
 
