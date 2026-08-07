@@ -38,9 +38,14 @@ dev = [
 #
 # Security: langsmith < 0.8.18 is affected by GHSA-f4xh-w4cj-qxq8 (CVSS 7.7).
 # Pulled in transitively via langchain-core. Tracked in JacobPEvans/nix-ai#812.
+#
+# Security: h2 <= 4.4.0 is affected by CVE-2026-71554 (multiple-Host-header
+# request smuggling, CWE-444). Pulled in transitively via httpx[http2].
+# Fixed in 4.4.1.
 constraint-dependencies = [
   "litellm!=1.82.7,!=1.82.8",
   "langsmith>=0.8.18",
+  "h2>=4.4.1",
 ]
 
 [build-system]
