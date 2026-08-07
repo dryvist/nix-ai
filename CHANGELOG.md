@@ -1,5 +1,19 @@
 # Changelog
 
+## [4.8.0](https://github.com/dryvist/nix-ai/compare/v4.7.0...v4.8.0) (2026-08-07)
+
+
+### Features
+
+* **mlx:** automated cluster rank health gate + soak (vk1188) ([#1576](https://github.com/dryvist/nix-ai/issues/1576)) ([2f5549e](https://github.com/dryvist/nix-ai/commit/2f5549e7f23961b06bb5794cdeed35596df46228))
+
+
+### Bug Fixes
+
+* **cluster:** wait for the post-exit teardown before judging detach ([#1575](https://github.com/dryvist/nix-ai/issues/1575)) ([37e1aa5](https://github.com/dryvist/nix-ai/commit/37e1aa55296b2baf85019e31e2e05460b6e883e5))
+* **mlx:** assert cluster sharding mode matches the model architecture ([#1574](https://github.com/dryvist/nix-ai/issues/1574)) ([c271801](https://github.com/dryvist/nix-ai/commit/c2718013a7f60fa249f38503fa2a5dbd8e0c2202))
+* **mlx:** update stale warm-recheck assertion for vk1188's 600s soak default ([#1578](https://github.com/dryvist/nix-ai/issues/1578)) ([1855c68](https://github.com/dryvist/nix-ai/commit/1855c686669f60c02f9dfdf2623478722d5cfe04))
+
 ## [4.7.0](https://github.com/dryvist/nix-ai/compare/v4.6.4...v4.7.0) (2026-08-07)
 
 
