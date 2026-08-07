@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.9.0](https://github.com/dryvist/nix-ai/compare/v4.8.0...v4.9.0) (2026-08-07)
+
+
+### Features
+
+* **session-archive:** daily push of AI session history to vendor buckets ([#1579](https://github.com/dryvist/nix-ai/issues/1579)) ([ab7913b](https://github.com/dryvist/nix-ai/commit/ab7913b459a73a5d1055ee2bd1c2b2b73619c269))
+
 ## [4.8.0](https://github.com/dryvist/nix-ai/compare/v4.7.0...v4.8.0) (2026-08-07)
 
 
