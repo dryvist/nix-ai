@@ -97,6 +97,9 @@ rank_reap_verified() { [ "$reap_ok" = 1 ]; }
 # The generation-parity rung (RULE 2), stubbed healthy here; its refuse/pass
 # matrix and the drift heal are exercised in tests/test-generation-heal.sh.
 generation_parity_cached() { printf 'state=ok local=aaaa deploy=aaaa'; }
+# The device-PD-budget rung (#1442), stubbed healthy here; not yet under a
+# dedicated test of its own.
+pd_device_budget_ok() { return 0; }
 date() {
   case "$1" in
     +%s) echo "$align_now" ;;

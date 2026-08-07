@@ -34,6 +34,7 @@
 #   CLUSTER_RDMA_DEVICE           configured fallback RDMA device (clusterMode.rdmaDevice),
 #                                already carries the "rdma_" prefix — see rdmaDevice's default
 #   CLUSTER_PD_DEVICE_BUDGET      measured max_pd this host's config assumes (see #1442)
+#   CLUSTER_IBV_DEVINFO_BIN       ibv_devinfo path/seam, default /usr/bin/ibv_devinfo
 
 # Wait, briefly, for the peer to answer on the link. 0 = a peer is there.
 #
@@ -104,7 +105,7 @@ pd_device_budget_ok() {
     PD_BUDGET_DETAIL="no carrier-active RDMA device found to verify max_pd against"
     return 1
   fi
-  reported="$(/usr/bin/ibv_devinfo -d "$device" -v 2>/dev/null | /usr/bin/awk '$1 == "max_pd:" { print $2; exit }')"
+  reported="$("${CLUSTER_IBV_DEVINFO_BIN:-/usr/bin/ibv_devinfo}" -d "$device" -v 2>/dev/null | /usr/bin/awk '$1 == "max_pd:" { print $2; exit }')"
   case "$reported" in
     '' | *[!0-9]*)
       PD_BUDGET_DETAIL="ibv_devinfo -d $device -v did not report a readable max_pd; budget unverified"

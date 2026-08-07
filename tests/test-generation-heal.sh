@@ -87,6 +87,9 @@ link_prep_ok() { return 0; }
 peer_reachable() { return 0; }
 set_wired_limit() { return 0; }
 rank_reap_verified() { return 0; }
+# The device-PD-budget rung (#1442), stubbed healthy — not yet under a
+# dedicated test of its own.
+pd_device_budget_ok() { return 0; }
 repair_link_prep() { return 1; }
 alert() { printf '%s\n' "$1" >> "$pages"; }
 stub_local_rev="aaaaaaaaaaaa"

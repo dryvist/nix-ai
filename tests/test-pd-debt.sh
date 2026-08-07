@@ -142,6 +142,9 @@ set_wired_limit() { return 0; }
 # The generation-parity rung (RULE 2), stubbed healthy — its own matrix lives
 # in tests/test-generation-heal.sh.
 generation_parity_cached() { printf 'state=ok local=aaaa deploy=aaaa'; }
+# The device-PD-budget rung (#1442), stubbed healthy — not yet under a
+# dedicated test of its own.
+pd_device_budget_ok() { return 0; }
 hostname() { echo test-host; }
 # The reap's wait loop must advance without really sleeping, or a stubbed clock
 # spins it forever. sleep moves the clock; date reports it.
