@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.6.0](https://github.com/dryvist/nix-ai/compare/v4.5.1...v4.6.0) (2026-08-07)
+
+
+### Features
+
+* **session-sync:** push AI session history to a peer Mac ([#1546](https://github.com/dryvist/nix-ai/issues/1546)) ([bc309cd](https://github.com/dryvist/nix-ai/commit/bc309cd6ecbd5ce6dcc31436def0fe7a2ae71b47))
+
 ## [4.5.1](https://github.com/dryvist/nix-ai/compare/v4.5.0...v4.5.1) (2026-08-06)
 
 
