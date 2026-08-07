@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.6.2](https://github.com/dryvist/nix-ai/compare/v4.6.1...v4.6.2) (2026-08-07)
+
+
+### Bug Fixes
+
+* **session-sync:** stop pushing Codex's plugin cache to the peer ([#1557](https://github.com/dryvist/nix-ai/issues/1557)) ([45dec42](https://github.com/dryvist/nix-ai/commit/45dec42033611a9e3dfb0a7751b28676c959d4d1))
+
 ## [4.6.1](https://github.com/dryvist/nix-ai/compare/v4.6.0...v4.6.1) (2026-08-07)
 
 
