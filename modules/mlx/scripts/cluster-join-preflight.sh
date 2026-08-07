@@ -113,6 +113,7 @@ pd_device_budget_ok() {
       ;;
   esac
   if [ "$reported" -lt "$configured" ]; then
+    # shellcheck disable=SC2034 # read by cluster-join.sh's `fail "$PD_BUDGET_DETAIL"`, same sourced layer (cluster-script-layers.nix's `join`)
     PD_BUDGET_DETAIL="$device reports max_pd=$reported, below the configured devicePdBudget=$configured — the reserve invariant would be evaluated against a budget the device does not have"
     return 1
   fi
