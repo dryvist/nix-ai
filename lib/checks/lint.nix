@@ -67,8 +67,10 @@
   # model swap touches only the registry. Allowed: the "mlx-community/<...>"
   # placeholder in option examples and the "test-model" id in the check harness.
   # lib/checks/* is excluded since it names the pattern itself, and
-  # modules/mlx/catalog-data.nix is excluded because it IS the physical-id
-  # SSOT (the validated model catalog every other reference resolves through).
+  # modules/mlx/catalog-data.nix (plus catalog-data-80b-instruct.nix, split out
+  # for the file-size gate — see catalog-data.nix's header) is excluded because
+  # it IS the physical-id SSOT (the validated model catalog every other
+  # reference resolves through).
   # modules/mlx/cluster-mode.nix (and its extracted option file
   # modules/mlx/options-cluster.nix, which holds the clusterMode.model default)
   # are the same kind of SSOT for the clustered-mode model: a different engine
@@ -81,6 +83,7 @@
       --exclude-dir=.git --exclude-dir=result --exclude-dir=.direnv . \
       | grep -vE 'lib/checks' \
       | grep -vE 'modules/mlx/catalog-data\.nix' \
+      | grep -vE 'modules/mlx/catalog-data-80b-instruct\.nix' \
       | grep -vE 'modules/mlx/cluster-mode\.nix' \
       | grep -vE 'modules/mlx/options-cluster\.nix' \
       | grep -vE 'mlx-community/test-model' || true)
