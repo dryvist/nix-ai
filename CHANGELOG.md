@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.9.1](https://github.com/dryvist/nix-ai/compare/v4.9.0...v4.9.1) (2026-08-07)
+
+
+### Bug Fixes
+
+* **session-archive:** make the agent script executable ([#1587](https://github.com/dryvist/nix-ai/issues/1587)) ([9c38a74](https://github.com/dryvist/nix-ai/commit/9c38a74fd7f047844ec5f1f3e7e2eeac6224ceaf))
+
 ## [4.9.0](https://github.com/dryvist/nix-ai/compare/v4.8.0...v4.9.0) (2026-08-07)
 
 
