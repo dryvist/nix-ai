@@ -337,6 +337,18 @@ rank_start_preconditions_ok() {
     echo "cluster-link: $MEM_HEADROOM_DETAIL; NOT starting the rank (no attempt consumed)" >&2
     return 1
   fi
+  # 1d. THE DEVICE PD BUDGET MUST BE VERIFIED (#1442). devicePdBudget is a
+  #    measured constant frozen into Nix; the reserve invariant above (rung 0a)
+  #    is arithmetic over it, so a start against an unverified or wrong budget
+  #    makes that arithmetic a fiction. active_rdma_device / pd_device_budget_ok
+  #    live in cluster-link-locate.sh, shared with cluster-join.
+  #
+  #    Nothing is launched, so nothing leaks, so no attempt is consumed.
+  if ! pd_device_budget_ok; then
+    PRECONDITION_REASON="pd-device-budget-unverified"
+    echo "cluster-link: $PD_BUDGET_DETAIL; NOT starting the rank (no attempt consumed)" >&2
+    return 1
+  fi
   # 2. BOTH ROLES: hold until the next shared wall-clock start boundary, so the
   #    two ranks reach distributed init together.
   #
