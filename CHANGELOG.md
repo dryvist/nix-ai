@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.6.1](https://github.com/dryvist/nix-ai/compare/v4.6.0...v4.6.1) (2026-08-07)
+
+
+### Bug Fixes
+
+* **token-meter:** stop the HTTPS gate binding privileged port 80 ([#1551](https://github.com/dryvist/nix-ai/issues/1551)) ([b4f8dc7](https://github.com/dryvist/nix-ai/commit/b4f8dc70e40ef84e1f3517fba1f0bfc82644b9e6))
+
 ## [4.6.0](https://github.com/dryvist/nix-ai/compare/v4.5.1...v4.6.0) (2026-08-07)
 
 
