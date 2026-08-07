@@ -54,8 +54,12 @@ in
         # `security` holds a Python venv whose binaries are built for this
         # machine, and `plugins` is a Nix-managed cache; both are large enough
         # to dominate an hourly transfer while being worthless on the peer.
+        # `.tmp` is Codex's marketplace/plugin cache — 147 MB and 6,122 files
+        # on this machine, more than every Codex session combined, and it
+        # regenerates on demand.
         "plugins/"
         "security/"
+        ".tmp/"
         ".DS_Store"
       ];
       description = "rsync exclude patterns, applied to every path.";
