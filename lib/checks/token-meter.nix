@@ -1,7 +1,7 @@
 # token-meter module regression tests
 #
 # The gate agent is the only load-bearing output: it must reach token-meter's
-# hardcoded loopback port and must never appear when the module is disabled.
+# dashboard port and must never appear when the module is disabled.
 {
   pkgs,
   src,
@@ -19,20 +19,29 @@ in
       args = agent.ProgramArguments;
       # Store paths are computed during evaluation, so comparing them asserts
       # the rendered Caddyfile byte-for-byte without building it (no IFD).
+      # Restated rather than imported on purpose: this is the drift detector,
+      # so it must fail when the module's Caddyfile changes without the change
+      # being made here too. The global block is part of that — dropping
+      # `auto_https disable_redirects` makes Caddy open a port-80 listener it
+      # cannot bind as a user agent, which takes the whole gate down.
       expected = pkgs.writeText "token-meter-Caddyfile" ''
+        {
+        	auto_https disable_redirects
+        }
+
         ${cfg.bindAddress}:${toString cfg.gatePort} {
-          bind ${cfg.bindAddress}
-          tls internal
-          reverse_proxy 127.0.0.1:8722
+        	bind ${cfg.bindAddress}
+        	tls internal
+        	reverse_proxy 127.0.0.1:${toString cfg.dashboardPort}
         }
       '';
+      route = "${cfg.bindAddress}:${toString cfg.gatePort} -> 127.0.0.1:${toString cfg.dashboardPort}";
     in
     assert
       builtins.elem "run" args
       || throw "token-meter gate must run caddy: ${builtins.concatStringsSep " " args}";
     assert
-      builtins.elemAt args 3 == "${expected}"
-      || throw "token-meter Caddyfile drifted from ${cfg.bindAddress}:${toString cfg.gatePort} -> 127.0.0.1:8722";
+      builtins.elemAt args 3 == "${expected}" || throw "token-meter Caddyfile drifted from ${route}";
     assert (agent.KeepAlive or false) || throw "token-meter gate must have KeepAlive = true";
     # A host with the gate on also runs the llm-gate Caddy. On default paths the
     # two share one data directory, so losing this isolation means two Caddies
@@ -41,7 +50,7 @@ in
       (agent.EnvironmentVariables.XDG_DATA_HOME or "") != ""
       && (agent.EnvironmentVariables.XDG_CONFIG_HOME or "") != ""
       || throw "token-meter gate must set XDG_DATA_HOME and XDG_CONFIG_HOME so its Caddy storage stays separate from llm-gate's";
-    helpers.mkMarker "check-token-meter-gate" "token-meter gate: ${cfg.bindAddress}:${toString cfg.gatePort} -> 127.0.0.1:8722 verified";
+    helpers.mkMarker "check-token-meter-gate" "token-meter gate: ${route} verified";
 
   token-meter-gate-negative =
     assert
