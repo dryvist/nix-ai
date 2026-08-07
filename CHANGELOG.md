@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.6.4](https://github.com/dryvist/nix-ai/compare/v4.6.3...v4.6.4) (2026-08-07)
+
+
+### Bug Fixes
+
+* **token-meter:** make enable=false actually stop the dashboard ([#1567](https://github.com/dryvist/nix-ai/issues/1567)) ([d103203](https://github.com/dryvist/nix-ai/commit/d1032030345d7d035bdb76c36d26311fc7e0a3f4))
+
 ## [4.6.3](https://github.com/dryvist/nix-ai/compare/v4.6.2...v4.6.3) (2026-08-07)
 
 
