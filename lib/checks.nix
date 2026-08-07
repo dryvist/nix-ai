@@ -99,6 +99,16 @@ let
       };
     }
   ];
+  # Sixth evaluation exercising the session-sync agent (lib/checks/
+  # session-sync.nix): also off by default, so the agent only exists here.
+  hmConfigSessionSync = mkHmConfig [
+    {
+      programs.sessionSync = {
+        enable = true;
+        remote = "peer.example";
+      };
+    }
+  ];
 in
 (import ./checks/lint.nix { inherit pkgs src; })
 // (import ./checks/token-meter.nix {
@@ -107,6 +117,13 @@ in
     src
     hmConfig
     hmConfigTokenMeter
+    ;
+})
+// (import ./checks/session-sync.nix {
+  inherit
+    pkgs
+    hmConfig
+    hmConfigSessionSync
     ;
 })
 // (import ./checks/ai-stack.nix { inherit pkgs testLocalModelId; })
