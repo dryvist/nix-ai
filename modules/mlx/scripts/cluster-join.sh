@@ -192,6 +192,21 @@ its watcher self-heals that within a tick or two, and cluster-join there repairs
 No rank was started, so no RDMA protection domain was spent."
 fi
 
+# --- step 1c: verify the device PD budget (#1442) ---------------------------
+# devicePdBudget (CLUSTER_PD_DEVICE_BUDGET) was measured by hand on two hosts
+# and frozen into Nix; ibv_devinfo cannot run in the Nix sandbox, so nothing
+# before this point has ever checked it against the machine actually running.
+# The reserve invariant enforced at build time (2 * maxKickstarts <=
+# devicePdBudget) is arithmetic over that number — a wrong one silently makes
+# the invariant meaningless in either direction. pd_device_budget_ok /
+# active_rdma_device come from cluster-join-preflight.sh (this layer's copy;
+# the watcher's is in cluster-link-guards.sh — see cluster-script-layers.nix).
+if pd_device_budget_ok; then
+  echo "cluster-join: device PD budget verified (configured=${CLUSTER_PD_DEVICE_BUDGET:-0})"
+else
+  fail "$PD_BUDGET_DETAIL"
+fi
+
 # --- step 2: pin the wired ceiling BEFORE anything loads (non-negotiable) ---
 # Skipping this step risks a WindowServer watchdog kill (INC-17076).
 # A shard loaded over a standalone-sized ceiling wires out the GUI working set and

@@ -74,6 +74,12 @@ VMSTAT
 chmod +x "$bin/vm_stat"
 export CLUSTER_VMSTAT_BIN="$bin/vm_stat"
 
+# The device-PD-budget rung (#1442) sits right after this one in the guard
+# chain and is out of scope here; stubbed healthy, same pattern as
+# rank_reap_verified / generation_parity_cached in test-rank-start-guards.sh.
+# Its own refuse/pass matrix is not yet under a dedicated test.
+pd_device_budget_ok() { return 0; }
+
 # Writes a vm_stat-shaped fixture. Field order and the trailing "." on every
 # count mirror real vm_stat output; mem_stat_mb must parse this shape, not a
 # convenient one.
