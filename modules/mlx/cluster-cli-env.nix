@@ -49,9 +49,10 @@ let
     # of it — "2 of 11 device protection domains consumed until reboot" — since
     # a bare count hides how small the pool actually is.
     CLUSTER_PD_DEVICE_BUDGET = toString ncfg.devicePdBudget;
-    # Fallback device name for active_rdma_device (cluster-link-locate.sh) when
-    # no carrier-active Thunderbolt port has a matching rdma_<dev> — same
-    # config the rank launcher falls back to (cluster-mode.nix).
+    # Fallback device name for active_rdma_device (cluster-join-preflight.sh)
+    # when no carrier-active Thunderbolt port has a matching rdma_<dev> — same
+    # config the rank launcher falls back to (cluster-mode.nix). Already
+    # carries the "rdma_" prefix (rdmaDevice's own default).
     CLUSTER_RDMA_DEVICE = ncfg.rdmaDevice;
     # /usr/bin is not on a writeShellApplication PATH; absolute, and a test seam,
     # exactly like CLUSTER_NETSTAT_BIN.

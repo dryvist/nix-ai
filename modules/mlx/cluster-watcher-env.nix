@@ -145,9 +145,10 @@ in
   # the number the reserve invariant in lib/checks/mlx-cluster-pd-env.nix
   # measures the cap against.
   CLUSTER_PD_DEVICE_BUDGET = toString ncfg.devicePdBudget;
-  # Fallback device name for active_rdma_device (cluster-link-locate.sh) when
+  # Fallback device name for active_rdma_device (cluster-link-guards.sh) when
   # no carrier-active Thunderbolt port has a matching rdma_<dev> — same config
-  # the rank launcher falls back to (cluster-mode.nix).
+  # the rank launcher falls back to (cluster-mode.nix). Already carries the
+  # "rdma_" prefix (rdmaDevice's own default).
   CLUSTER_RDMA_DEVICE = ncfg.rdmaDevice;
   # --- memory-headroom guard --------------------------------------------------
   # Expected per-rank working set; 0 disables the rung with no vm_stat read at
