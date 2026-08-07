@@ -112,6 +112,16 @@ let
       };
     }
   ];
+  # Seventh evaluation exercising the session-archive agent (lib/checks/
+  # session-archive.nix): also off by default, so the agent only exists here.
+  hmConfigSessionArchive = mkHmConfig [
+    {
+      programs.sessionArchive = {
+        enable = true;
+        endpoint = "https://example.invalid";
+      };
+    }
+  ];
 in
 (import ./checks/lint.nix { inherit pkgs src; })
 // (import ./checks/token-meter.nix {
@@ -127,6 +137,13 @@ in
     pkgs
     hmConfig
     hmConfigSessionSync
+    ;
+})
+// (import ./checks/session-archive.nix {
+  inherit
+    pkgs
+    hmConfig
+    hmConfigSessionArchive
     ;
 })
 // (import ./checks/ai-stack.nix { inherit pkgs testLocalModelId; })

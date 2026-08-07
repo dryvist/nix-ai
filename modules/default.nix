@@ -94,6 +94,7 @@ in
     ./mlx
     ./opencode
     ./qwen-code
+    ./session-archive.nix
     ./session-sync.nix
     ./token-meter.nix
   ];
