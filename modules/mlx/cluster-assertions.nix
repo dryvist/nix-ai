@@ -21,6 +21,21 @@ let
   arch = entry.architecture or null;
 in
 [
+  # THE GATE MUST NEVER BE MORE IMPATIENT THAN THE TRAFFIC IT PROTECTS. Every
+  # probe below can, on failure, halt the rank and tear the cluster down — and
+  # the teardown leaks the wired shard on both hosts, which only a reboot
+  # returns. A probe timeout under the read timeout real clients use therefore
+  # converts "a client would still be waiting" into a dual reboot. Asserted
+  # rather than commented because the numbers are three separate options and
+  # nothing else relates them.
+  {
+    assertion = ncfg.healthGateTimeoutSecs > ncfg.consumerReadTimeoutSecs;
+    message = "programs.mlx.clusterMode: healthGateTimeoutSecs (${toString ncfg.healthGateTimeoutSecs}s) must exceed consumerReadTimeoutSecs (${toString ncfg.consumerReadTimeoutSecs}s). A probe that gives up before real clients do declares a busy-but-healthy pipeline dead, and the teardown that follows leaks the wired shard on both hosts.";
+  }
+  {
+    assertion = ncfg.healthGateConcurrentTimeoutSecs >= ncfg.healthGateTimeoutSecs;
+    message = "programs.mlx.clusterMode: healthGateConcurrentTimeoutSecs (${toString ncfg.healthGateConcurrentTimeoutSecs}s) must be at least healthGateTimeoutSecs (${toString ncfg.healthGateTimeoutSecs}s) — N requests competing for one rank cannot be given less time than one request alone.";
+  }
   {
     assertion = (ncfg.modelCatalogKey != null) -> (arch != null);
     message = "programs.mlx.clusterMode: catalog entry \"${toString ncfg.modelCatalogKey}\" is selected as the cluster model but declares no `architecture`. Add it to modules/mlx/catalog-data.nix, mirroring that model's config.json model_type, so the sharding mode can be checked.";
