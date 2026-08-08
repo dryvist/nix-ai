@@ -151,6 +151,10 @@ mem_dwell_file="$state_dir/mem-headroom-refused"
 # see peer_rearm_maybe in cluster-peer-state.sh for why that case is the one
 # that actually strands a pair.
 peer_seen_file="$state_dir/peer-state-last"
+# Consecutive soak ticks deferred because a request was in flight. Session-
+# scoped like every other strike counter here — see the soak block for why a
+# busy pipeline must not be probed, and why the deferral is nonetheless bounded.
+soak_busy_skips_file="$state_dir/soak-busy-skips"
 
 # GENERATION PARITY FIRST — RULE 2. Read (cached, one ls-remote per
 # CLUSTER_GENERATION_CHECK_SECS) before ANY other step of the tick, because
@@ -464,9 +468,41 @@ if [ "$cur" = "up" ]; then
       if [ "$warmed_at" -gt 0 ] &&
         [ "$(($(date +%s) - warmed_at))" -ge "${CLUSTER_WARM_RECHECK_SECS:-600}" ]; then
         echo "cluster-link: soak re-check (warm marker older than ${CLUSTER_WARM_RECHECK_SECS:-600}s)"
-        if health_gate_soak_probe "$health_gate_file" "$CLUSTER_RANK_URL" "${CLUSTER_MODEL:-}" \
-          "${CLUSTER_HEALTH_GATE_TIMEOUT_SECS:-120}"; then
+        # NEVER PROBE A BUSY PIPELINE. mlx_lm.server serializes generation and
+        # blocks HTTP for its duration, so a 1-token probe fired while a real
+        # request is in flight queues behind it and expires on the probe's own
+        # timeout — through no fault of the mesh. On 2026-08-08 that killed a
+        # healthy pipeline mid-answer: a 22k-token generation had streamed
+        # nothing for 181s, the probe expired, the gate declared the rank
+        # wedged, and the SIGTERM teardown leaked the wired shard on both hosts.
+        # In-flight work IS proof of life; the probe exists to find out whether
+        # there is any, and here there demonstrably is.
+        #
+        # BOUNDED, because a wedged rank holds connections open exactly as a
+        # busy one does. After CLUSTER_SOAK_BUSY_SKIP_MAX consecutive deferrals
+        # the probe fires anyway — with a timeout that already exceeds the read
+        # timeout real clients use, so a genuine long generation still completes
+        # inside it and only a true wedge fails.
+        #
+        # The warm marker is deliberately NOT refreshed on a deferral. Touching
+        # it would push the next re-check a full interval into the future on
+        # every skip, so a rank that holds a connection forever would never be
+        # probed again — the deferral would become the wedge's hiding place.
+        # Left stale, the block re-evaluates next tick and the counter advances
+        # toward the bound.
+        soak_skips=0
+        [ -f "$soak_busy_skips_file" ] && soak_skips="$(cat "$soak_busy_skips_file")"
+        case "$soak_skips" in
+          '' | *[!0-9]*) soak_skips=0 ;;
+        esac
+        if endpoint_busy && [ "$soak_skips" -lt "${CLUSTER_SOAK_BUSY_SKIP_MAX:-10}" ]; then
+          soak_skips=$((soak_skips + 1))
+          printf '%s\n' "$soak_skips" > "$soak_busy_skips_file"
+          echo "cluster-link: soak: request in flight — probe skipped, busy pipeline is live ($soak_skips/${CLUSTER_SOAK_BUSY_SKIP_MAX:-10} before probing regardless)"
+        elif health_gate_soak_probe "$health_gate_file" "$CLUSTER_RANK_URL" "${CLUSTER_MODEL:-}" \
+          "${CLUSTER_HEALTH_GATE_TIMEOUT_SECS:-300}"; then
           touch "$warm_file"
+          rm -f "$soak_busy_skips_file"
         else
           echo "cluster-link: soak probe FAILED (${HEALTH_GATE_DETAIL:-no detail}); declaring the rank WEDGED and restoring standalone serving" >&2
           halt_write "$halt_file" "$halt_latch_file" "health-gate-soak-fail" \
@@ -674,7 +710,8 @@ elif [ "$prev" = "up" ]; then
     "attempts outstanding when the link went down and reset the session" \
     "${link_cycle_cause:-link-cycle}"
   rm -f "$halt_file" "$halt_latch_file" "$started_file" "$ready_file" \
-    "$warm_file" "$warm_fails_file" "$mem_dwell_file" "$fast_fail_strikes_file"
+    "$warm_file" "$warm_fails_file" "$mem_dwell_file" "$fast_fail_strikes_file" \
+    "$soak_busy_skips_file"
   launchctl kill SIGTERM "gui/$uid/$CLUSTER_RANK_LABEL" 2> /dev/null || true
   if [ -n "${CLUSTER_WIRED_LIMIT_MB:-}" ]; then
     set_wired_limit "${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}" || down_failed=1

@@ -61,19 +61,10 @@ rank_running() {
 # one definition beats two that can drift. Persistence across a full generation is
 # measured there.
 
-# A request is in flight when something holds an ESTABLISHED connection on the
-# endpoint port. Probing then is how a HEALTHY busy rank gets killed:
-# mlx_lm.server serializes generation and blocks HTTP for its duration, so the
-# probe would queue behind the real request and time out through no fault of
-# the mesh. Checked BEFORE the probe opens its own socket, so it never sees
-# itself.
-endpoint_busy() {
-  [ -n "${CLUSTER_HTTP_PORT:-}" ] || return 1
-  "${CLUSTER_NETSTAT_BIN:-/usr/sbin/netstat}" -an -p tcp 2> /dev/null |
-    awk -v port=".${CLUSTER_HTTP_PORT}" '
-      /ESTABLISHED/ && index($0, port) { found = 1 }
-      END { exit(found ? 0 : 1) }'
-}
+# endpoint_busy moved to cluster-link-helpers.sh, for the third time the same
+# reason has come up: the link watcher's soak re-check needs it too, and one
+# definition beats two that can drift. Same move peer_reachable and
+# peer_rendezvous_session already made.
 
 # Tokens produced by REAL traffic since the last tick. Counts matches only in
 # the bytes APPENDED since last time, so a hit is a true progress edge rather

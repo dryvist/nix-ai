@@ -62,14 +62,61 @@
       '';
     };
 
+    consumerReadTimeoutSecs = lib.mkOption {
+      type = lib.types.int;
+      default = 180;
+      description = ''
+        How long a real client waits on this endpoint before giving up. Not a
+        timeout this module applies to anything — it is the reference the probe
+        timeouts below are required to exceed, asserted in
+        ./cluster-assertions.nix.
+
+        THE GATE MUST NEVER DECLARE DEATH BEFORE ACTUAL CLIENTS GIVE UP. A probe
+        timeout shorter than this makes the health gate strictly more impatient
+        than the traffic it exists to protect, so the gate kills pipelines that
+        every real consumer would still be happily waiting on. On 2026-08-08 a
+        120s probe expired against a generation that had been running 181s and
+        was answered normally afterwards; the gate tore the rank down and the
+        SIGTERM teardown leaked the wired shard on both hosts.
+      '';
+    };
+
+    soakBusySkipMax = lib.mkOption {
+      type = lib.types.int;
+      default = 10;
+      description = ''
+        Consecutive soak ticks that may be DEFERRED because a request is in
+        flight on the endpoint, before the probe fires regardless.
+
+        A busy pipeline must not be probed — mlx_lm.server serializes
+        generation and blocks HTTP, so the probe would queue behind real work
+        and expire through no fault of the mesh — and in-flight work is itself
+        proof of life. But a WEDGED rank holds its connections open exactly as a
+        busy one does, so the deferral has to end somewhere: this is where. At
+        the bound the probe runs with healthGateTimeoutSecs, which already
+        exceeds consumerReadTimeoutSecs, so a genuine long generation still
+        completes inside it and only a true wedge fails.
+
+        Counted in watcher ticks, not soak intervals: the warm marker is not
+        refreshed on a deferral (refreshing it would push the next re-check a
+        full interval away on every skip and let a permanently-connected wedge
+        escape probing entirely), so the block re-evaluates every tick while
+        traffic continues.
+      '';
+    };
+
     healthGateTimeoutSecs = lib.mkOption {
       type = lib.types.int;
-      default = 120;
+      default = 300;
       description = ''
         vk1188: bound on one 1-token completion — the automated gate's probe
         (b), and every soak recheck thereafter. Real timeout, not the untimed
         curl the manual gate used to run: a rank that never answers must not be
         able to hold the watcher open indefinitely.
+
+        MUST EXCEED consumerReadTimeoutSecs, asserted at eval. It was 120s
+        until 2026-08-08, i.e. the gate gave up before real clients did and
+        killed a pipeline that was still answering them.
       '';
     };
 
@@ -86,11 +133,13 @@
 
     healthGateConcurrentTimeoutSecs = lib.mkOption {
       type = lib.types.int;
-      default = 180;
+      default = 360;
       description = ''
         vk1188: bound on EACH of the healthGateConcurrency completions above.
         Longer than healthGateTimeoutSecs because N requests genuinely compete
-        for the same rank.
+        for the same rank — asserted at eval, along with the requirement that
+        it exceeds consumerReadTimeoutSecs. Its failure kills the rank exactly
+        as the single-completion probe's does, so it is held to the same floor.
       '';
     };
   };

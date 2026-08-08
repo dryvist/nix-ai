@@ -173,6 +173,10 @@ in
   CLUSTER_RANK_URL = "http://127.0.0.1:${toString ncfg.httpPort}";
   CLUSTER_MODEL = ncfg.model;
   CLUSTER_MAX_WARM_FAILURES = toString ncfg.maxWarmFailures;
+  # Consecutive soak ticks the watcher may defer while a request is in flight.
+  # A busy pipeline is proof of life and must not be probed; a wedged one holds
+  # its connections open the same way, so the deferral is bounded here.
+  CLUSTER_SOAK_BUSY_SKIP_MAX = toString ncfg.soakBusySkipMax;
   CLUSTER_WARM_RECHECK_SECS = toString ncfg.warmRecheckSecs;
   # vk1188 automated health gate + soak.
   CLUSTER_HEALTH_GATE_TIMEOUT_SECS = toString ncfg.healthGateTimeoutSecs;
