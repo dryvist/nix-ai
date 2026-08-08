@@ -63,7 +63,8 @@ CLUSTER_SYSCTL_BIN="$bin_dir/sysctl"
 export CLUSTER_SYSCTL_BIN
 
 # Sourced in the module's concatenation order: boot scope, then the ledger read
-# side, then the write side that carries pd_debt_settle_counter.
+# side, then the write side that carries pd_debt_settle_counter. HELPERS adds
+# halt_write / halt_drop_if_pre_boot for part 4 below, which crosses a reboot.
 # shellcheck source=/dev/null
 . "${BOOT_SCOPE:?BOOT_SCOPE is required}"
 # shellcheck source=/dev/null
@@ -72,6 +73,8 @@ export CLUSTER_SYSCTL_BIN
 . "${RECORD:?RECORD is required}"
 # shellcheck source=/dev/null
 . "${SETTLE:?SETTLE is required}"
+# shellcheck source=/dev/null
+. "${HELPERS:?HELPERS is required}"
 
 failures=0
 check() {
@@ -225,6 +228,37 @@ check "and does not settle it" 0 \
 # the counter populated is how the same attempts got billed twice.
 check "the cap path no longer records bare" 0 \
   "$(grep -vE '^[[:space:]]*#' "$WATCHER" | grep -c 'pd_debt_record ' || true)"
+
+echo "4. a halt marker left over from a PREVIOUS boot never suppresses THIS boot's charge:"
+# 2026-08-08 night watch: a stale halt from an earlier boot sat on disk when a
+# fresh cycle burned 5 kickstarts under a NEW boot. Reproduces exactly that
+# shape: write a halt under the OLD boot, cross a real reboot, then run the
+# cap path (halt_write + pd_debt_settle_counter) exactly as
+# cluster-link-watcher.sh does at the kickstart cap. The drop must not eat the
+# fresh charge, and the fresh marker must carry the NEW boot, not the old one.
+reset_state
+halt_file="$state_dir/rank-halted"
+latch_file="$state_dir/rank-halt-latched"
+rm -f "$halt_file" "$latch_file"
+cat > "$bin_dir/sysctl" <<'STUB'
+#!/usr/bin/env bash
+echo "{ sec = 1750000000, usec = 0 } stale boot"
+STUB
+halt_write "$halt_file" "$latch_file" rank-start-failures "prior cycle's 5 failures"
+cat > "$bin_dir/sysctl" <<'STUB'
+#!/usr/bin/env bash
+echo "{ sec = 1750086400, usec = 0 } after reboot"
+STUB
+halt_drop_if_pre_boot "$halt_file" "$latch_file" "$kicks_file"
+check "the stale marker is gone after the reboot" missing \
+  "$([ -f "$halt_file" ] && echo present || echo missing)"
+printf '5\n' > "$kicks_file"
+halt_write "$halt_file" "$latch_file" rank-start-failures "5 consecutive failed rank starts"
+pd_debt_settle_counter "$debt_file" "$kicks_file" 0 rank-start-failures \
+  "5 consecutive failed distributed inits, one protection domain each"
+recorded_boot="$(awk -F'\t' '{for (i=1;i<=NF;i++) if ($i ~ /^boot=/) {sub(/^boot=/,"",$i); print $i; exit}}' "$halt_file")"
+check "the fresh marker carries the NEW boot, not the stale one" 1750086400 "$recorded_boot"
+check "the ledger gained the current-boot charge" 5 "$(pd_debt_count "$debt_file")"
 
 if [ "$failures" -ne 0 ]; then
   echo "FAILED: $failures assertion(s)" >&2
