@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.10.1](https://github.com/dryvist/nix-ai/compare/v4.10.0...v4.10.1) (2026-08-08)
+
+
+### Bug Fixes
+
+* **mlx_cluster:** recover serving and the rank job across join/detach ([#1603](https://github.com/dryvist/nix-ai/issues/1603)) ([dbe52ec](https://github.com/dryvist/nix-ai/commit/dbe52ec96ca9536346f77983b66d33d3be1878c8))
+
 ## [4.10.0](https://github.com/dryvist/nix-ai/compare/v4.9.2...v4.10.0) (2026-08-08)
 
 
