@@ -173,6 +173,7 @@ in
 // (import ./checks/mlx-cluster-mem-headroom.nix { inherit pkgs src; })
 // (import ./checks/mlx-cluster-health-gate.nix { inherit pkgs src; })
 // (import ./checks/mlx-cluster-scripts.nix { inherit pkgs hmConfigCluster src; })
+// (import ./checks/mlx-cluster-peer-armed.nix { inherit pkgs hmConfigCluster src; })
 // (import ./checks/mlx-cluster-selfheal.nix { inherit pkgs src; })
 // (import ./checks/fabric.nix {
   inherit

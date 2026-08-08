@@ -49,9 +49,11 @@
 # not have.
 #
 # $1 ledger file, $2 kickstart counter, $3 vindicated attempts (0 or 1),
-# $4 source token, $5 free-text detail.
+# $4 source token, $5 free-text detail, $6 cause token (optional; defaults to
+# $4 — see pd_debt_record for why the mechanism and the reason are two fields).
 pd_debt_settle_counter() {
   local debt_file="$1" kicks_file="$2" vindicated="$3" source="$4" detail="$5"
+  local cause="${6:-$4}"
   local kicks leaked
   kicks=0
   if [ -n "$kicks_file" ] && [ -f "$kicks_file" ]; then
@@ -65,7 +67,7 @@ pd_debt_settle_counter() {
   esac
   leaked=$((kicks - vindicated))
   if [ "$leaked" -gt 0 ]; then
-    pd_debt_record "$debt_file" "$leaked" "$source" "$detail"
+    pd_debt_record "$debt_file" "$leaked" "$source" "$detail" "$cause"
     # A SILENT TRANSFER WOULD DEFEAT THE POINT. This runs on the reset paths —
     # a link cycle, a settled rank, cluster-join — which are precisely the
     # moments an operator reads as "fine, it recovered". Booking two domains

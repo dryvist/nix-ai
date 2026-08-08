@@ -45,6 +45,19 @@
 #                                  memory rung escalates from a per-tick skip
 #                                  to a HALT (see mem_headroom_halt_if_persistent)
 #   CLUSTER_VMSTAT_BIN               vm_stat path/seam for the memory rung
+#   CLUSTER_PD_CAUSE_BUDGET          domains one halt cause may spend across ALL
+#                                  boots before starts are refused; 0 disables
+#                                  (see pd_cause_budget_ok in
+#                                  ./cluster-pd-cause.sh)
+#   CLUSTER_PEER_STATE_*             the peer-armed handshake's channel; see
+#                                  ./cluster-peer-state.sh
+#
+# Two marker paths are read from the CALLER'S scope rather than passed as
+# arguments — gen_parity_file and halt_latch_file. Both are watcher-owned state
+# that every other rung already reaches through the watcher, and threading them
+# through rank_start_preconditions_ok's argument list would also have to thread
+# them through halt_clear_accepted, which calls it. Tests set the same two
+# variables.
 #   CLUSTER_RDMA_DEVICE              configured fallback RDMA device (clusterMode.rdmaDevice),
 #                                  already carries the "rdma_" prefix — see rdmaDevice's default
 #   CLUSTER_PD_DEVICE_BUDGET         measured max_pd this host's config assumes (see #1442)
@@ -336,6 +349,24 @@ rank_start_preconditions_ok() {
       return 1
     fi
   fi
+  # 0a'. THE SAME CAUSE, ACROSS BOOTS. Rung 0a is boot-scoped, which is correct —
+  #     a reboot really does return every leaked domain — and is also the escape
+  #     hatch a repeating defect uses: leak five, reboot, leak five again, with
+  #     every boot starting from a full budget and every guard reading green.
+  #     This totals what the cause THIS host keeps halting on has cost across all
+  #     boots and refuses once it reaches the cross-boot budget. Deliberately not
+  #     clearable by a reboot, a link cycle or a marker delete — see
+  #     pd_cause_budget_ok. Nothing is launched, so no attempt is consumed.
+  #
+  #     It should never fire. With the peer-armed gate below in place a start
+  #     against a peer that cannot rendezvous costs zero domains, so a cause that
+  #     reaches this budget is evidence the gate itself is broken, which is
+  #     exactly when a human should be the next step.
+  if ! pd_cause_budget_ok "${halt_latch_file:-}"; then
+    PRECONDITION_REASON="pd-cause-budget"
+    echo "cluster-link: NOT starting the rank — the cross-boot budget for this host's halt cause is spent (no attempt consumed; pd_cause_budget_ok logged which cause and how much)" >&2
+    return 1
+  fi
   # 0b. NO SURVIVING RANK. Never start a rank while another still holds an RDMA
   #     context. launchd reporting the agent as not running is not evidence: a
   #     re-parented or SIGKILL-orphaned engine keeps its protection domain, and
@@ -416,6 +447,39 @@ rank_start_preconditions_ok() {
   if ! pd_device_budget_ok; then
     PRECONDITION_REASON="pd-device-budget-unverified"
     echo "cluster-link: $PD_BUDGET_DETAIL; NOT starting the rank (no attempt consumed)" >&2
+    return 1
+  fi
+  # 1e. THE PEER MUST BE ARMED, not merely alive. Rung 1b proves a host answers
+  #    ICMP. That is a far weaker statement than it reads as: a host pings while
+  #    its own watcher is halted, while it is still booting, while it holds no
+  #    link address, while it sits at a memory shortfall only a reboot clears,
+  #    and while it runs a different system generation. Every one of those makes
+  #    the rendezvous certain to fail, and a certain failure still allocates a
+  #    protection domain before it times out. Measured 2026-08-08: five of eleven
+  #    domains spent in eighteen minutes against a peer that had already stood
+  #    down and could never have answered.
+  #
+  #    So the peer now says so itself. Each host publishes one JSON line per tick
+  #    and this reads the other's — see ./cluster-peer-state.sh for the channel,
+  #    and for why `armed` is a pure LOCAL fact on both sides (a gate whose
+  #    answer depends on the peer's answer is a deadlock, not a handshake).
+  #
+  #    NO ORDERING IS IMPOSED. `armed` is true before either rank starts, so both
+  #    hosts see it in the same tick and both still fire together on the shared
+  #    boundary in rung 2 — unlike the 2026-07-25 gate that waited for the peer's
+  #    rank to be LISTENING and so guaranteed this host arrived outside jaccl's
+  #    fixed ~15s connect budget. It runs BEFORE that hold for the same reason
+  #    rungs 1b and 1c do: a peer that is not coming should cost neither a domain
+  #    nor a wait.
+  #
+  #    Logged EVERY tick, never a silent skip. A start that is suppressed is a
+  #    decision, and the line says what it cost — the halted branch was silent
+  #    for 28 consecutive ticks on 2026-08-08 and hid a live halt for 14 minutes.
+  #
+  #    Nothing is launched, so nothing leaks, so no attempt is consumed.
+  if ! peer_armed_ok "$parity_fact"; then
+    PRECONDITION_REASON="peer-not-armed"
+    echo "cluster-link: peer-not-armed ($PEER_GATE_REASON) — attempt suppressed, 0 protection domains spent" >&2
     return 1
   fi
   # 2. BOTH ROLES: hold until the next shared wall-clock start boundary, so the
