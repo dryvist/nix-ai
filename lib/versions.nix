@@ -22,7 +22,7 @@
   # renovate: datasource=npm depName=chatgpt-cli
   chatgptCli = "3.3.0";
   # renovate: datasource=npm depName=claude-flow
-  claudeFlow = "3.25.2";
+  claudeFlow = "3.34.0";
   # renovate: datasource=npm depName=@googleworkspace/cli
   gwsCli = "0.22.5";
 
@@ -118,5 +118,5 @@
   # fabric-src input. The fabric-version-sync regression check in
   # lib/checks/fabric.nix compares the two and fails on drift.
   # renovate: datasource=github-releases depName=danielmiessler/fabric
-  fabric = "1.4.455";
+  fabric = "1.4.470";
 }
