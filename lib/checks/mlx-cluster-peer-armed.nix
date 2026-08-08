@@ -36,6 +36,7 @@ in
     RECORD = "${src}/modules/mlx/scripts/cluster-pd-record.sh";
     PEER_STATE = "${src}/modules/mlx/scripts/cluster-peer-state.sh";
     SETTLE = "${src}/modules/mlx/scripts/cluster-pd-settle.sh";
+    HELPERS = "${src}/modules/mlx/scripts/cluster-link-helpers.sh";
   } "bash ${src}/tests/test-peer-armed-gate.sh && touch $out";
 
   mlx-cluster-peer-armed-env =
@@ -119,6 +120,13 @@ in
     # settle, so if that settle bills only its own source token the peer-absent
     # bucket stays empty forever and the budget above can never fire for the
     # cause it exists to bound.
+    # The cross-boot cause record. halt_drop_if_pre_boot clears the latch every
+    # boot, so without this sibling the budget rung is inert until that boot's
+    # first halt and a cause already at budget bills a couple of domains every
+    # boot forever.
+    assert
+      hasInfix "halt_cause_file" (readScript "cluster-link-helpers.sh")
+      || throw "cluster: halt_write must record the cause OUTSIDE the boot-scoped latch. halt_drop_if_pre_boot clears the latch on every boot, so a cross-boot budget keyed only on the latch cannot refuse until that boot's first halt — and a cause already at budget would then spend a fresh couple of protection domains every boot, forever";
     assert
       hasInfix "link_cycle_cause" watcherSrc
       || throw "cluster: the link-cycle settle must bill the standing halt cause, not only its own source. A standdown leaves its attempts outstanding for this settle to transfer, so billing them to 'link-cycle' puts every domain a repeating standdown spent into a bucket no halt latch ever names — the cross-boot budget would read zero while the same defect burned a fresh budget every boot";

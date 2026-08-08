@@ -86,8 +86,16 @@ pd_cause_total() {
 # and is about to retry is, on the evidence available, about to spend another
 # domain on peer-absent. That is the bill this refuses to keep paying.
 #
-# No latch means this host has not halted since the latch was last cleared, so
-# there is no would-be cause and nothing to refuse.
+# THE LATCH FIRST, THEN ITS CROSS-BOOT SIBLING. The latch is cleared by every
+# reboot (halt_drop_if_pre_boot), so keying only on it left this rung inert
+# until the first halt of each new boot — and a cause already at budget would
+# then bill a fresh couple of domains every boot, forever. halt_cause_file
+# (./cluster-link-helpers.sh) survives that reset and answers the same question
+# one boot later. Latch first because it is the CURRENT verdict; the sibling is
+# only consulted when there is no current one.
+#
+# Neither present means this host has never halted, so there is no would-be
+# cause and nothing to refuse.
 #
 # IT LOGS ITS OWN REFUSAL rather than handing the text back through a variable
 # for the caller to print, which is what the neighbouring mem_headroom_ok does
@@ -106,8 +114,9 @@ pd_cause_budget_ok() {
     '' | *[!0-9]*) return 0 ;;
   esac
   [ "$budget" -gt 0 ] || return 0
-  { [ -n "$latch_file" ] && [ -f "$latch_file" ]; } || return 0
+  [ -n "$latch_file" ] || return 0
   cause="$(cat "$latch_file" 2> /dev/null || echo '')"
+  [ -n "$cause" ] || cause="$(cat "$(halt_cause_file "$latch_file")" 2> /dev/null || echo '')"
   # The latch holds one bare token; trim anything that follows so a future
   # multi-word latch cannot silently stop matching a ledger bucket.
   cause="${cause%%[[:space:]]*}"

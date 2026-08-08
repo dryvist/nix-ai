@@ -58,6 +58,10 @@ source "${RECORD:?set RECORD to cluster-pd-record.sh}"
 source "${PEER_STATE:?set PEER_STATE to cluster-peer-state.sh}"
 # shellcheck disable=SC1090
 source "${SETTLE:?set SETTLE to cluster-pd-settle.sh}"
+# halt_write and halt_cause_file — the cross-boot cause record the budget falls
+# back to once a reboot has cleared the latch.
+# shellcheck disable=SC1090
+source "${HELPERS:?set HELPERS to cluster-link-helpers.sh}"
 
 # --- stubs ------------------------------------------------------------------
 # The boot epoch is fixed so ledger entries are unambiguously "this boot", and
@@ -325,9 +329,44 @@ if pd_cause_budget_ok "$latch_file"; then
   fail "domains spent AFTER a reset must count toward the budget again"
 fi
 
-# No latch = no would-be cause = nothing to refuse.
-rm -f "$latch_file"
+# No latch and no cross-boot record = no would-be cause = nothing to refuse.
+rm -f "$latch_file" "$(halt_cause_file "$latch_file")"
 pd_cause_budget_ok "$latch_file" || fail "with no halt latch there is no cause to refuse"
+
+# --- 6. THE BUDGET MUST SURVIVE THE REBOOT IT IS COUNTING -------------------
+# halt_drop_if_pre_boot clears the latch on every boot. Keyed on the latch
+# alone, this rung would be inert until that boot's first halt — so a cause
+# already at budget would bill a fresh couple of domains every boot, forever,
+# which is the leak-reboot-leak loop the whole axis exists to end.
+: > "$debt_file"
+rm -f "$latch_file"
+halt_write "$halt_file" "$latch_file" peer-absent "a standdown, one boot ago"
+[ "$(cat "$(halt_cause_file "$latch_file")")" = "peer-absent" ] \
+  || fail "halt_write must record the cause outside the latch"
+
+# The reboot: halt marker, latch and counter all go. The sibling must not.
+rm -f "$halt_file" "$latch_file"
+[ -f "$(halt_cause_file "$latch_file")" ] \
+  || fail "the cross-boot cause record must survive the reset that clears the latch"
+
+pd_debt_record "$debt_file" 3 rank-start-failures "spent across earlier boots" peer-absent
+if pd_cause_budget_ok "$latch_file" 2> /dev/null; then
+  fail "a cause at budget must refuse from tick 1 of a fresh boot, before any halt"
+fi
+
+# Under budget it passes exactly as before, so cold-boot formation is untouched.
+: > "$debt_file"
+pd_debt_record "$debt_file" 2 rank-start-failures "under budget" peer-absent
+pd_cause_budget_ok "$latch_file" \
+  || fail "an under-budget cause must still pass on a fresh boot"
+
+# A live latch still wins over the stale sibling — the current verdict first.
+printf 'warm-wedged\n' > "$latch_file"
+: > "$debt_file"
+pd_debt_record "$debt_file" 3 rank-start-failures "peer-absent at budget" peer-absent
+pd_cause_budget_ok "$latch_file" \
+  || fail "the latch is the current verdict and must be read before the sibling"
+rm -f "$latch_file" "$(halt_cause_file "$latch_file")"
 
 # 0 disables the axis, the same convention every other threshold here uses.
 printf 'peer-absent\n' > "$latch_file"

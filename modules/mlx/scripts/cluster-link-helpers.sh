@@ -164,7 +164,27 @@ halt_write() {
   # link cycle, an accepted clear, or cluster-join. It is what makes the halt
   # more than a file someone can delete (see halt_clear_accepted).
   printf '%s\n' "$cause" > "$latch_file"
+  printf '%s\n' "$cause" > "$(halt_cause_file "$latch_file")"
 }
+
+# The last halt cause, kept ACROSS boots. Sibling of the latch, and deliberately
+# outside every reset the latch takes part in — halt_drop_if_pre_boot, an
+# accepted manual clear, a link cycle and cluster-join all clear the latch, and
+# none of them may clear this.
+#
+# WHY IT EXISTS. The latch is boot-scoped, correctly: every cause a halt records
+# is process or kernel state that a reboot really does clear. But the cross-boot
+# cause budget (./cluster-pd-cause.sh) has to survive the reboot it is counting,
+# and it identifies the would-be cause FROM the latch — so on a fresh boot it had
+# no cause to look up and could not refuse until that boot's first halt. A cause
+# already at budget would therefore bill its couple of domains every boot,
+# forever: the same leak-reboot-leak loop the budget exists to end, just slower.
+#
+# It never gates an under-budget cause, so cold-boot formation is untouched.
+#
+# Derived in ONE place, from the latch it sits beside, because a writer and a
+# reader that each spell a path are a writer and a reader on different files.
+halt_cause_file() { printf '%s/last-halt-cause' "$(dirname "$1")"; }
 
 # Idempotent wired-ceiling write through the exact-value sudoers grant.
 # No-op when unset or already at the target; returns nonzero on failure.
