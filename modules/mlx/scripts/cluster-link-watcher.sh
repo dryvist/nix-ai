@@ -486,6 +486,22 @@ if [ "$cur" = "up" ]; then
     pd_debt_halt_if_exhausted "$halt_file" "$halt_latch_file" "$pd_debt_file" &&
     mem_headroom_halt_if_persistent "$halt_file" "$halt_latch_file" "$mem_dwell_file" &&
     [ -f "$halt_file" ]; then
+    # SAY SO, EVERY TICK. This branch used to be entirely silent: the three
+    # helpers above always return 0 and the body only reboots, so a halted
+    # watcher exited 0 every tick writing nothing to stdout OR stderr. On
+    # 2026-08-07 that hid two live halts for 14 and 28 minutes while every
+    # health signal read green — the same failure the already-down probe branch
+    # was fixed for. Cheap and unconditional beats a cadence: one line per tick
+    # is the whole cost, and the operator needs the CLEAR CONDITION, not just
+    # the cause, because a boot-scoped verdict and a link-scoped one look
+    # identical in the marker.
+    case "$(cat "$halt_latch_file" 2> /dev/null)" in
+      pd-debt-exhausted | rank-start-failures)
+        halt_clear_hint="only a reboot returns the leaked domains" ;;
+      *)
+        halt_clear_hint="clears on a link cycle, cluster-join, or a reboot" ;;
+    esac
+    echo "cluster-link: HALTED ($(cat "$halt_latch_file" 2> /dev/null || echo unknown)) — rank starts suppressed; $halt_clear_hint. $(cat "$halt_file" 2> /dev/null)"
     # Halted — no more PD-burning retries until the link cycles.
     #
     # Order matters and is the point: halt_drop_if_pre_boot first, so a reboot
