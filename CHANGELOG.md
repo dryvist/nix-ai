@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.9.2](https://github.com/dryvist/nix-ai/compare/v4.9.1...v4.9.2) (2026-08-08)
+
+
+### Bug Fixes
+
+* **mlx:** stand down a rank that dies before settling, at two strikes ([#1595](https://github.com/dryvist/nix-ai/issues/1595)) ([1a3953d](https://github.com/dryvist/nix-ai/commit/1a3953d80be09d2b7b4c7ff6227ffb1a52e1036b))
+
 ## [4.9.1](https://github.com/dryvist/nix-ai/compare/v4.9.0...v4.9.1) (2026-08-07)
 
 
