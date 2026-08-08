@@ -406,4 +406,9 @@ if [ "$stale_swap" = true ]; then
   echo "                vm.swapusage used ${used}M > ${swap_threshold}M (INC-17075 spiral risk)" >&2
   exit 3
 fi
-exit 0
+# NO TERMINAL `exit 0`, AND THAT IS DELIBERATE. Falling off the end exits with
+# the preceding `if`'s status, which is 0 when its test was false — identical
+# behaviour. A terminal `exit` costs the EXIT trap above its only visible
+# invocation: shellcheck stops crediting `trap release_session EXIT` as a call
+# and fails the build with SC2329 on a function that runs on every exit. Do not
+# re-add it.

@@ -482,4 +482,8 @@ else
   echo "  generation : n/a (worker rank stable)"
 fi
 echo "======================================================================"
-exit 0
+# NO TERMINAL `exit 0`, AND THAT IS DELIBERATE. The final `echo` above already
+# exits 0, so behaviour is identical. A terminal `exit` costs the EXIT trap at
+# the top of this script its only visible invocation: shellcheck stops crediting
+# `trap restore_serving_if_join_left_it_down EXIT` as a call and fails the build
+# with SC2329 — on the trap AND on the restore it reaches. Do not re-add it.

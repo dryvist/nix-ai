@@ -243,6 +243,21 @@ pin "gated so an exit BEFORE the teardown settles nothing" "$detach" \
 calls="$(grep -c 'release_session' <<< "$(grep -v '^[[:space:]]*#' "$detach")")"
 check "release_session is defined and trapped, never called inline" 2 "$calls"
 
+# NEITHER SCRIPT MAY END IN A TERMINAL `exit`. Falling off the end returns the
+# same status, so this costs nothing — but a terminal exit costs each EXIT trap
+# its only visible invocation: shellcheck stops crediting `trap … EXIT` as a
+# call and writeShellApplication fails the build with SC2329 on functions that
+# run on every exit. That failure names the function, not the exit, so it is
+# pinned here where the cause is written down.
+for f in "$join" "$detach"; do
+  if grep -Eq '^exit [0-9]+$' "$f"; then
+    echo "  FAIL $f ends in a terminal exit; the EXIT trap loses its only visible invocation (SC2329)"
+    fail=1
+  else
+    echo "  ok   $(basename "$f") has no terminal exit, so its EXIT trap stays visible to shellcheck"
+  fi
+done
+
 echo
 echo "...and clearing that counter charges the ledger rather than laundering it:"
 
