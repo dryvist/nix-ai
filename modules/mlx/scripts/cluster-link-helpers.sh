@@ -153,6 +153,34 @@ peer_rendezvous_session() {
       END { exit(found ? 0 : 1) }'
 }
 
+# A request is in flight when something holds an ESTABLISHED connection on the
+# endpoint port. Probing then is how a HEALTHY busy rank gets killed:
+# mlx_lm.server serializes generation and blocks HTTP for its duration, so a
+# probe queues behind the real request and times out through no fault of the
+# mesh. Checked BEFORE the probe opens its own socket, so it never sees itself.
+#
+# THIS IS NOT A THEORETICAL HAZARD. On 2026-08-08 the soak re-check fired its
+# 1-token probe while a real 22k-token generation held the single pipeline slot
+# and had streamed nothing for 181s. The probe expired, the gate declared the
+# rank wedged, and the SIGTERM teardown leaked the wired shard on both hosts —
+# a busy, healthy pipeline killed, at the cost of a dual reboot. The
+# peer-liveness supervisor had carried this check for weeks; the soak had not.
+#
+# IN-FLIGHT WORK IS PROOF OF LIFE, but only for a while: a WEDGED rank holds its
+# connections open exactly as a busy one does (measured 2026-07-25 — a killed
+# peer left the coordinator accepting, returning zero bytes after 60s). So every
+# caller bounds how long it will defer; see busy_stall_secs in
+# cluster-peer-liveness.sh and CLUSTER_SOAK_BUSY_SKIP_MAX in the watcher.
+#
+# netstat is in /usr/sbin, which is NOT on a writeShellApplication PATH.
+endpoint_busy() {
+  [ -n "${CLUSTER_HTTP_PORT:-}" ] || return 1
+  "${CLUSTER_NETSTAT_BIN:-/usr/sbin/netstat}" -an -p tcp 2> /dev/null |
+    awk -v port=".${CLUSTER_HTTP_PORT}" '
+      /ESTABLISHED/ && index($0, port) { found = 1 }
+      END { exit(found ? 0 : 1) }'
+}
+
 halt_write() {
   local halt_file="$1" latch_file="$2" cause="$3" detail="$4"
   # boot= is what makes the halt scoped to the machine's current life. Read back
