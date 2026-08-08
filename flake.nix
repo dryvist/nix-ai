@@ -94,7 +94,7 @@
     # The fabric-version-sync check (lib/checks/fabric.nix) catches label drift;
     # vendorHash catches source changes that weren't accompanied by a version bump.
     fabric-src = {
-      url = "github:danielmiessler/fabric/v1.4.455";
+      url = "github:danielmiessler/fabric/v1.4.470";
       flake = false;
     };
 
