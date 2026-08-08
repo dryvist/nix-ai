@@ -491,6 +491,83 @@ rank_start_preconditions_ok() {
 # Logs and pages exactly once per halt — it runs on every tick.
 #
 # $1 halt marker, $2 latch, $3 ledger file.
+# STAND DOWN THE RANK THAT DIES BEFORE IT EVER SETTLES.
+#
+# The pair-wide standdown in cluster-link-watcher.sh only reaches a rank that
+# lived long enough to SETTLE (CLUSTER_RANK_SETTLE_SECS, default 60). A
+# coordinator blocked in distributed init ages past that, takes three cheap
+# rendezvous-absent strikes and stands down having spent nothing. A worker never
+# gets there: it dies on jaccl's fixed ~15s connect budget with errno 60, well
+# inside a 30s tick, so the watcher never observes it running, `rank-started` is
+# never touched, and that block is unreachable. It falls through to the kickstart
+# counter instead and pays one protection domain per attempt up to
+# CLUSTER_MAX_KICKSTARTS. Measured 2026-08-07: the worker burned 5 of an
+# 11-domain budget in 18 minutes against a coordinator that had already stood
+# down and could never answer, while the coordinator spent none. Whether a rank
+# fails fast or hangs slow decided which of the two paths it got, and the fast
+# one is the expensive one — exactly backwards.
+#
+# tests/test-pd-counter-settle.sh already names this shape in prose ("a peer that
+# is UP but not participating ... leaves this host kickstarting into a rendezvous
+# that never forms — one domain per attempt"). This is that hole closed.
+#
+# Same evidence and same verdict as the settled path, so the same cause token:
+# a start that came and went without a rendezvous session means the peer's rank
+# is not there. Reusing peer-absent means the existing latch, the link-cycle
+# re-arm and halt_drop_if_pre_boot all apply unchanged. No new probe, no new
+# channel, no ordering imposed on the peer — it reads only what this host itself
+# already did.
+#
+# FLOORED AT TWO, NEVER ONE. A single errno 60 can be a pure timing miss at the
+# boundary — one host a beat late, both otherwise healthy — and latching on that
+# would turn one unlucky start into a halt only a link cycle clears. Two misses
+# across two consecutive boundaries is signal, not noise.
+#
+# Returns 0 when it has stood the rank down (caller must skip the kickstart), 1
+# to proceed. Unlike the pd/mem halt helpers this is a BRANCH, not a composed
+# always-0 rung, because its whole job is to replace the start.
+#
+# $1 halt marker, $2 latch, $3 strike counter, $4 attempts so far, $5 started marker.
+fast_fail_standdown() {
+  local halt_file="$1" latch_file="$2" strike_file="$3" kicks="$4" started_file="$5"
+  local floor strikes
+  floor="${CLUSTER_FAST_FAIL_STRIKES:-2}"
+  case "$floor" in
+    '' | *[!0-9]*) return 1 ;;
+  esac
+  [ "$floor" -gt 0 ] || return 1
+  # Only a LAUNCHED attempt the watcher never saw running counts. A rank that
+  # reached started_file belongs to the settled path, a live rendezvous session
+  # means the pair formed, and kicks=0 means nothing has been tried yet — each
+  # of those is evidence against this verdict, so each resets the count.
+  if [ "$kicks" -le 0 ] || [ -f "$started_file" ] || peer_rendezvous_session; then
+    rm -f "$strike_file"
+    return 1
+  fi
+  strikes=0
+  [ -f "$strike_file" ] && strikes="$(cat "$strike_file")"
+  case "$strikes" in
+    '' | *[!0-9]*) strikes=0 ;;
+  esac
+  strikes=$((strikes + 1))
+  printf '%s\n' "$strikes" > "$strike_file"
+  if [ "$strikes" -lt "$floor" ]; then
+    echo "cluster-link: rank start died before settling with no rendezvous session ($strikes/$floor)"
+    return 1
+  fi
+  echo "cluster-link: $strikes consecutive rank starts died before settling and never reached rendezvous; standing down so the pair re-arms together instead of spending a protection domain per retry"
+  halt_write "$halt_file" "$latch_file" "peer-absent" \
+    "$strikes consecutive rank starts died before settling with no rendezvous session; peer rank unreachable"
+  rm -f "$strike_file"
+  if [ -n "${CLUSTER_WIRED_LIMIT_MB:-}" ]; then
+    set_wired_limit "${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}" || true
+  fi
+  restore_normal_serving || true
+  alert "$(hostname -s): rank starts keep dying before rendezvous; stood down after $strikes attempts and restored standalone serving, so the pair re-arms on the same start boundary rather than spending one protection domain per retry. Replug the link to retry — the halt is deliberate and suppresses restarts until the link cycles." \
+    "mlx-cluster fast-fail standdown"
+  return 0
+}
+
 pd_debt_halt_if_exhausted() {
   local halt_file="$1" latch_file="$2" debt_file="$3" max debt
   max="${CLUSTER_PD_DEBT_MAX:-0}"

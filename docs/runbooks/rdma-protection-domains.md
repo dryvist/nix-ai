@@ -1,5 +1,9 @@
 # RDMA protection domains: the ledger, the cap, and the reboot
 
+> The canonical, consolidated reference now lives on the
+> [private docs site](https://docs.jacobpevans.com/d/hosts/ai/rdma-protection-domains/).
+> This page stays as the source-adjacent quick reference.
+>
 > **Diagnosing a link that will not come up? Read
 > [cluster-link-truths.md](cluster-link-truths.md) FIRST.** It is the one
 > authoritative page for what the observable states actually mean — `RUNNING` is
