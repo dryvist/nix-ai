@@ -707,6 +707,12 @@ mem_headroom_halt_if_persistent() {
   dwell=$((dwell + 1))
   printf '%s\n' "$dwell" > "$dwell_file"
   if [ "$dwell" -lt "$threshold" ]; then
+    # SAY IT EVERY TICK, WITH THE COUNTER. Silently accumulating toward an
+    # escalation is the shape of every guard in this subsystem that hid an
+    # incident: the dwell is the whole difference between "transient, ignore"
+    # and "stuck, reboot", and it was observable only in a file nobody reads.
+    # Same shape as the link-down and peer-rendezvous strike lines.
+    echo "cluster-link: memory headroom refused $dwell/$threshold consecutive ticks — $MEM_HEADROOM_DETAIL (a HALT at $threshold; nothing launched, so no attempt consumed)" >&2
     return 0
   fi
   echo "cluster-link: $MEM_HEADROOM_DETAIL; refused $dwell consecutive ticks — HALTING rank starts rather than refusing forever with the cable plugged in" >&2

@@ -80,6 +80,11 @@ let
       # by join itself — INC-17070), so it needs no cluster endpoint URL/model.
       CLUSTER_NORMAL_PROXY = "http://127.0.0.1:${toString cfg.port}";
       CLUSTER_SERVER_LABEL = launchAgentLabel;
+      # join BOOTS THIS AGENT OUT, so its failure-path restore cannot work
+      # without the plist: restore_normal_serving refuses with "not loaded and
+      # no plist to bootstrap" in exactly the case that matters. Same pair
+      # cluster-detach and the watcher already carry.
+      CLUSTER_SERVER_PLIST = "${launchAgentsDir}/${launchAgentLabel}.plist";
       CLUSTER_WARMUP_LABEL = warmupAgentLabel;
       CLUSTER_STANDALONE_PROCESS_PATTERN = modelServerProcessPattern;
       # Newline-separated substrings of standalone-serving engines to spare from the
@@ -88,6 +93,14 @@ let
     }
     // lib.optionalAttrs (!isCoordinator && ncfg.quiesceCommand != null) {
       CLUSTER_QUIESCE_CMD = ncfg.quiesceCommand;
+    }
+    // lib.optionalAttrs (!isCoordinator && ncfg.restoreCommand != null) {
+      # The worker half of the failure-path restore. Without it a worker join
+      # that quiesced and then failed lands in restore_normal_serving's "this
+      # host takes serving away and cannot give it back" branch — which is the
+      # honest report, but the wrong one when the hook exists and was simply
+      # never handed to join.
+      CLUSTER_RESTORE_CMD = ncfg.restoreCommand;
     };
 
   clusterDetachEnv =
@@ -105,6 +118,13 @@ let
       # 86h). Every node that can be quiesced must be able to prove it came back.
       CLUSTER_STANDALONE_PROBE_URL = apiUrl;
       CLUSTER_STANDALONE_PROBE_MODEL = cfg.defaultModel;
+      # detach BOOTS THE RANK AGENT OUT before it signals anything, so that a
+      # half-executed teardown cannot be raced by a watcher kickstart — and must
+      # therefore bootstrap it back before it exits. Without the plist the agent
+      # would stay unloaded until the next activation, every later kickstart
+      # would fail, and the cluster could not re-form. RunAtLoad and KeepAlive
+      # are both false on that agent, so bootstrapping it loads it IDLE.
+      CLUSTER_RANK_PLIST = "${launchAgentsDir}/${rankLabel}.plist";
     }
     // lib.optionalAttrs isCoordinator {
       CLUSTER_SERVER_LABEL = launchAgentLabel;

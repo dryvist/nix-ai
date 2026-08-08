@@ -58,6 +58,25 @@
       '';
     };
 
+    heartbeatEverySecs = lib.mkOption {
+      type = lib.types.ints.positive;
+      default = 600;
+      description = ''
+        How often the link watcher prints one line stating that it ran,
+        converted to ticks against tickIntervalSecs (rounded up, floor of one)
+        by the same derivation downReportEverySecs uses.
+
+        A nominal tick — link up, rank serving, nothing to converge — writes
+        nothing at all, so a healthy watcher and a watcher that stopped being
+        scheduled produce byte-identical logs. Every incident in this subsystem
+        that took hours to notice looked exactly like that. The line carries the
+        link state, the rank state, wired memory and the tick count, so its
+        ABSENCE is the alarm and its content answers the first question anyone
+        asks. It is not a cadence for anything else: state changes, halts and
+        suppressed starts each still log the tick they happen.
+      '';
+    };
+
     generationCheckSecs = lib.mkOption {
       type = lib.types.ints.positive;
       default = 3600;

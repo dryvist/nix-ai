@@ -48,6 +48,15 @@ let
     in
     if ticks < 1 then 1 else ticks;
 
+  # Same derivation again, for the nominal-tick heartbeat. See
+  # heartbeatEverySecs: a healthy watcher writes nothing, so this line's absence
+  # is the only signal that the agent has stopped ticking at all.
+  heartbeatEveryTicks =
+    let
+      ticks = (ncfg.heartbeatEverySecs + ncfg.tickIntervalSecs - 1) / ncfg.tickIntervalSecs;
+    in
+    if ticks < 1 then 1 else ticks;
+
   # Same ceil-against-the-tick derivation as downStrikes, for the
   # memory-headroom rung's escalate-to-halt dwell. See options-cluster-memory.nix.
   memHeadroomDwellTicks =
@@ -78,6 +87,7 @@ in
   CLUSTER_LINK_ACTIVATE_TIMEOUT_SECS = toString ncfg.linkRepairActivateTimeoutSecs;
   CLUSTER_LINK_DOWN_STRIKES = toString downStrikes;
   CLUSTER_DOWN_REPORT_EVERY = toString downReportEveryTicks;
+  CLUSTER_HEARTBEAT_EVERY = toString heartbeatEveryTicks;
   # --- self-heal and drift detection, the 2026-08-01 pair ---------------------
   # The watcher probes the peer; until now it never checked its OWN link prep, so
   # a host with carrier and no link address probed, failed and logged forever —
