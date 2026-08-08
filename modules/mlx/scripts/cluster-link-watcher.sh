@@ -656,8 +656,23 @@ elif [ "$prev" = "up" ]; then
   # ledger before the link cycle clears it; unplugging and replugging must not
   # be a way to launder protection-domain debt out of the accounting, which is
   # exactly what deleting the counter here used to make it.
+  # BILLED TO THE REASON, NOT ONLY TO THE MECHANISM. source=link-cycle is what
+  # settled the counter; it is not what those attempts were spent ON, and the
+  # cross-boot cause budget (cluster-pd-cause.sh) is keyed on the reason.
+  #
+  # Without this the budget can never fill for the cause it most needs to
+  # bound. A standdown — fast-fail or pair-wide — writes the latch and leaves
+  # the counter outstanding for whichever reset arrives next, which on a real
+  # unplug is this one. Every domain those attempts spent would then land in a
+  # "link-cycle" bucket that no halt latch ever names, and pd_cause_total
+  # peer-absent would read zero forever while the same defect burned a fresh
+  # budget every boot. The latch is the only record of the reason that survives
+  # to this point, and it is deleted on the next line — so it is read here.
+  link_cycle_cause="$(cat "$halt_latch_file" 2> /dev/null || echo '')"
+  link_cycle_cause="${link_cycle_cause%%[[:space:]]*}"
   pd_debt_settle_counter "$pd_debt_file" "$kicks_file" 0 "link-cycle" \
-    "attempts outstanding when the link went down and reset the session"
+    "attempts outstanding when the link went down and reset the session" \
+    "${link_cycle_cause:-link-cycle}"
   rm -f "$halt_file" "$halt_latch_file" "$started_file" "$ready_file" \
     "$warm_file" "$warm_fails_file" "$mem_dwell_file" "$fast_fail_strikes_file"
   launchctl kill SIGTERM "gui/$uid/$CLUSTER_RANK_LABEL" 2> /dev/null || true

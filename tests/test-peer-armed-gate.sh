@@ -56,6 +56,8 @@ source "${CAUSE:?set CAUSE to cluster-pd-cause.sh}"
 source "${RECORD:?set RECORD to cluster-pd-record.sh}"
 # shellcheck disable=SC1090
 source "${PEER_STATE:?set PEER_STATE to cluster-peer-state.sh}"
+# shellcheck disable=SC1090
+source "${SETTLE:?set SETTLE to cluster-pd-settle.sh}"
 
 # --- stubs ------------------------------------------------------------------
 # The boot epoch is fixed so ledger entries are unambiguously "this boot", and
@@ -255,7 +257,37 @@ printf '%s\tboot=1785099999\tdomains=1\tsource=legacy\tcause=peer-absent domains
 [ "$(pd_cause_total "$debt_file" peer-absent)" = 3 ] \
   || fail "a cause= inside the detail text must not be read as a field"
 
+# --- 4b. THE BUCKET MUST ACTUALLY RECEIVE DEPOSITS --------------------------
+# The budget is only as good as what reaches its bucket, and the path that
+# nearly missed it is the one that matters most. A standdown writes the latch
+# (cause peer-absent) and leaves the kickstart counter outstanding; the link
+# cycle settles it later under source=link-cycle. Billed to the source alone,
+# every domain a standdown spent would land in a bucket no halt latch ever
+# names, and pd_cause_total peer-absent would read zero forever while the same
+# defect burned a fresh budget every boot. The watcher therefore reads the latch
+# at that settle and passes it as the cause.
+: > "$debt_file"
+kicks_file="$state_dir/rank-kickstarts"
+printf '2\n' > "$kicks_file"
+pd_debt_settle_counter "$debt_file" "$kicks_file" 0 "link-cycle" \
+  "attempts outstanding when the link went down" "peer-absent"
+[ "$(pd_cause_total "$debt_file" peer-absent)" = 2 ] \
+  || fail "a link-cycle settle must bill the standing halt cause, not just its own source"
+[ "$(pd_cause_total "$debt_file" link-cycle)" = 0 ] \
+  || fail "the mechanism must not also be charged as the reason"
+[ ! -f "$kicks_file" ] || fail "the counter must still be cleared"
+
+# With no latch standing the watcher falls back to the source token, which no
+# halt cause names, so an ordinary unplug never fills anyone's budget.
+printf '2\n' > "$kicks_file"
+pd_debt_settle_counter "$debt_file" "$kicks_file" 0 "link-cycle" "no halt was standing"
+[ "$(pd_cause_total "$debt_file" peer-absent)" = 2 ] \
+  || fail "an unplug with no halt standing must not charge a halt cause"
+
 # --- 5. the budget, and the ONLY thing that clears it -----------------------
+# Rebuild the bucket to exactly the budget, independent of what 4/4b left.
+: > "$debt_file"
+pd_debt_record "$debt_file" 3 rank-start-failures "at the budget" peer-absent
 printf 'peer-absent\n' > "$latch_file"
 if pd_cause_budget_ok "$latch_file"; then
   fail "a cause at the cross-boot budget must refuse"

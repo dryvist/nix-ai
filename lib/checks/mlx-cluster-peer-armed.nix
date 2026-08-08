@@ -35,6 +35,7 @@ in
     CAUSE = "${src}/modules/mlx/scripts/cluster-pd-cause.sh";
     RECORD = "${src}/modules/mlx/scripts/cluster-pd-record.sh";
     PEER_STATE = "${src}/modules/mlx/scripts/cluster-peer-state.sh";
+    SETTLE = "${src}/modules/mlx/scripts/cluster-pd-settle.sh";
   } "bash ${src}/tests/test-peer-armed-gate.sh && touch $out";
 
   mlx-cluster-peer-armed-env =
@@ -113,6 +114,14 @@ in
     assert
       hasInfix "peer_rearm_maybe" watcherSrc
       || throw "cluster: the watcher must attempt an auto re-arm on every up tick. Without it a pair-wide standdown is cleared only by a link cycle, so a plugged-in pair sits halted waiting for a human to replug a cable that was never out — the manual interlock the zero-AI-steps law bans";
+    # The bucket the budget reads must actually receive deposits. A standdown
+    # writes the latch and leaves the kickstart counter for the link cycle to
+    # settle, so if that settle bills only its own source token the peer-absent
+    # bucket stays empty forever and the budget above can never fire for the
+    # cause it exists to bound.
+    assert
+      hasInfix "link_cycle_cause" watcherSrc
+      || throw "cluster: the link-cycle settle must bill the standing halt cause, not only its own source. A standdown leaves its attempts outstanding for this settle to transfer, so billing them to 'link-cycle' puts every domain a repeating standdown spent into a bucket no halt latch ever names — the cross-boot budget would read zero while the same defect burned a fresh budget every boot";
     assert
       hasInfix "pd_cause_budget_ok" guardsSrc
       || throw "cluster: rank_start_preconditions_ok must consult the cross-boot cause budget. The boot-scoped ledger is cleared by the reboot it demands, so without this axis a repeating defect spends a full budget every boot with every guard reading green";
