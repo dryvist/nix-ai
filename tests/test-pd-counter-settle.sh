@@ -244,11 +244,13 @@ cat > "$bin_dir/sysctl" <<'STUB'
 #!/usr/bin/env bash
 echo "{ sec = 1750000000, usec = 0 } stale boot"
 STUB
+chmod +x "$bin_dir/sysctl"
 halt_write "$halt_file" "$latch_file" rank-start-failures "prior cycle's 5 failures"
 cat > "$bin_dir/sysctl" <<'STUB'
 #!/usr/bin/env bash
 echo "{ sec = 1750086400, usec = 0 } after reboot"
 STUB
+chmod +x "$bin_dir/sysctl"
 halt_drop_if_pre_boot "$halt_file" "$latch_file" "$kicks_file"
 check "the stale marker is gone after the reboot" missing \
   "$([ -f "$halt_file" ] && echo present || echo missing)"
