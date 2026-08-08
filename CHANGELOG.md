@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.10.0](https://github.com/dryvist/nix-ai/compare/v4.9.2...v4.10.0) (2026-08-08)
+
+
+### Features
+
+* **mlx_cluster:** peer-armed handshake, auto re-arm, cross-boot PD budget ([#1599](https://github.com/dryvist/nix-ai/issues/1599)) ([f2471db](https://github.com/dryvist/nix-ai/commit/f2471dbc03294bc3ecf6f2c23d4b2d60daf6b84e))
+
 ## [4.9.2](https://github.com/dryvist/nix-ai/compare/v4.9.1...v4.9.2) (2026-08-08)
 
 
