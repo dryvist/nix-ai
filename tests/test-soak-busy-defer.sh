@@ -50,8 +50,13 @@ source "${HELPERS:?set HELPERS to cluster-link-helpers.sh}"
 bin="$state_dir/bin"
 mkdir -p "$bin"
 netstat_fixture="$state_dir/netstat-output"
+# Shebang is the RUNNING bash's own path, never /usr/bin/env: the Nix build
+# sandbox has no /usr/bin, so an env shebang leaves the stub unexecutable — and
+# a netstat that cannot run returns nothing, which endpoint_busy reads as "no
+# connection". The stub would then silently invert every case below instead of
+# failing. Same idiom test-health-gate.sh uses for its vm_stat stub.
 cat > "$bin/netstat" << NETSTAT
-#!/usr/bin/env bash
+#!$BASH
 cat '$netstat_fixture'
 NETSTAT
 chmod +x "$bin/netstat"
@@ -72,6 +77,16 @@ fail() {
   echo "FAIL: $1" >&2
   exit 1
 }
+
+# PROVE THE STUB WORKS BEFORE TRUSTING ANY VERDICT BUILT ON IT. A stub that
+# cannot execute produces no output, endpoint_busy reads that as "nothing in
+# flight", and every deferral case below then passes for the wrong reason —
+# the silently-inert-guard shape this whole subsystem keeps shipping. Checked
+# here so the failure names the stub rather than the behaviour under test.
+set_busy yes
+endpoint_busy || fail "the netstat stub is not executable — endpoint_busy cannot see a connection that is definitely there, so nothing below would be testing what it claims"
+set_busy no
+endpoint_busy && fail "the netstat stub reports a connection when the fixture has none"
 
 # --- the probe, stubbed to count calls and replay a verdict -----------------
 # The count lives in a FILE, not a variable: soak_tick is invoked in a command
