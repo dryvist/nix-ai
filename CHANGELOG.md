@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.10.2](https://github.com/dryvist/nix-ai/compare/v4.10.1...v4.10.2) (2026-08-08)
+
+
+### Bug Fixes
+
+* **mlx_cluster:** never probe a busy pipeline, and outlast the clients the gate protects ([#1607](https://github.com/dryvist/nix-ai/issues/1607)) ([5773282](https://github.com/dryvist/nix-ai/commit/57732828375ad150ae1b16b78278a0cd69210b60))
+
 ## [4.10.1](https://github.com/dryvist/nix-ai/compare/v4.10.0...v4.10.1) (2026-08-08)
 
 
