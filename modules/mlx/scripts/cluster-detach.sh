@@ -11,6 +11,11 @@
 #   CLUSTER_ROLE                coordinator | worker
 #   CLUSTER_STATIC_SELF_IP      this node's static link address (locates the port)
 #   CLUSTER_STATE_FILE          watcher link-state file (locates the marker dir)
+#   CLUSTER_RANK_PLIST          the rank agent's plist. Detach boots that job out
+#                             before it signals anything (so a watcher kickstart
+#                             cannot race the teardown) and bootstraps it back
+#                             idle at the end; without the plist it could only
+#                             do the first half.
 #   CLUSTER_WIRED_LIMIT_MB      optional: set => a standalone-ceiling restore is expected
 #   CLUSTER_STANDALONE_WIRED_LIMIT_MB  standalone ceiling the watcher restores (default 0)
 #   CLUSTER_DETACH_SWAP_THRESHOLD_MB  warn+exit-3 above this vm.swapusage used (MB)
@@ -113,6 +118,80 @@ ceiling_restored() {
   [ -z "${CLUSTER_WIRED_LIMIT_MB:-}" ] && return 0
   [ "$(/usr/sbin/sysctl -n iogpu.wired_limit_mb 2>/dev/null || echo '')" = "${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}" ]
 }
+
+# UNLOAD THE JOB BEFORE SIGNALLING THE PROCESS, or the teardown races its own
+# restarter. The watcher converges every tick and it is not told a detach is
+# under way: the link probe still reads up until the down-strikes accumulate, so
+# during that window the watcher sees "no rank running" and kickstarts one. On
+# 2026-08-08 a detach that was still executing was raced exactly that way and
+# three protection domains were spent on rank attempts nobody asked for.
+#
+# `launchctl kickstart` on a service that is not loaded fails, so booting the
+# job out is what actually closes the window — stopping the process alone cannot,
+# because the process is not what starts the next one. It is bootstrapped back
+# at the end of this script (step 5); the agent is RunAtLoad=false
+# KeepAlive=false, so that leaves it loaded and idle, exactly as a rebuild does.
+#
+# KNOWN WINDOW, stated rather than hidden: bootout of a RUNNING job SIGTERMs it
+# and escalates to SIGKILL after launchd's exit timeout, and that escalation is
+# outside this script's audited SIGKILL path. The ladder below is unchanged and
+# still runs, so a survivor is still reaped gracefully and still pays the ledger
+# if it has to be killed.
+# RELEASING WHAT THIS SCRIPT TOOK IS AN EXIT TRAP, NOT A LAST STEP. The bootout
+# below and the kickstart counter both outlive this process, and this script
+# runs under errexit: an unguarded failure anywhere after the bootout would exit
+# with the rank job still unloaded, so every later watcher kickstart fails and
+# nothing but a darwin-rebuild loads it again. Same reasoning as cluster-join's
+# restore trap, for the same class of miss.
+#
+# BOTH ON SUCCESS AND ON FAILURE, which is the point. A detach that failed a
+# postcondition still booted the job out and still leaves whatever the counter
+# held; leaving either behind poisons the NEXT session — the counter would start
+# it part-spent for attempts belonging to this one.
+#
+# The counter is SETTLED, never deleted. The layers file gave detach the ledger
+# write side and withheld the counter-settle because detach reset no counter; it
+# resets one now, and a bare `rm` would discard attempts whose leaked domains are
+# not yet on the ledger — the exact laundering pd_debt_settle_counter exists to
+# stop. Nothing is vindicated: this path has no evidence any attempt succeeded.
+#
+# The CAUSE is read from the halt latch rather than named after this command,
+# for the reason the watcher's link-cycle settle reads it: this settle only ever
+# catches attempts no other path settled, so the latch is usually still there
+# holding the real reason, and billing them to a "cluster-detach" bucket no halt
+# cause ever names would leave the cross-boot cause budget reading zero forever.
+#
+# teardown_started gates it: the usage error above exits before anything has
+# been taken away, and settling a counter that belongs to a live watcher session
+# there would be this script laundering someone else's debt.
+teardown_started=false
+
+release_session() {
+  [ "$teardown_started" = true ] || return 0
+  local cause
+  cause="$(cat "$state_dir/rank-halt-latched" 2> /dev/null || echo '')"
+  cause="${cause%%[[:space:]]*}"
+  pd_debt_settle_counter "${CLUSTER_PD_DEBT_FILE:-}" "$state_dir/rank-kickstarts" 0 \
+    "cluster-detach" "attempts outstanding when cluster-detach ended the session" \
+    "${cause:-cluster-detach}"
+
+  if /bin/launchctl print "gui/$uid/${CLUSTER_RANK_LABEL}" > /dev/null 2>&1; then
+    echo "cluster-detach: $CLUSTER_RANK_LABEL already loaded (idle); nothing to bootstrap"
+  elif [ -f "${CLUSTER_RANK_PLIST:-}" ] &&
+    /bin/launchctl bootstrap "gui/$uid" "$CLUSTER_RANK_PLIST" > /dev/null 2>&1; then
+    echo "cluster-detach: bootstrapped $CLUSTER_RANK_LABEL back (idle — RunAtLoad and KeepAlive are both false), so the next join can start a rank"
+  else
+    echo "cluster-detach: WARN could not bootstrap $CLUSTER_RANK_LABEL back from '${CLUSTER_RANK_PLIST:-unset}'; the watcher cannot kickstart a rank until it is loaded — run darwin-rebuild switch, or bootstrap it by hand, before the next join" >&2
+  fi
+}
+trap release_session EXIT
+
+teardown_started=true
+if /bin/launchctl bootout "gui/$uid/${CLUSTER_RANK_LABEL}" > /dev/null 2>&1; then
+  echo "cluster-detach: booted out $CLUSTER_RANK_LABEL so the watcher cannot kickstart a rank mid-teardown"
+else
+  echo "cluster-detach: $CLUSTER_RANK_LABEL was not loaded (nothing to bootout); the watcher cannot kickstart it either"
+fi
 
 # Stop the rank directly, not only via the watcher. The watcher's up->down
 # teardown stops the rank, but on a DEADLOCKED rank the watcher can be stuck in
@@ -327,4 +406,9 @@ if [ "$stale_swap" = true ]; then
   echo "                vm.swapusage used ${used}M > ${swap_threshold}M (INC-17075 spiral risk)" >&2
   exit 3
 fi
-exit 0
+# NO TERMINAL `exit 0`, AND THAT IS DELIBERATE. Falling off the end exits with
+# the preceding `if`'s status, which is 0 when its test was false — identical
+# behaviour. A terminal `exit` costs the EXIT trap above its only visible
+# invocation: shellcheck stops crediting `trap release_session EXIT` as a call
+# and fails the build with SC2329 on a function that runs on every exit. Do not
+# re-add it.

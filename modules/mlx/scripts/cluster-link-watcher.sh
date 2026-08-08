@@ -73,6 +73,9 @@
 #                         disables the handshake entirely.
 #   CLUSTER_PD_CAUSE_BUDGET  domains one halt cause may spend across ALL boots
 #                         before rank starts are refused (cluster-pd-cause.sh)
+#   CLUSTER_HEARTBEAT_EVERY  ticks between the nominal-tick heartbeat line, so
+#                         a watcher that is alive and one that stopped being
+#                         scheduled do not log the same thing (0 disables)
 
 mkdir -p "$(dirname "$CLUSTER_STATE_FILE")"
 prev="down"
@@ -151,6 +154,10 @@ mem_dwell_file="$state_dir/mem-headroom-refused"
 # see peer_rearm_maybe in cluster-peer-state.sh for why that case is the one
 # that actually strands a pair.
 peer_seen_file="$state_dir/peer-state-last"
+# Ticks since this marker was created, for the nominal-tick heartbeat below.
+# Never reset by anything: it is a liveness odometer, not a strike counter, and
+# a counter that resets on a state change is one whose gaps cannot be read.
+heartbeat_file="$state_dir/heartbeat-ticks"
 
 # GENERATION PARITY FIRST — RULE 2. Read (cached, one ls-remote per
 # CLUSTER_GENERATION_CHECK_SECS) before ANY other step of the tick, because
@@ -633,8 +640,21 @@ if [ "$cur" = "up" ]; then
       quiesce_normal_serving
       echo "cluster-link: rank not running; kickstarting (attempt $((kicks + 1)))"
       rm -f "$started_file" "$ready_file" "$warm_file" "$warm_fails_file"
-      launchctl kickstart "gui/$uid/$CLUSTER_RANK_LABEL" || true
-      printf '%s\n' "$((kicks + 1))" > "$kicks_file"
+      # COUNT LAUNCHED ATTEMPTS, NOT ISSUED COMMANDS. The counter's stated
+      # invariant (cluster-pd-settle.sh) is "launched attempts whose
+      # protection-domain cost is not yet on the ledger", and every reset path
+      # settles it into the ledger as one leaked domain each. So counting a
+      # kickstart that did not launch anything FABRICATES debt, which is as
+      # damaging as losing it: enough of them reach the cap, halt the host and
+      # can hand pd_auto_reboot_if_warranted a reboot to issue for domains that
+      # were never spent. The case is real now that cluster-detach boots the
+      # rank job out for the length of a teardown — kickstart against an
+      # unloaded service fails, launches nothing, and leaks nothing.
+      if launchctl kickstart "gui/$uid/$CLUSTER_RANK_LABEL"; then
+        printf '%s\n' "$((kicks + 1))" > "$kicks_file"
+      else
+        echo "cluster-link: kickstart of $CLUSTER_RANK_LABEL FAILED; nothing launched, so no attempt is consumed and no domain was spent (the job is usually unloaded — cluster-detach boots it out for the length of a teardown)" >&2
+      fi
     fi
   fi
 elif [ "$prev" = "up" ]; then
@@ -680,6 +700,51 @@ elif [ "$prev" = "up" ]; then
     set_wired_limit "${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}" || down_failed=1
   fi
   restore_normal_serving || down_failed=1
+fi
+
+# HEARTBEAT — A HEALTHY WATCHER AND A DEAD ONE MUST NOT LOG THE SAME THING.
+#
+# Every branch above logs only when it decides something. A nominal tick — link
+# up, rank running and serving, nothing to converge — decides nothing and so
+# writes nothing at all, which makes a watcher that is ticking perfectly and one
+# that stopped being scheduled byte-identical in the log. That ambiguity is what
+# turned each of the silent-guard incidents into an hours-long one: the absence
+# of lines read as health.
+#
+# So: one line every CLUSTER_HEARTBEAT_EVERY ticks, unconditionally, carrying
+# the four facts anyone asks for first. Its ABSENCE is now the alarm. The
+# odometer is bumped on EVERY tick, including the noisy ones, so a gap in the
+# numbering is itself evidence of missed ticks.
+heartbeat_ticks=0
+[ -f "$heartbeat_file" ] && heartbeat_ticks="$(cat "$heartbeat_file" 2> /dev/null || echo 0)"
+case "$heartbeat_ticks" in
+  '' | *[!0-9]*) heartbeat_ticks=0 ;;
+esac
+heartbeat_ticks=$((heartbeat_ticks + 1))
+printf '%s\n' "$heartbeat_ticks" > "$heartbeat_file"
+heartbeat_every="${CLUSTER_HEARTBEAT_EVERY:-20}"
+case "$heartbeat_every" in
+  '' | *[!0-9]*) heartbeat_every=20 ;;
+esac
+if [ "$heartbeat_every" -gt 0 ] && [ "$((heartbeat_ticks % heartbeat_every))" -eq 0 ]; then
+  # Three-valued, like every other rank report here: "could not answer" is a
+  # different operator action from "not running" (see cluster-rank-status.sh).
+  if rank_process_running; then
+    heartbeat_rank="running"
+  elif rank_process_absent; then
+    heartbeat_rank="none"
+  else
+    heartbeat_rank="UNKNOWN (process probe could not answer)"
+  fi
+  # Wired, not free: it is the number that says whether a previous rank leaked
+  # its shard, and the one a reader needs before believing the rank column.
+  # mem_stat_mb prints "<free_mb> <wired_mb>" (cluster-link-guards.sh).
+  if heartbeat_mem="$(mem_stat_mb)"; then
+    heartbeat_wired="$((${heartbeat_mem#* } / 1024))GiB"
+  else
+    heartbeat_wired="unreadable (vm_stat)"
+  fi
+  echo "cluster-link: HEARTBEAT tick $heartbeat_ticks — link $cur, rank $heartbeat_rank, wired $heartbeat_wired (one line per $heartbeat_every ticks; a missing heartbeat means the watcher is not running)"
 fi
 
 # Consume the link-state edge only when the teardown actually completed. The
