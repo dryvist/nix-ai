@@ -65,6 +65,14 @@
 #   CLUSTER_MEM_HEADROOM_DWELL_TICKS  consecutive refused ticks before the
 #                         memory rung escalates to a HALT that
 #                         pd_auto_reboot_if_warranted can act on
+#   CLUSTER_PEER_STATE_FILE  where this host publishes the JSON line its peer
+#                         reads before starting a rank (cluster-peer-state.sh)
+#   CLUSTER_PEER_STATE_PORT / _TIMEOUT_SECS / _STALE_SECS  the peer end of that
+#                         channel: which port to read, how long to wait, and how
+#                         old an answer may be before it is refused. Port 0
+#                         disables the handshake entirely.
+#   CLUSTER_PD_CAUSE_BUDGET  domains one halt cause may spend across ALL boots
+#                         before rank starts are refused (cluster-pd-cause.sh)
 
 mkdir -p "$(dirname "$CLUSTER_STATE_FILE")"
 prev="down"
@@ -137,6 +145,12 @@ pd_auto_reboot_marker_file="$state_dir/pd-auto-reboot-last"
 # session_strikes_file) — a shortfall is not a leaked kernel resource, so a
 # link cycle resetting it is correct rather than laundering anything.
 mem_dwell_file="$state_dir/mem-headroom-refused"
+# Last peer state this host acted on while halted, so an auto re-arm fires once
+# per observed peer transition instead of once per tick. Deleted whenever no
+# halt stands, which is what makes "no record" a transition in its own right —
+# see peer_rearm_maybe in cluster-peer-state.sh for why that case is the one
+# that actually strands a pair.
+peer_seen_file="$state_dir/peer-state-last"
 
 # GENERATION PARITY FIRST — RULE 2. Read (cached, one ls-remote per
 # CLUSTER_GENERATION_CHECK_SECS) before ANY other step of the tick, because
@@ -153,6 +167,20 @@ mem_dwell_file="$state_dir/mem-headroom-refused"
 parity_now="$(generation_parity_cached "$gen_parity_file")"
 generation_drift_report "$parity_now" "$gen_alerted_file"
 generation_heal_maybe "$parity_now" "$heal_attempts_file" || true
+
+# PUBLISH THIS HOST'S STATE BEFORE ANYTHING ELSE IS DECIDED, and unconditionally
+# — halted, link down, generation drifted, all of it. The peer's start guard
+# reads this line to decide whether a rendezvous with this host can possibly
+# succeed, and the states worth telling it about are exactly the ones where this
+# host is NOT going to participate. A publish that only happened on the healthy
+# path would go silent precisely when the peer most needs to hear it, and the
+# peer would read the silence as "unreachable" and suppress its own start on a
+# weaker reason than the true one.
+#
+# Placed after the parity read because the published generation comes from that
+# same cached fact — one ls-remote per interval, not one per publish.
+peer_state_write "${CLUSTER_PEER_STATE_FILE:-$state_dir/peer-state.json}" \
+  "$parity_now" "$halt_file" "$pd_debt_file"
 
 # Link probe, debounced ASYMMETRICALLY — a false "down" is destructive, a false
 # "up" is not. Declaring down tears the rank down, restores standalone serving,
@@ -261,6 +289,25 @@ if [ "$cur" = "up" ]; then
   if [ "$prev" = "down" ]; then
     echo "cluster-link: down -> up ($CLUSTER_ROLE)"
   fi
+  # AUTO RE-ARM, BEFORE THE HALTED BRANCH DECIDES ANYTHING. A pair-wide
+  # standdown is deliberately sticky, and until there was a way to observe the
+  # peer that stickiness could only be broken by a human replugging a cable that
+  # was never out. Now the peer says when it is ready again, and this ends the
+  # halt on that evidence.
+  #
+  # Runs on every up tick rather than only inside the halted branch, and that
+  # placement is the fix rather than an accident: with no halt standing it does
+  # nothing but delete the last-seen record, which is what makes the FIRST poll
+  # of the next halt a transition. Keyed only on the record, a host that halts
+  # while its peer was healthy and unchanged throughout would see no transition
+  # ever — the exact case that strands a plugged-in pair.
+  #
+  # It removes only the halt marker, never the latch, so the branch below still
+  # routes through halt_clear_accepted and re-verifies every precondition. This
+  # is not a bypass; it is an automatic version of the clear an operator would
+  # otherwise have to type.
+  peer_rearm_maybe "$halt_file" "$halt_latch_file" "$peer_seen_file" \
+    "$parity_now" "$pd_debt_file"
   # Converge every tick while the link is up: restart a crashed rank — but
   # CAP the retries. Every failed `mx.distributed.init()` leaks a kernel
   # RDMA Protection Domain and exhaustion is reboot-only (ml-explore/mlx
@@ -609,8 +656,23 @@ elif [ "$prev" = "up" ]; then
   # ledger before the link cycle clears it; unplugging and replugging must not
   # be a way to launder protection-domain debt out of the accounting, which is
   # exactly what deleting the counter here used to make it.
+  # BILLED TO THE REASON, NOT ONLY TO THE MECHANISM. source=link-cycle is what
+  # settled the counter; it is not what those attempts were spent ON, and the
+  # cross-boot cause budget (cluster-pd-cause.sh) is keyed on the reason.
+  #
+  # Without this the budget can never fill for the cause it most needs to
+  # bound. A standdown — fast-fail or pair-wide — writes the latch and leaves
+  # the counter outstanding for whichever reset arrives next, which on a real
+  # unplug is this one. Every domain those attempts spent would then land in a
+  # "link-cycle" bucket that no halt latch ever names, and pd_cause_total
+  # peer-absent would read zero forever while the same defect burned a fresh
+  # budget every boot. The latch is the only record of the reason that survives
+  # to this point, and it is deleted on the next line — so it is read here.
+  link_cycle_cause="$(cat "$halt_latch_file" 2> /dev/null || echo '')"
+  link_cycle_cause="${link_cycle_cause%%[[:space:]]*}"
   pd_debt_settle_counter "$pd_debt_file" "$kicks_file" 0 "link-cycle" \
-    "attempts outstanding when the link went down and reset the session"
+    "attempts outstanding when the link went down and reset the session" \
+    "${link_cycle_cause:-link-cycle}"
   rm -f "$halt_file" "$halt_latch_file" "$started_file" "$ready_file" \
     "$warm_file" "$warm_fails_file" "$mem_dwell_file" "$fast_fail_strikes_file"
   launchctl kill SIGTERM "gui/$uid/$CLUSTER_RANK_LABEL" 2> /dev/null || true

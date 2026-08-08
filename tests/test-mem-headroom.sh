@@ -59,6 +59,17 @@ source "${LEDGER:?set LEDGER to cluster-pd-ledger.sh}"
 source "${HELPERS:?set HELPERS to cluster-link-helpers.sh}"
 # shellcheck disable=SC1090
 source "${GUARDS:?set GUARDS to cluster-link-guards.sh}"
+# The two layers the shipped watcher concatenates AROUND the guards: the
+# cross-boot cause budget (rung 0a') and the peer-armed handshake (rung 1e).
+# Sourced but left UNCONFIGURED, so both rungs are inert here — the same way
+# this file already configures the PD ledger and the memory rung idle. Without
+# them the guards would call functions that do not exist, and a `command not
+# found` inside an `if !` reads as a refusal, which would silently invert every
+# assertion below. Their own behaviour is pinned in tests/test-peer-armed-gate.sh.
+# shellcheck disable=SC1090
+source "${CAUSE:?set CAUSE to cluster-pd-cause.sh}"
+# shellcheck disable=SC1090
+source "${PEER_STATE:?set PEER_STATE to cluster-peer-state.sh}"
 
 # --- vm_stat stub, generated executable (see header for why not a function) --
 bin="$state_dir/bin"

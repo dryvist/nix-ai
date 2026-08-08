@@ -34,6 +34,12 @@
   watcher = [
     ./scripts/cluster-boot-scope.sh
     ./scripts/cluster-pd-ledger.sh
+    # The CROSS-BOOT, cause-keyed read. Watcher-only: it exists to decide
+    # whether to spend another domain, and the watcher is the only consumer that
+    # makes that decision. join refuses at the boot-scoped cap and detach only
+    # records, so neither could call it — and SC2329 turns that into a build
+    # failure rather than dead code.
+    ./scripts/cluster-pd-cause.sh
     ./scripts/cluster-pd-record.sh
     ./scripts/cluster-pd-settle.sh
     ./scripts/cluster-link-helpers.sh
@@ -53,7 +59,21 @@
     # Automated rank health gate + soak — reads mem_stat_mb from the guards
     # file above, so it must come after it.
     ./scripts/cluster-health-gate.sh
+    # The peer-armed handshake. AFTER the guards, because peer_state_write folds
+    # mem_headroom_ok into what it publishes and a definition must precede the
+    # layer that calls it. Watcher-only for the same SC2329 reason as
+    # cluster-pd-cause.sh above: nothing else publishes or reads peer state.
+    ./scripts/cluster-peer-state.sh
     ./scripts/cluster-link-watcher.sh
+  ];
+
+  # The peer-state responder. NO shared layers at all, and that is the design
+  # rather than an omission: it computes nothing and reads no marker, it cats the
+  # file the watcher publishes. Every fact on the wire is therefore derived once,
+  # by the code that also acts on it locally, so the two hosts cannot come to
+  # different conclusions about what "armed" means.
+  peerState = [
+    ./scripts/cluster-peer-state-serve.sh
   ];
 
   # Peer-liveness supervisor: the same helpers the watcher uses, so its teardown

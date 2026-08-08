@@ -255,35 +255,8 @@ let
   );
 in
 {
-  imports = [
-    ./options-renamed.nix
-    ./options-proxy.nix
-    ./options-server.nix
-    ./options-cache.nix
-    # How every shell-script launchd agent here is launched. One option, because
-    # getting it wrong costs the agent its network access, silently.
-    ./options-launch.nix
-    ./options-batching.nix
-    ./options-catalog.nix
-    ./options-filters.nix
-    ./options-parsers.nix
-    ./options-runtime.nix
-    ./options-residency.nix
-    ./options-cluster.nix
-    ./options-cluster-pd-reboot.nix
-    ./options-cluster-lifecycle.nix
-    ./options-cluster-resilience.nix
-    ./options-cluster-selfheal.nix
-    ./options-cluster-rank-health.nix
-    ./options-cluster-memory.nix
-    ./assertions.nix
-    ./packages.nix
-    ./launchd.nix
-    ./launchd-watchdog.nix
-    ./cluster-mode.nix
-    ./cluster-mode-maintenance.nix
-    ./peer-liveness.nix
-  ];
+  # The module list lives in ./imports.nix (per-file size cap).
+  imports = import ./imports.nix;
 
   # Pass shared bindings to sub-modules via _module.args
   _module.args.mlxShared = {

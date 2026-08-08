@@ -17,9 +17,19 @@
 # field as CURRENT, so a partial write still costs a domain rather than hiding
 # one.
 #
-# $1 ledger file, $2 domains lost (integer), $3 source token, $4 free-text detail.
+# TWO KEYS, NOT ONE. `source` names the MECHANISM that spent the domains (which
+# code path recorded this) and `cause` names the REASON they were spent (which
+# halt verdict this belongs to). They are usually the same word and `cause`
+# defaults to `source` for exactly that reason — but they are not the same
+# question, and the cross-boot budget in ./cluster-pd-cause.sh is keyed on the
+# reason. A standdown recorded by one mechanism can be caused by peer-absence,
+# and a budget that could only count mechanisms would split one recurring defect
+# across every path that happened to record it.
+#
+# $1 ledger file, $2 domains lost (integer), $3 source token, $4 free-text
+# detail, $5 cause token (optional; defaults to $3).
 pd_debt_record() {
-  local file="$1" domains="$2" source="$3" detail="$4" boot
+  local file="$1" domains="$2" source="$3" detail="$4" cause="${5:-$3}" boot
   case "$domains" in
     '' | *[!0-9]*) domains=1 ;;
   esac
@@ -36,8 +46,13 @@ pd_debt_record() {
   source="${source//$'\n'/ }"
   detail="${detail//$'\t'/ }"
   detail="${detail//$'\n'/ }"
+  cause="${cause//$'\t'/ }"
+  cause="${cause//$'\n'/ }"
   boot="$(current_boot_epoch)"
-  printf '%s\tboot=%s\tdomains=%s\tsource=%s\t%s\n' \
-    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${boot:-unknown}" "$domains" "$source" "$detail" \
+  # cause= sits BEFORE the free-text detail, like every other field: the reader
+  # takes the first match of each field name so that prose in the final field can
+  # never spoof one.
+  printf '%s\tboot=%s\tdomains=%s\tsource=%s\tcause=%s\t%s\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${boot:-unknown}" "$domains" "$source" "$cause" "$detail" \
     >> "$file" 2> /dev/null || true
 }

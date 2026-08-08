@@ -163,6 +163,7 @@ in
   # CLUSTER_NETSTAT_BIN / CLUSTER_PGREP_BIN / CLUSTER_KILL_BIN above.
   CLUSTER_VMSTAT_BIN = "/usr/bin/vm_stat";
 }
+// (import ./cluster-watcher-env-peer.nix { inherit ncfg; })
 // lib.optionalAttrs isCoordinator {
   # Readiness probe target: launchctl liveness alone cannot see a rank hung in
   # distributed init (see the watcher script). Only rank 0 binds the endpoint, so

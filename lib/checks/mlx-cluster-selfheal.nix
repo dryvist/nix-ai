@@ -102,6 +102,8 @@
     STATUS = "${src}/modules/mlx/scripts/cluster-rank-status.sh";
     HEAL = "${src}/modules/mlx/scripts/cluster-generation-heal.sh";
     GUARDS = "${src}/modules/mlx/scripts/cluster-link-guards.sh";
+    CAUSE = "${src}/modules/mlx/scripts/cluster-pd-cause.sh";
+    PEER_STATE = "${src}/modules/mlx/scripts/cluster-peer-state.sh";
     WATCHER = "${src}/modules/mlx/scripts/cluster-link-watcher.sh";
     LAYERS = "${src}/modules/mlx/cluster-script-layers.nix";
   } "bash ${src}/tests/test-generation-heal.sh && touch $out";
