@@ -240,17 +240,13 @@ reset_state
 halt_file="$state_dir/rank-halted"
 latch_file="$state_dir/rank-halt-latched"
 rm -f "$halt_file" "$latch_file"
-cat > "$bin_dir/sysctl" <<'STUB'
-#!/usr/bin/env bash
-echo "{ sec = 1750000000, usec = 0 } stale boot"
-STUB
-chmod +x "$bin_dir/sysctl"
+# A shell function shadows the file-based stub for command -v — same
+# reboot-simulation idiom test-pd-debt.sh and test-halt-boot-scope.sh already
+# use, and it sidesteps rewriting an executable file mid-test (the file-swap
+# approach passed locally but failed on the CI runner).
+sysctl() { echo "{ sec = 1750000000, usec = 0 } stale boot"; }
 halt_write "$halt_file" "$latch_file" rank-start-failures "prior cycle's 5 failures"
-cat > "$bin_dir/sysctl" <<'STUB'
-#!/usr/bin/env bash
-echo "{ sec = 1750086400, usec = 0 } after reboot"
-STUB
-chmod +x "$bin_dir/sysctl"
+sysctl() { echo "{ sec = 1750086400, usec = 0 } after reboot"; }
 halt_drop_if_pre_boot "$halt_file" "$latch_file" "$kicks_file"
 check "the stale marker is gone after the reboot" missing \
   "$([ -f "$halt_file" ] && echo present || echo missing)"
