@@ -72,6 +72,31 @@ in
     GUARDS = "${src}/modules/mlx/scripts/cluster-link-guards.sh";
   } "bash ${src}/tests/test-pd-debt.sh && touch $out";
 
+  # THE CHECK THAT FAILS IF A FAST-DYING RANK CAN BURN THE PD BUDGET AGAIN.
+  # The pair-wide standdown only reaches a rank that SETTLED, so a coordinator
+  # hung in distributed init stands down after three cheap strikes while a worker
+  # dying on jaccl's ~15s connect budget is never observed running at all — it
+  # fell through to the kickstart counter and paid one protection domain per
+  # attempt to the cap. Failing fast bought the expensive path. Asserts the floor
+  # of two (one errno 60 can be a timing miss at the boundary and must not latch),
+  # that the cause stays peer-absent so the existing latch and link-cycle re-arm
+  # still apply, that a settled rank or a live rendezvous session resets the
+  # count — AND pins the call site, including its position ahead of the alignment
+  # hold, because a correct function nobody calls passes every behavioural
+  # assertion while the defect is fully back.
+  mlx-cluster-fast-fail-standdown = pkgs.runCommand "check-mlx-cluster-fast-fail-standdown" {
+    nativeBuildInputs = [
+      pkgs.coreutils
+      pkgs.gnugrep
+      pkgs.gnused
+      pkgs.gawk
+    ];
+    BOOT_SCOPE = "${src}/modules/mlx/scripts/cluster-boot-scope.sh";
+    HELPERS = "${src}/modules/mlx/scripts/cluster-link-helpers.sh";
+    GUARDS = "${src}/modules/mlx/scripts/cluster-link-guards.sh";
+    WATCHER = "${src}/modules/mlx/scripts/cluster-link-watcher.sh";
+  } "bash ${src}/tests/test-fast-fail-standdown.sh && touch $out";
+
   # THE CHECK THAT FAILS IF A COUNTER RESET CAN DISCARD LEAKED DOMAINS.
   # mlx-cluster-pd-debt above covers the ledger at the CAP; this covers the hole
   # underneath it. The kickstart counter is session-scoped and four paths reset

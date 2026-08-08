@@ -86,6 +86,11 @@ down_strikes_file="$state_dir/link-down-strikes"
 # Consecutive ticks the PEER's rendezvous session has been absent while this
 # rank is running and settled. Drives the pair-wide standdown below.
 peer_session_strikes_file="$state_dir/peer-session-strikes"
+# Consecutive launched attempts that died before the watcher ever observed them
+# running, with no rendezvous session. Drives fast_fail_standdown — the same
+# verdict as the counter above, for the rank that never lives long enough to
+# reach it. Session-scoped like every other strike counter here.
+fast_fail_strikes_file="$state_dir/rank-fast-fails"
 # Consecutive ticks the probe has failed while the link was ALREADY down. Used
 # only to make a permanently-failing probe audible on a cadence — see the
 # else-branch of the probe below.
@@ -543,6 +548,13 @@ if [ "$cur" = "up" ]; then
       # eleven-domain pool this just spent, not only that a counter hit its cap.
       alert "$(hostname -s): cluster rank failed $kicks consecutive starts; $(pd_debt_phrase "$(pd_debt_count "$pd_debt_file")" "${CLUSTER_MAX_KICKSTARTS:-?}"). Kickstarts halted and the host restored to standalone serving. errno 60 = reboot needed. Replug the link to reset, or clear the rank-halted marker — the watcher re-verifies the cause before retrying and will re-halt if it persists." \
         "mlx-cluster rank halted (PD guard)"
+    elif fast_fail_standdown "$halt_file" "$halt_latch_file" \
+      "$fast_fail_strikes_file" "$kicks" "$started_file"; then
+      # Stood down: repeated starts died before settling and never reached
+      # rendezvous. Ahead of the preconditions deliberately — the alignment hold
+      # lives in there, and a peer that is not coming should cost no wait, the
+      # same "no wait wasted" ordering rungs 1b and 1c already use.
+      :
     elif ! rank_start_preconditions_ok; then
       # A precondition that is not yet met is NOT a failed start: nothing was
       # launched, so no protection domain leaked, so no attempt is consumed.
@@ -584,7 +596,7 @@ elif [ "$prev" = "up" ]; then
   pd_debt_settle_counter "$pd_debt_file" "$kicks_file" 0 "link-cycle" \
     "attempts outstanding when the link went down and reset the session"
   rm -f "$halt_file" "$halt_latch_file" "$started_file" "$ready_file" \
-    "$warm_file" "$warm_fails_file" "$mem_dwell_file"
+    "$warm_file" "$warm_fails_file" "$mem_dwell_file" "$fast_fail_strikes_file"
   launchctl kill SIGTERM "gui/$uid/$CLUSTER_RANK_LABEL" 2> /dev/null || true
   if [ -n "${CLUSTER_WIRED_LIMIT_MB:-}" ]; then
     set_wired_limit "${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}" || down_failed=1

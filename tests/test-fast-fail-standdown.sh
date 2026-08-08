@@ -1,0 +1,156 @@
+#!/usr/bin/env bash
+# THE TEST THAT FAILS IF A FAST-DYING RANK CAN BURN THE PD BUDGET AGAIN.
+#
+# THE DEFECT. The pair-wide standdown only reaches a rank that SETTLED
+# (CLUSTER_RANK_SETTLE_SECS, default 60). A coordinator hung in distributed init
+# ages past that and stands down after three cheap strikes; a worker dies on
+# jaccl's ~15s connect budget, well inside a 30s tick, so it is never observed
+# running, `rank-started` is never touched, and the standdown is unreachable. It
+# fell through to the kickstart counter and paid one protection domain per
+# attempt to the cap. Measured 2026-08-07: the worker burned 5 of 11 domains in
+# 18 minutes against a coordinator that had already stood down and could never
+# answer. Failing fast bought the expensive path; hanging slow bought the cheap
+# one. tests/test-pd-counter-settle.sh names this exact shape in prose — this is
+# that hole closed.
+#
+# THE INVARIANT ASSERTED HERE. Two consecutive launched attempts that die before
+# settling with no rendezvous session stand the rank down under the SAME
+# peer-absent cause the settled path uses — so the same latch, link-cycle re-arm
+# and boot-scoped drop apply. One such attempt never latches: a single errno 60
+# can be a pure timing miss at the boundary.
+#
+# WHAT IS REAL AND WHAT IS NOT:
+#   REAL   — fast_fail_standdown, halt_write and peer_rendezvous_session, sourced
+#            from the shipped scripts in the module's own concatenation order.
+#   STUB   — sysctl (deterministic boot epoch for the halt marker), netstat (the
+#            seam peer_rendezvous_session already exposes), and the three
+#            side-effect calls the standdown makes on the host: set_wired_limit,
+#            restore_normal_serving, alert. Nothing in the decision is stubbed.
+#   SOURCE — part 5 reads the watcher as text. A correct function nobody calls
+#            passes every behavioural assertion while the defect is fully back;
+#            that is the failure mode this subsystem keeps producing, so the call
+#            site is pinned.
+#
+# Addresses here are RFC 5737 documentation addresses; the predicate under test
+# only ever does a substring match, so the real link range is irrelevant to it.
+#
+# Usage:
+#   BOOT_SCOPE=… HELPERS=… GUARDS=… WATCHER=… bash test-fast-fail-standdown.sh
+set -o errexit -o nounset -o pipefail
+
+state_dir="$(mktemp -d)"
+trap 'rm -rf "$state_dir"' EXIT
+
+halt_file="$state_dir/rank-halted"
+latch_file="$state_dir/rank-halt-latched"
+strike_file="$state_dir/rank-fast-fails"
+started_file="$state_dir/rank-started"
+
+export CLUSTER_ROLE=worker
+export CLUSTER_STATIC_PEER_IP=192.0.2.1
+export CLUSTER_RENDEZVOUS_PORT=11441
+export CLUSTER_ALERT_URL_FILE="$state_dir/alert-url-absent"
+
+# shellcheck disable=SC1090
+source "${BOOT_SCOPE:?set BOOT_SCOPE to cluster-boot-scope.sh}"
+# shellcheck disable=SC1090
+source "${HELPERS:?set HELPERS to cluster-link-helpers.sh}"
+# shellcheck disable=SC1090
+source "${GUARDS:?set GUARDS to cluster-link-guards.sh}"
+
+# --- stubs -------------------------------------------------------------------
+sysctl() { echo "{ sec = 1785031601, usec = 0 } stub boottime"; }
+hostname() { echo test-host; }
+
+# The netstat seam peer_rendezvous_session already exposes. A shell FUNCTION,
+# not a generated script: the nix build sandbox has no /usr/bin/env, so a
+# shebang stub silently fails to execute and every case reports "absent" —
+# which passes the absent assertions and fails only the present ones. Same
+# reasoning as tests/test-peer-rendezvous-session.sh.
+netstat_rows=""
+fake_netstat() { printf '%s\n' "$netstat_rows"; }
+export CLUSTER_NETSTAT_BIN=fake_netstat
+
+# The three host side effects the standdown performs. Recorded, never real.
+side_effects="$state_dir/side-effects"
+: > "$side_effects"
+set_wired_limit() { printf 'wired %s\n' "$1" >> "$side_effects"; }
+restore_normal_serving() { printf 'restore\n' >> "$side_effects"; }
+alert() { printf 'alert\n' >> "$side_effects"; }
+
+fail() {
+  echo "FAIL: $*" >&2
+  exit 1
+}
+reset_state() {
+  rm -f "$halt_file" "$latch_file" "$strike_file" "$started_file"
+  : > "$side_effects"
+  netstat_rows=""
+}
+
+# --- 1. one fast fail never latches ------------------------------------------
+# A single errno 60 can be a timing miss at the boundary. Latching on it would
+# turn one unlucky start into a halt that only a link cycle clears.
+reset_state
+if fast_fail_standdown "$halt_file" "$latch_file" "$strike_file" 1 "$started_file"; then
+  fail "stood down on the FIRST fast fail; the floor of 2 is gone"
+fi
+[ -f "$halt_file" ] && fail "wrote a halt marker below the floor"
+[ "$(cat "$strike_file")" = "1" ] || fail "did not record the first strike"
+[ -s "$side_effects" ] && fail "took host side effects below the floor"
+
+# --- 2. the second consecutive fast fail stands the rank down -----------------
+if ! fast_fail_standdown "$halt_file" "$latch_file" "$strike_file" 2 "$started_file"; then
+  fail "did not stand down at the floor; the 5-domain burn is back"
+fi
+[ -f "$halt_file" ] || fail "stood down without writing the halt marker"
+grep -q 'cause=peer-absent' "$halt_file" ||
+  fail "halt cause is not peer-absent; the existing latch and link-cycle re-arm no longer apply"
+[ "$(cat "$latch_file")" = "peer-absent" ] || fail "latch is not peer-absent"
+[ -f "$strike_file" ] && fail "left the strike counter behind after standing down"
+grep -q '^restore$' "$side_effects" || fail "did not restore standalone serving"
+grep -q '^alert$' "$side_effects" || fail "did not page"
+
+# --- 3. a rank that reached started_file belongs to the settled path ----------
+# That path takes its own three rendezvous strikes; double-counting here would
+# halt a rank the settled logic is still legitimately evaluating.
+reset_state
+printf '1\n' > "$strike_file"
+touch "$started_file"
+if fast_fail_standdown "$halt_file" "$latch_file" "$strike_file" 9 "$started_file"; then
+  fail "stood down a rank that had settled; that is the settled path's decision"
+fi
+[ -f "$strike_file" ] && fail "did not reset the counter once the rank settled"
+
+# --- 4. a live rendezvous session is evidence against the verdict -------------
+# netstat prints the port BEFORE the state, so the shipped predicate is
+# order-independent; this row keeps that real shape.
+reset_state
+printf '1\n' > "$strike_file"
+netstat_rows="tcp4  0  0  192.0.2.2.49223  192.0.2.1.11441  ESTABLISHED"
+if fast_fail_standdown "$halt_file" "$latch_file" "$strike_file" 9 "$started_file"; then
+  fail "stood down while the pair was actually rendezvoused"
+fi
+[ -f "$strike_file" ] && fail "did not reset the counter on a live session"
+
+# --- 4b. no attempt launched yet is nothing to judge --------------------------
+reset_state
+if fast_fail_standdown "$halt_file" "$latch_file" "$strike_file" 0 "$started_file"; then
+  fail "stood down before any attempt was launched"
+fi
+
+# --- 5. the watcher must actually CALL it, ahead of the alignment hold --------
+# A correct function nobody calls passes everything above while the defect is
+# fully back. And it must sit BEFORE rank_start_preconditions_ok, which contains
+# the boundary sleep — a peer that is not coming should cost no wait.
+watcher="${WATCHER:?set WATCHER to cluster-link-watcher.sh}"
+call_line="$(grep -n 'elif fast_fail_standdown' "$watcher" | head -1 | cut -d: -f1)"
+precond_line="$(grep -n 'elif ! rank_start_preconditions_ok' "$watcher" | head -1 | cut -d: -f1)"
+[ -n "$call_line" ] || fail "cluster-link-watcher.sh no longer calls fast_fail_standdown"
+[ -n "$precond_line" ] || fail "could not locate the precondition branch in the watcher"
+[ "$call_line" -lt "$precond_line" ] ||
+  fail "fast_fail_standdown runs AFTER the preconditions; the standdown now pays the alignment hold it exists to avoid"
+grep -q 'fast_fail_strikes_file' "$watcher" ||
+  fail "the link-cycle teardown no longer clears the fast-fail counter"
+
+echo "PASS: fast-fail standdown floors at 2, reuses peer-absent, and is wired ahead of the hold"
