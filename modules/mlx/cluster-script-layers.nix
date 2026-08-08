@@ -17,9 +17,9 @@
 #
 #   cluster-pd-ledger.sh   READ side  — watcher, join, detach
 #   cluster-pd-record.sh   WRITE side — watcher, join, detach
-#   cluster-pd-settle.sh   COUNTER-SETTLE — watcher, join only (detach resets
-#                          no counter, and a function it cannot call is dead
-#                          code the linter rejects)
+#   cluster-pd-settle.sh   COUNTER-SETTLE — watcher, join and detach (detach
+#                          gained it when it started clearing the session's
+#                          kickstart budget on exit; see the detach set below)
 #
 # cluster-join reads the ledger so it can REFUSE at the cap, and is deliberately
 # denied the write side: a command whose only job is to refuse must not also be
@@ -108,6 +108,11 @@
     ./scripts/cluster-peer-probe.sh
     ./scripts/cluster-join-preflight.sh
     ./scripts/cluster-rank-status.sh
+    # join QUIESCES standalone serving, so it must be able to give it back when
+    # it does not end in a formed cluster — the same single definition the
+    # watcher and detach use, never a fourth partial copy. See the EXIT trap in
+    # cluster-join.sh.
+    ./scripts/cluster-serving-restore.sh
     ./scripts/cluster-join.sh
   ];
 
@@ -123,6 +128,12 @@
     ./scripts/cluster-boot-scope.sh
     ./scripts/cluster-pd-ledger.sh
     ./scripts/cluster-pd-record.sh
+    # Detach DOES reset a counter now, so the note above ("detach resets no
+    # counter") no longer holds for it: it clears the session's kickstart budget
+    # on both its exits, so a failed detach cannot leave the next session
+    # part-spent. Settling rather than deleting is what keeps that from
+    # laundering attempts whose domains are not yet on the ledger.
+    ./scripts/cluster-pd-settle.sh
     ./scripts/cluster-link-locate.sh
     ./scripts/cluster-serving-restore.sh
     ./scripts/cluster-rank-status.sh

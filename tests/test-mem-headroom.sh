@@ -292,6 +292,25 @@ export CLUSTER_PD_AUTO_REBOOT_WINDOW_SECS=21600
 pd_auto_reboot_if_warranted "$halt_file" "$state_dir/pd-auto-reboot-last" up
 check "the memory halt is accepted by the reboot gate" 1 "$(wc -l < "$reboot_log" | tr -d ' ')"
 
+echo "6b. every refused tick BELOW the dwell says so, with the counter:"
+# A guard that accumulates toward an escalation in silence is the shape of every
+# incident in this subsystem that took hours to notice: the dwell is the whole
+# difference between "transient, ignore" and "stuck, reboot", and it used to be
+# observable only in a file nobody reads.
+reset_state
+export CLUSTER_SHARD_MEMORY_MB=1000
+export CLUSTER_MEM_HEADROOM_DWELL_TICKS=3
+write_vmstat 16384 6400 0 0 0
+log="$(mem_headroom_halt_if_persistent "$halt_file" "$latch_file" "$dwell_file" 2>&1 > /dev/null)"
+check "the refusal is logged with its counter" yes \
+  "$(case "$log" in *"refused 1/3 consecutive ticks"*) echo yes ;; *) echo no ;; esac)"
+check "and with the cause, not just the count" yes \
+  "$(case "$log" in *"100MB free"*) echo yes ;; *) echo no ;; esac)"
+log="$(mem_headroom_halt_if_persistent "$halt_file" "$latch_file" "$dwell_file" 2>&1 > /dev/null)"
+check "the counter advances in the log, not only on disk" yes \
+  "$(case "$log" in *"refused 2/3"*) echo yes ;; *) echo no ;; esac)"
+
+
 echo "7. recovery: once memory is sufficient again, the dwell counter resets:"
 reset_state
 export CLUSTER_SHARD_MEMORY_MB=1000
