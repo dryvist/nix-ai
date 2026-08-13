@@ -1,5 +1,6 @@
 {
   ai-assistant-instructions,
+  browser-use-skills,
   jacobpevans-cc-plugins,
   nix-claude-code,
   karpathy-skills,
@@ -22,7 +23,6 @@ let
       anthropic-agent-skills
       bills-claude-skills
       bitwarden-marketplace
-      browser-use-skills
       huggingface-skills
       vct-cribl-pack-validator-skills
       cc-dev-tools
@@ -39,6 +39,7 @@ let
       visual-explainer-marketplace
       wakatime
       ;
+    inherit browser-use-skills;
     inherit jacobpevans-cc-plugins;
     inherit karpathy-skills;
     inherit dashmotion;
@@ -67,6 +68,7 @@ in
     _module.args = {
       inherit
         nix-claude-code
+        browser-use-skills
         marketplaceInputs
         nixpkgs-unstable
         ;

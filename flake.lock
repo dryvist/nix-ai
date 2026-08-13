@@ -120,11 +120,11 @@
     "browser-use-skills": {
       "flake": false,
       "locked": {
-        "lastModified": 1779564354,
-        "narHash": "sha256-ChZBjEkQbiONTkp6qB7ONrFNEmlkVLJeTP78xzEuVGs=",
+        "lastModified": 1786649293,
+        "narHash": "sha256-H2Py3qwaiHn2jWARSIsGSdSSlqUWyJocN2Iq/2nmxiI=",
         "owner": "browser-use",
         "repo": "browser-use",
-        "rev": "d21b3da4ac9c341d66ee064264abda67af36eab3",
+        "rev": "6c73fced2f6d45a11d88622fe56365a5fe18f28b",
         "type": "github"
       },
       "original": {
@@ -548,7 +548,9 @@
         "axton-obsidian-visual-skills": "axton-obsidian-visual-skills",
         "bills-claude-skills": "bills-claude-skills",
         "bitwarden-marketplace": "bitwarden-marketplace",
-        "browser-use-skills": "browser-use-skills",
+        "browser-use-skills": [
+          "browser-use-skills"
+        ],
         "cc-dev-tools": "cc-dev-tools",
         "cc-marketplace": "cc-marketplace",
         "claude-code-plugins": [
@@ -704,6 +706,7 @@
         "ai-assistant-instructions": "ai-assistant-instructions",
         "ai-llm-prompts": "ai-llm-prompts",
         "autoresearch": "autoresearch",
+        "browser-use-skills": "browser-use-skills",
         "claude-code-plugins": "claude-code-plugins",
         "dashmotion": "dashmotion",
         "fabric-src": "fabric-src",

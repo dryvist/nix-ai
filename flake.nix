@@ -42,10 +42,9 @@
       flake = false;
     };
 
-    # Declarative Claude Code module. Owns programs.claude.* schema,
-    # marketplace catalog, synthetic marketplace derivations, lib helpers,
-    # and the byte-equivalence CI fixture. The 20 marketplace inputs that
-    # previously lived in nix-ai are now transitive inputs of this flake.
+    browser-use-skills = { url = "github:browser-use/browser-use"; flake = false; };
+
+    # Declarative Claude Code module and marketplace source.
     nix-claude-code = {
       # Pinned to main explicitly: nix-claude-code is git-flow (default
       # branch develop), so an unref'd url resolves to develop and tracks
@@ -57,6 +56,7 @@
         ai-assistant-instructions.follows = "ai-assistant-instructions";
         claude-code-plugins.follows = "claude-code-plugins";
         jacobpevans-cc-plugins.follows = "jacobpevans-cc-plugins";
+        browser-use-skills.follows = "browser-use-skills";
         # nix-claude-code injects fabric-src as the module arg that our
         # fabric-ai package consumes in the composed home config. Pin it to
         # our own fabric-src so the built source matches lib/versions.nix
@@ -148,6 +148,7 @@
       ai-llm-prompts,
       ai-assistant-instructions,
       jacobpevans-cc-plugins,
+      browser-use-skills,
       nix-claude-code,
       nix-codex,
       nix-agy,
@@ -194,6 +195,7 @@
         inherit
           ai-assistant-instructions
           jacobpevans-cc-plugins
+          browser-use-skills
           nix-claude-code
           karpathy-skills
           nixpkgs-unstable
