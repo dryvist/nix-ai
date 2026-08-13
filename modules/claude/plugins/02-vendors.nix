@@ -37,7 +37,7 @@ _:
     "linear@claude-plugins-official" = false; # Requires Linear API key
 
     # Version Control & Code
-    "github@claude-plugins-official" = true; # Requires GITHUB_PERSONAL_ACCESS_TOKEN; gh CLI is the primary path though
+    "github@claude-plugins-official" = false; # MCP write tools bypass Bash matchers and the OpenBao token model; gh CLI is the only path
     "gitlab@claude-plugins-official" = false; # Requires GitLab API token
     "greptile@claude-plugins-official" = false; # Removed 2026-03-20: not worth cost
 

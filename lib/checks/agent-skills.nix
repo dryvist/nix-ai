@@ -100,5 +100,8 @@ in
     assert
       builtins.elem ".agents/skills/premium-agent-orchestration" managedSkillEntries
       || throw "premium-agent-orchestration skill not discovered from the direct plugin input";
+    assert
+      builtins.elem ".agents/skills/browser-use" managedSkillEntries
+      || throw "browser-use skill not discovered from the enabled Browser Use plugin";
     helpers.mkMarker "check-agent-skills-home-files" "Agent Skills home.file wiring: ${toString (builtins.length managedSkillEntries)} managed skill entries";
 }
