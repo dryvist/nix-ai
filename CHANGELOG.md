@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.11.0](https://github.com/dryvist/nix-ai/compare/v4.10.2...v4.11.0) (2026-08-13)
+
+
+### Features
+
+* add shared Browser Use skill and CLI ([#1614](https://github.com/dryvist/nix-ai/issues/1614)) ([cd3ae46](https://github.com/dryvist/nix-ai/commit/cd3ae46afe56f9c19451758d8b28b0de628ddd23))
+
 ## [4.10.2](https://github.com/dryvist/nix-ai/compare/v4.10.1...v4.10.2) (2026-08-08)
 
 
