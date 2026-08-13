@@ -56,11 +56,11 @@
     "autoresearch": {
       "flake": false,
       "locked": {
-        "lastModified": 1782200080,
-        "narHash": "sha256-nrV6ZUo6Q7p2tzGWCLurur4X8QXuZfOu5ioOZTyaqNQ=",
+        "lastModified": 1786573603,
+        "narHash": "sha256-Hwxlit87HPoHLLDiX/Tz4L5ONvmDf5B71KhTePNLyhU=",
         "owner": "uditgoenka",
         "repo": "autoresearch",
-        "rev": "870e9b8eca4fbe53cd6cb1247410373692e4aec3",
+        "rev": "050e30dc4ba0974b03f2873111b9901ec3211390",
         "type": "github"
       },
       "original": {
@@ -168,11 +168,11 @@
     "claude-code-plugins": {
       "flake": false,
       "locked": {
-        "lastModified": 1785977551,
-        "narHash": "sha256-YOgR6c0E7ah33wVnt5fnmk0LFdRxOrdhJpmnLpy4zVY=",
+        "lastModified": 1786610324,
+        "narHash": "sha256-wl73ydVoBc36xkuaKuKtdAyahVduQqh+gtb9CfTZGIg=",
         "owner": "anthropics",
         "repo": "claude-code",
-        "rev": "5cf69b18c86d0224dc53815332bbd85574b97097",
+        "rev": "be90077c6a353f292fa612d97173865a9ab21b83",
         "type": "github"
       },
       "original": {
@@ -441,11 +441,11 @@
     "jacobpevans-cc-plugins": {
       "flake": false,
       "locked": {
-        "lastModified": 1785697838,
-        "narHash": "sha256-AULu1CEuXES061jWmjYSU/THfpPt/L9rFDP5O0xMuTM=",
+        "lastModified": 1786111298,
+        "narHash": "sha256-E4UuSCP9i2D7cvrpXDK0MBCPIxykhlkDvbN5by4jfRg=",
         "owner": "dryvist",
         "repo": "claude-code-plugins",
-        "rev": "99988ee849e2e05beac894a0ee8f69c53efe50be",
+        "rev": "09a498d93e9d4dd67616ca7e3f3bec0bc87c0332",
         "type": "github"
       },
       "original": {
@@ -489,11 +489,11 @@
     "last30days-skill": {
       "flake": false,
       "locked": {
-        "lastModified": 1785550529,
-        "narHash": "sha256-wwpTbjl3sBDffXf4obDwpNSMEZX59yGWIbzqgaV5958=",
+        "lastModified": 1786139466,
+        "narHash": "sha256-aU0+GboMsmtpoOhJqQfe63EpLHcpuh00Q8ERbTdL3BM=",
         "owner": "mvanhorn",
         "repo": "last30days-skill",
-        "rev": "52f53312ff2f272e16bbc1785e1c04f9d9c19b31",
+        "rev": "1004324ad35a3ba656e6df0faabd54749e398455",
         "type": "github"
       },
       "original": {
@@ -621,11 +621,11 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1785067121,
-        "narHash": "sha256-rdJdWxAcg5fnntU4DjPivPdVEN4F+VJavw+UWpEMeUI=",
+        "lastModified": 1786527240,
+        "narHash": "sha256-OLtJPnSXcRy79Rf7BhYaMeXAVF625FpLcd3+Svq641Y=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "329c3d2af6d1b618705150ea39f72c15eb4e613e",
+        "rev": "e0c84f9d0ad137f076dc957494f5b39885597d4f",
         "type": "github"
       },
       "original": {
@@ -637,11 +637,11 @@
     },
     "nixpkgs-unstable": {
       "locked": {
-        "lastModified": 1785747939,
-        "narHash": "sha256-D740uKsMbgsfK2oaDenJLLPIZfq7W0/g4KN/Fls8eKs=",
+        "lastModified": 1786534138,
+        "narHash": "sha256-fBJMdnKUTUDtfi/BYLr71HLaC9dG382arxLF2Egg2uo=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "104240a772428cc2e20d8fd86c9ddbb886bbaff2",
+        "rev": "044bfe75bfe4c7bbe043dc17b5e42ea823b84a09",
         "type": "github"
       },
       "original": {
@@ -686,11 +686,11 @@
     "ponytail": {
       "flake": false,
       "locked": {
-        "lastModified": 1784151135,
-        "narHash": "sha256-Y7d4s7uqjH6IbEXhqAiQ+yaxr6iiGcv2X64LuMtG1T8=",
+        "lastModified": 1786139041,
+        "narHash": "sha256-bGdXvzhWPwGdz3T2Yh2h6lf+3PBRFAfdBxP5pESmCHI=",
         "owner": "DietrichGebert",
         "repo": "ponytail",
-        "rev": "16f29800fd2681bdf24f3eb4ccffe38be3baec6b",
+        "rev": "2ed6c52c9d7e5e56942508591085fd45dea277d3",
         "type": "github"
       },
       "original": {
