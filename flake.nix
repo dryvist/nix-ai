@@ -42,7 +42,10 @@
       flake = false;
     };
 
-    browser-use-skills = { url = "github:browser-use/browser-use"; flake = false; };
+    browser-use-skills = {
+      url = "github:browser-use/browser-use";
+      flake = false;
+    };
 
     # Declarative Claude Code module and marketplace source.
     nix-claude-code = {
