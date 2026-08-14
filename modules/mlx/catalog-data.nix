@@ -3,8 +3,10 @@
 # (parser stacks, timeout, paged-block sizes, swap tier) are documented in
 # catalog-lib.nix; this file is split out to keep each under the 12KB gate.
 # See catalog-lib.nix for the #1334 KV-quant/MTP flag-availability note.
-# qwen3-next-80b-instruct lives in catalog-data-80b-instruct.nix, merged
-# below, for the same size-gate reason.
+# qwen3-next-80b-instruct and qwen38-27b live in their own files, merged
+# below, for the same size-gate reason. Both carry long measurement notes,
+# which is exactly what pushed this file over the gate — split the entry,
+# never trim the evidence.
 let
   inherit (import ./catalog-lib.nix)
     block256
@@ -14,6 +16,7 @@ let
     ;
 in
 (import ./catalog-data-80b-instruct.nix)
+// (import ./catalog-data-qwen38-27b.nix)
 // {
   # Small resident auxiliary model for bounded classification and judging.
   # OptiQ keeps tool/reasoning compatibility with the Qwen family while the
@@ -67,30 +70,6 @@ in
     classes = {
       resident.flags = { };
       swap.flags = swapFlags;
-    };
-  };
-
-  # Resident Hermes goal judge. This is the smallest already-cached 27B MLX
-  # quant on jevans-ms. Keep it serialized: judging is latency-sensitive but
-  # never needs concurrent decode, and a second prompt would only increase
-  # unified-memory pressure beside the resident 80B worker.
-  qwen36-27b-mxfp4 = {
-    model = "mlx-community/Qwen3.6-27B-mxfp4";
-    weightGb = 15.3;
-    args = [
-      "--chat-template-args"
-      (builtins.toJSON {
-        enable_thinking = false;
-      })
-    ];
-    concurrencyLimit = 1;
-    classes = {
-      resident.flags = {
-        cacheMemoryMb = 8192;
-      };
-      swap.flags = swapFlags // {
-        cacheMemoryMb = 3072;
-      };
     };
   };
 
