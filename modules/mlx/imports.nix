@@ -20,6 +20,7 @@
   # getting it wrong costs the agent its network access, silently.
   ./options-launch.nix
   ./options-batching.nix
+  ./options-judge.nix
   ./options-catalog.nix
   ./options-filters.nix
   ./options-parsers.nix
