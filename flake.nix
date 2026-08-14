@@ -227,8 +227,6 @@
       # comments — see that file. The public `nix-ai.lib.*` shape is unchanged.
       lib = nixAiLib;
 
-      # Quality checks (formatting, linting, dead code, shellcheck, module-eval).
-      #
       # Scoped to x86_64-linux only so `nix flake check --all-systems` succeeds
       # from a single linux runner. All checks in lib/checks.nix are source-only
       # or evaluation-wrapped — running once on the CI system is sufficient.
@@ -270,23 +268,15 @@
             };
         };
 
-      # Expose custom packages for nix-update automation
-      packages = forAllSystems (
-        system:
-        let
-          pkgs = nixpkgs.legacyPackages.${system};
-          cecliPkg = pkgs.callPackage ./modules/cecli/package.nix { };
-          vctCliPkgs = import ./modules/vct-cli/packages.nix {
-            inherit pkgs vct-cribl-cli vct-splunk-cli;
-          };
-        in
-        {
-          fabric-ai = pkgs.callPackage ./modules/fabric/package.nix { inherit fabric-src; };
-          cecli = cecliPkg;
-          inherit (cecliPkg.passthru) mcp;
-          inherit (vctCliPkgs) vct-cribl-cli vct-splunk-cli;
-        }
-      );
+      packages = import ./flake/packages.nix {
+        inherit
+          nixpkgs
+          forAllSystems
+          fabric-src
+          vct-cribl-cli
+          vct-splunk-cli
+          ;
+      };
 
       devShells = forAllSystems (
         system:
