@@ -83,13 +83,41 @@ in
   # incumbent runs without hybridNoPaged and this entry does the same. Do not
   # "fix" that by adding hybridNoPaged on the strength of the layer_types field
   # alone — the incumbent has served this topology in production for weeks.
+  #
+  # Thinking is ON at the model's own baseline. Its reasoning is the reason it
+  # was adopted, so serving it thinking-off gives up what it was chosen for —
+  # but the kwarg cannot simply be dropped either: the chat template defaults
+  # reasoning_effort to 'xhigh' when unset, and at xhigh it does not finish.
+  #
+  # All three measured on an isolated worker (jevans-ms, 2026-08-14), weights
+  # proven from its process command line:
+  #
+  #   unset -> xhigh   0 answer chars, 16399 reasoning, "length" 3/3 (at 4096)
+  #   low              10079 answer, 5051 reasoning, 3842 tokens, "stop" 3/3
+  #   medium           13456 answer, 2334 reasoning, 4243 tokens, "stop"
+  #
+  # medium is chosen: it completes inside this worker's 8192-token budget and
+  # produces the more substantial answer. It reasons LESS than low while
+  # answering more, which is not a contradiction — medium injects NO
+  # instruction at all. The prompt is 89 tokens at medium against 119 at low,
+  # and that 30-token difference IS low's "keep your thinking brief" string.
+  # medium is the model's unsteered baseline, not a step up a dial.
+  #
+  # What is NOT claimed: that either value is bounded. reasoning_effort is a
+  # prompt string the model may ignore, so neither low nor medium is a budget
+  # — only vllm-mlx's thinking_token_budget enforces a real ceiling. Do not
+  # read this pin as protection against a long think.
+  #
+  # No tok/s figure is recorded here on purpose. Decode on this host measured
+  # 17.4-27.3 across runs producing byte-identical output, so a single-run
+  # throughput number for this entry would be noise.
   qwen38-27b = {
     model = "mlx-community/Qwen3.8-27B-4bit";
     weightGb = 16.1;
     args = [
       "--chat-template-args"
       (builtins.toJSON {
-        enable_thinking = false;
+        reasoning_effort = "medium";
       })
     ];
     # NO concurrencyLimit. The entry this replaced carried concurrencyLimit = 1
