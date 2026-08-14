@@ -1,36 +1,58 @@
 # Official mlx_lm.server wrapper carrying the in-process L2 memory limit.
-# Split from default.nix for the 12 KB file-size gate. mlx_lm.server has no
-# memory-limit flag, so the worker is launched through scripts/mlx-lm-launch.py,
-# which sets mx.set_memory_limit + mx.set_cache_limit before serving and then
-# hands off to the server's own argv-parsing entry point. GiB option values
-# become bytes here and are passed in the environment.
+# Split from default.nix for the 12 KB file-size gate. The wrapper body lives
+# in scripts/mlx-lm-server.sh; this file only supplies its build-time values.
 #
-# mlx-lm resolves from the harmony-patched wheel rather than the plain
-# `mlx-lm==<version>` pin: upstream infers no tool parser for gpt-oss, so its
-# harmony tool calls come back as raw markup inside `content` with
-# `tool_calls: null`. See mlx-lm-patch.nix for the defect and the patch.
+# mlx-lm carries the harmony patch rather than being the plain upstream
+# release: upstream infers no tool parser for gpt-oss, so its harmony tool
+# calls come back as raw markup inside `content` with `tool_calls: null`. See
+# mlx-lm-patch.nix for the defect and the patch.
+#
+# The whole stack now resolves from the Nix store (python-overlay.nix) instead
+# of `uv run --with`. uv minted a COMPLETE ~1.4 GB venv per distinct
+# resolution, shared nothing between them (hardlink count 1), and never
+# evicted one: 328 GB of cache on jevans-mbp against a 62 GB Nix store for the
+# entire system. Every live uv process also held a shared lock on that cache,
+# so `uv cache prune` could never take the exclusive lock and exited 0 having
+# freed nothing — which is how it grew unnoticed.
+#
+# PROCESS SHAPE CHANGED — read before touching any pgrep/pkill consumer.
+# This used to exec `uv run ... python launcher`, giving
+# llama-swap -> uv run -> python, THREE pids. It now execs python directly, so
+# there are TWO. launchScriptBasename below is still the single source every
+# pattern derives from, and it is unchanged, so matchers keyed on it keep
+# working; anything keyed on "uv run" does not. See scripts/llama-swap-reap.sh
+# for what a silently-unmatched pattern cost last time (#1368).
 {
   pkgs,
-  lib,
   cfg,
-  uvPythonVersion,
-  mlxLmVersion,
-  mlxPin,
-  transformersPin,
+  versions,
 }:
 let
   gib = 1024 * 1024 * 1024;
-  mlxLmWheel = import ./mlx-lm-patch.nix { inherit pkgs mlxLmVersion; };
+
+  # mlx (Metal wheel) + harmony-patched mlx-lm + transformers, one atomic set.
+  pythonEnv = (import ./python-overlay.nix { inherit pkgs versions; }).withPackages (ps: [
+    ps.mlx-lm
+  ]);
+
+  launcher = ./scripts/mlx-lm-launch.py;
 in
 {
-  pkg = pkgs.writeShellScriptBin "mlx-lm-server" ''
-    export MLX_L1_MEMORY_LIMIT_BYTES=${toString (cfg.memoryHardLimitGb * gib)}
-    ${lib.optionalString (cfg.bufferCacheLimitGb != null)
-      "export MLX_L1_CACHE_LIMIT_BYTES=${toString (cfg.bufferCacheLimitGb * gib)}"
-    }
-    ${lib.optionalString cfg.suppressWiredLimit "export MLX_SUPPRESS_WIRED_LIMIT=1"}
-    exec ${pkgs.uv}/bin/uv run --python ${uvPythonVersion} --with "${mlxLmWheel}" --with "${mlxPin}" --with "${transformersPin}" python ${./scripts/mlx-lm-launch.py} "$@"
-  '';
+  pkg = pkgs.writeShellApplication {
+    name = "mlx-lm-server";
+    text = builtins.readFile (
+      pkgs.replaceVars ./scripts/mlx-lm-server.sh {
+        memoryLimitBytes = toString (cfg.memoryHardLimitGb * gib);
+        # Empty string when unset; the script leaves the variable unexported
+        # rather than passing an empty limit through to mlx.
+        cacheLimitBytes =
+          if cfg.bufferCacheLimitGb == null then "" else toString (cfg.bufferCacheLimitGb * gib);
+        suppressWiredLimit = if cfg.suppressWiredLimit then "1" else "";
+        pythonEnv = "${pythonEnv}";
+        launcher = "${launcher}";
+      }
+    );
+  };
 
   # Basename of the in-process launcher this wrapper execs into. Single
   # source that default.nix's modelServerProcessPattern.mlx-lm derives its
@@ -42,5 +64,5 @@ in
   # mlx-watchdog.sh, mlx-status.sh, cluster-join.sh's quiesce reap) silently
   # matched nothing for months. See scripts/llama-swap-reap.sh for the
   # measured incident.
-  launchScriptBasename = builtins.baseNameOf (toString ./scripts/mlx-lm-launch.py);
+  launchScriptBasename = builtins.baseNameOf (toString launcher);
 }

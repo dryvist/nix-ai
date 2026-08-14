@@ -66,13 +66,9 @@ let
   mlxLmServer = import ./mlx-lm-server.nix {
     inherit
       pkgs
-      lib
       cfg
-      uvPythonVersion
-      mlxPin
-      transformersPin
+      versions
       ;
-    mlxLmVersion = versions.mlxLm;
   };
   mlxLmServerPkg = mlxLmServer.pkg;
   mlxModelServerPkg =

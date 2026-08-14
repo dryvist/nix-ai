@@ -116,5 +116,21 @@ py.override {
       dontCheckRuntimeDeps = true;
       pythonImportsCheck = [ "mlx" ];
     };
+
+    # mlx-lm carrying the harmony (gpt-oss) tool-call parser. The defect and
+    # the patch's degradation contract are documented in mlx-lm-patch.nix; only
+    # the delivery mechanism changes here. Previously the PyPI wheel was
+    # unzipped, patched, and rezipped because that "needs no build step"; a
+    # nixpkgs source derivation makes it an ordinary postPatch, which is both
+    # smaller and keeps nixpkgs' own check phase.
+    #
+    # The pin stays on the 0.31.3 RELEASE. mlx-lm 0.31.3 is upstream's newest
+    # (not a stale pin), and catalog-lib.nix documents that the only route past
+    # it is a git-wheel serverVariant that DROPS --harmony-tool-parser, which
+    # gpt-oss needs. Release-plus-patch is therefore the only viable route —
+    # do not drift toward the git wheel.
+    mlx-lm = super.mlx-lm.overridePythonAttrs (old: {
+      postPatch = (old.postPatch or "") + (import ./mlx-lm-patch.nix { inherit pkgs; }).postPatch;
+    });
   };
 }
