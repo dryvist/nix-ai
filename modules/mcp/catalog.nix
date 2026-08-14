@@ -52,6 +52,8 @@ in
     args = [
       "--from"
       "mcp-server-time==${versions.mcpServerTime}"
+      "--with"
+      versions.mcpSdkBound
       "mcp-server-time"
     ];
   };
@@ -108,6 +110,8 @@ in
       "huggingface-mcp-server==${versions.hfMcpServer}"
       "--with"
       "huggingface-hub==${versions.huggingfaceHub}"
+      "--with"
+      versions.mcpSdkBound
       "huggingface-mcp-server"
     ];
   };

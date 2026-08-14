@@ -52,6 +52,20 @@
   # renovate: datasource=npm depName=@democratize-technology/vikunja-mcp
   vikunjaMcp = "0.2.0";
 
+  # Upper bound for the MCP Python SDK, applied to every uvx-launched server
+  # below. Those servers declare `mcp>=<x>` with no ceiling, so a fresh resolve
+  # installs the 2.x SDK — which renamed the public surface (`server.fastmcp` →
+  # `server.mcpserver`, `McpError` → `MCPError`) and dropped `Server.list_tools`.
+  # The result is a server that dies at import and reports only
+  # `CONNECTION_CLOSED`, which reads as an outage rather than a dependency break.
+  # This supplies the bound upstream omitted; drop it per-server once that
+  # server ships 2.x support.
+  #
+  # Deliberately carries no `renovate:` annotation: it is a compatibility
+  # constraint, not a version pin, and there is nothing here for Renovate to
+  # bump — it is removed by hand when upstream migrates.
+  mcpSdkBound = "mcp<2";
+
   # MCP servers (pypi)
   # renovate: datasource=pypi depName=mcp-server-time
   mcpServerTime = "2026.6.4";

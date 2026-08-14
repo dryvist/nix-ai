@@ -109,6 +109,8 @@
       "uvx"
       "--from"
       "git+https://github.com/basher83/zammad-mcp.git@v${versions.zammadMcp}"
+      "--with"
+      versions.mcpSdkBound
       "mcp-zammad"
     ];
     env_vars = dopplerEnv;
