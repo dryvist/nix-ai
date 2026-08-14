@@ -83,10 +83,6 @@ in
   # incumbent runs without hybridNoPaged and this entry does the same. Do not
   # "fix" that by adding hybridNoPaged on the strength of the layer_types field
   # alone — the incumbent has served this topology in production for weeks.
-  #
-  # Keep it serialized: judging is latency-sensitive but never needs concurrent
-  # decode, and a second prompt would only increase unified-memory pressure
-  # beside the resident 80B worker.
   qwen38-27b = {
     model = "mlx-community/Qwen3.8-27B-4bit";
     weightGb = 16.1;
