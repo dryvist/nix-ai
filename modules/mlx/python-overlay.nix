@@ -72,6 +72,7 @@
   wheelPlatform ? "macosx_26_0_arm64",
 }:
 let
+  inherit (pkgs) lib;
   py = (import ../../lib/python.nix { inherit pkgs; });
   # "3.14" -> "cp314", the wheel's interpreter/ABI tag.
   cpTag = "cp" + (pkgs.lib.replaceStrings [ "." ] [ "" ] py.pythonVersion);
@@ -89,69 +90,82 @@ let
   hashes =
     wheelHashes.${versions.mlx}
       or (throw "python-overlay.nix: no wheel hashes for mlx ${versions.mlx}. Add them to wheelHashes (nix-prefetch-url the cp${cpTag}/${wheelPlatform} wheels from PyPI).");
+  # Apple publishes mlx wheels for aarch64-darwin only, so the override below
+  # cannot build anywhere else. CI evaluates and BUILDS the home-manager config
+  # on x86_64-linux, which reached this package through the serving wrapper and
+  # failed with "No module named 'mlx.core'" — the wheel has no Linux artifact.
+  #
+  # Off Apple silicon, fall back to nixpkgs' mlx. That build is CPU-only (see
+  # the header) and is NEVER what serves: this module's consumers are Macs. It
+  # exists so the config still evaluates on the CI system. The mlx-lm harmony
+  # patch below stays unconditional, so CI still builds and tests it.
+  useAppleWheel = pkgs.stdenv.hostPlatform.isDarwin && pkgs.stdenv.hostPlatform.isAarch64;
 in
 py.override {
   self = py;
-  packageOverrides = _self: super: {
-    mlx = super.buildPythonPackage {
-      pname = "mlx";
-      version = versions.mlx;
-      format = "wheel";
-
-      src = super.fetchPypi {
+  packageOverrides =
+    _self: super:
+    (lib.optionalAttrs useAppleWheel {
+      mlx = super.buildPythonPackage {
         pname = "mlx";
         version = versions.mlx;
         format = "wheel";
-        dist = cpTag;
-        python = cpTag;
-        abi = cpTag;
-        platform = wheelPlatform;
-        hash = hashes.mlx;
+
+        src = super.fetchPypi {
+          pname = "mlx";
+          version = versions.mlx;
+          format = "wheel";
+          dist = cpTag;
+          python = cpTag;
+          abi = cpTag;
+          platform = wheelPlatform;
+          hash = hashes.mlx;
+        };
+
+        nativeBuildInputs = [ pkgs.unzip ];
+        propagatedBuildInputs = [ super.numpy ];
+
+        # Overlay the Metal backend into the same site-packages, matching how the
+        # two wheels compose in a venv. -o so the shared .py files resolve to
+        # mlx-metal's copies, which is the order pip and uv produce.
+        postInstall =
+          let
+            mlxMetalWheel = super.fetchPypi {
+              pname = "mlx_metal";
+              version = versions.mlx;
+              format = "wheel";
+              dist = "py3";
+              python = "py3";
+              abi = "none";
+              platform = wheelPlatform;
+              hash = hashes.mlxMetal;
+            };
+          in
+          ''
+            unzip -qo ${mlxMetalWheel} -d $out/${py.sitePackages}
+          '';
+
+        # mlx-metal is vendored above rather than installed as its own dist, so
+        # the runtime-deps check cannot see it and would fail on "not installed".
+        dontCheckRuntimeDeps = true;
+        pythonImportsCheck = [ "mlx" ];
       };
-
-      nativeBuildInputs = [ pkgs.unzip ];
-      propagatedBuildInputs = [ super.numpy ];
-
-      # Overlay the Metal backend into the same site-packages, matching how the
-      # two wheels compose in a venv. -o so the shared .py files resolve to
-      # mlx-metal's copies, which is the order pip and uv produce.
-      postInstall =
-        let
-          mlxMetalWheel = super.fetchPypi {
-            pname = "mlx_metal";
-            version = versions.mlx;
-            format = "wheel";
-            dist = "py3";
-            python = "py3";
-            abi = "none";
-            platform = wheelPlatform;
-            hash = hashes.mlxMetal;
-          };
-        in
-        ''
-          unzip -qo ${mlxMetalWheel} -d $out/${py.sitePackages}
-        '';
-
-      # mlx-metal is vendored above rather than installed as its own dist, so
-      # the runtime-deps check cannot see it and would fail on "not installed".
-      dontCheckRuntimeDeps = true;
-      pythonImportsCheck = [ "mlx" ];
+    })
+    // {
+      # mlx-lm carrying the harmony (gpt-oss) tool-call parser. The defect and
+      # the patch's degradation contract are documented in mlx-lm-patch.nix; only
+      # the delivery mechanism changes here. Previously the PyPI wheel was
+      # unzipped, patched, and rezipped because that "needs no build step"; a
+      # nixpkgs source derivation makes it an ordinary postPatch, which is both
+      # smaller and keeps nixpkgs' own check phase.
+      #
+      # The pin stays on the 0.31.3 RELEASE. mlx-lm 0.31.3 is upstream's newest
+      # (not a stale pin), and catalog-lib.nix documents that the only route past
+      # it is a git-wheel serverVariant that DROPS --harmony-tool-parser, which
+      # gpt-oss needs. Release-plus-patch is therefore the only viable route —
+      # do not drift toward the git wheel.
+      mlx-lm = super.mlx-lm.overridePythonAttrs (old: {
+        postPatch = (old.postPatch or "") + (import ./mlx-lm-patch.nix { inherit pkgs; }).postPatch;
+      });
     };
-
-    # mlx-lm carrying the harmony (gpt-oss) tool-call parser. The defect and
-    # the patch's degradation contract are documented in mlx-lm-patch.nix; only
-    # the delivery mechanism changes here. Previously the PyPI wheel was
-    # unzipped, patched, and rezipped because that "needs no build step"; a
-    # nixpkgs source derivation makes it an ordinary postPatch, which is both
-    # smaller and keeps nixpkgs' own check phase.
-    #
-    # The pin stays on the 0.31.3 RELEASE. mlx-lm 0.31.3 is upstream's newest
-    # (not a stale pin), and catalog-lib.nix documents that the only route past
-    # it is a git-wheel serverVariant that DROPS --harmony-tool-parser, which
-    # gpt-oss needs. Release-plus-patch is therefore the only viable route —
-    # do not drift toward the git wheel.
-    mlx-lm = super.mlx-lm.overridePythonAttrs (old: {
-      postPatch = (old.postPatch or "") + (import ./mlx-lm-patch.nix { inherit pkgs; }).postPatch;
-    });
-  };
 }
