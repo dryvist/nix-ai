@@ -83,13 +83,25 @@ in
   # incumbent runs without hybridNoPaged and this entry does the same. Do not
   # "fix" that by adding hybridNoPaged on the strength of the layer_types field
   # alone — the incumbent has served this topology in production for weeks.
+  #
+  # Thinking is ON but BOUNDED. This model's reasoning is the reason it was
+  # adopted, so serving it thinking-off gives up what it was chosen for — but
+  # its chat template defaults reasoning_effort to 'xhigh' when the kwarg is
+  # unset, and at xhigh it does not finish. Measured on an isolated worker
+  # (jevans-ms, 2026-08-14, 3 runs, max_tokens 4096): 0 answer characters,
+  # 16399 reasoning characters, finish_reason "length" every run. Pinning
+  # 'low' is what makes it answer: 3/3 runs finish_reason "stop", 10079 answer
+  # against 5051 reasoning characters, 18.03 cumulative / 17.51 decode tok/s,
+  # ~220 s per response. The template accepts only xhigh | medium | low and
+  # raises a template exception on anything else; 'medium' is the model's own
+  # trained baseline and is not yet measured here.
   qwen38-27b = {
     model = "mlx-community/Qwen3.8-27B-4bit";
     weightGb = 16.1;
     args = [
       "--chat-template-args"
       (builtins.toJSON {
-        enable_thinking = false;
+        reasoning_effort = "low";
       })
     ];
     # NO concurrencyLimit. The entry this replaced carried concurrencyLimit = 1

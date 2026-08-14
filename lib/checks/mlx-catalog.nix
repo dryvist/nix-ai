@@ -88,10 +88,16 @@ in
     # regression shipped once and was caught only by reading the deployed
     # llama-swap.json, so assert the absence rather than a value: an entry with
     # no pin inherits proxy.concurrencyLimit, which is the intended contract.
+    # Thinking must also stay BOUNDED. The chat template defaults
+    # reasoning_effort to 'xhigh' when no kwarg is passed, and at xhigh this
+    # model exhausted max_tokens without emitting a single answer character on
+    # 3 of 3 measured runs. An entry carrying no chat-template kwarg therefore
+    # reads as "unconfigured" but serves as "never answers", so assert the
+    # bound is present rather than trusting its absence.
     assert
       !(builtins.hasAttr judge27b c.modelConcurrencyLimits)
-      && builtins.match ".*enable_thinking.*false.*" judgeArgs != null
-      || throw "catalog: the 27B entry must not pin concurrency (a pin of 1 serializes every request where it is resident) and must serve text with thinking disabled";
+      && builtins.match ".*reasoning_effort.*low.*" judgeArgs != null
+      || throw "catalog: the 27B entry must not pin concurrency (a pin of 1 serializes every request where it is resident) and must bound thinking with reasoning_effort=low (unset defaults to xhigh, which never finishes)";
     assert
       builtins.match ".*mlx-model-server --model mlx-community/Qwen3.8-27B-4bit.*" judgeCmd != null
       && builtins.match ".*--log-level INFO.*" judgeCmd != null
