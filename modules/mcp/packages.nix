@@ -36,6 +36,7 @@ let
     modelcontextprotocol."1.0.1" = "sha256-py2wHSblDtTak178rtwVG4nf+T4abWuRYW20xEPKLv0=";
     fabric-mcp."1.2.1" = "sha256-PNJsfq7ipdQIxIDHuzOFsq5bPzrAXt4vqbYaC0+IEN0=";
     huggingface-mcp-server."0.1.0" = "sha256-HpMuEGDX4A5KQiU8P7RCmePnxDBb11uj3fnWYOzv2Ak=";
+    mcp-server-time."2026.6.4" = "sha256-Is6l9+Aa1qd1Cis9OAUekd8IXbkU0p7yuImsprXNaeE=";
   };
 
   hashFor =
@@ -121,6 +122,17 @@ in
         rich
       ])
       ++ [ modelcontextprotocol ];
+  };
+
+  mcp-server-time = wheelApp {
+    pname = "mcp-server-time";
+    version = versions.mcpServerTime;
+    deps = with py; [
+      mcp
+      pydantic
+      tzdata
+      tzlocal
+    ];
   };
 
   huggingface-mcp-server = wheelApp {

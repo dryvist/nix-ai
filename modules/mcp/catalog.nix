@@ -53,14 +53,8 @@ in
     disabled = true;
   };
   time = codexMcp {
-    command = "uvx";
-    args = [
-      "--from"
-      "mcp-server-time==${versions.mcpServerTime}"
-      "--with"
-      versions.mcpSdkBound
-      "mcp-server-time"
-    ];
+    command = "${mcpPkgs.mcp-server-time}/bin/mcp-server-time";
+    args = [ ];
   };
   docker = bunx [ "@modelcontextprotocol/server-docker" ]; # archived
   exa = bunx [ "@modelcontextprotocol/server-exa" ] // {
