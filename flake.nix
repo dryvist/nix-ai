@@ -140,6 +140,15 @@
       flake = false;
     };
 
+    vct-cribl-cli = {
+      url = "github:VisiCore/vct-cribl-cli/main";
+      flake = false;
+    };
+    vct-splunk-cli = {
+      url = "github:VisiCore/vct-splunk-cli/main";
+      flake = false;
+    };
+
   };
 
   outputs =
@@ -161,6 +170,8 @@
       ponytail,
       last30days-skill,
       autoresearch,
+      vct-cribl-cli,
+      vct-splunk-cli,
       ...
     }:
     let
@@ -206,6 +217,8 @@
           ponytail
           last30days-skill
           autoresearch
+          vct-cribl-cli
+          vct-splunk-cli
           ;
       };
 
@@ -214,8 +227,6 @@
       # comments — see that file. The public `nix-ai.lib.*` shape is unchanged.
       lib = nixAiLib;
 
-      # Quality checks (formatting, linting, dead code, shellcheck, module-eval).
-      #
       # Scoped to x86_64-linux only so `nix flake check --all-systems` succeeds
       # from a single linux runner. All checks in lib/checks.nix are source-only
       # or evaluation-wrapped — running once on the CI system is sufficient.
@@ -257,19 +268,16 @@
             };
         };
 
-      # Expose custom packages for nix-update automation
-      packages = forAllSystems (
-        system:
-        let
-          pkgs = nixpkgs.legacyPackages.${system};
-          cecliPkg = pkgs.callPackage ./modules/cecli/package.nix { };
-        in
-        {
-          fabric-ai = pkgs.callPackage ./modules/fabric/package.nix { inherit fabric-src; };
-          cecli = cecliPkg;
-          inherit (cecliPkg.passthru) mcp;
-        }
-      );
+      # Extracted to flake/packages.nix to stay under the 12KB file-size gate.
+      packages = import ./flake/packages.nix {
+        inherit
+          nixpkgs
+          forAllSystems
+          fabric-src
+          vct-cribl-cli
+          vct-splunk-cli
+          ;
+      };
 
       devShells = forAllSystems (
         system:
