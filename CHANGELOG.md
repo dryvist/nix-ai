@@ -1,5 +1,17 @@
 # Changelog
 
+## [4.12.0](https://github.com/dryvist/nix-ai/compare/v4.11.0...v4.12.0) (2026-08-14)
+
+
+### Features
+
+* package VisiCore operator CLIs ([cbecf57](https://github.com/dryvist/nix-ai/commit/cbecf57734bdd2dfaff64710ea11f5c2ca9bc9be))
+
+
+### Bug Fixes
+
+* **mcp:** bound the MCP Python SDK below 2.x for uvx-launched servers ([#1620](https://github.com/dryvist/nix-ai/issues/1620)) ([6ed823a](https://github.com/dryvist/nix-ai/commit/6ed823ac3cba5857b7e7b0ca8824f648a7e8fcda))
+
 ## [4.11.0](https://github.com/dryvist/nix-ai/compare/v4.10.2...v4.11.0) (2026-08-13)
 
 
