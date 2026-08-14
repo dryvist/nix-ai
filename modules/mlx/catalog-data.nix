@@ -91,10 +91,23 @@ in
   # (jevans-ms, 2026-08-14, 3 runs, max_tokens 4096): 0 answer characters,
   # 16399 reasoning characters, finish_reason "length" every run. Pinning
   # 'low' is what makes it answer: 3/3 runs finish_reason "stop", 10079 answer
-  # against 5051 reasoning characters, 18.03 cumulative / 17.51 decode tok/s,
-  # ~220 s per response. The template accepts only xhigh | medium | low and
-  # raises a template exception on anything else; 'medium' is the model's own
-  # trained baseline and is not yet measured here.
+  # against 5051 reasoning characters, 3842 completion tokens.
+  #
+  # The template accepts only xhigh | medium | low. 'medium' was measured too,
+  # and it also completes at this worker's 8192-token budget: 4243 tokens,
+  # 13456 answer against 2334 reasoning characters, finish_reason "stop". It
+  # reasons LESS than low and answers more, which is not a contradiction —
+  # medium injects NO instruction at all (the prompt is 89 tokens against low's
+  # 119, the difference being low's "keep your thinking brief" string), so it
+  # is the model's unsteered baseline rather than a step up a dial.
+  #
+  # low is kept anyway, and the reason is bounding, not quality: low carries an
+  # explicit brevity instruction, so its thinking is bounded by construction,
+  # while medium is unbounded by instruction and differs from xhigh only in
+  # degree. On one 89-token prompt medium is fine; on a hard agentic prompt
+  # nothing stops it running long, and mlx-lm has no mechanism to cap it —
+  # reasoning_effort is a prompt string, not a budget. Revisit when vllm-mlx's
+  # thinking_token_budget can enforce a real ceiling.
   qwen38-27b = {
     model = "mlx-community/Qwen3.8-27B-4bit";
     weightGb = 16.1;
