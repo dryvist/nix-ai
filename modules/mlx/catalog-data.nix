@@ -84,37 +84,40 @@ in
   # "fix" that by adding hybridNoPaged on the strength of the layer_types field
   # alone — the incumbent has served this topology in production for weeks.
   #
-  # Thinking is ON but BOUNDED. This model's reasoning is the reason it was
-  # adopted, so serving it thinking-off gives up what it was chosen for — but
-  # its chat template defaults reasoning_effort to 'xhigh' when the kwarg is
-  # unset, and at xhigh it does not finish. Measured on an isolated worker
-  # (jevans-ms, 2026-08-14, 3 runs, max_tokens 4096): 0 answer characters,
-  # 16399 reasoning characters, finish_reason "length" every run. Pinning
-  # 'low' is what makes it answer: 3/3 runs finish_reason "stop", 10079 answer
-  # against 5051 reasoning characters, 3842 completion tokens.
+  # Thinking is ON at the model's own baseline. Its reasoning is the reason it
+  # was adopted, so serving it thinking-off gives up what it was chosen for —
+  # but the kwarg cannot simply be dropped either: the chat template defaults
+  # reasoning_effort to 'xhigh' when unset, and at xhigh it does not finish.
   #
-  # The template accepts only xhigh | medium | low. 'medium' was measured too,
-  # and it also completes at this worker's 8192-token budget: 4243 tokens,
-  # 13456 answer against 2334 reasoning characters, finish_reason "stop". It
-  # reasons LESS than low and answers more, which is not a contradiction —
-  # medium injects NO instruction at all (the prompt is 89 tokens against low's
-  # 119, the difference being low's "keep your thinking brief" string), so it
-  # is the model's unsteered baseline rather than a step up a dial.
+  # All three measured on an isolated worker (jevans-ms, 2026-08-14), weights
+  # proven from its process command line:
   #
-  # low is kept anyway, and the reason is bounding, not quality: low carries an
-  # explicit brevity instruction, so its thinking is bounded by construction,
-  # while medium is unbounded by instruction and differs from xhigh only in
-  # degree. On one 89-token prompt medium is fine; on a hard agentic prompt
-  # nothing stops it running long, and mlx-lm has no mechanism to cap it —
-  # reasoning_effort is a prompt string, not a budget. Revisit when vllm-mlx's
-  # thinking_token_budget can enforce a real ceiling.
+  #   unset -> xhigh   0 answer chars, 16399 reasoning, "length" 3/3 (at 4096)
+  #   low              10079 answer, 5051 reasoning, 3842 tokens, "stop" 3/3
+  #   medium           13456 answer, 2334 reasoning, 4243 tokens, "stop"
+  #
+  # medium is chosen: it completes inside this worker's 8192-token budget and
+  # produces the more substantial answer. It reasons LESS than low while
+  # answering more, which is not a contradiction — medium injects NO
+  # instruction at all. The prompt is 89 tokens at medium against 119 at low,
+  # and that 30-token difference IS low's "keep your thinking brief" string.
+  # medium is the model's unsteered baseline, not a step up a dial.
+  #
+  # What is NOT claimed: that either value is bounded. reasoning_effort is a
+  # prompt string the model may ignore, so neither low nor medium is a budget
+  # — only vllm-mlx's thinking_token_budget enforces a real ceiling. Do not
+  # read this pin as protection against a long think.
+  #
+  # No tok/s figure is recorded here on purpose. Decode on this host measured
+  # 17.4-27.3 across runs producing byte-identical output, so a single-run
+  # throughput number for this entry would be noise.
   qwen38-27b = {
     model = "mlx-community/Qwen3.8-27B-4bit";
     weightGb = 16.1;
     args = [
       "--chat-template-args"
       (builtins.toJSON {
-        reasoning_effort = "low";
+        reasoning_effort = "medium";
       })
     ];
     # NO concurrencyLimit. The entry this replaced carried concurrencyLimit = 1

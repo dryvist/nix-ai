@@ -88,16 +88,22 @@ in
     # regression shipped once and was caught only by reading the deployed
     # llama-swap.json, so assert the absence rather than a value: an entry with
     # no pin inherits proxy.concurrencyLimit, which is the intended contract.
-    # Thinking must also stay BOUNDED. The chat template defaults
-    # reasoning_effort to 'xhigh' when no kwarg is passed, and at xhigh this
-    # model exhausted max_tokens without emitting a single answer character on
-    # 3 of 3 measured runs. An entry carrying no chat-template kwarg therefore
-    # reads as "unconfigured" but serves as "never answers", so assert the
-    # bound is present rather than trusting its absence.
+    # The reasoning effort must be PINNED EXPLICITLY, to one of the two values
+    # measured to finish. The chat template defaults reasoning_effort to
+    # 'xhigh' when no kwarg is passed, and at xhigh this model exhausted
+    # max_tokens without emitting a single answer character on 3 of 3 measured
+    # runs. So an entry carrying no chat-template kwarg reads as
+    # "unconfigured" but serves as "never answers" — absence is the failure,
+    # which is why this asserts presence rather than trusting a default.
+    #
+    # low and medium are both accepted: both were measured to finish
+    # (finish_reason "stop"), and which one serves is a tuning decision that
+    # should not require editing a regression check. xhigh is excluded by
+    # construction, since it matches neither alternative.
     assert
       !(builtins.hasAttr judge27b c.modelConcurrencyLimits)
-      && builtins.match ".*reasoning_effort.*low.*" judgeArgs != null
-      || throw "catalog: the 27B entry must not pin concurrency (a pin of 1 serializes every request where it is resident) and must bound thinking with reasoning_effort=low (unset defaults to xhigh, which never finishes)";
+      && builtins.match ".*reasoning_effort.*(low|medium).*" judgeArgs != null
+      || throw "catalog: the 27B entry must not pin concurrency (a pin of 1 serializes every request where it is resident) and must pin reasoning_effort to low or medium (unset defaults to xhigh, which never finishes)";
     assert
       builtins.match ".*mlx-model-server --model mlx-community/Qwen3.8-27B-4bit.*" judgeCmd != null
       && builtins.match ".*--log-level INFO.*" judgeCmd != null
