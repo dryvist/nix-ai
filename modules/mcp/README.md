@@ -28,28 +28,15 @@ fetch = official "fetch";
 # nixpkgs binary (resolved via PATH)
 github = { command = "github-mcp-server"; };
 
-# Python package as a Nix derivation (see packages.nix)
+# Python package (Nix derivation)
 huggingface = {
   command = "${mcpPkgs.huggingface-mcp-server}/bin/huggingface-mcp-server";
   args = [ ];
 };
 ```
 
-### Do not add a new `uvx` MCP server
-
-Python MCP servers are built as Nix derivations in
-[`packages.nix`](packages.nix), not launched through `uvx`. A live `uvx`
-process holds a **shared lock on `~/.cache/uv/.lock` for its entire
-lifetime**. These servers are long-lived — one per agent session, many
-concurrent — so an exclusive lock is never free and `uv cache prune` times out
-and **exits 0 having freed nothing**. The cache reached 328 GB that way: not
-because nobody pruned, but because pruning could not succeed and reported
-success anyway.
-
-To add a Python server: add its version pin to `lib/versions.nix` (with the
-`# renovate:` annotation), then add an entry plus its wheel hash to
-`packages.nix`. Most pure-python servers need only their nixpkgs dependencies
-listed.
+Python servers are Nix derivations in [`packages.nix`](packages.nix). Never
+`uvx` — a live uvx process holds a uv-cache lock that blocks all pruning.
 
 ### SSE / HTTP (remote servers)
 
