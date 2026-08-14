@@ -16,7 +16,7 @@ in
       gptOss = "mlx-community/gpt-oss-120b-MXFP4-Q8";
       next80 = "mlx-community/Qwen3-Next-80B-A3B-Thinking-4bit";
       next80Instruct = "mlx-community/Qwen3-Next-80B-A3B-Instruct-4bit";
-      judge27b = "mlx-community/Qwen3.6-27B-mxfp4";
+      judge27b = "mlx-community/Qwen3.8-27B-4bit";
       optiqFlags = c.modelFlagOverrides.${optiq};
       judgeArgs = builtins.concatStringsSep " " c.modelExtraArgs.${judge27b};
       commandBuilder = import ../../modules/mlx/model-server-cmd.nix {
@@ -74,7 +74,7 @@ in
       && builtins.match ".*enable_thinking.*false.*" judgeArgs != null
       || throw "catalog: 27B judge must use bounded single-concurrency text serving";
     assert
-      builtins.match ".*mlx-model-server --model mlx-community/Qwen3.6-27B-mxfp4.*" judgeCmd != null
+      builtins.match ".*mlx-model-server --model mlx-community/Qwen3.8-27B-4bit.*" judgeCmd != null
       && builtins.match ".*--log-level INFO.*" judgeCmd != null
       && builtins.match ".*--max-tokens 8192.*" judgeCmd != null
       && builtins.match ".*--decode-concurrency ${conc judge27b}.*" judgeCmd != null

@@ -61,7 +61,7 @@ let
           qwen35-9b-optiq = {
             class = "swap";
           };
-          qwen36-27b-mxfp4 = {
+          qwen38-27b = {
             class = "resident";
             roles = [ "goal-judge" ];
           };

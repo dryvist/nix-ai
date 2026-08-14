@@ -70,13 +70,26 @@ in
     };
   };
 
-  # Resident Hermes goal judge. This is the smallest already-cached 27B MLX
-  # quant on jevans-ms. Keep it serialized: judging is latency-sensitive but
-  # never needs concurrent decode, and a second prompt would only increase
-  # unified-memory pressure beside the resident 80B worker.
-  qwen36-27b-mxfp4 = {
-    model = "mlx-community/Qwen3.6-27B-mxfp4";
-    weightGb = 15.3;
+  # Resident Hermes goal judge and default small/midsize model.
+  #
+  # Drop-in successor to qwen36-27b-mxfp4: both are model_type qwen3_5_text with
+  # an IDENTICAL attention topology — 64 layers split 16 full_attention /
+  # 48 linear_attention, num_key_value_heads 4, head_dim 256 (read from each
+  # model's own config.json on jevans-ms, 2026-08-14). Same geometry means the
+  # incumbent's validated serve flags transfer verbatim; nothing here is guessed.
+  #
+  # Note this family is HYBRID attention but is NOT qwen3_next: it does not hit
+  # the mlx-lm#1162 paged-block reconstruction failure, which is why the
+  # incumbent runs without hybridNoPaged and this entry does the same. Do not
+  # "fix" that by adding hybridNoPaged on the strength of the layer_types field
+  # alone — the incumbent has served this topology in production for weeks.
+  #
+  # Keep it serialized: judging is latency-sensitive but never needs concurrent
+  # decode, and a second prompt would only increase unified-memory pressure
+  # beside the resident 80B worker.
+  qwen38-27b = {
+    model = "mlx-community/Qwen3.8-27B-4bit";
+    weightGb = 16.1;
     args = [
       "--chat-template-args"
       (builtins.toJSON {
