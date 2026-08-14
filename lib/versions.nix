@@ -86,12 +86,16 @@
   # 0.4.0 adds GPT-OSS/harmony prompt rendering for tool calls (required to
   # serve gpt-oss models with working tool calling) and requires
   # mlx-lm>=0.31.3, which forces the mlx/mlx-lm pins below forward together.
+  # 0.4.1 keeps that floor (mlx>=0.29.0, mlx-lm>=0.31.3, mlx-vlm>=0.6.5), so the
+  # pins below still satisfy it. Bumping this pin ALSO requires regenerating the
+  # wheel url + hash in modules/mlx/vllm-mlx-patch.nix — that derivation fetches
+  # one literal PyPI wheel path, so a version-only bump fails to build.
   # renovate: datasource=pypi depName=vllm-mlx
-  vllmMlx = "0.4.0";
+  vllmMlx = "0.4.1";
   # renovate: datasource=pypi depName=parakeet-mlx
   parakeetMlx = "0.5.2";
   # renovate: datasource=pypi depName=mlx-vlm
-  mlxVlm = "0.6.10";
+  mlxVlm = "0.6.13";
   # The nix-ai#751 hold at mlx 0.31.1 is RESOLVED: vllm-mlx 0.4.0 is built
   # against mlx 0.31.2 / mlx-lm 0.31.3 (it requires mlx-lm>=0.31.3), and the
   # cross-thread stream crash ("There is no Stream(gpu, N) in current thread")
@@ -117,7 +121,7 @@
   # string key mlx-lm passes), taking every worker down. The rule there carries
   # the reproduction detail.
   # renovate: datasource=pypi depName=transformers
-  transformers = "5.14.1";
+  transformers = "5.15.0";
   # renovate: datasource=pypi depName=lm-eval
   lmEval = "0.4.12";
 

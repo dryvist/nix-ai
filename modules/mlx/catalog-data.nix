@@ -70,27 +70,51 @@ in
     };
   };
 
-  # Resident Hermes goal judge. This is the smallest already-cached 27B MLX
-  # quant on jevans-ms. Keep it serialized: judging is latency-sensitive but
-  # never needs concurrent decode, and a second prompt would only increase
-  # unified-memory pressure beside the resident 80B worker.
-  qwen36-27b-mxfp4 = {
-    model = "mlx-community/Qwen3.6-27B-mxfp4";
-    weightGb = 15.3;
+  # Resident Hermes goal judge and default small/midsize model.
+  #
+  # Drop-in successor to qwen36-27b-mxfp4: both are model_type qwen3_5_text with
+  # an IDENTICAL attention topology — 64 layers split 16 full_attention /
+  # 48 linear_attention, num_key_value_heads 4, head_dim 256 (read from each
+  # model's own config.json on jevans-ms, 2026-08-14). Same geometry means the
+  # incumbent's validated serve flags transfer verbatim; nothing here is guessed.
+  #
+  # Note this family is HYBRID attention but is NOT qwen3_next: it does not hit
+  # the mlx-lm#1162 paged-block reconstruction failure, which is why the
+  # incumbent runs without hybridNoPaged and this entry does the same. Do not
+  # "fix" that by adding hybridNoPaged on the strength of the layer_types field
+  # alone — the incumbent has served this topology in production for weeks.
+  #
+  # Keep it serialized: judging is latency-sensitive but never needs concurrent
+  # decode, and a second prompt would only increase unified-memory pressure
+  # beside the resident 80B worker.
+  qwen38-27b = {
+    model = "mlx-community/Qwen3.8-27B-4bit";
+    weightGb = 16.1;
     args = [
       "--chat-template-args"
       (builtins.toJSON {
         enable_thinking = false;
       })
     ];
-    concurrencyLimit = 1;
+    # NO concurrencyLimit. The entry this replaced carried concurrencyLimit = 1
+    # because it was a latency-sensitive judge that never needed concurrent
+    # decode. This entry is the fleet brain every role resolves to, so pinning
+    # it to 1 would make llama-swap serialize every request on the host.
     classes = {
-      resident.flags = {
-        cacheMemoryMb = 8192;
+      # Fleet-brain resident profile, matched to the entry it takes over from:
+      # HIGH caps for 40-58K agentic contexts. maxRequestTokens 65536 is load
+      # bearing — 32768 fed a truncation/retry death-loop.
+      resident.flags = block512 // {
+        cacheMemoryMb = 16384;
+        maxNumSeqs = 8;
+        maxRequestTokens = 65536;
       };
-      swap.flags = swapFlags // {
-        cacheMemoryMb = 3072;
-      };
+      swap.flags =
+        block256
+        // swapFlags
+        // {
+          cacheMemoryMb = 3072;
+        };
     };
   };
 
