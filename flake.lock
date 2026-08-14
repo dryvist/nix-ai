@@ -719,7 +719,9 @@
         "nix-codex": "nix-codex",
         "nixpkgs": "nixpkgs",
         "nixpkgs-unstable": "nixpkgs-unstable",
-        "ponytail": "ponytail"
+        "ponytail": "ponytail",
+        "vct-cribl-cli": "vct-cribl-cli",
+        "vct-splunk-cli": "vct-splunk-cli"
       }
     },
     "superpowers-marketplace": {
@@ -760,6 +762,23 @@
         "type": "github"
       }
     },
+    "vct-cribl-cli": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1786510833,
+        "narHash": "sha256-GYyoevkFbiAJwdjf4f276+YkW3F35xdqSA03XSmQQCc=",
+        "owner": "VisiCore",
+        "repo": "vct-cribl-cli",
+        "rev": "16566f9a5559cacd310423e0d1ebe5687e9776fc",
+        "type": "github"
+      },
+      "original": {
+        "owner": "VisiCore",
+        "ref": "main",
+        "repo": "vct-cribl-cli",
+        "type": "github"
+      }
+    },
     "vct-cribl-pack-validator-skills": {
       "flake": false,
       "locked": {
@@ -773,6 +792,23 @@
       "original": {
         "owner": "VisiCore",
         "repo": "vct-cribl-pack-validator",
+        "type": "github"
+      }
+    },
+    "vct-splunk-cli": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1785935386,
+        "narHash": "sha256-5/mijd0hHb4uZWMJa6jGmMjqpvxyHpWC8YGpk1G1bKs=",
+        "owner": "VisiCore",
+        "repo": "vct-splunk-cli",
+        "rev": "2e47882fb77de2833e01f10a365f00376d80228f",
+        "type": "github"
+      },
+      "original": {
+        "owner": "VisiCore",
+        "ref": "main",
+        "repo": "vct-splunk-cli",
         "type": "github"
       }
     },
