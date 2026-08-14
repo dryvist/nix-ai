@@ -268,6 +268,7 @@
             };
         };
 
+      # Extracted to flake/packages.nix to stay under the 12KB file-size gate.
       packages = import ./flake/packages.nix {
         inherit
           nixpkgs
