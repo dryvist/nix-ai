@@ -96,14 +96,25 @@ in
         enable_thinking = false;
       })
     ];
-    concurrencyLimit = 1;
+    # NO concurrencyLimit. The entry this replaced carried concurrencyLimit = 1
+    # because it was a latency-sensitive judge that never needed concurrent
+    # decode. This entry is the fleet brain every role resolves to, so pinning
+    # it to 1 would make llama-swap serialize every request on the host.
     classes = {
-      resident.flags = {
-        cacheMemoryMb = 8192;
+      # Fleet-brain resident profile, matched to the entry it takes over from:
+      # HIGH caps for 40-58K agentic contexts. maxRequestTokens 65536 is load
+      # bearing — 32768 fed a truncation/retry death-loop.
+      resident.flags = block512 // {
+        cacheMemoryMb = 16384;
+        maxNumSeqs = 8;
+        maxRequestTokens = 65536;
       };
-      swap.flags = swapFlags // {
-        cacheMemoryMb = 3072;
-      };
+      swap.flags =
+        block256
+        // swapFlags
+        // {
+          cacheMemoryMb = 3072;
+        };
     };
   };
 
