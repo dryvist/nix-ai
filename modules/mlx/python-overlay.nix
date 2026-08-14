@@ -73,7 +73,7 @@
 }:
 let
   inherit (pkgs) lib;
-  py = (import ../../lib/python.nix { inherit pkgs; });
+  py = import ../../lib/python.nix { inherit pkgs; };
   # "3.14" -> "cp314", the wheel's interpreter/ABI tag.
   cpTag = "cp" + (pkgs.lib.replaceStrings [ "." ] [ "" ] py.pythonVersion);
 

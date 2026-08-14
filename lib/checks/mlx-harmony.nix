@@ -10,7 +10,6 @@
 { pkgs, hmConfigCatalog }:
 let
   helpers = import ./helpers.nix { inherit pkgs; };
-  versions = import ../versions.nix;
   patchSrc = ../../modules/mlx/mlx-lm-patch;
   # The patched mlx-lm source. Was an unzipped wheel; mlx-lm now carries the
   # harmony patch as a postPatch (modules/mlx/python-overlay.nix), and

@@ -8,6 +8,12 @@
 #
 # Validate a check on a Mac by naming the system explicitly:
 #   nix eval '.#checks.x86_64-linux.<check>.drvPath'
+#
+# The lint checks are the ones this bites most often, because they are pure
+# source scans that a Mac can run directly — but only if you invoke them, since
+# `nix flake check` skips them here. Run both before pushing:
+#   nix run nixpkgs#statix -- check .
+#   nix run nixpkgs#deadnix -- -L --fail .
 {
   pkgs,
   src,
