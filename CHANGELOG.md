@@ -1,5 +1,22 @@
 # Changelog
 
+## [4.13.0](https://github.com/dryvist/nix-ai/compare/v4.12.0...v4.13.0) (2026-08-14)
+
+
+### Features
+
+* **mlx:** add resident judge model in its own llama-swap group ([d6d598b](https://github.com/dryvist/nix-ai/commit/d6d598b478723d8a4b33eadb81a7a2c655905403))
+* **mlx:** add resident judge model in its own llama-swap group ([c98b25b](https://github.com/dryvist/nix-ai/commit/c98b25bc346466f2b4f278ad2cd1e723f5adfbec))
+* **mlx:** adopt Qwen3.8-27B-4bit and bump the local-LLM stack ([edebe9b](https://github.com/dryvist/nix-ai/commit/edebe9bb72c06d72bb2189ac4a6ab6a334f0ca51))
+* **mlx:** adopt Qwen3.8-27B-4bit and bump the local-LLM stack ([6851a94](https://github.com/dryvist/nix-ai/commit/6851a941ad4806b8ff79ee4209f3d6b7a9284b6e))
+
+
+### Bug Fixes
+
+* **mlx:** give qwen38-27b the fleet-brain resident profile ([8f61eed](https://github.com/dryvist/nix-ai/commit/8f61eedada74dd712dadce127eedf3cd9739cf85))
+* **mlx:** serve the Qwen3.8-27B with thinking on at reasoning_effort=medium ([#1627](https://github.com/dryvist/nix-ai/issues/1627)) ([c23ad1e](https://github.com/dryvist/nix-ai/commit/c23ad1eee36ff8da8911486bfbd2255aa96cf144))
+* **mlx:** unbreak develop — 27B catalog check asserted a removed concurrency pin ([#1626](https://github.com/dryvist/nix-ai/issues/1626)) ([b22505c](https://github.com/dryvist/nix-ai/commit/b22505cc48c27ce05a7dee105b827952b6602e0a))
+
 ## [4.12.0](https://github.com/dryvist/nix-ai/compare/v4.11.0...v4.12.0) (2026-08-14)
 
 
