@@ -31,15 +31,21 @@
 # silently overwrites the first. Installing both into ONE derivation
 # reproduces that layout honestly.
 #
-# Everything above mlx (mlx-lm, transformers, tokenizers) comes from nixpkgs
-# unchanged; packageOverrides makes mlx-lm rebuild against the wheel mlx.
-#
 # ATOMICITY
 #
-# mlx / mlx-lm / transformers are ONE set — see lib/python.nix. Expressing them
-# in a single overlay makes a partial bump unrepresentable, rather than merely
-# prohibited by a Renovate exclusion that a config edit could get wrong. The
-# two cluster nodes must resolve identical builds or ranks fail to rendezvous.
+# mlx / mlx-lm / transformers are ONE set — see lib/python.nix — and all three
+# are pinned here from lib/versions.nix. Expressing them in a single overlay
+# makes a partial bump unrepresentable, rather than merely prohibited by a
+# Renovate exclusion that a config edit could get wrong.
+#
+# transformers is pinned rather than left at whatever nixpkgs ships. nixpkgs
+# currently carries a version roughly ten minors behind the pin. Measured
+# 2026-08-14 against the real model snapshot, both render a BYTE-IDENTICAL chat
+# template with tools, so parser selection and the bytes reaching the model are
+# unchanged — no breakage was found either way. It is pinned because
+# lib/versions.nix declares itself the single source of truth for shared deps,
+# and letting one path silently follow a different number contradicts that; the
+# drift stays invisible until some future model exposes it.
 {
   pkgs,
   versions,
@@ -65,6 +71,15 @@ let
       mlxMetal = "sha256-OvdqSY2EgE9mEZgASZ+dFD19/7CHig3Q18KEblhWX9c=";
     };
   };
+
+  # The transformers SDIST hash. One per version, platform-independent — unlike
+  # the mlx wheels above, which are per macOS deployment target.
+  transformersHashes = {
+    "5.15.0" = "sha256-u/mPV7Ld18TsvM+iwAaQF6pv0BzCBL1Qy8Durc8qE7g=";
+  };
+  transformersHash =
+    transformersHashes.${versions.transformers}
+      or (throw "python-overlay.nix: no wheel hash for transformers ${versions.transformers}. Add it to transformersHashes (the .tar.gz sdist on PyPI).");
   hashes =
     wheelHashes.${versions.mlx}
       or (throw "python-overlay.nix: no wheel hashes for mlx ${versions.mlx}. Add them to wheelHashes (nix-prefetch-url the cp${cpTag}/${wheelPlatform} wheels from PyPI).");
@@ -116,6 +131,31 @@ py.override {
       dontCheckRuntimeDeps = true;
       pythonImportsCheck = [ "mlx" ];
     };
+
+    # Pinned to lib/versions.nix rather than riding whatever nixpkgs ships, so
+    # one number governs both this path and the uvx path. Rationale and the
+    # byte-identical-template measurement are in the header.
+    transformers = super.transformers.overridePythonAttrs (old: {
+      version = versions.transformers;
+      # The sdist, not the wheel: nixpkgs builds transformers as a `pyproject`
+      # derivation, and mk-python-derivation asserts pyproject and an explicit
+      # `format` are mutually exclusive. Overriding only version+src keeps the
+      # existing build style and makes this a two-line change.
+      src = super.fetchPypi {
+        pname = "transformers";
+        version = versions.transformers;
+        hash = transformersHash;
+      };
+      # nixpkgs pins patches to the version it ships; they will not apply to a
+      # newer sdist.
+      patches = [ ];
+      # Upstream moves its dependency floors between minors, and this jumps
+      # several. The set is validated by the harmony tests and a live generate
+      # rather than by nixpkgs' metadata check.
+      dontCheckRuntimeDeps = true;
+      doCheck = false;
+      pythonImportsCheck = old.pythonImportsCheck or [ "transformers" ];
+    });
 
     # mlx-lm carrying the harmony (gpt-oss) tool-call parser. The defect and
     # the patch's degradation contract are documented in mlx-lm-patch.nix; only
