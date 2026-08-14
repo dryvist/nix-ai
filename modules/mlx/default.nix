@@ -239,35 +239,16 @@ let
     groupSwap = cfg.proxy.groupSwap;
   };
 
-  # Judge model + its own group — merged in directly rather than through
-  # llamaSwapTopology, which only compiles a two-bucket resident/swap shape.
-  # See options-judge.nix for why this stays outside that compiler.
-  judgeModels = lib.optionalAttrs cfg.judge.enable {
-    ${cfg.judge.model} = {
-      cmd =
-        mkModelCmd cfg.judge.model
-        + lib.optionalString (cfg.judge.extraArgs != [ ]) (" " + lib.escapeShellArgs cfg.judge.extraArgs);
-      ttl = 0; # persistent group already keeps it resident; no idle unload
-      env = workerEnv;
-      checkEndpoint = "/v1/models";
-      aliases = cfg.judge.aliases;
-      useModelName = cfg.judge.model;
-      concurrencyLimit = effectiveConcurrency cfg.judge.model;
-    }
-    // lib.optionalAttrs (defaultFilters != { }) { filters = defaultFilters; };
-  };
-
-  # persistent = true: protected from unload when the main mlx-models group's
-  # exclusive=true evicts every OTHER group on load. exclusive = false: this
-  # group never evicts anything itself. Net effect: never evicted, never
-  # evicts — a real third bucket the topology compiler doesn't have.
-  judgeGroups = lib.optionalAttrs cfg.judge.enable {
-    mlx-judge-model = {
-      swap = false;
-      exclusive = false;
-      persistent = true;
-      members = [ cfg.judge.model ];
-    };
+  # Judge model entries, split to ./judge-topology.nix for the file-size gate.
+  judgeTopology = import ./judge-topology.nix {
+    inherit
+      lib
+      cfg
+      mkModelCmd
+      workerEnv
+      effectiveConcurrency
+      defaultFilters
+      ;
   };
 
   llamaSwapConfigAttrs = {
@@ -280,8 +261,8 @@ let
   }
   // llamaSwapTopology
   // {
-    models = (llamaSwapTopology.models or { }) // judgeModels;
-    groups = (llamaSwapTopology.groups or { }) // judgeGroups;
+    models = (llamaSwapTopology.models or { }) // judgeTopology.models;
+    groups = (llamaSwapTopology.groups or { }) // judgeTopology.groups;
   };
 
   # Use pkgs.writeText because command strings embed Nix store paths.
