@@ -41,6 +41,12 @@ let
 
   hmConfig = mkHmConfig [ ];
 
+  hmConfigVctCli = mkHmConfig [
+    {
+      programs.vctCli.enable = true;
+    }
+  ];
+
   # Second evaluation with fabric REST API LaunchAgent enabled — used by the
   # fabric-launchd positive check (default eval has enableServer = false).
   hmConfigFabricServer = mkHmConfig [ { programs.fabric.enableServer = true; } ];
@@ -153,6 +159,13 @@ in
 // (import ./checks/codex.nix { inherit pkgs hmConfig; })
 // (import ./checks/qwen-code.nix { inherit pkgs hmConfig; })
 // (import ./checks/antigravity-cli.nix { inherit pkgs hmConfig; })
+// (import ./checks/vct-cli.nix {
+  inherit
+    pkgs
+    hmConfig
+    hmConfigVctCli
+    ;
+})
 // (import ./checks/mcp.nix { inherit pkgs hmConfig; })
 // (import ./checks/autonomous-profile.nix {
   inherit pkgs;

@@ -9,6 +9,8 @@
   ponytail,
   last30days-skill,
   autoresearch,
+  vct-cribl-cli,
+  vct-splunk-cli,
 }:
 let
   # Marketplace flake inputs now live inside nix-claude-code. Surface the
@@ -71,6 +73,8 @@ in
         browser-use-skills
         marketplaceInputs
         nixpkgs-unstable
+        vct-cribl-cli
+        vct-splunk-cli
         ;
     };
   };

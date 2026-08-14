@@ -97,6 +97,7 @@ in
     ./session-archive.nix
     ./session-sync.nix
     ./token-meter.nix
+    ./vct-cli
   ];
 
   config = {
