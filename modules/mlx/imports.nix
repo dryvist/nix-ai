@@ -25,6 +25,7 @@
   ./options-filters.nix
   ./options-parsers.nix
   ./options-runtime.nix
+  ./options-model-backends.nix
   ./options-residency.nix
   ./options-cluster.nix
   ./options-cluster-pd-reboot.nix
