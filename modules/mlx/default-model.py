@@ -43,6 +43,11 @@ def _load_keymap() -> tuple[str | None, dict[str, str]]:
     return data.get("declared"), data.get("keys", {})
 
 
+def _physical(keys: dict[str, str], key: str | None) -> str:
+    """Physical id for ``key``, or a marker. Takes None so callers need no cast."""
+    return keys.get(key, "(unset)") if key is not None else "(unset)"
+
+
 def _read_override() -> str | None:
     path = _env_path("MLX_DEFAULT_MODEL_OVERRIDE")
     if not path.is_file():
@@ -112,13 +117,35 @@ def cmd_apply() -> None:
             print(
                 "=" * 72
                 + f"\nMLX DEFAULT MODEL OVERRIDE ACTIVE\n"
-                + f"  declared (Nix): {declared} -> {keys.get(declared, '(unset)')}\n"
+                + f"  declared (Nix): {declared} -> {_physical(keys, declared)}\n"
                 + f"  override (run): {override} -> {keys[override]}\n"
                 + "  clear with: mlx-default-model clear\n"
                 + "=" * 72
             )
 
-    if effective is None or effective not in keys:
+    if effective is None:
+        # No defaultModelKey declared. That is a normal, supported config: the
+        # "default" alias then comes from a catalog entry's own roles list and
+        # this script must leave it alone. What is NOT normal is no model
+        # holding the alias at all — every caller asking for "default" 404s —
+        # so distinguish the two rather than sharing one bare return.
+        if not any(ALIAS in e.get("aliases", []) for e in models.values()):
+            print(
+                'ERROR: no model holds the "default" alias and no '
+                "programs.mlx.defaultModelKey is declared — every request for "
+                '"default" will 404. Set defaultModelKey, or give a catalog '
+                'entry roles = [ "default" ].',
+                file=sys.stderr,
+            )
+        return
+    if effective not in keys:
+        # Only reachable if the DECLARED key is absent from its own keymap,
+        # which the Nix assertions forbid — so it means the keymap is stale.
+        print(
+            f"ERROR: declared default {effective!r} is not in the keymap; "
+            f"the llama-swap config was left unchanged. Re-run darwin-rebuild.",
+            file=sys.stderr,
+        )
         return
     if _repoint(config, keys[effective]):
         _write_json(config_path, config)
@@ -147,7 +174,7 @@ def cmd_clear() -> None:
 def cmd_show() -> None:
     declared, keys = _load_keymap()
     override = _read_override()
-    print(f"declared (Nix): {declared} -> {keys.get(declared, '(unset)')}")
+    print(f"declared (Nix): {declared or '(none)'} -> {_physical(keys, declared)}")
     if override is None:
         print("override:       none — serving the declared default")
         return
