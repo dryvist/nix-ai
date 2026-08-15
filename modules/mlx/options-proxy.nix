@@ -29,13 +29,17 @@ let
   # ceiling sets the largest single-request KV reservation to budget for.
   maxGrantedRequestTokens = 65536;
   kvPerSeqGiB = (kvPerTokenDenseKiB * maxGrantedRequestTokens) / (1024 * 1024);
-  # Headroom after the peak weight, sliced into pessimistic-KV portions:
-  # the count of concurrent max-length requests the budget supports. Clamped
-  # to at least 1 — a memoryHardLimitGb set below peakWeightGiB is already a
-  # broken host (it can't hold the heaviest catalog model at all), and the
-  # unclamped division would otherwise crash `ints.between` at eval with an
-  # opaque "lowest must be smaller than highest" instead of surfacing here.
-  concurrencyLimitCeiling = lib.max 1 ((perWorkerBudgetGiB - peakWeightGiB) / kvPerSeqGiB);
+  # Memory-only headroom after the peak weight, sliced into pessimistic-KV
+  # portions: how many concurrent max-length requests the budget FITS.
+  # Fitting in memory is necessary but not sufficient — concurrencyLimit also
+  # sets --decode-concurrency/--prompt-concurrency on Apple Silicon's single
+  # GPU, where throughput collapses well before memory runs out. 4 is that
+  # separate operator judgment about practical decode concurrency, not a
+  # memory bound, so it caps the memory-derived value rather than replacing
+  # it: tighten on memory, never loosen past operator judgment.
+  operatorConcurrencyCap = 4;
+  memoryFitCeiling = lib.max 1 ((perWorkerBudgetGiB - peakWeightGiB) / kvPerSeqGiB);
+  concurrencyLimitCeiling = lib.min operatorConcurrencyCap memoryFitCeiling;
 in
 {
   options.programs.mlx = {
@@ -93,10 +97,10 @@ in
         '';
       };
       concurrencyLimit = lib.mkOption {
-        # The ceiling is derived above from the residency budget, not chosen:
-        # (perWorkerBudgetGiB - peakWeightGiB) / kvPerSeqGiB, expressed in the
-        # type so a value the hardware cannot honor cannot be represented
-        # rather than merely being remembered.
+        # The ceiling is derived above from the residency budget, then capped
+        # at operatorConcurrencyCap (throughput, not memory, is the limit
+        # past that point) — expressed in the type so a value the hardware
+        # cannot honor cannot be represented rather than merely remembered.
         type = lib.types.ints.between 1 concurrencyLimitCeiling;
         default = 1;
         description = ''
@@ -112,12 +116,15 @@ in
           cron kills: the proxy admitted 4 while the server served 1, and the
           excess came back as 429.
 
-          Default 1, ceiling ${toString concurrencyLimitCeiling} on this host
-          (derives from programs.mlx.memoryHardLimitGb, currently
-          ${toString perWorkerBudgetGiB} GiB): the largest number of
-          concurrent maxGrantedRequestTokens-length requests the worker's
-          memory budget can hold at once, after the peak resident model's
-          own weight footprint. 1 serializes and
+          Default 1, ceiling ${toString concurrencyLimitCeiling} on this host:
+          min(operatorConcurrencyCap = ${toString operatorConcurrencyCap}, memory fit
+          = ${toString memoryFitCeiling}). Memory fit derives from
+          programs.mlx.memoryHardLimitGb (currently ${toString perWorkerBudgetGiB} GiB)
+          — the largest number of concurrent maxGrantedRequestTokens-length
+          requests the worker's memory budget can hold after the peak
+          resident model's own weight footprint. The operator cap holds
+          regardless: more requests would fit in memory long before Apple
+          Silicon's single GPU could actually decode them concurrently. 1 serializes and
           defeats continuous batching; that is the accepted trade while the
           simplest non-crashing configuration is the goal. Raising it means
           raising the server's real capacity at the same time, which now
