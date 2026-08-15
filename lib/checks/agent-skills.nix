@@ -27,6 +27,7 @@ in
       "enable"
       "fromFlakeInputs"
       "local"
+      "categories"
       "root"
     ];
   };
@@ -46,10 +47,19 @@ in
         actual = builtins.length cfg.fromFlakeInputs > 0;
         expected = true;
       }
+      # `local` is no longer empty: file-organizer's upstream layout matches no
+      # discovery pattern, so it is wired by path. Assert the entry is present
+      # rather than pinning the whole attrset — a second local skill should not
+      # break this check, but silently losing this one should.
       {
-        name = "agentSkills.local";
-        actual = cfg.local;
-        expected = { };
+        name = "agentSkills.local.file-organizer";
+        actual = cfg.local ? file-organizer;
+        expected = true;
+      }
+      {
+        name = "agentSkills.categories.populated";
+        actual = cfg.categories != { };
+        expected = true;
       }
       {
         name = "agentSkills.root";
@@ -117,6 +127,23 @@ in
     assert
       builtins.elem ".codex/skills/browser-use" managedSkillEntries
       || throw "browser-use skill not discovered from the enabled Browser Use plugin";
+    assert
+      builtins.elem ".codex/skills/why" managedSkillEntries
+      || throw "why skill not discovered from the context-engineering-kit input";
+    assert
+      builtins.elem ".codex/skills/kaizen" managedSkillEntries
+      || throw "kaizen skill not discovered from the context-engineering-kit input";
+    assert
+      builtins.elem ".codex/skills/managing-dependencies" managedSkillEntries
+      || throw "managing-dependencies skill not discovered from its flake input";
+    assert
+      builtins.elem ".codex/skills/file-organizer" managedSkillEntries
+      || throw "file-organizer skill not deployed from programs.agentSkills.local";
+    # The INDEX is what the loader-less harnesses (Copilot, cecli) actually read,
+    # so a flat rebuild there is a silent regression for them specifically.
+    assert
+      builtins.match ".*\n## [^\n]+\n.*" skillIndex != null
+      || throw "Agent Skills INDEX.md has no category headings";
     helpers.mkMarker "check-agent-skills-home-files" "Agent Skills home.file wiring: ${toString (builtins.length managedSkillEntries)} managed skill entries";
 
   # Dryvist selects the cross-harness standard root. Prove the override moves

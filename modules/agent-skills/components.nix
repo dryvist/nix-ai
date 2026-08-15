@@ -34,15 +34,36 @@ let
   # skills). Harnesses without a native skill loader (Copilot, cecli) are
   # pointed at this file from their instruction context, so any file-capable
   # agent can discover and follow the shared skills.
+  #
+  # Grouped by category so the list stays navigable as it grows. A skill listed
+  # under two categories appears twice on purpose — the reader arrives from one
+  # domain or the other and should find it either way.
+  allSkillNames = lib.unique (map (c: c.name) cfg.fromFlakeInputs ++ builtins.attrNames cfg.local);
+
+  # Only categories that actually match a deployed skill become a heading, so a
+  # category naming a skill from a removed input silently disappears instead of
+  # rendering an empty section.
+  categorized = lib.filterAttrs (_: names: names != [ ]) (
+    lib.mapAttrs (_: names: lib.intersectLists names allSkillNames) cfg.categories
+  );
+  uncategorized = lib.subtractLists (lib.unique (lib.concatLists (builtins.attrValues categorized))) allSkillNames;
+
+  renderSection = title: names: ''
+    ## ${title}
+
+    ${lib.concatMapStrings (n: "- ${n}\n") (lib.sort (a: b: a < b) names)}
+  '';
+
   skillIndex = ''
     # Shared Agent Skills
 
     Reusable skills live in `~/${skillRoot}/<name>/SKILL.md`. When a task
-    matches a skill below, read its SKILL.md and follow it.
+    matches a skill below, read its SKILL.md and follow it. A skill may appear
+    under more than one category.
 
-    ${lib.concatMapStrings (n: "- ${n}\n") (
-      lib.unique (map (c: c.name) cfg.fromFlakeInputs ++ builtins.attrNames cfg.local)
-    )}'';
+    ${lib.concatStrings (lib.mapAttrsToList renderSection categorized)}${
+      lib.optionalString (uncategorized != [ ]) (renderSection "Uncategorized" uncategorized)
+    }'';
 
   mkSkillFiles =
     components:
