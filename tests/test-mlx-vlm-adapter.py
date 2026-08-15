@@ -83,10 +83,20 @@ with tempfile.TemporaryDirectory() as tmp:
     check("data uri is decoded to disk", pathlib.Path(path).read_bytes() == payload)
     check("suffix comes from the mime type", path.endswith(".png"), f"got {path!r}")
 
-    # Anything that is not a data: or http(s) URL must be refused rather than
-    # resolved: treating it as a path would let a caller read any file the
-    # worker process can reach.
-    for hostile in ("/etc/passwd", "../../etc/passwd", "file:///etc/passwd", ""):
+    # Only data: URIs are accepted. A filesystem path would read any file the
+    # worker can reach; an http(s) URL would make the worker issue requests
+    # from inside the serving host, reaching internal services the caller
+    # cannot address directly. Both are refused rather than resolved, so both
+    # are pinned here — an accidental re-introduction of remote fetch is the
+    # regression this list exists to catch.
+    for hostile in (
+        "/etc/passwd",
+        "../../etc/passwd",
+        "file:///etc/passwd",
+        "http://169.254.169.254/latest/meta-data/",
+        "https://example.internal/secret.png",
+        "",
+    ):
         try:
             adapter.materialize_image(hostile, tmp, 1)
             check(f"refuses non-url image ref {hostile!r}", False, "no exception raised")
@@ -96,7 +106,6 @@ with tempfile.TemporaryDirectory() as tmp:
 # --- constants ------------------------------------------------------------
 
 check("body cap is set and sane", 1024 * 1024 <= adapter.MAX_BODY_BYTES <= 512 * 1024 * 1024)
-check("fetch timeout is bounded", 0 < adapter.FETCH_TIMEOUT_S <= 120)
 
 print(f"\n{len(failures)} failure(s)")
 sys.exit(1 if failures else 0)

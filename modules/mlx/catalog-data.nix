@@ -24,10 +24,17 @@ in
   # mlx-vlm carries this architecture explicitly — its prompt_utils MODEL_CONFIG
   # registry maps model_type "unlimited-ocr" to a single-image message format.
   #
+  # WEIGHTS MUST BE PRE-CACHED, exactly as for qwen35-9b-mlx above — run
+  # `hf download mlx-community/Unlimited-OCR-bf16` on the serving host before
+  # enabling this. HF_HUB_OFFLINE=1 makes an uncached id 502 for minutes rather
+  # than fetch. Note the near-miss names already on disk there
+  # (LoJexLLM/Unlimited-OCR-MLX, baidu/Unlimited-OCR) are DIFFERENT repos and
+  # do not satisfy this id.
+  #
   # swap only, never resident: OCR is bursty and 6.7 GB of bf16 weights should
   # not sit in the co-residency budget between documents. No swapFlags — those
   # are mlx_lm serve flags (maxNumSeqs/maxRequestTokens/autoUnloadIdleSeconds)
-  # and mlx_vlm.server rejects all of them; idle unload comes from llama-swap's
+  # that the mlx-vlm adapter rejects; idle unload comes from llama-swap's
   # proxy-side ttl instead, which the host sets via catalog tweaks.ttl.
   #
   # concurrencyLimit 1: a full-page VLM decode is a long single-stream job, and

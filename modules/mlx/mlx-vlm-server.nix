@@ -13,13 +13,14 @@
 # thread, and a model whose own implementation forces a GPU sync while building
 # input embeddings then fails every request with
 # "RuntimeError: There is no Stream(gpu, 2) in current thread".
-# Measured against mlx-vlm 0.6.13 (latest at time of writing) with
-# mlx-community/Unlimited-OCR-bf16: the model loads, one-shot
-# mlx_vlm.generate() returns correct OCR, and every mlx_vlm.server request
-# fails. --max-num-seqs 1 does not avoid it — the failure is the threading
-# model, not batch width. The adapter keeps the same wire contract and runs
-# generation on the main thread instead. Full rationale in the script's
-# docstring; revisit if upstream fixes the threading path.
+# Measured against mlx-vlm 0.6.13 (latest at time of writing) with the OCR
+# entry in ./catalog-data.nix — which is the only place a physical id belongs,
+# so this note names the behaviour rather than the id: the model loads,
+# one-shot mlx_vlm.generate() returns correct OCR, and every mlx_vlm.server
+# request fails. --max-num-seqs 1 does not avoid it — the failure is the
+# threading model, not batch width. The adapter keeps the same wire contract
+# and runs generation on the main thread instead. Full rationale in the
+# script's docstring; revisit if upstream fixes the threading path.
 #
 # The binary is named "mlx-model-server" to match the vllm-mlx adapter and the
 # mlx-lm launcher: llama-swap's cmd contract is identical across backends, so

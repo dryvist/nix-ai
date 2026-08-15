@@ -37,8 +37,9 @@ the same backend selection. Serves:
     GET  /v1/models           the one loaded model
     POST /v1/chat/completions OpenAI chat completions, image content parts
 
-Images arrive as OpenAI image_url parts, either a data: URI or an http(s) URL.
-They are written to a temp file because mlx_vlm.generate() takes paths.
+Images arrive as OpenAI image_url parts and must be data: URIs — see
+materialize_image() for why remote URLs are refused rather than fetched. They
+are written to a temp file because mlx_vlm.generate() takes paths.
 
 NOT SUPPORTED, deliberately: streaming, tool calls, multi-model hosting,
 audio/video. llama-swap already supplies multi-model hosting and idle
@@ -55,7 +56,6 @@ import re
 import sys
 import tempfile
 import time
-import urllib.request
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 DATA_URI = re.compile(r"^data:(?P<mime>[\w./+-]+);base64,(?P<payload>.*)$", re.DOTALL)
@@ -65,7 +65,6 @@ DATA_URI = re.compile(r"^data:(?P<mime>[\w./+-]+);base64,(?P<payload>.*)$", re.D
 # several times over, while still refusing a body that could only be a mistake
 # or an attempt to exhaust memory.
 MAX_BODY_BYTES = 64 * 1024 * 1024
-FETCH_TIMEOUT_S = 30
 
 # Bound in main() before the server accepts a connection, so every handler
 # sees a loaded model. Declared here rather than as a class attribute so the
@@ -109,19 +108,22 @@ class ModelRunner:
 
 
 def materialize_image(url: str, tmpdir: str, index: int) -> str:
-    """Write an OpenAI image_url payload to a file and return its path."""
+    """Write an OpenAI image_url data: payload to a file and return its path.
+
+    DATA URIs ONLY, BY DESIGN. The OpenAI schema also allows an http(s) URL,
+    and honouring it would hand any caller a request primitive originating
+    from inside the serving host — a server-side request forgery reaching
+    internal services the caller cannot address directly. Nothing here needs
+    it: callers already hold the page bytes and send them inline. A bare
+    filesystem path is refused for the mirror-image reason, since resolving it
+    would read any file the worker can reach.
+    """
     match = DATA_URI.match(url)
-    if match:
-        raw = base64.b64decode(match.group("payload"))
-        suffix = match.group("mime").split("/")[-1] or "png"
-    elif url.startswith(("http://", "https://")):
-        with urllib.request.urlopen(url, timeout=FETCH_TIMEOUT_S) as response:
-            raw = response.read()
-        suffix = os.path.splitext(url)[1].lstrip(".") or "png"
-    else:
-        # A bare filesystem path would let a caller read any file the worker
-        # can reach, so it is refused rather than resolved.
-        raise ValueError("image_url must be a data: URI or an http(s) URL")
+    if not match:
+        raise ValueError("image_url must be a data: URI carrying base64 image bytes")
+
+    raw = base64.b64decode(match.group("payload"))
+    suffix = match.group("mime").split("/")[-1] or "png"
 
     path = os.path.join(tmpdir, f"image-{index}.{suffix}")
     with open(path, "wb") as handle:
