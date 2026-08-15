@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.14.0](https://github.com/dryvist/nix-ai/compare/v4.13.0...v4.14.0) (2026-08-15)
+
+
+### Features
+
+* **mlx,mcp:** deliver the always-running Python stack from the Nix store ([#1625](https://github.com/dryvist/nix-ai/issues/1625)) ([1b6baac](https://github.com/dryvist/nix-ai/commit/1b6baac32021019a7ccf892644affef0189b36e0))
+
 ## [4.13.0](https://github.com/dryvist/nix-ai/compare/v4.12.0...v4.13.0) (2026-08-14)
 
 
