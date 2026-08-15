@@ -3,6 +3,11 @@
   lib,
   cfg,
   mlxModelServerPkg,
+  # Per-backend server packages, for models whose backend differs from the
+  # host's. Optional and empty by default so callers that only ever serve the
+  # host backend (lib/checks) keep working unchanged; any backend missing here
+  # falls back to mlxModelServerPkg.
+  mlxModelServerPkgs ? { },
 }:
 rec {
   # SINGLE DEFINITION of per-model concurrency. Both consumers derive from it:
@@ -47,7 +52,8 @@ rec {
   mkModelCmd =
     modelId:
     let
-      backend = cfg.modelServerBackend;
+      backend = cfg.modelBackends.${modelId} or cfg.modelServerBackend;
+      serverPkg = mlxModelServerPkgs.${backend} or mlxModelServerPkg;
       overrides = cfg.modelFlagOverrides.${modelId} or { };
       unknown = lib.filter (k: !(lib.elem k overridableFlags)) (lib.attrNames overrides);
       c =
@@ -169,14 +175,25 @@ rec {
           c.harmonyToolParser
         ]
       );
+      # mlx_vlm.server shares only --model/--port/--host with mlx_lm.server;
+      # none of the mlx-lm tuning flags above exist on it, so this set stays
+      # deliberately bare rather than reusing mlxLmFlags. Idle unload is not a
+      # worker flag here either — mlx_vlm.server has none, so llama-swap's
+      # proxy-side ttl is the only eviction path (see modelTtls).
+      # --trust-remote-code: the vision OCR architectures this backend exists to
+      # serve ship custom modelling code. Weights are already resolved from the
+      # local HF cache with HF_HUB_OFFLINE=1 (worker-env.nix), so this executes
+      # pinned on-disk code, never anything fetched at serve time.
+      mlxVlmFlags = "--trust-remote-code";
       mlxModelServerFlags =
         {
           mlx-lm = mlxLmFlags;
           vllm-mlx = vllmMlxFlags;
+          mlx-vlm = mlxVlmFlags;
         }
         .${backend};
     in
-    "${lib.getExe mlxModelServerPkg} --model ${modelId} --port \${PORT} --host ${c.host}${
+    "${lib.getExe serverPkg} --model ${modelId} --port \${PORT} --host ${c.host}${
       lib.optionalString (mlxModelServerFlags != "") " ${mlxModelServerFlags}"
     }";
 

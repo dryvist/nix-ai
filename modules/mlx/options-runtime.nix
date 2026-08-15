@@ -200,6 +200,30 @@
       description = "Per-physical-model override of programs.mlx.proxy.concurrencyLimit (llama-swap in-flight cap), for models that must be serialized independent of the global default.";
     };
 
+    # modelBackends — per-physical-id override of modelServerBackend. The host
+    # backend serves text LLMs; a vision-language model cannot run on it at all
+    # (mlx_lm.server has no image path), so the backend has to be selectable per
+    # model rather than per host. Absent id falls back to modelServerBackend, so
+    # leaving this empty reproduces the previous single-backend behaviour
+    # exactly. Only the worker binary and its flag set change — the proxy,
+    # registry, TTL and concurrency surfaces stay backend-neutral.
+    modelBackends = lib.mkOption {
+      type = lib.types.attrsOf (
+        lib.types.enum [
+          "mlx-lm"
+          "vllm-mlx"
+          "mlx-vlm"
+        ]
+      );
+      default = { };
+      example = lib.literalExpression ''
+        {
+          "mlx-community/<vision-language-model>" = "mlx-vlm";
+        }
+      '';
+      description = "Per-physical-model override of programs.mlx.modelServerBackend, for models the host backend cannot serve (e.g. vision-language models needing mlx_vlm.server).";
+    };
+
     # Per-physical-id llama-swap lifecycle for role-registry models. This is
     # backend-neutral: unlike vllm-mlx's worker-side auto-unload flag, the
     # proxy TTL also unloads official mlx_lm workers.
