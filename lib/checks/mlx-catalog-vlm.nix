@@ -12,7 +12,11 @@
 # mlx-lm launcher and the mlx-vlm wrapper "mlx-model-server", so asserting
 # against that shared name would pass even if per-model routing silently fell
 # back to the host backend. Distinct stub names make the routing observable.
-{ pkgs, hmConfigCatalog }:
+{
+  pkgs,
+  hmConfigCatalog,
+  src,
+}:
 let
   c = hmConfigCatalog.config.programs.mlx;
   ocr = "mlx-community/Unlimited-OCR-bf16";
@@ -57,4 +61,15 @@ in
       c.modelTtls.${ocr} == 600
       || throw "catalog: OCR must carry its per-entry 600s TTL — the only eviction path a VLM worker has";
     pkgs.runCommand "check-mlx-catalog-vlm" { } "touch $out";
+
+  # Request-handling unit tests for the adapter the mlx-vlm backend runs. The
+  # generation path needs a real model and is exercised by hand; these cover
+  # the message/image parsing around it, including the refusal of image refs
+  # that are not data: or http(s) URLs.
+  #
+  # `&&`, never `;`: with a semicolon touch $out runs even when the test exits
+  # non-zero, so the derivation succeeds and the check can never fail.
+  mlx-vlm-adapter = pkgs.runCommand "check-mlx-vlm-adapter" { } ''
+    ${pkgs.python3}/bin/python3 ${src}/tests/test-mlx-vlm-adapter.py && touch $out
+  '';
 }

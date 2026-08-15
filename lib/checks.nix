@@ -193,7 +193,7 @@ in
   render = renderAutonomous;
 })
 // (import ./checks/mlx.nix { inherit pkgs hmConfig; })
-// (import ./checks/mlx-catalog-vlm.nix { inherit pkgs hmConfigCatalog; })
+// (import ./checks/mlx-catalog-vlm.nix { inherit pkgs hmConfigCatalog src; })
 // (import ./checks/mlx-single-model.nix { inherit pkgs src; })
 // (import ./checks/mlx-bash32.nix { inherit pkgs hmConfig src; })
 // (import ./checks/mlx-watchdog.nix { inherit pkgs src; })

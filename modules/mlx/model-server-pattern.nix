@@ -43,13 +43,16 @@
   lib,
   cfg,
   mlxLmServer,
+  mlxVlmServer,
 }:
 let
   patterns = {
     mlx-lm = lib.escapeRegex mlxLmServer.launchScriptBasename;
     vllm-mlx = "vllm-mlx serve";
-    # uvx runs the module, so argv carries the bare dotted module name.
-    mlx-vlm = lib.escapeRegex "mlx_vlm.server";
+    # uvx runs the adapter script, so argv carries its basename as a Nix store
+    # path suffix — same shape as the mlx-lm launcher above, and derived from
+    # the same single source for the same reason.
+    mlx-vlm = lib.escapeRegex mlxVlmServer.launchScriptBasename;
   };
   backendsInUse = lib.unique ([ cfg.modelServerBackend ] ++ lib.attrValues cfg.modelBackends);
   selected = map (backend: patterns.${backend}) backendsInUse;
