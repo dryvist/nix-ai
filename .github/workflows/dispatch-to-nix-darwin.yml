@@ -26,9 +26,14 @@
 #
 # Releasing is the right granularity: it fires once per release instead of once
 # per commit, matches how the sibling flake libraries (nix-claude-code,
-# nix-home) already dispatch, and matches what consumers actually track. The
-# repos that dispatch on plain `push` are content repos with no release cycle;
-# this one has release-please, so use it.
+# nix-home) already dispatch, and matches what consumers actually track.
+#
+# The split across this org is by INPUT KIND, not by whether a repo cuts
+# releases — every dispatching repo here does. Repos that dispatch on plain
+# `push` (ai-assistant-instructions, claude-code-plugins) carry no flake.nix
+# and are consumed as non-flake sources, where a relock is a small diff with no
+# transitive deps. Flake libraries like this one pull a whole dependency tree
+# with them, so they dispatch on release.
 name: Dispatch lock updates on release
 
 on:
