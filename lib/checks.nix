@@ -96,6 +96,25 @@ let
     }
   ];
 
+  # Evaluation exercising programs.mlx.defaultModelKey (lib/checks/
+  # mlx-default-model.nix): the declared default is one catalog entry, the
+  # runtime override re-points it at another — the two-Mac shape where the
+  # serving config is shared and only this key differs.
+  hmConfigDefaultModel = mkHmConfig [
+    {
+      programs.mlx = {
+        defaultModelKey = "qwen38-27b";
+        catalog = {
+          qwen38-27b.class = "resident";
+          qwen36-35b = {
+            class = "resident";
+            roles = [ "goal-judge" ];
+          };
+        };
+      };
+    }
+  ];
+
   # Fourth evaluation exercising programs.mlx.clusterMode as the coordinator
   # (lib/checks/mlx-cluster.nix): rank env contract, watcher wiring, prefetch.
   hmConfigCluster = mkHmConfig [
@@ -192,6 +211,7 @@ in
 // (import ./checks/mlx-worker-reap.nix { inherit pkgs hmConfig src; })
 // (import ./checks/mlx-warmup.nix { inherit pkgs src; })
 // (import ./checks/mlx-catalog.nix { inherit pkgs hmConfigCatalog; })
+// (import ./checks/mlx-default-model.nix { inherit pkgs hmConfigDefaultModel; })
 // (import ./checks/mlx-harmony.nix { inherit pkgs hmConfigCatalog; })
 // (import ./checks/mlx-cluster.nix { inherit pkgs hmConfigCluster src; })
 // (import ./checks/mlx-cluster-peer-env.nix { inherit pkgs hmConfigCluster src; })

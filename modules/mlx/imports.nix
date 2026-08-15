@@ -22,6 +22,7 @@
   ./options-batching.nix
   ./options-judge.nix
   ./options-catalog.nix
+  ./options-default-model.nix
   ./options-filters.nix
   ./options-parsers.nix
   ./options-runtime.nix

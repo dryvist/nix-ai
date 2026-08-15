@@ -93,6 +93,16 @@ in
           text = builtins.readFile ./scripts/mlx-default.sh;
         })
 
+        # mlx-default-model — set/clear/show the runtime override for which
+        # catalog key holds the "default" role. Writes the mutable llama-swap
+        # config, which the proxy re-reads via --watch-config: no rebuild.
+        (pkgs.writeShellScriptBin "mlx-default-model" ''
+          export MLX_LLAMA_SWAP_CONFIG="${llamaSwapRuntimeConfigPath}"
+          export MLX_DEFAULT_MODEL_KEYMAP="${cfg.defaultModelKeymapFile}"
+          export MLX_DEFAULT_MODEL_OVERRIDE="${cfg.defaultModelOverridePath}"
+          exec ${pkgs.python3}/bin/python3 ${./default-model.py} "$@"
+        '')
+
         # mlx-warmup — fault the declared preload list into resident memory
         mlxWarmupPkg
 
