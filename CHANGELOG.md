@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.16.1](https://github.com/dryvist/nix-ai/compare/v4.16.0...v4.16.1) (2026-08-15)
+
+
+### Bug Fixes
+
+* **mcp:** keep optional data tests out of runtime builds ([2e717e9](https://github.com/dryvist/nix-ai/commit/2e717e944899264dbfc0af20a2a8116ffbc38624))
+
 ## [4.16.0](https://github.com/dryvist/nix-ai/compare/v4.15.0...v4.16.0) (2026-08-15)
 
 
