@@ -39,6 +39,14 @@
 #                    to check shardingMode: mlx-lm's pipeline and tensor-parallel
 #                    paths support disjoint architecture sets, and the wrong
 #                    choice is silent — no split, full model on every rank.
+#   backend          (optional) the model server this entry MUST run on, when
+#                    the host backend cannot serve it at all — vision-language
+#                    models need mlx_vlm.server because mlx_lm.server has no
+#                    image input path. Compiles to programs.mlx.modelBackends.
+#                    Omit for every text model: absent means "inherit
+#                    programs.mlx.modelServerBackend". An entry that sets this
+#                    must NOT reuse swapFlags below — those are mlx_lm serve
+#                    flags and no other backend accepts them.
 #   args             family serve args, applied in every class
 #   classes.<class>  validated profile: { flags = modelFlagOverrides attrs }
 #     resident — preload-capable agent brain (host preload list still decides
