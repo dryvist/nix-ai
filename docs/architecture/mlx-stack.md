@@ -9,7 +9,13 @@ plus shared libraries and operational behaviour.
 | ---- | ------- | ------- | -------------- |
 | Ears (Audio) | `parakeet-mlx` | Real-time speech-to-text | `uvx` wrapper (Nix derivation) |
 | Eyes (Vision) | `mlx-vlm` | Screen/camera image analysis | `uvx` wrapper (Nix derivation) |
-| Brain (LLM) | `vllm-mlx` | LLM inference API server | `uvx` wrapper (LaunchAgent) |
+| Brain (LLM) | `mlx-lm` (`mlx_lm.server`) | LLM inference API server | Nix store (LaunchAgent, fronted by llama-swap) |
+
+`mlx-lm` is the only backend that serves. `vllm-mlx` is preserved but disabled:
+the code still carries it, and `modules/mlx/assertions.nix` fails evaluation
+unless `modelServerBackend` and `enabledBackends` are `mlx-lm` alone. A
+vision-language model may opt into `mlx-vlm` per model through
+`programs.mlx.modelBackends`.
 
 ## Dependency Graph
 
@@ -19,12 +25,11 @@ graph TD
         subgraph "User-Facing Tools"
             EARS["Ears — parakeet-mlx<br/><i>Speech-to-text</i>"]
             EYES["Eyes — mlx-vlm<br/><i>Vision analysis</i>"]
-            BRAIN["Brain — vllm-mlx<br/><i>LLM inference API</i>"]
+            BRAIN["Brain — mlx_lm.server<br/><i>LLM inference API</i>"]
         end
 
         subgraph "Shared Libraries"
             MLX_LM["mlx-lm"]
-            MLX_EMB["mlx-embeddings"]
             TRANSFORMERS["transformers"]
             HF_HUB["huggingface-hub"]
         end
@@ -49,13 +54,11 @@ graph TD
     EYES --> OPENCV
 
     BRAIN --> MLX_LM
-    BRAIN --> MLX_EMB
     BRAIN --> TRANSFORMERS
     BRAIN --> HF_HUB
 
     MLX_LM --> MLX
     MLX_LM --> TRANSFORMERS
-    MLX_EMB --> MLX
 ```
 
 ## Version Management
@@ -71,7 +74,7 @@ Two delivery paths, split by whether a working Nix package exists:
 | Component | Delivery | Why |
 | --------- | -------- | --- |
 | `mlx`, `mlx-lm`, `transformers` | Nix store (`modules/mlx/python-overlay.nix`) | Always-running serving path; needs dedup and GC |
-| `parakeet-mlx`, `vllm-mlx` | `uvx` wrapper | Not packaged in nixpkgs |
+| `parakeet-mlx`, `vllm-mlx` (preserved, disabled) | `uvx` wrapper | Not packaged in nixpkgs |
 | `mlx-vlm` | `uvx` wrapper | nixpkgs lags the pinned version |
 
 The serving stack moved off `uv run --with` because uv's cache is append-only
@@ -120,16 +123,23 @@ overlay's wheel mlx (`modules/mlx/python-overlay.nix`), which reports
 server's `system_fingerprint` ends in the GPU id (e.g. `applegpu_g16s`) when
 Metal is live.
 
-**Tool-call parser compatibility**: vllm-mlx defaults to `--tool-call-parser hermes`. Only Qwen
-models pass tool-calling validation with this parser; GLM and Seed-OSS models fail with output
-format errors despite correct reasoning. To use non-Qwen models for tool calling, switch to
-`auto` or a model-specific parser in the llama-swap config.
+**Tool-call parsing**: the mlx-lm backend uses the patched wheel's
+`--harmony-tool-parser` (`auto` by default; `on`/`off` pinned per model in
+`modules/mlx/catalog-data.nix`). `auto` engages only on turns that open with
+harmony markup, so it is inert for every other model. The `--tool-call-parser`
+flag and its hermes/Qwen compatibility caveat belong to the disabled vllm-mlx
+path only — `programs.mlx.toolCallParser` emits nothing while mlx-lm serves.
 
 **Idle penalty**: llama-swap evicts an idle model after `proxy.idleTtl` (default 15 min;
 the worker's `autoUnloadIdleSeconds` failsafe fires at 30 min). The next request pays a
 full reload — seconds for a small MoE, ~60-120s for a 120B model.
 
-**Resident vs swap tiers**: the resident registry comes from `services.aiStack.models`
+**Resident vs swap tiers**: a server-class host is the intelligence tier — it
+optimises for answer quality, not throughput, so it keeps several models
+resident rather than swapping for speed. The live roster is the registry itself
+(`services.aiStack.models` plus the catalog entries in
+`modules/mlx/catalog-data*.nix`), never a list copied into prose. The resident
+registry comes from `services.aiStack.models`
 and the `preload` list. Server-class hosts keep several resident models warm by setting
 `groupSwap = false`, listing each resident role in `preload`, and disabling eviction
 for that tier (`proxy.idleTtl = 0`, `autoUnloadIdleSeconds = 0`). The separate
