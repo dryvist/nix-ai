@@ -16,11 +16,6 @@ let
   legacySkillFileEntries = builtins.filter (
     n: builtins.match "^\\.codex/skills/.+/SKILL\\.md$" n != null
   ) homeFileNames;
-  # Derived from cfg.root, never hardcoded: the canonical root is selectable
-  # (~/.codex/skills or ~/.agents/skills) and a literal path here would break
-  # the moment the default flips, in a check whose whole job is to notice that.
-  skillRoot = if cfg.root == "codex" then ".codex/skills" else ".agents/skills";
-  indexText = hmConfig.config.home.file."${skillRoot}/INDEX.md".text;
 in
 {
   # Verify all expected Agent Skills option paths exist.
@@ -133,21 +128,21 @@ in
       builtins.elem ".codex/skills/browser-use" managedSkillEntries
       || throw "browser-use skill not discovered from the enabled Browser Use plugin";
     assert
-      builtins.elem ".agents/skills/why" managedSkillEntries
+      builtins.elem ".codex/skills/why" managedSkillEntries
       || throw "why skill not discovered from the context-engineering-kit input";
     assert
-      builtins.elem ".agents/skills/kaizen" managedSkillEntries
+      builtins.elem ".codex/skills/kaizen" managedSkillEntries
       || throw "kaizen skill not discovered from the context-engineering-kit input";
     assert
-      builtins.elem ".agents/skills/managing-dependencies" managedSkillEntries
+      builtins.elem ".codex/skills/managing-dependencies" managedSkillEntries
       || throw "managing-dependencies skill not discovered from its flake input";
     assert
-      builtins.elem ".agents/skills/file-organizer" managedSkillEntries
+      builtins.elem ".codex/skills/file-organizer" managedSkillEntries
       || throw "file-organizer skill not deployed from programs.agentSkills.local";
     # The INDEX is what the loader-less harnesses (Copilot, cecli) actually read,
     # so a flat rebuild there is a silent regression for them specifically.
     assert
-      builtins.match ".*\n## [^\n]+\n.*" indexText != null
+      builtins.match ".*\n## [^\n]+\n.*" skillIndex != null
       || throw "Agent Skills INDEX.md has no category headings";
     helpers.mkMarker "check-agent-skills-home-files" "Agent Skills home.file wiring: ${toString (builtins.length managedSkillEntries)} managed skill entries";
 
