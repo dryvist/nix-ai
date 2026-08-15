@@ -69,6 +69,22 @@
         "type": "github"
       }
     },
+    "awesome-claude-skills": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1784879281,
+        "narHash": "sha256-tJBtcbfWw9jvlx8kbh4tv5kpzXT2iuA26S16DZU6tdU=",
+        "owner": "ComposioHQ",
+        "repo": "awesome-claude-skills",
+        "rev": "be2a406907dbc61b73e6827ded415c96139d13a2",
+        "type": "github"
+      },
+      "original": {
+        "owner": "ComposioHQ",
+        "repo": "awesome-claude-skills",
+        "type": "github"
+      }
+    },
     "axton-obsidian-visual-skills": {
       "flake": false,
       "locked": {
@@ -261,6 +277,22 @@
         "type": "github"
       }
     },
+    "context-engineering-kit": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1786130450,
+        "narHash": "sha256-FTifVQGQbTqxBHOdJc/MVs7wdrJSxNZ2fzQr2/uvFjc=",
+        "owner": "NeoLabHQ",
+        "repo": "context-engineering-kit",
+        "rev": "8539779375f4e24b80f61476cfeaef330fa2d318",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NeoLabHQ",
+        "repo": "context-engineering-kit",
+        "type": "github"
+      }
+    },
     "dashmotion": {
       "flake": false,
       "locked": {
@@ -441,11 +473,11 @@
     "jacobpevans-cc-plugins": {
       "flake": false,
       "locked": {
-        "lastModified": 1786111298,
-        "narHash": "sha256-E4UuSCP9i2D7cvrpXDK0MBCPIxykhlkDvbN5by4jfRg=",
+        "lastModified": 1786766031,
+        "narHash": "sha256-x5BXM1OtpSXlA7iPQMyz9caRCGjyj2n2F/09WeX6I34=",
         "owner": "dryvist",
         "repo": "claude-code-plugins",
-        "rev": "09a498d93e9d4dd67616ca7e3f3bec0bc87c0332",
+        "rev": "346c999b94fd3e9cc06f52ac9f3d6a87b0439119",
         "type": "github"
       },
       "original": {
@@ -515,6 +547,22 @@
       "original": {
         "owner": "basher83",
         "repo": "lunar-claude",
+        "type": "github"
+      }
+    },
+    "managing-dependencies": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1772961008,
+        "narHash": "sha256-xOR87Z4RSGYTccrekRgV5RPPIiaXnOyTdVMQ9Kw1TQ4=",
+        "owner": "andrew",
+        "repo": "managing-dependencies",
+        "rev": "e6c13bd7246f13bab6510790ca6378e8660bf50f",
+        "type": "github"
+      },
+      "original": {
+        "owner": "andrew",
+        "repo": "managing-dependencies",
         "type": "github"
       }
     },
@@ -706,14 +754,17 @@
         "ai-assistant-instructions": "ai-assistant-instructions",
         "ai-llm-prompts": "ai-llm-prompts",
         "autoresearch": "autoresearch",
+        "awesome-claude-skills": "awesome-claude-skills",
         "browser-use-skills": "browser-use-skills",
         "claude-code-plugins": "claude-code-plugins",
+        "context-engineering-kit": "context-engineering-kit",
         "dashmotion": "dashmotion",
         "fabric-src": "fabric-src",
         "home-manager": "home-manager",
         "jacobpevans-cc-plugins": "jacobpevans-cc-plugins",
         "karpathy-skills": "karpathy-skills",
         "last30days-skill": "last30days-skill",
+        "managing-dependencies": "managing-dependencies",
         "nix-agy": "nix-agy",
         "nix-claude-code": "nix-claude-code",
         "nix-codex": "nix-codex",

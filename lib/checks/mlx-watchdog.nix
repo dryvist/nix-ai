@@ -205,6 +205,32 @@ in
     test ! -e "$MLX_WATCHDOG_PROGRESS_MARKER"
     test "$(<"$MLX_WATCHDOG_FAIL_MARKER")" = 1
 
+    # MLX_WATCHDOG_BUSY_ESCALATION=alert: the mode the metric-less backend
+    # runs in. An expired grace with no progress signal must page and rebase
+    # the timer — never advance the ladder, which would reap a brain that is
+    # only saturating its concurrency slots. The cases above all run in the
+    # default "restart" mode, so both behaviours stay covered.
+    export MLX_WATCHDOG_BUSY_ESCALATION=alert
+    printf 'missing\n' > "$FAKE_METRICS_MODE_FILE"
+    printf 'busy\n' > "$FAKE_MODE_FILE"
+    printf '9000\n' > "$MLX_WATCHDOG_BUSY_MARKER"
+    printf '10001\n' > "$FAKE_NOW_FILE"
+    bash ${src}/modules/mlx/scripts/mlx-watchdog.sh > "$TMPDIR/alert-mode.log" 2>&1
+    test "$(<"$MLX_WATCHDOG_BUSY_MARKER")" = 10001
+    test "$(<"$MLX_WATCHDOG_FAIL_MARKER")" = 1
+    ! grep -q 'kickstart\|bootout' "$TMPDIR/alert-mode.log"
+    grep -q 'alert only, NO stack restart' "$TMPDIR/alert-mode.log"
+    grep -q 'answered no completion for 1001s' "$TMPDIR/alert-mode.log"
+
+    # dead is unambiguous on every backend, so it keeps the full ladder even
+    # in alert mode — only the busy branch changes.
+    rm -f "$MLX_WATCHDOG_FAIL_MARKER"
+    printf 'dead\n' > "$FAKE_MODE_FILE"
+    printf '10200\n' > "$FAKE_NOW_FILE"
+    bash ${src}/modules/mlx/scripts/mlx-watchdog.sh > "$TMPDIR/alert-mode-dead.log" 2>&1
+    test "$(<"$MLX_WATCHDOG_FAIL_MARKER")" = 1
+    grep -q 'reap + kickstart' "$TMPDIR/alert-mode-dead.log"
+
     touch "$out"
   '';
 }

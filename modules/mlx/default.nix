@@ -71,12 +71,20 @@ let
       ;
   };
   mlxLmServerPkg = mlxLmServer.pkg;
-  mlxModelServerPkg =
-    {
-      mlx-lm = mlxLmServerPkg;
-      vllm-mlx = vllmMlxServerAdapterPkg;
-    }
-    .${cfg.modelServerBackend};
+
+  # Vision-language path — split to mlx-vlm-server.nix (12 KB gate), which
+  # also carries the launchScriptBasename the pattern derives from.
+  mlxVlmServer = import ./mlx-vlm-server.nix {
+    inherit pkgs mlxVlmVersion uvPythonVersion;
+  };
+  mlxVlmServerPkg = mlxVlmServer.pkg;
+
+  mlxModelServerPkgs = {
+    mlx-lm = mlxLmServerPkg;
+    vllm-mlx = vllmMlxServerAdapterPkg;
+    mlx-vlm = mlxVlmServerPkg;
+  };
+  mlxModelServerPkg = mlxModelServerPkgs.${cfg.modelServerBackend};
   mlxWarmupPkg = pkgs.writeShellScriptBin "mlx-warmup" ''
     exec ${pkgs.python3}/bin/python3 ${./scripts/mlx-warmup.py} "$@"
   '';
@@ -113,7 +121,15 @@ let
   # Single definition of the model-server pgrep pattern, derived from the real
   # launcher — split to model-server-pattern.nix (12KB file-size gate). Its
   # header carries the measured evidence for why it is derived and unanchored.
-  inherit (import ./model-server-pattern.nix { inherit lib cfg mlxLmServer; })
+  inherit
+    (import ./model-server-pattern.nix {
+      inherit
+        lib
+        cfg
+        mlxLmServer
+        mlxVlmServer
+        ;
+    })
     modelServerProcessPattern
     ;
 
@@ -132,6 +148,7 @@ let
         lib
         cfg
         mlxModelServerPkg
+        mlxModelServerPkgs
         ;
     })
     mkModelCmd

@@ -141,7 +141,7 @@ graph TD
         S1["~/.claude/plugins/marketplaces/"]
         S2["~/.claude/commands/, agents/, skills/, rules/"]
         S5["~/.agents/\nAGENTS.md, CLAUDE.md, agentsmd/, skills/"]
-        S6["~/.codex/skills, ~/.qwen/skills,\n~/.gemini/*/skills\n(harness → ~/.agents/skills)"]
+        S6["One of ~/.codex/skills or ~/.agents/skills\n(selected canonical root)\n← ~/.qwen/skills, ~/.gemini/*/skills"]
         S7["~/.qwen/AGENTS.md,\n~/.gemini/antigravity-cli/AGENTS.md,\n~/.config/opencode/AGENTS.md\n(harness → ~/.agents/AGENTS.md)"]
         S3["~/.config/fabric/patterns/"]
         S4["~/Maestro/ playbooks"]

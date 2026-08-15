@@ -40,9 +40,9 @@ Per-secret runbooks live there and in the private docs repo.
 
 ### [mlx-stack.md](mlx-stack.md)
 
-The three user-facing MLX tools (parakeet-mlx, mlx-vlm, vllm-mlx) and their shared library
+The three user-facing MLX tools (parakeet-mlx, mlx-vlm, mlx-lm) and their shared library
 dependencies. Includes the dependency graph, version management strategy, and operational
-notes covering tool-call parser compatibility, idle eviction, and MoE vs dense throughput.
+notes covering tool-call parsing, idle eviction, and MoE vs dense throughput.
 
 **Read when**: Adding a new MLX tool, debugging a model loading or tool-calling issue,
 or understanding why the 35B model is preloaded vs the 122B MoE.

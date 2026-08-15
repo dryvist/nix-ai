@@ -55,6 +55,12 @@ let
 
   hmConfig = mkHmConfig [ ];
 
+  hmConfigAgentSkillsShared = mkHmConfig [
+    {
+      programs.agentSkills.root = "agents";
+    }
+  ];
+
   hmConfigVctCli = mkHmConfig [
     {
       programs.vctCli.enable = true;
@@ -89,6 +95,13 @@ let
           # Carries an intrinsic proxy concurrencyLimit=1 (metal::malloc under
           # concurrency) — exercises modelConcurrencyLimits compilation.
           qwen3-next-80b-instruct.class = "swap";
+          # Vision-language entry: exercises the per-model backend override
+          # (catalog `backend` -> modelBackends -> mlx_vlm.server) while the
+          # host backend stays mlx-lm for every other model.
+          unlimited-ocr = {
+            class = "swap";
+            tweaks.ttl = 600;
+          };
         };
         # Direct host setting on a catalog-managed key must win over the catalog.
         modelFlagOverrides."mlx-community/Qwen3.6-35B-A3B-OptiQ-4bit".cacheMemoryMb = 8192;
@@ -188,7 +201,13 @@ in
 // (import ./checks/ai-stack.nix { inherit pkgs testLocalModelId; })
 // (import ./checks/ai-stack-endpoint.nix { inherit pkgs; })
 // (import ./checks/claude.nix { inherit pkgs hmConfig; })
-// (import ./checks/agent-skills.nix { inherit pkgs hmConfig; })
+// (import ./checks/agent-skills.nix {
+  inherit
+    pkgs
+    hmConfig
+    hmConfigAgentSkillsShared
+    ;
+})
 // (import ./checks/codex.nix { inherit pkgs hmConfig; })
 // (import ./checks/qwen-code.nix { inherit pkgs hmConfig; })
 // (import ./checks/antigravity-cli.nix { inherit pkgs hmConfig; })
@@ -205,6 +224,7 @@ in
   render = renderAutonomous;
 })
 // (import ./checks/mlx.nix { inherit pkgs hmConfig; })
+// (import ./checks/mlx-catalog-vlm.nix { inherit pkgs hmConfigCatalog src; })
 // (import ./checks/mlx-single-model.nix { inherit pkgs src; })
 // (import ./checks/mlx-bash32.nix { inherit pkgs hmConfig src; })
 // (import ./checks/mlx-watchdog.nix { inherit pkgs src; })

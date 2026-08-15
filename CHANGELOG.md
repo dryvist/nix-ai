@@ -1,5 +1,55 @@
 # Changelog
 
+## [4.17.1](https://github.com/dryvist/nix-ai/compare/v4.17.0...v4.17.1) (2026-08-15)
+
+
+### Bug Fixes
+
+* **mlx:** run the serving watchdog on the mlx-lm backend ([#1656](https://github.com/dryvist/nix-ai/issues/1656)) ([9d93244](https://github.com/dryvist/nix-ai/commit/9d932449cf9feaa3d2b4680162b7b2133e8b5e9c))
+
+## [4.17.0](https://github.com/dryvist/nix-ai/compare/v4.16.1...v4.17.0) (2026-08-15)
+
+
+### Features
+
+* **mcp,skills:** grep.app MCP server, three skill inputs, and INDEX categories ([#1650](https://github.com/dryvist/nix-ai/issues/1650)) ([7c37081](https://github.com/dryvist/nix-ai/commit/7c37081b43698918a7aa0a6e824456b5b1d97e35))
+
+
+### Bug Fixes
+
+* **agent-skills:** clean inactive managed links ([#1651](https://github.com/dryvist/nix-ai/issues/1651)) ([47d50f8](https://github.com/dryvist/nix-ai/commit/47d50f827baf84415c5409611341ed21d4112951))
+
+## [4.16.1](https://github.com/dryvist/nix-ai/compare/v4.16.0...v4.16.1) (2026-08-15)
+
+
+### Bug Fixes
+
+* **mcp:** keep optional data tests out of runtime builds ([2e717e9](https://github.com/dryvist/nix-ai/commit/2e717e944899264dbfc0af20a2a8116ffbc38624))
+
+## [4.16.0](https://github.com/dryvist/nix-ai/compare/v4.15.0...v4.16.0) (2026-08-15)
+
+
+### Features
+
+* **mlx:** derive concurrencyLimit ceiling from residency budget ([#1640](https://github.com/dryvist/nix-ai/issues/1640)) ([6c36baf](https://github.com/dryvist/nix-ai/commit/6c36baf33fc9bdd603bddb9e358755267792b06b))
+
+
+### Bug Fixes
+
+* **agent-skills:** select one Codex discovery root ([c1d1615](https://github.com/dryvist/nix-ai/commit/c1d161561f57d74568f455a6f9c0bfa480bfa819))
+
+## [4.15.0](https://github.com/dryvist/nix-ai/compare/v4.14.0...v4.15.0) (2026-08-15)
+
+
+### Features
+
+* **mlx:** serve vision-language models via a per-model backend ([#1635](https://github.com/dryvist/nix-ai/issues/1635)) ([ab9f40f](https://github.com/dryvist/nix-ai/commit/ab9f40f6c2ab64b365b4b858d24b7f1390ee6bbb))
+
+
+### Bug Fixes
+
+* **ci:** dispatch consumer relocks on release, not on flake.lock pushes ([#1636](https://github.com/dryvist/nix-ai/issues/1636)) ([a6b58f9](https://github.com/dryvist/nix-ai/commit/a6b58f98fc18e8a4193bdb0fd28a27475f030f63))
+
 ## [4.14.0](https://github.com/dryvist/nix-ai/compare/v4.13.0...v4.14.0) (2026-08-15)
 
 

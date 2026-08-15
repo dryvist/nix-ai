@@ -1,11 +1,12 @@
 # Agent Skills Configuration Module
 #
 # Declarative configuration for shared cross-tool skills.
-# Discovers plugin skills and deploys them to ~/.agents/skills.
+# Discovers plugin skills and deploys them to the configured canonical root.
 {
   lib,
   pkgs,
   marketplaceInputs,
+  awesome-claude-skills,
   ...
 }:
 
@@ -248,7 +249,7 @@ in
     # 26.05 introduced a native `programs.codex.skills` leaf option (codex-only,
     # deploys to ~/.codex/skills), so child aliases under that path collided with
     # it ("type ... does not support nested options"). nix-ai's cross-tool feature
-    # is `programs.agentSkills.*` (deploys to ~/.agents/skills); nothing in this
+    # is `programs.agentSkills.*`; nothing in this
     # repo set the legacy codex paths, so dropping them loses no configuration.
     (lib.mkRenamedOptionModule
       [
@@ -282,6 +283,34 @@ in
     programs.agentSkills = {
       enable = lib.mkDefault true;
       fromFlakeInputs = lib.mkDefault sharedSkills;
+
+      # file-organizer sits outside every walkAllPatterns layout: its upstream
+      # publishes each skill as a top-level <repo>/<skill>/SKILL.md directory.
+      # Naming the one path here is smaller than a sixth discovery pattern that
+      # would then scan every input's root for skill-shaped directories.
+      local.file-organizer = "${awesome-claude-skills}/file-organizer/SKILL.md";
+
+      # Category map for the generated INDEX.md. A skill may be named more than
+      # once; anything unnamed lands under "Uncategorized".
+      categories = lib.mkDefault {
+        research = [
+          "github-code-search"
+          "last30days"
+          "managing-dependencies"
+        ];
+        reasoning = [
+          "why"
+          "kaizen"
+          "ponytail"
+        ];
+        engineering = [
+          "kaizen"
+          "managing-dependencies"
+          "ponytail"
+        ];
+        workspace = [ "file-organizer" ];
+        diagrams = [ "dashmotion" ];
+      };
     };
   };
 }

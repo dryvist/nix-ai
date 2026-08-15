@@ -24,7 +24,7 @@ graph TD
 
     subgraph LocalInference["Local Inference — Apple Silicon"]
         LS["llama-swap proxy\n:11434"]
-        VLLM["vllm-mlx backends\n:11436+"]
+        WORKERS["MLX model-server workers\n(mlx-lm)\n:11436+"]
     end
 
     subgraph WebTools["Web & Pattern Tools"]
@@ -39,7 +39,7 @@ graph TD
 
     FAB -->|HTTP /v1| LS
 
-    LS -->|manages processes| VLLM
+    LS -->|manages processes| WORKERS
 ```
 
 Local nix-ai clients (qwen-code, cecli, Fabric) call llama-swap directly at
@@ -111,7 +111,7 @@ and adding any required runtime secret injection.
 | Port | Service | Protocol | Module |
 |------|---------|----------|--------|
 | 11434 | llama-swap proxy | HTTP (OpenAI-compatible) | `modules/mlx/` |
-| 11436+ | vllm-mlx backends | HTTP (managed by llama-swap) | `modules/mlx/` |
+| 11436+ | MLX model-server workers (mlx-lm) | HTTP (managed by llama-swap) | `modules/mlx/` |
 | 8180 | Fabric REST API (opt-in) | HTTP + Swagger UI | `modules/fabric/` |
 | 9379 | LiteRT-LM classifier (Antigravity CLI gemma router, opt-in) | HTTP | `modules/antigravity-cli/` |
 | 30030 | Cribl MCP | HTTP | `orbstack-kubernetes` repo |
@@ -125,7 +125,7 @@ Reserved but avoid: **11435** (macOS app conflict, see PR #230).
 ```mermaid
 graph LR
     CC["Claude Code\n(metrics + logs)"]
-    MLX["vllm-mlx\n(traces, when telemetry.enable=true)"]
+    MLX["MLX model server\n(traces, when telemetry.enable=true)"]
     OTEL["OTEL Collector\n:30317"]
     CRIBL["Cribl Stream\n:4317"]
     SPLUNK["Splunk HEC"]
