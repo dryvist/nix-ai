@@ -30,16 +30,36 @@
 #
 # escapeRegex matters: the basename contains a "." which would otherwise be a
 # single-character wildcard.
+#
+# COVERS EVERY BACKEND WITH A LIVE WORKER, not just the host default. Since
+# programs.mlx.modelBackends made backend selection per-model, one host can run
+# workers from more than one backend at once. Keying this on modelServerBackend
+# alone regenerated the original defect in a new shape: mlx-watchdog's recovery
+# path pkill -f's this pattern, so a worker from a non-default backend survived
+# the reap that is supposed to clear a wedged stack, holding its weights wired
+# until the proxy restarted. The orphan reap proper (scripts/llama-swap-reap.sh)
+# is port-owned and was never affected; this is the watchdog/status path.
 {
   lib,
   cfg,
   mlxLmServer,
 }:
+let
+  patterns = {
+    mlx-lm = lib.escapeRegex mlxLmServer.launchScriptBasename;
+    vllm-mlx = "vllm-mlx serve";
+    # uvx runs the module, so argv carries the bare dotted module name.
+    mlx-vlm = lib.escapeRegex "mlx_vlm.server";
+  };
+  backendsInUse = lib.unique ([ cfg.modelServerBackend ] ++ lib.attrValues cfg.modelBackends);
+  selected = map (backend: patterns.${backend}) backendsInUse;
+in
 {
+  # Single-backend hosts keep a byte-identical pattern; only a genuinely mixed
+  # host pays the alternation. pgrep -f takes an extended regex on macOS.
   modelServerProcessPattern =
-    {
-      mlx-lm = lib.escapeRegex mlxLmServer.launchScriptBasename;
-      vllm-mlx = "vllm-mlx serve";
-    }
-    .${cfg.modelServerBackend};
+    if lib.length selected == 1 then
+      lib.head selected
+    else
+      "(" + lib.concatStringsSep "|" selected + ")";
 }
