@@ -25,13 +25,17 @@ if lsof -ti :"$port" 2>/dev/null | head -1 > /dev/null; then
   fi
 
   if [ -n "$model_server_pid" ]; then
-    # The pattern matches both the `uv run` supervisor (llama-swap's direct
-    # child, found above) and the real engine one level under it -- a Nix
-    # store path invocation forks rather than execs (confirmed live: RSS
-    # ~70MB on the supervisor vs several GB on the engine). Descend when
-    # there is a child, so memory/uptime are read from the process that
-    # actually holds them instead of quietly reporting a healthy-looking
-    # near-zero number for the supervisor.
+    # Descend to a child when one exists, so memory/uptime are read from the
+    # process that actually holds them instead of quietly reporting a
+    # healthy-looking near-zero number for a supervisor.
+    #
+    # Standalone mode no longer HAS a supervisor: the wrapper execs a
+    # Nix-store python directly (llama-swap -> python, two pids), where it used
+    # to be `uv run` forking the engine beneath it (three pids, RSS ~70MB on
+    # the supervisor vs several GB on the engine). With no child, the pgrep
+    # below returns nothing and the engine pid is kept as-is -- which is the
+    # correct answer for that shape. The descent stays because CLUSTER mode
+    # still launches through uvx and does still have the extra layer.
     child_pid=$(pgrep -P "$model_server_pid" 2>/dev/null | head -1)
     [ -n "$child_pid" ] && model_server_pid="$child_pid"
   fi

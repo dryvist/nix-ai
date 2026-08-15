@@ -1,10 +1,12 @@
-# Patched mlx-lm wheel — harmony (gpt-oss) tool-call parsing.
+# The harmony (gpt-oss) tool-call patch for mlx-lm: one definition, two consumers.
 #
-# mlx-lm 0.31.3 (latest on PyPI as of 2026-07-27; upstream has NOT added a
-# harmony parser) infers a tool parser from the chat template in
+# THE DEFECT
+#
+# mlx-lm 0.31.3 (upstream's newest release — the pin is current, not stale)
+# infers a tool parser from the chat template in
 # tokenizer_utils._infer_tool_parser. None of its branches match gpt-oss, so
-# `has_tool_calling` is False and the model's own, semantically correct
-# harmony tool call —
+# `has_tool_calling` is False and the model's own, semantically correct harmony
+# tool call —
 #   <|channel|>commentary to=functions.NAME <|constrain|>json<|message|>{...}
 # — is handed back verbatim inside `content` with `tool_calls: null` and
 # `finish_reason: "stop"`. Every OpenAI-compatible client therefore sees zero
@@ -26,47 +28,53 @@
 # neither calls nor content. `_make_harmony_stream` now engages in `auto` only
 # on a model that inferred no parser of its own. See mlx-lm-patch/test_selection.py.
 #
-# Patches the prebuilt wheel, not the sdist: a wheel is a zip, so unzip/patch/
-# rezip needs no build step and never writes to a read-only store path. Same
-# reasoning as vllm-mlx-patch.nix, which patches its wheel the same way.
+# Staying on the 0.31.3 RELEASE is deliberate: catalog-lib.nix documents that
+# the only route past it is a git-wheel serverVariant which DROPS
+# --harmony-tool-parser, the very flag gpt-oss needs. Release-plus-patch is the
+# only viable route — do not drift toward the git wheel.
 #
-# Returns the patched wheel's absolute path — a drop-in replacement for the
-# `mlx-lm==<version>` pin wherever the serving stack resolves mlx-lm.
-{ pkgs, mlxLmVersion }:
-let
-  wheelName = "mlx_lm-${mlxLmVersion}-py3-none-any.whl";
-  wheelSrc = pkgs.fetchurl {
-    url = "https://files.pythonhosted.org/packages/90/02/9a67b8e4f87e3e2e5cd7b1ad79304b93c09a0db6af34bee75e6551c06c60/${wheelName}";
-    hash = "sha256-dYz93xGABTt2E9t2+tPSRqMxoqkFgI4RZKJ1Yh/Jg7g=";
-  };
-  patchedWheel =
-    pkgs.runCommand "mlx-lm-wheel-harmony-${mlxLmVersion}"
+# WHY TWO EXPORTS
+#
+# This used to unzip the PyPI wheel, patch it, and rezip. mlx-lm now comes from
+# a nixpkgs source derivation (modules/mlx/python-overlay.nix), so applying the
+# patch is an ordinary postPatch — smaller, and it keeps nixpkgs' check phase.
+#
+# But the regression checks run on x86_64-linux (see flake.nix `checks`) while
+# the runtime package is darwin-only: mlx's Metal wheel is aarch64-darwin, so
+# the built package cannot exist on the CI system. The checks do not need it —
+# wheel_under_test.py lifts each definition out with `ast` precisely BECAUSE
+# mlx_lm.server imports mlx and transformers at package level and neither
+# exists off Apple silicon. They need the patched SOURCE, nothing more.
+#
+# So: `postPatch` is the shared patch step, and `patchedSrc` is a
+# platform-independent tree with that same step applied. Both apply the
+# identical two commands, so the checks cannot drift from what ships.
+{ pkgs }:
+rec {
+  # The patch step, shared verbatim by the runtime override and patchedSrc.
+  # Run from the mlx-lm source root (the dir containing mlx_lm/).
+  postPatch = ''
+    cp ${./mlx-lm-patch/harmony.py} mlx_lm/tool_parsers/harmony.py
+    patch -p1 < ${./mlx-lm-patch/server-harmony.patch}
+  '';
+
+  # Patched mlx-lm source, buildable on any platform. For the regression checks
+  # only — the runtime package applies `postPatch` above inside its own build.
+  # Byte-identical .py files either way, so a green check here is a real
+  # statement about what the worker runs.
+  patchedSrc =
+    pkgs.runCommand "mlx-lm-src-harmony-${pkgs.python3Packages.mlx-lm.version}"
       {
-        nativeBuildInputs = [
-          pkgs.unzip
-          pkgs.zip
-        ];
+        src = pkgs.python3Packages.mlx-lm.src;
+        nativeBuildInputs = [ pkgs.python3 ];
       }
       ''
-        mkdir -p unpacked
-        unzip -q ${wheelSrc} -d unpacked
-
-        cp ${./mlx-lm-patch/harmony.py} unpacked/mlx_lm/tool_parsers/harmony.py
-        chmod u+w unpacked/mlx_lm/server.py
-        patch -p1 -d unpacked < ${./mlx-lm-patch/server-harmony.patch}
-
-        # RECORD lists every installed file. Installers do not verify the
-        # digests, but an unlisted file can be skipped by a strict unpacker —
-        # declare it with the "unhashed" form the spec allows.
-        echo 'mlx_lm/tool_parsers/harmony.py,,' \
-          >> unpacked/mlx_lm-${mlxLmVersion}.dist-info/RECORD
+        cp -r "$src" build && chmod -R u+w build && cd build
+        ${postPatch}
 
         # Fail loudly here rather than at model-load time.
-        ${pkgs.python3}/bin/python3 -m py_compile \
-          unpacked/mlx_lm/server.py unpacked/mlx_lm/tool_parsers/harmony.py
+        python3 -m py_compile mlx_lm/server.py mlx_lm/tool_parsers/harmony.py
 
-        mkdir -p $out
-        (cd unpacked && zip -qr "$out/${wheelName}" .)
+        mkdir -p "$out" && cp -r mlx_lm "$out/"
       '';
-in
-"${patchedWheel}/${wheelName}"
+}

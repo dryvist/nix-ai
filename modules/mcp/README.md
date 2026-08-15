@@ -28,12 +28,15 @@ fetch = official "fetch";
 # nixpkgs binary (resolved via PATH)
 github = { command = "github-mcp-server"; };
 
-# Python package via uvx
+# Python package (Nix derivation)
 huggingface = {
-  command = "uvx";
-  args = [ "huggingface-mcp-server" ];
+  command = "${mcpPkgs.huggingface-mcp-server}/bin/huggingface-mcp-server";
+  args = [ ];
 };
 ```
+
+Python servers are Nix derivations in [`packages.nix`](packages.nix). Never
+`uvx` — a live uvx process holds a uv-cache lock that blocks all pruning.
 
 ### SSE / HTTP (remote servers)
 

@@ -42,4 +42,5 @@
   ./cluster-mode-maintenance.nix
   ./peer-liveness.nix
   ./cluster-peer-state.nix
+  ./uv-cache-prune.nix
 ]
