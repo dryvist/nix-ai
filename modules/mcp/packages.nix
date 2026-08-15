@@ -50,6 +50,17 @@ let
   # fetch 404s.
   wheelName = pname: pkgs.lib.replaceStrings [ "-" ] [ "_" ] pname;
 
+  # fastmcp needs py-key-value-aio at runtime, but their upstream test suites
+  # pull optional DuckDB/PyArrow dependencies into every uncached build.
+  # Keep the runtime packages without putting those tests in the user closure.
+  pyKeyValueAio = py.py-key-value-aio.overridePythonAttrs (_: {
+    doCheck = false;
+  });
+  fastmcp = (py.fastmcp.override { py-key-value-aio = pyKeyValueAio; }).overridePythonAttrs (_: {
+    doCheck = false;
+    dontCheckRuntimeDeps = true;
+  });
+
   # A pure-python wheel from PyPI, installed into the store.
   wheelApp =
     {
@@ -114,14 +125,16 @@ in
     deps =
       (with py; [
         click
-        fastmcp
         httpx
         httpx-retries
         httpx-sse
         python-dotenv
         rich
       ])
-      ++ [ modelcontextprotocol ];
+      ++ [
+        fastmcp
+        modelcontextprotocol
+      ];
   };
 
   mcp-server-time = wheelApp {

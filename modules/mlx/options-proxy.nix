@@ -8,7 +8,39 @@
 # processes. Model switching is transparent: send a request with model: "X"
 # and the proxy handles it.
 #
-{ lib, ... }:
+{ lib, config, ... }:
+let
+  # concurrencyLimit ceiling — derived from the residency budget, not chosen.
+  #
+  # A worker's memory budget is programs.mlx.memoryHardLimitGb itself (see
+  # modules/mlx/options-residency.nix) — read live so this adapts per host
+  # instead of assuming the Studio's k=2/100 GiB shape.
+  perWorkerBudgetGiB = config.programs.mlx.memoryHardLimitGb;
+  # Peak 4-bit weight footprint in this registry (the 35B-class model,
+  # modules/mlx/catalog-data.nix), rounded up to the next whole GiB —
+  # the conservative direction, so this stays a ceiling.
+  peakWeightGiB = 31;
+  # Dense-attention KV cache cost per token, the pessimistic bound (MoE
+  # families cost less, at 20 KiB/token). See docs/architecture/mlx-stack.md.
+  kvPerTokenDenseKiB = 64;
+  # Largest maxRequestTokens actually granted by a catalog entry (the HIGH
+  # agentic-context profile; modules/mlx/catalog-data.nix,
+  # modules/mlx/catalog-data-qwen38-27b.nix). One in-flight request at this
+  # ceiling sets the largest single-request KV reservation to budget for.
+  maxGrantedRequestTokens = 65536;
+  kvPerSeqGiB = (kvPerTokenDenseKiB * maxGrantedRequestTokens) / (1024 * 1024);
+  # Memory-only headroom after the peak weight, sliced into pessimistic-KV
+  # portions: how many concurrent max-length requests the budget FITS.
+  # Fitting in memory is necessary but not sufficient — concurrencyLimit also
+  # sets --decode-concurrency/--prompt-concurrency on Apple Silicon's single
+  # GPU, where throughput collapses well before memory runs out. 4 is that
+  # separate operator judgment about practical decode concurrency, not a
+  # memory bound, so it caps the memory-derived value rather than replacing
+  # it: tighten on memory, never loosen past operator judgment.
+  operatorConcurrencyCap = 4;
+  memoryFitCeiling = lib.max 1 ((perWorkerBudgetGiB - peakWeightGiB) / kvPerSeqGiB);
+  concurrencyLimitCeiling = lib.min operatorConcurrencyCap memoryFitCeiling;
+in
 {
   options.programs.mlx = {
     proxy = {
@@ -65,9 +97,11 @@
         '';
       };
       concurrencyLimit = lib.mkOption {
-        # Ceiling 4 is an operator constraint, expressed in the type so a value
-        # above it cannot be represented rather than merely being remembered.
-        type = lib.types.ints.between 1 4;
+        # The ceiling is derived above from the residency budget, then capped
+        # at operatorConcurrencyCap (throughput, not memory, is the limit
+        # past that point) — expressed in the type so a value the hardware
+        # cannot honor cannot be represented rather than merely remembered.
+        type = lib.types.ints.between 1 concurrencyLimitCeiling;
         default = 1;
         description = ''
           Max in-flight requests llama-swap will forward to a model server per
@@ -82,11 +116,19 @@
           cron kills: the proxy admitted 4 while the server served 1, and the
           excess came back as 429.
 
-          Default 1, ceiling 4 (operator constraint, enforced by the type).
-          1 serializes and defeats continuous batching; that is the accepted
-          trade while the simplest non-crashing configuration is the goal.
-          Raising it means raising the server's real capacity at the same time,
-          which now happens automatically because both derive from here.
+          Default 1, ceiling ${toString concurrencyLimitCeiling} on this host:
+          min(operatorConcurrencyCap = ${toString operatorConcurrencyCap}, memory fit
+          = ${toString memoryFitCeiling}). Memory fit derives from
+          programs.mlx.memoryHardLimitGb (currently ${toString perWorkerBudgetGiB} GiB)
+          — the largest number of concurrent maxGrantedRequestTokens-length
+          requests the worker's memory budget can hold after the peak
+          resident model's own weight footprint. The operator cap holds
+          regardless: more requests would fit in memory long before Apple
+          Silicon's single GPU could actually decode them concurrently. 1 serializes and
+          defeats continuous batching; that is the accepted trade while the
+          simplest non-crashing configuration is the goal. Raising it means
+          raising the server's real capacity at the same time, which now
+          happens automatically because both derive from here.
 
           Above the limit callers get 429 — cap or retry with backoff; the
           llm_router tier absorbs 429s via its retry policy. Prior sweep data

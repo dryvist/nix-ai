@@ -1,5 +1,24 @@
 # Changelog
 
+## [4.16.1](https://github.com/dryvist/nix-ai/compare/v4.16.0...v4.16.1) (2026-08-15)
+
+
+### Bug Fixes
+
+* **mcp:** keep optional data tests out of runtime builds ([2e717e9](https://github.com/dryvist/nix-ai/commit/2e717e944899264dbfc0af20a2a8116ffbc38624))
+
+## [4.16.0](https://github.com/dryvist/nix-ai/compare/v4.15.0...v4.16.0) (2026-08-15)
+
+
+### Features
+
+* **mlx:** derive concurrencyLimit ceiling from residency budget ([#1640](https://github.com/dryvist/nix-ai/issues/1640)) ([6c36baf](https://github.com/dryvist/nix-ai/commit/6c36baf33fc9bdd603bddb9e358755267792b06b))
+
+
+### Bug Fixes
+
+* **agent-skills:** select one Codex discovery root ([c1d1615](https://github.com/dryvist/nix-ai/commit/c1d161561f57d74568f455a6f9c0bfa480bfa819))
+
 ## [4.15.0](https://github.com/dryvist/nix-ai/compare/v4.14.0...v4.15.0) (2026-08-15)
 
 

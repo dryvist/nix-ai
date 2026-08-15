@@ -1,19 +1,21 @@
 # Harness registry — single source of truth for the shared-agent fan-out.
 #
-# Maps harness name -> skills directory and AGENTS.md file (relative to $HOME)
-# that are symlinked to the canonical ~/.agents/. Adding a harness here is ONE
-# line: the symlink, the legacy-copy cleanup, and the regression check
-# (lib/checks/agent-skills.nix) are all generated from this attrset.
+# Maps harness name -> skills directory and AGENTS.md file (relative to $HOME).
+# Skill directories are symlinked to the root selected by
+# programs.agentSkills.root. Adding a harness here is ONE line: the symlink,
+# the legacy-copy cleanup, and the regression check (lib/checks/agent-skills.nix)
+# are all generated from this attrset.
 #
 # Claude Code is intentionally absent: it consumes skills through its
 # plugin/marketplace system, not through ~/.agents/skills.
-# Codex is absent from agentsMd: its native programs.codex.context already
-# bakes AGENTS.md inline to ~/.codex/AGENTS.md.
+# Codex is absent from both registries: it discovers ~/.codex/skills and
+# ~/.agents/skills natively, and programs.codex.context already bakes AGENTS.md
+# inline to ~/.codex/AGENTS.md. Creating a Codex symlink would make it scan the
+# selected skill tree twice.
 rec {
   # Skills directory fan-out — each entry is a directory path (relative to
-  # $HOME) that gets symlinked to ~/.agents/skills.
+  # $HOME) that gets symlinked to the selected canonical skill root.
   skills = {
-    codex = ".codex/skills";
     qwen = ".qwen/skills";
     antigravity = ".gemini/antigravity/skills";
     antigravity-cli = ".gemini/antigravity-cli/skills";

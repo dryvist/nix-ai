@@ -13,7 +13,21 @@ let
 in
 {
   options.programs.agentSkills = {
-    enable = lib.mkEnableOption "shared skill deployment to ~/.agents/skills";
+    enable = lib.mkEnableOption "shared skill deployment for AI harnesses";
+
+    root = lib.mkOption {
+      type = lib.types.enum [
+        "codex"
+        "agents"
+      ];
+      default = "codex";
+      description = ''
+        Canonical skill root. "codex" deploys to ~/.codex/skills; "agents"
+        deploys to ~/.agents/skills for cross-harness sharing. Codex discovers
+        both locations natively, so select exactly one instead of linking them
+        together and making Codex scan the same skills twice.
+      '';
+    };
 
     fromFlakeInputs = lib.mkOption {
       type = lib.types.listOf componentModule;
