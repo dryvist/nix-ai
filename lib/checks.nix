@@ -55,6 +55,12 @@ let
 
   hmConfig = mkHmConfig [ ];
 
+  hmConfigAgentSkillsShared = mkHmConfig [
+    {
+      programs.agentSkills.root = "agents";
+    }
+  ];
+
   hmConfigVctCli = mkHmConfig [
     {
       programs.vctCli.enable = true;
@@ -176,7 +182,13 @@ in
 // (import ./checks/ai-stack.nix { inherit pkgs testLocalModelId; })
 // (import ./checks/ai-stack-endpoint.nix { inherit pkgs; })
 // (import ./checks/claude.nix { inherit pkgs hmConfig; })
-// (import ./checks/agent-skills.nix { inherit pkgs hmConfig; })
+// (import ./checks/agent-skills.nix {
+  inherit
+    pkgs
+    hmConfig
+    hmConfigAgentSkillsShared
+    ;
+})
 // (import ./checks/codex.nix { inherit pkgs hmConfig; })
 // (import ./checks/qwen-code.nix { inherit pkgs hmConfig; })
 // (import ./checks/antigravity-cli.nix { inherit pkgs hmConfig; })

@@ -1,7 +1,7 @@
 # Agent Skills Configuration Module
 #
 # Declarative configuration for shared cross-tool skills.
-# Discovers plugin skills and deploys them to ~/.agents/skills.
+# Discovers plugin skills and deploys them to the configured canonical root.
 {
   lib,
   pkgs,
@@ -248,7 +248,7 @@ in
     # 26.05 introduced a native `programs.codex.skills` leaf option (codex-only,
     # deploys to ~/.codex/skills), so child aliases under that path collided with
     # it ("type ... does not support nested options"). nix-ai's cross-tool feature
-    # is `programs.agentSkills.*` (deploys to ~/.agents/skills); nothing in this
+    # is `programs.agentSkills.*`; nothing in this
     # repo set the legacy codex paths, so dropping them loses no configuration.
     (lib.mkRenamedOptionModule
       [
