@@ -66,6 +66,19 @@ DATA_URI = re.compile(r"^data:(?P<mime>[\w./+-]+);base64,(?P<payload>.*)$", re.D
 # or an attempt to exhaust memory.
 MAX_BODY_BYTES = 64 * 1024 * 1024
 
+# Closed set of filename extensions. See materialize_image(): the declared mime
+# subtype is caller-supplied, so it is mapped through this table instead of
+# reaching a path directly.
+SUFFIX_BY_MIME_SUBTYPE = {
+    "png": "png",
+    "jpeg": "jpg",
+    "jpg": "jpg",
+    "webp": "webp",
+    "gif": "gif",
+    "bmp": "bmp",
+    "tiff": "tiff",
+}
+
 # Bound in main() before the server accepts a connection, so every handler
 # sees a loaded model. Declared here rather than as a class attribute so the
 # type is a plain ModelRunner instead of an Optional every call site must
@@ -123,7 +136,12 @@ def materialize_image(url: str, tmpdir: str, index: int) -> str:
         raise ValueError("image_url must be a data: URI carrying base64 image bytes")
 
     raw = base64.b64decode(match.group("payload"))
-    suffix = match.group("mime").split("/")[-1] or "png"
+    # Map through a fixed table rather than using the declared subtype
+    # directly: the mime is caller-supplied, and letting it reach a filename
+    # puts a user-controlled component in a path. The extension is cosmetic
+    # anyway — PIL sniffs the real format from the bytes — so an unrecognised
+    # subtype falls back rather than failing the request.
+    suffix = SUFFIX_BY_MIME_SUBTYPE.get(match.group("mime").split("/")[-1].lower(), "png")
 
     path = os.path.join(tmpdir, f"image-{index}.{suffix}")
     with open(path, "wb") as handle:

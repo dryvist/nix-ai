@@ -83,6 +83,22 @@ with tempfile.TemporaryDirectory() as tmp:
     check("data uri is decoded to disk", pathlib.Path(path).read_bytes() == payload)
     check("suffix comes from the mime type", path.endswith(".png"), f"got {path!r}")
 
+    # The declared mime subtype is caller-supplied, so it must never reach the
+    # filename unmapped. An unknown or hostile subtype falls back to png rather
+    # than putting user-controlled text in a path.
+    for subtype, expected in (("jpeg", ".jpg"), ("webp", ".webp"), ("totally-made-up", ".png")):
+        p = adapter.materialize_image(f"data:image/{subtype};base64,{base64.b64encode(payload).decode()}", tmp, 2)
+        check(f"subtype {subtype!r} maps to {expected}", p.endswith(expected), f"got {p!r}")
+
+    hostile = adapter.materialize_image(
+        "data:image/..;base64," + base64.b64encode(payload).decode(), tmp, 3
+    )
+    check(
+        "traversal-shaped subtype does not reach the filename",
+        hostile.endswith(".png") and ".." not in pathlib.Path(hostile).name,
+        f"got {hostile!r}",
+    )
+
     # Only data: URIs are accepted. A filesystem path would read any file the
     # worker can reach; an http(s) URL would make the worker issue requests
     # from inside the serving host, reaching internal services the caller
