@@ -3,9 +3,8 @@
 
   inputs = {
     # Both are channel branches = the intended major-version pins. Renovate
-    # cannot bump either: a branch's reference never changes, only the
-    # commits on it do, so Renovate has nothing to diff.
-    # deps-flake-lock.yml relocks the whole file weekly, so both move together.
+    # cannot bump either — a branch ref never changes, so there is nothing to
+    # diff. deps-flake-lock.yml relocks weekly, moving both together.
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-26.05-darwin";
     # Second nixpkgs only for llama-swap: 25.11-darwin froze it at v165 on
     # 2025-09-22 with no backports. See nix-ai#801.
@@ -70,9 +69,8 @@
     };
 
     # The other two per-CLI leaves, composed into `lib.renderAutonomous` by
-    # flake/lib.nix (see there for why nix-ai keeps no copy of its own).
-    # Pinned to main for the same git-flow reason as nix-claude-code above;
-    # `follows` only to keep the lock lean — their nixpkgs is never used.
+    # flake/lib.nix. Pinned to main for the same git-flow reason as
+    # nix-claude-code; `follows` only keeps the lock lean.
     nix-codex = {
       url = "github:dryvist/nix-codex/main";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -82,61 +80,75 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # Behavioral/workflow skills from Andrej Karpathy. Lives here (not in
-    # nix-claude-code) because it's a nix-ai-specific addition that landed
-    # on main after PR3 started; promote upstream when convenient.
+    # Behavioral/workflow skills from Andrej Karpathy. Kept here rather than in
+    # nix-claude-code; promote upstream when convenient.
     karpathy-skills = {
       url = "github:forrestchang/andrej-karpathy-skills";
       flake = false;
     };
 
-    # Fabric - Daniel Miessler's 252+ AI prompt pattern framework (Go CLI).
-    # Source of both the fabric binary and the pattern library. The flake input
-    # tag and lib/versions.nix.fabric must stay in sync — Renovate opens separate
-    # PRs for each (nix manager for this URL, custom.regex for the version).
-    # The fabric-version-sync check (lib/checks/fabric.nix) catches label drift;
-    # vendorHash catches source changes that weren't accompanied by a version bump.
+    # Fabric prompt-pattern framework: source of both the binary and the
+    # pattern library. This tag and lib/versions.nix.fabric must stay in sync —
+    # Renovate opens a separate PR for each, and the fabric-version-sync check
+    # (lib/checks/fabric.nix) catches the drift.
     fabric-src = {
       url = "github:danielmiessler/fabric/v1.4.470";
       flake = false;
     };
 
-    # DashMotion - animated technical diagram skill (flowcharts + architecture
-    # diagrams as self-contained HTML+SVG files using stroke-dashoffset +
-    # animateMotion; no external dependencies). Skill-only cross-tool input:
-    # ships skills/<name>/SKILL.md with no .claude-plugin/, so it flows to
-    # ~/.agents/skills via agent-skills auto-discovery, not Claude's registry.
+    # ---- Third-party skill inputs -------------------------------------
+    # modules/agent-skills walks each for every known SKILL.md layout and
+    # deploys to ~/.agents/skills. One that also ships .claude-plugin/ is
+    # "dual-channel": register it in modules/claude/marketplaces.nix and enable
+    # its plugin in a tier file to reach Claude, which does not read
+    # ~/.agents/skills. Licenses noted only where they constrain us — consuming
+    # from the store is fine, copying into a repo we publish is not.
+
+    # Animated technical diagrams as self-contained HTML+SVG. Cross-tool only.
     dashmotion = {
       url = "github:csthink/dashmotion";
       flake = false;
     };
 
-    # Ponytail - "lazy senior dev mode" behavioral skill (YAGNI, stdlib-first,
-    # no unrequested abstractions). Dual-channel: a flat skills/<name>/SKILL.md
-    # layout (consumed cross-tool by agent-skills) AND a native .claude-plugin/
-    # marketplace (consumed by Claude). Wired like karpathy-skills.
+    # "Lazy senior dev mode" — YAGNI, stdlib-first, no unrequested
+    # abstractions. Dual-channel, wired like karpathy-skills.
     ponytail = {
       url = "github:DietrichGebert/ponytail";
       flake = false;
     };
 
-    # Autoresearch - autonomous goal-directed iteration engine (modify → verify
-    # → keep/discard loop) from uditgoenka/autoresearch. Dual-channel like
-    # ponytail: native .claude-plugin/ marketplace (14 /autoresearch:* commands
-    # + safety hooks for Claude) AND a self-contained .claude/skills/ skill
-    # (consumed cross-tool via agent-skills auto-discovery). Its .opencode/
-    # command files feed the opencode module directly.
+    # Autonomous goal-directed iteration engine (modify → verify →
+    # keep/discard). Dual-channel; its .opencode/ command files also feed the
+    # opencode module directly.
     autoresearch = {
       url = "github:uditgoenka/autoresearch";
       flake = false;
     };
 
-    # Last30Days - multi-source social research skill. Aggregates Reddit, X,
-    # YouTube, TikTok, Hacker News, Polymarket, GitHub, and web results ranked
-    # by engagement. Flat skills/<name>/SKILL.md layout; skill-only cross-tool
-    # input (no .claude-plugin/).
+    # Multi-source social research, ranked by engagement. Cross-tool only.
     last30days-skill = {
       url = "github:mvanhorn/last30days-skill";
+      flake = false;
+    };
+
+    # `kaizen` and `why` skills. Dual-channel. GPL-3.0 — never copied.
+    context-engineering-kit = {
+      url = "github:NeoLabHQ/context-engineering-kit";
+      flake = false;
+    };
+
+    # Package evaluation and supply-chain hygiene. CC0-1.0. Dual-channel; its
+    # marketplace declares a single plugin at ./.
+    managing-dependencies = {
+      url = "github:andrew/managing-dependencies";
+      flake = false;
+    };
+
+    # Only `file-organizer` is taken; its <repo>/<skill>/SKILL.md layout
+    # matches no discovery pattern, so it is wired by path through
+    # programs.agentSkills.local. Unlicensed upstream — never copied.
+    awesome-claude-skills = {
+      url = "github:ComposioHQ/awesome-claude-skills";
       flake = false;
     };
 
@@ -170,6 +182,9 @@
       ponytail,
       last30days-skill,
       autoresearch,
+      context-engineering-kit,
+      managing-dependencies,
+      awesome-claude-skills,
       vct-cribl-cli,
       vct-splunk-cli,
       ...
@@ -217,6 +232,9 @@
           ponytail
           last30days-skill
           autoresearch
+          context-engineering-kit
+          managing-dependencies
+          awesome-claude-skills
           vct-cribl-cli
           vct-splunk-cli
           ;

@@ -9,6 +9,9 @@
   ponytail,
   last30days-skill,
   autoresearch,
+  context-engineering-kit,
+  managing-dependencies,
+  awesome-claude-skills,
   vct-cribl-cli,
   vct-splunk-cli,
 }:
@@ -48,6 +51,8 @@ let
     inherit ponytail;
     inherit last30days-skill;
     inherit autoresearch;
+    inherit context-engineering-kit;
+    inherit managing-dependencies;
   };
 in
 {
@@ -71,6 +76,7 @@ in
       inherit
         nix-claude-code
         browser-use-skills
+        awesome-claude-skills
         marketplaceInputs
         nixpkgs-unstable
         vct-cribl-cli
