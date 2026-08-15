@@ -27,7 +27,10 @@
 # A confirmed brain failure escalates a persisted counter (escalate_ladder):
 # failure 1 kickstarts, failure 2+ tears down and bootstraps — a single
 # kickstart cannot clear a throttled or slot-starved unit. A busy brain is
-# grace-gated instead; a cooldown marker stops a slow reload being restart-
+# grace-gated instead, and on a backend with no engine-progress metric an
+# expired grace pages rather than restarts (MLX_WATCHDOG_BUSY_ESCALATION),
+# because saturated and wedged look the same from here; a cooldown marker
+# stops a slow reload being restart-
 # stormed; fork-exhaustion is guarded every tick. Details live at each code site.
 
 set -euo pipefail
@@ -59,6 +62,12 @@ cooldown="${MLX_WATCHDOG_COOLDOWN:-90}"
 probe_timeout="${MLX_WATCHDOG_PROBE_TIMEOUT:-240}"
 # Escalate a brain busy this long with no completion (15 min).
 busy_grace="${MLX_WATCHDOG_BUSY_GRACE:-900}"
+# What an expired busy grace earns: "restart" runs the ladder, "alert" only
+# pages and rebases the timer. Set per backend by launchd-watchdog.nix — only a
+# backend publishing engine-progress metrics can tell a wedged brain from one
+# that is merely saturating its slots, and restarting the latter is worse than
+# not watching at all. dead/down are unaffected; both always run the ladder.
+busy_escalation="${MLX_WATCHDOG_BUSY_ESCALATION:-restart}"
 # Reap orphan worker trees above this uid process count (above steady state
 # ~700, below kern.maxprocperuid ~10.7k): fires only in a runaway.
 maxproc_threshold="${MLX_WATCHDOG_MAXPROC_THRESHOLD:-8000}"
@@ -404,8 +413,17 @@ case "$brain_state" in
     fi
     busy_for=$(( now - busy_since ))
     if (( busy_for >= busy_grace )); then
-      rm -f "$busy_marker" "$progress_marker"
-      escalate_ladder "brain ${brain_model} stuck busy/loading for ${busy_for}s (no engine progress through ${busy_grace}s grace)"
+      if [[ "$busy_escalation" == "alert" ]]; then
+        # No progress signal on this backend, so "wedged" and "saturated" are
+        # indistinguishable from here. Page a human and rebase the timer so the
+        # next page is a grace window away, never a restart of a loaded brain.
+        printf '%s\n' "$now" > "$busy_marker"
+        echo "$(ts) mlx-watchdog: brain ${brain_model} busy for ${busy_for}s >= ${busy_grace}s grace -> alert only, NO stack restart" >&2
+        alert "$(/bin/hostname -s): brain '${brain_model}' has answered no completion for ${busy_for}s (429/busy every probe). NOT restarting — this backend publishes no engine-progress metric, so a saturated brain cannot be told from a wedged one. Investigate."
+      else
+        rm -f "$busy_marker" "$progress_marker"
+        escalate_ladder "brain ${brain_model} stuck busy/loading for ${busy_for}s (no engine progress through ${busy_grace}s grace)"
+      fi
     else
       echo "$(ts) mlx-watchdog: brain ${brain_model} busy/loading (${busy_for}s < ${busy_grace}s grace) -> waiting, no restart"
     fi
