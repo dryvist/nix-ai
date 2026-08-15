@@ -9,6 +9,30 @@
 # and the proxy handles it.
 #
 { lib, ... }:
+let
+  # concurrencyLimit ceiling — derived from the residency budget, not chosen.
+  #
+  # A worker's memory budget at maxResidentWorkers = 2 (modules/mlx/
+  # options-residency.nix) is 48 GiB, per the invariant
+  # k * memoryHardLimitGb <= wired ceiling (100 GiB) documented there.
+  perWorkerBudgetGiB = 48;
+  # Peak 4-bit weight footprint in this registry (the 35B-class model,
+  # modules/mlx/catalog-data.nix), rounded up to the next whole GiB —
+  # the conservative direction, so this stays a ceiling.
+  peakWeightGiB = 31;
+  # Dense-attention KV cache cost per token, the pessimistic bound (MoE
+  # families cost less, at 20 KiB/token). See docs/architecture/mlx-stack.md.
+  kvPerTokenDenseKiB = 64;
+  # Largest maxRequestTokens actually granted by a catalog entry (the HIGH
+  # agentic-context profile; modules/mlx/catalog-data.nix,
+  # modules/mlx/catalog-data-qwen38-27b.nix). One in-flight request at this
+  # ceiling sets the largest single-request KV reservation to budget for.
+  maxGrantedRequestTokens = 65536;
+  kvPerSeqGiB = (kvPerTokenDenseKiB * maxGrantedRequestTokens) / (1024 * 1024);
+  # Headroom after the peak weight, sliced into pessimistic-KV portions:
+  # the count of concurrent max-length requests the budget supports.
+  concurrencyLimitCeiling = (perWorkerBudgetGiB - peakWeightGiB) / kvPerSeqGiB;
+in
 {
   options.programs.mlx = {
     proxy = {
@@ -65,9 +89,11 @@
         '';
       };
       concurrencyLimit = lib.mkOption {
-        # Ceiling 4 is an operator constraint, expressed in the type so a value
-        # above it cannot be represented rather than merely being remembered.
-        type = lib.types.ints.between 1 4;
+        # The ceiling is derived above from the residency budget, not chosen:
+        # (perWorkerBudgetGiB - peakWeightGiB) / kvPerSeqGiB, expressed in the
+        # type so a value the hardware cannot honor cannot be represented
+        # rather than merely being remembered.
+        type = lib.types.ints.between 1 concurrencyLimitCeiling;
         default = 1;
         description = ''
           Max in-flight requests llama-swap will forward to a model server per
@@ -82,11 +108,14 @@
           cron kills: the proxy admitted 4 while the server served 1, and the
           excess came back as 429.
 
-          Default 1, ceiling 4 (operator constraint, enforced by the type).
-          1 serializes and defeats continuous batching; that is the accepted
-          trade while the simplest non-crashing configuration is the goal.
-          Raising it means raising the server's real capacity at the same time,
-          which now happens automatically because both derive from here.
+          Default 1, ceiling ${toString concurrencyLimitCeiling}: the largest
+          number of concurrent maxGrantedRequestTokens-length requests the
+          k=2 per-worker residency budget can hold at once, after the peak
+          resident model's own weight footprint. 1 serializes and
+          defeats continuous batching; that is the accepted trade while the
+          simplest non-crashing configuration is the goal. Raising it means
+          raising the server's real capacity at the same time, which now
+          happens automatically because both derive from here.
 
           Above the limit callers get 429 — cap or retry with backoff; the
           llm_router tier absorbs 429s via its retry policy. Prior sweep data
