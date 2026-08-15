@@ -1,19 +1,25 @@
 # Agent Skills Components
 #
-# Manages shared skill deployment to ~/.agents/skills.
+# Manages shared skill deployment to one Codex-visible canonical root.
 { config, lib, ... }:
 
 let
   cfg = config.programs.agentSkills;
   homeDir = config.home.homeDirectory;
   skillDir = source: builtins.dirOf source;
+  skillRoots = {
+    codex = ".codex/skills";
+    agents = ".agents/skills";
+  };
+  skillRoot = skillRoots.${cfg.root};
+  inactiveSkillRoot = skillRoots.${if cfg.root == "codex" then "agents" else "codex"};
 
   # Harness fan-out: one registry generates the symlinks, the cleanup sweep,
   # and (via lib/checks/agent-skills.nix) the regression coverage.
   harnesses = import ./harnesses.nix;
   harnessSkillDirs = builtins.attrValues harnesses.skills;
   harnessSymlinks = lib.genAttrs harnessSkillDirs (_: {
-    source = config.lib.file.mkOutOfStoreSymlink "${homeDir}/.agents/skills";
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDir}/${skillRoot}";
   });
 
   # AGENTS.md fan-out: each tool's native global path → ~/.agents/AGENTS.md
@@ -31,7 +37,7 @@ let
   skillIndex = ''
     # Shared Agent Skills
 
-    Reusable skills live in `~/.agents/skills/<name>/SKILL.md`. When a task
+    Reusable skills live in `~/${skillRoot}/<name>/SKILL.md`. When a task
     matches a skill below, read its SKILL.md and follow it.
 
     ${lib.concatMapStrings (n: "- ${n}\n") (
@@ -42,7 +48,7 @@ let
     components:
     builtins.listToAttrs (
       map (c: {
-        name = ".agents/skills/${c.name}";
+        name = "${skillRoot}/${c.name}";
         value = {
           source = skillDir c.source;
           force = true;
@@ -53,7 +59,7 @@ let
   mkLocalSkills =
     locals:
     lib.concatMapAttrs (name: path: {
-      ".agents/skills/${name}" = {
+      "${skillRoot}/${name}" = {
         source = skillDir path;
         force = true;
       };
@@ -63,6 +69,18 @@ in
   config = lib.mkIf cfg.enable {
     home = {
       activation.cleanupLegacySkillCopies = lib.hm.dag.entryBefore [ "checkLinkTargets" ] ''
+        cleanup_legacy_root_link() {
+          root="$1"
+
+          [ -L "$root" ] || return 0
+          target=$(readlink "$root")
+          case "$target" in
+            /nix/store/*)
+              $DRY_RUN_CMD rm -f "$root"
+              ;;
+          esac
+        }
+
         cleanup_skill_tree() {
           root="$1"
 
@@ -91,7 +109,13 @@ in
           $DRY_RUN_CMD rmdir "$root" 2>/dev/null || true
         }
 
-        cleanup_skill_tree "${homeDir}/.agents/skills"
+        # Older generations linked ~/.codex/skills to ~/.agents/skills. Codex
+        # discovers both roots itself, so remove that managed alias before
+        # deploying the one root selected by programs.agentSkills.root.
+        cleanup_legacy_root_link "${homeDir}/.codex/skills"
+        cleanup_legacy_root_link "${homeDir}/.agents/skills"
+
+        cleanup_skill_tree "${homeDir}/${skillRoot}"
         # Legacy pre-registry location (module once deployed here directly).
         cleanup_skill_tree "${homeDir}/.antigravity-cli/skills"
         ${lib.concatMapStrings (dir: ''
@@ -99,11 +123,14 @@ in
         '') harnessSkillDirs}
       '';
 
+      activation.cleanupInactiveSkillRoot = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
+        # Home Manager removes the previous generation's managed entries. Drop
+        # the now-empty alternate root so Codex never scans both locations.
+        $DRY_RUN_CMD rmdir "${homeDir}/${inactiveSkillRoot}" 2>/dev/null || true
+      '';
+
       file = {
-        ".agents/.keep".text = ''
-          # Managed by Nix - programs.agentSkills module
-        '';
-        ".agents/skills/INDEX.md".text = skillIndex;
+        "${skillRoot}/INDEX.md".text = skillIndex;
       }
       // harnessSymlinks
       // harnessAgentsMdSymlinks
