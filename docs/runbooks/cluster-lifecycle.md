@@ -32,7 +32,7 @@ environment and behave identically on the coordinator and the worker.
 3. Coordinator only: refuse to proceed if `vm.swapusage` used exceeds
    `joinSwapThresholdMb` (default 8000 MB) — loading against stale swap spirals
    to a panic (INC-17075) — then quiesce standalone serving (bootout the server +
-   warmup agents, wait for zero `vllm-mlx serve` processes, reap orphans after a
+   warmup agents, wait for zero MLX model-server processes, reap orphans after a
    grace).
 4. Clear a stale `rank-halted` PD-guard latch and any standalone lease, ensure
    the watcher agent is loaded (bootstrap in the caller's own `gui/$uid` domain
