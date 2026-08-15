@@ -155,6 +155,24 @@
   };
 
   # ================================================================
+  # grep.app - literal code search across ~1M public GitHub repositories
+  # ================================================================
+  # Source: https://grep.app — remote Streamable-HTTP, stateless, keyless.
+  # Exposes exactly one tool, `searchGitHub`, so clients surface it as
+  # `mcp__grep__searchGitHub` (query, language[], repo, path, useRegexp,
+  # matchCase, matchWholeWords).
+  #
+  # Enabled everywhere on purpose: finding how a problem was already solved is
+  # the first rung of the native-first ladder, and a search tool that is only
+  # present in some harnesses is one nobody learns to reach for. There is no
+  # credential to scope and nothing to rotate; the only egress is the query
+  # string, which the `github-code-search` skill governs.
+  grep = {
+    type = "http";
+    url = "https://mcp.grep.app";
+  };
+
+  # ================================================================
   # Cribl MCP - OrbStack kubernetes-monitoring stack
   # ================================================================
   cribl = {

@@ -69,6 +69,22 @@
         "type": "github"
       }
     },
+    "awesome-claude-skills": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1784879281,
+        "narHash": "sha256-tJBtcbfWw9jvlx8kbh4tv5kpzXT2iuA26S16DZU6tdU=",
+        "owner": "ComposioHQ",
+        "repo": "awesome-claude-skills",
+        "rev": "be2a406907dbc61b73e6827ded415c96139d13a2",
+        "type": "github"
+      },
+      "original": {
+        "owner": "ComposioHQ",
+        "repo": "awesome-claude-skills",
+        "type": "github"
+      }
+    },
     "axton-obsidian-visual-skills": {
       "flake": false,
       "locked": {
@@ -258,6 +274,22 @@
       "original": {
         "owner": "secondsky",
         "repo": "claude-skills",
+        "type": "github"
+      }
+    },
+    "context-engineering-kit": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1786130450,
+        "narHash": "sha256-FTifVQGQbTqxBHOdJc/MVs7wdrJSxNZ2fzQr2/uvFjc=",
+        "owner": "NeoLabHQ",
+        "repo": "context-engineering-kit",
+        "rev": "8539779375f4e24b80f61476cfeaef330fa2d318",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NeoLabHQ",
+        "repo": "context-engineering-kit",
         "type": "github"
       }
     },
@@ -518,6 +550,22 @@
         "type": "github"
       }
     },
+    "managing-dependencies": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1772961008,
+        "narHash": "sha256-xOR87Z4RSGYTccrekRgV5RPPIiaXnOyTdVMQ9Kw1TQ4=",
+        "owner": "andrew",
+        "repo": "managing-dependencies",
+        "rev": "e6c13bd7246f13bab6510790ca6378e8660bf50f",
+        "type": "github"
+      },
+      "original": {
+        "owner": "andrew",
+        "repo": "managing-dependencies",
+        "type": "github"
+      }
+    },
     "nix-agy": {
       "inputs": {
         "nixpkgs": [
@@ -706,14 +754,17 @@
         "ai-assistant-instructions": "ai-assistant-instructions",
         "ai-llm-prompts": "ai-llm-prompts",
         "autoresearch": "autoresearch",
+        "awesome-claude-skills": "awesome-claude-skills",
         "browser-use-skills": "browser-use-skills",
         "claude-code-plugins": "claude-code-plugins",
+        "context-engineering-kit": "context-engineering-kit",
         "dashmotion": "dashmotion",
         "fabric-src": "fabric-src",
         "home-manager": "home-manager",
         "jacobpevans-cc-plugins": "jacobpevans-cc-plugins",
         "karpathy-skills": "karpathy-skills",
         "last30days-skill": "last30days-skill",
+        "managing-dependencies": "managing-dependencies",
         "nix-agy": "nix-agy",
         "nix-claude-code": "nix-claude-code",
         "nix-codex": "nix-codex",

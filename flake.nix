@@ -140,6 +140,37 @@
       flake = false;
     };
 
+    # Context Engineering Kit - `kaizen` (incremental improvement, error-proof
+    # design, anti-over-engineering) and `why` (Five Whys root-cause
+    # analysis). Dual-channel like ponytail: a native .claude-plugin/
+    # marketplace consumed by Claude, plus plugins/<plugin>/skills/<name>/
+    # SKILL.md that walkAllPatterns picks up cross-tool. GPL-3.0 — consumed by
+    # reference from the store, never copied into a repo we publish.
+    context-engineering-kit = {
+      url = "github:NeoLabHQ/context-engineering-kit";
+      flake = false;
+    };
+
+    # managing-dependencies - package evaluation and supply-chain hygiene:
+    # registry verification, typosquatting, lockfiles, provenance. CC0-1.0.
+    # Dual-channel; its marketplace declares a single plugin at ./.
+    managing-dependencies = {
+      url = "github:andrew/managing-dependencies";
+      flake = false;
+    };
+
+    # awesome-claude-skills - only `file-organizer` is taken. No marketplace
+    # manifest, and its <repo>/<skill>/SKILL.md layout matches none of the five
+    # walkAllPatterns patterns, so it is wired through
+    # programs.agentSkills.local rather than adding a sixth pattern. The
+    # consequence is deliberate: it reaches the cross-tool harnesses and never
+    # enters Claude's skill-listing budget, which suits a home-directory chore
+    # tool. Unlicensed upstream — pinned, never copied.
+    awesome-claude-skills = {
+      url = "github:ComposioHQ/awesome-claude-skills";
+      flake = false;
+    };
+
     vct-cribl-cli = {
       url = "github:VisiCore/vct-cribl-cli/main";
       flake = false;
@@ -170,6 +201,9 @@
       ponytail,
       last30days-skill,
       autoresearch,
+      context-engineering-kit,
+      managing-dependencies,
+      awesome-claude-skills,
       vct-cribl-cli,
       vct-splunk-cli,
       ...
@@ -217,6 +251,9 @@
           ponytail
           last30days-skill
           autoresearch
+          context-engineering-kit
+          managing-dependencies
+          awesome-claude-skills
           vct-cribl-cli
           vct-splunk-cli
           ;
