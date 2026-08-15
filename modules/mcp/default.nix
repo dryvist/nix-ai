@@ -160,7 +160,10 @@ in
   config.programs.aiMcp = {
     # Plain (priority-100) assignment so per-server host overrides merge — see
     # the `servers` option description above.
-    servers = import ./catalog.nix { inherit (config.home) homeDirectory; };
+    servers = import ./catalog.nix {
+      inherit (config.home) homeDirectory;
+      inherit pkgs;
+    };
     enabledServers = lib.filterAttrs (
       name: server:
       !(server.disabled or false)

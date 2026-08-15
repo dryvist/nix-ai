@@ -64,7 +64,61 @@ graph TD
 - **uvx wrappers**: `modules/mlx/packages.nix` — declarative Nix derivations for the MLX tools
 - **Auto-update**: Renovate annotation-based manager bumps version constants, weekly schedule
 
+## Package Delivery
+
+Two delivery paths, split by whether a working Nix package exists:
+
+| Component | Delivery | Why |
+| --------- | -------- | --- |
+| `mlx`, `mlx-lm`, `transformers` | Nix store (`modules/mlx/python-overlay.nix`) | Always-running serving path; needs dedup and GC |
+| `parakeet-mlx`, `vllm-mlx` | `uvx` wrapper | Not packaged in nixpkgs |
+| `mlx-vlm` | `uvx` wrapper | nixpkgs lags the pinned version |
+
+The serving stack moved off `uv run --with` because uv's cache is append-only
+by design: every distinct resolution mints a COMPLETE venv (~1.4 GB, hardlink
+count 1, so nothing is shared between them) and uv never evicts one. There are
+no GC roots and no TTL. On jevans-mbp that reached **328 GB** — five times the
+62 GB Nix store for the entire system.
+
+It also could not be cleaned. Every live `uvx` process holds a shared lock on
+`~/.cache/uv/.lock` for its whole lifetime, and with many concurrent agent
+sessions an exclusive lock is never free, so `uv cache prune` times out and
+**exits 0 having freed nothing**. Never trust that command's exit code; read
+its output. `modules/mlx/uv-cache-prune.nix` runs `--force` during activation
+as a floor for the tools that remain on uvx.
+
+`mlx` cannot come from nixpkgs — see the Metal note below.
+
+### Atomic version set
+
+`mlx` / `mlx-lm` / `transformers` are one set (`lib/python.nix`). The overlay
+expresses them together so a partial bump is unrepresentable rather than merely
+prohibited by a Renovate exclusion a config edit could get wrong — the two
+cluster nodes must resolve identical builds or ranks fail to rendezvous.
+
 ## Operational Notes
+
+**nixpkgs `mlx` is CPU-only — never benchmark against it.** nixpkgs builds mlx
+from source with `-DMLX_BUILD_METAL:BOOL=FALSE`, because compiling Metal
+shaders needs Xcode's proprietary toolchain and that cannot run in the Nix
+sandbox. The package imports cleanly and computes correct results, so it looks
+healthy; it is simply running on the CPU. Verified on aarch64-darwin
+2026-08-14:
+
+```console
+$ nix shell nixpkgs#python314Packages.mlx   # do NOT measure with this
+>>> mx.metal.is_available()
+False
+>>> mx.default_device()
+Device(cpu, 0)
+```
+
+A one-off `nix shell nixpkgs#python3xxPackages.mlx` used for a measurement will
+silently report CPU numbers. The serving path is unaffected — it uses the
+overlay's wheel mlx (`modules/mlx/python-overlay.nix`), which reports
+`Device(gpu, 0)`. Confirm which you have before trusting any number; the
+server's `system_fingerprint` ends in the GPU id (e.g. `applegpu_g16s`) when
+Metal is live.
 
 **Tool-call parser compatibility**: vllm-mlx defaults to `--tool-call-parser hermes`. Only Qwen
 models pass tool-calling validation with this parser; GLM and Seed-OSS models fail with output
