@@ -109,6 +109,7 @@ These tools refresh specific files between rebuilds:
 | `mlx-discover` | `~/.config/mlx/llama-swap.json` | After downloading a new model to `/Volumes/HuggingFace` |
 | `mlx-warmup` | resident model pages | After startup or when manually faulting the preload list |
 | `mlx-switch <model>` | triggers `mlx-discover` if needed | Hot-swap active MLX model without restart |
+| `mlx-default-model {set <key>\|clear\|show}` | the `default` alias in `~/.config/mlx/llama-swap.json`, plus `~/.config/mlx/default-model.override` | Re-point the `default` role at another catalog key with no rebuild; `--watch-config` reloads the proxy. Survives `darwin-rebuild`, and prints a banner on every activation while active. |
 
 ## Diagram: Full File Ownership Map
 
