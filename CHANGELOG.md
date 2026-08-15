@@ -1,5 +1,17 @@
 # Changelog
 
+## [4.17.0](https://github.com/dryvist/nix-ai/compare/v4.16.1...v4.17.0) (2026-08-15)
+
+
+### Features
+
+* **mcp,skills:** grep.app MCP server, three skill inputs, and INDEX categories ([#1650](https://github.com/dryvist/nix-ai/issues/1650)) ([7c37081](https://github.com/dryvist/nix-ai/commit/7c37081b43698918a7aa0a6e824456b5b1d97e35))
+
+
+### Bug Fixes
+
+* **agent-skills:** clean inactive managed links ([#1651](https://github.com/dryvist/nix-ai/issues/1651)) ([47d50f8](https://github.com/dryvist/nix-ai/commit/47d50f827baf84415c5409611341ed21d4112951))
+
 ## [4.16.1](https://github.com/dryvist/nix-ai/compare/v4.16.0...v4.16.1) (2026-08-15)
 
 
