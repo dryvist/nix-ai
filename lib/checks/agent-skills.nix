@@ -152,6 +152,8 @@ in
     let
       sharedHomeFiles = hmConfigAgentSkillsShared.config.home.file;
       sharedHomeFileNames = builtins.attrNames sharedHomeFiles;
+      inactiveRootCleanup =
+        hmConfigAgentSkillsShared.config.home.activation.cleanupInactiveSkillRoot.data;
     in
     assert sharedCfg.root == "agents" || throw "Agent Skills shared-root fixture did not select agents";
     assert
@@ -163,5 +165,8 @@ in
     assert
       builtins.elem ".agents/skills/autoresearch" sharedHomeFileNames
       || throw "Agent Skills agents root is missing autoresearch";
+    assert
+      pkgs.lib.hasInfix "/nix/store/*-home-manager-files/.codex/skills/*" inactiveRootCleanup
+      || throw "Agent Skills agents root must clean stale Home Manager links from the inactive Codex root";
     helpers.mkMarker "check-agent-skills-shared-root" "Agent Skills agents override deploys one canonical root";
 }
