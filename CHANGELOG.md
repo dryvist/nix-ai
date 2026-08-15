@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.17.1](https://github.com/dryvist/nix-ai/compare/v4.17.0...v4.17.1) (2026-08-15)
+
+
+### Bug Fixes
+
+* **mlx:** run the serving watchdog on the mlx-lm backend ([#1656](https://github.com/dryvist/nix-ai/issues/1656)) ([9d93244](https://github.com/dryvist/nix-ai/commit/9d932449cf9feaa3d2b4680162b7b2133e8b5e9c))
+
 ## [4.17.0](https://github.com/dryvist/nix-ai/compare/v4.16.1...v4.17.0) (2026-08-15)
 
 
