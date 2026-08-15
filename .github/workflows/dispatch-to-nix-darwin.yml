@@ -1,14 +1,39 @@
-# Dispatch: notify consumers after flake.lock changes on main
+# Dispatch: notify consumers after a nix-ai release
 #
 # Target repos are read from the DISPATCH_CONSUMERS repository variable
 # (JSON array, e.g. '["nix-darwin"]'). Add a new consumer there without
 # touching this file.
-name: Dispatch lock update to consumers
+#
+# WHY release AND NOT push (changed 2026-08-15)
+#
+# This fired on `push` to main filtered to `paths: [flake.lock]`, so it
+# propagated this repo's own dependency churn but NOT its feature work.
+# Consumers pin `github:dryvist/nix-ai/main`, so every commit to main is a new
+# rev they should adopt — yet a promotion carrying only module changes matched
+# no path and dispatched nothing. Measured 2026-08-14: the promotion that
+# shipped the Nix-store serving stack left nix-darwin with no relock PR, while
+# an unrelated promotion 43 minutes earlier dispatched purely because it
+# happened to touch flake.lock.
+#
+# Dropping the path filter was the obvious fix and is the wrong one. Since
+# 2026-08-05 the receiver (_update-flake-lock.yml) relocks the WHOLE flake on
+# every dispatch rather than bumping one input, so a docs-only commit here
+# would drag nixpkgs forward in nix-darwin. That is not hypothetical: a pin
+# drifting off the Hydra-evaluated channel head cost nix-darwin#1804 binary
+# cache coverage on 236 of 1009 closure paths. The receiver also gates
+# auto-merge whenever nixpkgs moves, so a trivial commit here could produce a
+# human-gated PR there — slower than the path it replaced.
+#
+# Releasing is the right granularity: it fires once per release instead of once
+# per commit, matches how the sibling flake libraries (nix-claude-code,
+# nix-home) already dispatch, and matches what consumers actually track. The
+# repos that dispatch on plain `push` are content repos with no release cycle;
+# this one has release-please, so use it.
+name: Dispatch lock updates on release
 
 on:
-  push:
-    branches: [main]
-    paths: [flake.lock]
+  release:
+    types: [published]
 
 permissions: {}
 
