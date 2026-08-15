@@ -8,14 +8,14 @@
 # processes. Model switching is transparent: send a request with model: "X"
 # and the proxy handles it.
 #
-{ lib, ... }:
+{ lib, config, ... }:
 let
   # concurrencyLimit ceiling — derived from the residency budget, not chosen.
   #
-  # A worker's memory budget at maxResidentWorkers = 2 (modules/mlx/
-  # options-residency.nix) is 48 GiB, per the invariant
-  # k * memoryHardLimitGb <= wired ceiling (100 GiB) documented there.
-  perWorkerBudgetGiB = 48;
+  # A worker's memory budget is programs.mlx.memoryHardLimitGb itself (see
+  # modules/mlx/options-residency.nix) — read live so this adapts per host
+  # instead of assuming the Studio's k=2/100 GiB shape.
+  perWorkerBudgetGiB = config.programs.mlx.memoryHardLimitGb;
   # Peak 4-bit weight footprint in this registry (the 35B-class model,
   # modules/mlx/catalog-data.nix), rounded up to the next whole GiB —
   # the conservative direction, so this stays a ceiling.
@@ -30,8 +30,12 @@ let
   maxGrantedRequestTokens = 65536;
   kvPerSeqGiB = (kvPerTokenDenseKiB * maxGrantedRequestTokens) / (1024 * 1024);
   # Headroom after the peak weight, sliced into pessimistic-KV portions:
-  # the count of concurrent max-length requests the budget supports.
-  concurrencyLimitCeiling = (perWorkerBudgetGiB - peakWeightGiB) / kvPerSeqGiB;
+  # the count of concurrent max-length requests the budget supports. Clamped
+  # to at least 1 — a memoryHardLimitGb set below peakWeightGiB is already a
+  # broken host (it can't hold the heaviest catalog model at all), and the
+  # unclamped division would otherwise crash `ints.between` at eval with an
+  # opaque "lowest must be smaller than highest" instead of surfacing here.
+  concurrencyLimitCeiling = lib.max 1 ((perWorkerBudgetGiB - peakWeightGiB) / kvPerSeqGiB);
 in
 {
   options.programs.mlx = {
@@ -108,10 +112,12 @@ in
           cron kills: the proxy admitted 4 while the server served 1, and the
           excess came back as 429.
 
-          Default 1, ceiling ${toString concurrencyLimitCeiling}: the largest
-          number of concurrent maxGrantedRequestTokens-length requests the
-          k=2 per-worker residency budget can hold at once, after the peak
-          resident model's own weight footprint. 1 serializes and
+          Default 1, ceiling ${toString concurrencyLimitCeiling} on this host
+          (derives from programs.mlx.memoryHardLimitGb, currently
+          ${toString perWorkerBudgetGiB} GiB): the largest number of
+          concurrent maxGrantedRequestTokens-length requests the worker's
+          memory budget can hold at once, after the peak resident model's
+          own weight footprint. 1 serializes and
           defeats continuous batching; that is the accepted trade while the
           simplest non-crashing configuration is the goal. Raising it means
           raising the server's real capacity at the same time, which now

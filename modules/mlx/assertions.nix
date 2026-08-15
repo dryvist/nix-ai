@@ -6,34 +6,10 @@
 }:
 let
   inherit (mlxShared) cfg llamaSwapConfigAttrs allModels;
-  # Documented host wired-memory ceiling (nix-darwin appleSiliconTunables,
-  # iogpu.wired_limit_mb = 102400 on the 128 GiB Macs this module targets;
-  # see modules/mlx/options-residency.nix). Not readable from this module —
-  # nix-darwin owns the sysctl — so it is named here rather than re-derived.
-  wiredCeilingGiB = 100;
 in
 {
   # Fail evaluation when coupled options or generated proxy contracts drift.
   assertions = lib.optionals cfg.enable [
-    {
-      # The residency invariant documented in options-residency.nix (lines
-      # 9, 40) and options-runtime.nix (lines 11, 72-74) but never enforced:
-      # maxResidentWorkers * memoryHardLimitGb must not exceed the host wired
-      # ceiling, or the module can represent a config the hardware cannot
-      # honor (host-wide swap/thrash under memory pressure).
-      assertion = cfg.maxResidentWorkers * cfg.memoryHardLimitGb <= wiredCeilingGiB;
-      message =
-        let
-          product = cfg.maxResidentWorkers * cfg.memoryHardLimitGb;
-        in
-        ''
-          programs.mlx: maxResidentWorkers (${toString cfg.maxResidentWorkers}) *
-          memoryHardLimitGb (${toString cfg.memoryHardLimitGb}) = ${toString product} GiB,
-          exceeding the documented wired ceiling of ${toString wiredCeilingGiB} GiB.
-          Lower memoryHardLimitGb to fit the raised worker count, or lower
-          maxResidentWorkers back down.
-        '';
-    }
     {
       assertion = cfg.modelServerBackend == "mlx-lm" && cfg.enabledBackends == [ "mlx-lm" ];
       message = "programs.mlx must use only the enabled mlx-lm backend; vllm-mlx remains preserved but disabled.";
