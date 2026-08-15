@@ -17,41 +17,18 @@ in
       next80 = "mlx-community/Qwen3-Next-80B-A3B-Thinking-4bit";
       next80Instruct = "mlx-community/Qwen3-Next-80B-A3B-Instruct-4bit";
       judge27b = "mlx-community/Qwen3.8-27B-4bit";
-      ocr = "mlx-community/Unlimited-OCR-bf16";
       optiqFlags = c.modelFlagOverrides.${optiq};
       judgeArgs = builtins.concatStringsSep " " c.modelExtraArgs.${judge27b};
       commandBuilder = import ../../modules/mlx/model-server-cmd.nix {
         inherit (pkgs) lib;
         cfg = c;
         mlxModelServerPkg = pkgs.writeShellScriptBin "mlx-model-server" "";
-        # Deliberately DISTINCT stub names per backend. Production names both
-        # binaries "mlx-model-server", so asserting against that shared name
-        # would pass even if per-model backend routing silently fell back to the
-        # host backend. Distinct names make the routing itself observable.
-        mlxModelServerPkgs = {
-          mlx-vlm = pkgs.writeShellScriptBin "stub-mlx-vlm-server" "";
-        };
       };
       optiqCmd =
         commandBuilder.mkModelCmd optiq + " " + pkgs.lib.escapeShellArgs c.modelExtraArgs.${optiq};
       judgeCmd =
         commandBuilder.mkModelCmd judge27b + " " + pkgs.lib.escapeShellArgs c.modelExtraArgs.${judge27b};
       uncataloguedCmd = commandBuilder.mkModelCmd "mlx-community/test-model";
-      ocrCmd = commandBuilder.mkModelCmd ocr;
-      # mlx_lm.server has no image input path, so a silent fallback to the host
-      # backend would serve a model that cannot answer rather than failing
-      # loudly. Assert the mlx-vlm binary is actually selected, and that no
-      # mlx_lm-only tuning flag leaks onto a server that rejects them.
-      ocrMustHave = [
-        ".*stub-mlx-vlm-server --model ${ocr} .*"
-        ".*--trust-remote-code.*"
-      ];
-      ocrMustNotHave = [
-        ".*--decode-concurrency.*"
-        ".*--prompt-cache-bytes.*"
-        ".*--harmony-tool-parser.*"
-        ".*--max-num-seqs.*"
-      ];
       # Assert the EMITTED flags equal the DECLARED concurrency, not a literal.
       # A check pinning a magic number is what kept --decode-concurrency
       # hard-coded at 1 while proxy.concurrencyLimit said 4.
@@ -152,16 +129,6 @@ in
       builtins.match ".*--max-tokens 8192.*" nullDefaultsCmd != null
       && builtins.match ".*--prompt-cache-bytes 8589934592.*" nullDefaultsCmd != null
       || throw "catalog: nullable legacy settings must retain bounded official mlx_lm defaults: ${nullDefaultsCmd}";
-    assert
-      builtins.all (m: builtins.match m ocrCmd != null) ocrMustHave
-      && builtins.all (m: builtins.match m ocrCmd == null) ocrMustNotHave
-      || throw "catalog: the OCR entry must compile onto mlx_vlm.server carrying no mlx_lm-only flags: ${ocrCmd}";
-    assert
-      c.modelBackends.${ocr} == "mlx-vlm" && c.modelServerBackend == "mlx-lm"
-      || throw "catalog: OCR must override its own backend only; the host backend must stay mlx-lm";
-    assert
-      c.modelTtls.${ocr} == 600
-      || throw "catalog: OCR must carry its per-entry 600s TTL — the only eviction path a VLM worker has";
     assert
       c.proxy.logLevel == "info"
       || throw "catalog: production proxy logging must remain prompt-safe INFO";

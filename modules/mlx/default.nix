@@ -72,15 +72,11 @@ let
   };
   mlxLmServerPkg = mlxLmServer.pkg;
 
-  # mlx_vlm.server — the vision-language serving path. mlx_lm.server has no
-  # image input at all, so VLMs cannot ride the host backend and instead opt in
-  # per model via programs.mlx.modelBackends. Same --model-forwarding adapter
-  # shape as the vllm-mlx one above so llama-swap's cmd contract is identical
-  # across backends. mlx-vlm is already pinned in lib/versions.nix for the
-  # mlx-vlm-generate CLI (packages.nix); this reuses that one pin.
-  mlxVlmServerPkg = pkgs.writeShellScriptBin "mlx-model-server" ''
-    exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} --from "mlx-vlm==${mlxVlmVersion}" mlx_vlm.server "$@"
-  '';
+  # Vision-language serving path — split to mlx-vlm-server.nix (12 KB gate).
+  mlxVlmServerPkg =
+    (import ./mlx-vlm-server.nix {
+      inherit pkgs mlxVlmVersion uvPythonVersion;
+    }).pkg;
 
   mlxModelServerPkgs = {
     mlx-lm = mlxLmServerPkg;
