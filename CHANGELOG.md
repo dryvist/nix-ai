@@ -1,5 +1,17 @@
 # Changelog
 
+## [4.15.0](https://github.com/dryvist/nix-ai/compare/v4.14.0...v4.15.0) (2026-08-15)
+
+
+### Features
+
+* **mlx:** serve vision-language models via a per-model backend ([#1635](https://github.com/dryvist/nix-ai/issues/1635)) ([ab9f40f](https://github.com/dryvist/nix-ai/commit/ab9f40f6c2ab64b365b4b858d24b7f1390ee6bbb))
+
+
+### Bug Fixes
+
+* **ci:** dispatch consumer relocks on release, not on flake.lock pushes ([#1636](https://github.com/dryvist/nix-ai/issues/1636)) ([a6b58f9](https://github.com/dryvist/nix-ai/commit/a6b58f98fc18e8a4193bdb0fd28a27475f030f63))
+
 ## [4.14.0](https://github.com/dryvist/nix-ai/compare/v4.13.0...v4.14.0) (2026-08-15)
 
 
