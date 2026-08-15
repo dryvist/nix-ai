@@ -145,9 +145,24 @@ in
       '';
 
       activation.cleanupInactiveSkillRoot = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
-        # Home Manager removes the previous generation's managed entries. Drop
-        # the now-empty alternate root so Codex never scans both locations.
-        $DRY_RUN_CMD rmdir "${homeDir}/${inactiveSkillRoot}" 2>/dev/null || true
+        inactive_root="${homeDir}/${inactiveSkillRoot}"
+
+        # A real directory in the alternate root (notably Codex's .system)
+        # prevents Home Manager from removing stale links from its previous
+        # generation. Remove only links owned by that generation; preserve
+        # native and user-managed content.
+        if [ -d "$inactive_root" ] && [ ! -L "$inactive_root" ]; then
+          find "$inactive_root" -mindepth 1 -maxdepth 1 -type l -print0 | while IFS= read -r -d $'\0' link; do
+            target=$(readlink "$link")
+            case "$target" in
+              /nix/store/*-home-manager-files/${inactiveSkillRoot}/*)
+                $DRY_RUN_CMD rm -f "$link"
+                ;;
+            esac
+          done
+        fi
+
+        $DRY_RUN_CMD rmdir "$inactive_root" 2>/dev/null || true
       '';
 
       file = {
