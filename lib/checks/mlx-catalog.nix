@@ -55,6 +55,7 @@ in
           mlxModelServerPkg = pkgs.writeShellScriptBin "mlx-model-server" "";
         }).mkModelCmd
           "mlx-community/null-default-test";
+      watchdogAgent = hmConfigCatalog.config.launchd.agents.mlx-model-server-watchdog;
       inst = c.modelFlagOverrides.${next80Instruct};
       next80InstructPagedOff = inst.pagedKvCache == false && inst.enablePrefixCaching == false;
     in
@@ -78,9 +79,20 @@ in
     assert
       c.enabledBackends == [ "mlx-lm" ]
       || throw "catalog: official mlx-lm must be the only enabled backend; vllm-mlx must remain preserved but disabled";
+    # The watchdog is the only thing that notices a proxy that is up but not
+    # serving, so on a host with a resident set it MUST be running. This used
+    # to assert the opposite — that it stay disabled — back when its busy
+    # handling depended on a vllm-only progress metric. The dependency now
+    # lives behind MLX_WATCHDOG_BUSY_ESCALATION, so the intent is re-expressed
+    # rather than dropped: enabled everywhere, and pinned to "alert" on the
+    # backend that publishes no such metric, which is what keeps it from
+    # reaping a brain that is merely saturating its slots.
     assert
-      !hmConfigCatalog.config.launchd.agents.mlx-model-server-watchdog.enable
-      || throw "catalog: the vllm-specific watchdog must stay disabled for mlx-lm";
+      watchdogAgent.enable
+      || throw "catalog: the serving watchdog must be enabled — a resident set with no watchdog has nothing supervising an up-but-not-serving proxy";
+    assert
+      watchdogAgent.config.EnvironmentVariables.MLX_WATCHDOG_BUSY_ESCALATION == "alert"
+      || throw "catalog: mlx-lm exposes no engine-progress metric, so an expired busy grace must page (\"alert\"), never run the restart ladder against a saturated brain";
     # The 27B entry MUST NOT pin concurrency. It used to: as a latency-sensitive
     # judge beside a resident 80B it carried concurrencyLimit = 1. That entry is
     # gone, and this one is shaped as a fleet brain — so a pin of 1 makes

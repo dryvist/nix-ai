@@ -13,6 +13,12 @@
 > **Update 2026-07-16:** Bifrost is decommissioned. The Bifrost-scoped rows in
 > Cross-Repo Dependencies are void; this ADR's remaining scope is the MLX inference
 > stack only.
+>
+> **Update 2026-08-15:** The serving backend is now `mlx-lm`, not `vllm-mlx`.
+> `modules/mlx/assertions.nix` enforces that; vllm-mlx is preserved but disabled.
+> The Consequences section below still names vllm-mlx because that was the backend
+> when this decision was recorded. The `programs.mlx.telemetry.enable` hook carries
+> over unchanged — it sets LaunchAgent env vars, so it is backend-neutral.
 
 ## Documents in This Directory
 
