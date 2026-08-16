@@ -193,12 +193,19 @@ soak_busy_skips_file="$state_dir/soak-busy-skips"
 # what the deployed activation says, quiesce and rank start assemble the stack
 # the deployed revision defines. Until 2026-08-01 the only parity check lived
 # in cluster-join, which is human-initiated — so a drifted node stayed drifted
-# for 86 hours. Now: reported every tick, paged once per distinct drift, and
-# RECONCILED unattended by a detached launchd job (see
-# cluster-generation-heal.sh — detached because a rebuild fired from this
-# agent would be SIGKILLed by its own activation). While drift persists,
-# rank_start_preconditions_ok refuses to start (hard gate) and the down path
-# below refuses to run link prep from the stale generation.
+# for 86 hours. Now: reported every tick and paged once per distinct drift (see
+# generation_heal_maybe in cluster-generation-heal.sh). It is NOT auto-rebuilt:
+# a rebuild fired from this agent's own process would be SIGKILLed by the very
+# activation it triggers the moment this agent's own launchd plist content
+# changes (nix-darwin's launchd activation unloads a changed agent before
+# loading the new one), and — independent of that — the parity check has no
+# way to know what a differently-deployed host (e.g. a private wrapper flake)
+# should be rebuilt INTO. tests/test-generation-heal.sh enforces this as a
+# regression: no shipped cluster script may ever call `darwin-rebuild switch`.
+# While drift persists, rank_start_preconditions_ok refuses to start (hard
+# gate) and the down path below refuses to run link prep from the stale
+# generation. Deploying a drifted host is still a deliberate, human-run
+# `darwin-rebuild switch`.
 parity_now="$(generation_parity_cached "$gen_parity_file")"
 generation_drift_report "$parity_now" "$gen_alerted_file"
 generation_heal_maybe "$parity_now" "$heal_attempts_file" || true
@@ -678,7 +685,7 @@ if [ "$cur" = "up" ]; then
       # Report the cost as a fraction of the device's own budget, not as a bare
       # count of failed starts: the operator needs to know how much of an
       # eleven-domain pool this just spent, not only that a counter hit its cap.
-      alert "$(hostname -s): cluster rank failed $kicks consecutive starts; $(pd_debt_phrase "$(pd_debt_count "$pd_debt_file")" "${CLUSTER_MAX_KICKSTARTS:-?}"). Kickstarts halted and the host restored to standalone serving. errno 60 = reboot needed. Replug the link to reset, or clear the rank-halted marker — the watcher re-verifies the cause before retrying and will re-halt if it persists." \
+      alert "$(hostname -s): cluster rank failed $kicks consecutive starts; $(pd_debt_phrase "$(pd_debt_count "$pd_debt_file")" "${CLUSTER_MAX_KICKSTARTS:-?}"). Kickstarts halted and the host restored to standalone serving. This cause (rank-start-failures) is errno-agnostic — an ETIMEDOUT peer-not-there is the common case, but the same 3-strike halt also catches a near-instant EHOSTUNREACH from a Local Network Privacy block (macOS 'nehelper' failing to resolve the rank identity's display metadata), which only a reboot clears. Replug the link to reset, or clear the rank-halted marker — the watcher re-verifies the cause before retrying and will re-halt if it persists. On a FileVault-off host this halt auto-reboots itself; see pd_auto_reboot_if_warranted." \
         "mlx-cluster rank halted (PD guard)"
     elif fast_fail_standdown "$halt_file" "$halt_latch_file" \
       "$fast_fail_strikes_file" "$kicks" "$started_file" "$rank_log_offset_file"; then
