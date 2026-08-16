@@ -20,6 +20,7 @@
   launchAgentsDir,
   stateFile,
   pdDebtFile,
+  rankErrorLog,
 }:
 let
   # The CLUSTER RANK process pattern. Single definition, derived from the same
@@ -146,6 +147,11 @@ in
   # vm_stat is not on a writeShellApplication PATH; test seam, like
   # CLUSTER_NETSTAT_BIN / CLUSTER_PGREP_BIN / CLUSTER_KILL_BIN above.
   CLUSTER_VMSTAT_BIN = "/usr/bin/vm_stat";
+  # The rank's own StandardErrorPath — same file cluster-mode.nix wires the
+  # rank launchd agent to. Read by rank_failure_stage (cluster-link-guards.sh)
+  # to tell a Stage-A TCP-bootstrap death, which cannot have leaked an RDMA
+  # protection domain, from a Stage-B one, which already has.
+  CLUSTER_RANK_ERROR_LOG = rankErrorLog;
 }
 // (import ./cluster-watcher-env-peer.nix { inherit ncfg; })
 // lib.optionalAttrs isCoordinator {

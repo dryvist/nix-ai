@@ -172,6 +172,7 @@ let
       stateFile
       pdDebtFile
       ;
+    rankErrorLog = "${logDir}/cluster-rank.error.log";
   };
 in
 {

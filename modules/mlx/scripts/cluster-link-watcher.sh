@@ -107,6 +107,13 @@ peer_session_strikes_file="$state_dir/peer-session-strikes"
 # verdict as the counter above, for the rank that never lives long enough to
 # reach it. Session-scoped like every other strike counter here.
 fast_fail_strikes_file="$state_dir/rank-fast-fails"
+# Byte size of CLUSTER_RANK_ERROR_LOG captured right before each kickstart, so
+# fast_fail_standdown's stage classifier reads only what THIS attempt appended
+# — StandardErrorPath accumulates across every rank restart, so a bare tail
+# would otherwise still be reading the PREVIOUS attempt's evidence on a death
+# that left no stderr of its own. See rank_failure_stage in
+# cluster-link-guards.sh.
+rank_log_offset_file="$state_dir/rank-error-log-offset"
 # Consecutive ticks the probe has failed while the link was ALREADY down. Used
 # only to make a permanently-failing probe audible on a cadence — see the
 # else-branch of the probe below.
@@ -660,7 +667,7 @@ if [ "$cur" = "up" ]; then
       alert "$(hostname -s): cluster rank failed $kicks consecutive starts; $(pd_debt_phrase "$(pd_debt_count "$pd_debt_file")" "${CLUSTER_MAX_KICKSTARTS:-?}"). Kickstarts halted and the host restored to standalone serving. errno 60 = reboot needed. Replug the link to reset, or clear the rank-halted marker — the watcher re-verifies the cause before retrying and will re-halt if it persists." \
         "mlx-cluster rank halted (PD guard)"
     elif fast_fail_standdown "$halt_file" "$halt_latch_file" \
-      "$fast_fail_strikes_file" "$kicks" "$started_file"; then
+      "$fast_fail_strikes_file" "$kicks" "$started_file" "$rank_log_offset_file"; then
       # Stood down: repeated starts died before settling and never reached
       # rendezvous. Ahead of the preconditions deliberately — the alignment hold
       # lives in there, and a peer that is not coming should cost no wait, the
@@ -681,6 +688,12 @@ if [ "$cur" = "up" ]; then
       quiesce_normal_serving
       echo "cluster-link: rank not running; kickstarting (attempt $((kicks + 1)))"
       rm -f "$started_file" "$ready_file" "$warm_file" "$warm_fails_file"
+      # Baseline BEFORE the launch, not after: fast_fail_standdown's stage
+      # classifier must only see what THIS attempt itself appends. A missing
+      # log (fresh boot, nothing has ever run) reads as offset 0, which is
+      # correct — everything the attempt writes is "new".
+      wc -c < "${CLUSTER_RANK_ERROR_LOG:-/dev/null}" 2> /dev/null > "$rank_log_offset_file" ||
+        printf '0\n' > "$rank_log_offset_file"
       # COUNT LAUNCHED ATTEMPTS, NOT ISSUED COMMANDS. The counter's stated
       # invariant (cluster-pd-settle.sh) is "launched attempts whose
       # protection-domain cost is not yet on the ledger", and every reset path
@@ -736,7 +749,7 @@ elif [ "$prev" = "up" ]; then
     "${link_cycle_cause:-link-cycle}"
   rm -f "$halt_file" "$halt_latch_file" "$started_file" "$ready_file" \
     "$warm_file" "$warm_fails_file" "$mem_dwell_file" "$fast_fail_strikes_file" \
-    "$soak_busy_skips_file"
+    "$rank_log_offset_file" "$soak_busy_skips_file"
   launchctl kill SIGTERM "gui/$uid/$CLUSTER_RANK_LABEL" 2> /dev/null || true
   if [ -n "${CLUSTER_WIRED_LIMIT_MB:-}" ]; then
     set_wired_limit "${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}" || down_failed=1
