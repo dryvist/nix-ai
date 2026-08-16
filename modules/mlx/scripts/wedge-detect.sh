@@ -21,6 +21,24 @@
 # default.nix), not vendored source, so there is no local patch to apply —
 # this is recovery for the observed symptom, upstream owns the counter fix.
 #
+# CLUSTER-MODE CONFLICT: recovery here restarts dev.mlx-model-server
+# (llama-swap). Entering MLX cluster mode deliberately bootouts that exact
+# service (and its warmup unit) to free the memory the shard needs, so
+# during a cluster window the service is INTENTIONALLY absent, not failed.
+# This detector already no-ops cleanly there — do not "fix" this: a
+# connection refused (or any non-429 response) makes wedge_classify return
+# clear on the first probe, before any engine-progress read is attempted,
+# so a cluster window never accumulates a wedge streak or logs a spurious
+# failure. Confirmed by reading wedge_classify/wedge_probe: only an actual
+# 429 response can advance the streak. What is NOT proven safe here: the
+# separate, pre-existing coarse dead/down branch below in mlx-watchdog.sh,
+# which treats the same connection-refused as brain state "down" and calls
+# escalate_ladder — and cluster-join does not bootout this watchdog agent
+# itself, so it keeps ticking and could bootstrap dev.mlx-model-server back
+# during an active cluster window, fighting the cluster for the memory it
+# just freed. That is a distinct, pre-existing gap outside this detector's
+# scope; flagged, not fixed, here.
+#
 # THE DISCRIMINATOR (both required — matches the measured evidence exactly,
 # see wedge_classify):
 #   1. FAST 429 — answered in under wedge_latency_ms. admit() rejects
