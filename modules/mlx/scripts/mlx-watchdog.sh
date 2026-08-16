@@ -121,7 +121,6 @@ brain_model="${MLX_WATCHDOG_BRAIN_MODEL:-${probe_models[0]}}"
 uid="$(id -u)"
 # pgrep/pkill/launchctl/ps/hostname go by absolute path — not on
 # writeShellApplication's sanitized PATH.
-worker_pattern="${MLX_MODEL_SERVER_PROCESS_PATTERN:?MLX_MODEL_SERVER_PROCESS_PATTERN unset}"
 
 mkdir -p "$(dirname "$marker")" "$(dirname "$fail_marker")" \
   "$(dirname "$busy_marker")" "$(dirname "$progress_marker")" "$(dirname "$wedge_marker")" \
@@ -144,18 +143,15 @@ unit_running() {
   /bin/launchctl print "gui/${uid}/${label}" 2>/dev/null | grep -q "state = running"
 }
 
-# SIGTERM -> wait -> SIGKILL the worker trees. A wedged engine ignores SIGTERM,
-# so the SIGKILL keeps it out of the next proxy's port (see llama-swap-launch.sh).
+# SIGTERM -> wait -> SIGKILL whatever holds our port block. Port ownership,
+# not process pattern/ancestry — mlx-lm-launch.py's cmdline never matches
+# MLX_MODEL_SERVER_PROCESS_PATTERN (nix-ai#1423), so a pattern-based reap was
+# a silent no-op for the standalone worker. mlx_reap_orphan_ports is defined
+# in llama-swap-reap.sh, concatenated ahead of this file by
+# mlx-watchdog-pkg.nix; `|| true` keeps this call's always-succeeds contract
+# even when a holder survives SIGKILL (already logged by that function).
 reap_workers() {
-  /usr/bin/pgrep -f "$worker_pattern" >/dev/null 2>&1 || return 0
-  echo "$(ts) mlx-watchdog: reaping workers matching '${worker_pattern}'" >&2
-  /usr/bin/pkill -f "$worker_pattern" || true
-  for _ in $(seq 1 10); do
-    /usr/bin/pgrep -f "$worker_pattern" >/dev/null 2>&1 || return 0
-    sleep 1
-  done
-  /usr/bin/pkill -9 -f "$worker_pattern" || true
-  sleep 2
+  mlx_reap_orphan_ports || true
 }
 
 # Page once via Slack incoming webhook, only if the untracked url file exists.

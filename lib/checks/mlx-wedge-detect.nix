@@ -5,9 +5,10 @@
 #     in scripts/wedge-detect.sh) run directly via tests/test-wedge-classify.sh.
 #     No mocks; it is a scalar-in/scalar-out function.
 #   mlx-wedge-recovery — the orchestration (check_wedge), run against the
-#     SAME concatenation mlx-watchdog-pkg.nix ships (wedge-detect.sh ahead of
-#     mlx-watchdog.sh) — check_wedge does not exist in the raw watchdog file
-#     alone, so this must run the built shape, not the standalone script.
+#     SAME concatenation mlx-watchdog-pkg.nix ships (llama-swap-reap.sh, then
+#     wedge-detect.sh, then mlx-watchdog.sh) — check_wedge and
+#     mlx_reap_orphan_ports do not exist in the raw watchdog file alone, so
+#     this must run the built shape, not the standalone script.
 #     Its own minimal curl/date/sleep fakes are separate from
 #     mlx-watchdog.nix's, so this cannot destabilize that file's scenarios.
 #     Proves: the persistence streak waits for MLX_WATCHDOG_WEDGE_CONSECUTIVE
@@ -57,6 +58,11 @@ let
     if [[ "$*" == "+%s" ]]; then cat "$FAKE_NOW_FILE"; else printf 'test-time\n'; fi
   '';
   fakeSleep = pkgs.writeShellScriptBin "sleep" "exit 0";
+  # reap_workers() now calls mlx_reap_orphan_ports (llama-swap-reap.sh,
+  # nix-ai#1423) instead of a pgrep/pkill pattern. A holder-free lsof is all
+  # this check needs: mlx_reap_orphan_ports returns immediately without ever
+  # calling kill, so no fake kill is required either.
+  fakeLsof = pkgs.writeShellScriptBin "fake-lsof" "exit 1";
 in
 {
   mlx-wedge-classify = pkgs.runCommand "check-mlx-wedge-classify" {
@@ -71,7 +77,10 @@ in
     export HOME="$TMPDIR/home"
     export MLX_API_URL=http://127.0.0.1:11434/v1
     export MLX_LAUNCHD_LABEL=dev.test.mlx
-    export MLX_MODEL_SERVER_PROCESS_PATTERN=vllm_mlx.server
+    export MLX_LSOF_BIN=${fakeLsof}/bin/fake-lsof
+    export MLX_PORT=11434
+    export MLX_WORKER_PORT_RANGE_START=11436
+    export MLX_WORKER_PORT_COUNT=2
     export MLX_WATCHDOG_PROBE_MODELS_JSON='["tool-calling"]'
     export MLX_WATCHDOG_BRAIN_MODEL=tool-calling
     export MLX_WATCHDOG_COOLDOWN=90
@@ -94,9 +103,12 @@ in
     export FAKE_LATENCY_S_FILE="$TMPDIR/latency"
 
     # Same concatenation mlx-watchdog-pkg.nix ships: check_wedge only exists
-    # once wedge-detect.sh is ahead of mlx-watchdog.sh in one script.
+    # once wedge-detect.sh is ahead of mlx-watchdog.sh in one script, and
+    # reap_workers() (hit by escalate_ladder below) only resolves
+    # mlx_reap_orphan_ports once llama-swap-reap.sh is ahead of that
+    # (nix-ai#1423).
     combined="$TMPDIR/mlx-watchdog-combined.sh"
-    cat ${src}/modules/mlx/scripts/wedge-detect.sh ${src}/modules/mlx/scripts/mlx-watchdog.sh > "$combined"
+    cat ${src}/modules/mlx/scripts/llama-swap-reap.sh ${src}/modules/mlx/scripts/wedge-detect.sh ${src}/modules/mlx/scripts/mlx-watchdog.sh > "$combined"
 
     printf '%s\n' '{"models":{"brain-physical":{"aliases":["tool-calling"]}}}' > "$MLX_WATCHDOG_CONFIG"
     printf '1\n' > "$MLX_WATCHDOG_MARKER"
