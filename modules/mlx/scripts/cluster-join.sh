@@ -403,8 +403,15 @@ fi
 # pushes the ledger TO the cap, the watcher halts a tick later with cause
 # pd-debt-exhausted. That is the ledger working, not a stale marker.
 if [ -f "$halt_file" ] || [ -f "$halt_latch_file" ]; then
+  # $7/$8: the same run-start byte-offset marker the watcher wrote at the
+  # outstanding run's first kickstart (state_dir is derived identically here
+  # and there — one path, one writer, one reader per run). Lets the settle
+  # skip billing a run whose every attempt was provably Stage-A-only (jaccl
+  # TCP bootstrap, no protection domain could have been allocated) — see
+  # pd_debt_settle_counter and rank_failure_stage (./cluster-pd-stage.sh).
   pd_debt_settle_counter "${CLUSTER_PD_DEBT_FILE:-}" "$kicks_file" 0 "cluster-join" \
-    "attempts outstanding when cluster-join reset the session"
+    "attempts outstanding when cluster-join reset the session" "" \
+    "${CLUSTER_RANK_ERROR_LOG:-}" "$state_dir/rank-error-log-session-offset"
   rm -f "$halt_file" "$halt_latch_file"
   echo "cluster-join: cleared stale rank-halted latch"
 fi

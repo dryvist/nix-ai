@@ -24,10 +24,19 @@
 # protection-domain cost is NOT yet in the ledger. Every reset transfers rather
 # than discards, so no path can launder debt out of the accounting.
 #
+# ALSO ASSERTED (2026-08-16): a transfer that consulted only "how many attempts"
+# and never "did any of them reach the call that actually allocates a domain"
+# billed every jaccl TCP-bootstrap-only run as if it had leaked — the mechanism
+# could not tell a Stage-A death (structurally cannot allocate a protection
+# domain) from a Stage-B one (already has). $7/$8 let it check: a run whose
+# outstanding attempts are ALL provably Stage-A-only bills nothing; any Stage-B
+# evidence, or none either caller could classify, still bills the full count.
+#
 # WHAT IS REAL AND WHAT IS NOT:
-#   REAL  — pd_debt_settle_counter, pd_debt_record and pd_debt_count are sourced
-#           from the shipped scripts in the module's own concatenation order and
-#           called exactly as the watcher, cluster-join and the guards call them.
+#   REAL  — pd_debt_settle_counter, pd_debt_record, pd_debt_count and
+#           rank_failure_stage are sourced from the shipped scripts in the
+#           module's own concatenation order and called exactly as the watcher,
+#           cluster-join, cluster-detach and the guards call them.
 #   STUB  — sysctl only, so the boot epoch is deterministic. Nothing in the
 #           decision under test is stubbed.
 #   SOURCE — part 3 reads the shipped scripts as text. Behaviour tests cannot
@@ -38,8 +47,8 @@
 #           reporting success), so the call sites are pinned as text.
 #
 # Usage:
-#   BOOT_SCOPE=… LEDGER=… RECORD=… SETTLE=… WATCHER=… JOIN=… GUARDS=… \
-#     bash test-pd-counter-settle.sh
+#   BOOT_SCOPE=… LEDGER=… RECORD=… STAGE=… SETTLE=… WATCHER=… JOIN=… DETACH=… \
+#     GUARDS=… bash test-pd-counter-settle.sh
 set -o errexit -o nounset -o pipefail
 
 state_dir="$(mktemp -d)"
@@ -71,6 +80,8 @@ export CLUSTER_SYSCTL_BIN
 . "${LEDGER:?LEDGER is required}"
 # shellcheck source=/dev/null
 . "${RECORD:?RECORD is required}"
+# shellcheck source=/dev/null
+. "${STAGE:?STAGE is required}"
 # shellcheck source=/dev/null
 . "${SETTLE:?SETTLE is required}"
 # shellcheck source=/dev/null
@@ -152,6 +163,74 @@ pd_debt_settle_counter "$debt_file" "$kicks_file" 0 link-cycle "nothing outstand
 check "it succeeds" 0 "$rc"
 check "and records nothing" 0 "$(pd_debt_count "$debt_file")"
 
+echo "1b. the transfer is ERRNO-AWARE — a provably Stage-A-only run bills nothing:"
+# ibv_alloc_pd lives in Stage B (RDMA queue-pair bring-up). A run whose every
+# outstanding attempt only ever exhausted jaccl's TCP-bootstrap connect retry
+# (Stage A) never reached it, so billing it protects a protection-domain
+# budget those attempts could not have spent — the mechanism that produced a
+# real fabricated ledger entry against a boot whose worker sat in SYN_SENT for
+# every attempt, never once established, with zero trace on the coordinator.
+rank_log="$state_dir/cluster-rank.error.log"
+offset_file="$state_dir/rank-error-log-session-offset"
+reset_state
+printf '2\n' > "$kicks_file"
+cat > "$rank_log" <<'EOF'
+[jaccl] Connection attempt 0 waiting 1000 ms
+[jaccl] Connection attempt 1 waiting 2000 ms
+[jaccl] Connection attempt 2 waiting 4000 ms
+[jaccl] Connection attempt 3 waiting 8000 ms
+RuntimeError: [jaccl] Couldn't connect (error: 60)
+EOF
+printf '0\n' > "$offset_file"
+pd_debt_settle_counter "$debt_file" "$kicks_file" 0 cluster-join \
+  "attempts outstanding when cluster-join reset the session" "" "$rank_log" "$offset_file"
+check "a stage-a-only run bills nothing" 0 "$(pd_debt_count "$debt_file")"
+check "no ledger entry written at all" missing \
+  "$([ -f "$debt_file" ] && echo present || echo missing)"
+check "the counter is still cleared" missing \
+  "$([ -f "$kicks_file" ] && echo present || echo missing)"
+check "the offset marker goes with it" missing \
+  "$([ -f "$offset_file" ] && echo present || echo missing)"
+
+echo "   ...but ANY Stage-B evidence in the run still bills the full count:"
+# One attempt in the run reaching Stage B is enough: it may have leaked, and
+# there is no per-attempt record to say which one, so the whole outstanding
+# count stays billed — the same fail-closed bias as the malformed-counter case
+# below, just triggered by content instead of a bad number.
+reset_state
+printf '2\n' > "$kicks_file"
+cat > "$rank_log" <<'EOF'
+[jaccl] Changing queue pair to RTR failed with errno 96
+EOF
+printf '0\n' > "$offset_file"
+pd_debt_settle_counter "$debt_file" "$kicks_file" 0 rank-start-failures \
+  "2 consecutive failed distributed inits" "" "$rank_log" "$offset_file"
+check "a stage-b run still bills the full count" 2 "$(pd_debt_count "$debt_file")"
+
+echo "   ...and no log at all bills exactly as before this fix (unknown, not free):"
+reset_state
+printf '2\n' > "$kicks_file"
+pd_debt_settle_counter "$debt_file" "$kicks_file" 0 link-cycle "no log configured" \
+  "" "" ""
+check "an absent log is not treated as stage-a" 2 "$(pd_debt_count "$debt_file")"
+
+echo "   ...and a run that predates this fix (no offset marker at all) bills as before:"
+# A host mid-upgrade, or a run that started before the marker existed, has a
+# log but no offset file. rank_failure_stage's own fail-closed default
+# ("unknown" on an unreadable offset) is what keeps this the SAME behaviour as
+# every call site had before this fix, not a new free pass.
+reset_state
+printf '2\n' > "$kicks_file"
+cat > "$rank_log" <<'EOF'
+[jaccl] Connection attempt 0 waiting 1000 ms
+RuntimeError: [jaccl] Couldn't connect (error: 60)
+EOF
+rm -f "$offset_file"
+pd_debt_settle_counter "$debt_file" "$kicks_file" 0 link-cycle "no offset marker" \
+  "" "$rank_log" "$offset_file"
+check "no offset marker still bills (fail closed)" 2 "$(pd_debt_count "$debt_file")"
+rm -f "$rank_log" "$offset_file"
+
 echo "2. a malformed counter is FAIL-CLOSED — never a free reset:"
 # Under-counting is the only direction that lets a start proceed that should not
 # have, so a vindicated count that is not a number must not be able to subtract.
@@ -228,6 +307,32 @@ check "and does not settle it" 0 \
 # the counter populated is how the same attempts got billed twice.
 check "the cap path no longer records bare" 0 \
   "$(grep -vE '^[[:space:]]*#' "$WATCHER" | grep -c 'pd_debt_record ' || true)"
+
+# ...and each settle call actually PASSES the stage-classification args, not
+# just calls the function. A call site that forgot $7/$8 bills exactly as
+# before this fix while every assertion above still passes — the same "correct
+# function nobody wires up" failure mode part 3's own opening comment names,
+# one call site at a time. -A4 covers each call's line-continuation tail.
+check "the watcher's rank-settled call passes the rank log" 1 \
+  "$(grep -A4 'pd_debt_settle_counter .* 1 "rank-settled"' "$WATCHER" |
+    grep -c 'CLUSTER_RANK_ERROR_LOG' || true)"
+check "the watcher's link-cycle call passes the rank log" 1 \
+  "$(grep -A4 'pd_debt_settle_counter .* 0 "link-cycle"' "$WATCHER" |
+    grep -c 'CLUSTER_RANK_ERROR_LOG' || true)"
+check "the watcher's cap-path call passes the rank log" 1 \
+  "$(grep -A4 'pd_debt_settle_counter .* 0 "rank-start-failures"' "$WATCHER" |
+    grep -c 'CLUSTER_RANK_ERROR_LOG' || true)"
+check "cluster-join's call passes the rank log" 1 \
+  "$(grep -A4 'pd_debt_settle_counter .* 0 "cluster-join"' "$JOIN" |
+    grep -c 'CLUSTER_RANK_ERROR_LOG' || true)"
+check "cluster-detach settles before clearing the session" 1 \
+  "$(grep -vE '^[[:space:]]*#' "${DETACH:?DETACH is required}" |
+    grep -c 'pd_debt_settle_counter ' || true)"
+detach_settle_block="$(grep -vE '^[[:space:]]*#' "$DETACH" | grep -A4 'pd_debt_settle_counter ')"
+check "...naming cluster-detach as the source" 1 \
+  "$(printf '%s\n' "$detach_settle_block" | grep -c '"cluster-detach"' || true)"
+check "...and passing the rank log" 1 \
+  "$(printf '%s\n' "$detach_settle_block" | grep -c 'CLUSTER_RANK_ERROR_LOG' || true)"
 
 echo "4. a halt marker left over from a PREVIOUS boot never suppresses THIS boot's charge:"
 # 2026-08-08 night watch: a stale halt from an earlier boot sat on disk when a
