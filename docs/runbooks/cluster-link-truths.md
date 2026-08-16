@@ -53,9 +53,12 @@ read of every watcher tick** and a precondition rung — under `drift` or
 and no attempt is consumed. **Drift does NOT self-heal** (corrected
 2026-08-16, was previously claimed otherwise here): `generation_heal_maybe`
 only pages, once per deploy revision — a repair has to know what to repair
-*into*, which the watcher cannot know. Rank starts stay refused until a human
-runs `darwin-rebuild switch`. **Generation drift is a permanent
-human-requiring stop.**
+*into*, which the watcher cannot know. It also can't run itself: activation
+unloads a launchd agent's OLD plist before loading the new one, so a rebuild
+fired from inside the watcher's own tick would have activation kill the
+watcher mid-rebuild. Rank starts stay refused until a human runs
+`darwin-rebuild switch`. **Generation drift is a permanent human-requiring
+stop.**
 
 Parity is a *preventive control*, not the usual suspect: on 2026-08-02 all
 nodes matched deploy HEAD exactly and the cause was a Metal OOM (§6). See §0.
@@ -97,7 +100,11 @@ Each produced a confident wrong diagnosis at least once.
   (`ECONNREFUSED`) = reached the peer, gate clear.** The gate CAN be prompted
   from launchd; a grant persists on disk at
   `/Library/Preferences/com.apple.networkextension.plist` (`DenyAll = false`),
-  not the (empty, here) TCC.db table.
+  not the (empty, here) TCC.db table. If `nehelper` can't resolve the
+  identity's display metadata (no alert ever attempted), the resulting
+  connect failures classify as ordinary Stage-A rank-start failures and drive
+  the same kickstart-cap → `rank-start-failures` halt → §6 auto-reboot path —
+  so this failure mode already self-clears without a special case.
 - **Never read halt state by file existence.** `[ -f rank-halted ]` reports
   the automation's own self-healing as an outage: post-reboot the marker
   legitimately exists for a tick before `halt_drop_if_pre_boot` drops it. Test
