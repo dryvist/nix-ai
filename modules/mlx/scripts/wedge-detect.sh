@@ -27,7 +27,12 @@
 #      synchronously against an in-memory map with no queueing, so a fast
 #      429 alone is NOT proof (a genuinely full model also rejects fast) —
 #      but a SLOW 429 (real queueing) rules the wedge out, because none of
-#      the measured leaked-slot 429s were slow.
+#      the measured leaked-slot 429s were slow. Confirmed again post-restart
+#      2026-08-16 under genuine heavy load: 100% of 429s answered in under
+#      10ms (476us-5.4ms) with real work in flight, so a fast 429 alone
+#      carries almost no discriminating power — condition 2 below is what
+#      actually separates a wedge from healthy saturation, and it must stay
+#      an independent measurement, never inferred from latency.
 #   2. FLAT ENGINE PROGRESS — the physical backend's own scheduler-step
 #      counter (vllm_mlx_engine_steps_executed, read via
 #      brain_progress_snapshot() in mlx-watchdog.sh) does not advance

@@ -300,11 +300,23 @@ probe_model_state() {
 # The ladder, parameterized by the triggering reason. Advances the counter and
 # starts the cooldown BEFORE the slow remediation, so the next tick does not
 # re-fire mid-recovery and a crashed remediation still escalates.
+#
+# A restart clears SERVER-side slot/counter state completely, but does
+# nothing for a caller already blocked reading from the now-dead socket —
+# that caller only unblocks via its own connection/read timeout (measured
+# up to 1800s in this fabric, 2026-08-16), never via this script, which has
+# no visibility into or authority over another process's open connections.
+# So several minutes of caller-side quiet right after a restart is EXPECTED,
+# not evidence the restart failed — a documented client-side concern, not
+# fixed here. This watchdog's own probing is immune to being fooled by it:
+# every probe below opens a fresh connection, so it always reads the
+# server's real current state, never a stranded caller's.
 escalate_ladder() {
   local reason="$1" failures bootstrapped
   failures=$(( $(read_int "$fail_marker") + 1 ))
   printf '%s\n' "$failures" > "$fail_marker"
   printf '%s\n' "$now" > "$marker"
+  echo "$(ts) mlx-watchdog: NOTE this restart strands any caller already in flight on the old process (dead socket, not served) — they recover only via their own read timeout, not this restart; quiet traffic for a while afterward is expected, not failure" >&2
 
   if (( failures == 1 )); then
     echo "$(ts) mlx-watchdog: ${reason} (failure 1) -> reap + kickstart ${label}" >&2
