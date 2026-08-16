@@ -1,5 +1,14 @@
 # Changelog
 
+## [4.19.1](https://github.com/dryvist/nix-ai/compare/v4.19.0...v4.19.1) (2026-08-16)
+
+
+### Bug Fixes
+
+* **mlx:** restore standalone serving when a post-quiesce refusal never starts a rank ([#1682](https://github.com/dryvist/nix-ai/issues/1682)) ([14bb1d4](https://github.com/dryvist/nix-ai/commit/14bb1d44b8ab467d64280fad92aee16a2d538ee7))
+* **mlx:** set llama-swap unloadTimeout deliberately, log quiesce in-flight ([#1681](https://github.com/dryvist/nix-ai/issues/1681)) ([d148853](https://github.com/dryvist/nix-ai/commit/d1488535a6f03840f0dc036215ef2b74879bb33b))
+* **mlx:** split the memory-headroom check out of rank_start_preconditions_ok ([#1680](https://github.com/dryvist/nix-ai/issues/1680)) ([1355a2e](https://github.com/dryvist/nix-ai/commit/1355a2e3d3b941161487351a52b4292585284ff3))
+
 ## [4.19.0](https://github.com/dryvist/nix-ai/compare/v4.18.1...v4.19.0) (2026-08-16)
 
 
