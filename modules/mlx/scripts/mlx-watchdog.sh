@@ -303,9 +303,10 @@ probe_model_state() {
 #
 # A restart clears SERVER-side slot/counter state completely, but does
 # nothing for a caller already blocked reading from the now-dead socket —
-# that caller only unblocks via its own connection/read timeout (measured
-# up to 1800s in this fabric, 2026-08-16), never via this script, which has
-# no visibility into or authority over another process's open connections.
+# that caller only unblocks via its own connection/read timeout (client
+# read timeouts in this fabric run long, on the order of tens of minutes),
+# never via this script, which has no visibility into or authority over
+# another process's open connections.
 # So several minutes of caller-side quiet right after a restart is EXPECTED,
 # not evidence the restart failed — a documented client-side concern, not
 # fixed here. This watchdog's own probing is immune to being fooled by it:
