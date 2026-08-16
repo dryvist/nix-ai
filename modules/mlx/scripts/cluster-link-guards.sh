@@ -466,41 +466,10 @@ rank_start_preconditions_ok() {
     echo "cluster-link: peer-not-armed ($PEER_GATE_REASON) — attempt suppressed, 0 protection domains spent" >&2
     return 1
   fi
-  # 1f. THIS HOST MUST HAVE ROOM TO LOAD THE SHARD. A rank started anyway still
-  #    reaches mx.distributed.init(), still allocates a protection domain, and
-  #    then MLX dies loading weights into ordinary resident memory —
-  #    `[METAL] Command buffer execution failed: Insufficient Memory` — so the
-  #    domain is gone just the same as an errno-60 timeout. mem_headroom_ok is
-  #    0 (disabled) unless shardMemoryMb is set.
-  #
-  #    QUIESCE FIRST, THEN MEASURE — NOT THE OTHER WAY AROUND. This used to run
-  #    as rung 1c, ahead of the peer/armed checks above, and measured raw
-  #    current free memory. That is the memory a host holds WHILE STILL SERVING
-  #    ITS STANDALONE MODELS — quiesce_normal_serving (called below, and again
-  #    idempotently at the actual kickstart) is what unloads them and returns
-  #    that room, so the precondition was gating on the very state its own
-  #    remedy would fix, never actually exercising the free-up path. It only
-  #    ever passed because free memory happened to clear the threshold anyway
-  #    (~7.9 GB margin observed 2026-08-16) — luck, not correctness; the gate
-  #    was unsatisfiable by design the moment serving footprint ate that
-  #    margin, since nothing upstream of it ever quiesces.
-  #
-  #    Moved here, after peer-reachable/armed and the device-budget check, so a
-  #    peer that cannot rendezvous still costs neither a domain nor a
-  #    disruption to standalone serving — quiescing is cheap and idempotent,
-  #    but interrupting real serving for an attempt that was never going forward
-  #    anyway is exactly the waste rungs 1b/1e exist to avoid. By this point
-  #    every other precondition already holds, so quiescing is warranted: the
-  #    attempt IS going forward unless memory itself refuses it.
-  #
-  #    Nothing is launched (quiesce only unloads standalone-mode models via the
-  #    proxy; it holds no protection domain), so no attempt is consumed.
-  quiesce_normal_serving
-  if ! mem_headroom_ok "${CLUSTER_SHARD_MEMORY_MB:-0}"; then
-    PRECONDITION_REASON="insufficient-memory"
-    echo "cluster-link: $MEM_HEADROOM_DETAIL; NOT starting the rank (no attempt consumed)" >&2
-    return 1
-  fi
+  # NOTE: the memory-headroom rung used to live here (as rung 1c, even earlier
+  # than this). It is NOT a rung of this function any more — see
+  # rank_start_room_ok below and its call site in cluster-link-watcher.sh for
+  # why, and why quiescing has to happen first.
   # 2. BOTH ROLES: hold until the next shared wall-clock start boundary, so the
   #    two ranks reach distributed init together.
   #
@@ -541,6 +510,35 @@ rank_start_preconditions_ok() {
     return 1
   fi
   return 0
+}
+
+# THE MEMORY CHECK THAT MUST RUN AFTER QUIESCE, NOT INSIDE
+# rank_start_preconditions_ok.
+#
+# mem_headroom_ok used to run as a rung of rank_start_preconditions_ok, ahead
+# of quiesce_normal_serving — which the watcher only ever calls AFTER every
+# precondition passes, right before the kickstart. So the memory precondition
+# could only ever measure memory still held by standalone serving: the exact
+# memory quiescing exists to return. It only ever passed because free memory
+# happened to clear the threshold anyway — luck, not correctness; the gate was
+# unsatisfiable by design the moment serving footprint ate that margin.
+#
+# QUIESCING CANNOT MOVE INTO THE GUARD FUNCTION EITHER. quiesce_normal_serving
+# is role-conditional — a coordinator POSTs to $CLUSTER_NORMAL_PROXY, which is
+# real production config but is NOT part of the guard contract every rank-guard
+# test pins (tests/test-rank-start-guards.sh runs CLUSTER_ROLE=coordinator
+# without it, by design — see that file's own stub contract). Calling it from
+# inside rank_start_preconditions_ok made an unrelated env var load-bearing for
+# every guard test and crashed one outright under `set -o nounset`. So the
+# quiesce step stays exactly where it already was — the watcher's call site —
+# and this function is what the watcher calls immediately afterward, so the
+# measurement sees what quiescing actually freed.
+#
+# Same "no attempt consumed" contract as every rung above: nothing is
+# launched, so a refusal here costs nothing. Sets MEM_HEADROOM_DETAIL on
+# refusal, same as mem_headroom_ok itself, since callers log it the same way.
+rank_start_room_ok() {
+  mem_headroom_ok "${CLUSTER_SHARD_MEMORY_MB:-0}"
 }
 
 # HALT AT THE RESERVE, NOT AT EXHAUSTION.

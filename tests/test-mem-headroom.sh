@@ -155,14 +155,19 @@ reset_state() {
 kicks_now() { cat "$kicks_file" 2> /dev/null || echo absent; }
 halt_cause() { sed -n 's/.*cause=\([^	]*\).*/\1/p' "$halt_file" 2> /dev/null || echo none; }
 verdict() { rank_start_preconditions_ok >&2 && echo start || echo "$PRECONDITION_REASON"; }
+# rank_start_room_ok is called SEPARATELY from rank_start_preconditions_ok —
+# see cluster-link-guards.sh's own comment on why — so its own verdict needs
+# its own helper, in the same "start | insufficient-memory" vocabulary the
+# memory-focused sections below already assert against.
+roomdict() { rank_start_room_ok >&2 && echo start || echo insufficient-memory; }
 
 echo "0. the rung is disabled with 0/unset, no vm_stat read needed to pass:"
 reset_state
 write_vmstat 16384 0 0 0 0 # zero free, would refuse if the rung ran
 export CLUSTER_SHARD_MEMORY_MB=0
-check "unset/0 required disables the rung" start "$(verdict)"
+check "unset/0 required disables the rung" start "$(roomdict)"
 unset CLUSTER_SHARD_MEMORY_MB
-check "unset entirely is the same as 0" start "$(verdict)"
+check "unset entirely is the same as 0" start "$(roomdict)"
 
 echo "1. sufficient free+reclaimable memory allows the start:"
 reset_state
@@ -172,18 +177,19 @@ export CLUSTER_SHARD_MEMORY_MB=1000
 write_vmstat 16384 32000 16000 16000 0
 check "mem_headroom_ok passes at exactly enough (free+inactive+speculative)" 0 \
   "$(mem_headroom_ok 1000 && echo 0 || echo 1)"
-check "the full precondition chain proceeds to start" start "$(verdict)"
+check "rank_start_room_ok proceeds to start" start "$(roomdict)"
 
 echo "2. insufficient memory refuses the start, and consumes NOTHING:"
 # THE PROPERTY THAT MAKES THE PD-EXHAUSTION CHAIN IMPOSSIBLE. A refusal here
 # must be free in the same currency the PD guard protects — no kickstart
-# attempt, no ledger charge — exactly like every other rung in
-# rank_start_preconditions_ok. This must fail loudly if that ever regresses
-# into an ordinary failure path.
+# attempt, no ledger charge — exactly like every rung of
+# rank_start_preconditions_ok, even though rank_start_room_ok is no longer one
+# of them. This must fail loudly if that ever regresses into an ordinary
+# failure path.
 reset_state
 export CLUSTER_SHARD_MEMORY_MB=1000
 write_vmstat 16384 6400 0 0 0 # 100MB free, 900MB short
-check "start is blocked" insufficient-memory "$(verdict)"
+check "start is blocked" insufficient-memory "$(roomdict)"
 check "no attempt consumed" absent "$(kicks_now)"
 check "nothing charged to the PD ledger" 0 "$(pd_debt_count "$debt_file")"
 check "no halt marker written on a single refusal" missing \
@@ -213,7 +219,7 @@ echo "4. page size is READ from vm_stat, never assumed 16384:"
 reset_state
 export CLUSTER_SHARD_MEMORY_MB=1000
 write_vmstat 65536 16000 0 0 0 # 16000 pages * 65536 bytes / 1048576 = 1000MB
-check "the real (non-16384) page size is used, not a hardcoded one" start "$(verdict)"
+check "the real (non-16384) page size is used, not a hardcoded one" start "$(roomdict)"
 
 echo "4b. a VERBATIM real vm_stat capture parses correctly (not a hand-built fixture):"
 # write_vmstat above is a template written from memory of the format; a
@@ -256,7 +262,7 @@ echo "5. an unreadable vm_stat refuses rather than guessing (fails closed):"
 reset_state
 export CLUSTER_SHARD_MEMORY_MB=1000
 printf '1\n' > "$vmstat_rc"
-check "start is blocked" insufficient-memory "$(verdict)"
+check "start is blocked" insufficient-memory "$(roomdict)"
 check "no attempt consumed" absent "$(kicks_now)"
 mem_headroom_ok 1000 || true
 check "an unreadable probe says so, not a fabricated number" yes \
@@ -326,22 +332,36 @@ write_vmstat 16384 6400 0 0 0 # short again
 mem_headroom_halt_if_persistent "$halt_file" "$latch_file" "$dwell_file"
 check "recovery reset the count, not just capped it" 1 "$(cat "$dwell_file")"
 
-echo "8. the precondition quiesces BEFORE measuring, not after:"
-# THE DEADLOCK THIS CLOSES. mem_headroom_ok used to run as a precondition
-# ahead of quiesce_normal_serving, so it could only ever see memory still held
-# by standalone serving — the very memory quiescing exists to return. It only
-# ever passed because free memory happened to clear the threshold anyway.
-# CLUSTER_QUIESCE_CMD (the worker-role hook quiesce_normal_serving runs) here
-# rewrites the vm_stat fixture to a "post-quiesce" reading with room to spare,
-# standing in for a real unload freeing standalone-serving memory. If the
-# ordering regresses back to measuring first, this fixture is never rewritten
-# and the precondition sees the still-short reading throughout — the test
-# fails exactly the way the deadlock did.
+echo "8. rank_start_preconditions_ok no longer gates on memory at all:"
+# THE DEADLOCK THIS CLOSES. mem_headroom_ok used to run as a rung of
+# rank_start_preconditions_ok, ahead of quiesce_normal_serving — which the
+# watcher only calls AFTER every precondition passes. So the memory rung could
+# only ever measure memory still held by standalone serving, the exact memory
+# quiescing exists to return; it only ever passed because free memory happened
+# to clear the threshold anyway. The fix moves the memory check OUT of this
+# function entirely (see rank_start_room_ok below and its call site in
+# cluster-link-watcher.sh, right after quiesce_normal_serving there) rather
+# than calling quiesce_normal_serving from inside the guard: that call is
+# role-conditional on $CLUSTER_NORMAL_PROXY, which is not part of the guard
+# contract this test (and test-rank-start-guards.sh) pin, and doing so crashed
+# outright under `set -o nounset`. So this section asserts the DECOUPLING: the
+# full precondition chain must proceed to "start" even when memory is nowhere
+# near enough, because the memory verdict is no longer this function's job.
+reset_state
+export CLUSTER_SHARD_MEMORY_MB=1000
+write_vmstat 16384 0 0 0 0 # zero free — would refuse if this rung still ran here
+check "preconditions ignore memory entirely now" start "$(verdict)"
+
+echo "9. rank_start_room_ok measures whatever quiesce actually freed:"
+# The watcher's contract: quiesce_normal_serving runs, THEN rank_start_room_ok
+# is checked. This proves the split composes correctly — rank_start_room_ok is
+# a thin wrapper over mem_headroom_ok, so it must refuse on the still-short
+# pre-quiesce reading and pass once a (simulated) quiesce has rewritten it.
 reset_state
 export CLUSTER_SHARD_MEMORY_MB=1000
 write_vmstat 16384 6400 0 0 0 # 100MB free — short, until quiesce "frees" more
-quiesce_log="$state_dir/quiesce-log"
-export CLUSTER_QUIESCE_CMD="echo ran >> '$quiesce_log'; cat > '$vmstat_fixture' << 'POSTQUIESCE'
+check "room check refuses before quiesce" 1 "$(rank_start_room_ok && echo 0 || echo 1)"
+cat > "$vmstat_fixture" << 'POSTQUIESCE'
 Mach Virtual Memory Statistics: (page size of 16384 bytes)
 Pages free:                              64000.
 Pages active:                            1000.
@@ -350,10 +370,7 @@ Pages speculative:                       0.
 Pages throttled:                         0.
 Pages wired down:                        0.
 Pages purgeable:                         0.
-POSTQUIESCE"
-check "the start proceeds once quiesce has freed the room" start "$(verdict)"
-check "quiesce_normal_serving actually ran (not skipped/reordered away)" 1 \
-  "$(wc -l < "$quiesce_log" | tr -d ' ')"
-unset CLUSTER_QUIESCE_CMD
+POSTQUIESCE
+check "room check passes once quiesce has freed the room" 0 "$(rank_start_room_ok && echo 0 || echo 1)"
 
 exit "$fail"
