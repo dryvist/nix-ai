@@ -73,7 +73,7 @@
 
     peerStateStaleTicks = lib.mkOption {
       type = lib.types.int;
-      default = 3;
+      default = 8;
       description = ''
         How many watcher ticks old a fetched peer state may be before it is
         refused. Converted to seconds against tickIntervalSecs, so the two
@@ -83,10 +83,23 @@
         responder serves whatever file is on disk and knows nothing about
         whether the watcher that writes it is still alive — so a host whose
         watcher died would otherwise keep answering armed=true from its last
-        healthy tick, indefinitely, while being in no state to rendezvous. More
-        than one tick, because a single missed publish is not evidence of
-        anything; three, because by then the publisher has skipped two ticks it
-        should have made.
+        healthy tick, indefinitely, having no ability to rendezvous.
+
+        IT MUST ALSO EXCEED THE WATCHER'S OWN SLOWEST TICK. That is the
+        subtlety that made this 3 and made clustering impossible. The publish
+        happens near the top of a tick, and the rank-start boundary SLEEPS
+        inside that same tick, up to rankStartAlignMultiple ticks long. So the
+        gap between two publishes is a tick plus the alignment hold plus the
+        probes — never a single tick. At 3 (90s against a 30s tick and a 60s
+        hold) the window equalled the hold plus one tick, leaving nothing over
+        to cover the probes: measured 2026-08-16, both hosts published every
+        95-173s, so each read the other as stale and suppressed every start.
+        Both were armed, both were healthy, and the cluster could never form.
+
+        8 leaves real margin above tickIntervalSecs * (rankStartAlignMultiple
+        + 1) and still catches a genuinely dead watcher inside four minutes.
+        The relationship is asserted in cluster-assertions.nix, never left to
+        this comment alone.
       '';
     };
 

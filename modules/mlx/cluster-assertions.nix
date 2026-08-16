@@ -61,6 +61,19 @@ in
     message = "programs.mlx.clusterMode: rankStartAlignMultiple must be >= 2, or the rank-start boundary period equals the watcher tick and the two hosts can align to different boundaries forever.";
   }
   {
+    # The staleness window must outlast the watcher's OWN slowest tick, not
+    # just a couple of missed publishes. The publish happens near the top of a
+    # tick; the rank-start boundary sleeps inside that same tick, up to
+    # rankStartAlignMultiple ticks long. So two publishes are separated by a
+    # tick plus the alignment hold plus the probes. At the old 3-against-2 the
+    # window equalled the hold plus one tick with nothing over to cover the
+    # probes, and on 2026-08-16 both hosts published every 95-173s against a
+    # 90s window: each read the other as stale, both suppressed every start,
+    # and the cluster could never form with both hosts armed and healthy.
+    assertion = ncfg.peerStateStaleTicks >= ncfg.rankStartAlignMultiple + 3;
+    message = "programs.mlx.clusterMode: peerStateStaleTicks must be at least rankStartAlignMultiple + 3, or a host's own rank-start alignment hold delays its next publish past the window its peer judges it by, and both hosts suppress every start while armed and healthy.";
+  }
+  {
     # A node that can be QUIESCED must be able to be RESTORED, and the config is
     # the only place that can guarantee it. Without this, a worker with a quiesce
     # hook and no restore hook boots its serving agents out on every join and has
