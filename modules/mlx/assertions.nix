@@ -69,5 +69,36 @@ in
         Pick a different physical id for the judge.
       '';
     }
+    (
+      let
+        # A modelExtraArgs key is legitimate for either of the two consumers
+        # that actually read it (modules/mlx/default.nix registryModels,
+        # modules/mlx/options-catalog.nix argsViaExtraArgs): a role-registry
+        # physical id, or an enabled programs.mlx.catalog entry compiled as
+        # class = "resident" — those read modelExtraArgs unconditionally,
+        # role or no role (a host may assign the role separately).
+        catalogData = import ./catalog-data.nix;
+        residentCatalogPhysicalIds = lib.mapAttrsToList (name: _: catalogData.${name}.model) (
+          lib.filterAttrs (_: sel: sel.enable && sel.class == "resident") cfg.catalog
+        );
+        registryPhysicalIds = lib.unique (
+          lib.attrValues config.services.aiStack.models ++ residentCatalogPhysicalIds
+        );
+        badKeys = lib.filter (key: !(lib.elem key registryPhysicalIds)) (lib.attrNames cfg.modelExtraArgs);
+      in
+      {
+        assertion = badKeys == [ ];
+        message = ''
+          programs.mlx.modelExtraArgs.${lib.concatStringsSep ", " badKeys} names
+          no physical model in the role registry (services.aiStack.models) or
+          an enabled resident-class programs.mlx.catalog entry. A key that
+          doesn't match is silently dropped — the flags never reach any
+          worker, exactly how two swap-tier models lost their
+          --tool-call-parser flag on 2026-07-07 and returned 500 on every
+          request. If this is an ad-hoc (non-registry) model, set
+          programs.mlx.models.<name>.extraArgs instead.
+        '';
+      }
+    )
   ];
 }

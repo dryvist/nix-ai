@@ -268,6 +268,7 @@ in
 // (import ./checks/mlx-watchdog.nix { inherit pkgs src; })
 // (import ./checks/mlx-worker-reap.nix { inherit pkgs hmConfig src; })
 // (import ./checks/mlx-warmup.nix { inherit pkgs src; })
+// (import ./checks/mlx-model-extra-args.nix { inherit pkgs; })
 // (import ./checks/mlx-catalog.nix { inherit pkgs hmConfigCatalog; })
 // (import ./checks/mlx-default-model.nix { inherit pkgs hmConfigDefaultModel; })
 // (import ./checks/mlx-catalog-roles.nix {
