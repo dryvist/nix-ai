@@ -1,4 +1,3 @@
-#
 # MLX Module — Clustered Mode (two-Mac JACCL distributed serving)
 #
 # In clustered mode, one Thunderbolt 5 cable turns two Macs into a single MLX
@@ -66,6 +65,7 @@ let
   # depends on which physical Thunderbolt port has the cable).
   ibvMatrixFile = "${config.home.homeDirectory}/Library/Application Support/mlx-cluster/ibv-matrix.json";
   launchAgentsDir = "${config.home.homeDirectory}/Library/LaunchAgents";
+  rankErrorLog = "${logDir}/cluster-rank.error.log";
 
   isCoordinator = ncfg.role == "coordinator";
   staticPeerIp = if isCoordinator then ncfg.staticLinkIps.worker else ncfg.staticLinkIps.coordinator;
@@ -171,6 +171,7 @@ let
       launchAgentsDir
       stateFile
       pdDebtFile
+      rankErrorLog
       ;
   };
 in
@@ -246,7 +247,7 @@ in
             MLX_METAL_FAST_SYNCH = "1";
           };
           StandardOutPath = "${logDir}/cluster-rank.log";
-          StandardErrorPath = "${logDir}/cluster-rank.error.log";
+          StandardErrorPath = rankErrorLog;
         };
       };
 
