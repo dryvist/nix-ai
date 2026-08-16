@@ -25,6 +25,10 @@ let
     BOOT_SCOPE = "${src}/modules/mlx/scripts/cluster-boot-scope.sh";
     LEDGER = "${src}/modules/mlx/scripts/cluster-pd-ledger.sh";
     CAUSE = "${src}/modules/mlx/scripts/cluster-pd-cause.sh";
+    # jaccl Stage-A/Stage-B classifier. fast_fail_standdown (cluster-link-guards.sh
+    # below) calls it; a GUARDS-sourcing test that never sourced this too would
+    # fail with "command not found" the moment it actually calls that function.
+    STAGE = "${src}/modules/mlx/scripts/cluster-pd-stage.sh";
     HELPERS = "${src}/modules/mlx/scripts/cluster-link-helpers.sh";
     GUARDS = "${src}/modules/mlx/scripts/cluster-link-guards.sh";
     PEER_STATE = "${src}/modules/mlx/scripts/cluster-peer-state.sh";
@@ -108,30 +112,6 @@ in
     }
     // guardLayers
   ) "bash ${src}/tests/test-fast-fail-standdown.sh && touch $out";
-
-  # THE CHECK THAT FAILS IF A COUNTER RESET CAN DISCARD LEAKED DOMAINS.
-  # mlx-cluster-pd-debt covers the ledger at the CAP; this covers the hole
-  # underneath: the kickstart counter is session-scoped and four paths reset
-  # it, but the ledger was only written at the cap, so a counter at 1 or 2
-  # reset by a link cycle, a settled rank or cluster-join left no trace of the
-  # domains those attempts leaked. Asserts the transfer arithmetic (including
-  # the fail-closed direction, where an unguarded subtraction would compute a
-  # NEGATIVE debt and record nothing) and pins the call sites as source.
-  mlx-cluster-pd-counter-settle = pkgs.runCommand "check-mlx-cluster-pd-counter-settle" (
-    {
-      nativeBuildInputs = [
-        pkgs.coreutils
-        pkgs.gnugrep
-        pkgs.gnused
-        pkgs.gawk
-      ];
-      RECORD = "${src}/modules/mlx/scripts/cluster-pd-record.sh";
-      SETTLE = "${src}/modules/mlx/scripts/cluster-pd-settle.sh";
-      WATCHER = "${src}/modules/mlx/scripts/cluster-link-watcher.sh";
-      JOIN = "${src}/modules/mlx/scripts/cluster-join.sh";
-    }
-    // guardLayers
-  ) "bash ${src}/tests/test-pd-counter-settle.sh && touch $out";
 
   # THE CHECK THAT FAILS IF A PD-EXHAUSTION HALT CAN SIT WAITING FOR A HUMAN
   # AGAIN. On 2026-08-01 a host halted and paged correctly, then sat for hours

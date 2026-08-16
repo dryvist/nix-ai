@@ -55,11 +55,9 @@ let
   stateFile = "${config.home.homeDirectory}/Library/Application Support/mlx-cluster/link-state";
   # Ledger of RDMA protection domains leaked during the current boot: written by
   # cluster-detach when it must SIGKILL, read by the watcher's start guard and by
-  # cluster-join. Defined ONCE, here, because a writer and a reader that each
-  # derive the path are a writer and a reader on different files. Not a "marker":
-  # a link cycle, a manual clear and cluster-join all reset the halt state, and
-  # none of them returns a protection domain — only a reboot does, and the ledger
-  # is boot-scoped so a reboot is exactly what clears it.
+  # cluster-join. Defined ONCE, here — a writer and a reader that each derive the
+  # path are a writer and a reader on different files. Boot-scoped: only a
+  # reboot clears it (see cluster-pd-ledger.sh for why).
   pdDebtFile = "${config.home.homeDirectory}/Library/Application Support/mlx-cluster/pd-debt";
   # Written by the rank launcher at start (not a nix-managed file — its content
   # depends on which physical Thunderbolt port has the cable).
@@ -142,6 +140,7 @@ let
       pdDebtFile
       apiUrl
       modelServerProcessPattern
+      rankErrorLog
       ;
   };
 

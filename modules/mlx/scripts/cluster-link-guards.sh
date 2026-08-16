@@ -597,83 +597,14 @@ rank_start_preconditions_ok() {
 # to proceed. Unlike the pd/mem halt helpers this is a BRANCH, not a composed
 # always-0 rung, because its whole job is to replace the start.
 #
-# STAGE A (TCP bootstrap) vs STAGE B (RDMA queue-pair bring-up) — jaccl brings a
-# cluster up in these two distinct stages, confirmed from libjaccl.dylib's own
-# error strings. Stage A: "Connection attempt ", "Couldn't connect (error: N)",
-# "Couldn't listen", "Accept failed". Stage B, reached only once A succeeds:
-# "...RTR failed with errno N", "...RTS failed with errno N", ibv_query_gid.
-# ibv_alloc_pd — the call that actually consumes a protection domain — lives in
-# Stage B, so a Stage-A-only death structurally could not have leaked one.
+# rank_failure_stage (Stage A / Stage B classification from the rank's own
+# stderr) moved to ./cluster-pd-stage.sh: pd_debt_settle_counter needs it too
+# (cluster-pd-settle.sh), and that function is also called from cluster-join
+# and cluster-detach, neither of which carries this file. Concatenated ahead
+# of this one wherever both are used — see that file's own header.
 #
-# Classifies from the rank's own stderr, SLICED FROM AN OFFSET rather than
-# tailed by line count. launchd's StandardErrorPath appends across every rank
-# restart, so a bare tail always includes whatever the PREVIOUS attempt wrote —
-# and a bare-line-count tail can still be entirely stale prior-attempt output
-# if this attempt died leaving no stderr of its own (e.g. SIGKILLed mid-init,
-# after ibv_alloc_pd already ran). Reading that stale Stage-A tail as THIS
-# attempt's evidence would free a death that may have actually reached Stage B
-# — exactly the unclassifiable-treated-as-free hole this function exists to
-# close, just entered through staleness instead of pattern-matching. The
-# caller writes the log's byte size as $2 right before launching the attempt
-# (see cluster-link-watcher.sh); this reads only what was appended since.
-#
-# ONLY TERMINAL failure strings count as Stage A ("Couldn't connect (error:",
-# "Couldn't listen", "Accept failed") — never the bare "Connection attempt "
-# retry line. A rank that got PAST Stage A and died silently in Stage B before
-# printing an RTR/RTS line still has its own "Connection attempt" lines in the
-# appended region (from its own successful bootstrap); matching on those alone
-# would misclassify it as Stage-A-only. No terminal string from either stage
-# present classifies "unknown", not "stage-a".
-#
-# FAILS CLOSED: no path, an unreadable log, no offset marker, an offset at or
-# past the log's current size (nothing new appended — the stale-evidence case
-# above), or a slice matching neither stage's terminal strings all classify
-# "unknown" — the caller must treat that the same as a confirmed Stage-B
-# failure, because an unclassifiable failure being treated as free is exactly
-# how a domain leak goes unbounded.
-#
-# $1 rank stderr log path, $2 byte-offset marker file (baseline captured at
-# this attempt's kickstart). Prints "stage-a" | "stage-b" | "unknown".
-rank_failure_stage() {
-  local log="$1" offset_file="$2" offset size appended
-  if [ -z "$log" ] || [ ! -r "$log" ]; then
-    echo unknown
-    return
-  fi
-  # wc -c right-justifies with leading spaces on macOS (BSD) but not on Linux
-  # (GNU) — stripped here rather than relied on at every writer, so a marker
-  # written on either platform reads back the same way.
-  offset=0
-  if [ -n "$offset_file" ] && [ -r "$offset_file" ]; then
-    offset="$(cat "$offset_file" 2> /dev/null || echo 0)"
-    offset="${offset//[[:space:]]/}"
-    case "$offset" in
-      '' | *[!0-9]*) offset=0 ;;
-    esac
-  fi
-  size="$(wc -c < "$log" 2> /dev/null || echo 0)"
-  size="${size//[[:space:]]/}"
-  case "$size" in
-    '' | *[!0-9]*) size=0 ;;
-  esac
-  if [ "$offset" -ge "$size" ]; then
-    echo unknown
-    return
-  fi
-  appended="$(tail -c "+$((offset + 1))" "$log" 2> /dev/null || true)"
-  if printf '%s\n' "$appended" | grep -qE "RTR failed with errno|RTS failed with errno|ibv_query_gid"; then
-    echo stage-b
-    return
-  fi
-  if printf '%s\n' "$appended" | grep -qE "Couldn't connect \(error:|Couldn't listen|Accept failed"; then
-    echo stage-a
-    return
-  fi
-  echo unknown
-}
-
 # $1 halt marker, $2 latch, $3 strike counter, $4 attempts so far, $5 started
-# marker, $6 rank-stderr byte-offset marker (see rank_failure_stage above).
+# marker, $6 rank-stderr byte-offset marker (see rank_failure_stage, above).
 fast_fail_standdown() {
   local halt_file="$1" latch_file="$2" strike_file="$3" kicks="$4" started_file="$5"
   local log_offset_file="${6:-}"

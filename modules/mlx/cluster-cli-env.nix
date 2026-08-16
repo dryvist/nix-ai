@@ -21,6 +21,7 @@
   pdDebtFile,
   apiUrl,
   modelServerProcessPattern,
+  rankErrorLog,
 }:
 let
   # The CLUSTER RANK process pattern — a different fact from
@@ -46,6 +47,12 @@ let
     # different files.
     CLUSTER_PD_DEBT_FILE = pdDebtFile;
     CLUSTER_PD_DEBT_MAX = toString ncfg.maxKickstarts;
+    # The rank's own StandardErrorPath — same file the watcher carries (see
+    # cluster-watcher-env.nix). pd_debt_settle_counter (cluster-pd-settle.sh)
+    # reads it via rank_failure_stage to tell a Stage-A TCP-bootstrap death,
+    # which cannot have leaked a protection domain, from a Stage-B one, which
+    # already has, before billing either command's counter-reset to the ledger.
+    CLUSTER_RANK_ERROR_LOG = rankErrorLog;
     # Measured device max_pd (11 here). Both commands report debt as a fraction
     # of it — "2 of 11 device protection domains consumed until reboot" — since
     # a bare count hides how small the pool actually is.

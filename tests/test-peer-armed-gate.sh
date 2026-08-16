@@ -22,8 +22,8 @@
 # Peer address is an RFC 5737 documentation address, never a real link address.
 #
 # Usage:
-#   BOOT_SCOPE=... LEDGER=... CAUSE=... RECORD=... PEER_STATE=... \
-#     bash test-peer-armed-gate.sh
+#   BOOT_SCOPE=... LEDGER=... CAUSE=... RECORD=... PEER_STATE=... STAGE=... \
+#     SETTLE=... HELPERS=... bash test-peer-armed-gate.sh
 set -o errexit -o nounset -o pipefail
 
 state_dir="$(mktemp -d)"
@@ -56,6 +56,8 @@ source "${CAUSE:?set CAUSE to cluster-pd-cause.sh}"
 source "${RECORD:?set RECORD to cluster-pd-record.sh}"
 # shellcheck disable=SC1090
 source "${PEER_STATE:?set PEER_STATE to cluster-peer-state.sh}"
+# shellcheck disable=SC1090
+source "${STAGE:?set STAGE to cluster-pd-stage.sh}"
 # shellcheck disable=SC1090
 source "${SETTLE:?set SETTLE to cluster-pd-settle.sh}"
 # halt_write and halt_cause_file — the cross-boot cause record the budget falls

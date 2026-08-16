@@ -37,6 +37,7 @@
     BOOT_SCOPE = "${src}/modules/mlx/scripts/cluster-boot-scope.sh";
     LEDGER = "${src}/modules/mlx/scripts/cluster-pd-ledger.sh";
     RECORD = "${src}/modules/mlx/scripts/cluster-pd-record.sh";
+    STAGE = "${src}/modules/mlx/scripts/cluster-pd-stage.sh";
     SETTLE = "${src}/modules/mlx/scripts/cluster-pd-settle.sh";
     STATUS = "${src}/modules/mlx/scripts/cluster-rank-status.sh";
     RESTORE = "${src}/modules/mlx/scripts/cluster-serving-restore.sh";

@@ -29,8 +29,9 @@
 # output must not be read as this attempt's evidence.
 #
 # WHAT IS REAL AND WHAT IS NOT:
-#   REAL   — fast_fail_standdown, halt_write and peer_rendezvous_session, sourced
-#            from the shipped scripts in the module's own concatenation order.
+#   REAL   — fast_fail_standdown, rank_failure_stage, halt_write and
+#            peer_rendezvous_session, sourced from the shipped scripts in the
+#            module's own concatenation order.
 #   STUB   — sysctl (deterministic boot epoch for the halt marker), netstat (the
 #            seam peer_rendezvous_session already exposes), and the three
 #            side-effect calls the standdown makes on the host: set_wired_limit,
@@ -64,6 +65,11 @@ export CLUSTER_ALERT_URL_FILE="$state_dir/alert-url-absent"
 source "${BOOT_SCOPE:?set BOOT_SCOPE to cluster-boot-scope.sh}"
 # shellcheck disable=SC1090
 source "${HELPERS:?set HELPERS to cluster-link-helpers.sh}"
+# rank_failure_stage now lives in its own layer (cluster-pd-stage.sh) — shared
+# with cluster-join and cluster-detach, which never carry cluster-link-guards.sh
+# at all. See that file's own header.
+# shellcheck disable=SC1090
+source "${STAGE:?set STAGE to cluster-pd-stage.sh}"
 # shellcheck disable=SC1090
 source "${GUARDS:?set GUARDS to cluster-link-guards.sh}"
 # The two layers the shipped watcher concatenates AROUND the guards: the

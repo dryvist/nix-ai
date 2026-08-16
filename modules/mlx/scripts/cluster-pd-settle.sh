@@ -38,23 +38,41 @@
 # WHY IT COUNTS ATTEMPTS AS LEAKS. The counter is incremented only after an
 # actual `launchctl kickstart` (a precondition failure consumes no attempt, by
 # design), and the watcher only kickstarts when no rank is running — so an
-# attempt that was followed by another attempt necessarily failed, and a failed
-# `mx.distributed.init()` leaks one domain. $vindicated is subtracted for the
-# one caller that has evidence a rank actually settled: there, the final attempt
-# succeeded and holds its domain live rather than having leaked it.
+# attempt that was followed by another attempt necessarily failed. $vindicated
+# is subtracted for the one caller that has evidence a rank actually settled:
+# there, the final attempt succeeded and holds its domain live rather than
+# having leaked it.
+#
+# NOT EVERY FAILED ATTEMPT ACTUALLY LEAKED, THOUGH. jaccl brings a cluster up in
+# two stages (see rank_failure_stage, ./cluster-pd-stage.sh) and ibv_alloc_pd —
+# the call that actually consumes a protection domain — lives in the second one.
+# An attempt that died in the first (TCP bootstrap: an absent or not-yet-armed
+# peer, jaccl's fixed ~15s connect budget) never reached it, and billing it
+# anyway protects a budget those attempts could not have spent — the reverse of
+# what the fail-closed rule below is for. So $7/$8, if the caller has them, are
+# used to check the OUTSTANDING RUN — from $8's baseline to the end of $7 —
+# before recording anything: if every attempt in it is provably stage-A-only,
+# nothing is billed. Any Stage-B evidence anywhere in that window, or no
+# evidence either caller could classify, still bills the full count, unchanged.
 #
 # Fail-closed on a malformed counter, matching pd_debt_count: an unreadable or
 # non-numeric count biases toward recording MORE debt, never less, because
 # under-counting is the only direction that lets a start proceed that should
-# not have.
+# not have. The stage check above is the same bias in a different shape — it
+# can only ever reduce a bill to zero on POSITIVE evidence, never partially.
 #
 # $1 ledger file, $2 kickstart counter, $3 vindicated attempts (0 or 1),
 # $4 source token, $5 free-text detail, $6 cause token (optional; defaults to
-# $4 — see pd_debt_record for why the mechanism and the reason are two fields).
+# $4 — see pd_debt_record for why the mechanism and the reason are two fields),
+# $7 rank stderr log path (optional), $8 byte-offset marker for the start of
+# this outstanding run (optional; see cluster-link-watcher.sh — written once
+# per run, at its first kickstart, not overwritten by later ones in the same
+# run). $7/$8 absent classifies "unknown" (rank_failure_stage's own fail-closed
+# default), which bills exactly as if this file predated the stage check.
 pd_debt_settle_counter() {
   local debt_file="$1" kicks_file="$2" vindicated="$3" source="$4" detail="$5"
-  local cause="${6:-$4}"
-  local kicks leaked
+  local cause="${6:-$4}" rank_log="${7:-}" session_offset_file="${8:-}"
+  local kicks leaked stage
   kicks=0
   if [ -n "$kicks_file" ] && [ -f "$kicks_file" ]; then
     kicks="$(cat "$kicks_file" 2> /dev/null || echo 0)"
@@ -66,6 +84,13 @@ pd_debt_settle_counter() {
     '' | *[!0-9]*) vindicated=0 ;;
   esac
   leaked=$((kicks - vindicated))
+  if [ "$leaked" -gt 0 ]; then
+    stage="$(rank_failure_stage "$rank_log" "$session_offset_file")"
+    if [ "$stage" = "stage-a" ]; then
+      echo "cluster: $leaked attempt(s) outstanding on $source classify stage-a (TCP bootstrap only, across the whole outstanding run) — no protection domain could have been allocated; NOT billed to the ledger" >&2
+      leaked=0
+    fi
+  fi
   if [ "$leaked" -gt 0 ]; then
     pd_debt_record "$debt_file" "$leaked" "$source" "$detail" "$cause"
     # A SILENT TRANSFER WOULD DEFEAT THE POINT. This runs on the reset paths —
@@ -82,7 +107,10 @@ pd_debt_settle_counter() {
   fi
   # Cleared LAST and unconditionally: the transfer is the only thing that may
   # precede the reset, and a reset that failed to happen would re-record the
-  # same attempts on the next tick.
+  # same attempts on the next tick. session_offset_file goes with it — it
+  # describes THIS run, which just ended one way or the other; the next run's
+  # first kickstart writes a fresh one.
   [ -n "$kicks_file" ] && rm -f "$kicks_file"
+  [ -n "$session_offset_file" ] && rm -f "$session_offset_file"
   return 0
 }

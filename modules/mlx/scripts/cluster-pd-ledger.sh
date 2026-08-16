@@ -59,6 +59,14 @@ pd_debt_count() {
         if (!haveDom && $i ~ /^domains=/) { dom = substr($i, 9); haveDom = 1 }
       }
       if (boot != "" && rec != "" && rec != "unknown" && rec != boot) next
+      # SUM ONLY, NEVER SUBTRACT. domains= must match [0-9]+ or it counts as 1
+      # (see FAIL CLOSED above) — a NEGATIVE value fails that pattern and is
+      # charged as +1, the opposite of a credit. There is therefore no way to
+      # relieve an already-recorded charge within the same boot: an append-only
+      # correction (domains=0, same shape as a 2026-08-08 retraction) documents
+      # the finding but adds zero, it does not subtract from what is already
+      # summed. Only current_boot_epoch changing (a reboot) clears the total
+      # for a boot.
       n += (dom ~ /^[0-9]+$/) ? dom + 0 : 1
     }
     END { print n + 0 }
