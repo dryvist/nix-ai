@@ -32,11 +32,14 @@ let
     llamaSwapPkg
     llamaSwapConfigFile
     llamaSwapRuntimeConfigPath
+    llamaSwapConfigAttrs
+    allModels
     ;
   versions = import ../../lib/versions.nix;
   vllmMlxPin = "vllm-mlx==${vllmMlxVersion}";
   mlxLmVersion = versions.mlxLm;
   lmEvalVersion = versions.lmEval;
+  workerPortCount = builtins.length (builtins.attrNames allModels);
 in
 {
   config = lib.mkIf cfg.enable {
@@ -50,6 +53,8 @@ in
         MLX_PRELOAD_MODELS = lib.concatStringsSep " " cfg.preload;
         MLX_PRELOAD_MODELS_JSON = builtins.toJSON cfg.preload;
         MLX_PORT = toString cfg.port;
+        MLX_WORKER_PORT_RANGE_START = toString llamaSwapConfigAttrs.startPort;
+        MLX_WORKER_PORT_COUNT = toString workerPortCount;
         MLX_HOST = cfg.host;
         MLX_HF_HOME = cfg.huggingFaceHome;
         MLX_LAUNCHD_LABEL = launchAgentLabel;

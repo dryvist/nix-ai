@@ -150,6 +150,9 @@ unit_running() {
 # in llama-swap-reap.sh, concatenated ahead of this file by
 # mlx-watchdog-pkg.nix; `|| true` keeps this call's always-succeeds contract
 # even when a holder survives SIGKILL (already logged by that function).
+# The port block it reaps starts at MLX_PORT itself, so this also reaps
+# whatever currently holds the proxy's own listen port -- launchd KeepAlive
+# restarts it, same as the kickstart calls elsewhere in this file.
 reap_workers() {
   mlx_reap_orphan_ports || true
 }
@@ -361,12 +364,12 @@ procs="$(/bin/ps -axo uid | grep -c "^[[:space:]]*${uid}\$" || true)"
 [[ "$procs" =~ ^[0-9]+$ ]] || procs=0
 echo "$(ts) mlx-watchdog: uid=${uid} procs=${procs}"
 if (( procs > maxproc_threshold )); then
-  # ponytail: reaps ALL matching trees, not only orphans — a detached worker and
-  # an orphan both report PPID 1 (see llama-swap-launch.sh). At this threshold
+  # ponytail: reaps the whole port block including the live proxy, not only
+  # orphans (nix-ai#1423) — launchd KeepAlive restarts it. At this threshold
   # reclaiming slots outweighs a brief serving blip. Raise if steady state nears it.
-  echo "$(ts) mlx-watchdog: WARN procs=${procs} > ${maxproc_threshold} -> reaping worker trees to reclaim process slots" >&2
+  echo "$(ts) mlx-watchdog: WARN procs=${procs} > ${maxproc_threshold} -> reaping port block to reclaim process slots" >&2
   reap_workers
-  alert "$(/bin/hostname -s): uid procs=${procs} exceeded ${maxproc_threshold}; reaped mlx_lm.server worker trees to avoid fork exhaustion."
+  alert "$(/bin/hostname -s): uid procs=${procs} exceeded ${maxproc_threshold}; reaped MLX port block (proxy + workers) to avoid fork exhaustion."
 fi
 
 # Cadence gate: if we remediated within the cooldown, the proxy may still be
