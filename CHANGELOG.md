@@ -1,5 +1,14 @@
 # Changelog
 
+## [4.18.0](https://github.com/dryvist/nix-ai/compare/v4.17.1...v4.18.0) (2026-08-16)
+
+
+### Features
+
+* **ai-stack:** add a `small` role to the model registry ([#1661](https://github.com/dryvist/nix-ai/issues/1661)) ([4c0e5b9](https://github.com/dryvist/nix-ai/commit/4c0e5b9c36b1ecdc2c8b84f33fe1ded581150c9e))
+* **mlx:** answer stream=true from the vlm adapter as one SSE chunk ([#1662](https://github.com/dryvist/nix-ai/issues/1662)) ([27d2077](https://github.com/dryvist/nix-ai/commit/27d207766040d0fe420c31b9f914cb95c8f72d51))
+* **mlx:** parameterize the default model key with a no-rebuild override ([#1660](https://github.com/dryvist/nix-ai/issues/1660)) ([f448b52](https://github.com/dryvist/nix-ai/commit/f448b525842ce53fa0348b70c90e63e6344704d6))
+
 ## [4.17.1](https://github.com/dryvist/nix-ai/compare/v4.17.0...v4.17.1) (2026-08-15)
 
 
