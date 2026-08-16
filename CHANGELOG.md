@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.18.1](https://github.com/dryvist/nix-ai/compare/v4.18.0...v4.18.1) (2026-08-16)
+
+
+### Bug Fixes
+
+* **mlx_cluster:** two defects that made the two-Mac cluster unable to form ([#1666](https://github.com/dryvist/nix-ai/issues/1666)) ([d3af13e](https://github.com/dryvist/nix-ai/commit/d3af13ea5debc1279e207b79d5daae63fc111113))
+
 ## [4.18.0](https://github.com/dryvist/nix-ai/compare/v4.17.1...v4.18.0) (2026-08-16)
 
 
