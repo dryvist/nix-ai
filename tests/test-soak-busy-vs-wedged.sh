@@ -105,6 +105,16 @@ halt_file="$tmp/halted"
 # shellcheck disable=SC2034
 halt_latch_file="$tmp/halt-latch"
 soak_busy_skips_file="$tmp/soak-skips"
+
+# CLUSTER_STAT_BIN seam: the shipped block reads BSD `stat -f %m`, which does
+# not exist in the Linux Nix sandbox this test also runs in under `nix flake
+# check`. Falls back to GNU coreutils' `stat -c %Y` there.
+stat_stub() {
+  /usr/bin/stat -f %m "$3" 2> /dev/null || stat -c %Y "$3" 2> /dev/null
+}
+# shellcheck disable=SC2034
+CLUSTER_STAT_BIN=stat_stub
+
 touch "$warm_file"
 # Old enough to trip the recheck unconditionally, regardless of wall-clock skew.
 touch -t 202001010000 "$warm_file"

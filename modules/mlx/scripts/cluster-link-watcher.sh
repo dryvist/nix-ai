@@ -68,6 +68,9 @@
 #                         progress (new_progress_lines, cluster-peer-observe.sh)
 #                         before the soak probe fires; empty skips the check
 #   CLUSTER_PEER_PROGRESS_PATTERN  ERE marking token progress in that log
+#   CLUSTER_STAT_BIN         stat path/seam for the soak marker's mtime read
+#                         (BSD `-f %m` syntax); production absolute path,
+#                         since the Linux Nix sandbox has no /usr/bin/stat
 #   CLUSTER_SHARD_MEMORY_MB  expected per-rank working set in MB; 0 disables
 #                         the memory-headroom rung with no vm_stat read at all
 #                         (see mem_headroom_ok in cluster-link-guards.sh)
@@ -509,7 +512,7 @@ if [ "$cur" = "up" ]; then
     # Keep these marker comments exactly as written; the test greps for them.
     if [ "$CLUSTER_ROLE" = "coordinator" ] && [ -f "$warm_file" ] &&
       [ ! -f "$halt_file" ] && [ "${CLUSTER_WARM_RECHECK_SECS:-600}" -gt 0 ]; then
-      warmed_at="$(/usr/bin/stat -f %m "$warm_file" 2> /dev/null || echo 0)"
+      warmed_at="$("${CLUSTER_STAT_BIN:-/usr/bin/stat}" -f %m "$warm_file" 2> /dev/null || echo 0)"
       if [ "$warmed_at" -gt 0 ] &&
         [ "$(($(date +%s) - warmed_at))" -ge "${CLUSTER_WARM_RECHECK_SECS:-600}" ]; then
         echo "cluster-link: soak re-check (warm marker older than ${CLUSTER_WARM_RECHECK_SECS:-600}s)"
