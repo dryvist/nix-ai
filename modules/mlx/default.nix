@@ -225,6 +225,12 @@ let
     # Tap live I/O with: curl http://127.0.0.1:11434/logs/stream
     # Configurable via programs.mlx.proxy.logLevel / logToStdout.
     startPort = 11436;
+    # Deliberately llama-swap's own default (10s), not left unset by accident.
+    # Bounds how long /api/models/unload blocks per process during cluster
+    # quiesce (cluster-link-helpers.sh: quiesce_normal_serving) before
+    # escalating SIGTERM to SIGKILL. In-flight requests are killed, not
+    # drained, regardless of this value — see cluster-quiesce-log.sh.
+    unloadTimeout = 10;
   }
   // llamaSwapTopology
   // {
