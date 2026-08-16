@@ -173,6 +173,46 @@ def parse_messages(messages: list) -> tuple[str, list[str], list[str]]:
     return "\n".join(t for t in texts if t), images, systems
 
 
+def sse_body(text: str, model: str, started: float) -> bytes:
+    """A finished completion as one SSE chunk, a stop frame, then [DONE].
+
+    NOT incremental decoding, deliberately: mlx_vlm.generate() is a blocking
+    whole-response call, so there are no partial tokens to relay. What this
+    buys is wire compatibility — an OpenAI-compatible client that sets
+    stream=true gets the shape it expects instead of a 400.
+
+    WHY THE ADAPTER HAS TO DO THIS AND NOT THE ROUTER: measured against the
+    deployed LiteLLM 1.90.3, `OpenAIConfig` does not override
+    `should_fake_stream`, so the base implementation returns False and NO
+    model_info or litellm_params key turns fake-streaming on for a plain
+    openai-provider chat model. `supports_native_streaming` reads like that
+    knob but is only consulted on the Azure o-series and /v1/responses paths.
+    So a chat UI that streams by default — which is the default — could not
+    talk to this adapter at all while it answered stream=true with a 400.
+
+    Generation completes before the first byte goes out, so a failure still
+    returns a real 500 rather than a truncated stream the caller would read as
+    a short but valid answer.
+    """
+    chunk_id = f"chatcmpl-{int(started * 1000)}"
+    created = int(started)
+
+    def frame(delta: dict, finish_reason: str | None) -> str:
+        return "data: " + json.dumps({
+            "id": chunk_id,
+            "object": "chat.completion.chunk",
+            "created": created,
+            "model": model,
+            "choices": [{"index": 0, "delta": delta, "finish_reason": finish_reason}],
+        }) + "\n\n"
+
+    return (
+        frame({"role": "assistant", "content": text}, None)
+        + frame({}, "stop")
+        + "data: [DONE]\n\n"
+    ).encode()
+
+
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
@@ -185,6 +225,17 @@ class Handler(BaseHTTPRequestHandler):
         # captures request logs in order with the startup lines above.
         sys.stderr.write("%s - %s\n" % (self.address_string(), format % args))
         sys.stderr.flush()
+
+    def _send_single_chunk_stream(self, text: str, started: float):
+        body = sse_body(text, self.runner.model_path, started)
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Cache-Control", "no-cache")
+        # Explicit Content-Length rather than chunked transfer: the whole body
+        # is already in hand, and HTTP/1.1 keep-alive needs one or the other.
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
     def _send(self, code: int, payload: dict):
         body = json.dumps(payload).encode()
@@ -231,12 +282,7 @@ class Handler(BaseHTTPRequestHandler):
             self._send(400, {"error": {"message": f"invalid JSON body: {exc}", "type": "invalid_request_error"}})
             return
 
-        if payload.get("stream"):
-            self._send(
-                400,
-                {"error": {"message": "streaming is not supported by this adapter", "type": "invalid_request_error"}},
-            )
-            return
+        stream = bool(payload.get("stream"))
 
         prompt, image_urls, systems = parse_messages(payload.get("messages") or [])
         if systems:
@@ -259,7 +305,14 @@ class Handler(BaseHTTPRequestHandler):
                 text = self.runner.generate(prompt, paths, max_tokens, temperature)
         except Exception as exc:  # surfaced to the caller, never swallowed
             self.log_message("generation failed: %r", exc)
+            # The error shape differs by mode: a stream that has not sent its
+            # headers yet can still return a normal error status, which is why
+            # generation happens before any streaming byte is written.
             self._send(500, {"error": {"message": f"generation failed: {exc}", "type": "server_error"}})
+            return
+
+        if stream:
+            self._send_single_chunk_stream(text, started)
             return
 
         self._send(
