@@ -721,10 +721,25 @@ pd_debt_halt_if_exhausted() {
 # slots into the watcher's `... && [ -f "$halt_file" ]` chain without a new
 # branch, and runs every tick regardless of whether a halt already stands.
 #
-# $1 halt marker, $2 latch, $3 dwell-count file (consecutive refusals; reset
-# to absent the moment a tick sees enough memory, or when CLUSTER_MEM_
-# HEADROOM_DWELL_TICKS is 0/unset — same "0 = off" convention the threshold
-# rungs elsewhere in this file use).
+# $1 halt marker, $2 latch, $3 dwell-count file (consecutive refusals minus
+# consecutive passes, floored at 0; absent when CLUSTER_MEM_HEADROOM_
+# DWELL_TICKS is 0/unset — same "0 = off" convention the threshold rungs
+# elsewhere in this file use). peer_state_write (cluster-peer-state.sh) reads
+# this SAME file to decide the published `armed` bit — one counter, not two
+# independent samples of the same noisy signal.
+#
+# FAIL FAST, CLEAR SLOW — DELIBERATE, NOT SYMMETRIC. A single passing sample
+# used to zero this file outright. That is wrong when free memory sits close
+# to the required line: measured 2026-08-16, this host's free+reclaimable
+# bounced 53853 -> 55318 -> 54413 MB against a 56000 MB requirement — noise,
+# not recovery. An instant reset let the worker's peer read `armed:true` off
+# one lucky sample even though the very next sample failed again seconds
+# later, launching a real kickstart attempt against a coordinator that could
+# not rendezvous. The costs are asymmetric: a spurious armed:true burns a
+# real attempt; a delayed armed:true only costs latency. So a pass now
+# decrements by one instead of zeroing, and recovering from N consecutive
+# failures takes N consecutive passes — never one. Do not "simplify" this
+# back to reset-on-pass; that is the bug this fixes.
 mem_headroom_halt_if_persistent() {
   local halt_file="$1" latch_file="$2" dwell_file="$3" required threshold dwell
   required="${CLUSTER_SHARD_MEMORY_MB:-0}"
@@ -732,8 +747,17 @@ mem_headroom_halt_if_persistent() {
     '' | *[!0-9]*) return 0 ;;
   esac
   [ "$required" -gt 0 ] || return 0
+  dwell=0
+  [ -f "$dwell_file" ] && dwell="$(cat "$dwell_file" 2> /dev/null || echo 0)"
+  case "$dwell" in
+    '' | *[!0-9]*) dwell=0 ;;
+  esac
   if mem_headroom_ok "$required"; then
-    rm -f "$dwell_file"
+    if [ "$dwell" -gt 1 ]; then
+      printf '%s\n' "$((dwell - 1))" > "$dwell_file"
+    else
+      rm -f "$dwell_file"
+    fi
     return 0
   fi
   if [ -f "$halt_file" ]; then
@@ -744,8 +768,6 @@ mem_headroom_halt_if_persistent() {
     '' | *[!0-9]*) return 0 ;;
   esac
   [ "$threshold" -gt 0 ] || return 0
-  dwell=0
-  [ -f "$dwell_file" ] && dwell="$(cat "$dwell_file" 2> /dev/null || echo 0)"
   dwell=$((dwell + 1))
   printf '%s\n' "$dwell" > "$dwell_file"
   if [ "$dwell" -lt "$threshold" ]; then
