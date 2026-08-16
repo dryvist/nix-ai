@@ -19,9 +19,19 @@
 # and boot-scoped drop apply. One such attempt never latches: a single errno 60
 # can be a pure timing miss at the boundary.
 #
+# ALSO ASSERTED: the strike is errno-aware (rank_failure_stage). A death that
+# never got past jaccl's TCP bootstrap (Stage A) cannot have allocated a
+# protection domain — ibv_alloc_pd lives in Stage B — so it must not be
+# charged against the budget that protects one; a death that reached RDMA
+# queue-pair bring-up (Stage B), or an unclassifiable one, still counts. So
+# does a stage-a-looking log that PREDATES this attempt (offset at EOF) —
+# StandardErrorPath accumulates across restarts, so stale prior-attempt
+# output must not be read as this attempt's evidence.
+#
 # WHAT IS REAL AND WHAT IS NOT:
-#   REAL   — fast_fail_standdown, halt_write and peer_rendezvous_session, sourced
-#            from the shipped scripts in the module's own concatenation order.
+#   REAL   — fast_fail_standdown, rank_failure_stage, halt_write and
+#            peer_rendezvous_session, sourced from the shipped scripts in the
+#            module's own concatenation order.
 #   STUB   — sysctl (deterministic boot epoch for the halt marker), netstat (the
 #            seam peer_rendezvous_session already exposes), and the three
 #            side-effect calls the standdown makes on the host: set_wired_limit,
@@ -55,6 +65,11 @@ export CLUSTER_ALERT_URL_FILE="$state_dir/alert-url-absent"
 source "${BOOT_SCOPE:?set BOOT_SCOPE to cluster-boot-scope.sh}"
 # shellcheck disable=SC1090
 source "${HELPERS:?set HELPERS to cluster-link-helpers.sh}"
+# rank_failure_stage now lives in its own layer (cluster-pd-stage.sh) — shared
+# with cluster-join and cluster-detach, which never carry cluster-link-guards.sh
+# at all. See that file's own header.
+# shellcheck disable=SC1090
+source "${STAGE:?set STAGE to cluster-pd-stage.sh}"
 # shellcheck disable=SC1090
 source "${GUARDS:?set GUARDS to cluster-link-guards.sh}"
 # The two layers the shipped watcher concatenates AROUND the guards: the
@@ -150,6 +165,84 @@ if fast_fail_standdown "$halt_file" "$latch_file" "$strike_file" 0 "$started_fil
   fail "stood down before any attempt was launched"
 fi
 
+# --- 4c. a Stage-A death (TCP bootstrap only) is free — it cannot have leaked
+# a protection domain ----------------------------------------------------
+# ibv_alloc_pd lives in Stage B (RDMA queue-pair bring-up); a rank that only
+# ever exhausted jaccl's connect retry loop never reached it. Charging the
+# strike budget for a failure that structurally cannot spend it is the exact
+# defect under fix.
+reset_state
+rank_log="$state_dir/cluster-rank.error.log"
+export CLUSTER_RANK_ERROR_LOG="$rank_log"
+cat > "$rank_log" <<'EOF'
+[jaccl] Connection attempt 0 waiting 1000 ms
+[jaccl] Connection attempt 1 waiting 2000 ms
+[jaccl] Connection attempt 2 waiting 4000 ms
+[jaccl] Connection attempt 3 waiting 8000 ms
+RuntimeError: [jaccl] Couldn't connect (error: 60)
+EOF
+if fast_fail_standdown "$halt_file" "$latch_file" "$strike_file" 1 "$started_file"; then
+  fail "stood down on a stage-a-only death; it cannot have leaked a domain"
+fi
+[ -f "$strike_file" ] && fail "counted a stage-a death against the strike budget"
+if fast_fail_standdown "$halt_file" "$latch_file" "$strike_file" 2 "$started_file"; then
+  fail "stood down after two stage-a-only deaths; still cannot have leaked a domain"
+fi
+[ -f "$strike_file" ] && fail "counted a second stage-a death against the strike budget"
+[ -f "$halt_file" ] && fail "wrote a halt marker for a cause that spends zero domains"
+
+# --- 4d. a Stage-B death (RDMA bring-up actually reached) still floors and
+# stands down at 2, unchanged ----------------------------------------------
+reset_state
+cat > "$rank_log" <<'EOF'
+[jaccl] Changing queue pair to RTR failed with errno 96
+EOF
+if fast_fail_standdown "$halt_file" "$latch_file" "$strike_file" 1 "$started_file"; then
+  fail "stood down on the first stage-b strike; the floor of 2 is gone"
+fi
+[ "$(cat "$strike_file")" = "1" ] || fail "did not count a real stage-b death"
+if ! fast_fail_standdown "$halt_file" "$latch_file" "$strike_file" 2 "$started_file"; then
+  fail "did not stand down at the floor on a real stage-b death"
+fi
+[ -f "$halt_file" ] || fail "stage-b standdown wrote no halt marker"
+
+# --- 4e. an unclassifiable log still counts — fail closed ------------------
+# An unclassifiable failure being treated as free is precisely how a real
+# domain leak would go unbounded.
+reset_state
+cat > "$rank_log" <<'EOF'
+some unrelated line matching neither stage's error strings
+EOF
+if fast_fail_standdown "$halt_file" "$latch_file" "$strike_file" 1 "$started_file"; then
+  fail "stood down on the first unclassifiable strike; the floor of 2 is gone"
+fi
+[ "$(cat "$strike_file")" = "1" ] ||
+  fail "an unclassifiable failure must count as a strike, not be treated as free"
+
+# --- 4f. a stage-a-LOOKING log that PREDATES this attempt is stale evidence,
+# not this attempt's — classifies unknown and counts -----------------------
+# StandardErrorPath accumulates across every rank restart. If THIS attempt
+# died leaving no stderr of its own (e.g. SIGKILLed after allocating a
+# protection domain, before ever printing an RTR/RTS line), a bare tail would
+# still show a PREVIOUS attempt's stage-a lines and wrongly read this one as
+# free too. The offset marker — captured at THIS attempt's own kickstart —
+# is what tells stale output apart from real evidence.
+reset_state
+cat > "$rank_log" <<'EOF'
+[jaccl] Connection attempt 0 waiting 1000 ms
+RuntimeError: [jaccl] Couldn't connect (error: 60)
+EOF
+offset_file="$state_dir/rank-error-log-offset"
+wc -c < "$rank_log" > "$offset_file"
+if fast_fail_standdown "$halt_file" "$latch_file" "$strike_file" 1 "$started_file" "$offset_file"; then
+  fail "stood down on the first stale-offset strike; the floor of 2 is gone"
+fi
+[ "$(cat "$strike_file")" = "1" ] ||
+  fail "an offset at EOF (nothing appended by this attempt) must count as a strike, not be read as this attempt's stage-a tail"
+rm -f "$offset_file"
+
+unset CLUSTER_RANK_ERROR_LOG
+
 # --- 5. the watcher must actually CALL it, ahead of the alignment hold --------
 # A correct function nobody calls passes everything above while the defect is
 # fully back. And it must sit BEFORE rank_start_preconditions_ok, which contains
@@ -163,5 +256,7 @@ precond_line="$(grep -n 'elif ! rank_start_preconditions_ok' "$watcher" | head -
   fail "fast_fail_standdown runs AFTER the preconditions; the standdown now pays the alignment hold it exists to avoid"
 grep -q 'fast_fail_strikes_file' "$watcher" ||
   fail "the link-cycle teardown no longer clears the fast-fail counter"
+grep -q 'rank_log_offset_file' "$watcher" ||
+  fail "the watcher no longer threads the rank-error-log byte offset through to fast_fail_standdown"
 
-echo "PASS: fast-fail standdown floors at 2, reuses peer-absent, and is wired ahead of the hold"
+echo "PASS: fast-fail standdown floors at 2, is errno-aware (stage-a free, stage-b/unknown counted, stale offsets fail closed), reuses peer-absent, and is wired ahead of the hold"

@@ -51,6 +51,12 @@
 #                                  ./cluster-pd-cause.sh)
 #   CLUSTER_PEER_STATE_*             the peer-armed handshake's channel; see
 #                                  ./cluster-peer-state.sh
+#   CLUSTER_RANK_ERROR_LOG            the rank's own stderr (StandardErrorPath);
+#                                  read by rank_failure_stage to tell a Stage-A
+#                                  TCP-bootstrap death (no protection domain
+#                                  could have been allocated) from a Stage-B
+#                                  RDMA one (already spent one) — see
+#                                  fast_fail_standdown below
 #
 # Two marker paths are read from the CALLER'S scope rather than passed as
 # arguments — gen_parity_file and halt_latch_file. Both are watcher-owned state
@@ -591,10 +597,18 @@ rank_start_preconditions_ok() {
 # to proceed. Unlike the pd/mem halt helpers this is a BRANCH, not a composed
 # always-0 rung, because its whole job is to replace the start.
 #
-# $1 halt marker, $2 latch, $3 strike counter, $4 attempts so far, $5 started marker.
+# rank_failure_stage (Stage A / Stage B classification from the rank's own
+# stderr) moved to ./cluster-pd-stage.sh: pd_debt_settle_counter needs it too
+# (cluster-pd-settle.sh), and that function is also called from cluster-join
+# and cluster-detach, neither of which carries this file. Concatenated ahead
+# of this one wherever both are used — see that file's own header.
+#
+# $1 halt marker, $2 latch, $3 strike counter, $4 attempts so far, $5 started
+# marker, $6 rank-stderr byte-offset marker (see rank_failure_stage, above).
 fast_fail_standdown() {
   local halt_file="$1" latch_file="$2" strike_file="$3" kicks="$4" started_file="$5"
-  local floor strikes
+  local log_offset_file="${6:-}"
+  local floor strikes stage
   floor="${CLUSTER_FAST_FAIL_STRIKES:-2}"
   case "$floor" in
     '' | *[!0-9]*) return 1 ;;
@@ -607,6 +621,23 @@ fast_fail_standdown() {
   if [ "$kicks" -le 0 ] || [ -f "$started_file" ] || peer_rendezvous_session; then
     rm -f "$strike_file"
     return 1
+  fi
+  # A STAGE-A DEATH COSTS NOTHING TO CLASSIFY AWAY. Measured 2026-08-15: a full
+  # worker start-and-die shows a Stage-A errno-60 timeout (~20-24s from
+  # spawn to death) left the protection-domain ledger unchanged across dozens
+  # of attempts, because ibv_alloc_pd — Stage B — was never reached. Charging
+  # the strike budget for it caps this host at ~30-45s of retries against a
+  # peer demonstrably willing to wait ~100-165s, protecting a budget the
+  # failure structurally cannot spend. The counter is left untouched here (not
+  # reset, not incremented), so an intervening Stage-A miss neither erases a
+  # real Stage-B strike already recorded nor pads one artificially.
+  stage="$(rank_failure_stage "${CLUSTER_RANK_ERROR_LOG:-}" "$log_offset_file")"
+  if [ "$stage" = "stage-a" ]; then
+    echo "cluster-link: rank start died before settling but jaccl never reached RDMA bring-up (stage-a/TCP bootstrap only, no protection domain could have been allocated); not counted against the fast-fail strike budget"
+    return 1
+  fi
+  if [ "$stage" = "unknown" ]; then
+    echo "cluster-link: rank stderr did not classify as stage-a or stage-b (${CLUSTER_RANK_ERROR_LOG:-no CLUSTER_RANK_ERROR_LOG set}); counting the strike anyway — fail closed, an unclassifiable failure must not be treated as free" >&2
   fi
   strikes=0
   [ -f "$strike_file" ] && strikes="$(cat "$strike_file")"

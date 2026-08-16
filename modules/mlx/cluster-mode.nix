@@ -1,4 +1,3 @@
-#
 # MLX Module — Clustered Mode (two-Mac JACCL distributed serving)
 #
 # In clustered mode, one Thunderbolt 5 cable turns two Macs into a single MLX
@@ -38,6 +37,7 @@ let
     cfg
     warmupAgentLabel
     launchAgentLabel
+    watchdogAgentLabel
     apiUrl
     uvPythonVersion
     modelServerProcessPattern
@@ -55,16 +55,15 @@ let
   stateFile = "${config.home.homeDirectory}/Library/Application Support/mlx-cluster/link-state";
   # Ledger of RDMA protection domains leaked during the current boot: written by
   # cluster-detach when it must SIGKILL, read by the watcher's start guard and by
-  # cluster-join. Defined ONCE, here, because a writer and a reader that each
-  # derive the path are a writer and a reader on different files. Not a "marker":
-  # a link cycle, a manual clear and cluster-join all reset the halt state, and
-  # none of them returns a protection domain — only a reboot does, and the ledger
-  # is boot-scoped so a reboot is exactly what clears it.
+  # cluster-join. Defined ONCE, here — a writer and a reader that each derive the
+  # path are a writer and a reader on different files. Boot-scoped: only a
+  # reboot clears it (see cluster-pd-ledger.sh for why).
   pdDebtFile = "${config.home.homeDirectory}/Library/Application Support/mlx-cluster/pd-debt";
   # Written by the rank launcher at start (not a nix-managed file — its content
   # depends on which physical Thunderbolt port has the cable).
   ibvMatrixFile = "${config.home.homeDirectory}/Library/Application Support/mlx-cluster/ibv-matrix.json";
   launchAgentsDir = "${config.home.homeDirectory}/Library/LaunchAgents";
+  rankErrorLog = "${logDir}/cluster-rank.error.log";
 
   isCoordinator = ncfg.role == "coordinator";
   staticPeerIp = if isCoordinator then ncfg.staticLinkIps.worker else ncfg.staticLinkIps.coordinator;
@@ -136,10 +135,12 @@ let
       launchAgentsDir
       launchAgentLabel
       warmupAgentLabel
+      watchdogAgentLabel
       stateFile
       pdDebtFile
       apiUrl
       modelServerProcessPattern
+      rankErrorLog
       ;
   };
 
@@ -165,9 +166,11 @@ let
       rankLabel
       warmupAgentLabel
       launchAgentLabel
+      watchdogAgentLabel
       launchAgentsDir
       stateFile
       pdDebtFile
+      rankErrorLog
       ;
   };
 in
@@ -243,7 +246,7 @@ in
             MLX_METAL_FAST_SYNCH = "1";
           };
           StandardOutPath = "${logDir}/cluster-rank.log";
-          StandardErrorPath = "${logDir}/cluster-rank.error.log";
+          StandardErrorPath = rankErrorLog;
         };
       };
 

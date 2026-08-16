@@ -16,9 +16,11 @@
   rankLabel,
   warmupAgentLabel,
   launchAgentLabel,
+  watchdogAgentLabel,
   launchAgentsDir,
   stateFile,
   pdDebtFile,
+  rankErrorLog,
 }:
 let
   # The CLUSTER RANK process pattern. Single definition, derived from the same
@@ -26,44 +28,17 @@ let
   # for why this is NOT modelServerProcessPattern and must never become it.
   inherit (import ./cluster-rank-pattern.nix { inherit lib; }) clusterRankProcessPattern;
 
-  # The link-down settle window in the unit the watcher actually counts in:
-  # consecutive failed probes. Rounded UP (integer ceil) with a floor of one, so
-  # a settle window shorter than one tick still means "one confirming probe"
-  # rather than "no debounce at all". Derived, never configured twice — a value
-  # defined in two places is a bug even when the two agree.
-  downStrikes =
-    let
-      ticks = (ncfg.linkDownSettleSecs + ncfg.tickIntervalSecs - 1) / ncfg.tickIntervalSecs;
-    in
-    if ticks < 1 then 1 else ticks;
-
-  # How often the still-down report repeats, in the unit the watcher counts in.
-  # Same derivation rule as downStrikes: the operator configures seconds, the
-  # script counts ticks, and neither number exists twice. This was a bare `:-20`
-  # default inside the script with nothing setting it — so the cadence could not
-  # be tuned and, on a node running an older generation, was not applied at all.
-  downReportEveryTicks =
-    let
-      ticks = (ncfg.downReportEverySecs + ncfg.tickIntervalSecs - 1) / ncfg.tickIntervalSecs;
-    in
-    if ticks < 1 then 1 else ticks;
-
-  # Same derivation again, for the nominal-tick heartbeat. See
-  # heartbeatEverySecs: a healthy watcher writes nothing, so this line's absence
-  # is the only signal that the agent has stopped ticking at all.
-  heartbeatEveryTicks =
-    let
-      ticks = (ncfg.heartbeatEverySecs + ncfg.tickIntervalSecs - 1) / ncfg.tickIntervalSecs;
-    in
-    if ticks < 1 then 1 else ticks;
-
-  # Same ceil-against-the-tick derivation as downStrikes, for the
-  # memory-headroom rung's escalate-to-halt dwell. See options-cluster-memory.nix.
-  memHeadroomDwellTicks =
-    let
-      ticks = (ncfg.memHeadroomHaltSecs + ncfg.tickIntervalSecs - 1) / ncfg.tickIntervalSecs;
-    in
-    if ticks < 1 then 1 else ticks;
+  # The four derived tick-counts (link-down settle, down-report cadence,
+  # heartbeat, memory-headroom dwell) live in ./cluster-watcher-env-ticks.nix,
+  # split out at the per-file size cap (same move as ./cluster-watcher-env-peer.nix
+  # below). Merged straight into this attrset, so the variables the watcher sees
+  # are unchanged.
+  inherit (import ./cluster-watcher-env-ticks.nix { inherit ncfg; })
+    downStrikes
+    downReportEveryTicks
+    heartbeatEveryTicks
+    memHeadroomDwellTicks
+    ;
 in
 {
   CLUSTER_ROLE = ncfg.role;
@@ -172,6 +147,11 @@ in
   # vm_stat is not on a writeShellApplication PATH; test seam, like
   # CLUSTER_NETSTAT_BIN / CLUSTER_PGREP_BIN / CLUSTER_KILL_BIN above.
   CLUSTER_VMSTAT_BIN = "/usr/bin/vm_stat";
+  # The rank's own StandardErrorPath — same file cluster-mode.nix wires the
+  # rank launchd agent to. Read by rank_failure_stage (cluster-link-guards.sh)
+  # to tell a Stage-A TCP-bootstrap death, which cannot have leaked an RDMA
+  # protection domain, from a Stage-B one, which already has.
+  CLUSTER_RANK_ERROR_LOG = rankErrorLog;
 }
 // (import ./cluster-watcher-env-peer.nix { inherit ncfg; })
 // lib.optionalAttrs isCoordinator {
@@ -200,6 +180,12 @@ in
   # converge.
   CLUSTER_SERVER_LABEL = launchAgentLabel;
   CLUSTER_SERVER_PLIST = "${launchAgentsDir}/${launchAgentLabel}.plist";
+  # Same pair, for the serving watchdog cluster-join boots out alongside the
+  # server and warmup agents: restore_normal_serving needs the plist to
+  # bootstrap it back on every teardown path this watcher owns (up->down edge,
+  # PD-guard halt, wedge teardown).
+  CLUSTER_WATCHDOG_LABEL = watchdogAgentLabel;
+  CLUSTER_WATCHDOG_PLIST = "${launchAgentsDir}/${watchdogAgentLabel}.plist";
 }
 // lib.optionalAttrs (ncfg.wiredLimitMb != null) {
   CLUSTER_WIRED_LIMIT_MB = toString ncfg.wiredLimitMb;

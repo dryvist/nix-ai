@@ -31,8 +31,8 @@
 #            matters here: a bootout AFTER the signal closes no window at all.
 #
 # Usage:
-#   BOOT_SCOPE=… RESTORE=… STATUS=… LEDGER=… RECORD=… SETTLE=… JOIN=… DETACH=… LAYERS=… \
-#     bash test-teardown-recovery.sh
+#   BOOT_SCOPE=… RESTORE=… STATUS=… LEDGER=… RECORD=… STAGE=… SETTLE=… JOIN=… \
+#     DETACH=… LAYERS=… bash test-teardown-recovery.sh
 set -o errexit -o nounset -o pipefail
 
 tmp="$(mktemp -d)"
@@ -85,6 +85,8 @@ source "${BOOT_SCOPE:?set BOOT_SCOPE to cluster-boot-scope.sh}"
 source "${LEDGER:?set LEDGER to cluster-pd-ledger.sh}"
 # shellcheck disable=SC1090
 source "${RECORD:?set RECORD to cluster-pd-record.sh}"
+# shellcheck disable=SC1090
+source "${STAGE:?set STAGE to cluster-pd-stage.sh}"
 # shellcheck disable=SC1090
 source "${SETTLE:?set SETTLE to cluster-pd-settle.sh}"
 # shellcheck disable=SC1090

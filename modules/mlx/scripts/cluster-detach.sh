@@ -26,6 +26,10 @@
 #   CLUSTER_SERVER_LABEL        normal-mode server (llama-swap) launchd label
 #   CLUSTER_SERVER_PLIST        path to the server agent plist (for bootstrap)
 #   CLUSTER_WARMUP_LABEL        normal-mode warmup one-shot launchd label
+#   CLUSTER_WATCHDOG_LABEL      serving watchdog launchd label — carried so
+#                             restore_normal_serving (step 2) can bootstrap it
+#                             back if cluster-join booted it out
+#   CLUSTER_WATCHDOG_PLIST      path to the watchdog agent plist (for bootstrap)
 #   worker only:
 #   CLUSTER_RESTORE_CMD         cluster-restore — bootstraps back exactly the
 #                             agents cluster-quiesce recorded booting out
@@ -171,9 +175,12 @@ release_session() {
   local cause
   cause="$(cat "$state_dir/rank-halt-latched" 2> /dev/null || echo '')"
   cause="${cause%%[[:space:]]*}"
+  # $7/$8: same run-start byte-offset marker the watcher wrote — see
+  # cluster-join.sh's identical settle call for why this needs no writer here.
   pd_debt_settle_counter "${CLUSTER_PD_DEBT_FILE:-}" "$state_dir/rank-kickstarts" 0 \
     "cluster-detach" "attempts outstanding when cluster-detach ended the session" \
-    "${cause:-cluster-detach}"
+    "${cause:-cluster-detach}" "${CLUSTER_RANK_ERROR_LOG:-}" \
+    "$state_dir/rank-error-log-session-offset"
 
   if /bin/launchctl print "gui/$uid/${CLUSTER_RANK_LABEL}" > /dev/null 2>&1; then
     echo "cluster-detach: $CLUSTER_RANK_LABEL already loaded (idle); nothing to bootstrap"

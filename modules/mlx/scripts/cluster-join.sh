@@ -38,6 +38,11 @@
 #   CLUSTER_SERVER_PLIST        that agent's plist — join boots the agent out,
 #                             so the failure-path restore needs the plist to
 #                             bootstrap it back (restore_normal_serving)
+#   CLUSTER_WATCHDOG_LABEL      serving watchdog launchd label — join boots this
+#                             out too, or it sees the coordinator as "up but not
+#                             serving" for the whole cluster window and reloads
+#                             the standalone stack mid-window
+#   CLUSTER_WATCHDOG_PLIST      that agent's plist, same reason as CLUSTER_SERVER_PLIST
 #   CLUSTER_KEEP_RESIDENT       newline-separated command-line substrings; a
 #                             `vllm-mlx serve` engine matching any is left
 #                             running through the quiesce (standalone keep-
@@ -309,6 +314,20 @@ Loading a shard against stale swap spirals to a panic (INC-17075)."
   /bin/launchctl bootout "gui/$uid/${CLUSTER_WARMUP_LABEL}" > /dev/null 2>&1 || true
   /bin/launchctl bootout "gui/$uid/${CLUSTER_SERVER_LABEL}" > /dev/null 2>&1 || true
   echo "cluster-join: booted out standalone serving ($CLUSTER_SERVER_LABEL, $CLUSTER_WARMUP_LABEL)"
+  # The watchdog probes the standalone proxy on its own 60s timer, independent
+  # of the two agents above. Left running through the cluster window it finds
+  # the coordinator "up but not serving" like a real outage and climbs its
+  # escalation ladder -- rung 2 is a full bootstrap of the standalone stack,
+  # which would reload it mid-window and reclaim the memory this quiesce just
+  # freed. Boot it out too, with the same graceful-degrade shape as the pair
+  # above: an unset label is a config gap on an older generation, not a fault,
+  # so it is logged and skipped rather than treated as a failure.
+  if [ -n "${CLUSTER_WATCHDOG_LABEL:-}" ]; then
+    /bin/launchctl bootout "gui/$uid/${CLUSTER_WATCHDOG_LABEL}" > /dev/null 2>&1 || true
+    echo "cluster-join: booted out the serving watchdog ($CLUSTER_WATCHDOG_LABEL)"
+  else
+    echo "cluster-join: no CLUSTER_WATCHDOG_LABEL configured; nothing to boot out for the watchdog"
+  fi
 
   # PIDs of standalone model-server engines that are NOT keep-resident exempt. An engine
   # whose command line contains any CLUSTER_KEEP_RESIDENT substring is left up.
@@ -384,8 +403,15 @@ fi
 # pushes the ledger TO the cap, the watcher halts a tick later with cause
 # pd-debt-exhausted. That is the ledger working, not a stale marker.
 if [ -f "$halt_file" ] || [ -f "$halt_latch_file" ]; then
+  # $7/$8: the same run-start byte-offset marker the watcher wrote at the
+  # outstanding run's first kickstart (state_dir is derived identically here
+  # and there — one path, one writer, one reader per run). Lets the settle
+  # skip billing a run whose every attempt was provably Stage-A-only (jaccl
+  # TCP bootstrap, no protection domain could have been allocated) — see
+  # pd_debt_settle_counter and rank_failure_stage (./cluster-pd-stage.sh).
   pd_debt_settle_counter "${CLUSTER_PD_DEBT_FILE:-}" "$kicks_file" 0 "cluster-join" \
-    "attempts outstanding when cluster-join reset the session"
+    "attempts outstanding when cluster-join reset the session" "" \
+    "${CLUSTER_RANK_ERROR_LOG:-}" "$state_dir/rank-error-log-session-offset"
   rm -f "$halt_file" "$halt_latch_file"
   echo "cluster-join: cleared stale rank-halted latch"
 fi

@@ -24,7 +24,12 @@
   ...
 }:
 let
-  inherit (mlxShared) cfg warmupAgentLabel launchAgentLabel;
+  inherit (mlxShared)
+    cfg
+    warmupAgentLabel
+    launchAgentLabel
+    watchdogAgentLabel
+    ;
   ncfg = cfg.clusterMode;
   # Cluster override if set, else the module-wide convention
   # (./options-launch.nix). Resolved once, here, so both agents
@@ -233,6 +238,11 @@ in
           # no-ops and standalone serving never returns (INC-17071).
           CLUSTER_SERVER_LABEL = launchAgentLabel;
           CLUSTER_SERVER_PLIST = "${launchAgentsDir}/${launchAgentLabel}.plist";
+          # Same pair, for the serving watchdog: this supervisor's own
+          # restore_normal_serving calls (rank-dead teardown) must be able to
+          # bootstrap it back too, not just llama-swap.
+          CLUSTER_WATCHDOG_LABEL = watchdogAgentLabel;
+          CLUSTER_WATCHDOG_PLIST = "${launchAgentsDir}/${watchdogAgentLabel}.plist";
         }
         // lib.optionalAttrs (ncfg.wiredLimitMb != null) {
           CLUSTER_WIRED_LIMIT_MB = toString ncfg.wiredLimitMb;

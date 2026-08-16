@@ -41,6 +41,11 @@
     # failure rather than dead code.
     ./scripts/cluster-pd-cause.sh
     ./scripts/cluster-pd-record.sh
+    # jaccl Stage-A/Stage-B classifier. Ahead of cluster-pd-settle.sh, which
+    # calls it, and of cluster-link-guards.sh below, whose fast_fail_standdown
+    # also does — see that file's own header for why it is its own layer
+    # rather than living in either consumer.
+    ./scripts/cluster-pd-stage.sh
     ./scripts/cluster-pd-settle.sh
     ./scripts/cluster-link-helpers.sh
     ./scripts/cluster-serving-restore.sh
@@ -101,6 +106,8 @@
     ./scripts/cluster-boot-scope.sh
     ./scripts/cluster-pd-ledger.sh
     ./scripts/cluster-pd-record.sh
+    # See the watcher set above for why this is its own layer.
+    ./scripts/cluster-pd-stage.sh
     ./scripts/cluster-pd-settle.sh
     ./scripts/cluster-link-locate.sh
     ./scripts/cluster-link-repair.sh
@@ -133,6 +140,8 @@
     # on both its exits, so a failed detach cannot leave the next session
     # part-spent. Settling rather than deleting is what keeps that from
     # laundering attempts whose domains are not yet on the ledger.
+    # See the watcher set above for why this is its own layer.
+    ./scripts/cluster-pd-stage.sh
     ./scripts/cluster-pd-settle.sh
     ./scripts/cluster-link-locate.sh
     ./scripts/cluster-serving-restore.sh

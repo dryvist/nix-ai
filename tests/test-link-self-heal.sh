@@ -18,7 +18,11 @@
 #   4. the report is MEASURED STATE — per-port carrier, where the address is,
 #      generation parity, whether the peer answered — with no cause list;
 #   5. drift is a field of that report, cached to a TTL, and pages once per
-#      distinct drift rather than once per tick.
+#      distinct drift rather than once per tick;
+#   6. that cache is also keyed on the LOCAL generation, so a darwin-rebuild
+#      invalidates it on the next tick even while the TTL is still fresh — the
+#      2026-08-15 defect below, where a time-only key kept both hosts reading
+#      their pre-rebuild verdict for up to an hour after converging.
 #
 # WHAT IS REAL AND WHAT IS NOT:
 #   REAL  — link_prep_self_heal, link_facts, tb_carrier_facts, self_ip_fact,
@@ -340,6 +344,41 @@ check "three ticks, one remote read" 1 "$(remote_reads)"
 printf '1 state=ok local=stale deploy=stale\n' > "$parity_cache"
 generation_parity_cached "$parity_cache" > /dev/null
 check "an expired entry is refreshed" 2 "$(remote_reads)"
+
+echo
+echo "...but a changed LOCAL generation invalidates a FRESH-TTL cache immediately:"
+# 2026-08-15: two darwin-rebuilds in one night each left the cache keyed on time
+# alone, so it kept serving the pre-rebuild verdict for up to an hour. Both
+# hosts converged to the same real revision and each watcher still read its own
+# stale state=drift/state=unstamped fact — cluster-link-guards.sh refused the
+# local rank on it, and cluster-peer-state.sh folded it into armed=false, which
+# made the PEER refuse too. Evidence (both nodes actually on 1fd8170...):
+#   MBP: 1786852626 state=drift local=a460847f6856... deploy=1fd8170be793...
+#   MS : 1786852354 state=drift local=a460847f6856... deploy=1fd8170be793...
+# Deleting the cache file by hand made the next tick publish armed=true within
+# ~30s. The cache must do that itself, without a human, the tick after an
+# activation — well inside the hour-long TTL.
+rm -f "$parity_cache"
+export CLUSTER_GENERATION_CHECK_SECS=3600
+stub_local_rev="aaaaaaaaaaaa"
+stub_remote_rev="aaaaaaaaaaaa"
+: > "$remote_reads_file"
+generation_parity_cached "$parity_cache" > /dev/null
+check "one remote read for the pre-rebuild tick" 1 "$(remote_reads)"
+# Simulate `darwin-rebuild switch`: the local generation moves, the TTL has not.
+stub_local_rev="dddddddddddd"
+stub_remote_rev="dddddddddddd"
+fact="$(generation_parity_cached "$parity_cache")"
+check "the generation change forces a recompute inside the TTL" 2 "$(remote_reads)"
+check "the fact reflects the NEW generation, not the stale one" \
+  "state=ok local=dddddddddddd deploy=dddddddddddd" "$fact"
+
+echo "...and a pre-fix two-field cache (no rev field) is a miss, not a crash:"
+rm -f "$parity_cache"
+printf '%s state=ok local=stale deploy=stale\n' "$(date +%s)" > "$parity_cache"
+fact="$(generation_parity_cached "$parity_cache")"
+check "the legacy-format entry is recomputed rather than trusted" \
+  "state=ok local=dddddddddddd deploy=dddddddddddd" "$fact"
 
 echo
 echo "call sites in cluster-link-watcher.sh (a function nobody calls fixes nothing):"

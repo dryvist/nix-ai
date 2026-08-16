@@ -14,9 +14,11 @@ let
   inherit (mlxShared)
     cfg
     launchAgentLabel
+    watchdogAgentLabel
     apiUrl
     mlxWatchdogPkg
-    modelServerProcessPattern
+    llamaSwapConfigAttrs
+    allModels
     ;
 
   # Untracked, operator-seeded notification targets. nix owns the PATH; the
@@ -24,6 +26,10 @@ let
   # Defined here so the env vars below and the activation warning cannot drift.
   alertUrlFile = "${config.home.homeDirectory}/.config/mlx-cluster/alert-url";
   healthcheckUrlFile = "${config.home.homeDirectory}/.config/mlx-cluster/healthcheck-url";
+  # Worker ports the watchdog's reap_workers() must reclaim — same formula as
+  # launchd.nix's own agent (nix-ai#1423: port ownership, not a process
+  # pattern, see scripts/llama-swap-reap.sh).
+  workerPortCount = builtins.length (builtins.attrNames allModels);
 in
 {
   config = lib.mkIf cfg.enable {
@@ -59,15 +65,16 @@ in
       #
       # NOT gated on the backend. Everything the watchdog touches is
       # backend-neutral — an OpenAI completion through llama-swap, launchctl
-      # kickstart/bootout of the proxy label, and modelServerProcessPattern,
-      # which already derives its own mlx-lm value. The old
+      # kickstart/bootout of the proxy label, and the port-ownership reap
+      # (MLX_PORT / MLX_WORKER_PORT_RANGE_START / MLX_WORKER_PORT_COUNT
+      # below), which does not vary by backend either. The old
       # `modelServerBackend == "vllm-mlx"` term was dead code the moment
       # assertions.nix began requiring modelServerBackend == "mlx-lm" whenever
       # the module is enabled: the two conditions cannot both hold, so the
       # agent was unconditionally disabled and no serving host had a watchdog.
       enable = cfg.preload != [ ];
       config = {
-        Label = "dev.mlx-model-server.watchdog";
+        Label = watchdogAgentLabel;
         ProgramArguments = [ (lib.getExe mlxWatchdogPkg) ];
         RunAtLoad = false;
         # 60 s: a zombie is detected and kickstarted within one cron gap
@@ -77,7 +84,12 @@ in
         EnvironmentVariables = {
           MLX_API_URL = apiUrl;
           MLX_LAUNCHD_LABEL = launchAgentLabel;
-          MLX_MODEL_SERVER_PROCESS_PATTERN = modelServerProcessPattern;
+          # Port block reap_workers() must reclaim — same three vars
+          # llama-swap-launch's own agent sets (launchd.nix), read by
+          # mlx_reap_orphan_ports (llama-swap-reap.sh, nix-ai#1423).
+          MLX_PORT = toString cfg.port;
+          MLX_WORKER_PORT_RANGE_START = toString llamaSwapConfigAttrs.startPort;
+          MLX_WORKER_PORT_COUNT = toString workerPortCount;
           # Probe the whole resident set, not just the head. Each preloaded
           # model is warm by construction, so a failure means "not serving",
           # never "cold load in progress". Passing the full list lets the

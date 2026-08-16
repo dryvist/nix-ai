@@ -88,20 +88,10 @@ let
   mlxWarmupPkg = pkgs.writeShellScriptBin "mlx-warmup" ''
     exec ${pkgs.python3}/bin/python3 ${./scripts/mlx-warmup.py} "$@"
   '';
-  # mlx-watchdog — periodic serving probe that kickstarts the proxy when it is up
-  # but not serving (KeepAlive only catches process exit). Probes a real
-  # completion: every observed failure mode still answers /v1/models with 200.
-  # writeShellApplication shellcheck-validates the script at eval time.
-  mlxWatchdogPkg = pkgs.writeShellApplication {
-    name = "mlx-watchdog";
-    runtimeInputs = with pkgs; [
-      curl
-      coreutils
-      gawk
-      jq
-    ];
-    text = builtins.readFile ./scripts/mlx-watchdog.sh;
-  };
+  # mlx-watchdog — periodic serving probe that kickstarts the proxy when it is
+  # up but not serving, INCLUDING a slot-accounting wedge (see
+  # mlx-watchdog-pkg.nix, 12KB-gate split).
+  mlxWatchdogPkg = import ./mlx-watchdog-pkg.nix { inherit pkgs lib; };
 
   # llama-swap sits on the stable API port and supervises official mlx_lm workers.
   # Sourced from nixpkgs-unstable: 25.11-darwin froze it at v165 on 2025-09-22
@@ -114,6 +104,7 @@ let
   apiUrl = "http://${cfg.host}:${toString cfg.port}/v1";
   launchAgentLabel = "dev.mlx-model-server";
   warmupAgentLabel = "dev.mlx-model-server.warmup";
+  watchdogAgentLabel = "dev.mlx-model-server.watchdog";
 
   # See ./warmup-timeout.nix for why this is derived rather than guessed.
   warmupTimeoutSeconds = import ./warmup-timeout.nix cfg lib;
@@ -187,61 +178,24 @@ let
   # overrides client values per llama-swap's documented semantics).
   inherit (cfg.proxy) defaultFilters;
 
-  proxyUrl = "http://127.0.0.1:\${PORT}";
-
-  registryModels = lib.mapAttrs (
-    physical: roles:
-    let
-      extraArgs = cfg.modelExtraArgs.${physical} or [ ];
-    in
-    {
-      cmd =
-        mkModelCmd physical + lib.optionalString (extraArgs != [ ]) (" " + lib.escapeShellArgs extraArgs);
-      ttl = cfg.modelTtls.${physical} or cfg.proxy.idleTtl;
-      env = workerEnv;
-      checkEndpoint = "/v1/models";
-      proxy = proxyUrl;
-      aliases = roles;
-      useModelName = physical;
-      concurrencyLimit = effectiveConcurrency physical;
-    }
-    // lib.optionalAttrs (defaultFilters != { }) {
-      filters = defaultFilters;
-    }
-  ) rolesByPhysical;
-
-  # Additional ad-hoc models from cfg.models (existing extension point).
-  # These form the non-resident swap tier. They can be loaded on demand
-  # without evicting the resident registry models, and they can carry their
-  # own TTLs/aliases/filters.
-  additionalModels = lib.mapAttrs (
-    name: modelCfg:
-    let
-      mergedFilters = lib.recursiveUpdate defaultFilters (modelCfg.filters or { });
-    in
-    {
-      cmd =
-        mkModelCmd name
-        + lib.optionalString (modelCfg.extraArgs != [ ]) (
-          " " + lib.concatStringsSep " " modelCfg.extraArgs
-        );
-      ttl = if modelCfg.ttl > 0 then modelCfg.ttl else cfg.proxy.idleTtl;
-      env = workerEnv;
-      checkEndpoint = "/v1/models";
-      proxy = proxyUrl;
-      concurrencyLimit = effectiveConcurrency name;
-    }
-    // lib.optionalAttrs (modelCfg.aliases != [ ]) {
-      inherit (modelCfg) aliases;
-    }
-    // lib.optionalAttrs (mergedFilters != { }) {
-      filters = mergedFilters;
-    }
-  ) cfg.models;
-
-  residentModels = registryModels;
-  swapModels = additionalModels;
-  allModels = residentModels // swapModels;
+  # Model-instance maps (registry + swap tier) — split to model-instances.nix
+  # for the 12KB file-size gate.
+  inherit
+    (import ./model-instances.nix {
+      inherit
+        lib
+        cfg
+        mkModelCmd
+        effectiveConcurrency
+        workerEnv
+        defaultFilters
+        rolesByPhysical
+        ;
+    })
+    residentModels
+    swapModels
+    allModels
+    ;
 
   # Model/group topology (models/disabledModels/groups/disabledGroups) is a
   # pure function of the above — split into llama-swap-topology.nix so
@@ -302,6 +256,7 @@ in
       uvPythonVersion
       launchAgentLabel
       warmupAgentLabel
+      watchdogAgentLabel
       warmupTimeoutSeconds
       modelServerProcessPattern
       llamaSwapPkg

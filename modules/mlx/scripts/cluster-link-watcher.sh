@@ -47,6 +47,11 @@
 #   CLUSTER_SERVER_LABEL    coordinator only: normal-mode server (llama-swap)
 #                         launchd label, bootstrapped before the warmup fires
 #   CLUSTER_SERVER_PLIST    coordinator only: that agent's plist, for bootstrap
+#   CLUSTER_WATCHDOG_LABEL  coordinator only: serving watchdog launchd label,
+#                         bootstrapped back by restore_normal_serving on every
+#                         teardown this watcher owns (up->down edge, PD-guard
+#                         halt, wedge teardown)
+#   CLUSTER_WATCHDOG_PLIST  coordinator only: that agent's plist, for bootstrap
 #   CLUSTER_MAX_WARM_FAILURES  consecutive post-readiness health-gate
 #                         failures before the rank is declared wedged
 #   CLUSTER_WARM_RECHECK_SECS  soak interval: re-probe liveness this often once
@@ -102,6 +107,25 @@ peer_session_strikes_file="$state_dir/peer-session-strikes"
 # verdict as the counter above, for the rank that never lives long enough to
 # reach it. Session-scoped like every other strike counter here.
 fast_fail_strikes_file="$state_dir/rank-fast-fails"
+# Byte size of CLUSTER_RANK_ERROR_LOG captured right before EACH kickstart, so
+# fast_fail_standdown's stage classifier reads only what THIS attempt appended
+# — StandardErrorPath accumulates across every rank restart, so a bare tail
+# would otherwise still be reading the PREVIOUS attempt's evidence on a death
+# that left no stderr of its own. See rank_failure_stage in
+# ./cluster-pd-stage.sh.
+rank_log_offset_file="$state_dir/rank-error-log-offset"
+# Byte size of CLUSTER_RANK_ERROR_LOG captured ONCE, at the FIRST kickstart of
+# an outstanding run — unlike rank_log_offset_file above, never overwritten by
+# a later kickstart in the same run. pd_debt_settle_counter bills the whole
+# run's outstanding attempts at once (kicks - vindicated), so classifying it
+# needs the window from the run's START, not just its latest attempt: an
+# earlier attempt in the same run could have reached Stage B and leaked a real
+# domain while a later one only hit Stage A, and reading just the latest
+# attempt's tail would misclassify the whole run as free on that later
+# attempt's evidence alone — the exact staleness bug rank_log_offset_file
+# exists to prevent, one level up. Settled (and cleared) alongside kicks_file
+# by pd_debt_settle_counter itself.
+session_log_offset_file="$state_dir/rank-error-log-session-offset"
 # Consecutive ticks the probe has failed while the link was ALREADY down. Used
 # only to make a permanently-failing probe audible on a cadence — see the
 # else-branch of the probe below.
@@ -363,7 +387,8 @@ if [ "$cur" = "up" ]; then
       # losses off, which is how a boot could reach exhaustion with the ledger
       # still reading empty.
       pd_debt_settle_counter "$pd_debt_file" "$kicks_file" 1 "rank-settled" \
-        "attempts that failed before the rank that settled"
+        "attempts that failed before the rank that settled" "" \
+        "${CLUSTER_RANK_ERROR_LOG:-}" "$session_log_offset_file"
       rm -f "$halt_file" "$halt_latch_file"
     fi
     # PAIR-WIDE STANDDOWN. A jaccl group cannot re-admit a rank, so a rank whose
@@ -636,7 +661,8 @@ if [ "$cur" = "up" ]; then
       # billed to the ledger twice. The counter now holds only what is still
       # unrecorded, which is what makes every other reset site safe to settle.
       pd_debt_settle_counter "$pd_debt_file" "$kicks_file" 0 "rank-start-failures" \
-        "$kicks consecutive failed distributed inits, one protection domain each"
+        "$kicks consecutive failed distributed inits, one protection domain each" "" \
+        "${CLUSTER_RANK_ERROR_LOG:-}" "$session_log_offset_file"
       # Every attempt was preceded by quiesce_normal_serving, which boots the
       # standalone model server out. Halting without undoing that leaves the
       # host serving NOTHING for as long as the link stays up, because the only
@@ -655,7 +681,7 @@ if [ "$cur" = "up" ]; then
       alert "$(hostname -s): cluster rank failed $kicks consecutive starts; $(pd_debt_phrase "$(pd_debt_count "$pd_debt_file")" "${CLUSTER_MAX_KICKSTARTS:-?}"). Kickstarts halted and the host restored to standalone serving. errno 60 = reboot needed. Replug the link to reset, or clear the rank-halted marker — the watcher re-verifies the cause before retrying and will re-halt if it persists." \
         "mlx-cluster rank halted (PD guard)"
     elif fast_fail_standdown "$halt_file" "$halt_latch_file" \
-      "$fast_fail_strikes_file" "$kicks" "$started_file"; then
+      "$fast_fail_strikes_file" "$kicks" "$started_file" "$rank_log_offset_file"; then
       # Stood down: repeated starts died before settling and never reached
       # rendezvous. Ahead of the preconditions deliberately — the alignment hold
       # lives in there, and a peer that is not coming should cost no wait, the
@@ -676,6 +702,21 @@ if [ "$cur" = "up" ]; then
       quiesce_normal_serving
       echo "cluster-link: rank not running; kickstarting (attempt $((kicks + 1)))"
       rm -f "$started_file" "$ready_file" "$warm_file" "$warm_fails_file"
+      # Baseline BEFORE the launch, not after: fast_fail_standdown's stage
+      # classifier must only see what THIS attempt itself appends. A missing
+      # log (fresh boot, nothing has ever run) reads as offset 0, which is
+      # correct — everything the attempt writes is "new".
+      wc -c < "${CLUSTER_RANK_ERROR_LOG:-/dev/null}" 2> /dev/null > "$rank_log_offset_file" ||
+        printf '0\n' > "$rank_log_offset_file"
+      # session_log_offset_file gets the SAME baseline, but ONLY on the run's
+      # FIRST kickstart (kicks was 0 going in) — every later kickstart in the
+      # same run leaves it alone, so it keeps describing where the run started
+      # rather than sliding forward with each attempt. See its own definition
+      # above for why pd_debt_settle_counter needs the whole run, not the
+      # latest attempt.
+      if [ "$kicks" -le 0 ]; then
+        cp -f "$rank_log_offset_file" "$session_log_offset_file"
+      fi
       # COUNT LAUNCHED ATTEMPTS, NOT ISSUED COMMANDS. The counter's stated
       # invariant (cluster-pd-settle.sh) is "launched attempts whose
       # protection-domain cost is not yet on the ledger", and every reset path
@@ -728,10 +769,10 @@ elif [ "$prev" = "up" ]; then
   link_cycle_cause="${link_cycle_cause%%[[:space:]]*}"
   pd_debt_settle_counter "$pd_debt_file" "$kicks_file" 0 "link-cycle" \
     "attempts outstanding when the link went down and reset the session" \
-    "${link_cycle_cause:-link-cycle}"
+    "${link_cycle_cause:-link-cycle}" "${CLUSTER_RANK_ERROR_LOG:-}" "$session_log_offset_file"
   rm -f "$halt_file" "$halt_latch_file" "$started_file" "$ready_file" \
     "$warm_file" "$warm_fails_file" "$mem_dwell_file" "$fast_fail_strikes_file" \
-    "$soak_busy_skips_file"
+    "$rank_log_offset_file" "$soak_busy_skips_file"
   launchctl kill SIGTERM "gui/$uid/$CLUSTER_RANK_LABEL" 2> /dev/null || true
   if [ -n "${CLUSTER_WIRED_LIMIT_MB:-}" ]; then
     set_wired_limit "${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}" || down_failed=1
