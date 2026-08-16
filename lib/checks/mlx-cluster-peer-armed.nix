@@ -35,6 +35,7 @@ in
     CAUSE = "${src}/modules/mlx/scripts/cluster-pd-cause.sh";
     RECORD = "${src}/modules/mlx/scripts/cluster-pd-record.sh";
     PEER_STATE = "${src}/modules/mlx/scripts/cluster-peer-state.sh";
+    STAGE = "${src}/modules/mlx/scripts/cluster-pd-stage.sh";
     SETTLE = "${src}/modules/mlx/scripts/cluster-pd-settle.sh";
     HELPERS = "${src}/modules/mlx/scripts/cluster-link-helpers.sh";
   } "bash ${src}/tests/test-peer-armed-gate.sh && touch $out";
