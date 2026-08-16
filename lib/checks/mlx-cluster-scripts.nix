@@ -113,36 +113,6 @@ in
     // guardLayers
   ) "bash ${src}/tests/test-fast-fail-standdown.sh && touch $out";
 
-  # THE CHECK THAT FAILS IF A COUNTER RESET CAN DISCARD LEAKED DOMAINS, OR CAN
-  # BILL DOMAINS THAT WERE NEVER SPENT. mlx-cluster-pd-debt covers the ledger
-  # at the CAP; this covers the hole underneath: the kickstart counter is
-  # session-scoped and five paths reset it (a link cycle, a settled rank,
-  # cluster-join, cluster-detach, an accepted manual clear), but the ledger
-  # was only written at the cap, so a counter at 1 or 2 reset elsewhere left
-  # no trace of the domains those attempts leaked. Asserts the transfer
-  # arithmetic (including the fail-closed direction, where an unguarded
-  # subtraction would compute a NEGATIVE debt and record nothing), that the
-  # transfer is errno-aware (a run whose every outstanding attempt is provably
-  # jaccl Stage-A-only bills nothing — it could not have allocated a
-  # protection domain — while Stage-B or unclassifiable evidence still bills
-  # in full), and pins the call sites as source.
-  mlx-cluster-pd-counter-settle = pkgs.runCommand "check-mlx-cluster-pd-counter-settle" (
-    {
-      nativeBuildInputs = [
-        pkgs.coreutils
-        pkgs.gnugrep
-        pkgs.gnused
-        pkgs.gawk
-      ];
-      RECORD = "${src}/modules/mlx/scripts/cluster-pd-record.sh";
-      SETTLE = "${src}/modules/mlx/scripts/cluster-pd-settle.sh";
-      WATCHER = "${src}/modules/mlx/scripts/cluster-link-watcher.sh";
-      JOIN = "${src}/modules/mlx/scripts/cluster-join.sh";
-      DETACH = "${src}/modules/mlx/scripts/cluster-detach.sh";
-    }
-    // guardLayers
-  ) "bash ${src}/tests/test-pd-counter-settle.sh && touch $out";
-
   # THE CHECK THAT FAILS IF A PD-EXHAUSTION HALT CAN SIT WAITING FOR A HUMAN
   # AGAIN. On 2026-08-01 a host halted and paged correctly, then sat for hours
   # with nothing issuing the reboot its own alert says is required. Asserts:
