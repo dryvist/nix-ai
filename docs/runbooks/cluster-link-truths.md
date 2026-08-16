@@ -50,13 +50,21 @@ activation that aliases the link address had never run.
 Enforced: parity (against `clusterMode.generationRepo` HEAD) is the **first
 read of every watcher tick** and a precondition rung — under `drift` or
 `unstamped`, no reap, link prep, quiesce, ceiling write or rank start happens,
-and no attempt is consumed. Drift is **reconciled unattended**: the watcher
-submits a detached launchd job (`dev.mlx-cluster.generation-heal`) rebuilding
-from `github:<repo>/<rev>` — detached because a rebuild fired from the
-watcher's own tree is SIGKILLed by the very activation it runs. Bounded per
-deploy revision, single-flight, never on a machine whose rank is serving;
-success is judged by re-reading parity. `cluster-join` still heals supervised;
-a by-hand halt clear during drift is re-halted naming the gate.
+and no attempt is consumed.
+
+**Corrected 2026-08-16 — drift does NOT self-heal.** An earlier version of this
+page said the watcher rebuilds the drifted host unattended. That was wrong, and
+the wrongness was structural, not a bug: parity is judged against one repo's
+`origin/main`, so a host legitimately deployed from a different flake would
+report drift on every tick forever, and an automatic rebuild there would
+silently replace that host's correct configuration with the wrong repo's — a
+repair has to know what to repair *into*, and the watcher has no way to know.
+`generation_heal_maybe` (`modules/mlx/scripts/cluster-generation-heal.sh`) only
+pages, once per distinct deploy revision, and rank starts stay refused until a
+human runs `darwin-rebuild switch` from the flake that actually owns that host.
+**Generation drift is a permanent human-requiring stop.** `cluster-join` still
+heals nothing either; a by-hand halt clear during drift is re-halted naming the
+gate.
 
 Parity is a *preventive control*, not the usual suspect: on 2026-08-02 all
 nodes matched deploy HEAD exactly and the cause was a Metal OOM (§6). See §0.
@@ -90,11 +98,22 @@ Each produced a confident wrong diagnosis at least once.
   The tooling deliberately frees TB ports *from* `bridge0`; `member: enX`
   reappearing is the classic prep loss, undone by `repair_link_direct`. Do not
   "fix" it in System Settings.
-- **macOS TCC has a distinct signature and never removes an address**:
-  same-subnet `EHOSTUNREACH` for non-Apple-signed processes while
-  `/usr/bin/curl` succeeds in the same second, interface/route/ARP all valid.
-  `NOT-ALIASED` is never TCC. Both agents launch through Apple's interpreter
-  (`programs.mlx.appleInterpreter`) for this reason.
+- **macOS Local Network Privacy has a distinct signature and never removes an
+  address**: same-subnet `EHOSTUNREACH` (**errno 65**, "no route to host") for
+  a gated process while `/usr/bin/curl` succeeds in the same second,
+  interface/route/ARP all valid. `NOT-ALIASED` is never this gate. Both agents
+  launch through Apple's interpreter (`programs.mlx.appleInterpreter`) for this
+  reason. **The single cheapest discriminator: errno 65 (near-instant) means
+  the gate blocked the probe before it left the host; errno 61
+  (`ECONNREFUSED`) means the probe reached the peer's TCP stack and the gate is
+  clear** — one PD-free plain-socket probe answers "is Local Network Privacy
+  the problem" without touching a rank. **This gate CAN be prompted from a
+  launchd context** — `nehelper`'s own log reads "Showing local network alert
+  … even though not in the foreground" — so "launchd can never be prompted" is
+  false, and a grant made this way persists on disk at
+  `/Library/Preferences/com.apple.networkextension.plist` (`DenyAll = false`),
+  not in the classic TCC.db `kTCCServiceLocalNetwork` table, which stays empty
+  for this gate and is the wrong place to look.
 - **Never read halt state by file existence.** `[ -f rank-halted ]` reports
   the automation's own self-healing as an outage: post-reboot the marker
   legitimately exists for a tick before `halt_drop_if_pre_boot` drops it. Test
@@ -160,6 +179,17 @@ concatenated first, and every system binary absolute or behind its
 `CLUSTER_*_BIN` seam (`writeShellApplication` sanitizes PATH; a bare `sysctl`
 silently disabled the guard once).
 
+**The `pd-debt` ledger is a billing estimate, not a kernel read — verify with
+`ioclasscount` when the number matters.** Before nix-ai #1675, the ledger
+counted every kickstart *attempt* as a domain spent, including attempts that
+died in jaccl's Stage A (TCP bootstrap) before `ibv_alloc_pd` — the call that
+actually consumes a domain — ever ran; it once read `domains=3` against a real
+count of zero. #1675 made the settle billing errno-aware so a Stage-A death no
+longer bills a domain, but it is still an attempt-based estimate. The only
+direct kernel read is `ioclasscount AppleThunderboltRDMAProtectionDomain` (and
+`AppleThunderboltRDMAQueuePair` for mesh state) — use it, not the ledger, when
+deciding whether a host can still cluster.
+
 ## 7. The reboot recovery path is VERIFIED end-to-end, zero AI
 
 Observed 2026-08-02 on the coordinator, unattended: stale halt dropped by
@@ -168,6 +198,13 @@ boot; `iogpu.wired_limit_mb` restored by activation — it needs **no**
 re-applying by hand. Post-reboot transients (a `rank-halted` file for one
 tick, "no carrier-active link address" while prep settles) are the automation
 working; see §4 before declaring an outage.
+
+**The cluster CAN form fully unattended, and did (2026-08-16).** After a
+converge brought both hosts to matching generations and the Local Network
+grant cleared (§4), the watcher self-started, found the link up and both
+hosts at parity, and completed rendezvous with no human action — cost one
+protection domain per host. Any earlier belief that cluster formation needs a
+manual/interactive step, or that it has never worked unattended, is stale.
 
 ## 8. Where the state lives
 
