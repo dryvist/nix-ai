@@ -279,6 +279,7 @@ in
 })
 // (import ./checks/mlx-harmony.nix { inherit pkgs hmConfigCatalog; })
 // (import ./checks/mlx-cluster.nix { inherit pkgs hmConfigCluster src; })
+// (import ./checks/mlx-cluster-watcher-env.nix { inherit pkgs hmConfigCluster; })
 // (import ./checks/mlx-cluster-peer-env.nix { inherit pkgs hmConfigCluster src; })
 // (import ./checks/mlx-cluster-pd-env.nix { inherit pkgs hmConfigCluster src; })
 // (import ./checks/mlx-cluster-pd-callsites.nix { inherit pkgs src; })

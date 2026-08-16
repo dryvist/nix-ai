@@ -38,6 +38,7 @@ let
     cfg
     warmupAgentLabel
     launchAgentLabel
+    watchdogAgentLabel
     apiUrl
     uvPythonVersion
     modelServerProcessPattern
@@ -136,6 +137,7 @@ let
       launchAgentsDir
       launchAgentLabel
       warmupAgentLabel
+      watchdogAgentLabel
       stateFile
       pdDebtFile
       apiUrl
@@ -165,6 +167,7 @@ let
       rankLabel
       warmupAgentLabel
       launchAgentLabel
+      watchdogAgentLabel
       launchAgentsDir
       stateFile
       pdDebtFile

@@ -47,6 +47,11 @@
 #   CLUSTER_SERVER_LABEL    coordinator only: normal-mode server (llama-swap)
 #                         launchd label, bootstrapped before the warmup fires
 #   CLUSTER_SERVER_PLIST    coordinator only: that agent's plist, for bootstrap
+#   CLUSTER_WATCHDOG_LABEL  coordinator only: serving watchdog launchd label,
+#                         bootstrapped back by restore_normal_serving on every
+#                         teardown this watcher owns (up->down edge, PD-guard
+#                         halt, wedge teardown)
+#   CLUSTER_WATCHDOG_PLIST  coordinator only: that agent's plist, for bootstrap
 #   CLUSTER_MAX_WARM_FAILURES  consecutive post-readiness health-gate
 #                         failures before the rank is declared wedged
 #   CLUSTER_WARM_RECHECK_SECS  soak interval: re-probe liveness this often once

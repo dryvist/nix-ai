@@ -16,6 +16,7 @@
   launchAgentsDir,
   launchAgentLabel,
   warmupAgentLabel,
+  watchdogAgentLabel,
   stateFile,
   pdDebtFile,
   apiUrl,
@@ -86,6 +87,14 @@ let
       # cluster-detach and the watcher already carry.
       CLUSTER_SERVER_PLIST = "${launchAgentsDir}/${launchAgentLabel}.plist";
       CLUSTER_WARMUP_LABEL = warmupAgentLabel;
+      # join also boots this agent out (it would otherwise run its escalation
+      # ladder against a coordinator it sees as "up but not serving" for the
+      # whole cluster window and reload the standalone stack mid-window,
+      # reclaiming the memory the quiesce just freed). Same plist requirement
+      # as CLUSTER_SERVER_PLIST above: restore_normal_serving needs it to
+      # bootstrap the watchdog back on the failure path.
+      CLUSTER_WATCHDOG_LABEL = watchdogAgentLabel;
+      CLUSTER_WATCHDOG_PLIST = "${launchAgentsDir}/${watchdogAgentLabel}.plist";
       CLUSTER_STANDALONE_PROCESS_PATTERN = modelServerProcessPattern;
       # Newline-separated substrings of standalone-serving engines to spare from the
       # quiesce reap (standalone keep-resident backends). Empty by default.
@@ -130,6 +139,11 @@ let
       CLUSTER_SERVER_LABEL = launchAgentLabel;
       CLUSTER_SERVER_PLIST = "${launchAgentsDir}/${launchAgentLabel}.plist";
       CLUSTER_WARMUP_LABEL = warmupAgentLabel;
+      # Detach never boots this out itself — it only feeds restore_normal_serving,
+      # same as the pair above. Carried so a detach that follows a join which did
+      # boot the watchdog out can still bootstrap it back.
+      CLUSTER_WATCHDOG_LABEL = watchdogAgentLabel;
+      CLUSTER_WATCHDOG_PLIST = "${launchAgentsDir}/${watchdogAgentLabel}.plist";
     }
     // lib.optionalAttrs (!isCoordinator && ncfg.restoreCommand != null) {
       # The worker's restore hook — cluster-restore, which bootstraps back

@@ -49,6 +49,7 @@
     ];
     RESTORE = "${src}/modules/mlx/scripts/cluster-serving-restore.sh";
     DETACH = "${src}/modules/mlx/scripts/cluster-detach.sh";
+    JOIN = "${src}/modules/mlx/scripts/cluster-join.sh";
   } "bash ${src}/tests/test-serving-restore.sh && touch $out";
 
   # cluster-join's bounded peer preflight (fail fast, name the unprepared side)

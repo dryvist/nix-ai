@@ -14,6 +14,7 @@ let
   inherit (mlxShared)
     cfg
     launchAgentLabel
+    watchdogAgentLabel
     apiUrl
     mlxWatchdogPkg
     modelServerProcessPattern
@@ -67,7 +68,7 @@ in
       # agent was unconditionally disabled and no serving host had a watchdog.
       enable = cfg.preload != [ ];
       config = {
-        Label = "dev.mlx-model-server.watchdog";
+        Label = watchdogAgentLabel;
         ProgramArguments = [ (lib.getExe mlxWatchdogPkg) ];
         RunAtLoad = false;
         # 60 s: a zombie is detected and kickstarted within one cron gap
