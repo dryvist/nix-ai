@@ -65,12 +65,20 @@ progress_marker="${MLX_WATCHDOG_PROGRESS_MARKER:-${HOME}/Library/Caches/mlx-mode
 wedge_marker="${MLX_WATCHDOG_WEDGE_MARKER:-${HOME}/Library/Caches/mlx-model-server/watchdog-wedge-suspect}"
 # How fast a 429 must answer to be considered (ms), and how many consecutive
 # ticks the wedge signature must persist before check_wedge acts.
+# shellcheck disable=SC2034 # read by wedge-detect.sh's check_wedge, same
+# concatenated layer (mlx-watchdog-pkg.nix)
 wedge_latency_ms="${MLX_WATCHDOG_WEDGE_LATENCY_MS:-500}"
+# shellcheck disable=SC2034 # read by wedge-detect.sh's check_wedge, same
+# concatenated layer (mlx-watchdog-pkg.nix)
 wedge_consecutive="${MLX_WATCHDOG_WEDGE_CONSECUTIVE:-3}"
 # Bounds repeated wedge recovery itself (requirement: a recurring wedge must
 # escalate/alert, not restart forever). Healthy-immune — see check_wedge.
 wedge_incident_marker="${MLX_WATCHDOG_WEDGE_INCIDENT_MARKER:-${HOME}/Library/Caches/mlx-model-server/watchdog-wedge-incidents}"
+# shellcheck disable=SC2034 # read by wedge-detect.sh's check_wedge, same
+# concatenated layer (mlx-watchdog-pkg.nix)
 wedge_incident_window="${MLX_WATCHDOG_WEDGE_INCIDENT_WINDOW:-3600}"
+# shellcheck disable=SC2034 # read by wedge-detect.sh's check_wedge, same
+# concatenated layer (mlx-watchdog-pkg.nix)
 wedge_incident_max="${MLX_WATCHDOG_WEDGE_INCIDENT_MAX:-3}"
 llama_swap_config="${MLX_WATCHDOG_CONFIG:-${HOME}/.config/mlx/llama-swap.json}"
 # Untracked Slack incoming-webhook url (a write capability for its channel, so

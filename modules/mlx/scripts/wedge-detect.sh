@@ -1,4 +1,10 @@
 # shellcheck shell=bash
+# shellcheck disable=SC2154 # every var this file reads (brain_model, api_url,
+# busy_escalation, wedge_marker, busy_marker, progress_marker,
+# wedge_incident_marker, wedge_incident_window, wedge_incident_max,
+# wedge_latency_ms, wedge_consecutive, now) is assigned by mlx-watchdog.sh,
+# which mlx-watchdog-pkg.nix concatenates AFTER this file — shellcheck sees
+# only this file in isolation and cannot follow the build-time join.
 # Wedge detection — function definitions ONLY (no top-level statements), same
 # split as llama-swap-reap.sh ahead of llama-swap-launch.sh, concatenated
 # ahead of mlx-watchdog.sh by mlx-watchdog-pkg.nix so tests/test-wedge-classify.sh
