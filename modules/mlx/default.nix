@@ -88,20 +88,10 @@ let
   mlxWarmupPkg = pkgs.writeShellScriptBin "mlx-warmup" ''
     exec ${pkgs.python3}/bin/python3 ${./scripts/mlx-warmup.py} "$@"
   '';
-  # mlx-watchdog — periodic serving probe that kickstarts the proxy when it is up
-  # but not serving (KeepAlive only catches process exit). Probes a real
-  # completion: every observed failure mode still answers /v1/models with 200.
-  # writeShellApplication shellcheck-validates the script at eval time.
-  mlxWatchdogPkg = pkgs.writeShellApplication {
-    name = "mlx-watchdog";
-    runtimeInputs = with pkgs; [
-      curl
-      coreutils
-      gawk
-      jq
-    ];
-    text = builtins.readFile ./scripts/mlx-watchdog.sh;
-  };
+  # mlx-watchdog — periodic serving probe that kickstarts the proxy when it is
+  # up but not serving, INCLUDING a slot-accounting wedge (see
+  # mlx-watchdog-pkg.nix, 12KB-gate split).
+  mlxWatchdogPkg = import ./mlx-watchdog-pkg.nix { inherit pkgs lib; };
 
   # llama-swap sits on the stable API port and supervises official mlx_lm workers.
   # Sourced from nixpkgs-unstable: 25.11-darwin froze it at v165 on 2025-09-22

@@ -32,6 +32,16 @@
 # because saturated and wedged look the same from here; a cooldown marker
 # stops a slow reload being restart-
 # stormed; fork-exhaustion is guarded every tick. Details live at each code site.
+#
+# check_wedge (wedge-detect.sh, concatenated ahead of this file) is a SEPARATE
+# detector for a different failure shape: llama-swap's own admission counter
+# leaking a reservation on client-cancelled requests, so it answers 429 in
+# single-digit milliseconds while the worker is genuinely idle. That signature
+# is invisible to the busy/dead/down classification above — a leaked-slot host
+# still serves plenty of healthy completions, which resets every counter this
+# file already tracks — so it runs unconditionally every tick and keeps its
+# own persistence streak. See wedge-detect.sh's header for the full evidence
+# and discriminator.
 
 set -euo pipefail
 
@@ -48,6 +58,28 @@ busy_marker="${MLX_WATCHDOG_BUSY_MARKER:-${HOME}/Library/Caches/mlx-model-server
 # probe is expected while its single slot is occupied; advancing engine steps
 # prove the scheduler is productive and rebase the stuck timer.
 progress_marker="${MLX_WATCHDOG_PROGRESS_MARKER:-${HOME}/Library/Caches/mlx-model-server/watchdog-brain-progress}"
+# Wedge-suspect streak (see wedge-detect.sh, concatenated ahead of this file
+# by mlx-watchdog-pkg.nix) — kept separate from fail_marker so an
+# interspersed healthy probe below cannot wipe a wedge streak that real
+# traffic itself does not clear.
+wedge_marker="${MLX_WATCHDOG_WEDGE_MARKER:-${HOME}/Library/Caches/mlx-model-server/watchdog-wedge-suspect}"
+# How fast a 429 must answer to be considered (ms), and how many consecutive
+# ticks the wedge signature must persist before check_wedge acts.
+# shellcheck disable=SC2034 # read by wedge-detect.sh's check_wedge, same
+# concatenated layer (mlx-watchdog-pkg.nix)
+wedge_latency_ms="${MLX_WATCHDOG_WEDGE_LATENCY_MS:-500}"
+# shellcheck disable=SC2034 # read by wedge-detect.sh's check_wedge, same
+# concatenated layer (mlx-watchdog-pkg.nix)
+wedge_consecutive="${MLX_WATCHDOG_WEDGE_CONSECUTIVE:-3}"
+# Bounds repeated wedge recovery itself (requirement: a recurring wedge must
+# escalate/alert, not restart forever). Healthy-immune — see check_wedge.
+wedge_incident_marker="${MLX_WATCHDOG_WEDGE_INCIDENT_MARKER:-${HOME}/Library/Caches/mlx-model-server/watchdog-wedge-incidents}"
+# shellcheck disable=SC2034 # read by wedge-detect.sh's check_wedge, same
+# concatenated layer (mlx-watchdog-pkg.nix)
+wedge_incident_window="${MLX_WATCHDOG_WEDGE_INCIDENT_WINDOW:-3600}"
+# shellcheck disable=SC2034 # read by wedge-detect.sh's check_wedge, same
+# concatenated layer (mlx-watchdog-pkg.nix)
+wedge_incident_max="${MLX_WATCHDOG_WEDGE_INCIDENT_MAX:-3}"
 llama_swap_config="${MLX_WATCHDOG_CONFIG:-${HOME}/.config/mlx/llama-swap.json}"
 # Untracked Slack incoming-webhook url (a write capability for its channel, so
 # never committed; missing = no page). Shared with the cluster watcher so one
@@ -92,7 +124,8 @@ uid="$(id -u)"
 worker_pattern="${MLX_MODEL_SERVER_PROCESS_PATTERN:?MLX_MODEL_SERVER_PROCESS_PATTERN unset}"
 
 mkdir -p "$(dirname "$marker")" "$(dirname "$fail_marker")" \
-  "$(dirname "$busy_marker")" "$(dirname "$progress_marker")"
+  "$(dirname "$busy_marker")" "$(dirname "$progress_marker")" "$(dirname "$wedge_marker")" \
+  "$(dirname "$wedge_incident_marker")"
 
 ts() { date -u +%FT%TZ; }
 
@@ -275,11 +308,24 @@ probe_model_state() {
 # The ladder, parameterized by the triggering reason. Advances the counter and
 # starts the cooldown BEFORE the slow remediation, so the next tick does not
 # re-fire mid-recovery and a crashed remediation still escalates.
+#
+# A restart clears SERVER-side slot/counter state completely, but does
+# nothing for a caller already blocked reading from the now-dead socket —
+# that caller only unblocks via its own connection/read timeout (client
+# read timeouts in this fabric run long, on the order of tens of minutes),
+# never via this script, which has no visibility into or authority over
+# another process's open connections.
+# So several minutes of caller-side quiet right after a restart is EXPECTED,
+# not evidence the restart failed — a documented client-side concern, not
+# fixed here. This watchdog's own probing is immune to being fooled by it:
+# every probe below opens a fresh connection, so it always reads the
+# server's real current state, never a stranded caller's.
 escalate_ladder() {
   local reason="$1" failures bootstrapped
   failures=$(( $(read_int "$fail_marker") + 1 ))
   printf '%s\n' "$failures" > "$fail_marker"
   printf '%s\n' "$now" > "$marker"
+  echo "$(ts) mlx-watchdog: NOTE this restart strands any caller already in flight on the old process (dead socket, not served) — they recover only via their own read timeout, not this restart; quiet traffic for a while afterward is expected, not failure" >&2
 
   if (( failures == 1 )); then
     echo "$(ts) mlx-watchdog: ${reason} (failure 1) -> reap + kickstart ${label}" >&2
@@ -332,6 +378,14 @@ fi
 now="$(date +%s)"
 last="$(read_int "$marker")"
 if (( now - last < cooldown )); then
+  echo "$(ts) mlx-watchdog: within cooldown (${last}, $(( now - last ))s ago) -> skipping probes, including the wedge check"
+  exit 0
+fi
+
+# Wedge check runs every tick regardless of the coarse classification below
+# (see wedge-detect.sh for why) and, on a confirmed wedge, has already
+# remediated via escalate_ladder — skip the rest of this now-stale tick.
+if check_wedge; then
   exit 0
 fi
 
