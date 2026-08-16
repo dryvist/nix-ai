@@ -232,9 +232,27 @@ set_wired_limit() {
 
 quiesce_normal_serving() {
   if [ "$CLUSTER_ROLE" = "coordinator" ]; then
+    # llama-swap's /api/models/unload kills in-flight requests outright — it
+    # does not wait for them (upstream doc comment on router.Unload: "Stop
+    # kills the upstream, those callers see whatever error the reverse proxy
+    # surfaces"). No admission-stop exists anywhere in the chain to prevent
+    # that (checked llama-swap's own API surface and LiteLLM's model-update
+    # API, which is DB-gated and this fabric deliberately runs without a DB).
+    # So a guard that can disrupt production must at least SAY what it
+    # disrupted: snapshot in-flight requests from llama-swap's own SSE event
+    # stream (GET /api/events, first message is a full snapshot) before
+    # killing them.
+    local snapshot
+    snapshot="$(curl -fsS -m 3 --no-buffer "$CLUSTER_NORMAL_PROXY/api/events" 2> /dev/null | grep -m1 '^data:')"
+    if [ -n "$snapshot" ]; then
+      echo "cluster-link: quiesce in-flight snapshot: $(printf '%s' "${snapshot#data: }" | jq -c '.requests // [] | map(.id)' 2> /dev/null || printf '%s' "$snapshot")"
+    else
+      echo "cluster-link: quiesce in-flight snapshot: none (or /api/events unreachable)"
+    fi
     # Unload every normal-mode model; the proxy itself stays up so the
     # restore only needs a re-warm, not a proxy restart. Idempotent.
     curl -fsS -m 60 -X POST "$CLUSTER_NORMAL_PROXY/api/models/unload" || true
+    echo "cluster-link: quiesce unload request completed"
   elif [ -n "${CLUSTER_QUIESCE_CMD:-}" ]; then
     sh -c "$CLUSTER_QUIESCE_CMD" || true
   fi
