@@ -693,6 +693,13 @@ if [ "$cur" = "up" ]; then
       # Retry next tick. The function logs which rung failed.
       :
     else
+      # QUIESCE-THEN-START BLOCK — extracted and run verbatim by
+      # tests/test-quiesce-restore.sh, which pins that a refusal AFTER
+      # quiesce_normal_serving (room check or kickstart failure) always calls
+      # restore_normal_serving before falling through. Keep this comment and
+      # its matching "# END QUIESCE-THEN-START BLOCK" marker in place; the
+      # test's awk range depends on both.
+      #
       # Quiesce BEFORE every (re)start, not only on the down->up edge: the
       # link-state file survives a reboot, so a host that boots with the
       # cable in arrives here as up->up with standalone serving warm — skipping the
@@ -713,7 +720,17 @@ if [ "$cur" = "up" ]; then
       # the next tick retries. See rank_start_room_ok's own comment for the fuller
       # account (cluster-link-guards.sh).
       if ! rank_start_room_ok; then
-        echo "cluster-link: $MEM_HEADROOM_DETAIL; NOT starting the rank (no attempt consumed)" >&2
+        # QUIESCE ALREADY RAN. Serving is down and no rank is going to replace
+        # it — this refusal costs no protection domain, but left here it costs
+        # Hermes every request that would have landed on standalone serving
+        # until the next tick's quiesce (a no-op, already unloaded) happens to
+        # pass. Put serving back now, not "eventually on some later tick".
+        echo "cluster-link: $MEM_HEADROOM_DETAIL; NOT starting the rank (no attempt consumed); restoring the standalone serving quiesce just took down" >&2
+        if restore_normal_serving; then
+          echo "cluster-link: standalone serving restored after the room check refused"
+        else
+          echo "cluster-link: WARN failed to restore standalone serving after the room check refused; retrying next tick" >&2
+        fi
       else
         echo "cluster-link: rank not running; kickstarting (attempt $((kicks + 1)))"
         rm -f "$started_file" "$ready_file" "$warm_file" "$warm_fails_file"
@@ -745,9 +762,18 @@ if [ "$cur" = "up" ]; then
         if launchctl kickstart "gui/$uid/$CLUSTER_RANK_LABEL"; then
           printf '%s\n' "$((kicks + 1))" > "$kicks_file"
         else
-          echo "cluster-link: kickstart of $CLUSTER_RANK_LABEL FAILED; nothing launched, so no attempt is consumed and no domain was spent (the job is usually unloaded — cluster-detach boots it out for the length of a teardown)" >&2
+          # SAME REASONING AS THE ROOM-CHECK REFUSAL ABOVE: quiesce already ran,
+          # nothing launched to replace it, so standalone serving stays down
+          # for nothing unless this restores it.
+          echo "cluster-link: kickstart of $CLUSTER_RANK_LABEL FAILED; nothing launched, so no attempt is consumed and no domain was spent (the job is usually unloaded — cluster-detach boots it out for the length of a teardown); restoring standalone serving" >&2
+          if restore_normal_serving; then
+            echo "cluster-link: standalone serving restored after the kickstart failure"
+          else
+            echo "cluster-link: WARN failed to restore standalone serving after the kickstart failure; retrying next tick" >&2
+          fi
         fi
       fi
+      # END QUIESCE-THEN-START BLOCK
     fi
   fi
 elif [ "$prev" = "up" ]; then
