@@ -693,6 +693,13 @@ if [ "$cur" = "up" ]; then
       # Retry next tick. The function logs which rung failed.
       :
     else
+      # QUIESCE-THEN-START BLOCK — extracted and run verbatim by
+      # tests/test-quiesce-restore.sh, which pins that a refusal AFTER
+      # quiesce_normal_serving (room check or kickstart failure) always calls
+      # restore_normal_serving before falling through. Keep this comment and
+      # its matching "# END QUIESCE-THEN-START BLOCK" marker in place; the
+      # test's awk range depends on both.
+      #
       # Quiesce BEFORE every (re)start, not only on the down->up edge: the
       # link-state file survives a reboot, so a host that boots with the
       # cable in arrives here as up->up with standalone serving warm — skipping the
@@ -700,38 +707,73 @@ if [ "$cur" = "up" ]; then
       # into the same 128 GB. Both hooks are idempotent, so a mid-run rank
       # restart re-running them is a no-op.
       quiesce_normal_serving
-      echo "cluster-link: rank not running; kickstarting (attempt $((kicks + 1)))"
-      rm -f "$started_file" "$ready_file" "$warm_file" "$warm_fails_file"
-      # Baseline BEFORE the launch, not after: fast_fail_standdown's stage
-      # classifier must only see what THIS attempt itself appends. A missing
-      # log (fresh boot, nothing has ever run) reads as offset 0, which is
-      # correct — everything the attempt writes is "new".
-      wc -c < "${CLUSTER_RANK_ERROR_LOG:-/dev/null}" 2> /dev/null > "$rank_log_offset_file" ||
-        printf '0\n' > "$rank_log_offset_file"
-      # session_log_offset_file gets the SAME baseline, but ONLY on the run's
-      # FIRST kickstart (kicks was 0 going in) — every later kickstart in the
-      # same run leaves it alone, so it keeps describing where the run started
-      # rather than sliding forward with each attempt. See its own definition
-      # above for why pd_debt_settle_counter needs the whole run, not the
-      # latest attempt.
-      if [ "$kicks" -le 0 ]; then
-        cp -f "$rank_log_offset_file" "$session_log_offset_file"
-      fi
-      # COUNT LAUNCHED ATTEMPTS, NOT ISSUED COMMANDS. The counter's stated
-      # invariant (cluster-pd-settle.sh) is "launched attempts whose
-      # protection-domain cost is not yet on the ledger", and every reset path
-      # settles it into the ledger as one leaked domain each. So counting a
-      # kickstart that did not launch anything FABRICATES debt, which is as
-      # damaging as losing it: enough of them reach the cap, halt the host and
-      # can hand pd_auto_reboot_if_warranted a reboot to issue for domains that
-      # were never spent. The case is real now that cluster-detach boots the
-      # rank job out for the length of a teardown — kickstart against an
-      # unloaded service fails, launches nothing, and leaks nothing.
-      if launchctl kickstart "gui/$uid/$CLUSTER_RANK_LABEL"; then
-        printf '%s\n' "$((kicks + 1))" > "$kicks_file"
+      # THE ROOM CHECK RUNS HERE, AFTER QUIESCE, NOT AS A rank_start_preconditions_ok
+      # RUNG. It used to run ahead of quiesce_normal_serving and could only ever
+      # measure memory still held by standalone serving — exactly the memory
+      # quiescing exists to return — so it only ever passed by luck. It cannot
+      # move quiesce_normal_serving INTO the guard function either: that call is
+      # role-conditional on $CLUSTER_NORMAL_PROXY, which is not part of the guard
+      # contract every rank-guard test pins, and doing so crashed a test outright
+      # under `set -o nounset`. So quiesce stays exactly where it already ran, and
+      # this checks what it actually freed. Same "no attempt consumed" contract as
+      # every other rung: nothing is launched on a refusal, so nothing leaks and
+      # the next tick retries. See rank_start_room_ok's own comment for the fuller
+      # account (cluster-link-guards.sh).
+      if ! rank_start_room_ok; then
+        # QUIESCE ALREADY RAN. Serving is down and no rank is going to replace
+        # it — this refusal costs no protection domain, but left here it costs
+        # Hermes every request that would have landed on standalone serving
+        # until the next tick's quiesce (a no-op, already unloaded) happens to
+        # pass. Put serving back now, not "eventually on some later tick".
+        echo "cluster-link: $MEM_HEADROOM_DETAIL; NOT starting the rank (no attempt consumed); restoring the standalone serving quiesce just took down" >&2
+        if restore_normal_serving; then
+          echo "cluster-link: standalone serving restored after the room check refused"
+        else
+          echo "cluster-link: WARN failed to restore standalone serving after the room check refused; retrying next tick" >&2
+        fi
       else
-        echo "cluster-link: kickstart of $CLUSTER_RANK_LABEL FAILED; nothing launched, so no attempt is consumed and no domain was spent (the job is usually unloaded — cluster-detach boots it out for the length of a teardown)" >&2
+        echo "cluster-link: rank not running; kickstarting (attempt $((kicks + 1)))"
+        rm -f "$started_file" "$ready_file" "$warm_file" "$warm_fails_file"
+        # Baseline BEFORE the launch, not after: fast_fail_standdown's stage
+        # classifier must only see what THIS attempt itself appends. A missing
+        # log (fresh boot, nothing has ever run) reads as offset 0, which is
+        # correct — everything the attempt writes is "new".
+        wc -c < "${CLUSTER_RANK_ERROR_LOG:-/dev/null}" 2> /dev/null > "$rank_log_offset_file" ||
+          printf '0\n' > "$rank_log_offset_file"
+        # session_log_offset_file gets the SAME baseline, but ONLY on the run's
+        # FIRST kickstart (kicks was 0 going in) — every later kickstart in the
+        # same run leaves it alone, so it keeps describing where the run started
+        # rather than sliding forward with each attempt. See its own definition
+        # above for why pd_debt_settle_counter needs the whole run, not the
+        # latest attempt.
+        if [ "$kicks" -le 0 ]; then
+          cp -f "$rank_log_offset_file" "$session_log_offset_file"
+        fi
+        # COUNT LAUNCHED ATTEMPTS, NOT ISSUED COMMANDS. The counter's stated
+        # invariant (cluster-pd-settle.sh) is "launched attempts whose
+        # protection-domain cost is not yet on the ledger", and every reset path
+        # settles it into the ledger as one leaked domain each. So counting a
+        # kickstart that did not launch anything FABRICATES debt, which is as
+        # damaging as losing it: enough of them reach the cap, halt the host and
+        # can hand pd_auto_reboot_if_warranted a reboot to issue for domains that
+        # were never spent. The case is real now that cluster-detach boots the
+        # rank job out for the length of a teardown — kickstart against an
+        # unloaded service fails, launches nothing, and leaks nothing.
+        if launchctl kickstart "gui/$uid/$CLUSTER_RANK_LABEL"; then
+          printf '%s\n' "$((kicks + 1))" > "$kicks_file"
+        else
+          # SAME REASONING AS THE ROOM-CHECK REFUSAL ABOVE: quiesce already ran,
+          # nothing launched to replace it, so standalone serving stays down
+          # for nothing unless this restores it.
+          echo "cluster-link: kickstart of $CLUSTER_RANK_LABEL FAILED; nothing launched, so no attempt is consumed and no domain was spent (the job is usually unloaded — cluster-detach boots it out for the length of a teardown); restoring standalone serving" >&2
+          if restore_normal_serving; then
+            echo "cluster-link: standalone serving restored after the kickstart failure"
+          else
+            echo "cluster-link: WARN failed to restore standalone serving after the kickstart failure; retrying next tick" >&2
+          fi
+        fi
       fi
+      # END QUIESCE-THEN-START BLOCK
     fi
   fi
 elif [ "$prev" = "up" ]; then

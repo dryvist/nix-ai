@@ -63,4 +63,19 @@
     WATCHER = "${src}/modules/mlx/scripts/cluster-link-watcher.sh";
   } "bash ${src}/tests/test-watcher-heartbeat.sh && touch $out";
 
+  # THE CHECK THAT FAILS IF A REFUSAL AFTER QUIESCE LEAVES SERVING DOWN.
+  # quiesce_normal_serving kills in-flight Hermes requests outright (no drain);
+  # a room-check refusal or a launchctl kickstart failure downstream of it used
+  # to just return, leaving standalone serving down for an attempt that never
+  # started a rank. Pins that both refusal paths restore it, and that a
+  # successful kickstart does not (the rank is what serves next).
+  mlx-cluster-quiesce-restore = pkgs.runCommand "check-mlx-cluster-quiesce-restore" {
+    nativeBuildInputs = [
+      pkgs.coreutils
+      pkgs.gnugrep
+      pkgs.gawk
+    ];
+    WATCHER = "${src}/modules/mlx/scripts/cluster-link-watcher.sh";
+  } "bash ${src}/tests/test-quiesce-restore.sh && touch $out";
+
 }
