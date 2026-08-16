@@ -286,6 +286,7 @@ in
 // (import ./checks/mlx-cluster-health-gate.nix { inherit pkgs src; })
 // (import ./checks/mlx-cluster-scripts.nix { inherit pkgs hmConfigCluster src; })
 // (import ./checks/mlx-cluster-peer-armed.nix { inherit pkgs hmConfigCluster src; })
+// (import ./checks/mlx-cluster-soak.nix { inherit pkgs src; })
 // (import ./checks/mlx-cluster-selfheal.nix { inherit pkgs src; })
 // (import ./checks/mlx-cluster-recovery.nix { inherit pkgs src; })
 // (import ./checks/fabric.nix {
