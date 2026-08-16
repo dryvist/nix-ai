@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import base64
 import importlib.util
+import json
 import pathlib
 import sys
 import tempfile
@@ -118,6 +119,37 @@ with tempfile.TemporaryDirectory() as tmp:
             check(f"refuses non-url image ref {hostile!r}", False, "no exception raised")
         except ValueError:
             check(f"refuses non-url image ref {hostile!r}", True)
+
+# --- sse_body (stream=true wire shape) ------------------------------------
+#
+# The adapter used to answer stream=true with a 400, which made it unusable
+# from any chat UI that streams by default. These assert the SSE shape an
+# OpenAI client actually parses — a body that merely "looks streamed" but omits
+# the [DONE] sentinel or the stop frame hangs the client instead of erroring,
+# which is the failure mode worth pinning.
+
+body = adapter.sse_body("HELLO OCR", "some/model-id", 1_700_000_000.5).decode()
+
+check("stream body terminates with the DONE sentinel", body.endswith("data: [DONE]\n\n"), f"got {body[-40:]!r}")
+
+frames = [ln[len("data: "):] for ln in body.split("\n\n") if ln.startswith("data: ") and ln != "data: [DONE]"]
+check("stream body carries exactly two json frames", len(frames) == 2, f"got {len(frames)}")
+
+first = json.loads(frames[0])
+last = json.loads(frames[1])
+
+check("content rides in the first frame's delta", first["choices"][0]["delta"].get("content") == "HELLO OCR", f"got {first['choices'][0]['delta']!r}")
+check("first frame has no finish_reason", first["choices"][0]["finish_reason"] is None, f"got {first['choices'][0]['finish_reason']!r}")
+check("final frame finishes with stop", last["choices"][0]["finish_reason"] == "stop", f"got {last['choices'][0]['finish_reason']!r}")
+check("final frame carries no extra content", last["choices"][0]["delta"] == {}, f"got {last['choices'][0]['delta']!r}")
+check("chunk object type is the streaming one", first["object"] == "chat.completion.chunk", f"got {first['object']!r}")
+check("model id is echoed back", first["model"] == "some/model-id", f"got {first['model']!r}")
+check("both frames share one completion id", first["id"] == last["id"], f"got {first['id']!r}/{last['id']!r}")
+
+# A body whose content is empty still has to be a well-formed stream: a client
+# that gets no frames at all waits for the socket rather than returning "".
+empty = adapter.sse_body("", "m", 0.0).decode()
+check("empty completion still emits a well-formed stream", empty.endswith("data: [DONE]\n\n") and empty.count("data: ") == 3, f"got {empty!r}")
 
 # --- constants ------------------------------------------------------------
 

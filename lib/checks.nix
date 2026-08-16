@@ -109,6 +109,63 @@ let
     }
   ];
 
+  # Evaluation exercising programs.mlx.defaultModelKey (lib/checks/
+  # mlx-default-model.nix): the declared default is one catalog entry, the
+  # runtime override re-points it at another — the two-Mac shape where the
+  # serving config is shared and only this key differs.
+  hmConfigDefaultModel = mkHmConfig [
+    {
+      programs.mlx = {
+        defaultModelKey = "qwen38-27b";
+        catalog = {
+          qwen38-27b.class = "resident";
+          qwen36-35b = {
+            class = "resident";
+            roles = [ "goal-judge" ];
+          };
+        };
+      };
+    }
+  ];
+
+  # Two evaluations for the role-registry check (lib/checks/mlx-catalog-roles.nix).
+  # The first binds the `small` role to a swap-class entry; the second assigns
+  # one role name to two enabled entries, so the uniqueness assertion must come
+  # back false. Kept out of hmConfigCatalog so the duplicate case cannot leak
+  # into the checks that read that fixture.
+  #
+  # Both set programs.mlx.judge.model even though the judge stays disabled: the
+  # check locates assertions by matching their `message`, and the judge
+  # assertion's message interpolates that option, which has no default.
+  judgeModelStub.programs.mlx.judge.model = "mlx-community/test-judge-model";
+  hmConfigSmallRole = mkHmConfig [
+    judgeModelStub
+    {
+      programs.mlx.catalog = {
+        qwen38-27b.class = "resident";
+        qwen35-9b-optiq = {
+          class = "swap";
+          roles = [ "small" ];
+        };
+      };
+    }
+  ];
+  hmConfigDupRole = mkHmConfig [
+    judgeModelStub
+    {
+      programs.mlx.catalog = {
+        qwen38-27b = {
+          class = "resident";
+          roles = [ "small" ];
+        };
+        qwen35-9b-optiq = {
+          class = "swap";
+          roles = [ "small" ];
+        };
+      };
+    }
+  ];
+
   # Fourth evaluation exercising programs.mlx.clusterMode as the coordinator
   # (lib/checks/mlx-cluster.nix): rank env contract, watcher wiring, prefetch.
   hmConfigCluster = mkHmConfig [
@@ -212,6 +269,14 @@ in
 // (import ./checks/mlx-worker-reap.nix { inherit pkgs hmConfig src; })
 // (import ./checks/mlx-warmup.nix { inherit pkgs src; })
 // (import ./checks/mlx-catalog.nix { inherit pkgs hmConfigCatalog; })
+// (import ./checks/mlx-default-model.nix { inherit pkgs hmConfigDefaultModel; })
+// (import ./checks/mlx-catalog-roles.nix {
+  inherit
+    pkgs
+    hmConfigSmallRole
+    hmConfigDupRole
+    ;
+})
 // (import ./checks/mlx-harmony.nix { inherit pkgs hmConfigCatalog; })
 // (import ./checks/mlx-cluster.nix { inherit pkgs hmConfigCluster src; })
 // (import ./checks/mlx-cluster-peer-env.nix { inherit pkgs hmConfigCluster src; })
