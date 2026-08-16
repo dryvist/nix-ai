@@ -4,9 +4,9 @@
 #
 # Duplicates the handful of guard-layer script paths this one check needs
 # rather than importing mlx-cluster-scripts.nix's `guardLayers`: that binding
-# is local to its own file, and reaching across for seven short strings would
-# cost more than repeating them — the same call ./mlx-cluster-recovery.nix and
-# ./mlx-cluster-peer-armed.nix already made.
+# is local to its own file, and reaching across for these ten short strings
+# would cost more than repeating them — the same call ./mlx-cluster-recovery.nix
+# and ./mlx-cluster-peer-armed.nix already made.
 {
   pkgs,
   src,
@@ -42,5 +42,7 @@
     WATCHER = "${src}/modules/mlx/scripts/cluster-link-watcher.sh";
     JOIN = "${src}/modules/mlx/scripts/cluster-join.sh";
     DETACH = "${src}/modules/mlx/scripts/cluster-detach.sh";
+    HELPERS = "${src}/modules/mlx/scripts/cluster-link-helpers.sh";
+    GUARDS = "${src}/modules/mlx/scripts/cluster-link-guards.sh";
   } "bash ${src}/tests/test-pd-counter-settle.sh && touch $out";
 }
