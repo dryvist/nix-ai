@@ -326,4 +326,34 @@ write_vmstat 16384 6400 0 0 0 # short again
 mem_headroom_halt_if_persistent "$halt_file" "$latch_file" "$dwell_file"
 check "recovery reset the count, not just capped it" 1 "$(cat "$dwell_file")"
 
+echo "8. the precondition quiesces BEFORE measuring, not after:"
+# THE DEADLOCK THIS CLOSES. mem_headroom_ok used to run as a precondition
+# ahead of quiesce_normal_serving, so it could only ever see memory still held
+# by standalone serving — the very memory quiescing exists to return. It only
+# ever passed because free memory happened to clear the threshold anyway.
+# CLUSTER_QUIESCE_CMD (the worker-role hook quiesce_normal_serving runs) here
+# rewrites the vm_stat fixture to a "post-quiesce" reading with room to spare,
+# standing in for a real unload freeing standalone-serving memory. If the
+# ordering regresses back to measuring first, this fixture is never rewritten
+# and the precondition sees the still-short reading throughout — the test
+# fails exactly the way the deadlock did.
+reset_state
+export CLUSTER_SHARD_MEMORY_MB=1000
+write_vmstat 16384 6400 0 0 0 # 100MB free — short, until quiesce "frees" more
+quiesce_log="$state_dir/quiesce-log"
+export CLUSTER_QUIESCE_CMD="echo ran >> '$quiesce_log'; cat > '$vmstat_fixture' << 'POSTQUIESCE'
+Mach Virtual Memory Statistics: (page size of 16384 bytes)
+Pages free:                              64000.
+Pages active:                            1000.
+Pages inactive:                          0.
+Pages speculative:                       0.
+Pages throttled:                         0.
+Pages wired down:                        0.
+Pages purgeable:                         0.
+POSTQUIESCE"
+check "the start proceeds once quiesce has freed the room" start "$(verdict)"
+check "quiesce_normal_serving actually ran (not skipped/reordered away)" 1 \
+  "$(wc -l < "$quiesce_log" | tr -d ' ')"
+unset CLUSTER_QUIESCE_CMD
+
 exit "$fail"

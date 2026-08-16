@@ -419,28 +419,6 @@ rank_start_preconditions_ok() {
     echo "cluster-link: peer $CLUSTER_STATIC_PEER_IP is not answering on the link; NOT starting the rank — a rendezvous with an absent peer leaks a protection domain for a certain failure (no attempt consumed)" >&2
     return 1
   fi
-  # 1c. THIS HOST MUST HAVE ROOM TO LOAD THE SHARD. A rank started anyway still
-  #    reaches mx.distributed.init(), still allocates a protection domain, and
-  #    then MLX dies loading weights into ordinary resident memory —
-  #    `[METAL] Command buffer execution failed: Insufficient Memory` — so the
-  #    domain is gone just the same as an errno-60 timeout. Measured
-  #    2026-08-01: a rank started while ~72 GiB of unreclaimed wired Metal
-  #    memory sat on the host from previously-crashed rank processes, leaving
-  #    only ~25 GiB free against a ~49 GiB shard; that failed init leaked a
-  #    domain, four retries failed differently and leaked four more, and the
-  #    guard's cap halted the host. It happened on BOTH Macs the same
-  #    afternoon. mem_headroom_ok is 0 (disabled) unless shardMemoryMb is set.
-  #
-  #    Same "no wait wasted" reasoning as the rung above: this runs BEFORE the
-  #    alignment hold, because a shard that will not fit should cost neither a
-  #    wait nor an attempt.
-  #
-  #    Nothing is launched, so nothing leaks, so no attempt is consumed.
-  if ! mem_headroom_ok "${CLUSTER_SHARD_MEMORY_MB:-0}"; then
-    PRECONDITION_REASON="insufficient-memory"
-    echo "cluster-link: $MEM_HEADROOM_DETAIL; NOT starting the rank (no attempt consumed)" >&2
-    return 1
-  fi
   # 1d. THE DEVICE PD BUDGET MUST BE VERIFIED (#1442). devicePdBudget is a
   #    measured constant frozen into Nix; the reserve invariant above (rung 0a)
   #    is arithmetic over it, so a start against an unverified or wrong budget
@@ -475,8 +453,8 @@ rank_start_preconditions_ok() {
   #    boundary in rung 2 — unlike the 2026-07-25 gate that waited for the peer's
   #    rank to be LISTENING and so guaranteed this host arrived outside jaccl's
   #    fixed ~15s connect budget. It runs BEFORE that hold for the same reason
-  #    rungs 1b and 1c do: a peer that is not coming should cost neither a domain
-  #    nor a wait.
+  #    rung 1b does: a peer that is not coming should cost neither a domain nor
+  #    a wait.
   #
   #    Logged EVERY tick, never a silent skip. A start that is suppressed is a
   #    decision, and the line says what it cost — the halted branch was silent
@@ -486,6 +464,41 @@ rank_start_preconditions_ok() {
   if ! peer_armed_ok "$parity_fact"; then
     PRECONDITION_REASON="peer-not-armed"
     echo "cluster-link: peer-not-armed ($PEER_GATE_REASON) — attempt suppressed, 0 protection domains spent" >&2
+    return 1
+  fi
+  # 1f. THIS HOST MUST HAVE ROOM TO LOAD THE SHARD. A rank started anyway still
+  #    reaches mx.distributed.init(), still allocates a protection domain, and
+  #    then MLX dies loading weights into ordinary resident memory —
+  #    `[METAL] Command buffer execution failed: Insufficient Memory` — so the
+  #    domain is gone just the same as an errno-60 timeout. mem_headroom_ok is
+  #    0 (disabled) unless shardMemoryMb is set.
+  #
+  #    QUIESCE FIRST, THEN MEASURE — NOT THE OTHER WAY AROUND. This used to run
+  #    as rung 1c, ahead of the peer/armed checks above, and measured raw
+  #    current free memory. That is the memory a host holds WHILE STILL SERVING
+  #    ITS STANDALONE MODELS — quiesce_normal_serving (called below, and again
+  #    idempotently at the actual kickstart) is what unloads them and returns
+  #    that room, so the precondition was gating on the very state its own
+  #    remedy would fix, never actually exercising the free-up path. It only
+  #    ever passed because free memory happened to clear the threshold anyway
+  #    (~7.9 GB margin observed 2026-08-16) — luck, not correctness; the gate
+  #    was unsatisfiable by design the moment serving footprint ate that
+  #    margin, since nothing upstream of it ever quiesces.
+  #
+  #    Moved here, after peer-reachable/armed and the device-budget check, so a
+  #    peer that cannot rendezvous still costs neither a domain nor a
+  #    disruption to standalone serving — quiescing is cheap and idempotent,
+  #    but interrupting real serving for an attempt that was never going forward
+  #    anyway is exactly the waste rungs 1b/1e exist to avoid. By this point
+  #    every other precondition already holds, so quiescing is warranted: the
+  #    attempt IS going forward unless memory itself refuses it.
+  #
+  #    Nothing is launched (quiesce only unloads standalone-mode models via the
+  #    proxy; it holds no protection domain), so no attempt is consumed.
+  quiesce_normal_serving
+  if ! mem_headroom_ok "${CLUSTER_SHARD_MEMORY_MB:-0}"; then
+    PRECONDITION_REASON="insufficient-memory"
+    echo "cluster-link: $MEM_HEADROOM_DETAIL; NOT starting the rank (no attempt consumed)" >&2
     return 1
   fi
   # 2. BOTH ROLES: hold until the next shared wall-clock start boundary, so the
