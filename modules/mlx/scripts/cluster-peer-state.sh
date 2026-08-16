@@ -156,10 +156,24 @@ peer_state_write() {
 # is not one well-formed JSON object — an empty body, a truncated line, an HTTP
 # error — because a gate that treats an unparseable answer as permission is not
 # a gate.
+#
+# THE BINARY IS APPLE'S ON PURPOSE, exactly as peer_reachable pins /sbin/ping.
+# The peer sits on the Thunderbolt subnet, which is ON-LINK (a `UC` route on the
+# TB interface, never through a router), and macOS Local Network Privacy gates
+# on-link connections per-binary while exempting Apple's own. A PATH-resolved
+# curl is the Nix one, so this fetch failed instantly — measured 2026-08-16:
+# /usr/bin/curl returned the peer's state in 14 ms while the store curl gave
+# "Failed to connect after 0 ms" against the same address and port.
+#
+# It cannot be fixed by granting the store curl permission: a Nix store path
+# changes on every rebuild, and the grant is keyed to the binary, so each
+# rebuild would silently revoke it. The failure is also invisible in the worst
+# way — the peer looks unarmed, so the gate suppresses every start and the
+# cluster never forms while both hosts report themselves healthy.
 peer_state_fetch() {
   PEER_STATE_RAW=""
   local body
-  body="$("${CLUSTER_CURL_BIN:-curl}" -fsS -m "${CLUSTER_PEER_STATE_TIMEOUT_SECS:-2}" \
+  body="$("${CLUSTER_CURL_BIN:-/usr/bin/curl}" -fsS -m "${CLUSTER_PEER_STATE_TIMEOUT_SECS:-2}" \
     "http://${CLUSTER_STATIC_PEER_IP}:${CLUSTER_PEER_STATE_PORT}/" 2> /dev/null)" || return 1
   [ -n "$body" ] || return 1
   printf '%s' "$body" | jq -e 'type == "object"' > /dev/null 2>&1 || return 1

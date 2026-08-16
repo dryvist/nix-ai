@@ -137,7 +137,17 @@ in
     let
       watcherSrc = readScript "cluster-link-watcher.sh";
       guardsSrc = readScript "cluster-link-guards.sh";
+      peerStateSrc = readScript "cluster-peer-state.sh";
     in
+    # The peer lives on the Thunderbolt subnet, which is ON-LINK, and macOS
+    # Local Network Privacy gates on-link connections per-binary while exempting
+    # Apple's own. A PATH-resolved curl is the Nix one and is refused instantly,
+    # so the fetch must pin Apple's absolute path exactly as peer_reachable pins
+    # /sbin/ping. Granting the store binary permission is not an alternative:
+    # the store path changes on every rebuild and the grant dies with it.
+    assert
+      hasInfix "CLUSTER_CURL_BIN:-/usr/bin/curl" peerStateSrc
+      || throw "cluster: peer_state_fetch must default to /usr/bin/curl, not a PATH-resolved curl. The peer sits on an on-link Thunderbolt subnet, where macOS Local Network Privacy refuses a Nix-store binary in ~0 ms while Apple's curl succeeds — measured 2026-08-16. The gate then reads the peer as unreachable, suppresses every start, and the cluster never forms while both hosts report themselves healthy";
     assert
       hasInfix "peer_state_write" watcherSrc
       || throw "cluster: the watcher must publish this host's state every tick. Without it the responder serves a file nobody writes, the peer reads a stale timestamp, and BOTH hosts suppress every start forever — the handshake fails closed, which is safe and also means the cluster never forms";
