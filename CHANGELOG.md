@@ -1,5 +1,22 @@
 # Changelog
 
+## [4.19.0](https://github.com/dryvist/nix-ai/compare/v4.18.1...v4.19.0) (2026-08-16)
+
+
+### Features
+
+* **mlx:** auto-detect and recover from llama-swap slot-accounting wedge ([#1672](https://github.com/dryvist/nix-ai/issues/1672)) ([e938415](https://github.com/dryvist/nix-ai/commit/e938415a40d7353fc6aa86256374114940b02db7))
+
+
+### Bug Fixes
+
+* **mlx:** assert modelExtraArgs keys resolve to a registry model ([#1128](https://github.com/dryvist/nix-ai/issues/1128)) ([#1670](https://github.com/dryvist/nix-ai/issues/1670)) ([f993c60](https://github.com/dryvist/nix-ai/commit/f993c60fed8f3ba6a5000ce9c1266f0abab7f6b5))
+* **mlx:** boot the serving watchdog out and back in with the cluster lifecycle ([#1673](https://github.com/dryvist/nix-ai/issues/1673)) ([c920d8c](https://github.com/dryvist/nix-ai/commit/c920d8c5c4323b714b1d9dd73c4d5648bcccc2c9))
+* **mlx:** key the generation-parity cache on the local system revision ([#1671](https://github.com/dryvist/nix-ai/issues/1671)) ([6610c8f](https://github.com/dryvist/nix-ai/commit/6610c8fd13340dd6444571eab649ce9d42abdddc))
+* **mlx:** make RDMA protection-domain settle billing errno-aware ([#1675](https://github.com/dryvist/nix-ai/issues/1675)) ([a2d274e](https://github.com/dryvist/nix-ai/commit/a2d274e295246b728b3bc1c17bf574a6b4046226))
+* **mlx:** make the fast-fail strike cap errno-aware ([#1674](https://github.com/dryvist/nix-ai/issues/1674)) ([45e7ecf](https://github.com/dryvist/nix-ai/commit/45e7ecfb27e00f1b0e70dbaa4e79201166856432))
+* **mlx:** migrate watchdog reap and status pid lookup off the stale process pattern ([#1676](https://github.com/dryvist/nix-ai/issues/1676)) ([808c8b7](https://github.com/dryvist/nix-ai/commit/808c8b7eb381208e84b365dbcc240a387e3091cb))
+
 ## [4.18.1](https://github.com/dryvist/nix-ai/compare/v4.18.0...v4.18.1) (2026-08-16)
 
 
