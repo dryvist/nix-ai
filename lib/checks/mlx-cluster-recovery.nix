@@ -78,4 +78,19 @@
     WATCHER = "${src}/modules/mlx/scripts/cluster-link-watcher.sh";
   } "bash ${src}/tests/test-quiesce-restore.sh && touch $out";
 
+  # THE CHECK THAT FAILS IF A BUSY-BUT-HEALTHY RANK GETS DECLARED WEDGED.
+  # The soak probe used to trust only endpoint_busy (a held TCP connection) as
+  # proof the pipeline was busy rather than dead — which misses a client that
+  # disconnected on its own timeout while the backend was still occupied. Pins
+  # that real generation progress (new_progress_lines) is checked first and
+  # short-circuits the probe.
+  mlx-cluster-soak-busy-vs-wedged = pkgs.runCommand "check-mlx-cluster-soak-busy-vs-wedged" {
+    nativeBuildInputs = [
+      pkgs.coreutils
+      pkgs.gnugrep
+      pkgs.gawk
+    ];
+    WATCHER = "${src}/modules/mlx/scripts/cluster-link-watcher.sh";
+  } "bash ${src}/tests/test-soak-busy-vs-wedged.sh && touch $out";
+
 }
