@@ -46,13 +46,28 @@ mkdir -p "$tmp/bin"
   printf '%s\n' "$shebang"
   cat << 'FAKE'
 printf '%s\n' "$*" >> "$FAKE_DIR/launchctl.log"
+# Two independent loaded-markers, not one: the server agent and the watchdog
+# agent are booted out and restored separately (see cluster-join.sh / restore
+# scripts), so a stub that could not tell them apart would pass every
+# watchdog assertion whether or not the real code told them apart either.
+# print only carries the label; bootstrap only carries the plist path -- both
+# are matched against the CLUSTER_WATCHDOG_* env this process inherits from
+# the caller, same as production code matches them against each other.
 case "${1:-}" in
-  print) [ -f "$FAKE_DIR/loaded" ] ;;
+  print)
+    case "$2" in
+      */"${CLUSTER_WATCHDOG_LABEL:-__unset__}") [ -f "$FAKE_DIR/watchdog-loaded" ] ;;
+      *) [ -f "$FAKE_DIR/loaded" ] ;;
+    esac
+    ;;
   bootstrap)
-    if [ "${FAKE_BOOTSTRAP_FAILS:-0}" = 1 ]; then
-      exit 1
+    if [ "$3" = "${CLUSTER_WATCHDOG_PLIST:-__unset__}" ]; then
+      [ "${FAKE_WATCHDOG_BOOTSTRAP_FAILS:-0}" = 1 ] && exit 1
+      touch "$FAKE_DIR/watchdog-loaded"
+    else
+      [ "${FAKE_BOOTSTRAP_FAILS:-0}" = 1 ] && exit 1
+      touch "$FAKE_DIR/loaded"
     fi
-    touch "$FAKE_DIR/loaded"
     ;;
   *) exit 0 ;;
 esac
@@ -99,14 +114,17 @@ did_not() {
 }
 reset_state() {
   : > "$tmp/launchctl.log"
-  rm -f "$tmp/loaded" "$tmp/restore-ran"
-  unset FAKE_BOOTSTRAP_FAILS
+  rm -f "$tmp/loaded" "$tmp/watchdog-loaded" "$tmp/restore-ran"
+  unset FAKE_BOOTSTRAP_FAILS FAKE_WATCHDOG_BOOTSTRAP_FAILS
 }
 
 export CLUSTER_SERVER_LABEL=dev.example.server
 export CLUSTER_WARMUP_LABEL=dev.example.server.warmup
 export CLUSTER_SERVER_PLIST="$tmp/server.plist"
 : > "$CLUSTER_SERVER_PLIST"
+export CLUSTER_WATCHDOG_LABEL=dev.example.watchdog
+export CLUSTER_WATCHDOG_PLIST="$tmp/watchdog.plist"
+: > "$CLUSTER_WATCHDOG_PLIST"
 
 echo "stub contract (everything below reaches launchctl only through this):"
 reset_state
@@ -124,13 +142,14 @@ reset_state
 export CLUSTER_ROLE=coordinator
 restore_normal_serving && rc=0 || rc=1
 check "restore reports success" 0 "$rc"
-did "bootstrapped the server agent" "bootstrap gui"
+did "bootstrapped the server agent" "bootstrap gui/$(id -u) $CLUSTER_SERVER_PLIST"
 did "kicked the warmup one-shot" "kickstart -k gui/$(id -u)/$CLUSTER_WARMUP_LABEL"
+did "bootstrapped the watchdog agent" "bootstrap gui/$(id -u) $CLUSTER_WATCHDOG_PLIST"
 
 echo
-echo "coordinator: an already-loaded server is not re-bootstrapped:"
+echo "coordinator: an already-loaded server and watchdog are not re-bootstrapped:"
 reset_state
-touch "$tmp/loaded"
+touch "$tmp/loaded" "$tmp/watchdog-loaded"
 restore_normal_serving && rc=0 || rc=1
 check "restore reports success" 0 "$rc"
 did_not "no redundant bootstrap" "bootstrap gui"
@@ -150,6 +169,53 @@ CLUSTER_SERVER_PLIST="$tmp/missing.plist"
 restore_normal_serving && rc=0 || rc=1
 check "restore reports failure" 1 "$rc"
 CLUSTER_SERVER_PLIST="$tmp/server.plist"
+
+echo
+echo "coordinator: THE HAZARD. cluster-join also boots the watchdog out, and its"
+echo "restore must be wired the same as the server agent's:"
+# Confirmed at cluster-join.sh: the coordinator's quiesce step boots the
+# watchdog out alongside the server and warmup agents, so it must come back
+# the same way -- left down, its next 60s probe finds "up but not serving"
+# (indistinguishable from a real outage) and climbs its own escalation ladder,
+# which can reach a full bootstrap of the standalone stack mid-cluster-window.
+reset_state
+touch "$tmp/loaded" # server already up; isolates the watchdog assertion below
+restore_normal_serving && rc=0 || rc=1
+check "restore reports success" 0 "$rc"
+did "bootstrapped the watchdog agent" "bootstrap gui/$(id -u) $CLUSTER_WATCHDOG_PLIST"
+
+echo
+echo "coordinator: the watchdog's OWN bootstrap failure is a WARN, not a restore"
+echo "failure -- standalone serving is already back; the watchdog is a missing"
+echo "safety net, not a repeat of the outage this function fixes:"
+reset_state
+touch "$tmp/loaded"
+export FAKE_WATCHDOG_BOOTSTRAP_FAILS=1
+restore_normal_serving && rc=0 || rc=1
+check "restore STILL reports success" 0 "$rc"
+unset FAKE_WATCHDOG_BOOTSTRAP_FAILS
+
+echo
+echo "coordinator: a watchdog with no plist and not loaded is the same WARN, not"
+echo "a restore failure:"
+reset_state
+touch "$tmp/loaded"
+CLUSTER_WATCHDOG_PLIST="$tmp/missing-watchdog.plist"
+restore_normal_serving && rc=0 || rc=1
+check "restore STILL reports success" 0 "$rc"
+CLUSTER_WATCHDOG_PLIST="$tmp/watchdog.plist"
+
+echo
+echo "coordinator: an older generation with no CLUSTER_WATCHDOG_LABEL configured"
+echo "is a clean no-op, not a failure -- nothing attempts to touch a label that"
+echo "does not exist in the environment:"
+reset_state
+touch "$tmp/loaded"
+unset CLUSTER_WATCHDOG_LABEL
+restore_normal_serving && rc=0 || rc=1
+check "restore reports success" 0 "$rc"
+did_not "no watchdog bootstrap attempted" "bootstrap gui/$(id -u) $CLUSTER_WATCHDOG_PLIST"
+export CLUSTER_WATCHDOG_LABEL=dev.example.watchdog
 
 echo
 echo "worker: the recorded agent set is restored through the quiesce's own hook:"
@@ -228,5 +294,23 @@ anti_pin "the probe is no longer coordinator-only" \
   'if \[ "\$CLUSTER_ROLE" = "coordinator" \][^;]*; then$'
 anti_pin "no line claims a bare 'teardown verified' any more" \
   'echo "cluster-detach: teardown verified'
+
+echo
+echo "call sites in cluster-join.sh (the watchdog boot-out this restore answers):"
+join="${JOIN:?set JOIN to the path of cluster-join.sh}"
+join_code() { grep -v '^[[:space:]]*#' "$join"; }
+pin_join() {
+  local label="$1" pattern="$2"
+  if grep -Eq "$pattern" <<< "$(join_code)"; then
+    echo "  ok   $label"
+  else
+    echo "  FAIL $label -> no code line matching /$pattern/"
+    fail=1
+  fi
+}
+pin_join "join boots the watchdog out alongside the server and warmup agents" \
+  'bootout "gui/\$uid/\$\{CLUSTER_WATCHDOG_LABEL\}"'
+pin_join "the boot-out is logged, including the unconfigured branch" \
+  'CLUSTER_WATCHDOG_LABEL configured; nothing to boot out'
 
 exit "$fail"

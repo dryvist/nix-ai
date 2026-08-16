@@ -26,6 +26,10 @@
 #   CLUSTER_SERVER_LABEL        normal-mode server (llama-swap) launchd label
 #   CLUSTER_SERVER_PLIST        path to the server agent plist (for bootstrap)
 #   CLUSTER_WARMUP_LABEL        normal-mode warmup one-shot launchd label
+#   CLUSTER_WATCHDOG_LABEL      serving watchdog launchd label — carried so
+#                             restore_normal_serving (step 2) can bootstrap it
+#                             back if cluster-join booted it out
+#   CLUSTER_WATCHDOG_PLIST      path to the watchdog agent plist (for bootstrap)
 #   worker only:
 #   CLUSTER_RESTORE_CMD         cluster-restore — bootstraps back exactly the
 #                             agents cluster-quiesce recorded booting out
