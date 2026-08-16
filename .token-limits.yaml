@@ -15,4 +15,10 @@ limits:
 
   # Module and architecture documentation.
   modules/*/README.md: 3000
+
+  # The single authoritative cluster runbook: dense by design (verbatim
+  # operator quotes plus every corrected belief, so a reader never re-derives
+  # a wrong one) — kept as one page rather than split, so it earns a wider
+  # budget than the general docs/*.md default below.
+  docs/runbooks/cluster-link-truths.md: 3300
   docs/*.md: 3000
