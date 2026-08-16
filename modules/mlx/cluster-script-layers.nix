@@ -69,6 +69,9 @@
     # layer that calls it. Watcher-only for the same SC2329 reason as
     # cluster-pd-cause.sh above: nothing else publishes or reads peer state.
     ./scripts/cluster-peer-state.sh
+    # new_progress_lines, for the soak probe's proof-of-life check ahead of
+    # endpoint_busy — the same file cluster-peer-liveness.sh already pulls in.
+    ./scripts/cluster-peer-observe.sh
     ./scripts/cluster-link-watcher.sh
   ];
 
