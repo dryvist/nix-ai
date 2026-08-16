@@ -32,6 +32,7 @@ let
       launchAgentsDir = "/tmp/LaunchAgents";
       stateFile = "/tmp/link-state";
       pdDebtFile = "/tmp/pd-debt";
+      rankErrorLog = "/tmp/cluster-rank.error.log";
       ncfg = {
         role = "worker";
         maxKickstarts = 5;
