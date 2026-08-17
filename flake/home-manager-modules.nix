@@ -204,6 +204,16 @@ in
     };
   };
 
+  cursor = {
+    imports = [
+      ../modules/mcp/module.nix
+      ../modules/cursor
+    ];
+    _module.args = {
+      inherit nix-claude-code;
+    };
+  };
+
   maestro = {
     imports = [ ../modules/maestro ];
   };
