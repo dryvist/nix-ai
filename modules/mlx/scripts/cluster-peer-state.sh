@@ -97,10 +97,12 @@ peer_state_generation() {
 # Written to a temp and moved into place, so the responder never cats a
 # half-written line.
 #
-# $1 output file, $2 generation-parity fact, $3 halt marker, $4 PD ledger.
+# $1 output file, $2 generation-parity fact, $3 halt marker, $4 PD ledger,
+# $5 memory-headroom dwell file (optional — omitted callers get the memory
+# term always-armed, same as CLUSTER_SHARD_MEMORY_MB=0).
 peer_state_write() {
-  local out="$1" parity="$2" halt_file="$3" debt_file="$4"
-  local armed=true wired=true cause="" gen boot debt max tmp
+  local out="$1" parity="$2" halt_file="$3" debt_file="$4" mem_dwell_file="${5:-}"
+  local armed=true wired=true cause="" gen boot debt max tmp mem_required mem_dwell
   gen="$(peer_state_generation "$parity")"
   boot="$(current_boot_epoch)"
   case "${boot:-}" in
@@ -129,7 +131,31 @@ peer_state_write() {
   # the one term whose remedy differs: a peer refusing on memory needs a reboot
   # to return unreclaimed wired Metal, where every other term clears on its own.
   # Naming it lets the refusing side's log say which.
-  if ! mem_headroom_ok "${CLUSTER_SHARD_MEMORY_MB:-0}"; then
+  #
+  # BOTH a fresh sample AND recent history must clear before this reports
+  # armed. A raw mem_headroom_ok call alone catches a brand-new shortfall
+  # immediately (unchanged from before); the dwell count alone is what fixes
+  # the flapping bug — mem_headroom_halt_if_persistent (cluster-link-guards.sh)
+  # decrements it by one per pass rather than zeroing it, so a single lucky
+  # sample right after a run of refusals cannot flip armed on its own. Needing
+  # BOTH means: dwell>0 blocks armed even when the current sample happens to
+  # pass (the flapping case), and a first-ever refusal still blocks armed even
+  # before any dwell file exists (the immediate-detection case).
+  # No outer "required -gt 0" gate here: mem_headroom_ok already no-ops on a
+  # 0/unset requirement internally (the "0 = off" convention), so gating a
+  # second time here would only add a second place that convention has to be
+  # kept in sync.
+  mem_required="${CLUSTER_SHARD_MEMORY_MB:-0}"
+  case "$mem_required" in
+    '' | *[!0-9]*) mem_required=0 ;;
+  esac
+  mem_dwell=0
+  [ -n "$mem_dwell_file" ] && [ -f "$mem_dwell_file" ] &&
+    mem_dwell="$(cat "$mem_dwell_file" 2> /dev/null || echo 0)"
+  case "$mem_dwell" in
+    '' | *[!0-9]*) mem_dwell=0 ;;
+  esac
+  if [ "$mem_dwell" -gt 0 ] || ! mem_headroom_ok "$mem_required"; then
     wired=false
     armed=false
   fi
