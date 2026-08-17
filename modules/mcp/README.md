@@ -177,6 +177,23 @@ Authentication is **browser OAuth handled by the MCP client** on first connect: 
 client opens Monarch in the browser to authorize access. No token, password, or header
 is stored in the Nix config — there is nothing to put in Doppler or Keychain.
 
+## OpenWhispr MCP and CLI
+
+The `openwhispr` MCP server is OpenWhispr's hosted connector — a remote
+Streamable-HTTP endpoint at `https://mcp.openwhispr.com/mcp`
+([setup guide](https://docs.openwhispr.com/integrations/mcp)).
+
+**Requires:** a personal API key (`owk_live_...`) in `OPENWHISPR_API_KEY` — inject
+at runtime (see [`.env.example`](../../.env.example)). Workspace keys are not
+supported. Create the key in the desktop app under **Integrations > API Keys**, or
+via the [agent setup](https://docs.openwhispr.com/integrations/agent-setup) flow.
+
+The `openwhispr` CLI (`@openwhispr/cli`, installed via [`ai-tools.nix`](../ai-tools.nix))
+uses a **separate credential path** for remote access: `openwhispr auth login`
+writes the key to `~/.openwhispr/cli-config.json`. When the desktop app is running,
+the CLI auto-detects the local bridge via `~/.openwhispr/cli-bridge.json` and needs
+no remote auth. Run `openwhispr doctor` to verify connectivity.
+
 ## MLX Inference (Local Apple Silicon)
 
 Two CLI tools work together for local MLX model workflows:

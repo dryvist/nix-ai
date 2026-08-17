@@ -25,6 +25,8 @@
   claudeFlow = "3.34.0";
   # renovate: datasource=npm depName=@googleworkspace/cli
   gwsCli = "0.22.5";
+  # renovate: datasource=npm depName=@openwhispr/cli
+  openwhisprCli = "0.1.2";
 
   # MCP servers (npm)
   # renovate: datasource=npm depName=@upstash/context7-mcp

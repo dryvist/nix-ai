@@ -52,6 +52,7 @@
 #   chatgpt: chatgpt-cli (ChatGPT terminal client)
 #   claude-flow: claude-flow (multi-agent orchestration)
 #   gws: @googleworkspace/cli (pinned version)
+#   openwhispr: @openwhispr/cli (voice notes / transcriptions CLI)
 #
 # UVX WRAPPER PACKAGES (Python packages not in nixpkgs/homebrew):
 #   hf: huggingface-hub CLI (model downloads, used with HuggingFace MCP)
@@ -81,6 +82,7 @@ let
   chatgptCliVersion = versions.chatgptCli;
   claudeFlowVersion = versions.claudeFlow;
   gwsCliVersion = versions.gwsCli;
+  openwhisprCliVersion = versions.openwhisprCli;
 in
 {
   # AI-specific development tools
@@ -175,6 +177,18 @@ in
     # Key commands: gws gmail +triage, gws gmail +watch, gws drive +upload
     (writeShellScriptBin "gws" ''
       exec ${bun}/bin/bunx --bun @googleworkspace/cli@${gwsCliVersion} "$@"
+    '')
+
+    # ==========================================================================
+    # OpenWhispr CLI
+    # ==========================================================================
+    # Operates against the local desktop bridge or the cloud REST API.
+    # Source: https://github.com/OpenWhispr/openwhispr-cli
+    # NPM: @openwhispr/cli (pinned version)
+    # Local mode: desktop app running (see nix-openwhispr). Remote mode:
+    # `openwhispr auth login` stores key in ~/.openwhispr/cli-config.json.
+    (writeShellScriptBin "openwhispr" ''
+      exec ${bun}/bin/bunx --bun @openwhispr/cli@${openwhisprCliVersion} "$@"
     '')
 
     # ==========================================================================
