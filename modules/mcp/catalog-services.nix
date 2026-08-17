@@ -155,6 +155,19 @@
   };
 
   # ================================================================
+  # OpenRouter - unified LLM API with free tier and paid models
+  # ================================================================
+  # Source: https://openrouter.ai/docs/guides/overview/mcp-server
+  # Remote Streamable-HTTP endpoint. Uses the OPENROUTER_API_KEY env var
+  # for authentication (inject via Doppler/Keychain at runtime).
+  # Opt-in: ships disabled. Requires an OpenRouter account and API key.
+  openrouter = {
+    type = "http";
+    url = "https://openrouter.ai/mcp";
+    disabled = true;
+  };
+
+  # ================================================================
   # grep.app - literal code search across ~1M public GitHub repositories
   # ================================================================
   # Source: https://grep.app — remote Streamable-HTTP, stateless, keyless.
