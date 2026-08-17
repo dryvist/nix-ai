@@ -25,6 +25,16 @@ if [[ "$OSTYPE" == darwin* ]]; then
   unset _ai_ro_var _ai_ro_val
 fi
 
+# Router API-key shortcut (macOS keychain only): `aikey <HARNESS>` prints the
+# value of the <HARNESS>_ROUTER_API_KEY generic-password item, e.g.
+#   aikey OPENCODE  ->  security find-generic-password -s OPENCODE_ROUTER_API_KEY -w
+if [[ "$OSTYPE" == darwin* ]]; then
+  aikey() {
+    [[ -n "$1" ]] || { print -u2 "usage: aikey <harness>"; return 1; }
+    security find-generic-password -s "${1}_ROUTER_API_KEY" -w
+  }
+fi
+
 # `claude` (unaliased) resolves via PATH to ~/.local/bin/claude — the pinned
 # stable build maintained by Anthropic's claude.ai/install.sh.
 # `claude-latest` bypasses the local install and fetches the npm `latest`
