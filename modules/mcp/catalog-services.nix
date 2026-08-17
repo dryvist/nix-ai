@@ -168,6 +168,25 @@
   };
 
   # ================================================================
+  # OpenWhispr - voice notes, transcriptions, and folders
+  # ================================================================
+  # Source: https://docs.openwhispr.com/integrations/mcp
+  # Remote Streamable-HTTP endpoint. Requires a personal API key
+  # (`owk_live_...`) in OPENWHISPR_API_KEY — inject at runtime (see
+  # .env.example). Workspace keys are not supported. The CLI uses a
+  # separate credential path (`openwhispr auth login` →
+  # ~/.openwhispr/cli-config.json); MCP and CLI share the same key
+  # material but not the delivery mechanism.
+  # Opt-in: ships disabled. Requires an OpenWhispr account and API key.
+  openwhispr = {
+    type = "http";
+    url = "https://mcp.openwhispr.com/mcp";
+    headers.Authorization = "Bearer \${OPENWHISPR_API_KEY}";
+    bearer_token_env_var = "OPENWHISPR_API_KEY";
+    disabled = true;
+  };
+
+  # ================================================================
   # grep.app - literal code search across ~1M public GitHub repositories
   # ================================================================
   # Source: https://grep.app — remote Streamable-HTTP, stateless, keyless.
