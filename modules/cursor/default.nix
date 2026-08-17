@@ -39,14 +39,18 @@ let
   mcpClient = import ../mcp/client.nix { inherit lib; };
 
   # Cursor MCP schema (~/.cursor/mcp.json): local servers carry a "stdio"
-  # type tag plus command/args/env; remote servers carry "remote" plus url and
-  # optional headers. env values may use Cursor's ${env:NAME} / ${userHome}
+  # type tag plus command/args/env; remote servers carry a url plus optional
+  # headers. The Cursor CLI parser only accepts type values "stdio", "http",
+  # and "sse" — any other value makes it silently drop the whole file, so
+  # remote servers must use "http" (Streamable HTTP; SSE is deprecated) rather
+  # than OpenCode's "remote". The IDE ignores the type field and routes on
+  # command/url. env values may use Cursor's ${env:NAME} / ${userHome}
   # interpolation — catalog values pass through untouched.
   normalizeMcpServer =
     server:
     if server.url != null then
       {
-        type = "remote";
+        type = "http";
         inherit (server) url;
       }
       // lib.optionalAttrs (server.headers != { }) { inherit (server) headers; }
