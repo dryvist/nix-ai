@@ -100,6 +100,12 @@ in
     ];
 
     home = [ homeDir ];
+
+    # Public workspace root. Eval-time equivalent of GIT_HOME_PUBLIC (a runtime
+    # env var in nix-home); nix-ai cannot read env vars at eval time, so it is
+    # derived here from homeDir. Consumed by the opencode formatter's
+    # external_directory rules.
+    public = [ "${homeDir}/git/public" ];
   };
 
   # Tool-specific identifiers (non-shell, built-in tools)
