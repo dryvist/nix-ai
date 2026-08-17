@@ -64,6 +64,13 @@
 #                         probe (c) (default 2)
 #   CLUSTER_HEALTH_GATE_CONCURRENT_TIMEOUT_SECS  bound on EACH of those N
 #                         (default 180)
+#   CLUSTER_RANK_PROGRESS_LOG  the rank's own log, tailed for real generation
+#                         progress (new_progress_lines, cluster-peer-observe.sh)
+#                         before the soak probe fires; empty skips the check
+#   CLUSTER_PEER_PROGRESS_PATTERN  ERE marking token progress in that log
+#   CLUSTER_STAT_BIN         stat path/seam for the soak marker's mtime read
+#                         (BSD `-f %m` syntax); production absolute path,
+#                         since the Linux Nix sandbox has no /usr/bin/stat
 #   CLUSTER_SHARD_MEMORY_MB  expected per-rank working set in MB; 0 disables
 #                         the memory-headroom rung with no vm_stat read at all
 #                         (see mem_headroom_ok in cluster-link-guards.sh)
@@ -193,12 +200,19 @@ soak_busy_skips_file="$state_dir/soak-busy-skips"
 # what the deployed activation says, quiesce and rank start assemble the stack
 # the deployed revision defines. Until 2026-08-01 the only parity check lived
 # in cluster-join, which is human-initiated — so a drifted node stayed drifted
-# for 86 hours. Now: reported every tick, paged once per distinct drift, and
-# RECONCILED unattended by a detached launchd job (see
-# cluster-generation-heal.sh — detached because a rebuild fired from this
-# agent would be SIGKILLed by its own activation). While drift persists,
-# rank_start_preconditions_ok refuses to start (hard gate) and the down path
-# below refuses to run link prep from the stale generation.
+# for 86 hours. Now: reported every tick and paged once per distinct drift (see
+# generation_heal_maybe in cluster-generation-heal.sh). It is NOT auto-rebuilt:
+# a rebuild fired from this agent's own process would be SIGKILLed by the very
+# activation it triggers the moment this agent's own launchd plist content
+# changes (nix-darwin's launchd activation unloads a changed agent before
+# loading the new one), and — independent of that — the parity check has no
+# way to know what a differently-deployed host (e.g. a private wrapper flake)
+# should be rebuilt INTO. tests/test-generation-heal.sh enforces this as a
+# regression: no shipped cluster script may ever call `darwin-rebuild switch`.
+# While drift persists, rank_start_preconditions_ok refuses to start (hard
+# gate) and the down path below refuses to run link prep from the stale
+# generation. Deploying a drifted host is still a deliberate, human-run
+# `darwin-rebuild switch`.
 parity_now="$(generation_parity_cached "$gen_parity_file")"
 generation_drift_report "$parity_now" "$gen_alerted_file"
 generation_heal_maybe "$parity_now" "$heal_attempts_file" || true
@@ -215,7 +229,7 @@ generation_heal_maybe "$parity_now" "$heal_attempts_file" || true
 # Placed after the parity read because the published generation comes from that
 # same cached fact — one ls-remote per interval, not one per publish.
 peer_state_write "${CLUSTER_PEER_STATE_FILE:-$state_dir/peer-state.json}" \
-  "$parity_now" "$halt_file" "$pd_debt_file"
+  "$parity_now" "$halt_file" "$pd_debt_file" "$mem_dwell_file"
 
 # Link probe, debounced ASYMMETRICALLY — a false "down" is destructive, a false
 # "up" is not. Declaring down tears the rank down, restores standalone serving,
@@ -494,61 +508,87 @@ if [ "$cur" = "up" ]; then
     # the rank wedged on a real 8-token request — 0 bytes after 900s, both
     # ranks spinning at ~100% CPU. Readiness stayed latched and nothing
     # escalated for over an hour. This soak is what would have caught it.
+    # SOAK BLOCK — extracted and run verbatim by tests/test-soak-busy-vs-wedged.sh.
+    # Keep these marker comments exactly as written; the test greps for them.
     if [ "$CLUSTER_ROLE" = "coordinator" ] && [ -f "$warm_file" ] &&
       [ ! -f "$halt_file" ] && [ "${CLUSTER_WARM_RECHECK_SECS:-600}" -gt 0 ]; then
-      warmed_at="$(/usr/bin/stat -f %m "$warm_file" 2> /dev/null || echo 0)"
+      warmed_at="$("${CLUSTER_STAT_BIN:-/usr/bin/stat}" -f %m "$warm_file" 2> /dev/null || echo 0)"
       if [ "$warmed_at" -gt 0 ] &&
         [ "$(($(date +%s) - warmed_at))" -ge "${CLUSTER_WARM_RECHECK_SECS:-600}" ]; then
         echo "cluster-link: soak re-check (warm marker older than ${CLUSTER_WARM_RECHECK_SECS:-600}s)"
-        # NEVER PROBE A BUSY PIPELINE. mlx_lm.server serializes generation and
-        # blocks HTTP for its duration, so a 1-token probe fired while a real
-        # request is in flight queues behind it and expires on the probe's own
-        # timeout — through no fault of the mesh. On 2026-08-08 that killed a
-        # healthy pipeline mid-answer: a 22k-token generation had streamed
-        # nothing for 181s, the probe expired, the gate declared the rank
-        # wedged, and the SIGTERM teardown leaked the wired shard on both hosts.
-        # In-flight work IS proof of life; the probe exists to find out whether
-        # there is any, and here there demonstrably is.
-        #
-        # BOUNDED, because a wedged rank holds connections open exactly as a
-        # busy one does. After CLUSTER_SOAK_BUSY_SKIP_MAX consecutive deferrals
-        # the probe fires anyway — with a timeout that already exceeds the read
-        # timeout real clients use, so a genuine long generation still completes
-        # inside it and only a true wedge fails.
-        #
-        # The warm marker is deliberately NOT refreshed on a deferral. Touching
-        # it would push the next re-check a full interval into the future on
-        # every skip, so a rank that holds a connection forever would never be
-        # probed again — the deferral would become the wedge's hiding place.
-        # Left stale, the block re-evaluates next tick and the counter advances
-        # toward the bound.
-        soak_skips=0
-        [ -f "$soak_busy_skips_file" ] && soak_skips="$(cat "$soak_busy_skips_file")"
-        case "$soak_skips" in
-          '' | *[!0-9]*) soak_skips=0 ;;
+        # REAL GENERATION PROGRESS BEATS EVERY OTHER SIGNAL. new_progress_lines
+        # (cluster-peer-observe.sh, the same predicate cluster-peer-liveness.sh's
+        # coordinator_tick checks first) counts token/prompt lines the rank's own
+        # log emitted since the last read. endpoint_busy only sees an ESTABLISHED
+        # connection — which vanishes the moment a client disconnects on its own
+        # timeout, even while the backend is still doing real work. A soak probe
+        # fired into that gap queues behind the work and times out, misreading a
+        # busy-but-healthy pipeline as wedged (2026-08-16: a burst of requests
+        # against unloaded models did exactly this). Checked first because it is
+        # strictly stronger evidence than a held connection.
+        progressed=0
+        if [ -n "${CLUSTER_RANK_PROGRESS_LOG:-}" ]; then
+          progressed="$(new_progress_lines)"
+        fi
+        case "$progressed" in
+          '' | *[!0-9]*) progressed=0 ;;
         esac
-        if endpoint_busy && [ "$soak_skips" -lt "${CLUSTER_SOAK_BUSY_SKIP_MAX:-10}" ]; then
-          soak_skips=$((soak_skips + 1))
-          printf '%s\n' "$soak_skips" > "$soak_busy_skips_file"
-          echo "cluster-link: soak: request in flight — probe skipped, busy pipeline is live ($soak_skips/${CLUSTER_SOAK_BUSY_SKIP_MAX:-10} before probing regardless)"
-        elif health_gate_soak_probe "$health_gate_file" "$CLUSTER_RANK_URL" "${CLUSTER_MODEL:-}" \
-          "${CLUSTER_HEALTH_GATE_TIMEOUT_SECS:-300}"; then
+        if [ "$progressed" -gt 0 ]; then
+          echo "cluster-link: soak: $progressed new progress line(s) since last tick — real traffic is live, treating as proof of life without probing"
           touch "$warm_file"
           rm -f "$soak_busy_skips_file"
         else
-          echo "cluster-link: soak probe FAILED (${HEALTH_GATE_DETAIL:-no detail}); declaring the rank WEDGED and restoring standalone serving" >&2
-          halt_write "$halt_file" "$halt_latch_file" "health-gate-soak-fail" \
-            "${HEALTH_GATE_DETAIL:-soak completion probe failed}"
-          launchctl kill SIGTERM "gui/$uid/$CLUSTER_RANK_LABEL" 2> /dev/null || true
-          if [ -n "${CLUSTER_WIRED_LIMIT_MB:-}" ]; then
-            set_wired_limit "${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}" || true
+          # NEVER PROBE A BUSY PIPELINE. mlx_lm.server serializes generation and
+          # blocks HTTP for its duration, so a 1-token probe fired while a real
+          # request is in flight queues behind it and expires on the probe's own
+          # timeout — through no fault of the mesh. On 2026-08-08 that killed a
+          # healthy pipeline mid-answer: a 22k-token generation had streamed
+          # nothing for 181s, the probe expired, the gate declared the rank
+          # wedged, and the SIGTERM teardown leaked the wired shard on both hosts.
+          # In-flight work IS proof of life; the probe exists to find out whether
+          # there is any, and here there demonstrably is.
+          #
+          # BOUNDED, because a wedged rank holds connections open exactly as a
+          # busy one does. After CLUSTER_SOAK_BUSY_SKIP_MAX consecutive deferrals
+          # the probe fires anyway — with a timeout that already exceeds the read
+          # timeout real clients use, so a genuine long generation still completes
+          # inside it and only a true wedge fails.
+          #
+          # The warm marker is deliberately NOT refreshed on a deferral. Touching
+          # it would push the next re-check a full interval into the future on
+          # every skip, so a rank that holds a connection forever would never be
+          # probed again — the deferral would become the wedge's hiding place.
+          # Left stale, the block re-evaluates next tick and the counter advances
+          # toward the bound.
+          soak_skips=0
+          [ -f "$soak_busy_skips_file" ] && soak_skips="$(cat "$soak_busy_skips_file")"
+          case "$soak_skips" in
+            '' | *[!0-9]*) soak_skips=0 ;;
+          esac
+          if endpoint_busy && [ "$soak_skips" -lt "${CLUSTER_SOAK_BUSY_SKIP_MAX:-10}" ]; then
+            soak_skips=$((soak_skips + 1))
+            printf '%s\n' "$soak_skips" > "$soak_busy_skips_file"
+            echo "cluster-link: soak: request in flight — probe skipped, busy pipeline is live ($soak_skips/${CLUSTER_SOAK_BUSY_SKIP_MAX:-10} before probing regardless)"
+          elif health_gate_soak_probe "$health_gate_file" "$CLUSTER_RANK_URL" "${CLUSTER_MODEL:-}" \
+            "${CLUSTER_HEALTH_GATE_TIMEOUT_SECS:-300}"; then
+            touch "$warm_file"
+            rm -f "$soak_busy_skips_file"
+          else
+            echo "cluster-link: soak probe FAILED (${HEALTH_GATE_DETAIL:-no detail}); declaring the rank WEDGED and restoring standalone serving" >&2
+            halt_write "$halt_file" "$halt_latch_file" "health-gate-soak-fail" \
+              "${HEALTH_GATE_DETAIL:-soak completion probe failed}"
+            launchctl kill SIGTERM "gui/$uid/$CLUSTER_RANK_LABEL" 2> /dev/null || true
+            if [ -n "${CLUSTER_WIRED_LIMIT_MB:-}" ]; then
+              set_wired_limit "${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}" || true
+            fi
+            restore_normal_serving || true
+            alert "$(hostname -s): cluster rank failed its periodic soak health-check (${HEALTH_GATE_DETAIL:-no detail}); torn down to standalone serving. Replug the link to retry." \
+              "mlx-cluster rank wedged (soak)"
           fi
-          restore_normal_serving || true
-          alert "$(hostname -s): cluster rank failed its periodic soak health-check (${HEALTH_GATE_DETAIL:-no detail}); torn down to standalone serving. Replug the link to retry." \
-            "mlx-cluster rank wedged (soak)"
         fi
       fi
     fi
+    # END SOAK BLOCK
 
     # THE HEALTH GATE: once the rank is ready, run the full automated check —
     # vk1188, replacing the human who used to run this by hand every night.
@@ -678,7 +718,7 @@ if [ "$cur" = "up" ]; then
       # Report the cost as a fraction of the device's own budget, not as a bare
       # count of failed starts: the operator needs to know how much of an
       # eleven-domain pool this just spent, not only that a counter hit its cap.
-      alert "$(hostname -s): cluster rank failed $kicks consecutive starts; $(pd_debt_phrase "$(pd_debt_count "$pd_debt_file")" "${CLUSTER_MAX_KICKSTARTS:-?}"). Kickstarts halted and the host restored to standalone serving. errno 60 = reboot needed. Replug the link to reset, or clear the rank-halted marker — the watcher re-verifies the cause before retrying and will re-halt if it persists." \
+      alert "$(hostname -s): cluster rank failed $kicks consecutive starts; $(pd_debt_phrase "$(pd_debt_count "$pd_debt_file")" "${CLUSTER_MAX_KICKSTARTS:-?}"). Kickstarts halted and the host restored to standalone serving. This cause (rank-start-failures) is errno-agnostic — an ETIMEDOUT peer-not-there is the common case, but the same 3-strike halt also catches a near-instant EHOSTUNREACH from a Local Network Privacy block (macOS 'nehelper' failing to resolve the rank identity's display metadata), which only a reboot clears. Replug the link to reset, or clear the rank-halted marker — the watcher re-verifies the cause before retrying and will re-halt if it persists. On a FileVault-off host this halt auto-reboots itself; see pd_auto_reboot_if_warranted." \
         "mlx-cluster rank halted (PD guard)"
     elif fast_fail_standdown "$halt_file" "$halt_latch_file" \
       "$fast_fail_strikes_file" "$kicks" "$started_file" "$rank_log_offset_file"; then

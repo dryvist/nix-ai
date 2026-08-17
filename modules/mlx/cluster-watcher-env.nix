@@ -168,6 +168,11 @@ in
   # its connections open the same way, so the deferral is bounded here.
   CLUSTER_SOAK_BUSY_SKIP_MAX = toString ncfg.soakBusySkipMax;
   CLUSTER_WARM_RECHECK_SECS = toString ncfg.warmRecheckSecs;
+  # Real generation progress, checked ahead of endpoint_busy in the soak probe —
+  # same log and pattern cluster-peer-liveness.sh's coordinator_tick already
+  # reads, reused rather than re-derived (see cluster-peer-observe.sh).
+  CLUSTER_RANK_PROGRESS_LOG = rankErrorLog;
+  CLUSTER_PEER_PROGRESS_PATTERN = ncfg.peerLiveness.progressPattern;
   # vk1188 automated health gate + soak.
   CLUSTER_HEALTH_GATE_TIMEOUT_SECS = toString ncfg.healthGateTimeoutSecs;
   CLUSTER_HEALTH_GATE_CONCURRENCY = toString ncfg.healthGateConcurrency;

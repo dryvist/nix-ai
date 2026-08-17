@@ -11,5 +11,5 @@ dependencies = [
   # rollback updated versions.nix and missed this file.
   "mlx>=0.32.0,<0.32.1",
   "mlx-lm>=0.31.3,<0.31.4",
-  "huggingface-hub>=1.26.1,<1.26.2",
+  "huggingface-hub>=1.27.0,<1.27.1",
 ]

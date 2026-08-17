@@ -75,6 +75,21 @@ what. Read it directly when diagnosing:
 cat "$HOME/Library/Application Support/mlx-cluster/pd-debt"
 ```
 
+**The ledger is a billing estimate, not a direct kernel read.** Before nix-ai
+\#1675 it billed every kickstart *attempt* the same regardless of whether the
+attempt ever reached `ibv_alloc_pd` — a run whose every attempt died in
+jaccl's Stage A (TCP bootstrap, before any domain is allocated) was billed as
+if it had leaked for real. It once read `domains=3` against a measured real
+count of zero. #1675 (`modules/mlx/scripts/cluster-pd-stage.sh`) made the
+settle billing errno-aware so a Stage-A death bills nothing, but the ledger
+remains an estimate built from process exit codes. **When the number matters,
+cross-check with a direct kernel read:**
+
+```sh
+ioclasscount AppleThunderboltRDMAProtectionDomain   # domains actually held
+ioclasscount AppleThunderboltRDMAQueuePair          # mesh/queue-pair state
+```
+
 Boot scoping is the whole expiry mechanism. Only entries stamped with the
 current boot count, so a reboot — the one event that actually returns a domain —
 is the one event that clears the ledger.
