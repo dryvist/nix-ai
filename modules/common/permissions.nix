@@ -107,9 +107,9 @@ in
 
     # Public workspace root. Eval-time equivalent of GIT_HOME_PUBLIC (a runtime
     # env var in nix-home); nix-ai cannot read env vars at eval time, so it is
-    # derived here from userConfig.paths.git (which defaults to ~/git).
+    # derived here from userConfig.paths.public (which defaults to ~/git/public).
     # Consumed by the opencode formatter's external_directory rules.
-    public = [ "${gitHome}/public" ];
+    public = [ config.userConfig.paths.public ];
   };
 
   # Tool-specific identifiers (non-shell, built-in tools)

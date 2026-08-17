@@ -141,6 +141,17 @@ in
             workspace once instead of patching each hardcoded literal.
           '';
         };
+
+        paths.public = lib.mkOption {
+          type = lib.types.str;
+          default = "${config.userConfig.paths.git}/public";
+          description = ''
+            Public workspace root (defaults to `~/git/public`), the directory
+            under the git tree that holds public repositories. Shared by the
+            permission engine's `directories.public` and the Antigravity
+            sandbox allowlist, so the `public` literal lives in one place.
+          '';
+        };
       };
     };
     default = { };
