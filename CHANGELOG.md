@@ -1,5 +1,23 @@
 # Changelog
 
+## [4.20.0](https://github.com/dryvist/nix-ai/compare/v4.19.1...v4.20.0) (2026-08-17)
+
+
+### Features
+
+* **mcp:** add OpenRouter MCP server to catalog ([2b59e9b](https://github.com/dryvist/nix-ai/commit/2b59e9b840b5d2f1e3e86797e2b388e058adcb8e))
+* **mcp:** add OpenRouter MCP server to catalog ([877f66e](https://github.com/dryvist/nix-ai/commit/877f66e03476b9fe983ca78b447684235972b7f4))
+
+
+### Bug Fixes
+
+* **deps:** update dependency huggingface-hub to &gt;=1.27.0,&lt;1.27.1 ([f41eb80](https://github.com/dryvist/nix-ai/commit/f41eb8010a6d1ec5cc787a2901de0f1032b32c4e))
+* **deps:** update dependency huggingface-hub to &gt;=1.27.0,&lt;1.27.1 ([cfc8ff3](https://github.com/dryvist/nix-ai/commit/cfc8ff305dbe28f4ba331598e12f3bbbd827cd17))
+* **docs:** split observation traps out instead of raising the token limit ([#1689](https://github.com/dryvist/nix-ai/issues/1689)) ([8f0b8c9](https://github.com/dryvist/nix-ai/commit/8f0b8c9a71c745df3ff4bd638e4e86d4bc62e95c))
+* **mlx:** check real generation progress before the soak probe ([#1690](https://github.com/dryvist/nix-ai/issues/1690)) ([ce6a97e](https://github.com/dryvist/nix-ai/commit/ce6a97ec4ca65cf123470355ef38ebc928944623))
+* **mlx:** debounce the memory-headroom dwell with asymmetric hysteresis ([d278cdd](https://github.com/dryvist/nix-ai/commit/d278cddf916eeca6dbaafe010200cfaa8d8e6b95))
+* **mlx:** debounce the memory-headroom dwell with asymmetric hysteresis ([62fa447](https://github.com/dryvist/nix-ai/commit/62fa44718dd36833415f8926b2ea2289af265641))
+
 ## [4.19.1](https://github.com/dryvist/nix-ai/compare/v4.19.0...v4.19.1) (2026-08-16)
 
 
