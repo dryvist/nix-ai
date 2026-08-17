@@ -254,7 +254,14 @@
       checks =
         let
           system = "x86_64-linux";
-          pkgs = nixpkgs.legacyPackages.${system};
+          # Unfree tools (cursor-cli, claude-code) are evaluated by the module
+          # checks. Consumers set nixpkgs.config.allowUnfree themselves
+          # (nix-darwin modules/darwin/common.nix); the CI harness mirrors that
+          # so the same module eval that ships to production passes here.
+          pkgs = import nixpkgs {
+            inherit system;
+            config.allowUnfree = true;
+          };
         in
         {
           ${system} =
