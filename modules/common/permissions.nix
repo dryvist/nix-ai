@@ -27,6 +27,10 @@
 let
   homeDir = config.home.homeDirectory;
 
+  # Root of the git checkout tree — a consumer relocates the workspace by
+  # overriding `userConfig.paths.git` once instead of patching each path here.
+  gitHome = config.userConfig.paths.git;
+
   # Permission data vendored in nix-claude-code (data/permissions/*.nix,
   # exposed as lib.permissions). Verified meaning-equivalent to the legacy
   # ai-assistant-instructions/agentsmd/permissions JSON in
@@ -87,7 +91,7 @@ in
       "${homeDir}/workspace"
       "${homeDir}/src"
       "${homeDir}/dev"
-      "${homeDir}/git"
+      gitHome
     ];
 
     config = [
@@ -103,9 +107,9 @@ in
 
     # Public workspace root. Eval-time equivalent of GIT_HOME_PUBLIC (a runtime
     # env var in nix-home); nix-ai cannot read env vars at eval time, so it is
-    # derived here from homeDir. Consumed by the opencode formatter's
-    # external_directory rules.
-    public = [ "${homeDir}/git/public" ];
+    # derived here from userConfig.paths.git (which defaults to ~/git).
+    # Consumed by the opencode formatter's external_directory rules.
+    public = [ "${gitHome}/public" ];
   };
 
   # Tool-specific identifiers (non-shell, built-in tools)

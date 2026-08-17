@@ -15,8 +15,17 @@ let
   inactiveSkillRoot = skillRoots.${if cfg.root == "codex" then "agents" else "codex"};
 
   # Harness fan-out: one registry generates the symlinks, the cleanup sweep,
-  # and (via lib/checks/agent-skills.nix) the regression coverage.
-  harnesses = import ./harnesses.nix;
+  # and (via lib/checks/agent-skills.nix) the regression coverage. harnesses.nix
+  # stays the static default registry; the opencode entries are re-derived from
+  # `opencodeConfigDir` so a relocated opencode config dir follows automatically.
+  harnesses = (import ./harnesses.nix) // {
+    skills = (import ./harnesses.nix).skills // {
+      opencode = "${cfg.opencodeConfigDir}/skills";
+    };
+    agentsMd = (import ./harnesses.nix).agentsMd // {
+      opencode = "${cfg.opencodeConfigDir}/AGENTS.md";
+    };
+  };
   harnessSkillDirs = builtins.attrValues harnesses.skills;
   harnessSymlinks = lib.genAttrs harnessSkillDirs (_: {
     source = config.lib.file.mkOutOfStoreSymlink "${homeDir}/${skillRoot}";

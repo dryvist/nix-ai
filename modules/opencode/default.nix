@@ -17,6 +17,7 @@
 
 let
   cfg = config.programs.opencode;
+  inherit (cfg) configDir;
 
   aiCommon = import ../common { inherit lib config nix-claude-code; };
   permission = aiCommon.formatters.opencode.formatPermission aiCommon.permissions;
@@ -78,7 +79,7 @@ let
   mkCommandLinks =
     dir:
     lib.mapAttrs' (name: _: {
-      name = ".config/opencode/command/${name}";
+      name = "${configDir}/command/${name}";
       value = {
         source = "${dir}/${name}";
       };
@@ -100,7 +101,7 @@ in
     }
     (lib.mkIf cfg.enable {
       home.file = {
-        ".config/opencode/opencode.json".source = settingsJson;
+        "${configDir}/opencode.json".source = settingsJson;
       }
       // lib.foldl' (acc: dir: acc // mkCommandLinks dir) { } cfg.commandDirs;
     })

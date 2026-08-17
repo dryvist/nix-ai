@@ -130,6 +130,17 @@ in
             set to your own workspace roots (e.g. [ "~/git/public/" ]).
           '';
         };
+
+        paths.git = lib.mkOption {
+          type = lib.types.str;
+          default = "${config.home.homeDirectory}/git";
+          description = ''
+            Root of the local git checkout tree (defaults to `~/git`). The
+            harnesses that trust or sandbox the workspace (Claude, Antigravity,
+            Maestro) derive their paths from this, so a consumer relocates the
+            workspace once instead of patching each hardcoded literal.
+          '';
+        };
       };
     };
     default = { };

@@ -19,7 +19,7 @@
 let
   cfg = config.programs.antigravity-cli;
   homeDir = config.home.homeDirectory;
-  gitDir = "${homeDir}/git";
+  gitDir = config.userConfig.paths.git;
 
   aiCommon = import ../common {
     inherit lib config nix-claude-code;
@@ -38,11 +38,11 @@ let
   ];
 
   # Default paths the sandbox may write to. Merged with cfg.sandboxAllowedPaths
-  # so every bare repo under ~/git/ can create worktrees without a denial.
+  # so every bare repo under the git root can create worktrees without a denial.
   defaultSandboxAllowedPaths = [
     gitDir
-    "${homeDir}/git/public"
-    "${homeDir}/git/public/nix-darwin/.git"
+    "${gitDir}/public"
+    "${gitDir}/public/nix-darwin/.git"
   ];
 
   mergedSandboxAllowedPaths = lib.unique (defaultSandboxAllowedPaths ++ cfg.sandboxAllowedPaths);
