@@ -16,7 +16,7 @@ in
       gptOss = "mlx-community/gpt-oss-120b-MXFP4-Q8";
       next80 = "mlx-community/Qwen3-Next-80B-A3B-Thinking-4bit";
       next80Instruct = "mlx-community/Qwen3-Next-80B-A3B-Instruct-4bit";
-      judge27b = "mlx-community/Qwen3.6-27B-mxfp4";
+      judge27b = "mlx-community/Qwen3.8-27B-4bit";
       optiqFlags = c.modelFlagOverrides.${optiq};
       judgeArgs = builtins.concatStringsSep " " c.modelExtraArgs.${judge27b};
       commandBuilder = import ../../modules/mlx/model-server-cmd.nix {
@@ -33,6 +33,18 @@ in
       # A check pinning a magic number is what kept --decode-concurrency
       # hard-coded at 1 while proxy.concurrencyLimit said 4.
       conc = modelId: toString (commandBuilder.effectiveConcurrency modelId);
+      # Same reason as `conc`: derive, never pin a literal. The emitted byte
+      # figure is model-server-cmd's effectiveMlxLmCacheMb, which tracks the
+      # catalog class's declared cacheMemoryMb (clamped to 16 GiB). A hardcoded
+      # number here turns any legitimate class retune into a CI break — which is
+      # exactly what happened when the 27B entry moved from an 8 GiB judge
+      # profile to a 16 GiB large-context profile.
+      cacheBytes =
+        modelId:
+        let
+          mb = c.modelFlagOverrides.${modelId}.cacheMemoryMb or c.cacheMemoryMb;
+        in
+        toString ((if mb == null then 8192 else pkgs.lib.min mb 16384) * 1024 * 1024);
       nullDefaultsCmd =
         (import ../../modules/mlx/model-server-cmd.nix {
           inherit (pkgs) lib;
@@ -43,6 +55,7 @@ in
           mlxModelServerPkg = pkgs.writeShellScriptBin "mlx-model-server" "";
         }).mkModelCmd
           "mlx-community/null-default-test";
+      watchdogAgent = hmConfigCatalog.config.launchd.agents.mlx-model-server-watchdog;
       inst = c.modelFlagOverrides.${next80Instruct};
       next80InstructPagedOff = inst.pagedKvCache == false && inst.enablePrefixCaching == false;
     in
@@ -66,21 +79,51 @@ in
     assert
       c.enabledBackends == [ "mlx-lm" ]
       || throw "catalog: official mlx-lm must be the only enabled backend; vllm-mlx must remain preserved but disabled";
+    # The watchdog is the only thing that notices a proxy that is up but not
+    # serving, so on a host with a resident set it MUST be running. This used
+    # to assert the opposite — that it stay disabled — back when its busy
+    # handling depended on a vllm-only progress metric. The dependency now
+    # lives behind MLX_WATCHDOG_BUSY_ESCALATION, so the intent is re-expressed
+    # rather than dropped: enabled everywhere, and pinned to "alert" on the
+    # backend that publishes no such metric, which is what keeps it from
+    # reaping a brain that is merely saturating its slots.
     assert
-      !hmConfigCatalog.config.launchd.agents.mlx-model-server-watchdog.enable
-      || throw "catalog: the vllm-specific watchdog must stay disabled for mlx-lm";
+      watchdogAgent.enable
+      || throw "catalog: the serving watchdog must be enabled — a resident set with no watchdog has nothing supervising an up-but-not-serving proxy";
     assert
-      c.modelConcurrencyLimits.${judge27b} == 1
-      && builtins.match ".*enable_thinking.*false.*" judgeArgs != null
-      || throw "catalog: 27B judge must use bounded single-concurrency text serving";
+      watchdogAgent.config.EnvironmentVariables.MLX_WATCHDOG_BUSY_ESCALATION == "alert"
+      || throw "catalog: mlx-lm exposes no engine-progress metric, so an expired busy grace must page (\"alert\"), never run the restart ladder against a saturated brain";
+    # The 27B entry MUST NOT pin concurrency. It used to: as a latency-sensitive
+    # judge beside a resident 80B it carried concurrencyLimit = 1. That entry is
+    # gone, and this one is shaped as a fleet brain — so a pin of 1 makes
+    # llama-swap serialize every request on any host where it is resident. That
+    # regression shipped once and was caught only by reading the deployed
+    # llama-swap.json, so assert the absence rather than a value: an entry with
+    # no pin inherits proxy.concurrencyLimit, which is the intended contract.
+    # The reasoning effort must be PINNED EXPLICITLY, to one of the two values
+    # measured to finish. The chat template defaults reasoning_effort to
+    # 'xhigh' when no kwarg is passed, and at xhigh this model exhausted
+    # max_tokens without emitting a single answer character on 3 of 3 measured
+    # runs. So an entry carrying no chat-template kwarg reads as
+    # "unconfigured" but serves as "never answers" — absence is the failure,
+    # which is why this asserts presence rather than trusting a default.
+    #
+    # low and medium are both accepted: both were measured to finish
+    # (finish_reason "stop"), and which one serves is a tuning decision that
+    # should not require editing a regression check. xhigh is excluded by
+    # construction, since it matches neither alternative.
     assert
-      builtins.match ".*mlx-model-server --model mlx-community/Qwen3.6-27B-mxfp4.*" judgeCmd != null
+      !(builtins.hasAttr judge27b c.modelConcurrencyLimits)
+      && builtins.match ".*reasoning_effort.*(low|medium).*" judgeArgs != null
+      || throw "catalog: the 27B entry must not pin concurrency (a pin of 1 serializes every request where it is resident) and must pin reasoning_effort to low or medium (unset defaults to xhigh, which never finishes)";
+    assert
+      builtins.match ".*mlx-model-server --model mlx-community/Qwen3.8-27B-4bit.*" judgeCmd != null
       && builtins.match ".*--log-level INFO.*" judgeCmd != null
       && builtins.match ".*--max-tokens 8192.*" judgeCmd != null
       && builtins.match ".*--decode-concurrency ${conc judge27b}.*" judgeCmd != null
       && builtins.match ".*--prompt-concurrency ${conc judge27b}.*" judgeCmd != null
       && builtins.match ".*--prompt-cache-size 4.*" judgeCmd != null
-      && builtins.match ".*--prompt-cache-bytes 8589934592.*" judgeCmd != null
+      && builtins.match ".*--prompt-cache-bytes ${cacheBytes judge27b}.*" judgeCmd != null
       && builtins.match ".*vllm-mlx.*" judgeCmd == null
       && builtins.match ".*--gpu-memory-utilization.*" judgeCmd == null
       || throw "catalog: 27B judge command must use only the bounded official mlx_lm serving contract: ${judgeCmd}";

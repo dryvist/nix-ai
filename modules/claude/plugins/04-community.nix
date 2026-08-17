@@ -161,5 +161,26 @@ _:
     "vulnerability-scanning@claude-skills" = false; # CI handles
     "recommendation-engine@claude-skills" = false;
     "sql-query-optimization@claude-skills" = false;
+
+    # ========================================================================
+    # context-engineering-kit — NeoLabHQ/context-engineering-kit
+    # ========================================================================
+    # Only the `kaizen` plugin is enabled; it carries the `kaizen` skill
+    # (incremental improvement, error-proof design, anti-over-engineering) and
+    # the `why` skill (Five Whys root-cause analysis). Both are behavioral and
+    # apply to every session, so they belong at user level rather than a pack.
+    # The kit's other plugins (reflexion, review, git) duplicate roles already
+    # held by higher tiers and stay off.
+    "kaizen@context-engineering-kit" = true;
+
+    # ========================================================================
+    # managing-dependencies — andrew/managing-dependencies
+    # ========================================================================
+    # Package evaluation and supply-chain hygiene: registry verification before
+    # suggesting a package, typosquat and slopsquat patterns, lockfile review,
+    # provenance, license classification. Universal — every repo here has
+    # dependencies, and the "verify it exists before suggesting it" rule guards
+    # a failure mode that is not repo-specific.
+    "managing-dependencies@managing-dependencies" = true;
   };
 }

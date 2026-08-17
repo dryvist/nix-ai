@@ -45,6 +45,92 @@
 #                                  memory rung escalates from a per-tick skip
 #                                  to a HALT (see mem_headroom_halt_if_persistent)
 #   CLUSTER_VMSTAT_BIN               vm_stat path/seam for the memory rung
+#   CLUSTER_PD_CAUSE_BUDGET          domains one halt cause may spend across ALL
+#                                  boots before starts are refused; 0 disables
+#                                  (see pd_cause_budget_ok in
+#                                  ./cluster-pd-cause.sh)
+#   CLUSTER_PEER_STATE_*             the peer-armed handshake's channel; see
+#                                  ./cluster-peer-state.sh
+#   CLUSTER_RANK_ERROR_LOG            the rank's own stderr (StandardErrorPath);
+#                                  read by rank_failure_stage to tell a Stage-A
+#                                  TCP-bootstrap death (no protection domain
+#                                  could have been allocated) from a Stage-B
+#                                  RDMA one (already spent one) — see
+#                                  fast_fail_standdown below
+#
+# Two marker paths are read from the CALLER'S scope rather than passed as
+# arguments — gen_parity_file and halt_latch_file. Both are watcher-owned state
+# that every other rung already reaches through the watcher, and threading them
+# through rank_start_preconditions_ok's argument list would also have to thread
+# them through halt_clear_accepted, which calls it. Tests set the same two
+# variables.
+#   CLUSTER_RDMA_DEVICE              configured fallback RDMA device (clusterMode.rdmaDevice),
+#                                  already carries the "rdma_" prefix — see rdmaDevice's default
+#   CLUSTER_PD_DEVICE_BUDGET         measured max_pd this host's config assumes (see #1442)
+#   CLUSTER_IBV_DEVINFO_BIN          ibv_devinfo path/seam, default /usr/bin/ibv_devinfo
+
+# The carrier-active Thunderbolt port's RDMA device (e.g. "rdma_en2"), same
+# discovery cluster-rank-launch.sh uses for the ibv matrix — never a pinned
+# name, because moving the cable moves the port. Falls back to
+# CLUSTER_RDMA_DEVICE (already prefixed) when no carrier-active port has a
+# matching rdma_<dev>.
+active_rdma_device() {
+  local dev
+  while read -r dev; do
+    [ -n "$dev" ] || continue
+    /sbin/ifconfig "$dev" 2>/dev/null | /usr/bin/grep -q 'status: active' || continue
+    if /usr/bin/ibv_devices 2>/dev/null | /usr/bin/awk '{print $1}' | /usr/bin/grep -qx "rdma_$dev"; then
+      printf 'rdma_%s\n' "$dev"
+      return 0
+    fi
+  done < <(
+    /usr/sbin/networksetup -listallhardwareports 2>/dev/null |
+      /usr/bin/awk '/^Hardware Port: Thunderbolt [0-9]/ { tb = 1; next }
+           /^Device:/ { if (tb) print $2; tb = 0 }'
+  )
+  [ -n "${CLUSTER_RDMA_DEVICE:-}" ] || return 1
+  printf '%s\n' "$CLUSTER_RDMA_DEVICE"
+}
+
+# #1442: devicePdBudget (CLUSTER_PD_DEVICE_BUDGET) is a measured constant frozen
+# into Nix at eval time — nothing previously checked it against the machine it
+# actually runs on. The reserve invariant (2 * maxKickstarts <= devicePdBudget)
+# is arithmetic over that number, so a wrong one makes the guard's cap either
+# unsafe (device has fewer domains than configured) or needlessly conservative
+# (device has more). ibv_devinfo cannot run in the Nix sandbox — this is a
+# runtime assertion, not an eval-time one.
+#
+# Sets PD_BUDGET_DETAIL for the caller's log line. Fail-closed, matching every
+# other rung in this file: an unreadable probe is treated as unverified, not as
+# passing, because "silently inert while reporting success" is the exact defect
+# class this guard exists to catch (see file header).
+pd_device_budget_ok() {
+  local configured="${CLUSTER_PD_DEVICE_BUDGET:-0}"
+  local device reported
+  case "$configured" in
+    '' | *[!0-9]*) return 0 ;;
+  esac
+  [ "$configured" -gt 0 ] || return 0
+  if ! device="$(active_rdma_device)"; then
+    PD_BUDGET_DETAIL="no carrier-active RDMA device found to verify max_pd against"
+    return 1
+  fi
+  reported="$("${CLUSTER_IBV_DEVINFO_BIN:-/usr/bin/ibv_devinfo}" -d "$device" -v 2>/dev/null | /usr/bin/awk '$1 == "max_pd:" { print $2; exit }')"
+  case "$reported" in
+    '' | *[!0-9]*)
+      PD_BUDGET_DETAIL="ibv_devinfo -d $device -v did not report a readable max_pd; budget unverified"
+      return 1
+      ;;
+  esac
+  if [ "$reported" -lt "$configured" ]; then
+    PD_BUDGET_DETAIL="$device reports max_pd=$reported, below the configured devicePdBudget=$configured — the reserve invariant would be evaluated against a budget the device does not have"
+    return 1
+  fi
+  if [ "$reported" -gt "$configured" ]; then
+    echo "cluster-link: $device reports max_pd=$reported, above the configured devicePdBudget=$configured (conservative; not refusing)" >&2
+  fi
+  return 0
+}
 
 # Unattended repair for a host that came up WITHOUT its link address.
 #
@@ -269,6 +355,24 @@ rank_start_preconditions_ok() {
       return 1
     fi
   fi
+  # 0a'. THE SAME CAUSE, ACROSS BOOTS. Rung 0a is boot-scoped, which is correct —
+  #     a reboot really does return every leaked domain — and is also the escape
+  #     hatch a repeating defect uses: leak five, reboot, leak five again, with
+  #     every boot starting from a full budget and every guard reading green.
+  #     This totals what the cause THIS host keeps halting on has cost across all
+  #     boots and refuses once it reaches the cross-boot budget. Deliberately not
+  #     clearable by a reboot, a link cycle or a marker delete — see
+  #     pd_cause_budget_ok. Nothing is launched, so no attempt is consumed.
+  #
+  #     It should never fire. With the peer-armed gate below in place a start
+  #     against a peer that cannot rendezvous costs zero domains, so a cause that
+  #     reaches this budget is evidence the gate itself is broken, which is
+  #     exactly when a human should be the next step.
+  if ! pd_cause_budget_ok "${halt_latch_file:-}"; then
+    PRECONDITION_REASON="pd-cause-budget"
+    echo "cluster-link: NOT starting the rank — the cross-boot budget for this host's halt cause is spent (no attempt consumed; pd_cause_budget_ok logged which cause and how much)" >&2
+    return 1
+  fi
   # 0b. NO SURVIVING RANK. Never start a rank while another still holds an RDMA
   #     context. launchd reporting the agent as not running is not evidence: a
   #     re-parented or SIGKILL-orphaned engine keeps its protection domain, and
@@ -315,28 +419,57 @@ rank_start_preconditions_ok() {
     echo "cluster-link: peer $CLUSTER_STATIC_PEER_IP is not answering on the link; NOT starting the rank — a rendezvous with an absent peer leaks a protection domain for a certain failure (no attempt consumed)" >&2
     return 1
   fi
-  # 1c. THIS HOST MUST HAVE ROOM TO LOAD THE SHARD. A rank started anyway still
-  #    reaches mx.distributed.init(), still allocates a protection domain, and
-  #    then MLX dies loading weights into ordinary resident memory —
-  #    `[METAL] Command buffer execution failed: Insufficient Memory` — so the
-  #    domain is gone just the same as an errno-60 timeout. Measured
-  #    2026-08-01: a rank started while ~72 GiB of unreclaimed wired Metal
-  #    memory sat on the host from previously-crashed rank processes, leaving
-  #    only ~25 GiB free against a ~49 GiB shard; that failed init leaked a
-  #    domain, four retries failed differently and leaked four more, and the
-  #    guard's cap halted the host. It happened on BOTH Macs the same
-  #    afternoon. mem_headroom_ok is 0 (disabled) unless shardMemoryMb is set.
-  #
-  #    Same "no wait wasted" reasoning as the rung above: this runs BEFORE the
-  #    alignment hold, because a shard that will not fit should cost neither a
-  #    wait nor an attempt.
+  # 1d. THE DEVICE PD BUDGET MUST BE VERIFIED (#1442). devicePdBudget is a
+  #    measured constant frozen into Nix; the reserve invariant above (rung 0a)
+  #    is arithmetic over it, so a start against an unverified or wrong budget
+  #    makes that arithmetic a fiction. active_rdma_device / pd_device_budget_ok
+  #    are defined above in this file; cluster-join carries its own copy in
+  #    cluster-join-preflight.sh (per-layer function ownership, see this
+  #    file's header and cluster-script-layers.nix).
   #
   #    Nothing is launched, so nothing leaks, so no attempt is consumed.
-  if ! mem_headroom_ok "${CLUSTER_SHARD_MEMORY_MB:-0}"; then
-    PRECONDITION_REASON="insufficient-memory"
-    echo "cluster-link: $MEM_HEADROOM_DETAIL; NOT starting the rank (no attempt consumed)" >&2
+  if ! pd_device_budget_ok; then
+    PRECONDITION_REASON="pd-device-budget-unverified"
+    echo "cluster-link: $PD_BUDGET_DETAIL; NOT starting the rank (no attempt consumed)" >&2
     return 1
   fi
+  # 1e. THE PEER MUST BE ARMED, not merely alive. Rung 1b proves a host answers
+  #    ICMP. That is a far weaker statement than it reads as: a host pings while
+  #    its own watcher is halted, while it is still booting, while it holds no
+  #    link address, while it sits at a memory shortfall only a reboot clears,
+  #    and while it runs a different system generation. Every one of those makes
+  #    the rendezvous certain to fail, and a certain failure still allocates a
+  #    protection domain before it times out. Measured 2026-08-08: five of eleven
+  #    domains spent in eighteen minutes against a peer that had already stood
+  #    down and could never have answered.
+  #
+  #    So the peer now says so itself. Each host publishes one JSON line per tick
+  #    and this reads the other's — see ./cluster-peer-state.sh for the channel,
+  #    and for why `armed` is a pure LOCAL fact on both sides (a gate whose
+  #    answer depends on the peer's answer is a deadlock, not a handshake).
+  #
+  #    NO ORDERING IS IMPOSED. `armed` is true before either rank starts, so both
+  #    hosts see it in the same tick and both still fire together on the shared
+  #    boundary in rung 2 — unlike the 2026-07-25 gate that waited for the peer's
+  #    rank to be LISTENING and so guaranteed this host arrived outside jaccl's
+  #    fixed ~15s connect budget. It runs BEFORE that hold for the same reason
+  #    rung 1b does: a peer that is not coming should cost neither a domain nor
+  #    a wait.
+  #
+  #    Logged EVERY tick, never a silent skip. A start that is suppressed is a
+  #    decision, and the line says what it cost — the halted branch was silent
+  #    for 28 consecutive ticks on 2026-08-08 and hid a live halt for 14 minutes.
+  #
+  #    Nothing is launched, so nothing leaks, so no attempt is consumed.
+  if ! peer_armed_ok "$parity_fact"; then
+    PRECONDITION_REASON="peer-not-armed"
+    echo "cluster-link: peer-not-armed ($PEER_GATE_REASON) — attempt suppressed, 0 protection domains spent" >&2
+    return 1
+  fi
+  # NOTE: the memory-headroom rung used to live here (as rung 1c, even earlier
+  # than this). It is NOT a rung of this function any more — see
+  # rank_start_room_ok below and its call site in cluster-link-watcher.sh for
+  # why, and why quiescing has to happen first.
   # 2. BOTH ROLES: hold until the next shared wall-clock start boundary, so the
   #    two ranks reach distributed init together.
   #
@@ -379,6 +512,35 @@ rank_start_preconditions_ok() {
   return 0
 }
 
+# THE MEMORY CHECK THAT MUST RUN AFTER QUIESCE, NOT INSIDE
+# rank_start_preconditions_ok.
+#
+# mem_headroom_ok used to run as a rung of rank_start_preconditions_ok, ahead
+# of quiesce_normal_serving — which the watcher only ever calls AFTER every
+# precondition passes, right before the kickstart. So the memory precondition
+# could only ever measure memory still held by standalone serving: the exact
+# memory quiescing exists to return. It only ever passed because free memory
+# happened to clear the threshold anyway — luck, not correctness; the gate was
+# unsatisfiable by design the moment serving footprint ate that margin.
+#
+# QUIESCING CANNOT MOVE INTO THE GUARD FUNCTION EITHER. quiesce_normal_serving
+# is role-conditional — a coordinator POSTs to $CLUSTER_NORMAL_PROXY, which is
+# real production config but is NOT part of the guard contract every rank-guard
+# test pins (tests/test-rank-start-guards.sh runs CLUSTER_ROLE=coordinator
+# without it, by design — see that file's own stub contract). Calling it from
+# inside rank_start_preconditions_ok made an unrelated env var load-bearing for
+# every guard test and crashed one outright under `set -o nounset`. So the
+# quiesce step stays exactly where it already was — the watcher's call site —
+# and this function is what the watcher calls immediately afterward, so the
+# measurement sees what quiescing actually freed.
+#
+# Same "no attempt consumed" contract as every rung above: nothing is
+# launched, so a refusal here costs nothing. Sets MEM_HEADROOM_DETAIL on
+# refusal, same as mem_headroom_ok itself, since callers log it the same way.
+rank_start_room_ok() {
+  mem_headroom_ok "${CLUSTER_SHARD_MEMORY_MB:-0}"
+}
+
 # HALT AT THE RESERVE, NOT AT EXHAUSTION.
 #
 # The kickstart counter below is the reactive half of the PD guard: it halts once
@@ -410,6 +572,108 @@ rank_start_preconditions_ok() {
 # Logs and pages exactly once per halt — it runs on every tick.
 #
 # $1 halt marker, $2 latch, $3 ledger file.
+# STAND DOWN THE RANK THAT DIES BEFORE IT EVER SETTLES.
+#
+# The pair-wide standdown in cluster-link-watcher.sh only reaches a rank that
+# lived long enough to SETTLE (CLUSTER_RANK_SETTLE_SECS, default 60). A
+# coordinator blocked in distributed init ages past that, takes three cheap
+# rendezvous-absent strikes and stands down having spent nothing. A worker never
+# gets there: it dies on jaccl's fixed ~15s connect budget with errno 60, well
+# inside a 30s tick, so the watcher never observes it running, `rank-started` is
+# never touched, and that block is unreachable. It falls through to the kickstart
+# counter instead and pays one protection domain per attempt up to
+# CLUSTER_MAX_KICKSTARTS. Measured 2026-08-07: the worker burned 5 of an
+# 11-domain budget in 18 minutes against a coordinator that had already stood
+# down and could never answer, while the coordinator spent none. Whether a rank
+# fails fast or hangs slow decided which of the two paths it got, and the fast
+# one is the expensive one — exactly backwards.
+#
+# tests/test-pd-counter-settle.sh already names this shape in prose ("a peer that
+# is UP but not participating ... leaves this host kickstarting into a rendezvous
+# that never forms — one domain per attempt"). This is that hole closed.
+#
+# Same evidence and same verdict as the settled path, so the same cause token:
+# a start that came and went without a rendezvous session means the peer's rank
+# is not there. Reusing peer-absent means the existing latch, the link-cycle
+# re-arm and halt_drop_if_pre_boot all apply unchanged. No new probe, no new
+# channel, no ordering imposed on the peer — it reads only what this host itself
+# already did.
+#
+# FLOORED AT TWO, NEVER ONE. A single errno 60 can be a pure timing miss at the
+# boundary — one host a beat late, both otherwise healthy — and latching on that
+# would turn one unlucky start into a halt only a link cycle clears. Two misses
+# across two consecutive boundaries is signal, not noise.
+#
+# Returns 0 when it has stood the rank down (caller must skip the kickstart), 1
+# to proceed. Unlike the pd/mem halt helpers this is a BRANCH, not a composed
+# always-0 rung, because its whole job is to replace the start.
+#
+# rank_failure_stage (Stage A / Stage B classification from the rank's own
+# stderr) moved to ./cluster-pd-stage.sh: pd_debt_settle_counter needs it too
+# (cluster-pd-settle.sh), and that function is also called from cluster-join
+# and cluster-detach, neither of which carries this file. Concatenated ahead
+# of this one wherever both are used — see that file's own header.
+#
+# $1 halt marker, $2 latch, $3 strike counter, $4 attempts so far, $5 started
+# marker, $6 rank-stderr byte-offset marker (see rank_failure_stage, above).
+fast_fail_standdown() {
+  local halt_file="$1" latch_file="$2" strike_file="$3" kicks="$4" started_file="$5"
+  local log_offset_file="${6:-}"
+  local floor strikes stage
+  floor="${CLUSTER_FAST_FAIL_STRIKES:-2}"
+  case "$floor" in
+    '' | *[!0-9]*) return 1 ;;
+  esac
+  [ "$floor" -gt 0 ] || return 1
+  # Only a LAUNCHED attempt the watcher never saw running counts. A rank that
+  # reached started_file belongs to the settled path, a live rendezvous session
+  # means the pair formed, and kicks=0 means nothing has been tried yet — each
+  # of those is evidence against this verdict, so each resets the count.
+  if [ "$kicks" -le 0 ] || [ -f "$started_file" ] || peer_rendezvous_session; then
+    rm -f "$strike_file"
+    return 1
+  fi
+  # A STAGE-A DEATH COSTS NOTHING TO CLASSIFY AWAY. Measured 2026-08-15: a full
+  # worker start-and-die shows a Stage-A errno-60 timeout (~20-24s from
+  # spawn to death) left the protection-domain ledger unchanged across dozens
+  # of attempts, because ibv_alloc_pd — Stage B — was never reached. Charging
+  # the strike budget for it caps this host at ~30-45s of retries against a
+  # peer demonstrably willing to wait ~100-165s, protecting a budget the
+  # failure structurally cannot spend. The counter is left untouched here (not
+  # reset, not incremented), so an intervening Stage-A miss neither erases a
+  # real Stage-B strike already recorded nor pads one artificially.
+  stage="$(rank_failure_stage "${CLUSTER_RANK_ERROR_LOG:-}" "$log_offset_file")"
+  if [ "$stage" = "stage-a" ]; then
+    echo "cluster-link: rank start died before settling but jaccl never reached RDMA bring-up (stage-a/TCP bootstrap only, no protection domain could have been allocated); not counted against the fast-fail strike budget"
+    return 1
+  fi
+  if [ "$stage" = "unknown" ]; then
+    echo "cluster-link: rank stderr did not classify as stage-a or stage-b (${CLUSTER_RANK_ERROR_LOG:-no CLUSTER_RANK_ERROR_LOG set}); counting the strike anyway — fail closed, an unclassifiable failure must not be treated as free" >&2
+  fi
+  strikes=0
+  [ -f "$strike_file" ] && strikes="$(cat "$strike_file")"
+  case "$strikes" in
+    '' | *[!0-9]*) strikes=0 ;;
+  esac
+  strikes=$((strikes + 1))
+  printf '%s\n' "$strikes" > "$strike_file"
+  if [ "$strikes" -lt "$floor" ]; then
+    echo "cluster-link: rank start died before settling with no rendezvous session ($strikes/$floor)"
+    return 1
+  fi
+  echo "cluster-link: $strikes consecutive rank starts died before settling and never reached rendezvous; standing down so the pair re-arms together instead of spending a protection domain per retry"
+  halt_write "$halt_file" "$latch_file" "peer-absent" \
+    "$strikes consecutive rank starts died before settling with no rendezvous session; peer rank unreachable"
+  rm -f "$strike_file"
+  if [ -n "${CLUSTER_WIRED_LIMIT_MB:-}" ]; then
+    set_wired_limit "${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}" || true
+  fi
+  restore_normal_serving || true
+  alert "$(hostname -s): rank starts keep dying before rendezvous; stood down after $strikes attempts and restored standalone serving, so the pair re-arms on the same start boundary rather than spending one protection domain per retry. Replug the link to retry — the halt is deliberate and suppresses restarts until the link cycles." \
+    "mlx-cluster fast-fail standdown"
+  return 0
+}
+
 pd_debt_halt_if_exhausted() {
   local halt_file="$1" latch_file="$2" debt_file="$3" max debt
   max="${CLUSTER_PD_DEBT_MAX:-0}"
@@ -457,10 +721,25 @@ pd_debt_halt_if_exhausted() {
 # slots into the watcher's `... && [ -f "$halt_file" ]` chain without a new
 # branch, and runs every tick regardless of whether a halt already stands.
 #
-# $1 halt marker, $2 latch, $3 dwell-count file (consecutive refusals; reset
-# to absent the moment a tick sees enough memory, or when CLUSTER_MEM_
-# HEADROOM_DWELL_TICKS is 0/unset — same "0 = off" convention the threshold
-# rungs elsewhere in this file use).
+# $1 halt marker, $2 latch, $3 dwell-count file (consecutive refusals minus
+# consecutive passes, floored at 0; absent when CLUSTER_MEM_HEADROOM_
+# DWELL_TICKS is 0/unset — same "0 = off" convention the threshold rungs
+# elsewhere in this file use). peer_state_write (cluster-peer-state.sh) reads
+# this SAME file to decide the published `armed` bit — one counter, not two
+# independent samples of the same noisy signal.
+#
+# FAIL FAST, CLEAR SLOW — DELIBERATE, NOT SYMMETRIC. A single passing sample
+# used to zero this file outright. That is wrong when free memory sits close
+# to the required line: measured 2026-08-16, this host's free+reclaimable
+# bounced 53853 -> 55318 -> 54413 MB against a 56000 MB requirement — noise,
+# not recovery. An instant reset let the worker's peer read `armed:true` off
+# one lucky sample even though the very next sample failed again seconds
+# later, launching a real kickstart attempt against a coordinator that could
+# not rendezvous. The costs are asymmetric: a spurious armed:true burns a
+# real attempt; a delayed armed:true only costs latency. So a pass now
+# decrements by one instead of zeroing, and recovering from N consecutive
+# failures takes N consecutive passes — never one. Do not "simplify" this
+# back to reset-on-pass; that is the bug this fixes.
 mem_headroom_halt_if_persistent() {
   local halt_file="$1" latch_file="$2" dwell_file="$3" required threshold dwell
   required="${CLUSTER_SHARD_MEMORY_MB:-0}"
@@ -468,8 +747,17 @@ mem_headroom_halt_if_persistent() {
     '' | *[!0-9]*) return 0 ;;
   esac
   [ "$required" -gt 0 ] || return 0
+  dwell=0
+  [ -f "$dwell_file" ] && dwell="$(cat "$dwell_file" 2> /dev/null || echo 0)"
+  case "$dwell" in
+    '' | *[!0-9]*) dwell=0 ;;
+  esac
   if mem_headroom_ok "$required"; then
-    rm -f "$dwell_file"
+    if [ "$dwell" -gt 1 ]; then
+      printf '%s\n' "$((dwell - 1))" > "$dwell_file"
+    else
+      rm -f "$dwell_file"
+    fi
     return 0
   fi
   if [ -f "$halt_file" ]; then
@@ -480,11 +768,15 @@ mem_headroom_halt_if_persistent() {
     '' | *[!0-9]*) return 0 ;;
   esac
   [ "$threshold" -gt 0 ] || return 0
-  dwell=0
-  [ -f "$dwell_file" ] && dwell="$(cat "$dwell_file" 2> /dev/null || echo 0)"
   dwell=$((dwell + 1))
   printf '%s\n' "$dwell" > "$dwell_file"
   if [ "$dwell" -lt "$threshold" ]; then
+    # SAY IT EVERY TICK, WITH THE COUNTER. Silently accumulating toward an
+    # escalation is the shape of every guard in this subsystem that hid an
+    # incident: the dwell is the whole difference between "transient, ignore"
+    # and "stuck, reboot", and it was observable only in a file nobody reads.
+    # Same shape as the link-down and peer-rendezvous strike lines.
+    echo "cluster-link: memory headroom refused $dwell/$threshold consecutive ticks — $MEM_HEADROOM_DETAIL (a HALT at $threshold; nothing launched, so no attempt consumed)" >&2
     return 0
   fi
   echo "cluster-link: $MEM_HEADROOM_DETAIL; refused $dwell consecutive ticks — HALTING rank starts rather than refusing forever with the cable plugged in" >&2

@@ -5,8 +5,21 @@
 # THIS IS NOT modelServerProcessPattern, AND THE TWO MUST NEVER BE MERGED.
 # They name two different processes:
 #
-#   standalone (normal mode)  uv run ... python <store>/…-mlx-lm-launch.py
+#   standalone (normal mode)  <store>/…-python3-env/bin/python <store>/…-mlx-lm-launch.py
 #   cluster rank              uvx  ... mlx_lm.server  ->  <venv>/bin/mlx_lm.server
+#
+# The standalone line lost its `uv run ...` prefix when normal mode moved to a
+# Nix-store python env (modules/mlx/mlx-lm-server.nix): the wrapper now EXECS
+# python, so that side is two processes (llama-swap -> python), not three. The
+# PATTERNS are unaffected — the standalone one is a bare substring of the
+# launcher basename, still present in argv, and the rank one is untouched
+# because CLUSTER MODE STILL USES uvx. Both ranks therefore resolve mlx-lm the
+# same way as before, so rank-to-rank rendezvous is unchanged by that move.
+#
+# Note the rank resolves the PLAIN `mlx-lm==<version>` release (see
+# ./cluster-rank-args.nix) while standalone resolves the harmony-patched build.
+# That divergence PREDATES the Nix migration and is unchanged by it, but it
+# means gpt-oss tool calls behave differently in cluster mode.
 #
 # On develop the two patterns happen to be the same string only because the
 # standalone one is stale; the fix for that (deriving it from

@@ -19,21 +19,21 @@
   options.programs.mlx.clusterMode = {
     warmRecheckSecs = lib.mkOption {
       type = lib.types.int;
-      default = 1800;
+      default = 600;
       description = ''
-        Re-arm the warm marker after this long, so the post-readiness wedge
-        detector can run more than once per link session; 0 disables re-checks.
+        Soak interval (vk1188): once the automated health gate has passed,
+        re-probe liveness this often for as long as the link session is up;
+        0 disables the soak. Appends PASS/FAIL evidence to the health-gate
+        state file every time it fires.
 
-        Readiness is a one-shot latch and the wedge detector is gated on the
-        warm marker being absent, so without this a single successful warm
-        disables the detector for the rest of the session — which is how a rank
-        that wedged AFTER its first warm (2026-07-25: an 8-token completion
-        returning 0 bytes after 900s, both ranks at ~100% CPU) sat for over an
-        hour with nothing escalating.
-
-        Deliberately long: mlx_lm.server blocks HTTP during a generation, so a
-        healthy rank mid-answer fails a probe, and only maxWarmFailures
-        CONSECUTIVE failures escalate.
+        Readiness is a one-shot latch, so without a periodic recheck a rank
+        that wedges AFTER its first pass (2026-07-25: an 8-token completion
+        returning 0 bytes after 900s, both ranks at ~100% CPU) sits for over
+        an hour with nothing escalating. A single soak failure halts
+        immediately — unlike maxWarmFailures below, which tolerates
+        CONSECUTIVE failures of the initial gate, a 10-minute-interval miss
+        is already a sustained symptom, not a transient one landing mid-
+        generation.
       '';
     };
 
@@ -59,6 +59,87 @@
         budget while reporting that it is protecting it.
 
         Must exceed the jaccl back-off; the default leaves ample margin.
+      '';
+    };
+
+    consumerReadTimeoutSecs = lib.mkOption {
+      type = lib.types.int;
+      default = 180;
+      description = ''
+        How long a real client waits on this endpoint before giving up. Not a
+        timeout this module applies to anything — it is the reference the probe
+        timeouts below are required to exceed, asserted in
+        ./cluster-assertions.nix.
+
+        THE GATE MUST NEVER DECLARE DEATH BEFORE ACTUAL CLIENTS GIVE UP. A probe
+        timeout shorter than this makes the health gate strictly more impatient
+        than the traffic it exists to protect, so the gate kills pipelines that
+        every real consumer would still be happily waiting on. On 2026-08-08 a
+        120s probe expired against a generation that had been running 181s and
+        was answered normally afterwards; the gate tore the rank down and the
+        SIGTERM teardown leaked the wired shard on both hosts.
+      '';
+    };
+
+    soakBusySkipMax = lib.mkOption {
+      type = lib.types.int;
+      default = 10;
+      description = ''
+        Consecutive soak ticks that may be DEFERRED because a request is in
+        flight on the endpoint, before the probe fires regardless.
+
+        A busy pipeline must not be probed — mlx_lm.server serializes
+        generation and blocks HTTP, so the probe would queue behind real work
+        and expire through no fault of the mesh — and in-flight work is itself
+        proof of life. But a WEDGED rank holds its connections open exactly as a
+        busy one does, so the deferral has to end somewhere: this is where. At
+        the bound the probe runs with healthGateTimeoutSecs, which already
+        exceeds consumerReadTimeoutSecs, so a genuine long generation still
+        completes inside it and only a true wedge fails.
+
+        Counted in watcher ticks, not soak intervals: the warm marker is not
+        refreshed on a deferral (refreshing it would push the next re-check a
+        full interval away on every skip and let a permanently-connected wedge
+        escape probing entirely), so the block re-evaluates every tick while
+        traffic continues.
+      '';
+    };
+
+    healthGateTimeoutSecs = lib.mkOption {
+      type = lib.types.int;
+      default = 300;
+      description = ''
+        vk1188: bound on one 1-token completion — the automated gate's probe
+        (b), and every soak recheck thereafter. Real timeout, not the untimed
+        curl the manual gate used to run: a rank that never answers must not be
+        able to hold the watcher open indefinitely.
+
+        MUST EXCEED consumerReadTimeoutSecs, asserted at eval. It was 120s
+        until 2026-08-08, i.e. the gate gave up before real clients did and
+        killed a pipeline that was still answering them.
+      '';
+    };
+
+    healthGateConcurrency = lib.mkOption {
+      type = lib.types.int;
+      default = 2;
+      description = ''
+        vk1188: N completions fired at once for the gate's probe (c), matching
+        the ethos of programs.mlx.proxy.concurrencyLimit — a rank can answer
+        one request fine and still fall over the moment real traffic overlaps
+        it, which one-at-a-time probing can never catch.
+      '';
+    };
+
+    healthGateConcurrentTimeoutSecs = lib.mkOption {
+      type = lib.types.int;
+      default = 360;
+      description = ''
+        vk1188: bound on EACH of the healthGateConcurrency completions above.
+        Longer than healthGateTimeoutSecs because N requests genuinely compete
+        for the same rank — asserted at eval, along with the requirement that
+        it exceeds consumerReadTimeoutSecs. Its failure kills the rank exactly
+        as the single-completion probe's does, so it is held to the same floor.
       '';
     };
   };

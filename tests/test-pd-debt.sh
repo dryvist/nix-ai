@@ -126,6 +126,17 @@ source "${STATUS:?set STATUS to cluster-rank-status.sh}"
 source "${REAP:?set REAP to cluster-rank-reap.sh}"
 # shellcheck disable=SC1090
 source "${GUARDS:?set GUARDS to cluster-link-guards.sh}"
+# The two layers the shipped watcher concatenates AROUND the guards: the
+# cross-boot cause budget (rung 0a') and the peer-armed handshake (rung 1e).
+# Sourced but left UNCONFIGURED, so both rungs are inert here — the same way
+# this file already configures the PD ledger and the memory rung idle. Without
+# them the guards would call functions that do not exist, and a `command not
+# found` inside an `if !` reads as a refusal, which would silently invert every
+# assertion below. Their own behaviour is pinned in tests/test-peer-armed-gate.sh.
+# shellcheck disable=SC1090
+source "${CAUSE:?set CAUSE to cluster-pd-cause.sh}"
+# shellcheck disable=SC1090
+source "${PEER_STATE:?set PEER_STATE to cluster-peer-state.sh}"
 
 # --- remaining stubs --------------------------------------------------------
 boot_now=1785031601
@@ -142,6 +153,9 @@ set_wired_limit() { return 0; }
 # The generation-parity rung (RULE 2), stubbed healthy — its own matrix lives
 # in tests/test-generation-heal.sh.
 generation_parity_cached() { printf 'state=ok local=aaaa deploy=aaaa'; }
+# The device-PD-budget rung (#1442), stubbed healthy — not yet under a
+# dedicated test of its own.
+pd_device_budget_ok() { return 0; }
 hostname() { echo test-host; }
 # The reap's wait loop must advance without really sleeping, or a stubbed clock
 # spins it forever. sleep moves the clock; date reports it.

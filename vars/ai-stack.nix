@@ -42,6 +42,10 @@
   models = {
     default = null;
     quickest = null;
+    # Size class, not speed class: the cheapest weights that can serve a
+    # latency-sensitive consumer. `quickest` is a separate axis and may well be
+    # a large MoE, so a consumer that needs *small* must not reach for it.
+    small = null;
     tool-calling = null;
     coding = null;
     large-context = null;

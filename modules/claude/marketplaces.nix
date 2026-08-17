@@ -103,4 +103,22 @@ base
     };
     flakeInput = marketplaceInputs.autoresearch;
   };
+  # context-engineering-kit lives in nix-ai (input + tier entry). Ships a
+  # native .claude-plugin/marketplace.json; only the `kaizen` plugin is
+  # enabled, and it carries both the `kaizen` and `why` skills.
+  "context-engineering-kit" = {
+    source = {
+      type = "github";
+      url = "NeoLabHQ/context-engineering-kit";
+    };
+    flakeInput = marketplaceInputs.context-engineering-kit;
+  };
+  # managing-dependencies is a single-plugin marketplace rooted at ./.
+  "managing-dependencies" = {
+    source = {
+      type = "github";
+      url = "andrew/managing-dependencies";
+    };
+    flakeInput = marketplaceInputs.managing-dependencies;
+  };
 }

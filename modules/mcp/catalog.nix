@@ -8,8 +8,13 @@
 # Servers requiring API keys read them from environment variables. Use your
 # secrets manager (Doppler, Keychain, etc.) to inject env vars.
 
-{ homeDirectory }:
+{ homeDirectory, pkgs }:
 let
+  # Python MCP servers built as Nix derivations rather than launched through
+  # uvx. A live uvx process holds a shared lock on the uv cache for its whole
+  # lifetime, which is what stopped `uv cache prune` from ever succeeding —
+  # see modules/mcp/packages.nix.
+  mcpPkgs = import ./packages.nix { inherit pkgs; };
   # bunx helper: command-only args for MCP server definitions.
   bunx = args: {
     command = "bunx";
@@ -48,12 +53,8 @@ in
     disabled = true;
   };
   time = codexMcp {
-    command = "uvx";
-    args = [
-      "--from"
-      "mcp-server-time==${versions.mcpServerTime}"
-      "mcp-server-time"
-    ];
+    command = "${mcpPkgs.mcp-server-time}/bin/mcp-server-time";
+    args = [ ];
   };
   docker = bunx [ "@modelcontextprotocol/server-docker" ]; # archived
   exa = bunx [ "@modelcontextprotocol/server-exa" ] // {
@@ -102,24 +103,15 @@ in
   # Community stdio package: https://github.com/shreyaskarnik/huggingface-mcp-server
   # Requires: HF_TOKEN — inject at runtime (see .env.example).
   huggingface = codexMcp {
-    command = "uvx";
-    args = [
-      "--from"
-      "huggingface-mcp-server==${versions.hfMcpServer}"
-      "--with"
-      "huggingface-hub==${versions.huggingfaceHub}"
-      "huggingface-mcp-server"
-    ];
+    command = "${mcpPkgs.huggingface-mcp-server}/bin/huggingface-mcp-server";
+    args = [ ];
   };
 
   # Fabric MCP - community-maintained (ksylvan/fabric-mcp), exposes fabric
   # patterns as MCP tools. Requires fabric CLI setup (see modules/fabric/).
   fabric = codexMcp {
-    command = "uvx";
+    command = "${mcpPkgs.fabric-mcp}/bin/fabric-mcp";
     args = [
-      "--from"
-      "fabric-mcp==${versions.fabricMcp}"
-      "fabric-mcp"
       "--transport"
       "stdio"
     ];

@@ -34,6 +34,19 @@
 #                                      GLOBAL paged-KV pool (--max-cache-blocks is
 #                                      a whole-pool block count shared across all
 #                                      concurrent sequences, not per-sequence).
+#   architecture     (required on cluster entries) the model's config.json
+#                    model_type, verbatim. Read by the clusterMode assertions
+#                    to check shardingMode: mlx-lm's pipeline and tensor-parallel
+#                    paths support disjoint architecture sets, and the wrong
+#                    choice is silent — no split, full model on every rank.
+#   backend          (optional) the model server this entry MUST run on, when
+#                    the host backend cannot serve it at all — vision-language
+#                    models need mlx_vlm.server because mlx_lm.server has no
+#                    image input path. Compiles to programs.mlx.modelBackends.
+#                    Omit for every text model: absent means "inherit
+#                    programs.mlx.modelServerBackend". An entry that sets this
+#                    must NOT reuse swapFlags below — those are mlx_lm serve
+#                    flags and no other backend accepts them.
 #   args             family serve args, applied in every class
 #   serverVariant    (optional) which mlx-lm wrapper serves it: "release"
 #                    (default, harmony-patched release wheel) or "git" (the
@@ -47,6 +60,16 @@
 #     swap     — on-demand, idle-unloaded, small caps
 # An entry only offers the classes it has been validated for; requesting an
 # unoffered class fails the eval.
+#
+# KV-QUANT / MTP FLAGS: DO NOT ADD to any entry. Measured against the
+# deployed release mlx-lm 0.31.3 wrapper's own --help (2026-08): no
+# --kv-bits/--kv-group-size, no MTP flag exists on the release server at all.
+# The backend is official mlx-lm only (vllm-mlx disabled, enforced by
+# lib/checks/mlx-catalog.nix); #1334's KV-quant half is not actionable until
+# mlx-lm ships the flags, and its MTP half is vllm-mlx-only and stays
+# unavailable unless that backend is re-enabled. A future git-wheel
+# serverVariant (staged DeepSeek rollout) adds --mtp but drops
+# --harmony-tool-parser — never select it for gpt-oss.
 {
   # Paged-cache block sizing (engine default 64): long sessions shatter the KV
   # into enough per-block Metal buffers to trip MLX's buffer-count limit

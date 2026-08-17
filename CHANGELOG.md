@@ -1,5 +1,225 @@
 # Changelog
 
+## [4.19.1](https://github.com/dryvist/nix-ai/compare/v4.19.0...v4.19.1) (2026-08-16)
+
+
+### Bug Fixes
+
+* **mlx:** restore standalone serving when a post-quiesce refusal never starts a rank ([#1682](https://github.com/dryvist/nix-ai/issues/1682)) ([14bb1d4](https://github.com/dryvist/nix-ai/commit/14bb1d44b8ab467d64280fad92aee16a2d538ee7))
+* **mlx:** set llama-swap unloadTimeout deliberately, log quiesce in-flight ([#1681](https://github.com/dryvist/nix-ai/issues/1681)) ([d148853](https://github.com/dryvist/nix-ai/commit/d1488535a6f03840f0dc036215ef2b74879bb33b))
+* **mlx:** split the memory-headroom check out of rank_start_preconditions_ok ([#1680](https://github.com/dryvist/nix-ai/issues/1680)) ([1355a2e](https://github.com/dryvist/nix-ai/commit/1355a2e3d3b941161487351a52b4292585284ff3))
+
+## [4.19.0](https://github.com/dryvist/nix-ai/compare/v4.18.1...v4.19.0) (2026-08-16)
+
+
+### Features
+
+* **mlx:** auto-detect and recover from llama-swap slot-accounting wedge ([#1672](https://github.com/dryvist/nix-ai/issues/1672)) ([e938415](https://github.com/dryvist/nix-ai/commit/e938415a40d7353fc6aa86256374114940b02db7))
+
+
+### Bug Fixes
+
+* **mlx:** assert modelExtraArgs keys resolve to a registry model ([#1128](https://github.com/dryvist/nix-ai/issues/1128)) ([#1670](https://github.com/dryvist/nix-ai/issues/1670)) ([f993c60](https://github.com/dryvist/nix-ai/commit/f993c60fed8f3ba6a5000ce9c1266f0abab7f6b5))
+* **mlx:** boot the serving watchdog out and back in with the cluster lifecycle ([#1673](https://github.com/dryvist/nix-ai/issues/1673)) ([c920d8c](https://github.com/dryvist/nix-ai/commit/c920d8c5c4323b714b1d9dd73c4d5648bcccc2c9))
+* **mlx:** key the generation-parity cache on the local system revision ([#1671](https://github.com/dryvist/nix-ai/issues/1671)) ([6610c8f](https://github.com/dryvist/nix-ai/commit/6610c8fd13340dd6444571eab649ce9d42abdddc))
+* **mlx:** make RDMA protection-domain settle billing errno-aware ([#1675](https://github.com/dryvist/nix-ai/issues/1675)) ([a2d274e](https://github.com/dryvist/nix-ai/commit/a2d274e295246b728b3bc1c17bf574a6b4046226))
+* **mlx:** make the fast-fail strike cap errno-aware ([#1674](https://github.com/dryvist/nix-ai/issues/1674)) ([45e7ecf](https://github.com/dryvist/nix-ai/commit/45e7ecfb27e00f1b0e70dbaa4e79201166856432))
+* **mlx:** migrate watchdog reap and status pid lookup off the stale process pattern ([#1676](https://github.com/dryvist/nix-ai/issues/1676)) ([808c8b7](https://github.com/dryvist/nix-ai/commit/808c8b7eb381208e84b365dbcc240a387e3091cb))
+
+## [4.18.1](https://github.com/dryvist/nix-ai/compare/v4.18.0...v4.18.1) (2026-08-16)
+
+
+### Bug Fixes
+
+* **mlx_cluster:** two defects that made the two-Mac cluster unable to form ([#1666](https://github.com/dryvist/nix-ai/issues/1666)) ([d3af13e](https://github.com/dryvist/nix-ai/commit/d3af13ea5debc1279e207b79d5daae63fc111113))
+
+## [4.18.0](https://github.com/dryvist/nix-ai/compare/v4.17.1...v4.18.0) (2026-08-16)
+
+
+### Features
+
+* **ai-stack:** add a `small` role to the model registry ([#1661](https://github.com/dryvist/nix-ai/issues/1661)) ([4c0e5b9](https://github.com/dryvist/nix-ai/commit/4c0e5b9c36b1ecdc2c8b84f33fe1ded581150c9e))
+* **mlx:** answer stream=true from the vlm adapter as one SSE chunk ([#1662](https://github.com/dryvist/nix-ai/issues/1662)) ([27d2077](https://github.com/dryvist/nix-ai/commit/27d207766040d0fe420c31b9f914cb95c8f72d51))
+* **mlx:** parameterize the default model key with a no-rebuild override ([#1660](https://github.com/dryvist/nix-ai/issues/1660)) ([f448b52](https://github.com/dryvist/nix-ai/commit/f448b525842ce53fa0348b70c90e63e6344704d6))
+
+## [4.17.1](https://github.com/dryvist/nix-ai/compare/v4.17.0...v4.17.1) (2026-08-15)
+
+
+### Bug Fixes
+
+* **mlx:** run the serving watchdog on the mlx-lm backend ([#1656](https://github.com/dryvist/nix-ai/issues/1656)) ([9d93244](https://github.com/dryvist/nix-ai/commit/9d932449cf9feaa3d2b4680162b7b2133e8b5e9c))
+
+## [4.17.0](https://github.com/dryvist/nix-ai/compare/v4.16.1...v4.17.0) (2026-08-15)
+
+
+### Features
+
+* **mcp,skills:** grep.app MCP server, three skill inputs, and INDEX categories ([#1650](https://github.com/dryvist/nix-ai/issues/1650)) ([7c37081](https://github.com/dryvist/nix-ai/commit/7c37081b43698918a7aa0a6e824456b5b1d97e35))
+
+
+### Bug Fixes
+
+* **agent-skills:** clean inactive managed links ([#1651](https://github.com/dryvist/nix-ai/issues/1651)) ([47d50f8](https://github.com/dryvist/nix-ai/commit/47d50f827baf84415c5409611341ed21d4112951))
+
+## [4.16.1](https://github.com/dryvist/nix-ai/compare/v4.16.0...v4.16.1) (2026-08-15)
+
+
+### Bug Fixes
+
+* **mcp:** keep optional data tests out of runtime builds ([2e717e9](https://github.com/dryvist/nix-ai/commit/2e717e944899264dbfc0af20a2a8116ffbc38624))
+
+## [4.16.0](https://github.com/dryvist/nix-ai/compare/v4.15.0...v4.16.0) (2026-08-15)
+
+
+### Features
+
+* **mlx:** derive concurrencyLimit ceiling from residency budget ([#1640](https://github.com/dryvist/nix-ai/issues/1640)) ([6c36baf](https://github.com/dryvist/nix-ai/commit/6c36baf33fc9bdd603bddb9e358755267792b06b))
+
+
+### Bug Fixes
+
+* **agent-skills:** select one Codex discovery root ([c1d1615](https://github.com/dryvist/nix-ai/commit/c1d161561f57d74568f455a6f9c0bfa480bfa819))
+
+## [4.15.0](https://github.com/dryvist/nix-ai/compare/v4.14.0...v4.15.0) (2026-08-15)
+
+
+### Features
+
+* **mlx:** serve vision-language models via a per-model backend ([#1635](https://github.com/dryvist/nix-ai/issues/1635)) ([ab9f40f](https://github.com/dryvist/nix-ai/commit/ab9f40f6c2ab64b365b4b858d24b7f1390ee6bbb))
+
+
+### Bug Fixes
+
+* **ci:** dispatch consumer relocks on release, not on flake.lock pushes ([#1636](https://github.com/dryvist/nix-ai/issues/1636)) ([a6b58f9](https://github.com/dryvist/nix-ai/commit/a6b58f98fc18e8a4193bdb0fd28a27475f030f63))
+
+## [4.14.0](https://github.com/dryvist/nix-ai/compare/v4.13.0...v4.14.0) (2026-08-15)
+
+
+### Features
+
+* **mlx,mcp:** deliver the always-running Python stack from the Nix store ([#1625](https://github.com/dryvist/nix-ai/issues/1625)) ([1b6baac](https://github.com/dryvist/nix-ai/commit/1b6baac32021019a7ccf892644affef0189b36e0))
+
+## [4.13.0](https://github.com/dryvist/nix-ai/compare/v4.12.0...v4.13.0) (2026-08-14)
+
+
+### Features
+
+* **mlx:** add resident judge model in its own llama-swap group ([d6d598b](https://github.com/dryvist/nix-ai/commit/d6d598b478723d8a4b33eadb81a7a2c655905403))
+* **mlx:** add resident judge model in its own llama-swap group ([c98b25b](https://github.com/dryvist/nix-ai/commit/c98b25bc346466f2b4f278ad2cd1e723f5adfbec))
+* **mlx:** adopt Qwen3.8-27B-4bit and bump the local-LLM stack ([edebe9b](https://github.com/dryvist/nix-ai/commit/edebe9bb72c06d72bb2189ac4a6ab6a334f0ca51))
+* **mlx:** adopt Qwen3.8-27B-4bit and bump the local-LLM stack ([6851a94](https://github.com/dryvist/nix-ai/commit/6851a941ad4806b8ff79ee4209f3d6b7a9284b6e))
+
+
+### Bug Fixes
+
+* **mlx:** give qwen38-27b the fleet-brain resident profile ([8f61eed](https://github.com/dryvist/nix-ai/commit/8f61eedada74dd712dadce127eedf3cd9739cf85))
+* **mlx:** serve the Qwen3.8-27B with thinking on at reasoning_effort=medium ([#1627](https://github.com/dryvist/nix-ai/issues/1627)) ([c23ad1e](https://github.com/dryvist/nix-ai/commit/c23ad1eee36ff8da8911486bfbd2255aa96cf144))
+* **mlx:** unbreak develop — 27B catalog check asserted a removed concurrency pin ([#1626](https://github.com/dryvist/nix-ai/issues/1626)) ([b22505c](https://github.com/dryvist/nix-ai/commit/b22505cc48c27ce05a7dee105b827952b6602e0a))
+
+## [4.12.0](https://github.com/dryvist/nix-ai/compare/v4.11.0...v4.12.0) (2026-08-14)
+
+
+### Features
+
+* package VisiCore operator CLIs ([cbecf57](https://github.com/dryvist/nix-ai/commit/cbecf57734bdd2dfaff64710ea11f5c2ca9bc9be))
+
+
+### Bug Fixes
+
+* **mcp:** bound the MCP Python SDK below 2.x for uvx-launched servers ([#1620](https://github.com/dryvist/nix-ai/issues/1620)) ([6ed823a](https://github.com/dryvist/nix-ai/commit/6ed823ac3cba5857b7e7b0ca8824f648a7e8fcda))
+
+## [4.11.0](https://github.com/dryvist/nix-ai/compare/v4.10.2...v4.11.0) (2026-08-13)
+
+
+### Features
+
+* add shared Browser Use skill and CLI ([#1614](https://github.com/dryvist/nix-ai/issues/1614)) ([cd3ae46](https://github.com/dryvist/nix-ai/commit/cd3ae46afe56f9c19451758d8b28b0de628ddd23))
+
+## [4.10.2](https://github.com/dryvist/nix-ai/compare/v4.10.1...v4.10.2) (2026-08-08)
+
+
+### Bug Fixes
+
+* **mlx_cluster:** never probe a busy pipeline, and outlast the clients the gate protects ([#1607](https://github.com/dryvist/nix-ai/issues/1607)) ([5773282](https://github.com/dryvist/nix-ai/commit/57732828375ad150ae1b16b78278a0cd69210b60))
+
+## [4.10.1](https://github.com/dryvist/nix-ai/compare/v4.10.0...v4.10.1) (2026-08-08)
+
+
+### Bug Fixes
+
+* **mlx_cluster:** recover serving and the rank job across join/detach ([#1603](https://github.com/dryvist/nix-ai/issues/1603)) ([dbe52ec](https://github.com/dryvist/nix-ai/commit/dbe52ec96ca9536346f77983b66d33d3be1878c8))
+
+## [4.10.0](https://github.com/dryvist/nix-ai/compare/v4.9.2...v4.10.0) (2026-08-08)
+
+
+### Features
+
+* **mlx_cluster:** peer-armed handshake, auto re-arm, cross-boot PD budget ([#1599](https://github.com/dryvist/nix-ai/issues/1599)) ([f2471db](https://github.com/dryvist/nix-ai/commit/f2471dbc03294bc3ecf6f2c23d4b2d60daf6b84e))
+
+## [4.9.2](https://github.com/dryvist/nix-ai/compare/v4.9.1...v4.9.2) (2026-08-08)
+
+
+### Bug Fixes
+
+* **mlx:** stand down a rank that dies before settling, at two strikes ([#1595](https://github.com/dryvist/nix-ai/issues/1595)) ([1a3953d](https://github.com/dryvist/nix-ai/commit/1a3953d80be09d2b7b4c7ff6227ffb1a52e1036b))
+
+## [4.9.1](https://github.com/dryvist/nix-ai/compare/v4.9.0...v4.9.1) (2026-08-07)
+
+
+### Bug Fixes
+
+* **session-archive:** make the agent script executable ([#1587](https://github.com/dryvist/nix-ai/issues/1587)) ([9c38a74](https://github.com/dryvist/nix-ai/commit/9c38a74fd7f047844ec5f1f3e7e2eeac6224ceaf))
+
+## [4.9.0](https://github.com/dryvist/nix-ai/compare/v4.8.0...v4.9.0) (2026-08-07)
+
+
+### Features
+
+* **session-archive:** daily push of AI session history to vendor buckets ([#1579](https://github.com/dryvist/nix-ai/issues/1579)) ([ab7913b](https://github.com/dryvist/nix-ai/commit/ab7913b459a73a5d1055ee2bd1c2b2b73619c269))
+
+## [4.8.0](https://github.com/dryvist/nix-ai/compare/v4.7.0...v4.8.0) (2026-08-07)
+
+
+### Features
+
+* **mlx:** automated cluster rank health gate + soak (vk1188) ([#1576](https://github.com/dryvist/nix-ai/issues/1576)) ([2f5549e](https://github.com/dryvist/nix-ai/commit/2f5549e7f23961b06bb5794cdeed35596df46228))
+
+
+### Bug Fixes
+
+* **cluster:** wait for the post-exit teardown before judging detach ([#1575](https://github.com/dryvist/nix-ai/issues/1575)) ([37e1aa5](https://github.com/dryvist/nix-ai/commit/37e1aa55296b2baf85019e31e2e05460b6e883e5))
+* **mlx:** assert cluster sharding mode matches the model architecture ([#1574](https://github.com/dryvist/nix-ai/issues/1574)) ([c271801](https://github.com/dryvist/nix-ai/commit/c2718013a7f60fa249f38503fa2a5dbd8e0c2202))
+* **mlx:** update stale warm-recheck assertion for vk1188's 600s soak default ([#1578](https://github.com/dryvist/nix-ai/issues/1578)) ([1855c68](https://github.com/dryvist/nix-ai/commit/1855c686669f60c02f9dfdf2623478722d5cfe04))
+
+## [4.7.0](https://github.com/dryvist/nix-ai/compare/v4.6.4...v4.7.0) (2026-08-07)
+
+
+### Features
+
+* **mlx:** golden-config matrix audit + gemma4-31b-optiq entry ([#1564](https://github.com/dryvist/nix-ai/issues/1564)) ([08d3114](https://github.com/dryvist/nix-ai/commit/08d3114b9a49b0e0860fd8954ad54fbed69184cb))
+
+## [4.6.4](https://github.com/dryvist/nix-ai/compare/v4.6.3...v4.6.4) (2026-08-07)
+
+
+### Bug Fixes
+
+* **token-meter:** make enable=false actually stop the dashboard ([#1567](https://github.com/dryvist/nix-ai/issues/1567)) ([d103203](https://github.com/dryvist/nix-ai/commit/d1032030345d7d035bdb76c36d26311fc7e0a3f4))
+
+## [4.6.3](https://github.com/dryvist/nix-ai/compare/v4.6.2...v4.6.3) (2026-08-07)
+
+
+### Bug Fixes
+
+* **mlx:** pin llama-swap proxy to explicit IPv4 loopback ([#1555](https://github.com/dryvist/nix-ai/issues/1555)) ([452dbc4](https://github.com/dryvist/nix-ai/commit/452dbc4f8e3f63e20ea144975a86437dc331167e))
+* **mlx:** verify devicePdBudget against ibv_devinfo at runtime ([#1556](https://github.com/dryvist/nix-ai/issues/1556)) ([05db5b4](https://github.com/dryvist/nix-ai/commit/05db5b4cbb79e5e74c3c67f0377487db968ca355))
+
+## [4.6.2](https://github.com/dryvist/nix-ai/compare/v4.6.1...v4.6.2) (2026-08-07)
+
+
+### Bug Fixes
+
+* **session-sync:** stop pushing Codex's plugin cache to the peer ([#1557](https://github.com/dryvist/nix-ai/issues/1557)) ([45dec42](https://github.com/dryvist/nix-ai/commit/45dec42033611a9e3dfb0a7751b28676c959d4d1))
+
 ## [4.6.1](https://github.com/dryvist/nix-ai/compare/v4.6.0...v4.6.1) (2026-08-07)
 
 

@@ -128,9 +128,10 @@ _:
     # ========================================================================
     # browser-use-skills — browser-use/browser-use (synthetic)
     # ========================================================================
-    # DISABLED globally — re-enable per-repo for browser automation work.
-    # General browser testing is also covered by Tier 2 playwright@claude-plugins-official.
-    "browser-use@browser-use-skills" = false;
+    # Enabled globally: the upstream Browser Use CLI skill is shared with every
+    # configured harness through programs.agentSkills. This native Claude
+    # plugin remains the Claude Code entrypoint; do not maintain a forked copy.
+    "browser-use@browser-use-skills" = true;
 
     # ========================================================================
     # vct-cribl-pack-validator-skills — private source (synthetic)

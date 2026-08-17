@@ -31,6 +31,10 @@
 #   CLUSTER_STATIC_PEER_IP        peer's link address
 #   CLUSTER_PEER_READY_TIMEOUT_SECS  bound on this wait
 #   CLUSTER_PEER_READY_POLL_SECS     seconds between probes
+#   CLUSTER_RDMA_DEVICE           configured fallback RDMA device (clusterMode.rdmaDevice),
+#                                already carries the "rdma_" prefix — see rdmaDevice's default
+#   CLUSTER_PD_DEVICE_BUDGET      measured max_pd this host's config assumes (see #1442)
+#   CLUSTER_IBV_DEVINFO_BIN       ibv_devinfo path/seam, default /usr/bin/ibv_devinfo
 
 # Wait, briefly, for the peer to answer on the link. 0 = a peer is there.
 #
@@ -53,4 +57,68 @@ peer_link_preflight() {
     [ "$(date +%s)" -lt "$deadline" ] || return 1
     sleep "$poll"
   done
+}
+
+# The carrier-active Thunderbolt port's RDMA device (e.g. "rdma_en2"), same
+# discovery cluster-rank-launch.sh uses for the ibv matrix — never a pinned
+# name, because moving the cable moves the port. Falls back to
+# CLUSTER_RDMA_DEVICE (already prefixed) when no carrier-active port has a
+# matching rdma_<dev>. Duplicated from cluster-link-guards.sh (watcher-only)
+# because this file's layer (join) does not include that one — see
+# cluster-script-layers.nix's per-layer function ownership.
+active_rdma_device() {
+  local dev
+  while read -r dev; do
+    [ -n "$dev" ] || continue
+    /sbin/ifconfig "$dev" 2>/dev/null | /usr/bin/grep -q 'status: active' || continue
+    if /usr/bin/ibv_devices 2>/dev/null | /usr/bin/awk '{print $1}' | /usr/bin/grep -qx "rdma_$dev"; then
+      printf 'rdma_%s\n' "$dev"
+      return 0
+    fi
+  done < <(
+    /usr/sbin/networksetup -listallhardwareports 2>/dev/null |
+      /usr/bin/awk '/^Hardware Port: Thunderbolt [0-9]/ { tb = 1; next }
+           /^Device:/ { if (tb) print $2; tb = 0 }'
+  )
+  [ -n "${CLUSTER_RDMA_DEVICE:-}" ] || return 1
+  printf '%s\n' "$CLUSTER_RDMA_DEVICE"
+}
+
+# #1442: devicePdBudget (CLUSTER_PD_DEVICE_BUDGET) is a measured constant frozen
+# into Nix at eval time — nothing previously checked it against the machine it
+# actually runs on. The reserve invariant (2 * maxKickstarts <= devicePdBudget)
+# is arithmetic over that number, so a wrong one makes the guard's cap either
+# unsafe (device has fewer domains than configured) or needlessly conservative
+# (device has more). ibv_devinfo cannot run in the Nix sandbox — this is a
+# runtime assertion, not an eval-time one.
+#
+# Sets PD_BUDGET_DETAIL for the caller's log line. Fail-closed: an unreadable
+# probe is treated as unverified, not as passing.
+pd_device_budget_ok() {
+  local configured="${CLUSTER_PD_DEVICE_BUDGET:-0}"
+  local device reported
+  case "$configured" in
+    '' | *[!0-9]*) return 0 ;;
+  esac
+  [ "$configured" -gt 0 ] || return 0
+  if ! device="$(active_rdma_device)"; then
+    PD_BUDGET_DETAIL="no carrier-active RDMA device found to verify max_pd against"
+    return 1
+  fi
+  reported="$("${CLUSTER_IBV_DEVINFO_BIN:-/usr/bin/ibv_devinfo}" -d "$device" -v 2>/dev/null | /usr/bin/awk '$1 == "max_pd:" { print $2; exit }')"
+  case "$reported" in
+    '' | *[!0-9]*)
+      PD_BUDGET_DETAIL="ibv_devinfo -d $device -v did not report a readable max_pd; budget unverified"
+      return 1
+      ;;
+  esac
+  if [ "$reported" -lt "$configured" ]; then
+    # shellcheck disable=SC2034 # read by cluster-join.sh's `fail "$PD_BUDGET_DETAIL"`, same sourced layer (cluster-script-layers.nix's `join`)
+    PD_BUDGET_DETAIL="$device reports max_pd=$reported, below the configured devicePdBudget=$configured — the reserve invariant would be evaluated against a budget the device does not have"
+    return 1
+  fi
+  if [ "$reported" -gt "$configured" ]; then
+    echo "cluster-join: $device reports max_pd=$reported, above the configured devicePdBudget=$configured (conservative; not refusing)" >&2
+  fi
+  return 0
 }

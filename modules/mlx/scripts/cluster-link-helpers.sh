@@ -153,6 +153,34 @@ peer_rendezvous_session() {
       END { exit(found ? 0 : 1) }'
 }
 
+# A request is in flight when something holds an ESTABLISHED connection on the
+# endpoint port. Probing then is how a HEALTHY busy rank gets killed:
+# mlx_lm.server serializes generation and blocks HTTP for its duration, so a
+# probe queues behind the real request and times out through no fault of the
+# mesh. Checked BEFORE the probe opens its own socket, so it never sees itself.
+#
+# THIS IS NOT A THEORETICAL HAZARD. On 2026-08-08 the soak re-check fired its
+# 1-token probe while a real 22k-token generation held the single pipeline slot
+# and had streamed nothing for 181s. The probe expired, the gate declared the
+# rank wedged, and the SIGTERM teardown leaked the wired shard on both hosts —
+# a busy, healthy pipeline killed, at the cost of a dual reboot. The
+# peer-liveness supervisor had carried this check for weeks; the soak had not.
+#
+# IN-FLIGHT WORK IS PROOF OF LIFE, but only for a while: a WEDGED rank holds its
+# connections open exactly as a busy one does (measured 2026-07-25 — a killed
+# peer left the coordinator accepting, returning zero bytes after 60s). So every
+# caller bounds how long it will defer; see busy_stall_secs in
+# cluster-peer-liveness.sh and CLUSTER_SOAK_BUSY_SKIP_MAX in the watcher.
+#
+# netstat is in /usr/sbin, which is NOT on a writeShellApplication PATH.
+endpoint_busy() {
+  [ -n "${CLUSTER_HTTP_PORT:-}" ] || return 1
+  "${CLUSTER_NETSTAT_BIN:-/usr/sbin/netstat}" -an -p tcp 2> /dev/null |
+    awk -v port=".${CLUSTER_HTTP_PORT}" '
+      /ESTABLISHED/ && index($0, port) { found = 1 }
+      END { exit(found ? 0 : 1) }'
+}
+
 halt_write() {
   local halt_file="$1" latch_file="$2" cause="$3" detail="$4"
   # boot= is what makes the halt scoped to the machine's current life. Read back
@@ -164,7 +192,27 @@ halt_write() {
   # link cycle, an accepted clear, or cluster-join. It is what makes the halt
   # more than a file someone can delete (see halt_clear_accepted).
   printf '%s\n' "$cause" > "$latch_file"
+  printf '%s\n' "$cause" > "$(halt_cause_file "$latch_file")"
 }
+
+# The last halt cause, kept ACROSS boots. Sibling of the latch, and deliberately
+# outside every reset the latch takes part in — halt_drop_if_pre_boot, an
+# accepted manual clear, a link cycle and cluster-join all clear the latch, and
+# none of them may clear this.
+#
+# WHY IT EXISTS. The latch is boot-scoped, correctly: every cause a halt records
+# is process or kernel state that a reboot really does clear. But the cross-boot
+# cause budget (./cluster-pd-cause.sh) has to survive the reboot it is counting,
+# and it identifies the would-be cause FROM the latch — so on a fresh boot it had
+# no cause to look up and could not refuse until that boot's first halt. A cause
+# already at budget would therefore bill its couple of domains every boot,
+# forever: the same leak-reboot-leak loop the budget exists to end, just slower.
+#
+# It never gates an under-budget cause, so cold-boot formation is untouched.
+#
+# Derived in ONE place, from the latch it sits beside, because a writer and a
+# reader that each spell a path are a writer and a reader on different files.
+halt_cause_file() { printf '%s/last-halt-cause' "$(dirname "$1")"; }
 
 # Idempotent wired-ceiling write through the exact-value sudoers grant.
 # No-op when unset or already at the target; returns nonzero on failure.
@@ -184,9 +232,27 @@ set_wired_limit() {
 
 quiesce_normal_serving() {
   if [ "$CLUSTER_ROLE" = "coordinator" ]; then
+    # llama-swap's /api/models/unload kills in-flight requests outright — it
+    # does not wait for them (upstream doc comment on router.Unload: "Stop
+    # kills the upstream, those callers see whatever error the reverse proxy
+    # surfaces"). No admission-stop exists anywhere in the chain to prevent
+    # that (checked llama-swap's own API surface and LiteLLM's model-update
+    # API, which is DB-gated and this fabric deliberately runs without a DB).
+    # So a guard that can disrupt production must at least SAY what it
+    # disrupted: snapshot in-flight requests from llama-swap's own SSE event
+    # stream (GET /api/events, first message is a full snapshot) before
+    # killing them.
+    local snapshot
+    snapshot="$(curl -fsS -m 3 --no-buffer "$CLUSTER_NORMAL_PROXY/api/events" 2> /dev/null | grep -m1 '^data:')"
+    if [ -n "$snapshot" ]; then
+      echo "cluster-link: quiesce in-flight snapshot: $(printf '%s' "${snapshot#data: }" | jq -c '.requests // [] | map(.id)' 2> /dev/null || printf '%s' "$snapshot")"
+    else
+      echo "cluster-link: quiesce in-flight snapshot: none (or /api/events unreachable)"
+    fi
     # Unload every normal-mode model; the proxy itself stays up so the
     # restore only needs a re-warm, not a proxy restart. Idempotent.
     curl -fsS -m 60 -X POST "$CLUSTER_NORMAL_PROXY/api/models/unload" || true
+    echo "cluster-link: quiesce unload request completed"
   elif [ -n "${CLUSTER_QUIESCE_CMD:-}" ]; then
     sh -c "$CLUSTER_QUIESCE_CMD" || true
   fi

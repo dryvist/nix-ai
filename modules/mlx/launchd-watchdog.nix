@@ -14,9 +14,11 @@ let
   inherit (mlxShared)
     cfg
     launchAgentLabel
+    watchdogAgentLabel
     apiUrl
     mlxWatchdogPkg
-    modelServerProcessPattern
+    llamaSwapConfigAttrs
+    allModels
     ;
 
   # Untracked, operator-seeded notification targets. nix owns the PATH; the
@@ -24,6 +26,10 @@ let
   # Defined here so the env vars below and the activation warning cannot drift.
   alertUrlFile = "${config.home.homeDirectory}/.config/mlx-cluster/alert-url";
   healthcheckUrlFile = "${config.home.homeDirectory}/.config/mlx-cluster/healthcheck-url";
+  # Worker ports the watchdog's reap_workers() must reclaim — same formula as
+  # launchd.nix's own agent (nix-ai#1423: port ownership, not a process
+  # pattern, see scripts/llama-swap-reap.sh).
+  workerPortCount = builtins.length (builtins.attrNames allModels);
 in
 {
   config = lib.mkIf cfg.enable {
@@ -56,9 +62,19 @@ in
       # The probe generates against the preloaded (resident) models, so with
       # nothing preloaded every probe would cold-load a worker — worse than
       # no watchdog. Such a host has no resident serving to guard.
-      enable = cfg.modelServerBackend == "vllm-mlx" && cfg.preload != [ ];
+      #
+      # NOT gated on the backend. Everything the watchdog touches is
+      # backend-neutral — an OpenAI completion through llama-swap, launchctl
+      # kickstart/bootout of the proxy label, and the port-ownership reap
+      # (MLX_PORT / MLX_WORKER_PORT_RANGE_START / MLX_WORKER_PORT_COUNT
+      # below), which does not vary by backend either. The old
+      # `modelServerBackend == "vllm-mlx"` term was dead code the moment
+      # assertions.nix began requiring modelServerBackend == "mlx-lm" whenever
+      # the module is enabled: the two conditions cannot both hold, so the
+      # agent was unconditionally disabled and no serving host had a watchdog.
+      enable = cfg.preload != [ ];
       config = {
-        Label = "dev.mlx-model-server.watchdog";
+        Label = watchdogAgentLabel;
         ProgramArguments = [ (lib.getExe mlxWatchdogPkg) ];
         RunAtLoad = false;
         # 60 s: a zombie is detected and kickstarted within one cron gap
@@ -68,7 +84,12 @@ in
         EnvironmentVariables = {
           MLX_API_URL = apiUrl;
           MLX_LAUNCHD_LABEL = launchAgentLabel;
-          MLX_MODEL_SERVER_PROCESS_PATTERN = modelServerProcessPattern;
+          # Port block reap_workers() must reclaim — same three vars
+          # llama-swap-launch's own agent sets (launchd.nix), read by
+          # mlx_reap_orphan_ports (llama-swap-reap.sh, nix-ai#1423).
+          MLX_PORT = toString cfg.port;
+          MLX_WORKER_PORT_RANGE_START = toString llamaSwapConfigAttrs.startPort;
+          MLX_WORKER_PORT_COUNT = toString workerPortCount;
           # Probe the whole resident set, not just the head. Each preloaded
           # model is warm by construction, so a failure means "not serving",
           # never "cold load in progress". Passing the full list lets the
@@ -91,6 +112,20 @@ in
           # Maps the capability alias to its physical worker so progress
           # metrics cannot be borrowed from a healthy non-brain backend.
           MLX_WATCHDOG_CONFIG = mlxShared.llamaSwapRuntimeConfigPath;
+          # What a brain that stays busy past the grace window earns. The
+          # ladder is only safe where a busy probe can be told apart from a
+          # BUSY-BUT-PRODUCTIVE one, and the only progress signal the watchdog
+          # has is vllm_mlx_engine_steps_executed on the worker's own /metrics.
+          # mlx_lm.server exposes no metrics endpoint (see enableMetrics in
+          # options-server.nix) and llama-swap's proxy /metrics carries host
+          # gauges only — no per-model counters — so under mlx-lm the progress
+          # probe fails on every tick by construction. A brain saturating its
+          # concurrency slots correctly 429s each probe, which would then look
+          # identical to a wedge and reap a perfectly healthy loaded model
+          # every grace window. So mlx-lm pages instead of restarting; dead and
+          # down (a real not-serving answer, no progress ambiguity) keep the
+          # full ladder on both backends.
+          MLX_WATCHDOG_BUSY_ESCALATION = if cfg.modelServerBackend == "vllm-mlx" then "restart" else "alert";
           # Untracked Slack incoming-webhook url file, shared with the cluster
           # watcher so one seeded url pages for both. Missing file = no page.
           MLX_WATCHDOG_ALERT_URL_FILE = alertUrlFile;

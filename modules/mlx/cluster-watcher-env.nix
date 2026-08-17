@@ -16,9 +16,11 @@
   rankLabel,
   warmupAgentLabel,
   launchAgentLabel,
+  watchdogAgentLabel,
   launchAgentsDir,
   stateFile,
   pdDebtFile,
+  rankErrorLog,
 }:
 let
   # The CLUSTER RANK process pattern. Single definition, derived from the same
@@ -26,35 +28,17 @@ let
   # for why this is NOT modelServerProcessPattern and must never become it.
   inherit (import ./cluster-rank-pattern.nix { inherit lib; }) clusterRankProcessPattern;
 
-  # The link-down settle window in the unit the watcher actually counts in:
-  # consecutive failed probes. Rounded UP (integer ceil) with a floor of one, so
-  # a settle window shorter than one tick still means "one confirming probe"
-  # rather than "no debounce at all". Derived, never configured twice — a value
-  # defined in two places is a bug even when the two agree.
-  downStrikes =
-    let
-      ticks = (ncfg.linkDownSettleSecs + ncfg.tickIntervalSecs - 1) / ncfg.tickIntervalSecs;
-    in
-    if ticks < 1 then 1 else ticks;
-
-  # How often the still-down report repeats, in the unit the watcher counts in.
-  # Same derivation rule as downStrikes: the operator configures seconds, the
-  # script counts ticks, and neither number exists twice. This was a bare `:-20`
-  # default inside the script with nothing setting it — so the cadence could not
-  # be tuned and, on a node running an older generation, was not applied at all.
-  downReportEveryTicks =
-    let
-      ticks = (ncfg.downReportEverySecs + ncfg.tickIntervalSecs - 1) / ncfg.tickIntervalSecs;
-    in
-    if ticks < 1 then 1 else ticks;
-
-  # Same ceil-against-the-tick derivation as downStrikes, for the
-  # memory-headroom rung's escalate-to-halt dwell. See options-cluster-memory.nix.
-  memHeadroomDwellTicks =
-    let
-      ticks = (ncfg.memHeadroomHaltSecs + ncfg.tickIntervalSecs - 1) / ncfg.tickIntervalSecs;
-    in
-    if ticks < 1 then 1 else ticks;
+  # The four derived tick-counts (link-down settle, down-report cadence,
+  # heartbeat, memory-headroom dwell) live in ./cluster-watcher-env-ticks.nix,
+  # split out at the per-file size cap (same move as ./cluster-watcher-env-peer.nix
+  # below). Merged straight into this attrset, so the variables the watcher sees
+  # are unchanged.
+  inherit (import ./cluster-watcher-env-ticks.nix { inherit ncfg; })
+    downStrikes
+    downReportEveryTicks
+    heartbeatEveryTicks
+    memHeadroomDwellTicks
+    ;
 in
 {
   CLUSTER_ROLE = ncfg.role;
@@ -78,6 +62,7 @@ in
   CLUSTER_LINK_ACTIVATE_TIMEOUT_SECS = toString ncfg.linkRepairActivateTimeoutSecs;
   CLUSTER_LINK_DOWN_STRIKES = toString downStrikes;
   CLUSTER_DOWN_REPORT_EVERY = toString downReportEveryTicks;
+  CLUSTER_HEARTBEAT_EVERY = toString heartbeatEveryTicks;
   # --- self-heal and drift detection, the 2026-08-01 pair ---------------------
   # The watcher probes the peer; until now it never checked its OWN link prep, so
   # a host with carrier and no link address probed, failed and logged forever —
@@ -145,6 +130,11 @@ in
   # the number the reserve invariant in lib/checks/mlx-cluster-pd-env.nix
   # measures the cap against.
   CLUSTER_PD_DEVICE_BUDGET = toString ncfg.devicePdBudget;
+  # Fallback device name for active_rdma_device (cluster-link-guards.sh) when
+  # no carrier-active Thunderbolt port has a matching rdma_<dev> — same config
+  # the rank launcher falls back to (cluster-mode.nix). Already carries the
+  # "rdma_" prefix (rdmaDevice's own default).
+  CLUSTER_RDMA_DEVICE = ncfg.rdmaDevice;
   # --- memory-headroom guard --------------------------------------------------
   # Expected per-rank working set; 0 disables the rung with no vm_stat read at
   # all. See options-cluster-memory.nix for why this is measured against FREE
@@ -157,7 +147,13 @@ in
   # vm_stat is not on a writeShellApplication PATH; test seam, like
   # CLUSTER_NETSTAT_BIN / CLUSTER_PGREP_BIN / CLUSTER_KILL_BIN above.
   CLUSTER_VMSTAT_BIN = "/usr/bin/vm_stat";
+  # The rank's own StandardErrorPath — same file cluster-mode.nix wires the
+  # rank launchd agent to. Read by rank_failure_stage (cluster-link-guards.sh)
+  # to tell a Stage-A TCP-bootstrap death, which cannot have leaked an RDMA
+  # protection domain, from a Stage-B one, which already has.
+  CLUSTER_RANK_ERROR_LOG = rankErrorLog;
 }
+// (import ./cluster-watcher-env-peer.nix { inherit ncfg; })
 // lib.optionalAttrs isCoordinator {
   # Readiness probe target: launchctl liveness alone cannot see a rank hung in
   # distributed init (see the watcher script). Only rank 0 binds the endpoint, so
@@ -167,7 +163,20 @@ in
   CLUSTER_RANK_URL = "http://127.0.0.1:${toString ncfg.httpPort}";
   CLUSTER_MODEL = ncfg.model;
   CLUSTER_MAX_WARM_FAILURES = toString ncfg.maxWarmFailures;
+  # Consecutive soak ticks the watcher may defer while a request is in flight.
+  # A busy pipeline is proof of life and must not be probed; a wedged one holds
+  # its connections open the same way, so the deferral is bounded here.
+  CLUSTER_SOAK_BUSY_SKIP_MAX = toString ncfg.soakBusySkipMax;
   CLUSTER_WARM_RECHECK_SECS = toString ncfg.warmRecheckSecs;
+  # Real generation progress, checked ahead of endpoint_busy in the soak probe —
+  # same log and pattern cluster-peer-liveness.sh's coordinator_tick already
+  # reads, reused rather than re-derived (see cluster-peer-observe.sh).
+  CLUSTER_RANK_PROGRESS_LOG = rankErrorLog;
+  CLUSTER_PEER_PROGRESS_PATTERN = ncfg.peerLiveness.progressPattern;
+  # vk1188 automated health gate + soak.
+  CLUSTER_HEALTH_GATE_TIMEOUT_SECS = toString ncfg.healthGateTimeoutSecs;
+  CLUSTER_HEALTH_GATE_CONCURRENCY = toString ncfg.healthGateConcurrency;
+  CLUSTER_HEALTH_GATE_CONCURRENT_TIMEOUT_SECS = toString ncfg.healthGateConcurrentTimeoutSecs;
   CLUSTER_RANK_SETTLE_SECS = toString ncfg.rankSettleSecs;
   # The link-down re-warm POSTs through llama-swap, so the watcher needs to be
   # able to bootstrap that agent when cluster-join has booted it out -- otherwise
@@ -176,6 +185,12 @@ in
   # converge.
   CLUSTER_SERVER_LABEL = launchAgentLabel;
   CLUSTER_SERVER_PLIST = "${launchAgentsDir}/${launchAgentLabel}.plist";
+  # Same pair, for the serving watchdog cluster-join boots out alongside the
+  # server and warmup agents: restore_normal_serving needs the plist to
+  # bootstrap it back on every teardown path this watcher owns (up->down edge,
+  # PD-guard halt, wedge teardown).
+  CLUSTER_WATCHDOG_LABEL = watchdogAgentLabel;
+  CLUSTER_WATCHDOG_PLIST = "${launchAgentsDir}/${watchdogAgentLabel}.plist";
 }
 // lib.optionalAttrs (ncfg.wiredLimitMb != null) {
   CLUSTER_WIRED_LIMIT_MB = toString ncfg.wiredLimitMb;

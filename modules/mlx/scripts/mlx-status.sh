@@ -13,25 +13,30 @@ if lsof -ti :"$port" 2>/dev/null | head -1 > /dev/null; then
   model=$(echo "${_running}" | jq -r '.running[0].model // "(none loaded)"' 2>/dev/null || echo "(none loaded)")
 
   # Get memory from the model-server child process (the real memory consumer).
-  # Prefer the backend that is a child of the proxy bound to $port.
+  # $proxy_pid is already confirmed bound to $port above, so its direct
+  # children ARE the model-server processes -- no cmdline pattern needed
+  # (nix-ai#1423: mlx-lm-launch.py's cmdline never matched
+  # MLX_MODEL_SERVER_PROCESS_PATTERN, so this lookup found nothing for the
+  # standalone worker; ancestry from a port-confirmed pid does not have that
+  # problem).
   proxy_pid=$(lsof -ti :"$port" 2>/dev/null | head -1)
   model_server_pid=""
   if [ -n "$proxy_pid" ]; then
-    model_server_pid=$(pgrep -P "$proxy_pid" -f "${MLX_MODEL_SERVER_PROCESS_PATTERN:?}" 2>/dev/null | head -1)
-  fi
-  # Fallback: broad search if no child match (unexpected layout).
-  if [ -z "$model_server_pid" ]; then
-    model_server_pid=$(pgrep -f "${MLX_MODEL_SERVER_PROCESS_PATTERN:?}" 2>/dev/null | head -1)
+    model_server_pid=$(pgrep -P "$proxy_pid" 2>/dev/null | head -1)
   fi
 
   if [ -n "$model_server_pid" ]; then
-    # The pattern matches both the `uv run` supervisor (llama-swap's direct
-    # child, found above) and the real engine one level under it -- a Nix
-    # store path invocation forks rather than execs (confirmed live: RSS
-    # ~70MB on the supervisor vs several GB on the engine). Descend when
-    # there is a child, so memory/uptime are read from the process that
-    # actually holds them instead of quietly reporting a healthy-looking
-    # near-zero number for the supervisor.
+    # Descend to a child when one exists, so memory/uptime are read from the
+    # process that actually holds them instead of quietly reporting a
+    # healthy-looking near-zero number for a supervisor.
+    #
+    # Standalone mode no longer HAS a supervisor: the wrapper execs a
+    # Nix-store python directly (llama-swap -> python, two pids), where it used
+    # to be `uv run` forking the engine beneath it (three pids, RSS ~70MB on
+    # the supervisor vs several GB on the engine). With no child, the pgrep
+    # below returns nothing and the engine pid is kept as-is -- which is the
+    # correct answer for that shape. The descent stays because CLUSTER mode
+    # still launches through uvx and does still have the extra layer.
     child_pid=$(pgrep -P "$model_server_pid" 2>/dev/null | head -1)
     [ -n "$child_pid" ] && model_server_pid="$child_pid"
   fi

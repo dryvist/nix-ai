@@ -16,10 +16,12 @@
   launchAgentsDir,
   launchAgentLabel,
   warmupAgentLabel,
+  watchdogAgentLabel,
   stateFile,
   pdDebtFile,
   apiUrl,
   modelServerProcessPattern,
+  rankErrorLog,
 }:
 let
   # The CLUSTER RANK process pattern — a different fact from
@@ -45,10 +47,21 @@ let
     # different files.
     CLUSTER_PD_DEBT_FILE = pdDebtFile;
     CLUSTER_PD_DEBT_MAX = toString ncfg.maxKickstarts;
+    # The rank's own StandardErrorPath — same file the watcher carries (see
+    # cluster-watcher-env.nix). pd_debt_settle_counter (cluster-pd-settle.sh)
+    # reads it via rank_failure_stage to tell a Stage-A TCP-bootstrap death,
+    # which cannot have leaked a protection domain, from a Stage-B one, which
+    # already has, before billing either command's counter-reset to the ledger.
+    CLUSTER_RANK_ERROR_LOG = rankErrorLog;
     # Measured device max_pd (11 here). Both commands report debt as a fraction
     # of it — "2 of 11 device protection domains consumed until reboot" — since
     # a bare count hides how small the pool actually is.
     CLUSTER_PD_DEVICE_BUDGET = toString ncfg.devicePdBudget;
+    # Fallback device name for active_rdma_device (cluster-join-preflight.sh)
+    # when no carrier-active Thunderbolt port has a matching rdma_<dev> — same
+    # config the rank launcher falls back to (cluster-mode.nix). Already
+    # carries the "rdma_" prefix (rdmaDevice's own default).
+    CLUSTER_RDMA_DEVICE = ncfg.rdmaDevice;
     # /usr/bin is not on a writeShellApplication PATH; absolute, and a test seam,
     # exactly like CLUSTER_NETSTAT_BIN.
     CLUSTER_PGREP_BIN = "/usr/bin/pgrep";
@@ -75,7 +88,20 @@ let
       # by join itself — INC-17070), so it needs no cluster endpoint URL/model.
       CLUSTER_NORMAL_PROXY = "http://127.0.0.1:${toString cfg.port}";
       CLUSTER_SERVER_LABEL = launchAgentLabel;
+      # join BOOTS THIS AGENT OUT, so its failure-path restore cannot work
+      # without the plist: restore_normal_serving refuses with "not loaded and
+      # no plist to bootstrap" in exactly the case that matters. Same pair
+      # cluster-detach and the watcher already carry.
+      CLUSTER_SERVER_PLIST = "${launchAgentsDir}/${launchAgentLabel}.plist";
       CLUSTER_WARMUP_LABEL = warmupAgentLabel;
+      # join also boots this agent out (it would otherwise run its escalation
+      # ladder against a coordinator it sees as "up but not serving" for the
+      # whole cluster window and reload the standalone stack mid-window,
+      # reclaiming the memory the quiesce just freed). Same plist requirement
+      # as CLUSTER_SERVER_PLIST above: restore_normal_serving needs it to
+      # bootstrap the watchdog back on the failure path.
+      CLUSTER_WATCHDOG_LABEL = watchdogAgentLabel;
+      CLUSTER_WATCHDOG_PLIST = "${launchAgentsDir}/${watchdogAgentLabel}.plist";
       CLUSTER_STANDALONE_PROCESS_PATTERN = modelServerProcessPattern;
       # Newline-separated substrings of standalone-serving engines to spare from the
       # quiesce reap (standalone keep-resident backends). Empty by default.
@@ -83,6 +109,14 @@ let
     }
     // lib.optionalAttrs (!isCoordinator && ncfg.quiesceCommand != null) {
       CLUSTER_QUIESCE_CMD = ncfg.quiesceCommand;
+    }
+    // lib.optionalAttrs (!isCoordinator && ncfg.restoreCommand != null) {
+      # The worker half of the failure-path restore. Without it a worker join
+      # that quiesced and then failed lands in restore_normal_serving's "this
+      # host takes serving away and cannot give it back" branch — which is the
+      # honest report, but the wrong one when the hook exists and was simply
+      # never handed to join.
+      CLUSTER_RESTORE_CMD = ncfg.restoreCommand;
     };
 
   clusterDetachEnv =
@@ -100,11 +134,23 @@ let
       # 86h). Every node that can be quiesced must be able to prove it came back.
       CLUSTER_STANDALONE_PROBE_URL = apiUrl;
       CLUSTER_STANDALONE_PROBE_MODEL = cfg.defaultModel;
+      # detach BOOTS THE RANK AGENT OUT before it signals anything, so that a
+      # half-executed teardown cannot be raced by a watcher kickstart — and must
+      # therefore bootstrap it back before it exits. Without the plist the agent
+      # would stay unloaded until the next activation, every later kickstart
+      # would fail, and the cluster could not re-form. RunAtLoad and KeepAlive
+      # are both false on that agent, so bootstrapping it loads it IDLE.
+      CLUSTER_RANK_PLIST = "${launchAgentsDir}/${rankLabel}.plist";
     }
     // lib.optionalAttrs isCoordinator {
       CLUSTER_SERVER_LABEL = launchAgentLabel;
       CLUSTER_SERVER_PLIST = "${launchAgentsDir}/${launchAgentLabel}.plist";
       CLUSTER_WARMUP_LABEL = warmupAgentLabel;
+      # Detach never boots this out itself — it only feeds restore_normal_serving,
+      # same as the pair above. Carried so a detach that follows a join which did
+      # boot the watchdog out can still bootstrap it back.
+      CLUSTER_WATCHDOG_LABEL = watchdogAgentLabel;
+      CLUSTER_WATCHDOG_PLIST = "${launchAgentsDir}/${watchdogAgentLabel}.plist";
     }
     // lib.optionalAttrs (!isCoordinator && ncfg.restoreCommand != null) {
       # The worker's restore hook — cluster-restore, which bootstraps back

@@ -66,6 +66,17 @@ source "${LEDGER:?set LEDGER to the path of cluster-pd-ledger.sh}"
 source "${HELPERS:?set HELPERS to the path of cluster-link-helpers.sh}"
 # shellcheck disable=SC1090
 source "${GUARDS:?set GUARDS to the path of cluster-link-guards.sh}"
+# The two layers the shipped watcher concatenates AROUND the guards: the
+# cross-boot cause budget (rung 0a') and the peer-armed handshake (rung 1e).
+# Sourced but left UNCONFIGURED, so both rungs are inert here — the same way
+# this file already configures the PD ledger and the memory rung idle. Without
+# them the guards would call functions that do not exist, and a `command not
+# found` inside an `if !` reads as a refusal, which would silently invert every
+# assertion below. Their own behaviour is pinned in tests/test-peer-armed-gate.sh.
+# shellcheck disable=SC1090
+source "${CAUSE:?set CAUSE to cluster-pd-cause.sh}"
+# shellcheck disable=SC1090
+source "${PEER_STATE:?set PEER_STATE to cluster-peer-state.sh}"
 
 # --- stubs for the macOS-only wrappers, plus call counters ------------------
 link_ok=1
@@ -97,6 +108,9 @@ rank_reap_verified() { [ "$reap_ok" = 1 ]; }
 # The generation-parity rung (RULE 2), stubbed healthy here; its refuse/pass
 # matrix and the drift heal are exercised in tests/test-generation-heal.sh.
 generation_parity_cached() { printf 'state=ok local=aaaa deploy=aaaa'; }
+# The device-PD-budget rung (#1442), stubbed healthy here; not yet under a
+# dedicated test of its own.
+pd_device_budget_ok() { return 0; }
 date() {
   case "$1" in
     +%s) echo "$align_now" ;;

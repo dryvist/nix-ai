@@ -35,6 +35,14 @@
 #   CLUSTER_NORMAL_PROXY        normal-mode llama-swap base URL (graceful unload)
 #   CLUSTER_SERVER_LABEL        normal-mode server (llama-swap) launchd label
 #   CLUSTER_WARMUP_LABEL        normal-mode warmup one-shot launchd label
+#   CLUSTER_SERVER_PLIST        that agent's plist — join boots the agent out,
+#                             so the failure-path restore needs the plist to
+#                             bootstrap it back (restore_normal_serving)
+#   CLUSTER_WATCHDOG_LABEL      serving watchdog launchd label — join boots this
+#                             out too, or it sees the coordinator as "up but not
+#                             serving" for the whole cluster window and reloads
+#                             the standalone stack mid-window
+#   CLUSTER_WATCHDOG_PLIST      that agent's plist, same reason as CLUSTER_SERVER_PLIST
 #   CLUSTER_KEEP_RESIDENT       newline-separated command-line substrings; a
 #                             `vllm-mlx serve` engine matching any is left
 #                             running through the quiesce (standalone keep-
@@ -43,6 +51,9 @@
 #    its own, so it needs no cluster endpoint URL or model id)
 #   worker only:
 #   CLUSTER_QUIESCE_CMD         optional worker-side quiesce hook (run via sh -c)
+#   CLUSTER_RESTORE_CMD         cluster-restore — the failure-path restore's
+#                             worker half, bootstrapping back exactly what
+#                             cluster-quiesce recorded booting out
 #
 # Grants used (nix-darwin sudoers, cluster-ops): exact-value
 # `sysctl -w iogpu.wired_limit_mb=<value>`, `/nix/var/nix/profiles/system/activate`,
@@ -71,6 +82,54 @@ fail() {
   echo "cluster-join: FAIL: $*" >&2
   exit 1
 }
+
+# A JOIN THAT DOES NOT FINISH MUST NOT LEAVE THE HOST SERVING NOTHING.
+#
+# Step 3 boots standalone serving out so the shard gets the whole machine. Every
+# exit after that point which is not a formed cluster used to leave it booted
+# out: the watcher only restores on the up->down edge (an edge a healthy cable
+# never produces) or from one of its own halt paths, so when join itself timed
+# out with no halt recorded, nothing on the host restored anything. Observed
+# 2026-08-08 — 20+ minutes serving nothing, ended by an operator running
+# cluster-restore by hand.
+#
+# An EXIT trap rather than a line inside fail(): writeShellApplication runs with
+# errexit, so an abort that never reaches fail() is exactly the case a bare
+# fail() edit would still miss.
+#
+# It defers to the watcher whenever the watcher owns the outcome, because a
+# restore issued over a live rank would bootstrap the standalone stack into the
+# shard's memory:
+#   rank running   — the cluster formed (or is forming); the watcher's teardown
+#                    paths restore serving when that ends.
+#   halt recorded  — the watcher halted, and every halt path already restores.
+# Both checks and the restore itself log, so which branch fired is never a
+# guess. quiesced is false until step 3 actually takes serving away, so an early
+# refusal (parity, link prep, absent peer, PD debt) restores nothing — it never
+# removed anything.
+quiesced=false
+
+restore_serving_if_join_left_it_down() {
+  if [ "$quiesced" != true ]; then
+    echo "cluster-join: standalone serving was never quiesced; nothing to restore"
+    return 0
+  fi
+  if rank_process_running; then
+    echo "cluster-join: standalone serving stays quiesced — a rank process is running, so the watcher owns this host's serving state"
+    return 0
+  fi
+  if [ -f "$halt_file" ]; then
+    echo "cluster-join: standalone serving left to the watcher — a halt is recorded ($(cat "$halt_file" 2> /dev/null)), and every halt path restores serving itself"
+    return 0
+  fi
+  echo "cluster-join: no rank and no halt after the quiesce; restoring standalone serving so this host is not left serving nothing" >&2
+  if restore_normal_serving; then
+    echo "cluster-join: standalone serving restore issued"
+  else
+    echo "cluster-join: WARN standalone serving restore FAILED; this host is serving nothing and needs cluster-restore by hand" >&2
+  fi
+}
+trap restore_serving_if_join_left_it_down EXIT
 
 # --- gate: RDMA protection-domain debt --------------------------------------
 # Runs FIRST, before anything destructive. Every later step tears something down —
@@ -192,6 +251,21 @@ its watcher self-heals that within a tick or two, and cluster-join there repairs
 No rank was started, so no RDMA protection domain was spent."
 fi
 
+# --- step 1c: verify the device PD budget (#1442) ---------------------------
+# devicePdBudget (CLUSTER_PD_DEVICE_BUDGET) was measured by hand on two hosts
+# and frozen into Nix; ibv_devinfo cannot run in the Nix sandbox, so nothing
+# before this point has ever checked it against the machine actually running.
+# The reserve invariant enforced at build time (2 * maxKickstarts <=
+# devicePdBudget) is arithmetic over that number — a wrong one silently makes
+# the invariant meaningless in either direction. pd_device_budget_ok /
+# active_rdma_device come from cluster-join-preflight.sh (this layer's copy;
+# the watcher's is in cluster-link-guards.sh — see cluster-script-layers.nix).
+if pd_device_budget_ok; then
+  echo "cluster-join: device PD budget verified (configured=${CLUSTER_PD_DEVICE_BUDGET:-0})"
+else
+  fail "$PD_BUDGET_DETAIL"
+fi
+
 # --- step 2: pin the wired ceiling BEFORE anything loads (non-negotiable) ---
 # Skipping this step risks a WindowServer watchdog kill (INC-17076).
 # A shard loaded over a standalone-sized ceiling wires out the GUI working set and
@@ -232,10 +306,28 @@ Loading a shard against stale swap spirals to a panic (INC-17075)."
   # keep-resident engines (CLUSTER_KEEP_RESIDENT) are standalone agents outside
   # llama-swap, so the bootout and the proxy unload never touch them; only the
   # reap of leftover model-server engines must skip them (see standalone_serve_pids).
+  # Armed BEFORE the first destructive verb, not after the step succeeds: the
+  # reap below can fail() with the agents already booted out, which is precisely
+  # a host left serving nothing.
+  quiesced=true
   curl -fsS -m 30 -X POST "${CLUSTER_NORMAL_PROXY:-}/api/models/unload" > /dev/null 2>&1 || true
   /bin/launchctl bootout "gui/$uid/${CLUSTER_WARMUP_LABEL}" > /dev/null 2>&1 || true
   /bin/launchctl bootout "gui/$uid/${CLUSTER_SERVER_LABEL}" > /dev/null 2>&1 || true
   echo "cluster-join: booted out standalone serving ($CLUSTER_SERVER_LABEL, $CLUSTER_WARMUP_LABEL)"
+  # The watchdog probes the standalone proxy on its own 60s timer, independent
+  # of the two agents above. Left running through the cluster window it finds
+  # the coordinator "up but not serving" like a real outage and climbs its
+  # escalation ladder -- rung 2 is a full bootstrap of the standalone stack,
+  # which would reload it mid-window and reclaim the memory this quiesce just
+  # freed. Boot it out too, with the same graceful-degrade shape as the pair
+  # above: an unset label is a config gap on an older generation, not a fault,
+  # so it is logged and skipped rather than treated as a failure.
+  if [ -n "${CLUSTER_WATCHDOG_LABEL:-}" ]; then
+    /bin/launchctl bootout "gui/$uid/${CLUSTER_WATCHDOG_LABEL}" > /dev/null 2>&1 || true
+    echo "cluster-join: booted out the serving watchdog ($CLUSTER_WATCHDOG_LABEL)"
+  else
+    echo "cluster-join: no CLUSTER_WATCHDOG_LABEL configured; nothing to boot out for the watchdog"
+  fi
 
   # PIDs of standalone model-server engines that are NOT keep-resident exempt. An engine
   # whose command line contains any CLUSTER_KEEP_RESIDENT substring is left up.
@@ -274,6 +366,7 @@ Loading a shard against stale swap spirals to a panic (INC-17075)."
   fi
   echo "cluster-join: standalone serving quiesced (only keep-resident engines remain)"
 elif [ -n "${CLUSTER_QUIESCE_CMD:-}" ]; then
+  quiesced=true
   sh -c "$CLUSTER_QUIESCE_CMD" || true
   echo "cluster-join: ran worker quiesce hook"
 fi
@@ -310,8 +403,15 @@ fi
 # pushes the ledger TO the cap, the watcher halts a tick later with cause
 # pd-debt-exhausted. That is the ledger working, not a stale marker.
 if [ -f "$halt_file" ] || [ -f "$halt_latch_file" ]; then
+  # $7/$8: the same run-start byte-offset marker the watcher wrote at the
+  # outstanding run's first kickstart (state_dir is derived identically here
+  # and there — one path, one writer, one reader per run). Lets the settle
+  # skip billing a run whose every attempt was provably Stage-A-only (jaccl
+  # TCP bootstrap, no protection domain could have been allocated) — see
+  # pd_debt_settle_counter and rank_failure_stage (./cluster-pd-stage.sh).
   pd_debt_settle_counter "${CLUSTER_PD_DEBT_FILE:-}" "$kicks_file" 0 "cluster-join" \
-    "attempts outstanding when cluster-join reset the session"
+    "attempts outstanding when cluster-join reset the session" "" \
+    "${CLUSTER_RANK_ERROR_LOG:-}" "$state_dir/rank-error-log-session-offset"
   rm -f "$halt_file" "$halt_latch_file"
   echo "cluster-join: cleared stale rank-halted latch"
 fi
@@ -408,4 +508,8 @@ else
   echo "  generation : n/a (worker rank stable)"
 fi
 echo "======================================================================"
-exit 0
+# NO TERMINAL `exit 0`, AND THAT IS DELIBERATE. The final `echo` above already
+# exits 0, so behaviour is identical. A terminal `exit` costs the EXIT trap at
+# the top of this script its only visible invocation: shellcheck stops crediting
+# `trap restore_serving_if_join_left_it_down EXIT` as a call and fails the build
+# with SC2329 — on the trap AND on the restore it reaches. Do not re-add it.

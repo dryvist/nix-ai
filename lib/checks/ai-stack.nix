@@ -14,6 +14,7 @@ let
     "most-capable"
     "oss"
     "quickest"
+    "small"
     "tool-calling"
   ];
 

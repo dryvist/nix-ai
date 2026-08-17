@@ -68,37 +68,35 @@ let
       pkgs
       lib
       cfg
+      versions
       uvPythonVersion
       mlxPin
       transformersPin
       ;
-    mlxLmVersion = versions.mlxLm;
     inherit (versions) mlxLmGit;
   };
   mlxLmServerPkg = mlxLmServer.pkg;
-  mlxModelServerPkg =
-    {
-      mlx-lm = mlxLmServerPkg;
-      vllm-mlx = vllmMlxServerAdapterPkg;
-    }
-    .${cfg.modelServerBackend};
+
+  # Vision-language path — split to mlx-vlm-server.nix (12 KB gate), which
+  # also carries the launchScriptBasename the pattern derives from.
+  mlxVlmServer = import ./mlx-vlm-server.nix {
+    inherit pkgs mlxVlmVersion uvPythonVersion;
+  };
+  mlxVlmServerPkg = mlxVlmServer.pkg;
+
+  mlxModelServerPkgs = {
+    mlx-lm = mlxLmServerPkg;
+    vllm-mlx = vllmMlxServerAdapterPkg;
+    mlx-vlm = mlxVlmServerPkg;
+  };
+  mlxModelServerPkg = mlxModelServerPkgs.${cfg.modelServerBackend};
   mlxWarmupPkg = pkgs.writeShellScriptBin "mlx-warmup" ''
     exec ${pkgs.python3}/bin/python3 ${./scripts/mlx-warmup.py} "$@"
   '';
-  # mlx-watchdog — periodic serving probe that kickstarts the proxy when it is up
-  # but not serving (KeepAlive only catches process exit). Probes a real
-  # completion: every observed failure mode still answers /v1/models with 200.
-  # writeShellApplication shellcheck-validates the script at eval time.
-  mlxWatchdogPkg = pkgs.writeShellApplication {
-    name = "mlx-watchdog";
-    runtimeInputs = with pkgs; [
-      curl
-      coreutils
-      gawk
-      jq
-    ];
-    text = builtins.readFile ./scripts/mlx-watchdog.sh;
-  };
+  # mlx-watchdog — periodic serving probe that kickstarts the proxy when it is
+  # up but not serving, INCLUDING a slot-accounting wedge (see
+  # mlx-watchdog-pkg.nix, 12KB-gate split).
+  mlxWatchdogPkg = import ./mlx-watchdog-pkg.nix { inherit pkgs lib; };
 
   # llama-swap sits on the stable API port and supervises official mlx_lm workers.
   # Sourced from nixpkgs-unstable: 25.11-darwin froze it at v165 on 2025-09-22
@@ -111,6 +109,7 @@ let
   apiUrl = "http://${cfg.host}:${toString cfg.port}/v1";
   launchAgentLabel = "dev.mlx-model-server";
   warmupAgentLabel = "dev.mlx-model-server.warmup";
+  watchdogAgentLabel = "dev.mlx-model-server.watchdog";
 
   # See ./warmup-timeout.nix for why this is derived rather than guessed.
   warmupTimeoutSeconds = import ./warmup-timeout.nix cfg lib;
@@ -118,7 +117,15 @@ let
   # Single definition of the model-server pgrep pattern, derived from the real
   # launcher — split to model-server-pattern.nix (12KB file-size gate). Its
   # header carries the measured evidence for why it is derived and unanchored.
-  inherit (import ./model-server-pattern.nix { inherit lib cfg mlxLmServer; })
+  inherit
+    (import ./model-server-pattern.nix {
+      inherit
+        lib
+        cfg
+        mlxLmServer
+        mlxVlmServer
+        ;
+    })
     modelServerProcessPattern
     ;
 
@@ -138,6 +145,7 @@ let
         cfg
         mlxModelServerPkg
         mlxLmServer
+        mlxModelServerPkgs
         ;
     })
     mkModelCmd
@@ -176,57 +184,24 @@ let
   # overrides client values per llama-swap's documented semantics).
   inherit (cfg.proxy) defaultFilters;
 
-  registryModels = lib.mapAttrs (
-    physical: roles:
-    let
-      extraArgs = cfg.modelExtraArgs.${physical} or [ ];
-    in
-    {
-      cmd =
-        mkModelCmd physical + lib.optionalString (extraArgs != [ ]) (" " + lib.escapeShellArgs extraArgs);
-      ttl = cfg.modelTtls.${physical} or cfg.proxy.idleTtl;
-      env = workerEnv;
-      checkEndpoint = "/v1/models";
-      aliases = roles;
-      useModelName = physical;
-      concurrencyLimit = effectiveConcurrency physical;
-    }
-    // lib.optionalAttrs (defaultFilters != { }) {
-      filters = defaultFilters;
-    }
-  ) rolesByPhysical;
-
-  # Additional ad-hoc models from cfg.models (existing extension point).
-  # These form the non-resident swap tier. They can be loaded on demand
-  # without evicting the resident registry models, and they can carry their
-  # own TTLs/aliases/filters.
-  additionalModels = lib.mapAttrs (
-    name: modelCfg:
-    let
-      mergedFilters = lib.recursiveUpdate defaultFilters (modelCfg.filters or { });
-    in
-    {
-      cmd =
-        mkModelCmd name
-        + lib.optionalString (modelCfg.extraArgs != [ ]) (
-          " " + lib.concatStringsSep " " modelCfg.extraArgs
-        );
-      ttl = if modelCfg.ttl > 0 then modelCfg.ttl else cfg.proxy.idleTtl;
-      env = workerEnv;
-      checkEndpoint = "/v1/models";
-      concurrencyLimit = effectiveConcurrency name;
-    }
-    // lib.optionalAttrs (modelCfg.aliases != [ ]) {
-      inherit (modelCfg) aliases;
-    }
-    // lib.optionalAttrs (mergedFilters != { }) {
-      filters = mergedFilters;
-    }
-  ) cfg.models;
-
-  residentModels = registryModels;
-  swapModels = additionalModels;
-  allModels = residentModels // swapModels;
+  # Model-instance maps (registry + swap tier) — split to model-instances.nix
+  # for the 12KB file-size gate.
+  inherit
+    (import ./model-instances.nix {
+      inherit
+        lib
+        cfg
+        mkModelCmd
+        effectiveConcurrency
+        workerEnv
+        defaultFilters
+        rolesByPhysical
+        ;
+    })
+    residentModels
+    swapModels
+    allModels
+    ;
 
   # Model/group topology (models/disabledModels/groups/disabledGroups) is a
   # pure function of the above — split into llama-swap-topology.nix so
@@ -237,6 +212,18 @@ let
     groupSwap = cfg.proxy.groupSwap;
   };
 
+  # Judge model entries, split to ./judge-topology.nix for the file-size gate.
+  judgeTopology = import ./judge-topology.nix {
+    inherit
+      lib
+      cfg
+      mkModelCmd
+      workerEnv
+      effectiveConcurrency
+      defaultFilters
+      ;
+  };
+
   llamaSwapConfigAttrs = {
     inherit (cfg.proxy) healthCheckTimeout logLevel logToStdout;
     # logLevel="info" keeps lifecycle/routing evidence without prompt bodies.
@@ -244,8 +231,18 @@ let
     # Tap live I/O with: curl http://127.0.0.1:11434/logs/stream
     # Configurable via programs.mlx.proxy.logLevel / logToStdout.
     startPort = 11436;
+    # Deliberately llama-swap's own default (10s), not left unset by accident.
+    # Bounds how long /api/models/unload blocks per process during cluster
+    # quiesce (cluster-link-helpers.sh: quiesce_normal_serving) before
+    # escalating SIGTERM to SIGKILL. In-flight requests are killed, not
+    # drained, regardless of this value — see cluster-quiesce-log.sh.
+    unloadTimeout = 10;
   }
-  // llamaSwapTopology;
+  // llamaSwapTopology
+  // {
+    models = (llamaSwapTopology.models or { }) // judgeTopology.models;
+    groups = (llamaSwapTopology.groups or { }) // judgeTopology.groups;
+  };
 
   # Use pkgs.writeText because command strings embed Nix store paths.
   llamaSwapConfigFile = pkgs.writeText "llama-swap-config.json" (
@@ -253,35 +250,8 @@ let
   );
 in
 {
-  imports = [
-    ./options-renamed.nix
-    ./options-proxy.nix
-    ./options-server.nix
-    ./options-cache.nix
-    # How every shell-script launchd agent here is launched. One option, because
-    # getting it wrong costs the agent its network access, silently.
-    ./options-launch.nix
-    ./options-batching.nix
-    ./options-catalog.nix
-    ./options-filters.nix
-    ./options-parsers.nix
-    ./options-runtime.nix
-    ./options-residency.nix
-    ./options-cluster.nix
-    ./options-cluster-pd-reboot.nix
-    ./options-cluster-lifecycle.nix
-    ./options-cluster-resilience.nix
-    ./options-cluster-selfheal.nix
-    ./options-cluster-rank-health.nix
-    ./options-cluster-memory.nix
-    ./assertions.nix
-    ./packages.nix
-    ./launchd.nix
-    ./launchd-watchdog.nix
-    ./cluster-mode.nix
-    ./cluster-mode-maintenance.nix
-    ./peer-liveness.nix
-  ];
+  # The module list lives in ./imports.nix (per-file size cap).
+  imports = import ./imports.nix;
 
   # Pass shared bindings to sub-modules via _module.args
   _module.args.mlxShared = {
@@ -298,6 +268,7 @@ in
       uvPythonVersion
       launchAgentLabel
       warmupAgentLabel
+      watchdogAgentLabel
       warmupTimeoutSeconds
       modelServerProcessPattern
       llamaSwapPkg

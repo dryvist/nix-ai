@@ -238,6 +238,16 @@ in
         name: _sel: lib.nameValuePair (entryFor name).model (lib.mkDefault (entryFor name).concurrencyLimit)
       ) (lib.filterAttrs (name: _sel: (entryFor name) ? concurrencyLimit) enabled);
 
+      # A catalog entry may declare the backend it must be served on, for models
+      # the host backend cannot run at all (vision-language models: mlx_lm.server
+      # has no image path). Compile it to the per-physical-id override; mkDefault
+      # so a direct host setting still wins. Entries without `backend` are absent
+      # here and inherit modelServerBackend, so this is a no-op for every text
+      # model already in the catalog.
+      modelBackends = lib.mapAttrs' (
+        name: _sel: lib.nameValuePair (entryFor name).model (lib.mkDefault (entryFor name).backend)
+      ) (lib.filterAttrs (name: _sel: (entryFor name) ? backend) enabled);
+
       # Swap-class role models still compile into the role registry rather than
       # cfg.models. Carry their catalog TTL to that registry entry so official
       # mlx_lm workers unload after use even when the host's resident TTL is 0.

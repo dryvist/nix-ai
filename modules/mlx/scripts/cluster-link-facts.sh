@@ -157,29 +157,54 @@ self_ip_fact() {
 # network calls a day and would make the facts line flap with the network rather
 # than with the system state it is supposed to report.
 #
-# Cache format is `<epoch> <fact>` on one line — deliberately NOT the file's
-# mtime, which would need `stat -f %m` (macOS-only) and make this untestable off
-# a Mac. Age is read from the payload, so the same code runs everywhere.
+# THE 2026-08-15 DEFECT. The TTL used to be the only cache key, so a
+# `darwin-rebuild switch` left the cache serving the PRE-REBUILD verdict for up
+# to an hour. Twice in one night both Macs converged to the same revision and
+# each watcher kept reading its own stale `state=drift`/`state=unstamped` fact:
+# cluster-link-guards.sh refused the local rank on it, and cluster-peer-state.sh
+# folded it into `armed=false`, which made the PEER refuse too — two healthy
+# hosts down together on a stale file, cleared only by a human deleting it by
+# hand. Evidence, both nodes on the same real revision `1fd8170...`:
+#   MBP: 1786852626 state=drift local=a460847f6856... deploy=1fd8170be793...
+#   MS : 1786852354 state=drift local=a460847f6856... deploy=1fd8170be793...
+# Deleting the file made the next tick publish `armed=true` within ~30s — the
+# fix in miniature: key the cache on the LOCAL generation too, not just time.
+#
+# Cache format is `<epoch> <local-rev-or-'-'> <fact>` on one line — deliberately
+# NOT the file's mtime, which would need `stat -f %m` (macOS-only) and make this
+# untestable off a Mac. A cached entry is used only when BOTH the TTL has not
+# lapsed AND the recorded local revision still matches darwin-version's current
+# one — so an activation invalidates the cache on its next read, immediately,
+# without shortening the TTL for every other tick where nothing changed. The
+# remote lookup stays TTL-rate-limited either way; only the local comparison is
+# free, since generation_local_rev is one local `darwin-version` call. A file
+# with no rev field (the pre-fix two-field format, or anything else malformed)
+# never matches a real revision and is correctly read as a miss.
 #
 # $1 = cache file. TTL from CLUSTER_GENERATION_CHECK_SECS (default 1h) — this is
 # also the proactive drift check the watcher never had: it runs on the timer,
 # unattended, on both machines.
 generation_parity_cached() {
-  local cache="$1" ttl="${CLUSTER_GENERATION_CHECK_SECS:-3600}" line stamp now fact
+  local cache="$1" ttl="${CLUSTER_GENERATION_CHECK_SECS:-3600}" raw stamp rest cached_rev now local_rev fact
   now="$(date +%s)"
+  local_rev="$(generation_local_rev)"
   if [ -f "$cache" ]; then
-    line="$(cat "$cache" 2> /dev/null || true)"
-    stamp="${line%% *}"
+    raw="$(cat "$cache" 2> /dev/null || true)"
+    stamp="${raw%% *}"
     case "$stamp" in
       '' | *[!0-9]*) stamp=0 ;;
     esac
-    if [ "$stamp" -gt 0 ] && [ "$((now - stamp))" -lt "$ttl" ]; then
-      printf '%s' "${line#* }"
+    rest="${raw#* }"
+    cached_rev="${rest%% *}"
+    [ "$cached_rev" = "-" ] && cached_rev=""
+    if [ "$stamp" -gt 0 ] && [ "$((now - stamp))" -lt "$ttl" ] &&
+      [ "$rest" != "$raw" ] && [ "$cached_rev" = "$local_rev" ]; then
+      printf '%s' "${rest#* }"
       return 0
     fi
   fi
   fact="$(generation_parity_fact)"
-  printf '%s %s\n' "$now" "$fact" > "$cache"
+  printf '%s %s %s\n' "$now" "${local_rev:--}" "$fact" > "$cache"
   printf '%s' "$fact"
 }
 

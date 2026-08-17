@@ -109,6 +109,7 @@ These tools refresh specific files between rebuilds:
 | `mlx-discover` | `~/.config/mlx/llama-swap.json` | After downloading a new model to `/Volumes/HuggingFace` |
 | `mlx-warmup` | resident model pages | After startup or when manually faulting the preload list |
 | `mlx-switch <model>` | triggers `mlx-discover` if needed | Hot-swap active MLX model without restart |
+| `mlx-default-model {set <key>\|clear\|show}` | the `default` alias in `~/.config/mlx/llama-swap.json`, plus `~/.config/mlx/default-model.override` | Re-point the `default` role at another catalog key with no rebuild; `--watch-config` reloads the proxy. Survives `darwin-rebuild`, and prints a banner on every activation while active. |
 
 ## Diagram: Full File Ownership Map
 
@@ -140,7 +141,7 @@ graph TD
         S1["~/.claude/plugins/marketplaces/"]
         S2["~/.claude/commands/, agents/, skills/, rules/"]
         S5["~/.agents/\nAGENTS.md, CLAUDE.md, agentsmd/, skills/"]
-        S6["~/.codex/skills, ~/.qwen/skills,\n~/.gemini/*/skills\n(harness → ~/.agents/skills)"]
+        S6["One of ~/.codex/skills or ~/.agents/skills\n(selected canonical root)\n← ~/.qwen/skills, ~/.gemini/*/skills"]
         S7["~/.qwen/AGENTS.md,\n~/.gemini/antigravity-cli/AGENTS.md,\n~/.config/opencode/AGENTS.md\n(harness → ~/.agents/AGENTS.md)"]
         S3["~/.config/fabric/patterns/"]
         S4["~/Maestro/ playbooks"]

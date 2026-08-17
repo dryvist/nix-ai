@@ -6,7 +6,44 @@
 # that is hard to attribute, so it is asserted at eval instead.
 #
 { ncfg, cfg }:
+let
+  # mlx-lm's two sharding paths have DISJOINT architecture support, and naming
+  # the wrong one on a pipeline-only model is SILENT rather than fatal: the
+  # has_tensor_parallel predicate is simply false, so no split happens, every
+  # rank loads the FULL model, and generation wedges with both ranks at the
+  # wired ceiling. Nothing logs a cause, so assert it at eval instead.
+  pipelineOnly = [
+    "glm4_moe"
+    "glm4_moe_lite"
+  ];
+  entry =
+    if ncfg.modelCatalogKey == null then { } else (import ./catalog-data.nix).${ncfg.modelCatalogKey};
+  arch = entry.architecture or null;
+in
 [
+  # THE GATE MUST NEVER BE MORE IMPATIENT THAN THE TRAFFIC IT PROTECTS. Every
+  # probe below can, on failure, halt the rank and tear the cluster down — and
+  # the teardown leaks the wired shard on both hosts, which only a reboot
+  # returns. A probe timeout under the read timeout real clients use therefore
+  # converts "a client would still be waiting" into a dual reboot. Asserted
+  # rather than commented because the numbers are three separate options and
+  # nothing else relates them.
+  {
+    assertion = ncfg.healthGateTimeoutSecs > ncfg.consumerReadTimeoutSecs;
+    message = "programs.mlx.clusterMode: healthGateTimeoutSecs (${toString ncfg.healthGateTimeoutSecs}s) must exceed consumerReadTimeoutSecs (${toString ncfg.consumerReadTimeoutSecs}s). A probe that gives up before real clients do declares a busy-but-healthy pipeline dead, and the teardown that follows leaks the wired shard on both hosts.";
+  }
+  {
+    assertion = ncfg.healthGateConcurrentTimeoutSecs >= ncfg.healthGateTimeoutSecs;
+    message = "programs.mlx.clusterMode: healthGateConcurrentTimeoutSecs (${toString ncfg.healthGateConcurrentTimeoutSecs}s) must be at least healthGateTimeoutSecs (${toString ncfg.healthGateTimeoutSecs}s) — N requests competing for one rank cannot be given less time than one request alone.";
+  }
+  {
+    assertion = (ncfg.modelCatalogKey != null) -> (arch != null);
+    message = "programs.mlx.clusterMode: catalog entry \"${toString ncfg.modelCatalogKey}\" is selected as the cluster model but declares no `architecture`. Add it to modules/mlx/catalog-data.nix, mirroring that model's config.json model_type, so the sharding mode can be checked.";
+  }
+  {
+    assertion = (builtins.elem (toString arch) pipelineOnly) -> (ncfg.shardingMode == "pipeline");
+    message = "programs.mlx.clusterMode: catalog entry \"${toString ncfg.modelCatalogKey}\" is architecture \"${toString arch}\", which implements pipelining and NOT tensor parallelism, so shardingMode must be \"pipeline\" (it is \"${ncfg.shardingMode}\"). Left tensor-parallel, mlx-lm performs no split at all and every rank loads the full model.";
+  }
   {
     assertion = ncfg.httpPort != cfg.port && ncfg.rendezvousPort != cfg.port;
     message = "programs.mlx.clusterMode: cluster ports must not clash with the normal-mode proxy port.";
@@ -22,6 +59,19 @@
     # so the cluster never forms — the failure this boundary exists to prevent.
     assertion = ncfg.rankStartAlignMultiple >= 2;
     message = "programs.mlx.clusterMode: rankStartAlignMultiple must be >= 2, or the rank-start boundary period equals the watcher tick and the two hosts can align to different boundaries forever.";
+  }
+  {
+    # The staleness window must outlast the watcher's OWN slowest tick, not
+    # just a couple of missed publishes. The publish happens near the top of a
+    # tick; the rank-start boundary sleeps inside that same tick, up to
+    # rankStartAlignMultiple ticks long. So two publishes are separated by a
+    # tick plus the alignment hold plus the probes. At the old 3-against-2 the
+    # window equalled the hold plus one tick with nothing over to cover the
+    # probes, and on 2026-08-16 both hosts published every 95-173s against a
+    # 90s window: each read the other as stale, both suppressed every start,
+    # and the cluster could never form with both hosts armed and healthy.
+    assertion = ncfg.peerStateStaleTicks >= ncfg.rankStartAlignMultiple + 3;
+    message = "programs.mlx.clusterMode: peerStateStaleTicks must be at least rankStartAlignMultiple + 3, or a host's own rank-start alignment hold delays its next publish past the window its peer judges it by, and both hosts suppress every start while armed and healthy.";
   }
   {
     # A node that can be QUIESCED must be able to be RESTORED, and the config is

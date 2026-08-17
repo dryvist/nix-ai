@@ -50,13 +50,15 @@ activation that aliases the link address had never run.
 Enforced: parity (against `clusterMode.generationRepo` HEAD) is the **first
 read of every watcher tick** and a precondition rung — under `drift` or
 `unstamped`, no reap, link prep, quiesce, ceiling write or rank start happens,
-and no attempt is consumed. Drift is **reconciled unattended**: the watcher
-submits a detached launchd job (`dev.mlx-cluster.generation-heal`) rebuilding
-from `github:<repo>/<rev>` — detached because a rebuild fired from the
-watcher's own tree is SIGKILLed by the very activation it runs. Bounded per
-deploy revision, single-flight, never on a machine whose rank is serving;
-success is judged by re-reading parity. `cluster-join` still heals supervised;
-a by-hand halt clear during drift is re-halted naming the gate.
+and no attempt is consumed. **Drift does NOT self-heal** (corrected
+2026-08-16, was previously claimed otherwise here): `generation_heal_maybe`
+only pages, once per deploy revision — a repair has to know what to repair
+*into*, which the watcher cannot know. It also can't run itself: activation
+unloads a launchd agent's OLD plist before loading the new one, so a rebuild
+fired from inside the watcher's own tick would have activation kill the
+watcher mid-rebuild. Rank starts stay refused until a human runs
+`darwin-rebuild switch`. **Generation drift is a permanent human-requiring
+stop.**
 
 Parity is a *preventive control*, not the usual suspect: on 2026-08-02 all
 nodes matched deploy HEAD exactly and the cause was a Metal OOM (§6). See §0.
@@ -75,44 +77,11 @@ cluster capacity.
 
 ## 4. Reading the machine — the observation traps
 
-Each produced a confident wrong diagnosis at least once.
-
-- **`RUNNING` in ifconfig flags is NOT carrier.** It is set on an admin-up
-  port with nothing plugged in. Carrier is the per-port `status:` line —
-  `active`/`inactive`, read on `en1`/`en2`/`en3` individually. `bridge0`'s own
-  status is irrelevant. The facts line renders this per port.
-- **A missing link address means link prep did not run.** It says *nothing*
-  about the cable — fully compatible with a seated cable and `status: active`.
-  Only the cluster tooling aliases it, never DHCP or the bridge service.
-  Enforced: carrier present + address absent self-repairs, bounded
-  (`linkPrepMaxRepairs`).
-- **A disabled Thunderbolt Bridge with zero members is the CORRECT state.**
-  The tooling deliberately frees TB ports *from* `bridge0`; `member: enX`
-  reappearing is the classic prep loss, undone by `repair_link_direct`. Do not
-  "fix" it in System Settings.
-- **macOS TCC has a distinct signature and never removes an address**:
-  same-subnet `EHOSTUNREACH` for non-Apple-signed processes while
-  `/usr/bin/curl` succeeds in the same second, interface/route/ARP all valid.
-  `NOT-ALIASED` is never TCC. Both agents launch through Apple's interpreter
-  (`programs.mlx.appleInterpreter`) for this reason.
-- **Never read halt state by file existence.** `[ -f rank-halted ]` reports
-  the automation's own self-healing as an outage: post-reboot the marker
-  legitimately exists for a tick before `halt_drop_if_pre_boot` drops it. Test
-  the marker's `boot=` field against `sysctl -n kern.boottime`. Same family: a
-  `quiesced-agents` marker is not evidence the agents are quiesced — observe
-  the processes, never trust a marker over the machine.
-- **Read a failure burst from the FIRST error, not the last.** 2026-08-02: the
-  first rank failure was a Metal OOM
-  (`kIOGPUCommandBufferCallbackErrorOutOfMemory`); every later attempt died
-  `[jaccl] Couldn't connect (error: 60)` — a downstream symptom pointing at
-  the network. The last error names the aftermath; the first names the cause.
-- **`errno 60` never names the machine that is wrong.** It is `ETIMEDOUT`.
-  Enforced: `cluster-join` probes the peer (`peerReadyTimeoutSecs`) before the
-  long wait and refuses naming which side is unverified; the watcher's peer
-  rung refuses a start against an absent peer — no rank, no domain spent.
-- **A worker rank can die SIGSEGV (exit 139) when its peer vanishes.**
-  `launchctl list`'s second column is the last exit status; a bare
-  running/not-running check hides it.
+Each produced a confident wrong diagnosis at least once. Split into its own
+page: [cluster-observation-traps.md](cluster-observation-traps.md) — carrier
+vs. `RUNNING`, link-address vs. cable state, the Thunderbolt Bridge's correct
+empty state, the Local Network Privacy errno signature, halt-state markers,
+first-vs-last error in a burst, and `errno 60`/SIGSEGV misattribution.
 
 ## 5. Serving truths
 
@@ -158,7 +127,10 @@ self-reboot at exhaustion, so the terminal state needs no human.
 The ledger goes **inert if mis-assembled**: `cluster-boot-scope.sh` must be
 concatenated first, and every system binary absolute or behind its
 `CLUSTER_*_BIN` seam (`writeShellApplication` sanitizes PATH; a bare `sysctl`
-silently disabled the guard once).
+silently disabled the guard once). **It is also a billing estimate, not a
+kernel read** — once read `domains=3` against a real count of zero; verify
+with `ioclasscount AppleThunderboltRDMAProtectionDomain` when it matters (see
+[rdma-protection-domains.md](rdma-protection-domains.md)).
 
 ## 7. The reboot recovery path is VERIFIED end-to-end, zero AI
 
@@ -167,7 +139,9 @@ boot-scope comparison; link prep self-repaired; PD debt read 0 for the new
 boot; `iogpu.wired_limit_mb` restored by activation — it needs **no**
 re-applying by hand. Post-reboot transients (a `rank-halted` file for one
 tick, "no carrier-active link address" while prep settles) are the automation
-working; see §4 before declaring an outage.
+working; see [cluster-observation-traps.md](cluster-observation-traps.md) before declaring an outage. **The cluster has since formed
+fully unattended this way** — no belief that formation needs a manual step
+should survive that.
 
 ## 8. Where the state lives
 
@@ -182,7 +156,7 @@ holds. Deleting `pd-debt` returns no domain.
 | `link-prep-repairs`, `port-reups` | bounded self-heal counters |
 | `standalone-lease` | the §1 lease: `<expiry-epoch> <created> <reason>` |
 | `generation-parity/-alerted/-heal-attempts` | §2 cache, once-per-drift page, heal budget |
-| `rank-halted` / `rank-halt-latched` | halt + sticky latch (read `boot=`, §4) |
+| `rank-halted` / `rank-halt-latched` | halt + sticky latch (read `boot=`, see [cluster-observation-traps.md](cluster-observation-traps.md)) |
 | `rank-kickstarts` | session-scoped failed-start counter |
 | `pd-debt` | **boot-scoped** leaked-domain ledger |
 | `quiesced-agents` | worker: what `cluster-quiesce` booted out |
@@ -194,7 +168,7 @@ holds. Deleting `pd-debt` returns no domain.
 | Detached with cable in, no lease | ports re-upped, prep repaired, rejoined |
 | Standalone lease expires | rejoin resumes that tick |
 | Carrier present, address absent | link prep repaired, bounded |
-| Generation drift | detected on a clock, healed detached, paged once |
+| Generation drift | detected on a clock, rank starts refused, paged once — needs a human deploy |
 | Peer absent / unprepared | start refused, no domain spent, side named |
 | Rank wedged after readiness | torn down to standalone on failed warm re-checks |
 | Peer rank vanished | pair-wide standdown so both re-arm together |

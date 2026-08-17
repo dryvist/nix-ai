@@ -27,8 +27,21 @@
 # A confirmed brain failure escalates a persisted counter (escalate_ladder):
 # failure 1 kickstarts, failure 2+ tears down and bootstraps — a single
 # kickstart cannot clear a throttled or slot-starved unit. A busy brain is
-# grace-gated instead; a cooldown marker stops a slow reload being restart-
+# grace-gated instead, and on a backend with no engine-progress metric an
+# expired grace pages rather than restarts (MLX_WATCHDOG_BUSY_ESCALATION),
+# because saturated and wedged look the same from here; a cooldown marker
+# stops a slow reload being restart-
 # stormed; fork-exhaustion is guarded every tick. Details live at each code site.
+#
+# check_wedge (wedge-detect.sh, concatenated ahead of this file) is a SEPARATE
+# detector for a different failure shape: llama-swap's own admission counter
+# leaking a reservation on client-cancelled requests, so it answers 429 in
+# single-digit milliseconds while the worker is genuinely idle. That signature
+# is invisible to the busy/dead/down classification above — a leaked-slot host
+# still serves plenty of healthy completions, which resets every counter this
+# file already tracks — so it runs unconditionally every tick and keeps its
+# own persistence streak. See wedge-detect.sh's header for the full evidence
+# and discriminator.
 
 set -euo pipefail
 
@@ -45,6 +58,28 @@ busy_marker="${MLX_WATCHDOG_BUSY_MARKER:-${HOME}/Library/Caches/mlx-model-server
 # probe is expected while its single slot is occupied; advancing engine steps
 # prove the scheduler is productive and rebase the stuck timer.
 progress_marker="${MLX_WATCHDOG_PROGRESS_MARKER:-${HOME}/Library/Caches/mlx-model-server/watchdog-brain-progress}"
+# Wedge-suspect streak (see wedge-detect.sh, concatenated ahead of this file
+# by mlx-watchdog-pkg.nix) — kept separate from fail_marker so an
+# interspersed healthy probe below cannot wipe a wedge streak that real
+# traffic itself does not clear.
+wedge_marker="${MLX_WATCHDOG_WEDGE_MARKER:-${HOME}/Library/Caches/mlx-model-server/watchdog-wedge-suspect}"
+# How fast a 429 must answer to be considered (ms), and how many consecutive
+# ticks the wedge signature must persist before check_wedge acts.
+# shellcheck disable=SC2034 # read by wedge-detect.sh's check_wedge, same
+# concatenated layer (mlx-watchdog-pkg.nix)
+wedge_latency_ms="${MLX_WATCHDOG_WEDGE_LATENCY_MS:-500}"
+# shellcheck disable=SC2034 # read by wedge-detect.sh's check_wedge, same
+# concatenated layer (mlx-watchdog-pkg.nix)
+wedge_consecutive="${MLX_WATCHDOG_WEDGE_CONSECUTIVE:-3}"
+# Bounds repeated wedge recovery itself (requirement: a recurring wedge must
+# escalate/alert, not restart forever). Healthy-immune — see check_wedge.
+wedge_incident_marker="${MLX_WATCHDOG_WEDGE_INCIDENT_MARKER:-${HOME}/Library/Caches/mlx-model-server/watchdog-wedge-incidents}"
+# shellcheck disable=SC2034 # read by wedge-detect.sh's check_wedge, same
+# concatenated layer (mlx-watchdog-pkg.nix)
+wedge_incident_window="${MLX_WATCHDOG_WEDGE_INCIDENT_WINDOW:-3600}"
+# shellcheck disable=SC2034 # read by wedge-detect.sh's check_wedge, same
+# concatenated layer (mlx-watchdog-pkg.nix)
+wedge_incident_max="${MLX_WATCHDOG_WEDGE_INCIDENT_MAX:-3}"
 llama_swap_config="${MLX_WATCHDOG_CONFIG:-${HOME}/.config/mlx/llama-swap.json}"
 # Untracked Slack incoming-webhook url (a write capability for its channel, so
 # never committed; missing = no page). Shared with the cluster watcher so one
@@ -59,6 +94,12 @@ cooldown="${MLX_WATCHDOG_COOLDOWN:-90}"
 probe_timeout="${MLX_WATCHDOG_PROBE_TIMEOUT:-240}"
 # Escalate a brain busy this long with no completion (15 min).
 busy_grace="${MLX_WATCHDOG_BUSY_GRACE:-900}"
+# What an expired busy grace earns: "restart" runs the ladder, "alert" only
+# pages and rebases the timer. Set per backend by launchd-watchdog.nix — only a
+# backend publishing engine-progress metrics can tell a wedged brain from one
+# that is merely saturating its slots, and restarting the latter is worse than
+# not watching at all. dead/down are unaffected; both always run the ladder.
+busy_escalation="${MLX_WATCHDOG_BUSY_ESCALATION:-restart}"
 # Reap orphan worker trees above this uid process count (above steady state
 # ~700, below kern.maxprocperuid ~10.7k): fires only in a runaway.
 maxproc_threshold="${MLX_WATCHDOG_MAXPROC_THRESHOLD:-8000}"
@@ -80,10 +121,10 @@ brain_model="${MLX_WATCHDOG_BRAIN_MODEL:-${probe_models[0]}}"
 uid="$(id -u)"
 # pgrep/pkill/launchctl/ps/hostname go by absolute path — not on
 # writeShellApplication's sanitized PATH.
-worker_pattern="${MLX_MODEL_SERVER_PROCESS_PATTERN:?MLX_MODEL_SERVER_PROCESS_PATTERN unset}"
 
 mkdir -p "$(dirname "$marker")" "$(dirname "$fail_marker")" \
-  "$(dirname "$busy_marker")" "$(dirname "$progress_marker")"
+  "$(dirname "$busy_marker")" "$(dirname "$progress_marker")" "$(dirname "$wedge_marker")" \
+  "$(dirname "$wedge_incident_marker")"
 
 ts() { date -u +%FT%TZ; }
 
@@ -102,18 +143,18 @@ unit_running() {
   /bin/launchctl print "gui/${uid}/${label}" 2>/dev/null | grep -q "state = running"
 }
 
-# SIGTERM -> wait -> SIGKILL the worker trees. A wedged engine ignores SIGTERM,
-# so the SIGKILL keeps it out of the next proxy's port (see llama-swap-launch.sh).
+# SIGTERM -> wait -> SIGKILL whatever holds our port block. Port ownership,
+# not process pattern/ancestry — mlx-lm-launch.py's cmdline never matches
+# MLX_MODEL_SERVER_PROCESS_PATTERN (nix-ai#1423), so a pattern-based reap was
+# a silent no-op for the standalone worker. mlx_reap_orphan_ports is defined
+# in llama-swap-reap.sh, concatenated ahead of this file by
+# mlx-watchdog-pkg.nix; `|| true` keeps this call's always-succeeds contract
+# even when a holder survives SIGKILL (already logged by that function).
+# The port block it reaps starts at MLX_PORT itself, so this also reaps
+# whatever currently holds the proxy's own listen port -- launchd KeepAlive
+# restarts it, same as the kickstart calls elsewhere in this file.
 reap_workers() {
-  /usr/bin/pgrep -f "$worker_pattern" >/dev/null 2>&1 || return 0
-  echo "$(ts) mlx-watchdog: reaping workers matching '${worker_pattern}'" >&2
-  /usr/bin/pkill -f "$worker_pattern" || true
-  for _ in $(seq 1 10); do
-    /usr/bin/pgrep -f "$worker_pattern" >/dev/null 2>&1 || return 0
-    sleep 1
-  done
-  /usr/bin/pkill -9 -f "$worker_pattern" || true
-  sleep 2
+  mlx_reap_orphan_ports || true
 }
 
 # Page once via Slack incoming webhook, only if the untracked url file exists.
@@ -266,11 +307,24 @@ probe_model_state() {
 # The ladder, parameterized by the triggering reason. Advances the counter and
 # starts the cooldown BEFORE the slow remediation, so the next tick does not
 # re-fire mid-recovery and a crashed remediation still escalates.
+#
+# A restart clears SERVER-side slot/counter state completely, but does
+# nothing for a caller already blocked reading from the now-dead socket —
+# that caller only unblocks via its own connection/read timeout (client
+# read timeouts in this fabric run long, on the order of tens of minutes),
+# never via this script, which has no visibility into or authority over
+# another process's open connections.
+# So several minutes of caller-side quiet right after a restart is EXPECTED,
+# not evidence the restart failed — a documented client-side concern, not
+# fixed here. This watchdog's own probing is immune to being fooled by it:
+# every probe below opens a fresh connection, so it always reads the
+# server's real current state, never a stranded caller's.
 escalate_ladder() {
   local reason="$1" failures bootstrapped
   failures=$(( $(read_int "$fail_marker") + 1 ))
   printf '%s\n' "$failures" > "$fail_marker"
   printf '%s\n' "$now" > "$marker"
+  echo "$(ts) mlx-watchdog: NOTE this restart strands any caller already in flight on the old process (dead socket, not served) — they recover only via their own read timeout, not this restart; quiet traffic for a while afterward is expected, not failure" >&2
 
   if (( failures == 1 )); then
     echo "$(ts) mlx-watchdog: ${reason} (failure 1) -> reap + kickstart ${label}" >&2
@@ -310,12 +364,12 @@ procs="$(/bin/ps -axo uid | grep -c "^[[:space:]]*${uid}\$" || true)"
 [[ "$procs" =~ ^[0-9]+$ ]] || procs=0
 echo "$(ts) mlx-watchdog: uid=${uid} procs=${procs}"
 if (( procs > maxproc_threshold )); then
-  # ponytail: reaps ALL matching trees, not only orphans — a detached worker and
-  # an orphan both report PPID 1 (see llama-swap-launch.sh). At this threshold
+  # ponytail: reaps the whole port block including the live proxy, not only
+  # orphans (nix-ai#1423) — launchd KeepAlive restarts it. At this threshold
   # reclaiming slots outweighs a brief serving blip. Raise if steady state nears it.
-  echo "$(ts) mlx-watchdog: WARN procs=${procs} > ${maxproc_threshold} -> reaping worker trees to reclaim process slots" >&2
+  echo "$(ts) mlx-watchdog: WARN procs=${procs} > ${maxproc_threshold} -> reaping port block to reclaim process slots" >&2
   reap_workers
-  alert "$(/bin/hostname -s): uid procs=${procs} exceeded ${maxproc_threshold}; reaped mlx_lm.server worker trees to avoid fork exhaustion."
+  alert "$(/bin/hostname -s): uid procs=${procs} exceeded ${maxproc_threshold}; reaped MLX port block (proxy + workers) to avoid fork exhaustion."
 fi
 
 # Cadence gate: if we remediated within the cooldown, the proxy may still be
@@ -323,6 +377,14 @@ fi
 now="$(date +%s)"
 last="$(read_int "$marker")"
 if (( now - last < cooldown )); then
+  echo "$(ts) mlx-watchdog: within cooldown (${last}, $(( now - last ))s ago) -> skipping probes, including the wedge check"
+  exit 0
+fi
+
+# Wedge check runs every tick regardless of the coarse classification below
+# (see wedge-detect.sh for why) and, on a confirmed wedge, has already
+# remediated via escalate_ladder — skip the rest of this now-stale tick.
+if check_wedge; then
   exit 0
 fi
 
@@ -404,8 +466,17 @@ case "$brain_state" in
     fi
     busy_for=$(( now - busy_since ))
     if (( busy_for >= busy_grace )); then
-      rm -f "$busy_marker" "$progress_marker"
-      escalate_ladder "brain ${brain_model} stuck busy/loading for ${busy_for}s (no engine progress through ${busy_grace}s grace)"
+      if [[ "$busy_escalation" == "alert" ]]; then
+        # No progress signal on this backend, so "wedged" and "saturated" are
+        # indistinguishable from here. Page a human and rebase the timer so the
+        # next page is a grace window away, never a restart of a loaded brain.
+        printf '%s\n' "$now" > "$busy_marker"
+        echo "$(ts) mlx-watchdog: brain ${brain_model} busy for ${busy_for}s >= ${busy_grace}s grace -> alert only, NO stack restart" >&2
+        alert "$(/bin/hostname -s): brain '${brain_model}' has answered no completion for ${busy_for}s (429/busy every probe). NOT restarting — this backend publishes no engine-progress metric, so a saturated brain cannot be told from a wedged one. Investigate."
+      else
+        rm -f "$busy_marker" "$progress_marker"
+        escalate_ladder "brain ${brain_model} stuck busy/loading for ${busy_for}s (no engine progress through ${busy_grace}s grace)"
+      fi
     else
       echo "$(ts) mlx-watchdog: brain ${brain_model} busy/loading (${busy_for}s < ${busy_grace}s grace) -> waiting, no restart"
     fi

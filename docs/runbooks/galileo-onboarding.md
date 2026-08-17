@@ -87,7 +87,7 @@ Apply to the `traces/galileo` sub-pipeline only, not the Cribl/Splunk pipeline.
 
 | Action | Effect |
 |--------|--------|
-| `programs.mlx.telemetry.enable = false` + rebuild | Removes OTel env vars from vllm-mlx LaunchAgent; MLX stops sending to collector |
+| `programs.mlx.telemetry.enable = false` + rebuild | Removes OTel env vars from the MLX model-server LaunchAgent; MLX stops sending to collector |
 | Remove `otlphttp/galileo` from collector pipeline | Stops all Galileo exports; Splunk unaffected |
 | Delete `GALILEO_API_KEY` in Doppler | Collector authentication fails; no traces accepted by Galileo |
 | Unset `GALILEO_TRACE` in shell | No `X-Trace-Sink` header sent; routing connector drops all spans before Galileo exporter |

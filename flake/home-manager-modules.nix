@@ -1,5 +1,6 @@
 {
   ai-assistant-instructions,
+  browser-use-skills,
   jacobpevans-cc-plugins,
   nix-claude-code,
   karpathy-skills,
@@ -8,6 +9,11 @@
   ponytail,
   last30days-skill,
   autoresearch,
+  context-engineering-kit,
+  managing-dependencies,
+  awesome-claude-skills,
+  vct-cribl-cli,
+  vct-splunk-cli,
 }:
 let
   # Marketplace flake inputs now live inside nix-claude-code. Surface the
@@ -22,7 +28,6 @@ let
       anthropic-agent-skills
       bills-claude-skills
       bitwarden-marketplace
-      browser-use-skills
       huggingface-skills
       vct-cribl-pack-validator-skills
       cc-dev-tools
@@ -39,12 +44,15 @@ let
       visual-explainer-marketplace
       wakatime
       ;
+    inherit browser-use-skills;
     inherit jacobpevans-cc-plugins;
     inherit karpathy-skills;
     inherit dashmotion;
     inherit ponytail;
     inherit last30days-skill;
     inherit autoresearch;
+    inherit context-engineering-kit;
+    inherit managing-dependencies;
   };
 in
 {
@@ -67,8 +75,12 @@ in
     _module.args = {
       inherit
         nix-claude-code
+        browser-use-skills
+        awesome-claude-skills
         marketplaceInputs
         nixpkgs-unstable
+        vct-cribl-cli
+        vct-splunk-cli
         ;
     };
   };

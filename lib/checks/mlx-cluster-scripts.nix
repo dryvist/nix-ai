@@ -13,6 +13,26 @@ let
   fakeCurl = pkgs.writeShellScriptBin "curl" (
     builtins.readFile ../../modules/mlx/scripts/alert-payload-fakecurl.sh
   );
+  # THE LAYERS EVERY GUARD TEST SOURCES, in one place. Each of these tests
+  # sources the shipped scripts in the module's own concatenation order, so the
+  # set only ever grows — and six copies of it is six places to forget when a
+  # layer is added. Forgetting is not loud: a guard that calls a function that
+  # does not exist gets `command not found`, which inside an `if !` reads as a
+  # refusal and silently inverts the assertion. Supersets are harmless (a test
+  # that does not source one simply ignores the variable), so one set serves
+  # all of them.
+  guardLayers = {
+    BOOT_SCOPE = "${src}/modules/mlx/scripts/cluster-boot-scope.sh";
+    LEDGER = "${src}/modules/mlx/scripts/cluster-pd-ledger.sh";
+    CAUSE = "${src}/modules/mlx/scripts/cluster-pd-cause.sh";
+    # jaccl Stage-A/Stage-B classifier. fast_fail_standdown (cluster-link-guards.sh
+    # below) calls it; a GUARDS-sourcing test that never sourced this too would
+    # fail with "command not found" the moment it actually calls that function.
+    STAGE = "${src}/modules/mlx/scripts/cluster-pd-stage.sh";
+    HELPERS = "${src}/modules/mlx/scripts/cluster-link-helpers.sh";
+    GUARDS = "${src}/modules/mlx/scripts/cluster-link-guards.sh";
+    PEER_STATE = "${src}/modules/mlx/scripts/cluster-peer-state.sh";
+  };
 in
 {
   # alert() Slack contract. Both failure modes it covers are SILENT in
@@ -27,6 +47,9 @@ in
       pkgs.jq
       pkgs.gnugrep
     ];
+    # NOT guardLayers. This test sources one layer and calls alert(); handing it
+    # the whole guard set would imply a call graph it does not have, which is
+    # exactly the confusion the layer split exists to prevent.
     HELPERS = "${src}/modules/mlx/scripts/cluster-link-helpers.sh";
   } (builtins.readFile ../../modules/mlx/scripts/alert-payload-test.sh);
 
@@ -37,106 +60,94 @@ in
   # (ifconfig/networksetup/nc/sysctl), so the decisions under test are the real
   # ones. Replays the 2026-07-24 incident: a worker that kickstarted into an
   # absent rank 0, exhausted the guard, and was then un-halted by hand.
-  mlx-cluster-rank-guards = pkgs.runCommand "check-mlx-cluster-rank-guards" {
-    nativeBuildInputs = [
-      pkgs.coreutils
-      pkgs.gnugrep
-      pkgs.gnused
-    ];
-    HELPERS = "${src}/modules/mlx/scripts/cluster-link-helpers.sh";
-    GUARDS = "${src}/modules/mlx/scripts/cluster-link-guards.sh";
-    BOOT_SCOPE = "${src}/modules/mlx/scripts/cluster-boot-scope.sh";
-    LEDGER = "${src}/modules/mlx/scripts/cluster-pd-ledger.sh";
-  } "bash ${src}/tests/test-rank-start-guards.sh && touch $out";
+  mlx-cluster-rank-guards = pkgs.runCommand "check-mlx-cluster-rank-guards" (
+    {
+      nativeBuildInputs = [
+        pkgs.coreutils
+        pkgs.gnugrep
+        pkgs.gnused
+      ];
+    }
+    // guardLayers
+  ) "bash ${src}/tests/test-rank-start-guards.sh && touch $out";
 
   # THE CHECK THAT FAILS IF RDMA PROTECTION-DOMAIN EXHAUSTION CAN RECUR. Four
-  # properties, against the shipped layers sourced in the module's own
-  # concatenation order: a start is refused while a previous rank survives; both
-  # a SIGKILL and a PD-guard halt are recorded as debt; debt at the cap refuses
-  # and halts; and only a reboot settles the ledger — not a link cycle, not a
-  # by-hand marker delete, not cluster-join. The test header states what is real,
-  # what is stubbed, and why the process probe cannot be the real one here.
-  mlx-cluster-pd-debt = pkgs.runCommand "check-mlx-cluster-pd-debt" {
-    nativeBuildInputs = [
-      pkgs.coreutils
-      pkgs.gnugrep
-      pkgs.gnused
-      pkgs.gawk
-    ];
-    BOOT_SCOPE = "${src}/modules/mlx/scripts/cluster-boot-scope.sh";
-    LEDGER = "${src}/modules/mlx/scripts/cluster-pd-ledger.sh";
-    RECORD = "${src}/modules/mlx/scripts/cluster-pd-record.sh";
-    HELPERS = "${src}/modules/mlx/scripts/cluster-link-helpers.sh";
-    STATUS = "${src}/modules/mlx/scripts/cluster-rank-status.sh";
-    REAP = "${src}/modules/mlx/scripts/cluster-rank-reap.sh";
-    GUARDS = "${src}/modules/mlx/scripts/cluster-link-guards.sh";
-  } "bash ${src}/tests/test-pd-debt.sh && touch $out";
+  # properties, against the shipped layers in the module's own concatenation
+  # order: a start is refused while a previous rank survives; both a SIGKILL
+  # and a PD-guard halt are recorded as debt; debt at the cap refuses and
+  # halts; and only a reboot settles the ledger — not a link cycle, not a
+  # by-hand marker delete, not cluster-join.
+  mlx-cluster-pd-debt = pkgs.runCommand "check-mlx-cluster-pd-debt" (
+    {
+      nativeBuildInputs = [
+        pkgs.coreutils
+        pkgs.gnugrep
+        pkgs.gnused
+        pkgs.gawk
+      ];
+      RECORD = "${src}/modules/mlx/scripts/cluster-pd-record.sh";
+      STATUS = "${src}/modules/mlx/scripts/cluster-rank-status.sh";
+      REAP = "${src}/modules/mlx/scripts/cluster-rank-reap.sh";
+    }
+    // guardLayers
+  ) "bash ${src}/tests/test-pd-debt.sh && touch $out";
 
-  # THE CHECK THAT FAILS IF A COUNTER RESET CAN DISCARD LEAKED DOMAINS.
-  # mlx-cluster-pd-debt above covers the ledger at the CAP; this covers the hole
-  # underneath it. The kickstart counter is session-scoped and four paths reset
-  # it, but the ledger was only written at the cap — so a counter at 1 or 2 when
-  # a link cycle, a settled rank or cluster-join fired was simply deleted, and
-  # the domains those attempts leaked left no trace. That reopened the exact
-  # accumulation the ledger closes, one level down. Asserts the transfer
-  # arithmetic (including the fail-closed direction, where an unguarded
-  # subtraction would compute a NEGATIVE debt and record nothing) AND pins the
-  # call sites as source, because a correct function nobody calls passes every
-  # behavioural assertion while the defect is fully back.
-  mlx-cluster-pd-counter-settle = pkgs.runCommand "check-mlx-cluster-pd-counter-settle" {
-    nativeBuildInputs = [
-      pkgs.coreutils
-      pkgs.gnugrep
-      pkgs.gnused
-      pkgs.gawk
-    ];
-    BOOT_SCOPE = "${src}/modules/mlx/scripts/cluster-boot-scope.sh";
-    LEDGER = "${src}/modules/mlx/scripts/cluster-pd-ledger.sh";
-    RECORD = "${src}/modules/mlx/scripts/cluster-pd-record.sh";
-    SETTLE = "${src}/modules/mlx/scripts/cluster-pd-settle.sh";
-    WATCHER = "${src}/modules/mlx/scripts/cluster-link-watcher.sh";
-    JOIN = "${src}/modules/mlx/scripts/cluster-join.sh";
-    GUARDS = "${src}/modules/mlx/scripts/cluster-link-guards.sh";
-  } "bash ${src}/tests/test-pd-counter-settle.sh && touch $out";
+  # THE CHECK THAT FAILS IF A FAST-DYING RANK CAN BURN THE PD BUDGET AGAIN.
+  # Pair-wide standdown only reaches a SETTLED rank; a worker dying inside
+  # jaccl's ~15s connect budget is never observed running, so it fell through
+  # to the kickstart counter and paid one PD per attempt to the cap. Asserts
+  # the floor of two (one errno 60 can be a timing miss), cause stays
+  # peer-absent (latch/re-arm still apply), a settled rank or live session
+  # resets the count, and pins the call site — a correct function nobody
+  # calls still passes every other assertion.
+  mlx-cluster-fast-fail-standdown = pkgs.runCommand "check-mlx-cluster-fast-fail-standdown" (
+    {
+      nativeBuildInputs = [
+        pkgs.coreutils
+        pkgs.gnugrep
+        pkgs.gnused
+        pkgs.gawk
+      ];
+      WATCHER = "${src}/modules/mlx/scripts/cluster-link-watcher.sh";
+    }
+    // guardLayers
+  ) "bash ${src}/tests/test-fast-fail-standdown.sh && touch $out";
 
   # THE CHECK THAT FAILS IF A PD-EXHAUSTION HALT CAN SIT WAITING FOR A HUMAN
-  # AGAIN. On 2026-08-01 a host reached the kickstart cap, halted correctly,
-  # paged correctly, and then sat for hours with the cable plugged in — nothing
-  # issued the reboot the halt's own alert text says is required. Asserts the
-  # fix against the shipped function: only the two PD-exhaustion causes reboot,
-  # never while the link is down, the rate-limit marker survives across calls
-  # (it must survive the reboot it is limiting), and a FileVault host refuses —
-  # pages instead — rather than stranding itself at the pre-boot unlock screen
-  # with no SSH.
-  mlx-cluster-pd-auto-reboot = pkgs.runCommand "check-mlx-cluster-pd-auto-reboot" {
-    nativeBuildInputs = [
-      pkgs.coreutils
-      pkgs.gnugrep
-      pkgs.gnused
-      pkgs.gawk
-      pkgs.jq
-    ];
-    BOOT_SCOPE = "${src}/modules/mlx/scripts/cluster-boot-scope.sh";
-    LEDGER = "${src}/modules/mlx/scripts/cluster-pd-ledger.sh";
-    HELPERS = "${src}/modules/mlx/scripts/cluster-link-helpers.sh";
-    GUARDS = "${src}/modules/mlx/scripts/cluster-link-guards.sh";
-  } "bash ${src}/tests/test-pd-auto-reboot.sh && touch $out";
+  # AGAIN. On 2026-08-01 a host halted and paged correctly, then sat for hours
+  # with nothing issuing the reboot its own alert says is required. Asserts:
+  # only the two PD-exhaustion causes reboot, never while the link is down,
+  # the rate-limit marker survives across calls, and a FileVault host refuses
+  # — pages instead — rather than stranding itself at the unlock screen.
+  mlx-cluster-pd-auto-reboot = pkgs.runCommand "check-mlx-cluster-pd-auto-reboot" (
+    {
+      nativeBuildInputs = [
+        pkgs.coreutils
+        pkgs.gnugrep
+        pkgs.gnused
+        pkgs.gawk
+        pkgs.jq
+      ];
+    }
+    // guardLayers
+  ) "bash ${src}/tests/test-pd-auto-reboot.sh && touch $out";
 
   # Boot scoping of the halt marker, split out of the rank-guards test at the 12KB
   # file cap. Unit-tests the halt helpers directly: a halt from a previous boot is
   # dropped (else a cold boot can never form the cluster), a halt from THIS boot
   # stands (the PD guard must not weaken), an unreadable boot time fails closed,
   # and operator prose in the detail text cannot spoof the boot field.
-  mlx-cluster-halt-boot-scope = pkgs.runCommand "check-mlx-cluster-halt-boot-scope" {
-    nativeBuildInputs = [
-      pkgs.coreutils
-      pkgs.gnugrep
-      pkgs.gnused
-      pkgs.gawk
-    ];
-    HELPERS = "${src}/modules/mlx/scripts/cluster-link-helpers.sh";
-    BOOT_SCOPE = "${src}/modules/mlx/scripts/cluster-boot-scope.sh";
-  } "bash ${src}/tests/test-halt-boot-scope.sh && touch $out";
+  mlx-cluster-halt-boot-scope = pkgs.runCommand "check-mlx-cluster-halt-boot-scope" (
+    {
+      nativeBuildInputs = [
+        pkgs.coreutils
+        pkgs.gnugrep
+        pkgs.gnused
+        pkgs.gawk
+      ];
+    }
+    // guardLayers
+  ) "bash ${src}/tests/test-halt-boot-scope.sh && touch $out";
 
   # The predicate the pair-wide standdown trusts. Absence of the peer's rendezvous
   # session tears this rank down, so a false negative kills a healthy rank
@@ -144,31 +155,32 @@ in
   # prints the port BEFORE the state, so a `grep 'ESTABLISHED.*\.PORT'` matches
   # nothing and reports a serving cluster as dead. Also pins CLOSE_WAIT as absent,
   # which is what a SIGKILLed peer leaves behind.
-  mlx-cluster-peer-rendezvous = pkgs.runCommand "check-mlx-cluster-peer-rendezvous" {
-    nativeBuildInputs = [
-      pkgs.coreutils
-      pkgs.gnugrep
-      pkgs.gnused
-      pkgs.gawk
-    ];
-    HELPERS = "${src}/modules/mlx/scripts/cluster-link-helpers.sh";
-    # The teardown this predicate feeds is source-pinned in the same test: the
-    # peer-absent standdown must write a halt BEFORE its SIGTERM, or it loops.
-    WATCHER = "${src}/modules/mlx/scripts/cluster-link-watcher.sh";
-  } "bash ${src}/tests/test-peer-rendezvous-session.sh && touch $out";
+  mlx-cluster-peer-rendezvous = pkgs.runCommand "check-mlx-cluster-peer-rendezvous" (
+    {
+      nativeBuildInputs = [
+        pkgs.coreutils
+        pkgs.gnugrep
+        pkgs.gnused
+        pkgs.gawk
+      ];
+      # The teardown this predicate feeds is source-pinned in the same test: the
+      # peer-absent standdown must write a halt BEFORE its SIGTERM, or it loops.
+      WATCHER = "${src}/modules/mlx/scripts/cluster-link-watcher.sh";
+    }
+    // guardLayers
+  ) "bash ${src}/tests/test-peer-rendezvous-session.sh && touch $out";
 
   # Builds the three CONCATENATED cluster scripts for real. Nothing else does:
-  # `nix flake check` only evaluates packages, and the repo-wide shellcheck check
-  # lints each fragment on its own. Only an actual build runs
+  # `nix flake check` only evaluates packages, and the repo-wide shellcheck
+  # check lints each fragment alone. Only an actual build runs
   # writeShellApplication's checkPhase — bash -n plus shellcheck at DEFAULT
-  # severity, which is stricter than that sweep's `--severity=warning`.
+  # severity, stricter than that sweep's `--severity=warning`.
   #
-  # Concatenation is exactly where the extra strictness earns its keep: a helper
-  # shipped to a consumer that never calls it fails as SC2329 (hit 2026-07-25,
-  # when one shared link-prep library was handed to cluster-detach, which uses a
-  # single function from it). That pressure is what keeps the layers split by
-  # actual use — cluster-link-locate.sh / -repair.sh / -guards.sh — instead of one
-  # grab-bag with a suppression comment on top.
+  # Concatenation is where the strictness earns its keep: a helper shipped to
+  # a consumer that never calls it fails as SC2329 (hit 2026-07-25, when one
+  # shared link-prep library was handed to cluster-detach). That pressure
+  # keeps the layers split by actual use instead of one grab-bag with a
+  # suppression comment on top.
   mlx-cluster-scripts-build =
     let
       agents = hmConfigCluster.config.launchd.agents;

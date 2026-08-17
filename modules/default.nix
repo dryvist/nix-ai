@@ -94,8 +94,10 @@ in
     ./mlx
     ./opencode
     ./qwen-code
+    ./session-archive.nix
     ./session-sync.nix
     ./token-meter.nix
+    ./vct-cli
   ];
 
   config = {
@@ -144,11 +146,16 @@ in
           done
         '';
 
-        # browser-use: CLI for browser automation (not in nixpkgs)
+        # Browser Use's official CLI is not currently packaged by nixpkgs.
+        # Keep its version under Renovate in lib/versions.nix and replace stale
+        # installations rather than merely checking that an executable exists.
         installBrowserUse = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-          if ! ${lib.getExe pkgs.uv} tool list 2>/dev/null | grep -q "^browser-use"; then
-            echo "-> Installing browser-use via uv..."
-            $DRY_RUN_CMD ${lib.getExe pkgs.uv} tool install "browser-use==${browserUseVersion}"
+          installed_version="$(${lib.getExe pkgs.uv} tool list 2>/dev/null \
+            | ${pkgs.gawk}/bin/awk '$1 == "browser-use" { sub(/^v/, "", $2); print $2; exit }')"
+          if [ "$installed_version" != "${browserUseVersion}" ]; then
+            echo "-> Installing browser-use ${browserUseVersion} via uv..."
+            $DRY_RUN_CMD ${lib.getExe pkgs.uv} tool install --upgrade --force \
+              "browser-use==${browserUseVersion}"
           fi
         '';
       };

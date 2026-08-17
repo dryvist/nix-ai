@@ -10,7 +10,7 @@
   # Older pins left typer unbounded (>=0.20.0), floating to 0.26.x which vendored
   # click and dropped the external dep the hf CLI imports → ModuleNotFoundError.
   # renovate: datasource=pypi depName=huggingface-hub
-  huggingfaceHub = "1.26.0";
+  huggingfaceHub = "1.27.0";
   # renovate: datasource=pypi depName=huggingface-mcp-server
   hfMcpServer = "0.1.0";
 
@@ -22,7 +22,7 @@
   # renovate: datasource=npm depName=chatgpt-cli
   chatgptCli = "3.3.0";
   # renovate: datasource=npm depName=claude-flow
-  claudeFlow = "3.25.2";
+  claudeFlow = "3.34.0";
   # renovate: datasource=npm depName=@googleworkspace/cli
   gwsCli = "0.22.5";
 
@@ -52,6 +52,20 @@
   # renovate: datasource=npm depName=@democratize-technology/vikunja-mcp
   vikunjaMcp = "0.2.0";
 
+  # Upper bound for the MCP Python SDK, applied to every uvx-launched server
+  # below. Those servers declare `mcp>=<x>` with no ceiling, so a fresh resolve
+  # installs the 2.x SDK — which renamed the public surface (`server.fastmcp` →
+  # `server.mcpserver`, `McpError` → `MCPError`) and dropped `Server.list_tools`.
+  # The result is a server that dies at import and reports only
+  # `CONNECTION_CLOSED`, which reads as an outage rather than a dependency break.
+  # This supplies the bound upstream omitted; drop it per-server once that
+  # server ships 2.x support.
+  #
+  # Deliberately carries no `renovate:` annotation: it is a compatibility
+  # constraint, not a version pin, and there is nothing here for Renovate to
+  # bump — it is removed by hand when upstream migrates.
+  mcpSdkBound = "mcp<2";
+
   # MCP servers (pypi)
   # renovate: datasource=pypi depName=mcp-server-time
   mcpServerTime = "2026.6.4";
@@ -72,12 +86,16 @@
   # 0.4.0 adds GPT-OSS/harmony prompt rendering for tool calls (required to
   # serve gpt-oss models with working tool calling) and requires
   # mlx-lm>=0.31.3, which forces the mlx/mlx-lm pins below forward together.
+  # 0.4.1 keeps that floor (mlx>=0.29.0, mlx-lm>=0.31.3, mlx-vlm>=0.6.5), so the
+  # pins below still satisfy it. Bumping this pin ALSO requires regenerating the
+  # wheel url + hash in modules/mlx/vllm-mlx-patch.nix — that derivation fetches
+  # one literal PyPI wheel path, so a version-only bump fails to build.
   # renovate: datasource=pypi depName=vllm-mlx
-  vllmMlx = "0.4.0";
+  vllmMlx = "0.4.1";
   # renovate: datasource=pypi depName=parakeet-mlx
   parakeetMlx = "0.5.2";
   # renovate: datasource=pypi depName=mlx-vlm
-  mlxVlm = "0.6.10";
+  mlxVlm = "0.6.13";
   # The nix-ai#751 hold at mlx 0.31.1 is RESOLVED: vllm-mlx 0.4.0 is built
   # against mlx 0.31.2 / mlx-lm 0.31.3 (it requires mlx-lm>=0.31.3), and the
   # cross-thread stream crash ("There is no Stream(gpu, N) in current thread")
@@ -133,7 +151,7 @@
   # string key mlx-lm passes), taking every worker down. The rule there carries
   # the reproduction detail.
   # renovate: datasource=pypi depName=transformers
-  transformers = "5.14.1";
+  transformers = "5.15.0";
   # renovate: datasource=pypi depName=lm-eval
   lmEval = "0.4.12";
 
@@ -148,5 +166,5 @@
   # fabric-src input. The fabric-version-sync regression check in
   # lib/checks/fabric.nix compares the two and fails on drift.
   # renovate: datasource=github-releases depName=danielmiessler/fabric
-  fabric = "1.4.455";
+  fabric = "1.4.470";
 }

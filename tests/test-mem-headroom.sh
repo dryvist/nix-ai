@@ -59,6 +59,17 @@ source "${LEDGER:?set LEDGER to cluster-pd-ledger.sh}"
 source "${HELPERS:?set HELPERS to cluster-link-helpers.sh}"
 # shellcheck disable=SC1090
 source "${GUARDS:?set GUARDS to cluster-link-guards.sh}"
+# The two layers the shipped watcher concatenates AROUND the guards: the
+# cross-boot cause budget (rung 0a') and the peer-armed handshake (rung 1e).
+# Sourced but left UNCONFIGURED, so both rungs are inert here — the same way
+# this file already configures the PD ledger and the memory rung idle. Without
+# them the guards would call functions that do not exist, and a `command not
+# found` inside an `if !` reads as a refusal, which would silently invert every
+# assertion below. Their own behaviour is pinned in tests/test-peer-armed-gate.sh.
+# shellcheck disable=SC1090
+source "${CAUSE:?set CAUSE to cluster-pd-cause.sh}"
+# shellcheck disable=SC1090
+source "${PEER_STATE:?set PEER_STATE to cluster-peer-state.sh}"
 
 # --- vm_stat stub, generated executable (see header for why not a function) --
 bin="$state_dir/bin"
@@ -73,6 +84,12 @@ cat '$vmstat_fixture'
 VMSTAT
 chmod +x "$bin/vm_stat"
 export CLUSTER_VMSTAT_BIN="$bin/vm_stat"
+
+# The device-PD-budget rung (#1442) sits right after this one in the guard
+# chain and is out of scope here; stubbed healthy, same pattern as
+# rank_reap_verified / generation_parity_cached in test-rank-start-guards.sh.
+# Its own refuse/pass matrix is not yet under a dedicated test.
+pd_device_budget_ok() { return 0; }
 
 # Writes a vm_stat-shaped fixture. Field order and the trailing "." on every
 # count mirror real vm_stat output; mem_stat_mb must parse this shape, not a
@@ -138,14 +155,19 @@ reset_state() {
 kicks_now() { cat "$kicks_file" 2> /dev/null || echo absent; }
 halt_cause() { sed -n 's/.*cause=\([^	]*\).*/\1/p' "$halt_file" 2> /dev/null || echo none; }
 verdict() { rank_start_preconditions_ok >&2 && echo start || echo "$PRECONDITION_REASON"; }
+# rank_start_room_ok is called SEPARATELY from rank_start_preconditions_ok —
+# see cluster-link-guards.sh's own comment on why — so its own verdict needs
+# its own helper, in the same "start | insufficient-memory" vocabulary the
+# memory-focused sections below already assert against.
+roomdict() { rank_start_room_ok >&2 && echo start || echo insufficient-memory; }
 
 echo "0. the rung is disabled with 0/unset, no vm_stat read needed to pass:"
 reset_state
 write_vmstat 16384 0 0 0 0 # zero free, would refuse if the rung ran
 export CLUSTER_SHARD_MEMORY_MB=0
-check "unset/0 required disables the rung" start "$(verdict)"
+check "unset/0 required disables the rung" start "$(roomdict)"
 unset CLUSTER_SHARD_MEMORY_MB
-check "unset entirely is the same as 0" start "$(verdict)"
+check "unset entirely is the same as 0" start "$(roomdict)"
 
 echo "1. sufficient free+reclaimable memory allows the start:"
 reset_state
@@ -155,18 +177,19 @@ export CLUSTER_SHARD_MEMORY_MB=1000
 write_vmstat 16384 32000 16000 16000 0
 check "mem_headroom_ok passes at exactly enough (free+inactive+speculative)" 0 \
   "$(mem_headroom_ok 1000 && echo 0 || echo 1)"
-check "the full precondition chain proceeds to start" start "$(verdict)"
+check "rank_start_room_ok proceeds to start" start "$(roomdict)"
 
 echo "2. insufficient memory refuses the start, and consumes NOTHING:"
 # THE PROPERTY THAT MAKES THE PD-EXHAUSTION CHAIN IMPOSSIBLE. A refusal here
 # must be free in the same currency the PD guard protects — no kickstart
-# attempt, no ledger charge — exactly like every other rung in
-# rank_start_preconditions_ok. This must fail loudly if that ever regresses
-# into an ordinary failure path.
+# attempt, no ledger charge — exactly like every rung of
+# rank_start_preconditions_ok, even though rank_start_room_ok is no longer one
+# of them. This must fail loudly if that ever regresses into an ordinary
+# failure path.
 reset_state
 export CLUSTER_SHARD_MEMORY_MB=1000
 write_vmstat 16384 6400 0 0 0 # 100MB free, 900MB short
-check "start is blocked" insufficient-memory "$(verdict)"
+check "start is blocked" insufficient-memory "$(roomdict)"
 check "no attempt consumed" absent "$(kicks_now)"
 check "nothing charged to the PD ledger" 0 "$(pd_debt_count "$debt_file")"
 check "no halt marker written on a single refusal" missing \
@@ -196,7 +219,7 @@ echo "4. page size is READ from vm_stat, never assumed 16384:"
 reset_state
 export CLUSTER_SHARD_MEMORY_MB=1000
 write_vmstat 65536 16000 0 0 0 # 16000 pages * 65536 bytes / 1048576 = 1000MB
-check "the real (non-16384) page size is used, not a hardcoded one" start "$(verdict)"
+check "the real (non-16384) page size is used, not a hardcoded one" start "$(roomdict)"
 
 echo "4b. a VERBATIM real vm_stat capture parses correctly (not a hand-built fixture):"
 # write_vmstat above is a template written from memory of the format; a
@@ -239,7 +262,7 @@ echo "5. an unreadable vm_stat refuses rather than guessing (fails closed):"
 reset_state
 export CLUSTER_SHARD_MEMORY_MB=1000
 printf '1\n' > "$vmstat_rc"
-check "start is blocked" insufficient-memory "$(verdict)"
+check "start is blocked" insufficient-memory "$(roomdict)"
 check "no attempt consumed" absent "$(kicks_now)"
 mem_headroom_ok 1000 || true
 check "an unreadable probe says so, not a fabricated number" yes \
@@ -275,7 +298,34 @@ export CLUSTER_PD_AUTO_REBOOT_WINDOW_SECS=21600
 pd_auto_reboot_if_warranted "$halt_file" "$state_dir/pd-auto-reboot-last" up
 check "the memory halt is accepted by the reboot gate" 1 "$(wc -l < "$reboot_log" | tr -d ' ')"
 
-echo "7. recovery: once memory is sufficient again, the dwell counter resets:"
+echo "6b. every refused tick BELOW the dwell says so, with the counter:"
+# A guard that accumulates toward an escalation in silence is the shape of every
+# incident in this subsystem that took hours to notice: the dwell is the whole
+# difference between "transient, ignore" and "stuck, reboot", and it used to be
+# observable only in a file nobody reads.
+reset_state
+export CLUSTER_SHARD_MEMORY_MB=1000
+export CLUSTER_MEM_HEADROOM_DWELL_TICKS=3
+write_vmstat 16384 6400 0 0 0
+log="$(mem_headroom_halt_if_persistent "$halt_file" "$latch_file" "$dwell_file" 2>&1 > /dev/null)"
+check "the refusal is logged with its counter" yes \
+  "$(case "$log" in *"refused 1/3 consecutive ticks"*) echo yes ;; *) echo no ;; esac)"
+check "and with the cause, not just the count" yes \
+  "$(case "$log" in *"100MB free"*) echo yes ;; *) echo no ;; esac)"
+log="$(mem_headroom_halt_if_persistent "$halt_file" "$latch_file" "$dwell_file" 2>&1 > /dev/null)"
+check "the counter advances in the log, not only on disk" yes \
+  "$(case "$log" in *"refused 2/3"*) echo yes ;; *) echo no ;; esac)"
+
+
+echo "7. recovery: fail fast, clear slow — a pass decrements, it does not reset:"
+# THE OSCILLATION THIS PINS. 2026-08-16: this host's free+reclaimable bounced
+# 53853 -> 55318 -> 54413 MB against a 56000 MB requirement — noise near the
+# line, not recovery. The old behaviour (rm -f the dwell file on ANY single
+# pass) let one lucky sample fully clear the count, which peer_state_write
+# then read as armed:true — a worker acting on that launches a real kickstart
+# attempt against a coordinator that has not actually recovered. A pass must
+# only walk the count back down by one, so clearing after N consecutive
+# refusals takes N consecutive passes.
 reset_state
 export CLUSTER_SHARD_MEMORY_MB=1000
 export CLUSTER_MEM_HEADROOM_DWELL_TICKS=3
@@ -283,11 +333,88 @@ write_vmstat 16384 6400 0 0 0
 mem_headroom_halt_if_persistent "$halt_file" "$latch_file" "$dwell_file"
 mem_headroom_halt_if_persistent "$halt_file" "$latch_file" "$dwell_file"
 check "two refusals counted, no halt yet" 2 "$(cat "$dwell_file")"
-write_vmstat 16384 64000 0 0 0 # now plenty free
+write_vmstat 16384 64000 0 0 0 # one passing sample — noise, not recovery
 mem_headroom_halt_if_persistent "$halt_file" "$latch_file" "$dwell_file"
-check "dwell file cleared on recovery" absent "$([ -f "$dwell_file" ] && echo present || echo absent)"
-write_vmstat 16384 6400 0 0 0 # short again
+check "one pass decrements by one, does not reset" 1 "$(cat "$dwell_file")"
+write_vmstat 16384 6400 0 0 0 # short again, immediately
 mem_headroom_halt_if_persistent "$halt_file" "$latch_file" "$dwell_file"
-check "recovery reset the count, not just capped it" 1 "$(cat "$dwell_file")"
+check "the next refusal picks up where it left off, not from zero" 2 "$(cat "$dwell_file")"
+write_vmstat 16384 64000 0 0 0
+mem_headroom_halt_if_persistent "$halt_file" "$latch_file" "$dwell_file"
+mem_headroom_halt_if_persistent "$halt_file" "$latch_file" "$dwell_file"
+check "two consecutive passes fully clear a count of two" absent "$([ -f "$dwell_file" ] && echo present || echo absent)"
+
+echo "7b. the literal recorded bounce, asserted on the PUBLISHED armed field:"
+# Same incident as section 7's header comment, but this time driving
+# peer_state_write end to end (not just the dwell file) and using the exact
+# recorded free+reclaimable MB figures rather than round synthetic ones.
+# Required is set between the samples (55000) so 55318 is the one real
+# passing reading and 53853/54413 are real refusals — the same "near the
+# line" shape the incident had, at whatever the deployed shard requirement
+# happened to be that day. Page size 16384, so MB*64 = pages (all placed in
+# "Pages free" — mem_stat_mb sums free+inactive+speculative, so one field is
+# enough to drive the same total).
+reset_state
+export CLUSTER_SHARD_MEMORY_MB=55000
+export CLUSTER_MEM_HEADROOM_DWELL_TICKS=3
+peer_out="$state_dir/peer-state.json"
+armed_now() { peer_state_write "$peer_out" "state=ok local=x deploy=x" "$halt_file" "$debt_file" "$dwell_file"; jq -r '.armed' "$peer_out"; }
+write_vmstat 16384 3446592 0 0 0 # 53853MB free — refuses (seeds the dwell like a prior bad tick)
+mem_headroom_halt_if_persistent "$halt_file" "$latch_file" "$dwell_file"
+check "seed: two consecutive real refusals before the recorded bounce starts" 1 "$(cat "$dwell_file")"
+mem_headroom_halt_if_persistent "$halt_file" "$latch_file" "$dwell_file"
+check "dwell at 2 going into the recorded sequence" 2 "$(cat "$dwell_file")"
+write_vmstat 16384 3540352 0 0 0 # 55318MB free — the one real PASSING sample
+mem_headroom_halt_if_persistent "$halt_file" "$latch_file" "$dwell_file"
+check "one real pass decrements, does not clear a count of two" 1 "$(cat "$dwell_file")"
+check "armed does NOT flip true on the 55318 sample" false "$(armed_now)"
+write_vmstat 16384 3482432 0 0 0 # 54413MB free — refuses again, immediately
+mem_headroom_halt_if_persistent "$halt_file" "$latch_file" "$dwell_file"
+check "the very next real sample (54413) is a refusal, back to 2" 2 "$(cat "$dwell_file")"
+check "armed still false" false "$(armed_now)"
+mem_headroom_halt_if_persistent "$halt_file" "$latch_file" "$dwell_file" # 54413 again
+check "a second consecutive real refusal reaches the configured dwell and halts" insufficient-memory-persistent "$(halt_cause)"
+check "armed still false after the whole recorded bounce" false "$(armed_now)"
+
+echo "8. rank_start_preconditions_ok no longer gates on memory at all:"
+# THE DEADLOCK THIS CLOSES. mem_headroom_ok used to run as a rung of
+# rank_start_preconditions_ok, ahead of quiesce_normal_serving — which the
+# watcher only calls AFTER every precondition passes. So the memory rung could
+# only ever measure memory still held by standalone serving, the exact memory
+# quiescing exists to return; it only ever passed because free memory happened
+# to clear the threshold anyway. The fix moves the memory check OUT of this
+# function entirely (see rank_start_room_ok below and its call site in
+# cluster-link-watcher.sh, right after quiesce_normal_serving there) rather
+# than calling quiesce_normal_serving from inside the guard: that call is
+# role-conditional on $CLUSTER_NORMAL_PROXY, which is not part of the guard
+# contract this test (and test-rank-start-guards.sh) pin, and doing so crashed
+# outright under `set -o nounset`. So this section asserts the DECOUPLING: the
+# full precondition chain must proceed to "start" even when memory is nowhere
+# near enough, because the memory verdict is no longer this function's job.
+reset_state
+export CLUSTER_SHARD_MEMORY_MB=1000
+write_vmstat 16384 0 0 0 0 # zero free — would refuse if this rung still ran here
+check "preconditions ignore memory entirely now" start "$(verdict)"
+
+echo "9. rank_start_room_ok measures whatever quiesce actually freed:"
+# The watcher's contract: quiesce_normal_serving runs, THEN rank_start_room_ok
+# is checked. This proves the split composes correctly — rank_start_room_ok is
+# a thin wrapper over mem_headroom_ok, so it must refuse on the still-short
+# pre-quiesce reading and pass once a (simulated) quiesce has rewritten it.
+reset_state
+export CLUSTER_SHARD_MEMORY_MB=1000
+write_vmstat 16384 6400 0 0 0 # 100MB free — short, until quiesce "frees" more
+check "room check refuses before quiesce" 1 "$(rank_start_room_ok && echo 0 || echo 1)"
+cat > "$vmstat_fixture" << 'POSTQUIESCE'
+Mach Virtual Memory Statistics: (page size of 16384 bytes)
+Pages free:                              64000.
+Pages active:                            1000.
+Pages inactive:                          0.
+Pages speculative:                       0.
+Pages throttled:                         0.
+Pages wired down:                        0.
+Pages purgeable:                         0.
+POSTQUIESCE
+check "room check passes once quiesce has freed the room" 0 "$(rank_start_room_ok && echo 0 || echo 1)"
 
 exit "$fail"

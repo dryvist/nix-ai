@@ -68,6 +68,11 @@ let
     fi
   '';
   fakeSleep = pkgs.writeShellScriptBin "sleep" "exit 0";
+  # reap_workers() now calls mlx_reap_orphan_ports (llama-swap-reap.sh,
+  # nix-ai#1423) instead of a pgrep/pkill pattern. A holder-free lsof is all
+  # this check needs: mlx_reap_orphan_ports returns immediately without ever
+  # calling kill, so no fake kill is required either.
+  fakeLsof = pkgs.writeShellScriptBin "fake-lsof" "exit 1";
 in
 {
   mlx-watchdog-progress = pkgs.runCommand "check-mlx-watchdog-progress" { } ''
@@ -75,7 +80,10 @@ in
     export HOME="$TMPDIR/home"
     export MLX_API_URL=http://127.0.0.1:11434/v1
     export MLX_LAUNCHD_LABEL=dev.test.mlx
-    export MLX_MODEL_SERVER_PROCESS_PATTERN=vllm_mlx.server
+    export MLX_LSOF_BIN=${fakeLsof}/bin/fake-lsof
+    export MLX_PORT=11434
+    export MLX_WORKER_PORT_RANGE_START=11436
+    export MLX_WORKER_PORT_COUNT=2
     export MLX_WATCHDOG_PROBE_MODELS_JSON='["tool-calling"]'
     export MLX_WATCHDOG_BRAIN_MODEL=tool-calling
     export MLX_WATCHDOG_BUSY_GRACE=900
@@ -95,6 +103,12 @@ in
     export FAKE_OTHER_STEPS_FILE="$TMPDIR/other-steps"
     export FAKE_ERROR_FILE="$TMPDIR/errors"
 
+    # Same concatenation mlx-watchdog-pkg.nix ships: mlx_reap_orphan_ports
+    # only exists once llama-swap-reap.sh is ahead of mlx-watchdog.sh in one
+    # script (nix-ai#1423).
+    combined="$TMPDIR/mlx-watchdog-combined.sh"
+    cat ${src}/modules/mlx/scripts/llama-swap-reap.sh ${src}/modules/mlx/scripts/mlx-watchdog.sh > "$combined"
+
     printf '%s\n' '{"models":{"brain-physical":{"aliases":["tool-calling"]},"other-physical":{"aliases":["coding"]}}}' > "$MLX_WATCHDOG_CONFIG"
     printf 'busy\n' > "$FAKE_MODE_FILE"
     printf 'present\n' > "$FAKE_METRICS_MODE_FILE"
@@ -103,7 +117,7 @@ in
     printf '100\n' > "$FAKE_UPTIME_FILE"
     printf '100\n' > "$FAKE_OTHER_STEPS_FILE"
     printf '0\n' > "$FAKE_ERROR_FILE"
-    bash ${src}/modules/mlx/scripts/mlx-watchdog.sh > "$TMPDIR/first.log" 2>&1
+    bash "$combined" > "$TMPDIR/first.log" 2>&1
     test "$(<"$MLX_WATCHDOG_BUSY_MARKER")" = 1000
 
     # A single busy request may run beyond 900 s. Advancing engine steps on
@@ -111,7 +125,7 @@ in
     printf '1901\n' > "$FAKE_NOW_FILE"
     printf '11\n' > "$FAKE_STEPS_FILE"
     printf '1001\n' > "$FAKE_UPTIME_FILE"
-    bash ${src}/modules/mlx/scripts/mlx-watchdog.sh > "$TMPDIR/progress.log" 2>&1
+    bash "$combined" > "$TMPDIR/progress.log" 2>&1
     test "$(<"$MLX_WATCHDOG_BUSY_MARKER")" = 1901
     test ! -e "$MLX_WATCHDOG_FAIL_MARKER"
     ! grep -q 'kickstart' "$TMPDIR/progress.log"
@@ -123,7 +137,7 @@ in
     printf '999\n' > "$FAKE_OTHER_STEPS_FILE"
     printf '999\n' > "$FAKE_ERROR_FILE"
     printf '1902\n' > "$FAKE_UPTIME_FILE"
-    bash ${src}/modules/mlx/scripts/mlx-watchdog.sh > "$TMPDIR/frozen.log" 2>&1
+    bash "$combined" > "$TMPDIR/frozen.log" 2>&1
     test "$(<"$MLX_WATCHDOG_FAIL_MARKER")" = 1
     test ! -e "$MLX_WATCHDOG_BUSY_MARKER"
     test ! -e "$MLX_WATCHDOG_PROGRESS_MARKER"
@@ -134,7 +148,7 @@ in
     printf '2900\n' > "$FAKE_NOW_FILE"
     printf '2900\n' > "$MLX_WATCHDOG_BUSY_MARKER"
     printf 'brain-physical\thttp://127.0.0.1:11437\t11\t1902\n' > "$MLX_WATCHDOG_PROGRESS_MARKER"
-    bash ${src}/modules/mlx/scripts/mlx-watchdog.sh > "$TMPDIR/healthy.log" 2>&1
+    bash "$combined" > "$TMPDIR/healthy.log" 2>&1
     test ! -e "$MLX_WATCHDOG_FAIL_MARKER"
     test ! -e "$MLX_WATCHDOG_BUSY_MARKER"
     test ! -e "$MLX_WATCHDOG_PROGRESS_MARKER"
@@ -147,7 +161,7 @@ in
     printf '3901\n' > "$FAKE_NOW_FILE"
     printf '1\n' > "$FAKE_STEPS_FILE"
     printf '10\n' > "$FAKE_UPTIME_FILE"
-    bash ${src}/modules/mlx/scripts/mlx-watchdog.sh > "$TMPDIR/counter-reset.log" 2>&1
+    bash "$combined" > "$TMPDIR/counter-reset.log" 2>&1
     test "$(<"$MLX_WATCHDOG_BUSY_MARKER")" = 3901
     test ! -e "$MLX_WATCHDOG_FAIL_MARKER"
     grep -q 'worker epoch reset -> reset busy grace' "$TMPDIR/counter-reset.log"
@@ -156,7 +170,7 @@ in
     printf '4000\n' > "$MLX_WATCHDOG_BUSY_MARKER"
     printf 'brain-physical\thttp://127.0.0.1:11437\t1\t100\n' > "$MLX_WATCHDOG_PROGRESS_MARKER"
     printf '4901\n' > "$FAKE_NOW_FILE"
-    bash ${src}/modules/mlx/scripts/mlx-watchdog.sh > "$TMPDIR/uptime-reset.log" 2>&1
+    bash "$combined" > "$TMPDIR/uptime-reset.log" 2>&1
     test "$(<"$MLX_WATCHDOG_BUSY_MARKER")" = 4901
     test ! -e "$MLX_WATCHDOG_FAIL_MARKER"
     grep -q 'worker epoch reset -> reset busy grace' "$TMPDIR/uptime-reset.log"
@@ -165,7 +179,7 @@ in
     printf '5000\n' > "$MLX_WATCHDOG_BUSY_MARKER"
     printf 'old-model\thttp://127.0.0.1:11999\t1\t10\n' > "$MLX_WATCHDOG_PROGRESS_MARKER"
     printf '5901\n' > "$FAKE_NOW_FILE"
-    bash ${src}/modules/mlx/scripts/mlx-watchdog.sh > "$TMPDIR/identity.log" 2>&1
+    bash "$combined" > "$TMPDIR/identity.log" 2>&1
     test "$(<"$MLX_WATCHDOG_BUSY_MARKER")" = 5901
     test ! -e "$MLX_WATCHDOG_FAIL_MARKER"
     grep -q 'worker identity changed -> reset busy grace' "$TMPDIR/identity.log"
@@ -175,35 +189,61 @@ in
     printf '6000\n' > "$MLX_WATCHDOG_BUSY_MARKER"
     printf 'brain-physical\thttp://127.0.0.1:11437\t1\t10\n' > "$MLX_WATCHDOG_PROGRESS_MARKER"
     printf '6901\n' > "$FAKE_NOW_FILE"
-    bash ${src}/modules/mlx/scripts/mlx-watchdog.sh > "$TMPDIR/missing.log" 2>&1
+    bash "$combined" > "$TMPDIR/missing.log" 2>&1
     test "$(<"$MLX_WATCHDOG_FAIL_MARKER")" = 1
     grep -q 'no engine progress through 900s grace' "$TMPDIR/missing.log"
 
     # Ambiguous alias mapping is also fail-safe even with valid metrics.
     printf 'healthy\n' > "$FAKE_MODE_FILE"
     printf '7000\n' > "$FAKE_NOW_FILE"
-    bash ${src}/modules/mlx/scripts/mlx-watchdog.sh > /dev/null 2>&1
+    bash "$combined" > /dev/null 2>&1
     printf '%s\n' '{"models":{"brain-physical":{"aliases":["tool-calling"]},"other-physical":{"aliases":["tool-calling"]}}}' > "$MLX_WATCHDOG_CONFIG"
     printf 'busy\n' > "$FAKE_MODE_FILE"
     printf 'present\n' > "$FAKE_METRICS_MODE_FILE"
     printf '7100\n' > "$MLX_WATCHDOG_BUSY_MARKER"
     printf '8001\n' > "$FAKE_NOW_FILE"
-    bash ${src}/modules/mlx/scripts/mlx-watchdog.sh > "$TMPDIR/ambiguous.log" 2>&1
+    bash "$combined" > "$TMPDIR/ambiguous.log" 2>&1
     test "$(<"$MLX_WATCHDOG_FAIL_MARKER")" = 1
     grep -q 'no engine progress through 900s grace' "$TMPDIR/ambiguous.log"
 
     # Dead clears busy/progress state before entering the normal failure rung.
     printf 'healthy\n' > "$FAKE_MODE_FILE"
     printf '8100\n' > "$FAKE_NOW_FILE"
-    bash ${src}/modules/mlx/scripts/mlx-watchdog.sh > /dev/null 2>&1
+    bash "$combined" > /dev/null 2>&1
     printf 'dead\n' > "$FAKE_MODE_FILE"
     printf '8200\n' > "$FAKE_NOW_FILE"
     printf '8200\n' > "$MLX_WATCHDOG_BUSY_MARKER"
     printf 'brain-physical\thttp://127.0.0.1:11437\t1\t10\n' > "$MLX_WATCHDOG_PROGRESS_MARKER"
-    bash ${src}/modules/mlx/scripts/mlx-watchdog.sh > "$TMPDIR/dead.log" 2>&1
+    bash "$combined" > "$TMPDIR/dead.log" 2>&1
     test ! -e "$MLX_WATCHDOG_BUSY_MARKER"
     test ! -e "$MLX_WATCHDOG_PROGRESS_MARKER"
     test "$(<"$MLX_WATCHDOG_FAIL_MARKER")" = 1
+
+    # MLX_WATCHDOG_BUSY_ESCALATION=alert: the mode the metric-less backend
+    # runs in. An expired grace with no progress signal must page and rebase
+    # the timer — never advance the ladder, which would reap a brain that is
+    # only saturating its concurrency slots. The cases above all run in the
+    # default "restart" mode, so both behaviours stay covered.
+    export MLX_WATCHDOG_BUSY_ESCALATION=alert
+    printf 'missing\n' > "$FAKE_METRICS_MODE_FILE"
+    printf 'busy\n' > "$FAKE_MODE_FILE"
+    printf '9000\n' > "$MLX_WATCHDOG_BUSY_MARKER"
+    printf '10001\n' > "$FAKE_NOW_FILE"
+    bash "$combined" > "$TMPDIR/alert-mode.log" 2>&1
+    test "$(<"$MLX_WATCHDOG_BUSY_MARKER")" = 10001
+    test "$(<"$MLX_WATCHDOG_FAIL_MARKER")" = 1
+    ! grep -q 'kickstart\|bootout' "$TMPDIR/alert-mode.log"
+    grep -q 'alert only, NO stack restart' "$TMPDIR/alert-mode.log"
+    grep -q 'answered no completion for 1001s' "$TMPDIR/alert-mode.log"
+
+    # dead is unambiguous on every backend, so it keeps the full ladder even
+    # in alert mode — only the busy branch changes.
+    rm -f "$MLX_WATCHDOG_FAIL_MARKER"
+    printf 'dead\n' > "$FAKE_MODE_FILE"
+    printf '10200\n' > "$FAKE_NOW_FILE"
+    bash "$combined" > "$TMPDIR/alert-mode-dead.log" 2>&1
+    test "$(<"$MLX_WATCHDOG_FAIL_MARKER")" = 1
+    grep -q 'reap + kickstart' "$TMPDIR/alert-mode-dead.log"
 
     touch "$out"
   '';

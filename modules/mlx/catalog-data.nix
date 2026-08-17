@@ -2,6 +2,11 @@
 # module. The entry schema and the shared serve-arg helpers inherited below
 # (parser stacks, timeout, paged-block sizes, swap tier) are documented in
 # catalog-lib.nix; this file is split out to keep each under the 12KB gate.
+# See catalog-lib.nix for the #1334 KV-quant/MTP flag-availability note.
+# qwen3-next-80b-instruct and qwen38-27b live in their own files, merged
+# below, for the same size-gate reason. Both carry long measurement notes,
+# which is exactly what pushed this file over the gate — split the entry,
+# never trim the evidence.
 let
   inherit (import ./catalog-lib.nix)
     block256
@@ -10,10 +15,47 @@ let
     swapFlags
     ;
 in
-{
+(import ./catalog-data-80b-instruct.nix)
+// (import ./catalog-data-qwen38-27b.nix)
+// {
+  # Document OCR, on demand. The only non-text entry in the catalog: an
+  # SAM + CLIP-L + DeepSeek-V2 vision-language model, so it CANNOT run on the
+  # host's mlx_lm.server (no image input path) and pins backend = "mlx-vlm".
+  # mlx-vlm carries this architecture explicitly — its prompt_utils MODEL_CONFIG
+  # registry maps model_type "unlimited-ocr" to a single-image message format.
+  #
+  # WEIGHTS MUST BE PRE-CACHED, exactly as for qwen35-9b-mlx above — run
+  # `hf download mlx-community/Unlimited-OCR-bf16` on the serving host before
+  # enabling this. HF_HUB_OFFLINE=1 makes an uncached id 502 for minutes rather
+  # than fetch. Note the near-miss names already on disk there
+  # (LoJexLLM/Unlimited-OCR-MLX, baidu/Unlimited-OCR) are DIFFERENT repos and
+  # do not satisfy this id.
+  #
+  # swap only, never resident: OCR is bursty and 6.7 GB of bf16 weights should
+  # not sit in the co-residency budget between documents. No swapFlags — those
+  # are mlx_lm serve flags (maxNumSeqs/maxRequestTokens/autoUnloadIdleSeconds)
+  # that the mlx-vlm adapter rejects; idle unload comes from llama-swap's
+  # proxy-side ttl instead, which the host sets via catalog tweaks.ttl.
+  #
+  # concurrencyLimit 1: a full-page VLM decode is a long single-stream job, and
+  # the proxy admitting parallel requests to a one-at-a-time worker is what
+  # produced the 429s that motivated effectiveConcurrency in the first place.
+  unlimited-ocr = {
+    model = "mlx-community/Unlimited-OCR-bf16";
+    backend = "mlx-vlm";
+    weightGb = 6.7;
+    args = [ ];
+    concurrencyLimit = 1;
+    classes = {
+      swap.flags = { };
+    };
+  };
+
   # Small resident auxiliary model for bounded classification and judging.
   # OptiQ keeps tool/reasoning compatibility with the Qwen family while the
   # 4-bit footprint permits it to stay warm beside the primary 80B brain.
+  # #1641: batched decode leaks Metal buffers on this family — swapFlags'
+  # maxNumSeqs=2 keeps it narrow; do not raise it.
   qwen35-9b-optiq = {
     model = "mlx-community/Qwen3.5-9B-OptiQ-4bit";
     weightGb = 7.7;
@@ -46,6 +88,7 @@ in
   # the OptiQ-4bit variant was on disk, so every call to it 502'd for weeks with
   # nothing reporting why. Registration makes an id SERVABLE, never CACHED.
   # `hf download <id>` (or the prefetch agent) is the step that caches it.
+  # #1641 (same family as qwen35-9b-optiq): maxNumSeqs low, see its comment.
   qwen35-9b-mlx = {
     model = "mlx-community/Qwen3.5-9B-MLX-4bit";
     weightGb = 5.2;
@@ -60,30 +103,6 @@ in
     classes = {
       resident.flags = { };
       swap.flags = swapFlags;
-    };
-  };
-
-  # Resident Hermes goal judge. This is the smallest already-cached 27B MLX
-  # quant on jevans-ms. Keep it serialized: judging is latency-sensitive but
-  # never needs concurrent decode, and a second prompt would only increase
-  # unified-memory pressure beside the resident 80B worker.
-  qwen36-27b-mxfp4 = {
-    model = "mlx-community/Qwen3.6-27B-mxfp4";
-    weightGb = 15.3;
-    args = [
-      "--chat-template-args"
-      (builtins.toJSON {
-        enable_thinking = false;
-      })
-    ];
-    concurrencyLimit = 1;
-    classes = {
-      resident.flags = {
-        cacheMemoryMb = 8192;
-      };
-      swap.flags = swapFlags // {
-        cacheMemoryMb = 3072;
-      };
     };
   };
 
@@ -199,67 +218,12 @@ in
     };
   };
 
-  # Instruct sibling of the Thinking brain above — the 2026-07-17 agentic-bench
-  # winner and new fleet brain (perfect 1.0 valid_tool_call_rate across every
-  # single-stream cell, thinking on/off x ctx small/large x stream/nostream;
-  # envelopes in HF JacobPEvans/mlx-benchmarks). Same qwen3_next
-  # hybrid-attention constraint as the Thinking entry: paged cache off
-  # (hybridNoPaged) because paged-block reconstruction fails every multi-turn
-  # request; the standard KV cache runs instead. Resident profile mirrors the OptiQ brain it
-  # replaces — 65536 serving window (Hermes' >=64K floor; also serves as the
-  # compression model), 16 GB KV. SINGLE-SLOT (40B+ policy, below): maxNumSeqs=1
-  # at the engine AND concurrencyLimit=1 at the proxy — this family's ceiling
-  # crashes hit under any concurrency, and prefix-cache reconstruction is broken
-  # upstream (mlx-lm#1162, INC-17130) so every tool turn full-reprefills 85-100s;
-  # batching multiple such requests only time-slices one GPU and balloons every
-  # caller's latency into the 429 storm. One request at a time, queue the rest.
-  qwen3-next-80b-instruct = {
-    model = "mlx-community/Qwen3-Next-80B-A3B-Instruct-4bit";
-    weightGb = 42.0;
-    # qwen3_next HYBRID: 48 layers, full_attention_interval=4 → only 12
-    # full-attention layers carry paged KV; the other 36 gated-delta-net layers
-    # carry none (mlx-lm qwen3_next.py:360 is_linear, :450 make_cache). Counting
-    # all 48 would over-reserve KV by 4x. kvHeads=2, headDim=256.
-    # perTokenKvBytes = 2*12*2*256*2 = 24576 B/token (24 KiB/token) — LOWER than
-    # the 30B dense models despite 2.4x the weights, because 3/4 of its layers
-    # are KV-free. (Thinking sibling qwen3-next-80b has identical arch.)
-    kv = {
-      kvLayers = 12;
-      kvHeads = 2;
-      headDim = 256;
-      kvDtypeBytes = 2;
-    };
-    args = [ ];
-    # 40B+ SINGLE-SLOT POLICY (user directive 2026-07-21): no concurrency on any
-    # 40B+ model. Two layers, defense in depth: concurrencyLimit=1 makes
-    # llama-swap QUEUE excess requests (single in-flight to the worker) instead
-    # of parallel-dispatch + 429-storm; maxNumSeqs=1 (in flags) caps the engine
-    # batch width so even a proxy regression cannot re-enable batching. This 80B
-    # aborts with metal::malloc resource-limit errors under concurrent requests
-    # (Hermes crons + fleet traffic), and the crash-loop respawn storm exhausts
-    # the per-uid process table — reliability over throughput.
-    concurrencyLimit = 1;
-    classes = {
-      resident.flags = hybridNoPaged // {
-        cacheMemoryMb = 8192;
-        maxNumSeqs = 1;
-        maxRequestTokens = 65536;
-      };
-      swap.flags =
-        swapFlags
-        // hybridNoPaged
-        // {
-          cacheMemoryMb = 4096;
-          maxNumSeqs = 1; # 40B+ single-slot policy (overrides swapFlags maxNumSeqs=2)
-        };
-    };
-  };
-
   # Pipeline-parallel cluster model. Cluster hosts select this catalog key;
   # the physical model id stays centralized here with the standalone models.
   glm47-reap50 = {
     model = "mlx-community/GLM-4.7-REAP-50-mxfp4";
     weightGb = 98.0;
+    architecture = "glm4_moe";
     cluster = true;
     args = [ ];
     classes = { };
@@ -295,6 +259,20 @@ in
         # left to "auto" so the mode is stated, not re-inferred per turn.
         harmonyToolParser = "on";
       };
+    };
+  };
+
+  # Gemma 4 QAT OptiQ-4bit, ~23.5 GB. NO reasoningParser: isolation testing
+  # found it zeroes non-streaming tool calls together with the tool-call
+  # parser (valid_tool_call_rate 0.00 -> 1.00 once removed); leave unset until
+  # re-benched alone.
+  gemma4-31b-optiq = {
+    model = "mlx-community/gemma-4-31B-it-OptiQ-4bit";
+    weightGb = 23.5;
+    args = [ ];
+    concurrencyLimit = 1;
+    classes = {
+      swap.flags = swapFlags;
     };
   };
 

@@ -19,6 +19,8 @@
 # Consumed environment:
 #   CLUSTER_ROLE          coordinator | worker
 #   coordinator: CLUSTER_SERVER_LABEL / CLUSTER_SERVER_PLIST / CLUSTER_WARMUP_LABEL
+#                CLUSTER_WATCHDOG_LABEL / CLUSTER_WATCHDOG_PLIST (optional — an
+#                older generation without them just skips the watchdog restore)
 #   worker:      CLUSTER_RESTORE_CMD  (cluster-restore — bootstraps back exactly
 #                the agent set cluster-quiesce recorded, never a hardcoded list)
 restore_normal_serving() {
@@ -44,6 +46,26 @@ restore_normal_serving() {
     fi
     # Re-warm the declared preload list through the existing warmup one-shot.
     launchctl kickstart -k "gui/$uid/$CLUSTER_WARMUP_LABEL" || true
+    # The serving watchdog is booted out alongside the server agent above (see
+    # cluster-join), so it needs the same bootstrap-back treatment -- a plain
+    # kickstart on an unloaded job fails silently, same failure shape INC-17071
+    # fixed for the warmup one-shot. Best-effort: standalone serving itself is
+    # already restored by this point, so a watchdog that cannot come back is a
+    # missing safety net, not a repeat of the outage this function exists to fix.
+    if [ -z "${CLUSTER_WATCHDOG_LABEL:-}" ]; then
+      echo "cluster-link: no CLUSTER_WATCHDOG_LABEL configured; nothing to restore for the watchdog"
+    elif launchctl print "gui/$uid/$CLUSTER_WATCHDOG_LABEL" > /dev/null 2>&1; then
+      echo "cluster-link: $CLUSTER_WATCHDOG_LABEL already loaded"
+    elif [ -f "${CLUSTER_WATCHDOG_PLIST:-}" ]; then
+      echo "cluster-link: watchdog agent not loaded; bootstrapping"
+      if launchctl bootstrap "gui/$uid" "$CLUSTER_WATCHDOG_PLIST" > /dev/null 2>&1; then
+        echo "cluster-link: $CLUSTER_WATCHDOG_LABEL bootstrapped"
+      else
+        echo "cluster-link: WARN failed to bootstrap $CLUSTER_WATCHDOG_LABEL" >&2
+      fi
+    else
+      echo "cluster-link: WARN $CLUSTER_WATCHDOG_LABEL not loaded and no plist to bootstrap" >&2
+    fi
   elif [ -n "${CLUSTER_RESTORE_CMD:-}" ]; then
     # cluster-restore keeps the labels it could not bootstrap and exits nonzero
     # precisely so a later tick retries them; propagate that.
