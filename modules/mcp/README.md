@@ -179,20 +179,8 @@ is stored in the Nix config — there is nothing to put in Doppler or Keychain.
 
 ## OpenWhispr MCP and CLI
 
-The `openwhispr` MCP server is OpenWhispr's hosted connector — a remote
-Streamable-HTTP endpoint at `https://mcp.openwhispr.com/mcp`
-([setup guide](https://docs.openwhispr.com/integrations/mcp)).
-
-**Requires:** a personal API key (`owk_live_...`) in `OPENWHISPR_API_KEY` — inject
-at runtime (see [`.env.example`](../../.env.example)). Workspace keys are not
-supported. Create the key in the desktop app under **Integrations > API Keys**, or
-via the [agent setup](https://docs.openwhispr.com/integrations/agent-setup) flow.
-
-The `openwhispr` CLI (`@openwhispr/cli`, installed via [`ai-tools.nix`](../ai-tools.nix))
-uses a **separate credential path** for remote access: `openwhispr auth login`
-writes the key to `~/.openwhispr/cli-config.json`. When the desktop app is running,
-the CLI auto-detects the local bridge via `~/.openwhispr/cli-bridge.json` and needs
-no remote auth. Run `openwhispr doctor` to verify connectivity.
+Hosted connector at `https://mcp.openwhispr.com/mcp` ([setup](https://docs.openwhispr.com/integrations/mcp)).
+**Requires:** `OPENWHISPR_API_KEY` (see [`.env.example`](../../.env.example)). CLI: [`ai-tools.nix`](../ai-tools.nix).
 
 ## MLX Inference (Local Apple Silicon)
 
@@ -273,32 +261,10 @@ into the login environment.
 
 ### doppler-mcp server shows "Failed to connect"
 
-**Root cause (diagnosed 2026-03-25):** Claude Code launches all MCP servers in parallel at
-session startup. The `doppler-mcp` wrapper previously ran a synchronous preflight check
-(`doppler run ... -- true`) before the actual MCP server could start. This Doppler API
-round-trip — fetching secrets just to run `true` — delayed the MCP server's stdio handshake
-past Claude Code's connection timeout. The preflight also doubled startup time by fetching
-secrets twice (once for check, once for real command).
-
-**Fix:** The preflight was removed from `doppler-mcp` (in `modules/ai-tools.nix`).
-The wrapper now goes straight to `exec doppler run ... -- "$@"`. Auth failures are handled
-natively by `doppler run` (exits non-zero with a clear error message).
-
-**If you still see failures after the fix:**
-
-1. Verify Doppler auth: `doppler me`
-2. Test the wrapper manually: `doppler-mcp <server-command>` (Ctrl-C to stop)
-3. Check the invocation log: `cat ~/.local/state/doppler-mcp.log`
-   - Records commands only, not error details
-   - Doppler auth errors go to stderr — re-run the logged command in a terminal to see them
-4. If Doppler auth expired: `doppler login`, then restart Claude Code
-5. Verify registration: `claude mcp list | grep "^<server>:"`
-
-**Mid-session recovery** (if a server failed at startup but Doppler is now healthy):
-
-```bash
-claude mcp remove <server> -s user && claude mcp add <server> -s user -- <command>
-```
-
-This reconnects the server, but tools won't appear in the current session's ToolSearch.
-Restart Claude Code for full tool availability.
+Claude Code launches MCP servers in parallel at startup. `doppler-mcp` runs
+`exec doppler run ... -- "$@"` with no preflight — auth failures exit non-zero from
+`doppler run` itself. If a server still fails: verify `doppler me`, test
+`doppler-mcp <server-command>` manually, check `~/.local/state/doppler-mcp.log`,
+re-auth with `doppler login` if needed, then restart Claude Code. Mid-session:
+`claude mcp remove <server> -s user && claude mcp add <server> -s user -- <command>`
+(restart for full ToolSearch availability).
