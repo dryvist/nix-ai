@@ -22,6 +22,7 @@ let
     antigravity-ide = hmConfig.config.programs.antigravity-ide.mcpServerNames;
     qwen-code = hmConfig.config.programs.qwen-code.mcpServerNames;
     opencode = hmConfig.config.programs.opencode.mcpServerNames;
+    cursor = hmConfig.config.programs.cursor.mcpServerNames;
   };
   rendererMismatches = builtins.filter (name: rendererNames.${name} != cfg.enabledServerNames) (
     builtins.attrNames rendererNames
@@ -74,7 +75,7 @@ in
     assert
       rendererMismatches == [ ]
       || throw "MCP renderer parity mismatch: ${builtins.toJSON rendererMismatches}; shared=${builtins.toJSON cfg.enabledServerNames}; renderers=${builtins.toJSON rendererNames}";
-    helpers.mkMarker "check-shared-mcp-renderer-parity" "Shared MCP renderer parity verified for Claude, Codex, Antigravity CLI/IDE, Qwen, and OpenCode";
+    helpers.mkMarker "check-shared-mcp-renderer-parity" "Shared MCP renderer parity verified for Claude, Codex, Antigravity CLI/IDE, Qwen, OpenCode, and Cursor";
 
   splunk-mcp-canonical-launcher =
     assert

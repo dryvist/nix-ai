@@ -86,6 +86,7 @@ in
     ./claude-config.nix
     ./claude/skill-packs.nix
     ./codex
+    ./cursor
     ./antigravity-ide
     ./antigravity-cli
     ./fabric
@@ -175,6 +176,12 @@ in
 
       # OpenAI Codex configuration (settings handled by modules/codex/)
       codex = {
+        enable = true;
+      };
+
+      # Cursor CLI configuration (settings handled by modules/cursor/; the
+      # Cursor IDE itself stays installed via nix-darwin home.packages).
+      cursor = {
         enable = true;
       };
 
