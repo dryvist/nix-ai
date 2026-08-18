@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.21.0](https://github.com/dryvist/nix-ai/compare/v4.20.0...v4.21.0) (2026-08-18)
+
+
+### Features
+
+* **cursor:** add Cursor CLI home-manager module ([#1697](https://github.com/dryvist/nix-ai/issues/1697)) ([f004e37](https://github.com/dryvist/nix-ai/commit/f004e377851e9fff8a8b7a21f1d917508e04841a))
+
 ## [4.20.0](https://github.com/dryvist/nix-ai/compare/v4.19.1...v4.20.0) (2026-08-17)
 
 
