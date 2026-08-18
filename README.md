@@ -22,6 +22,7 @@ identically, every time.
 | **Gemini / Antigravity** | CLI + IDE settings, custom commands, permission rules |
 | **GitHub Copilot** | Configuration, permissions |
 | **OpenAI Codex** | Settings, rules, approval policy |
+| **Cursor CLI** | Terminal agent (`agent`/`cursor-agent`) with shared MCP servers and permission allowlist |
 | **Qwen Code & Cecli** | Settings for the Alibaba and Aider-fork CLIs |
 | **MCP Servers** | One [catalog](modules/mcp/README.md) (GitHub, Terraform, Context7, filesystem, memory, …) fanned out to every agent |
 | **AI Dev Tools** | cclint, doppler-mcp, claude-flow, and more |
@@ -69,7 +70,7 @@ that merge into your existing configuration:
 | `homeManagerModules.codex` | Just OpenAI Codex |
 | `homeManagerModules.mcp` | Just the MCP server catalog |
 | `homeManagerModules.maestro` | Just Maestro orchestration |
-| *(also: `agent-skills`, `antigravity-cli`, `antigravity-ide`, `cecli`, `qwen-code`)* | One module per tool |
+| *(also: `agent-skills`, `antigravity-cli`, `antigravity-ide`, `cecli`, `cursor`, `qwen-code`)* | One module per tool |
 | `lib.ci.claudeSettingsJson` | Pure settings JSON for CI validation (no derivations) |
 | `lib.aiStackModels` | Role-name → model-ID registry, for foreign (non-module) consumers |
 
@@ -113,6 +114,7 @@ nix fmt           # auto-fix formatting
 modules/
 ├── claude/         # Claude Code — plugins, hooks, agents, rules
 ├── codex/          # OpenAI Codex
+├── cursor/         # Cursor CLI (agent / cursor-agent)
 ├── antigravity-*/  # Gemini / Antigravity CLI + IDE
 ├── cecli/          # Cecli (Aider fork)
 ├── qwen-code/      # Alibaba Qwen Code
