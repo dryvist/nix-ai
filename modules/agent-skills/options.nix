@@ -29,6 +29,18 @@ in
       '';
     };
 
+    opencodeConfigDir = lib.mkOption {
+      type = lib.types.str;
+      default = ".config/opencode";
+      description = ''
+        OpenCode config directory (relative to $HOME) that the registry
+        symlinks skills and AGENTS.md into. Kept as the harness's own option so
+        this module stays standalone (it does not import programs.opencode);
+        the full stack wires it from programs.opencode.configDir in
+        modules/default.nix.
+      '';
+    };
+
     fromFlakeInputs = lib.mkOption {
       type = lib.types.listOf componentModule;
       default = [ ];

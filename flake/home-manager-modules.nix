@@ -100,6 +100,10 @@ in
       # User-facing values (model, marketplaces, hooks, settings.*) live in
       # this module — nix-claude-code only declares the option schema.
       ../modules/claude-config.nix
+      # userConfig option surface (claude-config reads it via common →
+      # permissions). Imported here so standalone consumers get the same
+      # option as homeManagerModules.default.
+      ../modules/maintainer-profile.nix
     ];
     _module.args = {
       inherit
@@ -125,6 +129,7 @@ in
       ../modules/mcp/module.nix
       ../modules/agent-skills
       ../modules/codex
+      ../modules/maintainer-profile.nix
     ];
     _module.args = {
       inherit
@@ -140,6 +145,7 @@ in
       ../modules/mcp/module.nix
       ../modules/agent-skills
       ../modules/antigravity-cli
+      ../modules/maintainer-profile.nix
     ];
     _module.args = {
       inherit
@@ -155,6 +161,7 @@ in
       ../modules/mcp/module.nix
       ../modules/agent-skills
       ../modules/antigravity-ide
+      ../modules/maintainer-profile.nix
     ];
     _module.args = {
       inherit
@@ -180,6 +187,7 @@ in
       ../modules/mcp/module.nix
       ../modules/agent-skills
       ../modules/qwen-code
+      ../modules/maintainer-profile.nix
     ];
     _module.args = {
       inherit
@@ -195,6 +203,7 @@ in
       ../modules/mcp/module.nix
       ../modules/agent-skills
       ../modules/opencode
+      ../modules/maintainer-profile.nix
     ];
     _module.args = {
       inherit
@@ -215,6 +224,9 @@ in
   };
 
   maestro = {
-    imports = [ ../modules/maestro ];
+    imports = [
+      ../modules/maestro
+      ../modules/maintainer-profile.nix
+    ];
   };
 }

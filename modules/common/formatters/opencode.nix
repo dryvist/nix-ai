@@ -12,6 +12,13 @@
     {
       edit = "allow";
       webfetch = "allow";
+      # Always-trusted workspace root (permissions.directories.public). opencode
+      # expands an absolute /** glob identically to ~/git/public/**; without this
+      # rule, cross-repo access under the public root trips external_directory's
+      # default "ask".
+      external_directory = lib.genAttrs (map (d: "${d}/**") (permissions.directories.public or [ ])) (
+        _: "allow"
+      );
       bash = {
         "*" = "ask";
       }

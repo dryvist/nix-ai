@@ -8,6 +8,7 @@
 # (modules/agent-skills/harnesses.nix -> ~/.config/opencode/skills symlink).
 # Commands are linked per-file from commandDirs so future sources coexist.
 {
+  pkgs,
   config,
   lib,
   nix-claude-code,
@@ -16,6 +17,7 @@
 
 let
   cfg = config.programs.opencode;
+  inherit (cfg) configDir;
 
   aiCommon = import ../common { inherit lib config nix-claude-code; };
   permission = aiCommon.formatters.opencode.formatPermission aiCommon.permissions;
@@ -54,6 +56,20 @@ let
     mcp = mcpServers;
   };
 
+  # Pretty-printed via jq (same convention as copilot.nix / antigravity-cli):
+  # builtins.toJSON is compact, so a runCommand + jq '.' derivation produces the
+  # human-readable layout the other harness configs use.
+  settingsJson =
+    pkgs.runCommand "opencode.json"
+      {
+        nativeBuildInputs = [ pkgs.jq ];
+        json = builtins.toJSON (lib.recursiveUpdate settings cfg.extraSettings);
+        passAsFile = [ "json" ];
+      }
+      ''
+        jq '.' "$jsonPath" > $out
+      '';
+
   mdFiles =
     dir:
     lib.optionalAttrs (builtins.pathExists dir) (
@@ -63,7 +79,7 @@ let
   mkCommandLinks =
     dir:
     lib.mapAttrs' (name: _: {
-      name = ".config/opencode/command/${name}";
+      name = "${configDir}/command/${name}";
       value = {
         source = "${dir}/${name}";
       };
@@ -85,9 +101,7 @@ in
     }
     (lib.mkIf cfg.enable {
       home.file = {
-        ".config/opencode/opencode.json".text = builtins.toJSON (
-          lib.recursiveUpdate settings cfg.extraSettings
-        );
+        "${configDir}/opencode.json".source = settingsJson;
       }
       // lib.foldl' (acc: dir: acc // mkCommandLinks dir) { } cfg.commandDirs;
     })
