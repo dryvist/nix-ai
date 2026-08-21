@@ -207,6 +207,10 @@ in
       # Shared skill deployment for Codex/Antigravity compatibility layers.
       agentSkills.enable = true;
 
+      # Keep the shared-skill fan-out in step with a relocated opencode config
+      # dir (agent-skills declares its own option so it stays standalone).
+      agentSkills.opencodeConfigDir = lib.mkDefault config.programs.opencode.configDir;
+
       # MLX inference server (vllm-mlx on port 11434)
       mlx = {
         enable = true;
