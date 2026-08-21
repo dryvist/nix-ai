@@ -1,5 +1,14 @@
 # Changelog
 
+## [4.22.0](https://github.com/dryvist/nix-ai/compare/v4.21.0...v4.22.0) (2026-08-21)
+
+
+### Features
+
+* **mcp:** add OpenWhispr CLI and shared MCP server ([#1701](https://github.com/dryvist/nix-ai/issues/1701)) ([b2ae856](https://github.com/dryvist/nix-ai/commit/b2ae856a6f8f48922b41d78e85d776dabfab76b4))
+* **mcp:** add OpenWhispr CLI and shared MCP server ([#1706](https://github.com/dryvist/nix-ai/issues/1706)) ([00f9d12](https://github.com/dryvist/nix-ai/commit/00f9d1215baeba092b1afc75af9606e6d04e3bc5))
+* **opencode:** pretty-print config, trust public root, add aikey keychain shortcut ([ce3b003](https://github.com/dryvist/nix-ai/commit/ce3b003d3ceb39809880531c6ac50fd30f675e4d))
+
 ## [4.21.0](https://github.com/dryvist/nix-ai/compare/v4.20.0...v4.21.0) (2026-08-18)
 
 
