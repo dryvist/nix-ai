@@ -1,41 +1,25 @@
-# Official mlx_lm.server wrapper carrying the in-process L2 memory limit.
-# Split from default.nix for the 12 KB file-size gate. The wrapper body lives
-# in scripts/mlx-lm-server.sh; this file only supplies its build-time values.
-#
-# mlx-lm carries the harmony patch rather than being the plain upstream
-# release: upstream infers no tool parser for gpt-oss, so its harmony tool
-# calls come back as raw markup inside `content` with `tool_calls: null`. See
-# mlx-lm-patch.nix for the defect and the patch.
-#
-# The whole stack now resolves from the Nix store (python-overlay.nix) instead
-# of `uv run --with`. uv minted a COMPLETE ~1.4 GB venv per distinct
-# resolution, shared nothing between them (hardlink count 1), and never
-# evicted one: 328 GB of cache on jevans-mbp against a 62 GB Nix store for the
-# entire system. Every live uv process also held a shared lock on that cache,
-# so `uv cache prune` could never take the exclusive lock and exited 0 having
-# freed nothing — which is how it grew unnoticed.
-#
-# PROCESS SHAPE CHANGED — read before touching any pgrep/pkill consumer.
-# This used to exec `uv run ... python launcher`, giving
-# llama-swap -> uv run -> python, THREE pids. It now execs python directly, so
-# there are TWO. launchScriptBasename below is still the single source every
-# pattern derives from, and it is unchanged, so matchers keyed on it keep
-# working; anything keyed on "uv run" does not. See scripts/llama-swap-reap.sh
-# for what a silently-unmatched pattern cost last time (#1368).
+# Official mlx_lm.server wrappers carrying the in-process L2 memory limit.
+# Split from default.nix for the 12 KB file-size gate. The release wrapper is
+# Nix-store backed; the pinned git wrapper remains isolated to DeepSeek-V4.
 {
   pkgs,
+  lib,
   cfg,
   versions,
+  uvPythonVersion,
+  mlxPin,
+  transformersPin,
+  mlxLmGit,
 }:
 let
   gib = 1024 * 1024 * 1024;
 
-  # mlx (Metal wheel) + harmony-patched mlx-lm + transformers, one atomic set.
+  # mlx (Metal wheel) + harmony-patched release mlx-lm, one atomic set.
   pythonEnv = (import ./python-overlay.nix { inherit pkgs versions; }).withPackages (ps: [
     ps.mlx-lm
   ]);
-
   launcher = ./scripts/mlx-lm-launch.py;
+  mlxLmGitWheel = import ./mlx-lm-git.nix { inherit pkgs mlxLmGit; };
 in
 {
   pkg = pkgs.writeShellApplication {
@@ -43,8 +27,6 @@ in
     text = builtins.readFile (
       pkgs.replaceVars ./scripts/mlx-lm-server.sh {
         memoryLimitBytes = toString (cfg.memoryHardLimitGb * gib);
-        # Empty string when unset; the script leaves the variable unexported
-        # rather than passing an empty limit through to mlx.
         cacheLimitBytes =
           if cfg.bufferCacheLimitGb == null then "" else toString (cfg.bufferCacheLimitGb * gib);
         suppressWiredLimit = if cfg.suppressWiredLimit then "1" else "";
@@ -54,15 +36,19 @@ in
     );
   };
 
-  # Basename of the in-process launcher this wrapper execs into. Single
-  # source that default.nix's modelServerProcessPattern.mlx-lm derives its
-  # pgrep/pkill pattern from, so the pattern can never silently drift from
-  # what this wrapper actually execs the way it did after this file's
-  # mlx-lm-launch.py replaced a direct mlx_lm.server invocation (#1368) —
-  # the pattern used to read "/mlx_lm\.server" and nobody updated it, so
-  # every pgrep/pkill consumer (llama-swap-launch.sh's old reap,
-  # mlx-watchdog.sh, mlx-status.sh, cluster-join.sh's quiesce reap) silently
-  # matched nothing for months. See scripts/llama-swap-reap.sh for the
-  # measured incident.
+  # The upstream git pin supplies DeepSeek-V4 before a release does. Keep it
+  # distinct from the harmony-patched release wrapper: it does not support the
+  # release-only harmony parser flag, and catalog assertions constrain use.
+  gitPkg = pkgs.writeShellScriptBin "mlx-lm-server-git" ''
+    export MLX_L1_MEMORY_LIMIT_BYTES=${toString (cfg.memoryHardLimitGb * gib)}
+    ${lib.optionalString (cfg.bufferCacheLimitGb != null)
+      "export MLX_L1_CACHE_LIMIT_BYTES=${toString (cfg.bufferCacheLimitGb * gib)}"
+    }
+    ${lib.optionalString cfg.suppressWiredLimit "export MLX_SUPPRESS_WIRED_LIMIT=1"}
+    exec ${pkgs.uv}/bin/uv run --python ${uvPythonVersion} --with "${mlxLmGitWheel}" --with "${mlxPin}" --with "${transformersPin}" python ${launcher} "$@"
+  '';
+
+  # Both wrappers exec the same launcher, so one derived process pattern covers
+  # release and git-pinned workers.
   launchScriptBasename = builtins.baseNameOf (toString launcher);
 }

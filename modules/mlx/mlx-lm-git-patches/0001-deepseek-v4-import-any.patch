@@ -1,0 +1,11 @@
+--- a/mlx_lm/models/deepseek_v4.py	2026-06-08 16:26:56
++++ b/mlx_lm/models/deepseek_v4.py	2026-08-06 21:30:43
+@@ -10,7 +10,7 @@
+ 
+ import math
+ from dataclasses import dataclass, field
+-from typing import Dict, List, Optional
++from typing import Any, Dict, List, Optional
+ 
+ import mlx.core as mx
+ import mlx.nn as nn

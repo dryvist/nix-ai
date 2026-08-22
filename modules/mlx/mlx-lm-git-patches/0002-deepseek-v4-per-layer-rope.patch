@@ -1,0 +1,104 @@
+diff --git a/mlx_lm/models/deepseek_v4.py b/mlx_lm/models/deepseek_v4.py
+index 16d497578..0d12bc771 100644
+--- a/mlx_lm/models/deepseek_v4.py
++++ b/mlx_lm/models/deepseek_v4.py
+@@ -776,16 +776,40 @@ def __init__(self, args: ModelArgs, layer_idx: int):
+         self.wo_a = nn.Linear(group_feat, self.n_groups * self.o_lora_rank, bias=False)
+         self.wo_b = nn.Linear(self.n_groups * self.o_lora_rank, self.dim, bias=args.attention_bias)
+ 
+-        # RoPE: main Q/K always rotate with rope_theta. Compressed-pool RoPE
+-        # (when present) uses compress_rope_theta. Reference DeepSeek-V4
+-        # initializes both as separate instances — sharing them ties the main
+-        # attention rotation to the wrong base on compressed layers, manifesting
+-        # as periodic token drops in CJK (cf. Shinka-Man's report on #1192,
+-        # fixed there in @Blaizzy/mlx-lm@b78ccb1).
+-        self.rope = DeepseekV4RoPE(self.rope_head_dim, args.rope_theta, args.rope_scaling)
+-        self.compress_rope = DeepseekV4RoPE(
+-            self.rope_head_dim, args.compress_rope_theta, args.rope_scaling,
+-        )
++        # Per-layer RoPE base. Reference (ds4.c ``layer_rope_freq_base`` /
++        # ``layer_rope_freq_scale``) selects:
++        #   - compressed layers (compress_ratio != 0): theta =
++        #     ``compress_rope_theta`` (160000) WITH YaRN scaling
++        #     (factor=16). The layers were trained for this regime so
++        #     their query/key projections expect the stretched frequency
++        #     basis.
++        #   - dense layers (compress_ratio == 0): theta = ``rope_theta``
++        #     (10000) WITHOUT YaRN scaling — pure RoPE.
++        # Using (10000 + YaRN) for every layer (the prior wiring) is
++        # wrong for both the 40 compressed layers (wrong base entirely)
++        # and the 3 dense layers (spurious YaRN). The symptom only
++        # surfaces once prompts exceed ``sliding_window`` (=128 for V4
++        # Flash): inside the window the ``q_pos - k_pos`` deltas are
++        # small, so even a wrong base barely rotates anything and the
++        # model muddles through; once a query has to attend across the
++        # window or against the compressed pool at a distant position,
++        # the misaligned rotation collapses attention into pathological
++        # repetition. Verified end-to-end against the antirez/ds4
++        # reference oracle: 7/7 prompts (24 chars .. 24K chars) produce
++        # coherent output post-fix; pre-fix everything ≥210 tokens
++        # collapsed.
++        if self.compress_ratio != 0:
++            self.rope = DeepseekV4RoPE(
++                self.rope_head_dim,
++                args.compress_rope_theta,
++                args.rope_scaling,
++            )
++        else:
++            self.rope = DeepseekV4RoPE(
++                self.rope_head_dim,
++                args.rope_theta,
++                scaling_config=None,  # dense layers: no YaRN
++            )
+ 
+         # Compressor / Indexer — present only when compress_ratio > 0
+         if self.compress_ratio:
+@@ -885,6 +909,48 @@ def __call__(self, x: mx.array, mask=None, cache=None):
+                         )
+                         ckv = mx.take_along_axis(ckv, idx, axis=1)
+                 compressed_k = ckv[:, None, :, :]
++                # The compressor outputs are unpositioned (a weighted
++                # average over a chunk's tokens). Per the reference
++                # (ds4.c lines 6580-6581: ``comp_pos = pos + 1 -
++                # compress_ratio; rope_tail_layer_inplace(...,
++                # comp_pos, il, ...)``), each compressed row ``j`` must
++                # be RoPE'd at the absolute prefill position of its
++                # chunk's FIRST token: ``r * j``. It uses the same
++                # per-layer RoPE as the main Q/K (``self.rope`` above) —
++                # for compressed layers that's the YaRN-scaled 160000
++                # base; for dense layers we never enter this branch
++                # because ``compress_ratio == 0``. The prior code never
++                # called RoPE on the pool, so its keys had no
++                # positional signal and attention against them was
++                # geometrically incoherent.
++                #
++                # ``self.rope.__call__`` only handles consecutive
++                # positions starting at ``offset``; chunk positions are
++                # ``[0, r, 2r, ...]`` (non-unit stride), so apply the
++                # rotation inline using the layer's pre-computed
++                # ``inv_freq``. Matches MLX's RoPE pair layout
++                # (``x[..., 0::2], x[..., 1::2]`` rotated by cos/sin).
++                n_comp = compressed_k.shape[2]
++                ck_nope, ck_pe = mx.split(
++                    compressed_k, [self.nope_head_dim], axis=-1
++                )
++                chunk_pos = (
++                    mx.arange(n_comp, dtype=mx.float32) * self.compress_ratio
++                )
++                theta = chunk_pos[:, None] * self.rope.inv_freq[None, :]
++                cos = mx.cos(theta).astype(ck_pe.dtype)
++                sin = mx.sin(theta).astype(ck_pe.dtype)
++                rot = ck_pe.reshape(
++                    *ck_pe.shape[:-1], ck_pe.shape[-1] // 2, 2
++                )
++                x0 = rot[..., 0]
++                x1 = rot[..., 1]
++                cos_b = cos[None, None, :, :]
++                sin_b = sin[None, None, :, :]
++                r0 = x0 * cos_b - x1 * sin_b
++                r1 = x0 * sin_b + x1 * cos_b
++                ck_pe = mx.stack([r0, r1], axis=-1).reshape(*ck_pe.shape)
++                compressed_k = mx.concatenate([ck_nope, ck_pe], axis=-1)
+                 compressed_v = compressed_k
+ 
+         # Update KV cache
