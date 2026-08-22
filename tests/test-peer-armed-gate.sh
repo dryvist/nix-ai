@@ -335,6 +335,58 @@ fi
 rm -f "$latch_file" "$(halt_cause_file "$latch_file")"
 pd_cause_budget_ok "$latch_file" || fail "with no halt latch there is no cause to refuse"
 
+# --- 5b. THE SECOND THING THAT CLEARS IT: A CLUSTER THAT DEMONSTRABLY WORKS --
+# The operator entry above is a statement that somebody looked. A soak PASS is
+# the machine making the same statement with better evidence: it is only
+# reachable after this host formed the cluster, passed the full health gate, and
+# then answered a real completion from the running pipeline. A cause cannot at
+# once be why this host cannot cluster and be true of a host that is clustered
+# and serving. Its call site is pinned in tests/test-soak-busy-vs-wedged.sh.
+: > "$debt_file"
+pd_debt_record "$debt_file" 3 rank-start-failures "at the budget" peer-absent
+printf 'peer-absent\n' > "$latch_file"
+if pd_cause_budget_ok "$latch_file"; then
+  fail "the bucket must be at the budget before the settle is exercised"
+fi
+before_lines="$(wc -l < "$debt_file" | tr -d ' ')"
+settle_msg="$(pd_cause_settle_on_evidence "$latch_file")"
+[ "$(pd_cause_total "$debt_file" peer-absent)" = 0 ] || fail "a soak PASS must zero the settled bucket"
+pd_cause_budget_ok "$latch_file" || fail "a soak PASS must lift the refusal it settled"
+case "$settle_msg" in
+  *"'peer-absent'"*"3 domain(s) retired"*) ;;
+  *) fail "a settle must log the cause it retired and what it cost: $settle_msg" ;;
+esac
+
+# HISTORY IS KEPT. The ledger is an audit trail and the settle APPENDS to it —
+# the lines recording the original spend must still be there, and the
+# boot-scoped total they feed must be untouched, or a cross-boot credit would
+# have silently financed a boot-scoped overdraft.
+[ "$(wc -l < "$debt_file" | tr -d ' ')" = "$((before_lines + 1))" ] ||
+  fail "a settle must APPEND one line, never rewrite the ledger"
+[ "$(pd_debt_count "$debt_file")" = 3 ] ||
+  fail "a settle bills zero domains and must leave the boot-scoped total alone"
+
+# A DIFFERENT CAUSE IS UNTOUCHED. The settle names one bucket; a second
+# recurring defect must keep its own running total.
+pd_debt_record "$debt_file" 3 rank-start-failures "a different defect" warm-wedged
+[ "$(pd_cause_total "$debt_file" peer-absent)" = 0 ] || fail "the settled bucket must stay settled"
+[ "$(pd_cause_total "$debt_file" warm-wedged)" = 3 ] || fail "an unrelated bucket must keep its own running total"
+printf 'warm-wedged\n' > "$latch_file"
+if pd_cause_budget_ok "$latch_file"; then
+  fail "settling one cause must not clear an unrelated cause's budget"
+fi
+
+# NOTHING TO SETTLE IS SILENT. The soak probe passes every recheck interval for
+# the life of a healthy session; an entry per pass would bury the ledger it is
+# written into.
+rm -f "$latch_file" "$(halt_cause_file "$latch_file")"
+before_lines="$(wc -l < "$debt_file" | tr -d ' ')"
+[ -z "$(pd_cause_settle_on_evidence "$latch_file")" ] || fail "with no would-be cause a settle must say nothing"
+printf 'never-halted-on-this\n' > "$latch_file"
+[ -z "$(pd_cause_settle_on_evidence "$latch_file")" ] || fail "a bucket already at zero must not be re-settled"
+[ "$(wc -l < "$debt_file" | tr -d ' ')" = "$before_lines" ] ||
+  fail "a settle with nothing to retire must not write to the ledger"
+
 # --- 6. THE BUDGET MUST SURVIVE THE REBOOT IT IS COUNTING -------------------
 # halt_drop_if_pre_boot clears the latch on every boot. Keyed on the latch
 # alone, this rung would be inert until that boot's first halt — so a cause

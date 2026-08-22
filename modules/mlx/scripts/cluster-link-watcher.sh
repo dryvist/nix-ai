@@ -598,6 +598,16 @@ if [ "$cur" = "up" ]; then
             "${CLUSTER_HEALTH_GATE_TIMEOUT_SECS:-300}"; then
             touch "$warm_file"
             rm -f "$soak_busy_skips_file"
+            # A PASS HERE IS THE WHOLE EVIDENCE CHAIN, which is why the settle
+            # hangs off this branch and not off the health gate below. Reaching
+            # it requires a formed cluster, a passed health gate (the warm
+            # marker this block reads is written by nothing else) and now a real
+            # completion served by the running pipeline. The cross-boot cause
+            # budget exists to stop a host retrying a start it can never
+            # complete; a host that just completed one has answered it.
+            # Deliberately NOT hooked to the progress-lines branch above: live
+            # traffic is proof this rank is alive, not proof it passed a probe.
+            pd_cause_settle_on_evidence "$halt_latch_file"
           else
             echo "cluster-link: soak probe FAILED (${HEALTH_GATE_DETAIL:-no detail}); declaring the rank WEDGED and restoring standalone serving" >&2
             halt_write "$halt_file" "$halt_latch_file" "health-gate-soak-fail" \
