@@ -193,6 +193,17 @@ heartbeat_file="$state_dir/heartbeat-ticks"
 # scoped like every other strike counter here — see the soak block for why a
 # busy pipeline must not be probed, and why the deferral is nonetheless bounded.
 soak_busy_skips_file="$state_dir/soak-busy-skips"
+# PRESENT = this watcher took standalone serving down and has not put it back.
+# Written the moment quiesce_normal_serving returns, removed by every site here
+# that restores. That makes the restore in the refused-precondition branch
+# below EDGE-triggered: a refusal that follows a quiesce restores exactly once,
+# and every later refusal in the same state is a no-op. A per-tick restore
+# instead would kickstart the warmup agent every 30s and hold llama-swap's
+# single concurrency slot for the length of each warm — the same starvation the
+# pair-wide standdown's own comment records. Beside the other markers because
+# the worker-side quiesce record belongs to cluster-quiesce, on the far side of
+# CLUSTER_QUIESCE_CMD, and is not readable from here.
+quiesce_marker_file="$state_dir/serving-quiesced"
 
 # GENERATION PARITY FIRST — RULE 2. Read (cached, one ls-remote per
 # CLUSTER_GENERATION_CHECK_SECS) before ANY other step of the tick, because
@@ -457,7 +468,9 @@ if [ "$cur" = "up" ]; then
             if [ -n "${CLUSTER_WIRED_LIMIT_MB:-}" ]; then
               set_wired_limit "${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}" || true
             fi
-            restore_normal_serving || true
+            if restore_normal_serving; then
+              rm -f "$quiesce_marker_file"
+            fi
             alert "$(hostname -s): peer rank vanished; this rank was stood down and the host restored to standalone serving so both sides re-arm on the same start boundary. Replug the link to retry — the halt is deliberate and suppresses restarts until the link cycles." \
               "mlx-cluster pair-wide standdown"
           fi
@@ -581,7 +594,9 @@ if [ "$cur" = "up" ]; then
             if [ -n "${CLUSTER_WIRED_LIMIT_MB:-}" ]; then
               set_wired_limit "${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}" || true
             fi
-            restore_normal_serving || true
+            if restore_normal_serving; then
+              rm -f "$quiesce_marker_file"
+            fi
             alert "$(hostname -s): cluster rank failed its periodic soak health-check (${HEALTH_GATE_DETAIL:-no detail}); torn down to standalone serving. Replug the link to retry." \
               "mlx-cluster rank wedged (soak)"
           fi
@@ -627,7 +642,9 @@ if [ "$cur" = "up" ]; then
           if [ -n "${CLUSTER_WIRED_LIMIT_MB:-}" ]; then
             set_wired_limit "${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}" || true
           fi
-          restore_normal_serving || true
+          if restore_normal_serving; then
+            rm -f "$quiesce_marker_file"
+          fi
           # Through alert(), never a raw curl: this page used to POST an
           # ntfy-style body with Priority/Title HEADERS, which the Slack webhook
           # rejects as invalid_payload — and `-fsS ... || true` then swallowed
@@ -714,7 +731,9 @@ if [ "$cur" = "up" ]; then
       if [ -n "${CLUSTER_WIRED_LIMIT_MB:-}" ]; then
         set_wired_limit "${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}" || true
       fi
-      restore_normal_serving || true
+      if restore_normal_serving; then
+        rm -f "$quiesce_marker_file"
+      fi
       # Report the cost as a fraction of the device's own budget, not as a bare
       # count of failed starts: the operator needs to know how much of an
       # eleven-domain pool this just spent, not only that a counter hit its cap.
@@ -731,7 +750,30 @@ if [ "$cur" = "up" ]; then
       # A precondition that is not yet met is NOT a failed start: nothing was
       # launched, so no protection domain leaked, so no attempt is consumed.
       # Retry next tick. The function logs which rung failed.
-      :
+      #
+      # BUT A REFUSAL HERE AFTER A QUIESCE SERVES NOTHING AT ALL. A precondition
+      # can start passing and then stop — an alignment hold, a peer that stops
+      # publishing, a parity change — so a tick that quiesced and kickstarted
+      # can be followed by ticks that refuse before ever reaching the quiesce
+      # block again. No halt is written (correctly: nothing failed), so nothing
+      # else on this path restores, and the host serves neither a rank nor
+      # standalone for as long as the rung stays refused.
+      #
+      # REFUSAL RESTORE BLOCK — extracted and run verbatim by
+      # tests/test-quiesce-restore.sh. Keep this marker and its matching
+      # "# END REFUSAL RESTORE BLOCK" line exactly as written, indentation
+      # included; the test's awk range depends on both.
+      if [ ! -f "$quiesce_marker_file" ]; then
+        echo "cluster-link: rank start refused; standalone serving was not quiesced by this watcher, nothing to restore"
+      elif rank_process_running; then
+        echo "cluster-link: rank start refused; a rank process is still running, so it — not standalone serving — owns this host's memory"
+      elif restore_normal_serving; then
+        rm -f "$quiesce_marker_file"
+        echo "cluster-link: rank start refused after a quiesce and no rank survives; standalone serving restored"
+      else
+        echo "cluster-link: WARN rank start refused after a quiesce and no rank survives; failed to restore standalone serving, retrying next tick" >&2
+      fi
+      # END REFUSAL RESTORE BLOCK
     else
       # QUIESCE-THEN-START BLOCK — extracted and run verbatim by
       # tests/test-quiesce-restore.sh, which pins that a refusal AFTER
@@ -747,6 +789,7 @@ if [ "$cur" = "up" ]; then
       # into the same 128 GB. Both hooks are idempotent, so a mid-run rank
       # restart re-running them is a no-op.
       quiesce_normal_serving
+      touch "$quiesce_marker_file"
       # THE ROOM CHECK RUNS HERE, AFTER QUIESCE, NOT AS A rank_start_preconditions_ok
       # RUNG. It used to run ahead of quiesce_normal_serving and could only ever
       # measure memory still held by standalone serving — exactly the memory
@@ -767,6 +810,7 @@ if [ "$cur" = "up" ]; then
         # pass. Put serving back now, not "eventually on some later tick".
         echo "cluster-link: $MEM_HEADROOM_DETAIL; NOT starting the rank (no attempt consumed); restoring the standalone serving quiesce just took down" >&2
         if restore_normal_serving; then
+          rm -f "$quiesce_marker_file"
           echo "cluster-link: standalone serving restored after the room check refused"
         else
           echo "cluster-link: WARN failed to restore standalone serving after the room check refused; retrying next tick" >&2
@@ -807,6 +851,7 @@ if [ "$cur" = "up" ]; then
           # for nothing unless this restores it.
           echo "cluster-link: kickstart of $CLUSTER_RANK_LABEL FAILED; nothing launched, so no attempt is consumed and no domain was spent (the job is usually unloaded — cluster-detach boots it out for the length of a teardown); restoring standalone serving" >&2
           if restore_normal_serving; then
+            rm -f "$quiesce_marker_file"
             echo "cluster-link: standalone serving restored after the kickstart failure"
           else
             echo "cluster-link: WARN failed to restore standalone serving after the kickstart failure; retrying next tick" >&2
@@ -859,7 +904,11 @@ elif [ "$prev" = "up" ]; then
   if [ -n "${CLUSTER_WIRED_LIMIT_MB:-}" ]; then
     set_wired_limit "${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}" || down_failed=1
   fi
-  restore_normal_serving || down_failed=1
+  if restore_normal_serving; then
+    rm -f "$quiesce_marker_file"
+  else
+    down_failed=1
+  fi
 fi
 
 # HEARTBEAT — A HEALTHY WATCHER AND A DEAD ONE MUST NOT LOG THE SAME THING.
