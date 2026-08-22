@@ -15,8 +15,9 @@
 #      consumed), passes on ok / unverified / disabled;
 #   2. a by-hand halt clear during drift is REJECTED and re-halts naming
 #      generation-parity;
-#   3. drift PAGES once per distinct deploy revision, never pages a machine
-#      whose rank is serving, and NEVER rebuilds the host;
+#   3. drift AND unstamped each PAGE once per distinct deploy revision, with
+#      the remedy that applies to that state, never page a machine whose rank
+#      is serving, and NEVER rebuild the host;
 #   4. no shipped cluster script runs `darwin-rebuild switch` — an automatic
 #      rebuild toward one repo's HEAD silently reverts any host deployed from
 #      a different flake, on a timer.
@@ -246,6 +247,22 @@ parity_is aaaaaaaaaaaa aaaaaaaaaaaa
 generation_heal_maybe "$(generation_parity_cached "$gen_parity_file")" "$attempts_file" || true
 check "no page at state=ok" 2 "$(pages_sent)"
 check "no submission at state=ok" 0 "$(submits)"
+
+echo
+echo "...an UNSTAMPED build PAGES TOO — the gate refuses it exactly as hard as"
+echo "drift, so leaving it silent left a host refusing every start forever:"
+parity_is "" eeeeeeeeeeee
+generation_heal_maybe "$(generation_parity_cached "$gen_parity_file")" "$attempts_file" || true
+check "unstamped pages" 3 "$(pages_sent)"
+check "ledger tracks the unstamped deploy revision" "eeeeeeeeeeee paged" "$(cat "$attempts_file")"
+check "still no submission" 0 "$(submits)"
+contains "the page names the unstamped cause" "carries no configurationRevision" "$(tail -1 "$pages")"
+contains "and the remedy that actually applies" "deployed from the committed flake ref" "$(tail -1 "$pages")"
+
+echo
+echo "...and it dedups per deploy revision the same way drift does:"
+generation_heal_maybe "$(generation_parity_cached "$gen_parity_file")" "$attempts_file" || true
+check "still exactly three pages" 3 "$(pages_sent)"
 
 echo
 echo "THE REGRESSION GUARD: nothing in the shipped cluster scripts rebuilds"

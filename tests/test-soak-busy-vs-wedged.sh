@@ -77,6 +77,8 @@ health_gate_soak_probe() {
   [ "${FAKE_PROBE_OK:-1}" = 1 ]
 }
 restore_normal_serving() { echo ran >> "$restore_log"; }
+settle_log="$tmp/settle-log"
+pd_cause_settle_on_evidence() { echo "$1" >> "$settle_log"; }
 halt_write() {
   echo "$3" >> "$halt_log"
   printf '%s\n' "$3" > "$1"
@@ -105,6 +107,11 @@ halt_file="$tmp/halted"
 # shellcheck disable=SC2034
 halt_latch_file="$tmp/halt-latch"
 soak_busy_skips_file="$tmp/soak-skips"
+# Every watcher site that restores standalone serving clears this marker, the
+# wedge teardown in this block included — see test-quiesce-restore.sh for what
+# the marker is and which refusal it edge-triggers.
+# shellcheck disable=SC2034  # read by the extracted block, not by name here
+quiesce_marker_file="$tmp/serving-quiesced"
 
 # CLUSTER_STAT_BIN seam: the shipped block reads BSD `stat -f %m`, which does
 # not exist in the Linux Nix sandbox this test also runs in under `nix flake
@@ -120,7 +127,7 @@ touch "$warm_file"
 touch -t 202001010000 "$warm_file"
 
 reset() {
-  rm -f "$probe_log" "$restore_log" "$halt_log" "$halt_file" "$soak_busy_skips_file"
+  rm -f "$probe_log" "$restore_log" "$halt_log" "$halt_file" "$soak_busy_skips_file" "$settle_log"
   touch "$warm_file"
   touch -t 202001010000 "$warm_file"
   export FAKE_PROGRESS=0 FAKE_BUSY=0 FAKE_PROBE_OK=1
@@ -156,5 +163,36 @@ tick
 check "probe called" 1 "$(probe_count)"
 check "halted" health-gate-soak-fail "$(cat "$halt_file" 2> /dev/null || echo absent)"
 check "restore ran" 1 "$([ -f "$restore_log" ] && wc -l < "$restore_log" | tr -d ' ' || echo 0)"
+
+# THE CAUSE-BUDGET SETTLE HANGS OFF THE PROBE PASS AND NOTHING ELSE. A pass here
+# is the end of the evidence chain — formation, health gate, then a real
+# completion served by the running pipeline — and it is the only point at which
+# the cross-boot cause budget may be retired. Every other branch of this block
+# is weaker evidence: live traffic proves the rank is alive without proving it
+# answered a probe, a busy deferral proves nothing at all, and a failed probe is
+# the opposite of evidence.
+settle_count() { [ -f "$settle_log" ] && wc -l < "$settle_log" | tr -d ' ' || echo 0; }
+
+echo "probe PASS settles the cross-boot cause budget:"
+reset
+export FAKE_PROGRESS=0 FAKE_BUSY=0 FAKE_PROBE_OK=1
+tick
+check "probe called" 1 "$(probe_count)"
+check "settle called once" 1 "$(settle_count)"
+check "settle got the halt latch" "$halt_latch_file" "$(cat "$settle_log")"
+
+echo "no other branch may settle it:"
+reset
+export FAKE_PROGRESS=3
+tick
+check "live traffic does NOT settle" 0 "$(settle_count)"
+reset
+export FAKE_BUSY=1
+tick
+check "a busy deferral does NOT settle" 0 "$(settle_count)"
+reset
+export FAKE_PROBE_OK=0
+tick
+check "a FAILED probe does NOT settle" 0 "$(settle_count)"
 
 exit "$fail"

@@ -19,11 +19,22 @@
 # spent on. The boot-scoped cap says "stop spending until a reboot"; this says
 # "stop spending on THIS reason, permanently, until an operator says otherwise".
 #
-# THE RESET IS DELIBERATELY NOT AUTOMATIC. A reboot must not clear it — the whole
-# point is to survive one — and neither may a link cycle, a manual marker delete,
-# or cluster-join. The only clear is an operator appending an entry with
-# source=cause-budget-reset to the ledger, which is a written statement that
-# somebody looked. Anything cheaper reproduces the loop this closes.
+# THE RESET IS EVIDENCE-GATED, NOT AUTOMATIC. A reboot must not clear it — the
+# whole point is to survive one — and neither may a link cycle, a manual marker
+# delete, or cluster-join. Exactly two things clear a bucket, and both are a
+# statement that the cause is no longer live:
+#
+#   source=cause-budget-reset  an operator appended it by hand, having looked.
+#   source=soak-settle         this host completed a formation, passed the
+#                              health gate, and then passed a periodic soak
+#                              probe against the running pipeline. That chain
+#                              is only reachable once the cluster demonstrably
+#                              works, which is the same thing the operator was
+#                              being asked to confirm.
+#
+# Anything cheaper reproduces the loop this closes: a link cycle proves nothing,
+# a marker delete proves nothing, and a reboot proves nothing precisely because
+# the failure being counted survives one. A served request does.
 #
 # Consumed environment:
 #   CLUSTER_PD_DEBT_FILE      the ledger (single definition, from the module)
@@ -69,12 +80,74 @@ pd_cause_total() {
         if (!haveDom   && $i ~ /^domains=/) { dom   = substr($i, 9); haveDom = 1 }
         if (!haveSrc   && $i ~ /^source=/)  { src   = substr($i, 8); haveSrc = 1 }
       }
-      if (src == "cause-budget-reset" && (cause == "" || cause == want)) { n = 0; next }
+      if ((src == "cause-budget-reset" || src == "soak-settle") && (cause == "" || cause == want)) { n = 0; next }
       if (cause != want) next
       n += (dom ~ /^[0-9]+$/) ? dom + 0 : 1
     }
     END { print n + 0 }
   ' "$file" 2> /dev/null
+}
+
+# The cause this host would spend its next domain on, or empty when it has never
+# halted. Prints a bare token.
+#
+# THE LATCH FIRST, THEN ITS CROSS-BOOT SIBLING. The latch is cleared by every
+# reboot (halt_drop_if_pre_boot), so keying only on it leaves a reader inert
+# until the first halt of each new boot. halt_cause_file
+# (./cluster-link-helpers.sh) survives that reset and answers the same question
+# one boot later. Latch first because it is the CURRENT verdict; the sibling is
+# only consulted when there is no current one.
+#
+# Shared by the two readers below rather than written twice: the budget rung and
+# the settle both have to name the SAME bucket, and two copies of this
+# resolution order is how one of them ends up crediting a bucket the other is
+# still billing.
+#
+# $1 halt latch file.
+pd_cause_would_be() {
+  local latch_file="$1" cause
+  [ -n "$latch_file" ] || return 0
+  cause="$(cat "$latch_file" 2> /dev/null || echo '')"
+  [ -n "$cause" ] || cause="$(cat "$(halt_cause_file "$latch_file")" 2> /dev/null || echo '')"
+  # The latch holds one bare token; trim anything that follows so a future
+  # multi-word latch cannot silently stop matching a ledger bucket.
+  printf '%s' "${cause%%[[:space:]]*}"
+}
+
+# Settle the cause budget against a WORKING cluster.
+#
+# Called from the watcher's soak-probe PASS branch and from nowhere else. By the
+# time that branch runs, this host has formed the cluster, passed the full
+# health gate, and then answered a real completion against the running pipeline
+# — the evidence chain the header above names. A cause cannot simultaneously be
+# the reason this host cannot cluster and be true of a host that is clustered
+# and serving, so its running total is retired.
+#
+# APPENDS, NEVER REWRITES. The ledger is an audit trail; the history lines that
+# recorded the spend stay exactly where they are and pd_debt_count still sums
+# them against the boot-scoped cap. Only pd_cause_total's cross-boot view is
+# zeroed, and only for this one bucket. domains=0 so the entry itself bills
+# nothing.
+#
+# SILENT WHEN THERE IS NOTHING TO SETTLE — no would-be cause, or a bucket
+# already at zero. The soak probe passes every recheck interval for the life of
+# a healthy session, and an entry per pass would bury the ledger it is written
+# into. A settle that actually retires a total logs what it retired.
+#
+# $1 halt latch file.
+pd_cause_settle_on_evidence() {
+  local latch_file="$1" cause total
+  cause="$(pd_cause_would_be "$latch_file")"
+  [ -n "$cause" ] || return 0
+  total="$(pd_cause_total "${CLUSTER_PD_DEBT_FILE:-}" "$cause")"
+  case "$total" in
+    '' | *[!0-9]*) total=0 ;;
+  esac
+  [ "$total" -gt 0 ] || return 0
+  pd_debt_record "${CLUSTER_PD_DEBT_FILE:-}" 0 soak-settle \
+    "soak probe passed on a formed, health-gated cluster; retiring $total domain(s) billed to this cause" \
+    "$cause"
+  echo "cluster-link: soak PASS settles the cross-boot cause budget for '$cause' ($total domain(s) retired) — a host that is clustered and serving is not the host that could not cluster. History lines are kept; only the running total is cleared."
 }
 
 # Is the cause this host keeps halting on still allowed to spend a domain?
@@ -86,16 +159,12 @@ pd_cause_total() {
 # and is about to retry is, on the evidence available, about to spend another
 # domain on peer-absent. That is the bill this refuses to keep paying.
 #
-# THE LATCH FIRST, THEN ITS CROSS-BOOT SIBLING. The latch is cleared by every
-# reboot (halt_drop_if_pre_boot), so keying only on it left this rung inert
-# until the first halt of each new boot — and a cause already at budget would
-# then bill a fresh couple of domains every boot, forever. halt_cause_file
-# (./cluster-link-helpers.sh) survives that reset and answers the same question
-# one boot later. Latch first because it is the CURRENT verdict; the sibling is
-# only consulted when there is no current one.
-#
-# Neither present means this host has never halted, so there is no would-be
-# cause and nothing to refuse.
+# The would-be cause is resolved by pd_cause_would_be above, latch first and its
+# cross-boot sibling second. Keyed on the latch alone this rung would be inert
+# until the first halt of each new boot, and a cause already at budget would
+# then bill a fresh couple of domains every boot, forever. Neither file present
+# means this host has never halted, so there is no would-be cause and nothing to
+# refuse.
 #
 # IT LOGS ITS OWN REFUSAL rather than handing the text back through a variable
 # for the caller to print, which is what the neighbouring mem_headroom_ok does
@@ -115,17 +184,13 @@ pd_cause_budget_ok() {
   esac
   [ "$budget" -gt 0 ] || return 0
   [ -n "$latch_file" ] || return 0
-  cause="$(cat "$latch_file" 2> /dev/null || echo '')"
-  [ -n "$cause" ] || cause="$(cat "$(halt_cause_file "$latch_file")" 2> /dev/null || echo '')"
-  # The latch holds one bare token; trim anything that follows so a future
-  # multi-word latch cannot silently stop matching a ledger bucket.
-  cause="${cause%%[[:space:]]*}"
+  cause="$(pd_cause_would_be "$latch_file")"
   [ -n "$cause" ] || return 0
   total="$(pd_cause_total "${CLUSTER_PD_DEBT_FILE:-}" "$cause")"
   case "$total" in
     '' | *[!0-9]*) total=0 ;;
   esac
   [ "$total" -lt "$budget" ] && return 0
-  echo "cluster: halt cause '$cause' has cost $total protection domain(s) across ALL boots (cross-boot budget $budget). A reboot does NOT clear this and neither does a link cycle or a marker delete — append an entry with source=cause-budget-reset to the ledger once the underlying defect is understood. Reaching this budget means the peer-armed handshake is not doing its job, because a start against a peer that cannot rendezvous is supposed to cost nothing." >&2
+  echo "cluster: halt cause '$cause' has cost $total protection domain(s) across ALL boots (cross-boot budget $budget). A reboot does NOT clear this and neither does a link cycle or a marker delete. Two things do: this host completing a formation, health gate and soak probe (which settles it automatically, because a cluster that serves is the evidence being asked for), or an entry appended with source=cause-budget-reset once the underlying defect is understood. Reaching this budget means the peer-armed handshake is not doing its job, because a start against a peer that cannot rendezvous is supposed to cost nothing." >&2
   return 1
 }

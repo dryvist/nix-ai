@@ -168,7 +168,12 @@ let
 
   # Fourth evaluation exercising programs.mlx.clusterMode as the coordinator
   # (lib/checks/mlx-cluster.nix): rank env contract, watcher wiring, prefetch.
+  # judgeModelStub rides along because lib/checks/mlx-cluster-sharding.nix reads
+  # this config's `assertions` list, and the judge assertion's message
+  # interpolates an option carrying no default — the same reason the role
+  # fixtures above carry it.
   hmConfigCluster = mkHmConfig [
+    judgeModelStub
     {
       programs.mlx.clusterMode = {
         enable = true;
@@ -282,6 +287,7 @@ in
 })
 // (import ./checks/mlx-harmony.nix { inherit pkgs hmConfigCatalog; })
 // (import ./checks/mlx-cluster.nix { inherit pkgs hmConfigCluster src; })
+// (import ./checks/mlx-cluster-sharding.nix { inherit pkgs hmConfigCluster; })
 // (import ./checks/mlx-cluster-watcher-env.nix { inherit pkgs hmConfigCluster; })
 // (import ./checks/mlx-cluster-peer-env.nix { inherit pkgs hmConfigCluster src; })
 // (import ./checks/mlx-cluster-pd-env.nix { inherit pkgs hmConfigCluster src; })

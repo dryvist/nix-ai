@@ -16,6 +16,23 @@ let
     "glm4_moe"
     "glm4_moe_lite"
   ];
+  # THE CONVERSE LIST, AND IT FAILS THE OTHER WAY ROUND. pipelineOnly catches an
+  # architecture left on the tensor-parallel default; this catches one named
+  # "pipeline" that never implemented pipelining at all. That direction is not
+  # silent — mlx-lm raises "The model does not support pipelining" — but it
+  # raises it at RANK START, after the wired ceiling has been applied and a
+  # protection domain spent, and the domain is returned by nothing short of a
+  # reboot. Eval is the only place the check is free.
+  #
+  # A SUPERSET OF pipelineOnly BY CONSTRUCTION, never a second hand-maintained
+  # list: every pipeline-ONLY architecture is by definition pipeline-CAPABLE,
+  # and two lists that could disagree would let the assertion above demand a
+  # mode this one rejects. It is currently the same list — glm4_moe is the only
+  # architecture the catalog declares — so it is derived rather than retyped.
+  # An architecture implementing BOTH paths is appended here as
+  # `pipelineOnly ++ [ "..." ]`, and belongs in neither list when mlx-lm
+  # tensor-parallels it but does not pipeline it.
+  pipelineCapable = pipelineOnly;
   entry =
     if ncfg.modelCatalogKey == null then { } else (import ./catalog-data.nix).${ncfg.modelCatalogKey};
   arch = entry.architecture or null;
@@ -43,6 +60,16 @@ in
   {
     assertion = (builtins.elem (toString arch) pipelineOnly) -> (ncfg.shardingMode == "pipeline");
     message = "programs.mlx.clusterMode: catalog entry \"${toString ncfg.modelCatalogKey}\" is architecture \"${toString arch}\", which implements pipelining and NOT tensor parallelism, so shardingMode must be \"pipeline\" (it is \"${ncfg.shardingMode}\"). Left tensor-parallel, mlx-lm performs no split at all and every rank loads the full model.";
+  }
+  {
+    # Gated on modelCatalogKey, not on arch alone: absent a catalog entry there
+    # is no architecture to judge, and an ungated `elem ""` would reject
+    # pipeline mode on every host naming its model directly.
+    assertion =
+      (ncfg.modelCatalogKey != null)
+      -> (ncfg.shardingMode == "pipeline")
+      -> (builtins.elem (toString arch) pipelineCapable);
+    message = "programs.mlx.clusterMode: shardingMode is \"pipeline\" but catalog entry \"${toString ncfg.modelCatalogKey}\" declares architecture \"${toString arch}\", which mlx-lm does not pipeline. The ranks abort at start with \"The model does not support pipelining\" — after the protection domain has already been spent, and only a reboot returns it. Extend pipelineCapable here once mlx-lm implements that architecture, or name shardingMode = \"tensor\".";
   }
   {
     assertion = ncfg.httpPort != cfg.port && ncfg.rendezvousPort != cfg.port;

@@ -93,4 +93,20 @@
     WATCHER = "${src}/modules/mlx/scripts/cluster-link-watcher.sh";
   } "bash ${src}/tests/test-soak-busy-vs-wedged.sh && touch $out";
 
+  # THE CHECK THAT FAILS IF A WORKER KEEPS RUNNING INSIDE AN ABANDONED GROUP.
+  # Readiness, the health gate and the soak are all coordinator-gated, so a
+  # worker whose coordinator halts while its own rank survives had no teardown
+  # of its own. Pins that the worker strikes only on a positive halted_cause in
+  # the peer's published state, never on an unreadable fetch, and runs the same
+  # halt-first SIGTERM standdown at the cap.
+  mlx-cluster-peer-halt-standdown = pkgs.runCommand "check-mlx-cluster-peer-halt-standdown" {
+    nativeBuildInputs = [
+      pkgs.coreutils
+      pkgs.gnugrep
+      pkgs.gawk
+      pkgs.jq
+    ];
+    WATCHER = "${src}/modules/mlx/scripts/cluster-link-watcher.sh";
+  } "bash ${src}/tests/test-peer-halt-standdown.sh && touch $out";
+
 }

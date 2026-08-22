@@ -106,29 +106,26 @@ unplugging the cable is meant to be sufficient on its own, and since 2026-07-25
 the watcher enforces the parts a human used to have to get right.
 
 **Start order no longer matters.** A worker whose coordinator had no rank yet
-used to kickstart into a rendezvous that did not exist (`[jaccl] Couldn't
-connect (error: 60)`), and every failed `mx.distributed.init()` leaks a
-**reboot-only** RDMA protection domain — three attempts turned "peer not up yet"
-into a mandatory reboot (2026-07-24). Both ranks now hold for a shared
-wall-clock boundary and reach distributed init together, inside jaccl's fixed
-~15 s connect budget. Domains lost anyway are counted in a boot-scoped ledger,
-and a start is refused at a cap that *reserves* what is left of the device's 11
-— see [rdma-protection-domains.md](rdma-protection-domains.md).
+used to kickstart into a nonexistent rendezvous, leaking a **reboot-only**
+RDMA protection domain per failed attempt (2026-07-24 mandatory reboot). Both
+ranks now hold for a shared wall-clock boundary and reach distributed init
+together, inside jaccl's ~15 s connect budget. Domains lost anyway are still
+counted in a boot-scoped ledger, capped against the device's 11 — see
+[rdma-protection-domains.md](rdma-protection-domains.md).
 
 **A boot does not produce a usable link.** cluster-link prep runs in root
-`postActivation`, before Thunderbolt carrier settles, so it can find no
-carrier-active port and address nothing — leaving a rank to die with `Couldn't
-bind socket (error: 49)` (EADDRNOTAVAIL). The watcher now requires this host to
-hold its own link address before starting a rank, and repairs it in place when it
-does not (`linkRepair`; direct granted alias first, bounded `activate` second).
+`postActivation`, before Thunderbolt carrier settles, so it used to find no
+carrier-active port and leave a rank to die with `Couldn't bind socket (error:
+49)` (EADDRNOTAVAIL). The watcher now requires this host to hold its own link
+address before starting a rank, and repairs it in place when it does not
+(`linkRepair`; direct granted alias first, bounded `activate` second).
 
-**The halt is not just a file.** The marker records *why* (`cause=...`) beside a
-sticky `rank-halt-latched`, so deleting `rank-halted` by hand is a *request*: the
-watcher re-verifies the preconditions before the first retry, accepts the clear
-(resetting the attempt counter) if they pass, and **re-halts** with
-`cause=manual-clear-rejected` naming the still-failing precondition if they do
-not. That is how the remaining domains were burned on 2026-07-24, and it can no
-longer happen. Sanctioned resets: a real link cycle, or `cluster-join`.
+**The halt is not just a file.** The marker records *why* (`cause=...`) beside
+a sticky `rank-halt-latched`; deleting `rank-halted` by hand is only a
+*request* — the watcher re-verifies preconditions first, clears on pass, or
+**re-halts** with `cause=manual-clear-rejected` naming what still fails. That
+stopped the pattern that burned the remaining domains on 2026-07-24.
+Sanctioned resets: a real link cycle, or `cluster-join`.
 
 **Unplug is debounced in seconds, not probes.** `linkDownSettleSecs` (default
 60 s) converts to consecutive failed probes against `tickIntervalSecs` (default
@@ -137,13 +134,15 @@ debounce is asymmetric on purpose: "up" is believed at the first reply, "down"
 must be earned, because a false down tears the rank down *and* resets the PD
 guard — a flapping link could otherwise never accumulate toward a halt.
 
-**A page that reaches nobody still reaches the log.** Halt alerts log their full
-text on any non-delivery (no pager configured, encode failure, non-200) and
-append it to `alerts-undelivered.log` beside the link-state file.
+**Alerting matches the non-load-bearing doctrine in
+[cluster-link-truths.md](cluster-link-truths.md) §5:** a failed page still
+logs its full text to `alerts-undelivered.log`.
 
 **Detached-while-plugged self-corrects.** Once no standalone lease holds, the
-watcher re-admin-ups the port cluster-detach downed and rejoins; generation
-drift heals via a detached rebuild job before any rank start (hard gate). Both
+watcher re-admin-ups the port cluster-detach downed and rejoins. Generation
+drift is a separate, harder stop: it is detected and refused before any rank
+start (hard gate), and it does NOT self-heal — the watcher pages once per
+deploy revision and waits for a human to run `darwin-rebuild switch`. Both
 in [cluster-link-truths.md](cluster-link-truths.md) §1–§2.
 
 Tunables — all under `programs.mlx.clusterMode`, each documented at its

@@ -18,9 +18,10 @@
         the cluster-join generation-parity preflight: every node must run a
         system generation stamped with that branch's HEAD revision before any
         clustering config begins (two nodes both at remote HEAD are identical
-        by construction). Drift auto-heals by rebuilding directly from the
-        remote flake ref (github:<repo>/<rev>) — no local checkout is
-        referenced. Empty string disables the preflight.
+        by construction). Drift does NOT auto-heal: it is detected and refused
+        before any clustering step, paged once per deploy revision, and stays
+        refused until a human runs `darwin-rebuild switch`. Empty string
+        disables the preflight.
       '';
     };
 

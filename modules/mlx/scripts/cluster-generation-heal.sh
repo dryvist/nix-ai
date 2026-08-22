@@ -25,10 +25,19 @@
 # host that stays drifted does not page every tick; a new deploy revision
 # opens a fresh page. Never pages a machine that is serving — pulling
 # attention off a healthy rank to chase HEAD is churn.
+#
+# BOTH REFUSING STATES PAGE. state=unstamped is as hard a gate as state=drift
+# (rank_start_preconditions_ok refuses on either), but only drift used to page —
+# so a host whose running generation carries no configurationRevision sat
+# refusing every start silently, forever. The remedy differs enough to be worth
+# naming: drift means deploy this host again, unstamped means the running
+# generation was built from a dirty or local checkout and there is no revision
+# to compare at all, so it has to be deployed from the committed flake ref.
 generation_heal_maybe() {
-  local fact="$1" attempts_file="$2" rev last_rev flag
+  local fact="$1" attempts_file="$2" rev last_rev flag state
   case "$fact" in
-    *'state=drift'*) ;;
+    *'state=drift'*) state=drift ;;
+    *'state=unstamped'*) state=unstamped ;;
     *) return 0 ;;
   esac
   rev="${fact##*deploy=}"
@@ -44,7 +53,12 @@ generation_heal_maybe() {
     return 1
   fi
   printf '%s paged\n' "$rev" > "$attempts_file"
-  alert "$(hostname -s): system generation does not match deploy ${rev:0:12}. Rank starts stay refused (hard gate) until parity is restored — deploy this host from the flake that manages it." \
-    "mlx-cluster generation drift"
+  if [ "$state" = unstamped ]; then
+    alert "$(hostname -s): running system generation carries no configurationRevision, so it cannot be compared against deploy ${rev:0:12} — it was built from a dirty or local checkout. Rank starts stay refused (hard gate) until this host is deployed from the committed flake ref." \
+      "mlx-cluster generation unstamped"
+  else
+    alert "$(hostname -s): system generation does not match deploy ${rev:0:12}. Rank starts stay refused (hard gate) until parity is restored — deploy this host from the flake that manages it." \
+      "mlx-cluster generation drift"
+  fi
   return 1
 }

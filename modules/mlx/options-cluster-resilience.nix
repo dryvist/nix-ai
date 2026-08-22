@@ -59,6 +59,23 @@
       '';
     };
 
+    peerHaltStrikes = lib.mkOption {
+      type = lib.types.ints.positive;
+      default = 2;
+      description = ''
+        Consecutive peer-state reads in which the PEER must report a halt, while
+        this host's own rank is running and settled, before this rank is stood
+        down so the pair re-arms together (exported as CLUSTER_PEER_HALT_STRIKES).
+
+        Worker-side counterpart to the coordinator's readiness, health-gate and
+        soak teardowns, none of which a worker can run: only rank 0 binds the
+        endpoint they probe. A worker whose coordinator halts while its own rank
+        process and TCP session survive otherwise waits inside an all-reduce its
+        peer has abandoned. Read on the soak cadence, and only a positive read
+        counts — an unreadable peer is peer-liveness's verdict, not this one's.
+      '';
+    };
+
     rankStartAlignMultiple = lib.mkOption {
       type = lib.types.int;
       default = 2;

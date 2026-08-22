@@ -83,7 +83,11 @@
 #                         channel: which port to read, how long to wait, and how
 #                         old an answer may be before it is refused. Port 0
 #                         disables the handshake entirely.
-#   CLUSTER_PD_CAUSE_BUDGET  domains one halt cause may spend across ALL boots
+#   CLUSTER_PEER_HALT_STRIKES  consecutive peer-state reads reporting the peer
+#                         halted, while this host's rank is settled, before this
+#                         rank stands down too (worker-side; the coordinator's
+#                         teardowns are endpoint-probing and cannot run here)
+#   CLUSTER_PD_CAUSE_BUDGET domains one halt cause may spend across ALL boots
 #                         before rank starts are refused (cluster-pd-cause.sh)
 #   CLUSTER_HEARTBEAT_EVERY  ticks between the nominal-tick heartbeat line, so
 #                         a watcher that is alive and one that stopped being
@@ -185,6 +189,14 @@ mem_dwell_file="$state_dir/mem-headroom-refused"
 # see peer_rearm_maybe in cluster-peer-state.sh for why that case is the one
 # that actually strands a pair.
 peer_seen_file="$state_dir/peer-state-last"
+# Consecutive peer-state reads in which the PEER reported a halt while this
+# host's own rank was settled. Drives the worker-side standdown below; session-
+# scoped like every other strike counter here, and cleared by the first clean
+# read. Its companion file's mtime is the standdown check's own cadence clock —
+# a worker never has the coordinator's warm marker to time itself against,
+# because the health gate that writes it is coordinator-only.
+peer_halt_strikes_file="$state_dir/peer-halt-strikes"
+peer_halt_check_file="$state_dir/peer-halt-last-check"
 # Ticks since this marker was created, for the nominal-tick heartbeat below.
 # Never reset by anything: it is a liveness odometer, not a strike counter, and
 # a counter that resets on a state change is one whose gaps cannot be read.
@@ -193,6 +205,17 @@ heartbeat_file="$state_dir/heartbeat-ticks"
 # scoped like every other strike counter here — see the soak block for why a
 # busy pipeline must not be probed, and why the deferral is nonetheless bounded.
 soak_busy_skips_file="$state_dir/soak-busy-skips"
+# PRESENT = this watcher took standalone serving down and has not put it back.
+# Written the moment quiesce_normal_serving returns, removed by every site here
+# that restores. That makes the restore in the refused-precondition branch
+# below EDGE-triggered: a refusal that follows a quiesce restores exactly once,
+# and every later refusal in the same state is a no-op. A per-tick restore
+# instead would kickstart the warmup agent every 30s and hold llama-swap's
+# single concurrency slot for the length of each warm — the same starvation the
+# pair-wide standdown's own comment records. Beside the other markers because
+# the worker-side quiesce record belongs to cluster-quiesce, on the far side of
+# CLUSTER_QUIESCE_CMD, and is not readable from here.
+quiesce_marker_file="$state_dir/serving-quiesced"
 
 # GENERATION PARITY FIRST — RULE 2. Read (cached, one ls-remote per
 # CLUSTER_GENERATION_CHECK_SECS) before ANY other step of the tick, because
@@ -457,7 +480,9 @@ if [ "$cur" = "up" ]; then
             if [ -n "${CLUSTER_WIRED_LIMIT_MB:-}" ]; then
               set_wired_limit "${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}" || true
             fi
-            restore_normal_serving || true
+            if restore_normal_serving; then
+              rm -f "$quiesce_marker_file"
+            fi
             alert "$(hostname -s): peer rank vanished; this rank was stood down and the host restored to standalone serving so both sides re-arm on the same start boundary. Replug the link to retry — the halt is deliberate and suppresses restarts until the link cycles." \
               "mlx-cluster pair-wide standdown"
           fi
@@ -573,6 +598,16 @@ if [ "$cur" = "up" ]; then
             "${CLUSTER_HEALTH_GATE_TIMEOUT_SECS:-300}"; then
             touch "$warm_file"
             rm -f "$soak_busy_skips_file"
+            # A PASS HERE IS THE WHOLE EVIDENCE CHAIN, which is why the settle
+            # hangs off this branch and not off the health gate below. Reaching
+            # it requires a formed cluster, a passed health gate (the warm
+            # marker this block reads is written by nothing else) and now a real
+            # completion served by the running pipeline. The cross-boot cause
+            # budget exists to stop a host retrying a start it can never
+            # complete; a host that just completed one has answered it.
+            # Deliberately NOT hooked to the progress-lines branch above: live
+            # traffic is proof this rank is alive, not proof it passed a probe.
+            pd_cause_settle_on_evidence "$halt_latch_file"
           else
             echo "cluster-link: soak probe FAILED (${HEALTH_GATE_DETAIL:-no detail}); declaring the rank WEDGED and restoring standalone serving" >&2
             halt_write "$halt_file" "$halt_latch_file" "health-gate-soak-fail" \
@@ -581,7 +616,9 @@ if [ "$cur" = "up" ]; then
             if [ -n "${CLUSTER_WIRED_LIMIT_MB:-}" ]; then
               set_wired_limit "${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}" || true
             fi
-            restore_normal_serving || true
+            if restore_normal_serving; then
+              rm -f "$quiesce_marker_file"
+            fi
             alert "$(hostname -s): cluster rank failed its periodic soak health-check (${HEALTH_GATE_DETAIL:-no detail}); torn down to standalone serving. Replug the link to retry." \
               "mlx-cluster rank wedged (soak)"
           fi
@@ -589,6 +626,81 @@ if [ "$cur" = "up" ]; then
       fi
     fi
     # END SOAK BLOCK
+
+    # THE WORKER'S OWN TEARDOWN TRIGGER. Everything above that can tear a wedged
+    # pair down — readiness, the health gate, the soak — is coordinator-gated,
+    # because only rank 0 binds the endpoint those checks probe. A worker has no
+    # endpoint to probe and therefore had no escalation of its own at all: when
+    # the coordinator halts while this worker's rank process and its TCP session
+    # both survive, the worker sits inside a JACCL all-reduce that its peer has
+    # already abandoned, forever, with every local signal reading healthy.
+    #
+    # The coordinator publishes its halt in the same peer-state document the
+    # start gate already reads, so the evidence needs no new channel — just a
+    # read of .halted_cause on this side.
+    #
+    # STRIKES, AND ONLY ON A POSITIVE READ. A fetch that fails is NOT a strike:
+    # unreachability is peer-liveness's verdict to reach, not this detector's,
+    # and counting a network blip here would tear down healthy pairs. A clean
+    # read clears the count, so only a halt the coordinator keeps reporting
+    # across CLUSTER_PEER_HALT_STRIKES consecutive checks stands this rank down.
+    #
+    # On the soak's cadence (CLUSTER_WARM_RECHECK_SECS), not the 30s tick: the
+    # coordinator's halt is a sustained condition, and a fetch per tick buys
+    # nothing but traffic. The worker times itself off its own check marker.
+    #
+    # WORKER PEER-HALT BLOCK — extracted and run verbatim by
+    # tests/test-peer-halt-standdown.sh. Keep these marker comments exactly as
+    # written, indentation included; the test greps for them.
+    if [ "$CLUSTER_ROLE" != "coordinator" ] && [ -f "$started_file" ] &&
+      [ ! -f "$halt_file" ] && [ "${CLUSTER_WARM_RECHECK_SECS:-600}" -gt 0 ] &&
+      peer_state_enabled; then
+      settle="$("${CLUSTER_STAT_BIN:-/usr/bin/stat}" -f %m "$started_file" 2> /dev/null || echo 0)"
+      last_check=0
+      [ -f "$peer_halt_check_file" ] &&
+        last_check="$("${CLUSTER_STAT_BIN:-/usr/bin/stat}" -f %m "$peer_halt_check_file" 2> /dev/null || echo 0)"
+      if [ "$settle" -gt 0 ] &&
+        [ "$(($(date +%s) - settle))" -ge "${CLUSTER_RANK_SETTLE_SECS:-60}" ] &&
+        [ "$(($(date +%s) - last_check))" -ge "${CLUSTER_WARM_RECHECK_SECS:-600}" ]; then
+        touch "$peer_halt_check_file"
+        if ! peer_state_fetch; then
+          echo "cluster-link: peer-halt check: peer state unreadable — NO strike (an unreachable peer is peer-liveness's verdict, not this one's)"
+        else
+          peer_cause="$(printf '%s' "$PEER_STATE_RAW" | jq -r '.halted_cause // "null"' 2> /dev/null || echo null)"
+          if [ -z "$peer_cause" ] || [ "$peer_cause" = null ]; then
+            rm -f "$peer_halt_strikes_file"
+            echo "cluster-link: peer-halt check: peer reports no halt; strikes cleared"
+          else
+            peer_halt_strikes=0
+            [ -f "$peer_halt_strikes_file" ] && peer_halt_strikes="$(cat "$peer_halt_strikes_file")"
+            case "$peer_halt_strikes" in
+              '' | *[!0-9]*) peer_halt_strikes=0 ;;
+            esac
+            peer_halt_strikes=$((peer_halt_strikes + 1))
+            printf '%s\n' "$peer_halt_strikes" > "$peer_halt_strikes_file"
+            echo "cluster-link: peer-halt check: peer HALTED ($peer_cause) while this rank is settled ($peer_halt_strikes/${CLUSTER_PEER_HALT_STRIKES:-2})"
+            if [ "$peer_halt_strikes" -ge "${CLUSTER_PEER_HALT_STRIKES:-2}" ]; then
+              echo "cluster-link: peer has been halted for $peer_halt_strikes consecutive checks; standing this rank down so the pair re-arms together (a jaccl group cannot re-admit a rank)"
+              # Same shape and same order as the rendezvous-absent standdown
+              # above: halt FIRST so the next tick does not immediately restart
+              # into the same abandoned group, SIGTERM (never SIGKILL — a killed
+              # rank leaks its wired shard), ceiling back, serving back, page.
+              halt_write "$halt_file" "$halt_latch_file" "peer-halted" \
+                "peer reported halted_cause=$peer_cause across $peer_halt_strikes consecutive checks"
+              launchctl kill SIGTERM "gui/$uid/$CLUSTER_RANK_LABEL" 2> /dev/null || true
+              rm -f "$started_file" "$ready_file" "$warm_file" "$peer_halt_strikes_file"
+              if [ -n "${CLUSTER_WIRED_LIMIT_MB:-}" ]; then
+                set_wired_limit "${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}" || true
+              fi
+              restore_normal_serving || true
+              alert "$(hostname -s): peer reported itself halted ($peer_cause) while this rank was still in the group; this rank was stood down and the host restored to standalone serving so both sides re-arm on the same start boundary. peer_rearm_maybe clears this halt on its own once the peer reports armed again." \
+                "mlx-cluster worker standdown (peer halted)"
+            fi
+          fi
+        fi
+      fi
+    fi
+    # END WORKER PEER-HALT BLOCK
 
     # THE HEALTH GATE: once the rank is ready, run the full automated check —
     # vk1188, replacing the human who used to run this by hand every night.
@@ -627,7 +739,9 @@ if [ "$cur" = "up" ]; then
           if [ -n "${CLUSTER_WIRED_LIMIT_MB:-}" ]; then
             set_wired_limit "${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}" || true
           fi
-          restore_normal_serving || true
+          if restore_normal_serving; then
+            rm -f "$quiesce_marker_file"
+          fi
           # Through alert(), never a raw curl: this page used to POST an
           # ntfy-style body with Priority/Title HEADERS, which the Slack webhook
           # rejects as invalid_payload — and `-fsS ... || true` then swallowed
@@ -714,7 +828,9 @@ if [ "$cur" = "up" ]; then
       if [ -n "${CLUSTER_WIRED_LIMIT_MB:-}" ]; then
         set_wired_limit "${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}" || true
       fi
-      restore_normal_serving || true
+      if restore_normal_serving; then
+        rm -f "$quiesce_marker_file"
+      fi
       # Report the cost as a fraction of the device's own budget, not as a bare
       # count of failed starts: the operator needs to know how much of an
       # eleven-domain pool this just spent, not only that a counter hit its cap.
@@ -731,7 +847,30 @@ if [ "$cur" = "up" ]; then
       # A precondition that is not yet met is NOT a failed start: nothing was
       # launched, so no protection domain leaked, so no attempt is consumed.
       # Retry next tick. The function logs which rung failed.
-      :
+      #
+      # BUT A REFUSAL HERE AFTER A QUIESCE SERVES NOTHING AT ALL. A precondition
+      # can start passing and then stop — an alignment hold, a peer that stops
+      # publishing, a parity change — so a tick that quiesced and kickstarted
+      # can be followed by ticks that refuse before ever reaching the quiesce
+      # block again. No halt is written (correctly: nothing failed), so nothing
+      # else on this path restores, and the host serves neither a rank nor
+      # standalone for as long as the rung stays refused.
+      #
+      # REFUSAL RESTORE BLOCK — extracted and run verbatim by
+      # tests/test-quiesce-restore.sh. Keep this marker and its matching
+      # "# END REFUSAL RESTORE BLOCK" line exactly as written, indentation
+      # included; the test's awk range depends on both.
+      if [ ! -f "$quiesce_marker_file" ]; then
+        echo "cluster-link: rank start refused; standalone serving was not quiesced by this watcher, nothing to restore"
+      elif rank_process_running; then
+        echo "cluster-link: rank start refused; a rank process is still running, so it — not standalone serving — owns this host's memory"
+      elif restore_normal_serving; then
+        rm -f "$quiesce_marker_file"
+        echo "cluster-link: rank start refused after a quiesce and no rank survives; standalone serving restored"
+      else
+        echo "cluster-link: WARN rank start refused after a quiesce and no rank survives; failed to restore standalone serving, retrying next tick" >&2
+      fi
+      # END REFUSAL RESTORE BLOCK
     else
       # QUIESCE-THEN-START BLOCK — extracted and run verbatim by
       # tests/test-quiesce-restore.sh, which pins that a refusal AFTER
@@ -747,6 +886,7 @@ if [ "$cur" = "up" ]; then
       # into the same 128 GB. Both hooks are idempotent, so a mid-run rank
       # restart re-running them is a no-op.
       quiesce_normal_serving
+      touch "$quiesce_marker_file"
       # THE ROOM CHECK RUNS HERE, AFTER QUIESCE, NOT AS A rank_start_preconditions_ok
       # RUNG. It used to run ahead of quiesce_normal_serving and could only ever
       # measure memory still held by standalone serving — exactly the memory
@@ -767,6 +907,7 @@ if [ "$cur" = "up" ]; then
         # pass. Put serving back now, not "eventually on some later tick".
         echo "cluster-link: $MEM_HEADROOM_DETAIL; NOT starting the rank (no attempt consumed); restoring the standalone serving quiesce just took down" >&2
         if restore_normal_serving; then
+          rm -f "$quiesce_marker_file"
           echo "cluster-link: standalone serving restored after the room check refused"
         else
           echo "cluster-link: WARN failed to restore standalone serving after the room check refused; retrying next tick" >&2
@@ -807,6 +948,7 @@ if [ "$cur" = "up" ]; then
           # for nothing unless this restores it.
           echo "cluster-link: kickstart of $CLUSTER_RANK_LABEL FAILED; nothing launched, so no attempt is consumed and no domain was spent (the job is usually unloaded — cluster-detach boots it out for the length of a teardown); restoring standalone serving" >&2
           if restore_normal_serving; then
+            rm -f "$quiesce_marker_file"
             echo "cluster-link: standalone serving restored after the kickstart failure"
           else
             echo "cluster-link: WARN failed to restore standalone serving after the kickstart failure; retrying next tick" >&2
@@ -859,7 +1001,11 @@ elif [ "$prev" = "up" ]; then
   if [ -n "${CLUSTER_WIRED_LIMIT_MB:-}" ]; then
     set_wired_limit "${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}" || down_failed=1
   fi
-  restore_normal_serving || down_failed=1
+  if restore_normal_serving; then
+    rm -f "$quiesce_marker_file"
+  else
+    down_failed=1
+  fi
 fi
 
 # HEARTBEAT — A HEALTHY WATCHER AND A DEAD ONE MUST NOT LOG THE SAME THING.
