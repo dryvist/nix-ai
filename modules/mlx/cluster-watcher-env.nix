@@ -85,6 +85,9 @@ in
   # Pair-wide standdown: how many consecutive ticks the peer's rendezvous session
   # must be absent before this rank stands down so both re-arm together.
   CLUSTER_PEER_SESSION_STRIKES = toString ncfg.peerSessionStrikes;
+  # Worker-side standdown: how many consecutive peer-state reads must report the
+  # peer halted before this rank stands down so both re-arm together.
+  CLUSTER_PEER_HALT_STRIKES = toString ncfg.peerHaltStrikes;
   # netstat path is a test seam; production absolute path, because /usr/sbin is
   # not on a writeShellApplication PATH.
   CLUSTER_NETSTAT_BIN = "/usr/sbin/netstat";
