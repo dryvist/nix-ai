@@ -105,8 +105,17 @@ jobs:
     if: needs.changes.outputs.nix == 'true' && needs.changes.outputs.is-deps-only != 'true'
     uses: dryvist/.github/.github/workflows/_nix-validate.yml@main
     with:
-      # `nix flake check --all-systems` needs disk/RAM for darwin source
-      # substitution; m7+c7 family with s3-cache fits.
+      # `checks` is now built for every supported system, not just
+      # x86_64-linux — a darwin-scoped `nix flake check` was finding no
+      # aarch64-darwin checks at all and exiting 0, so every assertion passed
+      # vacuously on the machine where this config is developed.
+      #
+      # That makes `--all-systems` wrong here: from this Linux runner it would
+      # try to realise the aarch64-darwin check derivations and fail on
+      # platform mismatch. This is the case the shared workflow's own
+      # `all_systems` description calls out. The Linux runner covers
+      # checks.x86_64-linux; the darwin half needs a darwin runner job.
+      all_systems: false
       # Fork PRs fall back to ubuntu-latest (see header comment on `changes`).
       runner_label: ${{ github.event.pull_request.head.repo.full_name == github.repository && format('runs-on={0}/cpu=4/ram=16/family=m7+c7/extras=s3-cache', github.run_id) || 'ubuntu-latest' }}
 
