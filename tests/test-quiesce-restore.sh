@@ -10,14 +10,22 @@
 # falling through, and that a successful room-check + kickstart does NOT
 # restore (the rank is what serves next, not standalone).
 #
+# A THIRD PATH REACHES THE SAME STATE FROM A LATER TICK. rank_start_preconditions_ok
+# can pass on the tick that quiesced and refuse on the next one, and that refusal
+# writes no halt — so nothing else restores and the host serves neither a rank
+# nor standalone. This also pins that branch: it restores exactly ONCE per
+# quiesce (the marker is the edge), never while a rank process survives, and
+# never when this watcher did not quiesce in the first place.
+#
 # WHAT IS REAL AND WHAT IS NOT:
-#   REAL  — the QUIESCE-THEN-START BLOCK is EXTRACTED FROM THE SHIPPED
-#           cluster-link-watcher.sh between its own comment markers and
-#           executed, so a drift in the shipped sequence fails here.
-#   STUB  — quiesce_normal_serving, rank_start_room_ok, restore_normal_serving
-#           and launchctl are stubbed to drive each branch deterministically;
-#           each one's own behaviour is pinned by its own test file
-#           (test-mem-headroom.sh, test-serving-restore.sh).
+#   REAL  — the QUIESCE-THEN-START BLOCK and the REFUSAL RESTORE BLOCK are
+#           EXTRACTED FROM THE SHIPPED cluster-link-watcher.sh between their
+#           own comment markers and executed, so a drift in either shipped
+#           sequence fails here.
+#   STUB  — quiesce_normal_serving, rank_start_room_ok, restore_normal_serving,
+#           rank_process_running and launchctl are stubbed to drive each branch
+#           deterministically; each one's own behaviour is pinned by its own
+#           test file (test-mem-headroom.sh, test-serving-restore.sh).
 #
 # Usage:
 #   WATCHER=… bash test-quiesce-restore.sh
@@ -35,6 +43,15 @@ case "$block" in
   *rank_start_room_ok* | *restore_normal_serving*) ;;
   *)
     echo "FAIL could not extract the quiesce-then-start block from $watcher" >&2
+    exit 1
+    ;;
+esac
+
+refusal_block="$(awk '/^      # REFUSAL RESTORE BLOCK/,/^      # END REFUSAL RESTORE BLOCK/' "$watcher")"
+case "$refusal_block" in
+  *rank_process_running*restore_normal_serving*) ;;
+  *)
+    echo "FAIL could not extract the refusal restore block from $watcher" >&2
     exit 1
     ;;
 esac
@@ -90,14 +107,22 @@ session_log_offset_file="$tmp/session-log-offset"
 kicks_file="$tmp/kicks"
 # shellcheck disable=SC2034
 CLUSTER_RANK_LABEL="dev.mlx-cluster.rank"
+# The edge the refusal branch triggers on: present = this watcher took
+# standalone serving down and has not put it back.
+quiesce_marker_file="$tmp/serving-quiesced"
+# Real in the watcher (cluster-link-guards.sh), stubbed here so both the
+# "a rank survived the refusal" and "nothing is running" cases are drivable.
+rank_process_running() { [ "${FAKE_RANK_RUNNING:-0}" = 1 ]; }
 
 reset() {
-  rm -f "$quiesce_log" "$restore_log" "$started_file" "$kicks_file"
-  export FAKE_ROOM_OK=1 FAKE_KICKSTART_OK=1 FAKE_RESTORE_OK=1
+  rm -f "$quiesce_log" "$restore_log" "$started_file" "$kicks_file" "$quiesce_marker_file"
+  export FAKE_ROOM_OK=1 FAKE_KICKSTART_OK=1 FAKE_RESTORE_OK=1 FAKE_RANK_RUNNING=0
   # shellcheck disable=SC2034
   kicks=0
 }
 tick() { out="$(eval "$block" 2>&1)"; }
+refusal_tick() { out="$(eval "$refusal_block" 2>&1)"; }
+marker() { [ -f "$quiesce_marker_file" ] && echo present || echo absent; }
 restore_count() { [ -f "$restore_log" ] && wc -l < "$restore_log" | tr -d ' ' || echo 0; }
 
 # rank_start_room_ok itself is real code pinned by test-mem-headroom.sh; here
@@ -138,5 +163,38 @@ tick
 check "quiesce ran" 1 "$(wc -l < "$quiesce_log" | tr -d ' ')"
 check "restore did NOT run" 0 "$(restore_count)"
 check "attempt consumed" 1 "$(cat "$kicks_file")"
+check "marker left set for the refusal branch" present "$(marker)"
+
+echo "a precondition refusal after that quiesce restores, once:"
+reset
+tick # quiesce + successful kickstart; marker now set, rank owns serving
+export FAKE_RANK_RUNNING=1
+refusal_tick
+check "rank alive: restore did NOT run" 0 "$(restore_count)"
+check "rank alive: marker still set" present "$(marker)"
+contains "rank alive: says why" "a rank process is still running" "$out"
+export FAKE_RANK_RUNNING=0
+refusal_tick
+check "rank gone: restore ran" 1 "$(restore_count)"
+check "rank gone: marker cleared" absent "$(marker)"
+contains "rank gone: logs the restore" "no rank survives; standalone serving restored" "$out"
+refusal_tick
+check "EDGE-TRIGGERED: the next refusal does not restore again" 1 "$(restore_count)"
+contains "and says nothing was quiesced" "nothing to restore" "$out"
+
+echo "   ...and a failed restore keeps the marker so the next tick retries:"
+reset
+tick
+export FAKE_RESTORE_OK=0
+refusal_tick
+check "restore attempted" 1 "$(restore_count)"
+check "marker still set" present "$(marker)"
+contains "logs the restore failure" "WARN rank start refused after a quiesce" "$out"
+
+echo "a refusal with no quiesce behind it restores nothing:"
+reset
+refusal_tick
+check "restore did NOT run" 0 "$(restore_count)"
+contains "says so" "nothing to restore" "$out"
 
 exit "$fail"
