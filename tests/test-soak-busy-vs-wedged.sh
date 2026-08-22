@@ -105,6 +105,11 @@ halt_file="$tmp/halted"
 # shellcheck disable=SC2034
 halt_latch_file="$tmp/halt-latch"
 soak_busy_skips_file="$tmp/soak-skips"
+# Every watcher site that restores standalone serving clears this marker, the
+# wedge teardown in this block included — see test-quiesce-restore.sh for what
+# the marker is and which refusal it edge-triggers.
+# shellcheck disable=SC2034  # read by the extracted block, not by name here
+quiesce_marker_file="$tmp/serving-quiesced"
 
 # CLUSTER_STAT_BIN seam: the shipped block reads BSD `stat -f %m`, which does
 # not exist in the Linux Nix sandbox this test also runs in under `nix flake
