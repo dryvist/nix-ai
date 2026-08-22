@@ -83,7 +83,11 @@
 #                         channel: which port to read, how long to wait, and how
 #                         old an answer may be before it is refused. Port 0
 #                         disables the handshake entirely.
-#   CLUSTER_PD_CAUSE_BUDGET  domains one halt cause may spend across ALL boots
+#   CLUSTER_PEER_HALT_STRIKES  consecutive peer-state reads reporting the peer
+#                         halted, while this host's rank is settled, before this
+#                         rank stands down too (worker-side; the coordinator's
+#                         teardowns are endpoint-probing and cannot run here)
+#   CLUSTER_PD_CAUSE_BUDGET domains one halt cause may spend across ALL boots
 #                         before rank starts are refused (cluster-pd-cause.sh)
 #   CLUSTER_HEARTBEAT_EVERY  ticks between the nominal-tick heartbeat line, so
 #                         a watcher that is alive and one that stopped being
@@ -185,6 +189,14 @@ mem_dwell_file="$state_dir/mem-headroom-refused"
 # see peer_rearm_maybe in cluster-peer-state.sh for why that case is the one
 # that actually strands a pair.
 peer_seen_file="$state_dir/peer-state-last"
+# Consecutive peer-state reads in which the PEER reported a halt while this
+# host's own rank was settled. Drives the worker-side standdown below; session-
+# scoped like every other strike counter here, and cleared by the first clean
+# read. Its companion file's mtime is the standdown check's own cadence clock —
+# a worker never has the coordinator's warm marker to time itself against,
+# because the health gate that writes it is coordinator-only.
+peer_halt_strikes_file="$state_dir/peer-halt-strikes"
+peer_halt_check_file="$state_dir/peer-halt-last-check"
 # Ticks since this marker was created, for the nominal-tick heartbeat below.
 # Never reset by anything: it is a liveness odometer, not a strike counter, and
 # a counter that resets on a state change is one whose gaps cannot be read.
@@ -589,6 +601,81 @@ if [ "$cur" = "up" ]; then
       fi
     fi
     # END SOAK BLOCK
+
+    # THE WORKER'S OWN TEARDOWN TRIGGER. Everything above that can tear a wedged
+    # pair down — readiness, the health gate, the soak — is coordinator-gated,
+    # because only rank 0 binds the endpoint those checks probe. A worker has no
+    # endpoint to probe and therefore had no escalation of its own at all: when
+    # the coordinator halts while this worker's rank process and its TCP session
+    # both survive, the worker sits inside a JACCL all-reduce that its peer has
+    # already abandoned, forever, with every local signal reading healthy.
+    #
+    # The coordinator publishes its halt in the same peer-state document the
+    # start gate already reads, so the evidence needs no new channel — just a
+    # read of .halted_cause on this side.
+    #
+    # STRIKES, AND ONLY ON A POSITIVE READ. A fetch that fails is NOT a strike:
+    # unreachability is peer-liveness's verdict to reach, not this detector's,
+    # and counting a network blip here would tear down healthy pairs. A clean
+    # read clears the count, so only a halt the coordinator keeps reporting
+    # across CLUSTER_PEER_HALT_STRIKES consecutive checks stands this rank down.
+    #
+    # On the soak's cadence (CLUSTER_WARM_RECHECK_SECS), not the 30s tick: the
+    # coordinator's halt is a sustained condition, and a fetch per tick buys
+    # nothing but traffic. The worker times itself off its own check marker.
+    #
+    # WORKER PEER-HALT BLOCK — extracted and run verbatim by
+    # tests/test-peer-halt-standdown.sh. Keep these marker comments exactly as
+    # written, indentation included; the test greps for them.
+    if [ "$CLUSTER_ROLE" != "coordinator" ] && [ -f "$started_file" ] &&
+      [ ! -f "$halt_file" ] && [ "${CLUSTER_WARM_RECHECK_SECS:-600}" -gt 0 ] &&
+      peer_state_enabled; then
+      settle="$("${CLUSTER_STAT_BIN:-/usr/bin/stat}" -f %m "$started_file" 2> /dev/null || echo 0)"
+      last_check=0
+      [ -f "$peer_halt_check_file" ] &&
+        last_check="$("${CLUSTER_STAT_BIN:-/usr/bin/stat}" -f %m "$peer_halt_check_file" 2> /dev/null || echo 0)"
+      if [ "$settle" -gt 0 ] &&
+        [ "$(($(date +%s) - settle))" -ge "${CLUSTER_RANK_SETTLE_SECS:-60}" ] &&
+        [ "$(($(date +%s) - last_check))" -ge "${CLUSTER_WARM_RECHECK_SECS:-600}" ]; then
+        touch "$peer_halt_check_file"
+        if ! peer_state_fetch; then
+          echo "cluster-link: peer-halt check: peer state unreadable — NO strike (an unreachable peer is peer-liveness's verdict, not this one's)"
+        else
+          peer_cause="$(printf '%s' "$PEER_STATE_RAW" | jq -r '.halted_cause // "null"' 2> /dev/null || echo null)"
+          if [ -z "$peer_cause" ] || [ "$peer_cause" = null ]; then
+            rm -f "$peer_halt_strikes_file"
+            echo "cluster-link: peer-halt check: peer reports no halt; strikes cleared"
+          else
+            peer_halt_strikes=0
+            [ -f "$peer_halt_strikes_file" ] && peer_halt_strikes="$(cat "$peer_halt_strikes_file")"
+            case "$peer_halt_strikes" in
+              '' | *[!0-9]*) peer_halt_strikes=0 ;;
+            esac
+            peer_halt_strikes=$((peer_halt_strikes + 1))
+            printf '%s\n' "$peer_halt_strikes" > "$peer_halt_strikes_file"
+            echo "cluster-link: peer-halt check: peer HALTED ($peer_cause) while this rank is settled ($peer_halt_strikes/${CLUSTER_PEER_HALT_STRIKES:-2})"
+            if [ "$peer_halt_strikes" -ge "${CLUSTER_PEER_HALT_STRIKES:-2}" ]; then
+              echo "cluster-link: peer has been halted for $peer_halt_strikes consecutive checks; standing this rank down so the pair re-arms together (a jaccl group cannot re-admit a rank)"
+              # Same shape and same order as the rendezvous-absent standdown
+              # above: halt FIRST so the next tick does not immediately restart
+              # into the same abandoned group, SIGTERM (never SIGKILL — a killed
+              # rank leaks its wired shard), ceiling back, serving back, page.
+              halt_write "$halt_file" "$halt_latch_file" "peer-halted" \
+                "peer reported halted_cause=$peer_cause across $peer_halt_strikes consecutive checks"
+              launchctl kill SIGTERM "gui/$uid/$CLUSTER_RANK_LABEL" 2> /dev/null || true
+              rm -f "$started_file" "$ready_file" "$warm_file" "$peer_halt_strikes_file"
+              if [ -n "${CLUSTER_WIRED_LIMIT_MB:-}" ]; then
+                set_wired_limit "${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}" || true
+              fi
+              restore_normal_serving || true
+              alert "$(hostname -s): peer reported itself halted ($peer_cause) while this rank was still in the group; this rank was stood down and the host restored to standalone serving so both sides re-arm on the same start boundary. peer_rearm_maybe clears this halt on its own once the peer reports armed again." \
+                "mlx-cluster worker standdown (peer halted)"
+            fi
+          fi
+        fi
+      fi
+    fi
+    # END WORKER PEER-HALT BLOCK
 
     # THE HEALTH GATE: once the rank is ready, run the full automated check —
     # vk1188, replacing the human who used to run this by hand every night.
