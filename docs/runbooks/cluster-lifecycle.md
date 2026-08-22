@@ -142,8 +142,10 @@ text on any non-delivery (no pager configured, encode failure, non-200) and
 append it to `alerts-undelivered.log` beside the link-state file.
 
 **Detached-while-plugged self-corrects.** Once no standalone lease holds, the
-watcher re-admin-ups the port cluster-detach downed and rejoins; generation
-drift heals via a detached rebuild job before any rank start (hard gate). Both
+watcher re-admin-ups the port cluster-detach downed and rejoins. Generation
+drift is a separate, harder stop: it is detected and refused before any rank
+start (hard gate), and it does NOT self-heal — the watcher pages once per
+deploy revision and waits for a human to run `darwin-rebuild switch`. Both
 in [cluster-link-truths.md](cluster-link-truths.md) §1–§2.
 
 Tunables — all under `programs.mlx.clusterMode`, each documented at its
