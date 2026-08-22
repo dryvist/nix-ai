@@ -1,5 +1,21 @@
 # Changelog
 
+## [4.23.0](https://github.com/dryvist/nix-ai/compare/v4.22.0...v4.23.0) (2026-08-22)
+
+
+### Features
+
+* **mlx:** settle the cross-boot PD cause budget on soak-probe evidence ([#1718](https://github.com/dryvist/nix-ai/issues/1718)) ([3d9ab12](https://github.com/dryvist/nix-ai/commit/3d9ab124b193f150a50867309e27a2fe9d418725))
+* **mlx:** stand a worker rank down when its coordinator reports a halt ([#1715](https://github.com/dryvist/nix-ai/issues/1715)) ([7ee2d9b](https://github.com/dryvist/nix-ai/commit/7ee2d9b130639e9964c94c0d5d9a1733e8505e12))
+
+
+### Bug Fixes
+
+* **mlx:** assert pipeline shardingMode names a pipeline-capable architecture ([#1716](https://github.com/dryvist/nix-ai/issues/1716)) ([60c4c2e](https://github.com/dryvist/nix-ai/commit/60c4c2ef3cbf9a33713af034eaec4975d3ee1959))
+* **mlx:** drop import-from-derivation in the mlx-lm-server wrapper ([#1711](https://github.com/dryvist/nix-ai/issues/1711)) ([a96aaad](https://github.com/dryvist/nix-ai/commit/a96aaadbc123f84ab81bea8ae0055579ecc561b3))
+* **mlx:** page on an unstamped generation, not only on drift ([#1717](https://github.com/dryvist/nix-ai/issues/1717)) ([4cdb774](https://github.com/dryvist/nix-ai/commit/4cdb774fc7be481ed0cddf5a72f66173924b98eb))
+* **mlx:** restore standalone serving when a precondition refuses after a quiesce ([#1714](https://github.com/dryvist/nix-ai/issues/1714)) ([fbf3c42](https://github.com/dryvist/nix-ai/commit/fbf3c42d1cf03bee171e59e98878e13991622c05))
+
 ## [4.22.0](https://github.com/dryvist/nix-ai/compare/v4.21.0...v4.22.0) (2026-08-21)
 
 
