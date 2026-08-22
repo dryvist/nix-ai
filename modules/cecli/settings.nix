@@ -21,11 +21,8 @@
 let
   cfg = config.programs.cecli;
   homeDir = config.home.homeDirectory;
-  agentSkillsRoot =
-    if config.programs ? agentSkills && config.programs.agentSkills.root == "agents" then
-      ".agents/skills"
-    else
-      ".codex/skills";
+  # Resolved once by modules/agent-skills; never re-derive it here.
+  agentSkillsRoot = config.programs.agentSkills.skillsDir;
 
   # Endpoint follows services.aiStack.llmEndpoint. Local (llama-swap) is an
   # open loopback hop, so the dummy key below satisfies LiteLLM. The router is
@@ -33,11 +30,10 @@ let
   # env, which ai-stack exports at shell init from llmEndpointTokenFile (never
   # baked into the Nix store).
   endpointBase = resolvedLlmEndpoint;
-  isLocalEndpoint = llmEndpoint == "mlx_local";
 
   # Model names are openai/<role>; llama-swap resolves each role to the
   # physical HF id via useModelName (see services.aiStack.models).
-  inherit (config.services.aiStack) models resolvedLlmEndpoint llmEndpoint;
+  inherit (config.services.aiStack) models resolvedLlmEndpoint isLocalLlmEndpoint;
 
   yamlFormat = pkgs.formats.yaml { };
 
@@ -76,7 +72,7 @@ let
     "model-metadata-file" = pathModelMeta;
     "model-settings-file" = pathModelSettings;
   }
-  // lib.optionalAttrs isLocalEndpoint {
+  // lib.optionalAttrs isLocalLlmEndpoint {
     openai-api-key = "dummy"; # llama-swap authenticates upstream; local hop is open
   }
   // cfg.extraConfig;

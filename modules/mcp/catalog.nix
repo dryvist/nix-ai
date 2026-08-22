@@ -117,19 +117,23 @@ in
     ];
   };
 
-  # Splunk MCP via OpenBao. The helper authenticates with an ambient-env
-  # AppRole and injects the canonical connection only into its MCP child
-  # process.
+  # Splunk MCP via OpenBao, launched through `doppler-mcp` so the OpenBao
+  # AppRole secret-zero is fetched at subprocess start rather than inherited
+  # from the harness environment.
+  #
+  # It used to launch `splunk-mcp-connect` directly and rely on the four
+  # bootstrap vars being ambient. That only holds in an interactive zsh whose
+  # init loaded them, so any harness started from a GUI or launchd got a
+  # wrapper that exited before speaking MCP — which every client reports as an
+  # unhelpful "connection closed during initialize". Routing through
+  # `doppler-mcp` makes the launcher self-sufficient in every environment and
+  # leaves `AI_DOPPLER_PROJECT` as the only ambient selector.
   splunk = codexMcp {
-    command = "splunk-mcp-connect";
+    command = "doppler-mcp";
+    args = [ "splunk-mcp-connect" ];
     # Codex forwards stdio-server environment variables only when they are
-    # explicitly declared. Keep the OpenBao bootstrap scoped to this launcher.
-    env_vars = [
-      "BAO_ADDR"
-      "AI_READONLY_ROLE_ID"
-      "AI_READONLY_SECRET_ID"
-      "SPLUNK_MCP_OPENBAO_PATH"
-    ];
+    # explicitly declared.
+    env_vars = dopplerEnv;
   };
 
   # ================================================================

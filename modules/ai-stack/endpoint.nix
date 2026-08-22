@@ -96,6 +96,22 @@ in
         `llmEndpoint`. Consumers read this instead of hardcoding a URL.
       '';
     };
+
+    isLocalLlmEndpoint = lib.mkOption {
+      type = lib.types.bool;
+      readOnly = true;
+      default = cfg.llmEndpoint == "mlx_local";
+      defaultText = lib.literalExpression ''llmEndpoint == "mlx_local"'';
+      description = ''
+        Read-only: whether the selected endpoint is the unauthenticated
+        on-host loopback hop. Consumers branch on this to decide whether a
+        dummy API key suffices or a real bearer must be read from the
+        environment. Read it instead of comparing `llmEndpoint` to the literal
+        `"mlx_local"` — that string was spelled out in three separate consumer
+        modules, so renaming the endpoint would have silently flipped each of
+        them to the bearer-gated branch.
+      '';
+    };
   };
 
   config = {

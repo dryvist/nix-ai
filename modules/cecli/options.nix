@@ -8,7 +8,6 @@
 { lib, ... }:
 
 let
-  hookType = lib.types.nullOr (lib.types.either lib.types.path lib.types.lines);
   editFormatType = lib.types.nullOr (
     lib.types.enum [
       "whole"
@@ -125,14 +124,6 @@ in
         "GEMINI.md"
       ];
       description = "Files always added as read-only context in every session.";
-    };
-
-    hooks = {
-      notification = lib.mkOption {
-        type = hookType;
-        default = null;
-        description = "Notification hook (path or inline script). Reserved for future use.";
-      };
     };
 
     extraConfig = lib.mkOption {

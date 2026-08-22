@@ -28,7 +28,7 @@
 let
   cfg = config.programs.qwen-code;
   homeDir = config.home.homeDirectory;
-  inherit (config.services.aiStack) models resolvedLlmEndpoint llmEndpoint;
+  inherit (config.services.aiStack) models resolvedLlmEndpoint isLocalLlmEndpoint;
 
   aiCommon = import ../common {
     inherit lib config nix-claude-code;
@@ -43,8 +43,7 @@ let
   # which ai-stack exports at shell init from llmEndpointTokenFile (never in
   # the Nix store), and drop the literal so the real token is read from env.
   endpointBase = resolvedLlmEndpoint;
-  isLocalEndpoint = llmEndpoint == "mlx_local";
-  apiKeyEnvVar = if isLocalEndpoint then "QWEN_LOCAL_DUMMY_KEY" else "OPENAI_API_KEY";
+  apiKeyEnvVar = if isLocalLlmEndpoint then "QWEN_LOCAL_DUMMY_KEY" else "OPENAI_API_KEY";
   providerKey = "mlx-local-llama-swap";
 
   # llama-swap routes capability-class aliases (default, coding, ...). The
@@ -107,7 +106,7 @@ let
       }
     ];
 
-    env = lib.optionalAttrs isLocalEndpoint {
+    env = lib.optionalAttrs isLocalLlmEndpoint {
       QWEN_LOCAL_DUMMY_KEY = "dummy";
     };
 

@@ -39,6 +39,18 @@
   # Reading these `null` values directly (without going through the
   # services.aiStack.models option) will surface as obvious nulls in
   # downstream config — the option layer is the only correct read path.
+  # SCOPE: these are local MLX role aliases resolved by llama-swap. They are
+  # not a registry of "the model each AI CLI uses".
+  #
+  # Consumers are exactly the CLIs pointed at the local/router endpoint —
+  # qwen-code, cecli, fabric. The subscription-authenticated CLIs (Claude Code,
+  # Codex, Cursor, OpenCode, Antigravity) are deliberately NOT wired here:
+  # each authenticates to its own vendor and names a model from that vendor's
+  # catalog, which has no role equivalent in this table. Pointing them at a
+  # role alias would route them through llama-swap and break their auth.
+  #
+  # So a hand-set model in one of those modules is the correct state, not an
+  # oversight — do not "fix" it by sourcing it from here.
   models = {
     default = null;
     quickest = null;

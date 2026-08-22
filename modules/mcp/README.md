@@ -113,13 +113,19 @@ secrets manager per command:
   limited to the wrapper's bootstrap selectors. Package-backed active servers
   use a 300-second startup and tool timeout so first-run `uvx`/`bunx` installs
   can complete before the MCP handshake deadline.
-- Splunk uses `splunk-mcp-connect`. At each launch it takes `BAO_ADDR`, an AppRole
-  secret-zero (`AI_READONLY_ROLE_ID`, `AI_READONLY_SECRET_ID`), and the KV path
-  (`SPLUNK_MCP_OPENBAO_PATH`) from the ambient environment — delivered by shell
-  init or `doppler run`, per the `ai-agent-access-openbao` runbook on the docs
-  site — authenticates to OpenBao, and reads that path. Codex receives exactly
-  those four bootstrap variables for this launcher. The resulting
-  `SPLUNK_MCP_URL` and `SPLUNK_MCP_TOKEN` exist only in the MCP child process.
+- Splunk launches as `doppler-mcp splunk-mcp-connect`. Doppler injects the
+  AppRole secret-zero (`BAO_ADDR`, `AI_READONLY_ROLE_ID`,
+  `AI_READONLY_SECRET_ID`) and the KV path (`SPLUNK_MCP_OPENBAO_PATH`) into the
+  wrapper at launch; the wrapper authenticates to OpenBao and reads that path.
+  The resulting `SPLUNK_MCP_URL` and `SPLUNK_MCP_TOKEN` exist only in the MCP
+  child process.
+
+  It previously read those four variables from the *ambient* environment,
+  delivered by a shell-init Keychain read. That made a working MCP server
+  depend on the harness having been started from an interactive zsh — false for
+  anything launched from a GUI or launchd — and the loader skipped absent items
+  silently, so a missing item surfaced only as "connection closed during
+  initialize". Only `AI_DOPPLER_PROJECT` is ambient now.
 - Env-var-backed servers (HF_TOKEN, GitHub PAT, UniFi, …) read from the process
   environment, injected directly (e.g. an inline Keychain read or `doppler run`).
 
@@ -250,14 +256,23 @@ or system packages. For bunx/uvx, ensure bun/uv is installed.
 
 ### splunk-mcp-connect fails
 
-The wrapper fails closed and identifies the failing boundary: missing ambient
+The wrapper fails closed and identifies the failing boundary: missing
 secret-zero, AppRole login, denied/missing KV data, invalid URL, or MCP
-connection. Ensure `BAO_ADDR`, `AI_READONLY_ROLE_ID`, `AI_READONLY_SECRET_ID`,
-and `SPLUNK_MCP_OPENBAO_PATH` are present in the harness's environment (the
-`ai-agent-access-openbao` runbook covers delivery and the human-gated
-break-glass fallback), verify the AppRole can read that KV path, then launch
-the harness again. It does not cache OpenBao tokens or publish credentials
-into the login environment.
+connection.
+
+Secret-zero now arrives via `doppler-mcp`, so a "secret-zero missing" error
+means Doppler did not resolve rather than that a Keychain item is absent —
+check `AI_DOPPLER_PROJECT` is set (shell init warns loudly when it is not) and
+that the Doppler project carries the four OpenBao variables. Run the launcher
+by hand to see which boundary failed; it names the missing variables.
+
+Note the wrapper reaching the remote endpoint and the endpoint answering are
+separate failures. A `-32001` timeout after "Connecting to remote server" means
+secret-zero and OpenBao both succeeded and the Splunk MCP endpoint itself is
+unreachable — a service condition, not a configuration one.
+
+It does not cache OpenBao tokens or publish credentials into the login
+environment.
 
 ### doppler-mcp server shows "Failed to connect"
 

@@ -1,5 +1,8 @@
 # Nix quality checks - thin aggregator
-# Individual check groups live in lib/checks/{lint,claude,agent-skills,codex,antigravity-cli,mcp,mlx,fabric}.nix
+# Individual check groups live in lib/checks/<domain>.nix — one file per
+# module. A module that renders permissions, MCP servers, or an instruction
+# path gets a file here; four of them had none, which is how the Copilot skill
+# pointer stayed broken.
 #
 # THESE CHECKS ONLY EXIST FOR x86_64-linux (see flake.nix `checks`). On a Mac,
 # `nix flake check` therefore passes them VACUOUSLY — it never evaluates them,
@@ -250,6 +253,10 @@ in
 // (import ./checks/cursor.nix { inherit pkgs hmConfig; })
 // (import ./checks/qwen-code.nix { inherit pkgs hmConfig; })
 // (import ./checks/antigravity-cli.nix { inherit pkgs hmConfig; })
+// (import ./checks/antigravity-ide.nix { inherit pkgs hmConfig; })
+// (import ./checks/opencode.nix { inherit pkgs hmConfig; })
+// (import ./checks/cecli.nix { inherit pkgs hmConfig; })
+// (import ./checks/copilot.nix { inherit pkgs hmConfig; })
 // (import ./checks/vct-cli.nix {
   inherit
     pkgs

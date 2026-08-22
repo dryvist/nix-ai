@@ -65,6 +65,6 @@ export SPLUNK_MCP_AUTH_HEADER="Bearer $splunk_mcp_token"
 
 # exec: the MCP child replaces this shell, so signals propagate directly and
 # no idle bash lingers for the connection's lifetime.
-exec "$BUNX_BIN" --bun mcp-remote@0.1.38 \
+exec "$BUNX_BIN" --bun "mcp-remote@${MCP_REMOTE_VERSION:?MCP_REMOTE_VERSION not injected}" \
   "$SPLUNK_MCP_URL" \
   --header "Authorization:\${SPLUNK_MCP_AUTH_HEADER}"

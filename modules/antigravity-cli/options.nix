@@ -15,8 +15,6 @@ let
     };
   };
 
-  hookType = lib.types.nullOr (lib.types.either lib.types.path lib.types.lines);
-
   extensionModule = lib.types.submodule {
     options = {
       description = lib.mkOption {
@@ -52,35 +50,6 @@ in
         type = lib.types.attrsOf lib.types.path;
         default = { };
         description = "Local command TOML files (name -> path)";
-      };
-    };
-
-    # Hooks
-    hooks = {
-      beforeTool = lib.mkOption {
-        type = hookType;
-        default = null;
-        description = "Antigravity BeforeTool hook";
-      };
-      afterTool = lib.mkOption {
-        type = hookType;
-        default = null;
-        description = "Antigravity AfterTool hook";
-      };
-      sessionStart = lib.mkOption {
-        type = hookType;
-        default = null;
-        description = "Antigravity SessionStart hook";
-      };
-      sessionEnd = lib.mkOption {
-        type = hookType;
-        default = null;
-        description = "Antigravity SessionEnd hook";
-      };
-      notification = lib.mkOption {
-        type = hookType;
-        default = null;
-        description = "Antigravity Notification hook";
       };
     };
 

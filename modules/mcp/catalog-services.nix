@@ -158,12 +158,30 @@
   # OpenRouter - unified LLM API with free tier and paid models
   # ================================================================
   # Source: https://openrouter.ai/docs/guides/overview/mcp-server
-  # Remote Streamable-HTTP endpoint. Uses the OPENROUTER_API_KEY env var
-  # for authentication (inject via Doppler/Keychain at runtime).
+  # Remote Streamable-HTTP endpoint behind the `mcp-remote` stdio proxy, so the
+  # OPENROUTER_API_KEY bearer is fetched by `doppler-mcp` at launch instead of
+  # being read from the harness environment.
+  #
+  # Declared as stdio rather than `type = "http"` on purpose. A remote entry
+  # can only carry its credential through a client-specific field —
+  # `bearer_token_env_var` is Codex-only, and a `${VAR}` header is expanded by
+  # some renderers and passed through literally by others — so the same catalog
+  # entry would authenticate in one client and not the next. A stdio command is
+  # the one shape all seven normalizers render identically.
+  #
+  # The previous entry pointed at https://openrouter.ai/mcp, which is a docs
+  # redirect rather than an endpoint, and carried no credential field at all.
   # Opt-in: ships disabled. Requires an OpenRouter account and API key.
-  openrouter = {
-    type = "http";
-    url = "https://openrouter.ai/mcp";
+  openrouter = codexMcp {
+    command = "doppler-mcp";
+    args = [
+      "bunx"
+      "mcp-remote@${versions.mcpRemote}"
+      "https://mcp.openrouter.ai/mcp"
+      "--header"
+      "Authorization: Bearer \${OPENROUTER_API_KEY}"
+    ];
+    env_vars = dopplerEnv;
     disabled = true;
   };
 

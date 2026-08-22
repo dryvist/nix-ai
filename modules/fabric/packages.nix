@@ -13,7 +13,7 @@
 }:
 let
   inherit (fabricShared) cfg fabricPkg;
-  inherit (config.services.aiStack) resolvedLlmEndpoint llmEndpoint;
+  inherit (config.services.aiStack) resolvedLlmEndpoint isLocalLlmEndpoint;
 
   # Single source of truth for the patterns symlink location. The relative
   # path (patternsKey) is used as the home.file attribute key; the absolute
@@ -63,7 +63,7 @@ in
       # fabric on its .env value, unchanged); godotenv does not override an
       # already-set env var, so this shell export wins over any OPENAI_BASE_URL
       # in .env, but vendor selection and API keys in .env stay authoritative.
-      // lib.optionalAttrs (llmEndpoint != "mlx_local") {
+      // lib.optionalAttrs (!isLocalLlmEndpoint) {
         OPENAI_BASE_URL = resolvedLlmEndpoint;
       };
 

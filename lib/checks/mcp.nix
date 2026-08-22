@@ -34,10 +34,8 @@ let
     apple-events = { };
     splunk = {
       env_vars = [
-        "BAO_ADDR"
-        "AI_READONLY_ROLE_ID"
-        "AI_READONLY_SECRET_ID"
-        "SPLUNK_MCP_OPENBAO_PATH"
+        "AI_DOPPLER_PROJECT"
+        "AI_DOPPLER_CONFIG"
       ];
     };
     vikunja = {
@@ -53,6 +51,34 @@ let
       ];
     };
   };
+  # Remote servers with nothing to deliver — the legitimate exception to the
+  # rule below. Each entry needs a reason; "it fails the check" is not one.
+  credentiallessRemoteServers = [
+    "grep" # public, stateless, keyless — nothing to authenticate
+    "cribl" # loopback endpoint on the local monitoring stack, unauthenticated
+    "monarch" # browser OAuth negotiated by the client on first connect
+  ];
+  carriesNoCredential =
+    server:
+    builtins.all (held: held) [
+      (server.headers == { })
+      (server.http_headers == { })
+      (server.env_http_headers == { })
+      (server.bearer_token_env_var == null)
+      (server.oauth_resource == null)
+    ];
+  remoteAuthGaps = builtins.filter (
+    name:
+    let
+      server = cfg.servers.${name};
+    in
+    builtins.all (held: held) [
+      (server.url != null)
+      (!(builtins.elem name credentiallessRemoteServers))
+      (carriesNoCredential server)
+    ]
+  ) (builtins.attrNames cfg.servers);
+
   codexLaunchContractMismatches = builtins.filter (
     name:
     let
@@ -77,11 +103,35 @@ in
       || throw "MCP renderer parity mismatch: ${builtins.toJSON rendererMismatches}; shared=${builtins.toJSON cfg.enabledServerNames}; renderers=${builtins.toJSON rendererNames}";
     helpers.mkMarker "check-shared-mcp-renderer-parity" "Shared MCP renderer parity verified for Claude, Codex, Antigravity CLI/IDE, Qwen, OpenCode, and Cursor";
 
+  # Reversed deliberately. This previously asserted the opposite — that splunk
+  # launched `splunk-mcp-connect` directly, "without Doppler wiring" — which
+  # made the launcher depend on four OpenBao bootstrap vars being ambient in
+  # whatever process started the harness. That only holds in an interactive
+  # zsh, so the server could never start from a GUI or launchd launch, and the
+  # keychain loader that supplied them failed silently when an item was absent.
+  # Doppler now fetches secret-zero at launch; splunk-mcp-connect still does the
+  # OpenBao AppRole login and remains the only thing that sees the credential.
   splunk-mcp-canonical-launcher =
     assert
-      cfg.servers.splunk.command == "splunk-mcp-connect" && cfg.servers.splunk.args == [ ]
-      || throw "Splunk MCP must launch directly through splunk-mcp-connect: ${builtins.toJSON cfg.servers.splunk}";
-    helpers.mkMarker "check-splunk-mcp-canonical-launcher" "Splunk MCP uses the OpenBao launcher without Doppler wiring";
+      cfg.servers.splunk.command == "doppler-mcp" && cfg.servers.splunk.args == [ "splunk-mcp-connect" ]
+      || throw "Splunk MCP must launch through doppler-mcp -> splunk-mcp-connect: ${builtins.toJSON cfg.servers.splunk}";
+    helpers.mkMarker "check-splunk-mcp-canonical-launcher" "Splunk MCP uses the OpenBao launcher behind Doppler secret-zero injection";
+
+  # A remote server reached over a bare URL can only carry a credential through
+  # a client-specific field, and none of those render identically across all
+  # seven normalizers — `bearer_token_env_var` is Codex-only, and a `${VAR}`
+  # header is expanded by some clients and passed through literally by others.
+  # So a remote server that needs auth is declared as a stdio `mcp-remote`
+  # proxy command instead, which every client launches the same way.
+  #
+  # This catches the shape that let `openrouter` ship broken in all seven
+  # clients: a bare `type = "http"` URL whose comment claimed API-key auth
+  # while the entry carried no credential field at all.
+  shared-mcp-remote-auth-declared =
+    assert
+      remoteAuthGaps == [ ]
+      || throw "Remote MCP servers declare a URL but no credential (add headers/bearer_token_env_var/oauth_resource, launch via the mcp-remote stdio proxy, or add to credentiallessRemoteServers): ${builtins.toJSON remoteAuthGaps}";
+    helpers.mkMarker "check-shared-mcp-remote-auth-declared" "Every credentialed remote MCP server declares how its credential is delivered";
 
   codex-mcp-launch-contract =
     assert

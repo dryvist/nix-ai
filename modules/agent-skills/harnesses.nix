@@ -15,11 +15,26 @@
 rec {
   # Skills directory fan-out — each entry is a directory path (relative to
   # $HOME) that gets symlinked to the selected canonical skill root.
+  # Cursor is deliberately absent for the same reason as Codex: its own
+  # discovery list already covers .codex/skills/ and .agents/skills/, so a
+  # symlink here would make it scan the selected tree twice. Verified against
+  # the installed build — see modules/cursor/default.nix.
   skills = {
     qwen = ".qwen/skills";
+    # Read by the `agy` CLI: its binary references both ".gemini/config/skills"
+    # and ".agents/skills" (verified against the installed build). The key name
+    # is historical — this is agy's config dir, not a gemini-cli one, and there
+    # is no gemini-cli module in this repo.
+    gemini = ".gemini/config/skills";
+    # The Antigravity IDE's own state directory. No consumer in this repo owns
+    # it, and no installed Antigravity binary was found to reference the path —
+    # but a composed-at-runtime path would not show up in that search, so this
+    # is unproven-unused rather than proven-dead. Left in place: a dangling
+    # symlink costs nothing, while removing a live skills root silently strips
+    # the IDE of every shared skill. Confirm against a release note or the
+    # running IDE before deleting.
     antigravity = ".gemini/antigravity/skills";
     antigravity-cli = ".gemini/antigravity-cli/skills";
-    gemini = ".gemini/config/skills";
     opencode = ".config/opencode/skills";
   };
 

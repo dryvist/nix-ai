@@ -16,7 +16,6 @@ in
       "enable"
       "excludedMcpServers"
       "features"
-      "hooks"
       "model"
       "modelProvider"
       "modelReasoningEffort"
@@ -105,11 +104,6 @@ in
         name = "codex.projectDocFallbackFilenames";
         actual = cfg.projectDocFallbackFilenames;
         expected = [ "AGENTS.md" ];
-      }
-      {
-        name = "codex.hooks.notification";
-        actual = cfg.hooks.notification;
-        expected = null;
       }
     ];
   };

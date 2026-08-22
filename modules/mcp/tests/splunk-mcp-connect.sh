@@ -58,6 +58,10 @@ if [ "${TEST_MODE:-}" = mcp_diagnostics ]; then
 fi
 EOF
 
+# Arbitrary: the mock bunx never resolves a package, so the value under test is
+# only that the script refuses to run without one (asserted separately below).
+FIXTURE_MCP_REMOTE_VERSION='0.0.0-test'
+
 run_case() {
   local mode="$1" expected="$2"
   local output
@@ -70,6 +74,7 @@ run_case() {
     SPLUNK_MCP_OPENBAO_PATH='secret/data/test/mcp-fixture' \
     SPLUNK_MCP_CURL_BIN="$TEST_ROOT/bin/curl" \
     SPLUNK_MCP_BUNX_BIN="$TEST_ROOT/bin/bunx" \
+    MCP_REMOTE_VERSION="$FIXTURE_MCP_REMOTE_VERSION" \
     bash "$CONNECT" 2>&1)"; then
     echo "FAIL: $mode unexpectedly succeeded" >&2
     exit 1
@@ -105,6 +110,26 @@ run_case incomplete "is incomplete"
 run_case malformed_url "invalid SPLUNK_MCP_URL"
 run_case mcp_failure "mock bunx failed"
 
+# The mcp-remote pin is injected by modules/mcp/module.nix from
+# lib/versions.nix. If that injection is ever dropped, the script must refuse
+# rather than resolve a floating "mcp-remote@" — an unpinned proxy is a silent
+# supply-chain change on a path that handles a Splunk token.
+if output="$(TEST_MODE=success \
+  BAO_ADDR='https://bao.example.test' \
+  AI_READONLY_ROLE_ID='test-role' \
+  AI_READONLY_SECRET_ID='test-secret' \
+  SPLUNK_MCP_OPENBAO_PATH='secret/data/test/mcp-fixture' \
+  SPLUNK_MCP_CURL_BIN="$TEST_ROOT/bin/curl" \
+  SPLUNK_MCP_BUNX_BIN="$TEST_ROOT/bin/bunx" \
+  env -u MCP_REMOTE_VERSION bash "$CONNECT" 2>&1)"; then
+  echo "FAIL: unpinned mcp-remote unexpectedly succeeded" >&2
+  exit 1
+fi
+case "$output" in
+  *"MCP_REMOTE_VERSION"*) ;;
+  *) echo "FAIL: unpinned mcp-remote returned unexpected output: $output" >&2; exit 1 ;;
+esac
+
 # mcp-remote logs its custom header before expanding environment placeholders.
 # Preserve those diagnostics while ensuring neither output stream sees the value.
 stdout="$TEST_ROOT/mcp.stdout"
@@ -116,6 +141,7 @@ if TEST_MODE=mcp_diagnostics \
   SPLUNK_MCP_OPENBAO_PATH='secret/data/test/mcp-fixture' \
   SPLUNK_MCP_CURL_BIN="$TEST_ROOT/bin/curl" \
   SPLUNK_MCP_BUNX_BIN="$TEST_ROOT/bin/bunx" \
+  MCP_REMOTE_VERSION="$FIXTURE_MCP_REMOTE_VERSION" \
   bash "$CONNECT" >"$stdout" 2>"$stderr"; then
   echo "FAIL: mcp_diagnostics unexpectedly succeeded" >&2
   exit 1
@@ -134,6 +160,7 @@ TEST_MODE=success \
   SPLUNK_MCP_OPENBAO_PATH='secret/data/test/mcp-fixture' \
   SPLUNK_MCP_CURL_BIN="$TEST_ROOT/bin/curl" \
   SPLUNK_MCP_BUNX_BIN="$TEST_ROOT/bin/bunx" \
+  MCP_REMOTE_VERSION="$FIXTURE_MCP_REMOTE_VERSION" \
   bash "$CONNECT"
 
 # A child cannot mutate its parent's environment; make the boundary explicit.

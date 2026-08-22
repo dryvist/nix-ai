@@ -7,7 +7,6 @@
 
 let
   mcpClient = import ../mcp/client.nix { inherit lib; };
-  hookType = lib.types.nullOr (lib.types.either lib.types.path lib.types.lines);
   nullableStr = lib.types.nullOr lib.types.str;
   nullableReasoningEffort = lib.types.nullOr (
     lib.types.enum [
@@ -29,14 +28,6 @@ in
 {
   options.programs.codex = {
     # Hooks
-    hooks = {
-      notification = lib.mkOption {
-        type = hookType;
-        default = null;
-        description = "Codex notification hook (path or inline script)";
-      };
-    };
-
     # Feature flags (maps to [features] table in config.toml)
     features = lib.mkOption {
       type = lib.types.attrsOf lib.types.bool;

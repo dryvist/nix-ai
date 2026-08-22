@@ -17,8 +17,13 @@
 # - ~/.cursor/mcp.json — declarative home.file. Cursor auto-detects this file
 #   and never rewrites it at runtime (same rationale as opencode.json).
 #
-# Skills: Cursor natively reads ~/.agents/skills/ (plus ~/.claude/skills/ and
-# ~/.codex/skills/), so an agent-skills registry symlink would double-scan the
+# Skills: Cursor's own discovery list is
+#   .cursor/skills/, .cursor/skills-cursor/, .cursor/cloud-skills/,
+#   .cursor/plugins/, .claude/skills/, .claude/plugins/, .codex/skills/,
+#   .agents/skills/
+# (verified against the installed cursor-agent build, not assumed). It covers
+# both roots programs.agentSkills.root can select, so whichever one is active
+# is found — and an agent-skills registry symlink would double-scan the
 # shared tree — same exclusion rationale as the Codex entry in
 # modules/agent-skills/harnesses.nix.
 {

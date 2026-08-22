@@ -2,26 +2,38 @@
 # Managed by nix-ai's programs.zsh.initContent via modules/ai-shell.nix.
 # Single source of truth for Claude/Doppler AI-tool wrapper aliases.
 
-# Secret-zero for OpenBao-backed MCP servers (splunk-mcp-connect) plus the
-# Doppler project/config used by the d-* aliases and doppler-mcp. Per the
-# ai-agent-access-openbao runbook, these arrive from the ambient environment —
-# no literal endpoint, AppRole, or project name is committed to this repo. This
-# shell-init injection reads them from the automation Keychain so any harness
-# launched from a login shell (Claude Code, Codex, …) inherits them — no
-# interactive prompt, and the wrappers' "secret-zero missing" errors stay
-# unreachable in normal operation. Values never touch the world-readable Nix
-# store; each lives in a Keychain generic-password item whose service name
-# equals the variable name. The read is only-if-unset (a `doppler run`-wrapped
-# launch that already injects them wins) and silent when an item is absent
-# (macOS-only; other stores use `doppler run`).
+# Doppler selectors for the d-* aliases and doppler-mcp. These are selectors,
+# not credentials — no literal project name is committed to this repo, and the
+# secrets they select stay in Doppler/OpenBao.
+#
+# This list used to also carry the OpenBao AppRole id/secret and the Splunk
+# secret path so `splunk-mcp-connect` could read them ambiently. That coupled a
+# working MCP server to "was this harness started from an interactive zsh",
+# which is false for anything launched from a GUI or launchd — and the loop
+# below skipped absent items silently, so a missing Keychain item surfaced only
+# as an unhelpful "connection closed during initialize" in every client. Those
+# values now come from Doppler at launch (see modules/mcp/catalog.nix), leaving
+# only selectors here.
+#
+# The read is only-if-unset, so a `doppler run`-wrapped launch that already
+# injects them wins (macOS-only; other stores use `doppler run`).
 if [[ "$OSTYPE" == darwin* ]]; then
-  for _ai_ro_var in BAO_ADDR AI_READONLY_ROLE_ID AI_READONLY_SECRET_ID SPLUNK_MCP_OPENBAO_PATH AI_DOPPLER_PROJECT AI_DOPPLER_CONFIG; do
+  for _ai_ro_var in BAO_ADDR AI_DOPPLER_PROJECT AI_DOPPLER_CONFIG; do
     if [[ -z "${(P)_ai_ro_var}" ]]; then
       _ai_ro_val="$(security find-generic-password -s "$_ai_ro_var" -w 2>/dev/null)" \
         && [[ -n "$_ai_ro_val" ]] \
         && export "$_ai_ro_var=$_ai_ro_val"
     fi
   done
+  # Fail loudly. AI_DOPPLER_PROJECT is what every Doppler-wrapped MCP server
+  # resolves its secrets through; without it they all fail at initialize with no
+  # indication why. AI_DOPPLER_CONFIG is deliberately not checked — doppler-mcp
+  # defaults it to `prd`. Silence here is what hid the previous breakage.
+  if [[ -z "$AI_DOPPLER_PROJECT" ]]; then
+    print -u2 "nix-ai: AI_DOPPLER_PROJECT is unset and no Keychain item supplied it;" \
+      "Doppler-backed MCP servers will fail to start." \
+      "See the ai-agent-access-openbao runbook."
+  fi
   unset _ai_ro_var _ai_ro_val
 fi
 

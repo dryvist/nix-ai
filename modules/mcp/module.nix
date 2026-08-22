@@ -17,6 +17,9 @@
 }:
 
 let
+  # Version pins live in lib/versions.nix, where the org-wide Renovate
+  # customManager regex tracks the annotations.
+  versions = import ../../lib/versions.nix;
   cfg = config.programs.mcpRuntime;
 in
 {
@@ -59,7 +62,12 @@ in
           pkgs.curl
           pkgs.jq
         ];
-        text = builtins.readFile ./scripts/splunk-mcp-connect.sh;
+        # The mcp-remote pin comes from lib/versions.nix so Renovate tracks the
+        # one constant instead of a literal buried in the script.
+        text = ''
+          MCP_REMOTE_VERSION="${versions.mcpRemote}"
+        ''
+        + builtins.readFile ./scripts/splunk-mcp-connect.sh;
       })
     ];
   };

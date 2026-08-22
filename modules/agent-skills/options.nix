@@ -29,6 +29,19 @@ in
       '';
     };
 
+    skillsDir = lib.mkOption {
+      type = lib.types.str;
+      readOnly = true;
+      description = ''
+        The active skill root resolved from `root`, relative to $HOME (e.g.
+        ".codex/skills"). Read this instead of re-deriving it: a harness with no
+        native skill loader has to name the directory in its instruction file,
+        and a hardcoded guess points at whichever root is NOT deployed —
+        `~/.copilot/copilot-instructions.md` pointed at ".agents/skills" while
+        the default root is "codex", so the manifest it cited never existed.
+      '';
+    };
+
     opencodeConfigDir = lib.mkOption {
       type = lib.types.str;
       default = ".config/opencode";

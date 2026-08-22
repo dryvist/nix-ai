@@ -172,4 +172,40 @@ in
     ) config.programs.aiMcp.servers;
     enabledServerNames = lib.attrNames config.programs.aiMcp.enabledServers;
   };
+
+  # Catch phantom servers before they reach a renderer.
+  #
+  # `servers` is an attrsOf submodule, so setting any key on a name the catalog
+  # does not define CREATES that server from defaults — `type = "stdio"` with
+  # `command = null`. A consumer enabling a server that has since been renamed
+  # or removed upstream (`aiMcp.servers.<gone>.disabled = lib.mkForce false`)
+  # therefore does not get an error about an unknown server; it gets a silently
+  # materialised, unlaunchable one.
+  #
+  # Downstream that surfaces as a bare "MCP servers with type stdio must have a
+  # command set" with no server named, which reads like a catalog bug rather
+  # than a stale override in the consumer's own config. This names the server
+  # and the likely cause. Applies to every server, not one known-bad name.
+  config.assertions =
+    let
+      phantoms = lib.attrNames (
+        lib.filterAttrs (
+          _: server: server.type == "stdio" && server.command == null && server.url == null
+        ) config.programs.aiMcp.enabledServers
+      );
+    in
+    [
+      {
+        assertion = phantoms == [ ];
+        message = ''
+          programs.aiMcp: enabled server(s) with no way to launch: ${lib.concatStringsSep ", " phantoms}
+
+          Each has the submodule defaults (type = "stdio", command = null, url = null),
+          which almost always means the name is not in the catalog and an override
+          created it. Check for a stale `aiMcp.servers.<name>.disabled = lib.mkForce false`
+          naming a server this version of nix-ai no longer defines, or update the
+          nix-ai input to one that does.
+        '';
+      }
+    ];
 }

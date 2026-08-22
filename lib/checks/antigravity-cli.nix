@@ -20,7 +20,6 @@ in
       "excludedMcpServers"
       "extensions"
       "gemmaModelRouter"
-      "hooks"
       "mcpServerNames"
       "policyRules"
       "sandbox"
@@ -63,16 +62,6 @@ in
         name = "antigravity-cli.extensions";
         actual = cfg.extensions;
         expected = { };
-      }
-      {
-        name = "antigravity-cli.hooks.beforeTool";
-        actual = cfg.hooks.beforeTool;
-        expected = null;
-      }
-      {
-        name = "antigravity-cli.hooks.afterTool";
-        actual = cfg.hooks.afterTool;
-        expected = null;
       }
       {
         name = "antigravity-cli.commands.fromFlakeInputs";

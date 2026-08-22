@@ -218,6 +218,62 @@
       ];
       orchestratorPromptDir =
         system: "${ai-llm-prompts.packages.${system}.applications}/share/ai-llm-prompts/applications";
+      # Built for EVERY supported system, deliberately.
+      #
+      # These were scoped to x86_64-linux alone so one linux runner could serve
+      # `--all-systems`. The cost was invisible: `nix flake check` on an
+      # aarch64-darwin workstation found no `checks.aarch64-darwin` and exited 0
+      # having evaluated nothing, so every assertion below passed VACUOUSLY on
+      # the machine where the config is actually developed. Two catalog defects
+      # shipped to develop behind that false negative (2026-08-14), and the
+      # openrouter/splunk breakage this commit fixes lived through months of
+      # green local checks for the same reason.
+      #
+      # The assertions are pure evaluation over a home-manager fixture and are
+      # not platform-specific, so building them per-system costs an eval and
+      # buys local enforcement. Entries that genuinely need a linux builder stay
+      # pinned to x86_64-linux below.
+      #
+      # Note for CI: `--all-systems` from a linux-only runner will now try to
+      # realise the darwin markers and fail. Run `nix flake check` per system on
+      # a matching runner instead.
+      mkChecks =
+        system:
+        let
+          pkgs = import nixpkgs {
+            inherit system;
+            config.allowUnfree = true;
+          };
+          linuxOnly = system == "x86_64-linux";
+        in
+        (import ./lib/checks.nix {
+          inherit
+            pkgs
+            home-manager
+            ;
+          src = ./.;
+          aiModule = self.homeManagerModules.default;
+          inherit (nixAiLib) renderAutonomous;
+        })
+        // {
+          orchestrator-prompt-assets =
+            assert builtins.all (
+              name: builtins.pathExists (ai-llm-prompts + "/applications/${name}.md")
+            ) orchestratorPromptNames;
+            pkgs.writeText "nix-ai-orchestrator-prompt-assets" ''
+              Validated ${toString (builtins.length orchestratorPromptNames)} catalog prompts.
+            '';
+        }
+        // nixpkgs.lib.optionalAttrs linuxOnly {
+          # `nix flake check` only *evaluates* packages.<system> (reports
+          # "build skipped") — it never compiles them, so a stale fabric
+          # vendorHash after a fabric-src bump passes CI unnoticed (this
+          # happened twice: #1145, fixed by #1156/#1159). Aliasing the package
+          # as a check forces the Go build — and its vendorHash verification —
+          # to actually run. Kept on the linux CI system: it is a real
+          # compile, not an evaluation, so one runner covering it is enough.
+          fabric-ai-build = self.packages.${system}.fabric-ai;
+        };
     in
     {
       homeManagerModules = import ./flake/home-manager-modules.nix {
@@ -245,49 +301,7 @@
       # comments — see that file. The public `nix-ai.lib.*` shape is unchanged.
       lib = nixAiLib;
 
-      # Scoped to x86_64-linux only so `nix flake check --all-systems` succeeds
-      # from a single linux runner. All checks in lib/checks.nix are source-only
-      # or evaluation-wrapped — running once on the CI system is sufficient.
-      # Cross-platform breakage is still caught by `--all-systems` evaluating
-      # `packages.<system>`, `formatter.<system>`, and `overlays.default` on
-      # every declared system.
-      checks =
-        let
-          system = "x86_64-linux";
-          pkgs = import nixpkgs {
-            inherit system;
-            config.allowUnfree = true;
-          };
-        in
-        {
-          ${system} =
-            (import ./lib/checks.nix {
-              inherit
-                pkgs
-                home-manager
-                ;
-              src = ./.;
-              aiModule = self.homeManagerModules.default;
-              inherit (nixAiLib) renderAutonomous;
-            })
-            // {
-              # `nix flake check` only *evaluates* packages.<system> (reports
-              # "build skipped") — it never compiles them, so a stale fabric
-              # vendorHash after a fabric-src bump passes CI unnoticed (this
-              # happened twice: #1145, fixed by #1156/#1159). Aliasing the package
-              # as a check forces the Go build — and its vendorHash verification —
-              # to actually run. Scoped to the CI system (x86_64-linux) like every
-              # other check so a single linux runner covers it.
-              fabric-ai-build = self.packages.${system}.fabric-ai;
-              orchestrator-prompt-assets =
-                assert builtins.all (
-                  name: builtins.pathExists (ai-llm-prompts + "/applications/${name}.md")
-                ) orchestratorPromptNames;
-                pkgs.writeText "nix-ai-orchestrator-prompt-assets" ''
-                  Validated ${toString (builtins.length orchestratorPromptNames)} catalog prompts.
-                '';
-            };
-        };
+      checks = forAllSystems mkChecks;
 
       # Extracted to flake/packages.nix to stay under the 12KB file-size gate.
       packages = import ./flake/packages.nix {

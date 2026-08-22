@@ -130,6 +130,9 @@ in
       };
 
       # Model: opusplan — Opus for planning, Sonnet for execution (1M context).
+      # Hand-set on purpose: this is an Anthropic subscription model, so it has
+      # no services.aiStack role equivalent — see the SCOPE note in
+      # vars/ai-stack.nix before wiring it to the registry.
       model = "opusplan";
 
       # Effort intentionally left unset: nix-claude-code defaults `effortLevel`
@@ -204,6 +207,29 @@ in
         cleanupPeriodDays = 180;
         env = import ./claude/settings-env.nix { inherit lib userConfig; };
 
+        # UNRESOLVED CROSS-REPO DIVERGENCE — read before relocking
+        # nix-claude-code.
+        #
+        # nix-claude-code `main` added a "Claude Code is not a consumer"
+        # section to data/permissions/README.md stating that Claude Code's
+        # modules render allow/ask/deny as EMPTY lists and set
+        # `permissions.defaultMode = "auto"`, so its classifier judges each
+        # call in context, and that steering belongs in
+        # `programs.claude.autoMode` prose instead. This block does the
+        # opposite: it populates all three and leaves defaultMode unset, so
+        # Claude gets the auto-mode classifier PLUS a large prefix allow-list.
+        #
+        # The pinned rev (flake.lock) predates that section, so nothing is
+        # broken today — but the flake tracks `main`, so the next relock adopts
+        # upstream's stated design while this renderer still contradicts it.
+        #
+        # Deliberately left as-is: emptying these lists changes the effective
+        # permission posture of every Claude session, which is an owner
+        # decision, not a cleanup. Resolve it in one direction and mirror the
+        # outcome into nix-claude-code's AGENTS.md per this repo's CLAUDE.md.
+        #
+        # `ask` is already vestigial either way: upstream's ask.nix is
+        # permanently empty and CI-enforced, so formatAsk renders [].
         permissions = {
           allow = formatters.claude.formatAllowed permissions;
           deny = formatters.claude.formatDenied permissions;
