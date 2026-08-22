@@ -124,10 +124,15 @@
         which is exactly the situation where a human should be the next step
         rather than another automatic retry.
 
-        Consequently the reset is deliberately manual: not a reboot, not a link
-        cycle, not a marker delete, but an operator appending an entry with
-        source=cause-budget-reset to the protection-domain ledger. That entry is
-        a written statement that somebody looked.
+        Consequently the reset is evidence-gated: not a reboot, not a link
+        cycle, not a marker delete. Two things clear a bucket. The watcher
+        settles it automatically when this host completes a formation, passes
+        the health gate and then passes a periodic soak probe — a cluster that
+        is serving is the evidence the budget was holding out for. Failing
+        that, an operator appends an entry with source=cause-budget-reset to
+        the protection-domain ledger, which is a written statement that
+        somebody looked. Either way the history lines stay; only the running
+        total is cleared.
       '';
     };
   };
