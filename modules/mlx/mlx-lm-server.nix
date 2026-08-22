@@ -28,6 +28,8 @@
   versions,
 }:
 let
+  inherit (pkgs) lib;
+
   gib = 1024 * 1024 * 1024;
 
   # mlx (Metal wheel) + harmony-patched mlx-lm + transformers, one atomic set.
@@ -36,22 +38,46 @@ let
   ]);
 
   launcher = ./scripts/mlx-lm-launch.py;
+
+  # Substitution is done in pure Nix, NOT with pkgs.replaceVars.
+  #
+  # replaceVars returns a DERIVATION, so `builtins.readFile` on its result is
+  # import-from-derivation: evaluating this attribute has to build
+  # mlx-lm-server.sh first. `nix flake check --no-build` refuses to build during
+  # evaluation, so every run of the relock workflow died with
+  #   error: path '...-mlx-lm-server.sh.drv' is not valid
+  # while evaluating MLX_LM_SERVER_EXE in
+  # lib/checks/mlx-worker-reap.nix. That broke the only path by which an
+  # ai-assistant-instructions release reaches a machine, silently, because the
+  # dispatch job that triggers the relock still reports success.
+  #
+  # `builtins.readFile` on the SOURCE PATH is pure and needs no build.
+  # replaceStrings propagates string context, so the store references to
+  # pythonEnv and launcher survive and the runtime dependency edges are
+  # unchanged.
+  substitutions = {
+    "@memoryLimitBytes@" = toString (cfg.memoryHardLimitGb * gib);
+    # Empty string when unset; the script leaves the variable unexported
+    # rather than passing an empty limit through to mlx.
+    "@cacheLimitBytes@" =
+      if cfg.bufferCacheLimitGb == null then "" else toString (cfg.bufferCacheLimitGb * gib);
+    "@suppressWiredLimit@" = if cfg.suppressWiredLimit then "1" else "";
+    "@pythonEnv@" = "${pythonEnv}";
+    "@launcher@" = "${launcher}";
+  };
+
+  rawScript = builtins.readFile ./scripts/mlx-lm-server.sh;
 in
 {
   pkg = pkgs.writeShellApplication {
     name = "mlx-lm-server";
-    text = builtins.readFile (
-      pkgs.replaceVars ./scripts/mlx-lm-server.sh {
-        memoryLimitBytes = toString (cfg.memoryHardLimitGb * gib);
-        # Empty string when unset; the script leaves the variable unexported
-        # rather than passing an empty limit through to mlx.
-        cacheLimitBytes =
-          if cfg.bufferCacheLimitGb == null then "" else toString (cfg.bufferCacheLimitGb * gib);
-        suppressWiredLimit = if cfg.suppressWiredLimit then "1" else "";
-        pythonEnv = "${pythonEnv}";
-        launcher = "${launcher}";
-      }
-    );
+    # replaceVars failed loudly when a placeholder went missing. Keep that:
+    # a renamed placeholder in the .sh would otherwise reach the shell as a
+    # literal @name@ and only surface at runtime.
+    text =
+      assert lib.all (ph: lib.hasInfix ph rawScript) (builtins.attrNames substitutions);
+      builtins.replaceStrings (builtins.attrNames substitutions) (builtins.attrValues substitutions)
+        rawScript;
   };
 
   # Basename of the in-process launcher this wrapper execs into. Single
