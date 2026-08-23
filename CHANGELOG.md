@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.23.1](https://github.com/dryvist/nix-ai/compare/v4.23.0...v4.23.1) (2026-08-23)
+
+
+### Bug Fixes
+
+* **cluster:** name the refusing rung on the rank-start refusal lines ([#1723](https://github.com/dryvist/nix-ai/issues/1723)) ([fb51afb](https://github.com/dryvist/nix-ai/commit/fb51afbec39df2a76ae1f25a145f80a52d3d2302))
+* **mlx:** publish armed from local facts only ([#1724](https://github.com/dryvist/nix-ai/issues/1724)) ([3b4ba7d](https://github.com/dryvist/nix-ai/commit/3b4ba7d0fa1a0c1276c10484234611399d7794c2))
+
 ## [4.23.0](https://github.com/dryvist/nix-ai/compare/v4.22.0...v4.23.0) (2026-08-22)
 
 
