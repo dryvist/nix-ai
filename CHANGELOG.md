@@ -1,5 +1,16 @@
 # Changelog
 
+## [4.23.3](https://github.com/dryvist/nix-ai/compare/v4.23.2...v4.23.3) (2026-08-23)
+
+
+### Bug Fixes
+
+* **claude:** drop the advisorModel check that duplicates nix-claude-code's own ([4f6f4cb](https://github.com/dryvist/nix-ai/commit/4f6f4cb925b0a380b762d31900cecb0fb3dc6829))
+* **claude:** stop overriding nix-claude-code's advisor-disabled default ([d624dae](https://github.com/dryvist/nix-ai/commit/d624daec42aecaa45079fb9054a72f95dc33fd90))
+* **claude:** stop overriding nix-claude-code's advisor-disabled default ([5567681](https://github.com/dryvist/nix-ai/commit/55676814f43c6219284c210584175427f7813b99))
+* **token-meter:** remove the cleanup-on-disable activation script ([e8f9ba2](https://github.com/dryvist/nix-ai/commit/e8f9ba273a12cb1933c4ef52fa96768e9036cd17))
+* **token-meter:** remove the cleanup-on-disable activation script ([cadd715](https://github.com/dryvist/nix-ai/commit/cadd715e2a6b5343856931f7d6b7f5dca7c812e9))
+
 ## [4.23.2](https://github.com/dryvist/nix-ai/compare/v4.23.1...v4.23.2) (2026-08-23)
 
 
