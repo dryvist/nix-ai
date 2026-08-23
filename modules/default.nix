@@ -109,16 +109,6 @@ in
       file = copilotFiles // agentsMdSymlinks // brewTrustFiles;
 
       activation = {
-        # Claude Code Settings Validation (post-rebuild)
-        # Schema URL inlined here — same constant nix-claude-code embeds in
-        # lib/to-settings-json.nix's "$schema" field, single source of truth
-        # is the file produced by nix-claude-code; this validates against it.
-        validateClaudeSettings = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-          $DRY_RUN_CMD ${./scripts/validate-claude-settings.sh} \
-            "${config.home.homeDirectory}/.claude/settings.json" \
-            "https://json.schemastore.org/claude-code-settings.json"
-        '';
-
         cleanupLegacyAntigravityMd = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
           antigravity_cli_md="${config.home.homeDirectory}/GEMINI.md"
           if [ -L "$antigravity_cli_md" ]; then
