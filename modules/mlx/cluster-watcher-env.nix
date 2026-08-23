@@ -150,6 +150,9 @@ in
   # vm_stat is not on a writeShellApplication PATH; test seam, like
   # CLUSTER_NETSTAT_BIN / CLUSTER_PGREP_BIN / CLUSTER_KILL_BIN above.
   CLUSTER_VMSTAT_BIN = "/usr/bin/vm_stat";
+  # The GPU wired-ceiling room guard's own two variables live in
+  # ./cluster-watcher-env-wired.nix, merged in below — this file is at the
+  # per-file size cap.
   # The rank's own StandardErrorPath — same file cluster-mode.nix wires the
   # rank launchd agent to. Read by rank_failure_stage (cluster-link-guards.sh)
   # to tell a Stage-A TCP-bootstrap death, which cannot have leaked an RDMA
@@ -157,6 +160,7 @@ in
   CLUSTER_RANK_ERROR_LOG = rankErrorLog;
 }
 // (import ./cluster-watcher-env-peer.nix { inherit ncfg; })
+// (import ./cluster-watcher-env-wired.nix { inherit ncfg; })
 // lib.optionalAttrs isCoordinator {
   # Readiness probe target: launchctl liveness alone cannot see a rank hung in
   # distributed init (see the watcher script). Only rank 0 binds the endpoint, so
