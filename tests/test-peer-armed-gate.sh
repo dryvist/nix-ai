@@ -16,8 +16,9 @@
 #          the watcher calls them. The JSON on the wire is the real jq output.
 #   STUB — curl (a shell function replaying a canned body and status, the same
 #          seam CLUSTER_PING_BIN and CLUSTER_NETSTAT_BIN already provide),
-#          current_boot_epoch, and mem_headroom_ok, which reads vm_stat and so
-#          cannot run on the Linux CI runner.
+#          current_boot_epoch, and mem_headroom_ok — stubbed FAILING in one case
+#          purely to prove peer_state_write no longer consults it (the
+#          pre-quiesce sample must not reach the published armed bit).
 #
 # Peer address is an RFC 5737 documentation address, never a real link address.
 #
@@ -107,24 +108,75 @@ peer_state_write "$published" "$ok_parity" "$halt_file" "$debt_file"
 [ "$(jq -r '.halted_cause' "$published")" = "null" ] || fail "an unhalted host has no halted_cause"
 [ "$(jq -r '.boot' "$published")" = "1785031601" ] || fail "published boot must be this boot"
 
-# A halt is the state the peer most needs to see, so it must still publish.
-printf '%s\tcause=peer-absent\tboot=1785031601\tdetail\n' "2026-08-08T00:00:00Z" > "$halt_file"
-peer_state_write "$published" "$ok_parity" "$halt_file" "$debt_file"
-[ "$(jq -r '.armed' "$published")" = "false" ] || fail "a halted host must publish armed=false"
-[ "$(jq -r '.halted_cause' "$published")" = "peer-absent" ] \
-  || fail "a halted host must publish the cause it halted on"
+# THE 2026-08-22 DEADLOCK, PINNED. The worker halted on rank-start-failures —
+# its starts only failed because the coordinator never joined — and published
+# armed=false over it. The coordinator refused on "peer is not armed", so the
+# worker's retries kept failing, re-earning the halt: a stable mutual refusal,
+# the state cluster-link-truths.md §1 forbids. A halt on a PEER-DERIVED cause
+# must therefore still publish armed=true. The cause itself is still published
+# (it is the state the peer most needs to see), and the decision is logged.
+for exempt_cause in rank-start-failures peer-absent peer-halted; do
+  printf '%s\tcause=%s\tboot=1785031601\tdetail\n' "2026-08-08T00:00:00Z" "$exempt_cause" > "$halt_file"
+  log="$(peer_state_write "$published" "$ok_parity" "$halt_file" "$debt_file" 2>&1)"
+  [ "$(jq -r '.armed' "$published")" = "true" ] \
+    || fail "a halt on peer-derived cause $exempt_cause must NOT disarm — that fold is the mutual deadlock"
+  [ "$(jq -r '.halted_cause' "$published")" = "$exempt_cause" ] \
+    || fail "a halted host must publish the cause it halted on ($exempt_cause)"
+  [ "$(jq -r '.wired_ok' "$published")" = "true" ] \
+    || fail "a peer-derived halt says nothing about wired memory ($exempt_cause)"
+  case "$log" in
+    *"still publishing armed=true"*) ;;
+    *) fail "the exemption is a guard decision and must log itself ($exempt_cause): $log" ;;
+  esac
+done
+
+# A halt on a LOCAL incapacity still disarms — this host genuinely cannot join.
+for local_cause in pd-debt-exhausted manual-clear-rejected no-token-progress; do
+  printf '%s\tcause=%s\tboot=1785031601\tdetail\n' "2026-08-08T00:00:00Z" "$local_cause" > "$halt_file"
+  log="$(peer_state_write "$published" "$ok_parity" "$halt_file" "$debt_file" 2>&1)"
+  [ "$(jq -r '.armed' "$published")" = "false" ] \
+    || fail "a halt on local cause $local_cause must publish armed=false"
+  [ "$(jq -r '.halted_cause' "$published")" = "$local_cause" ] \
+    || fail "a halted host must publish the cause it halted on ($local_cause)"
+  case "$log" in
+    *"armed=false"*) ;;
+    *) fail "a disarm must log its reason ($local_cause): $log" ;;
+  esac
+done
+
+# The exemption is an ALLOWLIST: a cause nobody has classified must fail closed.
+printf '%s\tcause=cause-nobody-classified\tboot=1785031601\tdetail\n' "2026-08-08T00:00:00Z" > "$halt_file"
+peer_state_write "$published" "$ok_parity" "$halt_file" "$debt_file" 2> /dev/null
+[ "$(jq -r '.armed' "$published")" = "false" ] || fail "an unrecognised halt cause must disarm"
+
+# insufficient-memory-persistent is the durable memory verdict: it disarms AND
+# sets wired_ok=false, because its remedy (a reboot, to return unreclaimed
+# wired Metal) differs from every other term.
+printf '%s\tcause=insufficient-memory-persistent\tboot=1785031601\tdetail\n' "2026-08-08T00:00:00Z" > "$halt_file"
+peer_state_write "$published" "$ok_parity" "$halt_file" "$debt_file" 2> /dev/null
+[ "$(jq -r '.armed' "$published")" = "false" ] || fail "a persistent memory halt must disarm"
+[ "$(jq -r '.wired_ok' "$published")" = "false" ] \
+  || fail "a persistent memory halt must publish wired_ok=false — its remedy is a reboot"
 rm -f "$halt_file"
 
 # Generation drift disarms, because a mixed mlx/JACCL stack cannot mesh.
 peer_state_write "$published" "state=drift local=abc123 deploy=def456" "$halt_file" "$debt_file"
 [ "$(jq -r '.armed' "$published")" = "false" ] || fail "a drifted host must publish armed=false"
 
-# No memory headroom disarms AND is reported separately, because its remedy
-# (a reboot, to return unreclaimed wired Metal) differs from every other term.
+# THE 2026-08-22 FALSE DISARM, PINNED FROM THE OTHER SIDE. peer_state_write
+# used to fold a raw mem_headroom_ok sample into armed — measured at the top of
+# the tick, against a WARM standalone-serving footprint, i.e. BEFORE the
+# quiesce that would return that memory (observed live: armed=false with
+# halted_cause=none). The publisher must not consult the pre-quiesce sample at
+# all: mem_headroom_ok failing with no halt standing changes NOTHING published.
+# The must-fail direction of this exemption is the insufficient-memory-
+# persistent case above — the durable, dwelled verdict still disarms.
 mem_ok=1
 peer_state_write "$published" "$ok_parity" "$halt_file" "$debt_file"
-[ "$(jq -r '.wired_ok' "$published")" = "false" ] || fail "no headroom must publish wired_ok=false"
-[ "$(jq -r '.armed' "$published")" = "false" ] || fail "no headroom must also disarm"
+[ "$(jq -r '.armed' "$published")" = "true" ] \
+  || fail "a pre-quiesce memory sample must not disarm — quiescing would free that memory"
+[ "$(jq -r '.wired_ok' "$published")" = "true" ] \
+  || fail "wired_ok names the durable halt verdict, never the pre-quiesce sample"
 mem_ok=0
 
 # Debt at the cap disarms: this host has no domains left to spend.

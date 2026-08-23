@@ -40,7 +40,6 @@
 #   CLUSTER_PEER_STATE_STALE_SECS     age past which a fetched state is refused
 #   CLUSTER_STATIC_PEER_IP            peer's link address
 #   CLUSTER_PD_DEBT_FILE / _MAX       the boot-scoped ledger and its cap
-#   CLUSTER_SHARD_MEMORY_MB           drives wired_ok via mem_headroom_ok
 #   CLUSTER_CURL_BIN                  curl path (test seam, like CLUSTER_PING_BIN)
 
 # Is the channel configured at all? 0 or unset disables every gate here, the
@@ -83,12 +82,46 @@ peer_state_generation() {
 # independently and both reach the same answer at the same time; the moment it
 # depends on the peer, two armed hosts each wait for the other forever.
 #
-# The four terms are the four local conditions that make a rendezvous certain to
-# fail, and each one already gates a rank start on this side:
-#   no halt marker        — this host has stood itself down
-#   PD debt under the cap — this boot has domains left to spend
-#   generation parity ok  — mismatched mlx/JACCL stacks cannot mesh
-#   memory headroom       — a shard that will not fit dies after allocating a domain
+# The three terms are the three local conditions that make a rendezvous certain
+# to fail, and each one already gates a rank start on this side:
+#   halted on a LOCAL cause — this host has stood itself down over its own state
+#   PD debt under the cap   — this boot has domains left to spend
+#   generation parity ok    — mismatched mlx/JACCL stacks cannot mesh
+#
+# NOT EVERY HALT IS A LOCAL FACT, AND THAT IS WHAT DEADLOCKED THE PAIR. A halt
+# on peer-absent, peer-halted or rank-start-failures is a verdict ABOUT THE
+# PEER: the worker only reached its kickstart cap because the coordinator never
+# joined. Folding those into `armed` is exactly the forbidden fold above, and it
+# is stable, not transient — each host reads the other as unarmed and suppresses
+# its own start forever, which is the "detached while plugged in" state
+# docs/runbooks/cluster-link-truths.md §1 rules out. So peer-derived causes are
+# EXEMPT from disarming, while true local incapacities (pd-debt-exhausted,
+# insufficient-memory-persistent, health-gate-*, no-token-progress,
+# manual-clear-rejected, and anything unrecognised) still disarm. The exemption
+# is an allowlist, never a denylist: a cause nobody has classified must fail
+# closed. `halted_cause` is published unchanged either way — the exemption
+# changes what this host CLAIMS about itself, never what it reports, and never
+# its own local gating, which reads the halt marker directly and not this file.
+#
+# MEMORY IS DELIBERATELY NOT A TERM HERE. It used to be, via a raw
+# mem_headroom_ok call plus the dwell counter, and both are measured against a
+# WARM STANDALONE-SERVING footprint: the publisher runs once per tick at the top
+# of the watcher, and the only place the dwell file is fed
+# (mem_headroom_halt_if_persistent) runs in the halted branch — neither is
+# behind quiesce_normal_serving. That is the same measured-before-quiesce defect
+# already fixed in the guard path, where the memory rung moved OUT of
+# rank_start_preconditions_ok and into rank_start_room_ok, called by the watcher
+# immediately AFTER quiesce. A host holding resident models therefore published
+# armed=false over memory that quiescing would have returned.
+#
+# Nothing is weakened by dropping it. The start itself is still gated by
+# rank_start_room_ok post-quiesce, which is what actually prevents a rank
+# starting into unreclaimed wired Metal; and a shortfall that genuinely will not
+# clear still escalates to an insufficient-memory-persistent halt, which is a
+# non-exempt cause and so disarms through the halt branch above. What is dropped
+# is only the per-tick pre-quiesce sample — noise that could never answer the
+# question `armed` asks. wired_ok now names that durable verdict rather than the
+# sample, so the refusing side's log still says memory when memory is the reason.
 #
 # jq builds the JSON; nothing is string-interpolated. A halt detail is
 # operator-facing prose full of quotes, and hand-built JSON is how the Slack
@@ -97,21 +130,40 @@ peer_state_generation() {
 # Written to a temp and moved into place, so the responder never cats a
 # half-written line.
 #
-# $1 output file, $2 generation-parity fact, $3 halt marker, $4 PD ledger,
-# $5 memory-headroom dwell file (optional — omitted callers get the memory
-# term always-armed, same as CLUSTER_SHARD_MEMORY_MB=0).
+# $1 output file, $2 generation-parity fact, $3 halt marker, $4 PD ledger.
 peer_state_write() {
-  local out="$1" parity="$2" halt_file="$3" debt_file="$4" mem_dwell_file="${5:-}"
-  local armed=true wired=true cause="" gen boot debt max tmp mem_required mem_dwell
+  local out="$1" parity="$2" halt_file="$3" debt_file="$4"
+  local armed=true wired=true cause="" gen boot debt max tmp
   gen="$(peer_state_generation "$parity")"
   boot="$(current_boot_epoch)"
   case "${boot:-}" in
     '' | *[!0-9]*) boot=0 ;;
   esac
   if [ -f "$halt_file" ]; then
-    armed=false
     cause="$(awk -F'\t' '{for (i = 1; i <= NF; i++) if ($i ~ /^cause=/) { sub(/^cause=/, "", $i); print $i; exit }}' "$halt_file" 2> /dev/null || true)"
     [ -n "$cause" ] || cause="unknown"
+    # Both branches SAY SO, every tick — a silent guard decision is the defect
+    # this subsystem has shipped more than any other (see peer_armed_ok below).
+    case "$cause" in
+      peer-absent | peer-halted | rank-start-failures)
+        echo "cluster-link: halted on peer-derived cause '$cause' — still publishing armed=true; folding a verdict about the peer into armed is the stable mutual refusal cluster-link-truths.md §1 forbids" >&2
+        ;;
+      *)
+        armed=false
+        echo "cluster-link: publishing armed=false — halted on local cause '$cause'" >&2
+        ;;
+    esac
+    # wired_ok is reported separately as well as folded into armed, because it
+    # is the one term whose remedy differs: a peer refusing on memory needs a
+    # reboot to return unreclaimed wired Metal, where every other term clears on
+    # its own. Naming it lets the refusing side's log say which.
+    #
+    # An `if`, not a `&&` one-liner: this is the last command in the block, so
+    # under the watcher's `set -o errexit` a failing test would take the whole
+    # publish down on the common path where the cause is anything else.
+    if [ "$cause" = insufficient-memory-persistent ]; then
+      wired=false
+    fi
   fi
   max="${CLUSTER_PD_DEBT_MAX:-0}"
   case "$max" in
@@ -127,38 +179,6 @@ peer_state_write() {
   case "$parity" in
     *'state=drift'* | *'state=unstamped'*) armed=false ;;
   esac
-  # wired_ok is reported separately as well as folded into armed, because it is
-  # the one term whose remedy differs: a peer refusing on memory needs a reboot
-  # to return unreclaimed wired Metal, where every other term clears on its own.
-  # Naming it lets the refusing side's log say which.
-  #
-  # BOTH a fresh sample AND recent history must clear before this reports
-  # armed. A raw mem_headroom_ok call alone catches a brand-new shortfall
-  # immediately (unchanged from before); the dwell count alone is what fixes
-  # the flapping bug — mem_headroom_halt_if_persistent (cluster-link-guards.sh)
-  # decrements it by one per pass rather than zeroing it, so a single lucky
-  # sample right after a run of refusals cannot flip armed on its own. Needing
-  # BOTH means: dwell>0 blocks armed even when the current sample happens to
-  # pass (the flapping case), and a first-ever refusal still blocks armed even
-  # before any dwell file exists (the immediate-detection case).
-  # No outer "required -gt 0" gate here: mem_headroom_ok already no-ops on a
-  # 0/unset requirement internally (the "0 = off" convention), so gating a
-  # second time here would only add a second place that convention has to be
-  # kept in sync.
-  mem_required="${CLUSTER_SHARD_MEMORY_MB:-0}"
-  case "$mem_required" in
-    '' | *[!0-9]*) mem_required=0 ;;
-  esac
-  mem_dwell=0
-  [ -n "$mem_dwell_file" ] && [ -f "$mem_dwell_file" ] &&
-    mem_dwell="$(cat "$mem_dwell_file" 2> /dev/null || echo 0)"
-  case "$mem_dwell" in
-    '' | *[!0-9]*) mem_dwell=0 ;;
-  esac
-  if [ "$mem_dwell" -gt 0 ] || ! mem_headroom_ok "$mem_required"; then
-    wired=false
-    armed=false
-  fi
   tmp="$out.tmp"
   mkdir -p "$(dirname "$out")" 2> /dev/null || return 0
   if jq -nc \

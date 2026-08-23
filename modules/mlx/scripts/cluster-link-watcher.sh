@@ -252,7 +252,7 @@ generation_heal_maybe "$parity_now" "$heal_attempts_file" || true
 # Placed after the parity read because the published generation comes from that
 # same cached fact — one ls-remote per interval, not one per publish.
 peer_state_write "${CLUSTER_PEER_STATE_FILE:-$state_dir/peer-state.json}" \
-  "$parity_now" "$halt_file" "$pd_debt_file" "$mem_dwell_file"
+  "$parity_now" "$halt_file" "$pd_debt_file"
 
 # Link probe, debounced ASYMMETRICALLY — a false "down" is destructive, a false
 # "up" is not. Declaring down tears the rank down, restores standalone serving,
@@ -860,15 +860,24 @@ if [ "$cur" = "up" ]; then
       # tests/test-quiesce-restore.sh. Keep this marker and its matching
       # "# END REFUSAL RESTORE BLOCK" line exactly as written, indentation
       # included; the test's awk range depends on both.
+      # WHICH RUNG REFUSED, ON THIS STREAM TOO. Every rung already names itself
+      # before returning — but on stderr, which the plist routes to a different
+      # file than these summary lines (cluster-mode.nix: StandardOutPath vs
+      # StandardErrorPath). An operator reading only the stdout log therefore saw
+      # a refusal with no cause. The reason token rides along here so one file
+      # answers "why is it refusing"; the rung's own line still carries the full
+      # detail. Default-expanded: the block is extracted and eval'd under
+      # `nounset` by tests/test-quiesce-restore.sh.
+      refusal_reason="(reason=${PRECONDITION_REASON:-unknown})"
       if [ ! -f "$quiesce_marker_file" ]; then
-        echo "cluster-link: rank start refused; standalone serving was not quiesced by this watcher, nothing to restore"
+        echo "cluster-link: rank start refused $refusal_reason; standalone serving was not quiesced by this watcher, nothing to restore"
       elif rank_process_running; then
-        echo "cluster-link: rank start refused; a rank process is still running, so it — not standalone serving — owns this host's memory"
+        echo "cluster-link: rank start refused $refusal_reason; a rank process is still running, so it — not standalone serving — owns this host's memory"
       elif restore_normal_serving; then
         rm -f "$quiesce_marker_file"
-        echo "cluster-link: rank start refused after a quiesce and no rank survives; standalone serving restored"
+        echo "cluster-link: rank start refused $refusal_reason after a quiesce and no rank survives; standalone serving restored"
       else
-        echo "cluster-link: WARN rank start refused after a quiesce and no rank survives; failed to restore standalone serving, retrying next tick" >&2
+        echo "cluster-link: WARN rank start refused $refusal_reason after a quiesce and no rank survives; failed to restore standalone serving, retrying next tick" >&2
       fi
       # END REFUSAL RESTORE BLOCK
     else
