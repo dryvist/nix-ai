@@ -4,11 +4,11 @@
 #
 # RULE 2 (operator, verbatim): "make sure the actual, automated, non-AI steps
 # enforce the nix generations to march exactly on both / all devices before
-# continuing with other setup automated steps." The 86-hour outage was a node
-# off the deployed generation; PR #1477 put DETECTION on the watcher's clock
-# but left the HEAL in cluster-join (human-initiated) and left rank starts
-# ungated — a drifted pair could still quiesce serving and assemble a
-# mixed-stack rank (the INC-17070 config-parity variable).
+# continuing with other setup automated steps." A node running off the
+# deployed generation can cause an extended outage; PR #1477 put DETECTION on
+# the watcher's clock but left the HEAL in cluster-join (human-initiated) and
+# left rank starts ungated — a drifted pair could still quiesce serving and
+# assemble a mixed-stack rank.
 #
 # Properties, all against the REAL shipped functions:
 #   1. rank_start_preconditions_ok REFUSES on drift and unstamped (no attempt

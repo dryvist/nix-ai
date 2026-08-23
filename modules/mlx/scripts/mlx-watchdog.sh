@@ -5,8 +5,7 @@
 # proxy is invisible to launchd, and /v1/models stays 200 through every such
 # mode (llama-swap answers it from static config, no model). The only signal
 # that separates "serving" from "up" is a real completion that yields a token,
-# so that is what this probes against a resident model. Zammad: AI/LLM Serving
-# INC-17114.
+# so that is what this probes against a resident model.
 #
 # Probe outcome discrimination — a non-answer is NOT always a failure. curl's
 # transport exit code and the HTTP status are read separately, then classed:
@@ -167,9 +166,10 @@ reap_workers() {
 # with no shared text — a third alerter would justify one concatenated lib.
 #
 # A PAGE THAT REACHES NOBODY MUST STILL REACH THE LOG: every non-delivery path
-# logs the FULL text, not just a status code. On 2026-07-24 the one page of a
-# cluster incident died as `http=000 body=curl: (7) Failed to connect` and the
-# reason it was paging went nowhere at all. cluster-link-helpers.sh additionally
+# logs the FULL text, not just a status code. A page can die as
+# `http=000 body=curl: (7) Failed to connect`, and without that full text the
+# reason it was paging in the first place goes nowhere at all.
+# cluster-link-helpers.sh additionally
 # records undelivered pages to a file beside its link-state marker; this script
 # has no equivalent state dir, which is the one deliberate difference.
 alert() {

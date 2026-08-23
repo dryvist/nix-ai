@@ -3,10 +3,10 @@
 # — the preconditions that decide whether a rank start may happen at all, and
 # whether it may consume one of the PD guard's countable attempts.
 #
-# Every case here is a 2026-07-24 incident replayed: a worker whose coordinator
-# had no rank kickstarted three times into a rendezvous that did not exist,
-# leaked three kernel RDMA protection domains (reboot-only), got correctly
-# halted, and was then un-halted by hand — which burned the rest.
+# Every case here guards against the same shape: a worker whose coordinator
+# has no rank can kickstart repeatedly into a rendezvous that does not exist,
+# leaking a kernel RDMA protection domain (reboot-only) per attempt; once
+# correctly halted, an un-halt by hand must not simply resume the same leak.
 #
 # WHAT IS REAL AND WHAT IS NOT, stated plainly:
 #   REAL — rank_start_preconditions_ok, halt_write and halt_clear_accepted are
@@ -213,9 +213,9 @@ echo "both ranks hold for the shared start boundary:"
 # The worker used to wait for rank 0 to be listening. That GUARANTEED it reached
 # distributed init ~20-30s after the coordinator — far outside jaccl's fixed
 # ~15s connect budget — so the coordinator had already exited and the worker
-# dialled a dead port (errno 60). Measured 2026-07-25: sequential starts
-# oscillate and both ranks die; starting together holds and serves. There is no
-# leader to wait for now, only a boundary both hosts compute identically.
+# dialled a dead port (errno 60): sequential starts oscillate and both ranks
+# die, where starting together holds and serves. There is no leader to wait
+# for now, only a boundary both hosts compute identically.
 reset_state
 export CLUSTER_RANK_START_ALIGN_SECS=60
 align_now=100 # 40s past a boundary, so 20s remain
@@ -329,8 +329,8 @@ tick
 check "halted ticks do nothing" halted "$VERDICT"
 
 echo "clearing the halt by hand re-verifies the cause (rejected):"
-# What actually happened: a human deleted the marker on an unverified hypothesis
-# and burned the remaining protection domains.
+# A human deleting the marker on an unverified hypothesis must not resume
+# leaking the remaining protection domains.
 rm -f "$halt_file"
 link_ok=0
 tick

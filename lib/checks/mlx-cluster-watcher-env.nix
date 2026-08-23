@@ -80,7 +80,7 @@ in
     assert
       watcherEnv ? CLUSTER_SERVER_LABEL
       && builtins.match ".*/Library/LaunchAgents/.*[.]plist" watcherEnv.CLUSTER_SERVER_PLIST != null
-      || throw "cluster: coordinator watcher must carry the standalone server label+plist, or the link-down re-warm silently no-ops when cluster-join booted that agent out (INC-17071)";
+      || throw "cluster: coordinator watcher must carry the standalone server label+plist, or the link-down re-warm silently no-ops when cluster-join booted that agent out";
     assert
       watcherEnv ? CLUSTER_WATCHDOG_LABEL
       || throw "cluster: coordinator watcher must carry the serving watchdog label";
@@ -89,7 +89,7 @@ in
       || throw "cluster: coordinator watcher must carry the watchdog plist, or restore_normal_serving cannot bootstrap it back after cluster-join boots it out";
     assert
       watcherEnv.CLUSTER_MAX_WARM_FAILURES == "3"
-      || throw "cluster: coordinator watcher must carry the post-readiness warm-failure cap; without it a rank wedged after readiness retries forever (INC-17070)";
+      || throw "cluster: coordinator watcher must carry the post-readiness warm-failure cap; without it a rank wedged after readiness retries forever";
     # The settle window is the ONLY thing standing between a failing rank and an
     # unbounded retry loop that burns reboot-only RDMA protection domains. Drop
     # it from the env and the script's `:-60` fallback silently takes over, so

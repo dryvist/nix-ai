@@ -9,7 +9,7 @@ bring-up and safe-unplug a single, verifiable step each. They are supervised
 front-ends over the link watcher (`modules/mlx/scripts/cluster-link-watcher.sh`)
 — they never start a rank themselves; the launchd-owned watcher does that. A
 plain-shell rank lacks the macOS Local Network entitlement launchd grants and
-dies in JACCL rendezvous with errno 60 (INC-17076).
+dies in JACCL rendezvous with errno 60.
 
 Both commands are idempotent and safe to re-run. All `CLUSTER_*` configuration
 is baked at eval from `programs.mlx.clusterMode`, so the commands need no shell
@@ -22,16 +22,16 @@ environment and behave identically on the coordinator and the worker.
    `sudo /nix/var/nix/profiles/system/activate` first (re-runs cluster-link-prep
    idempotently), then a direct granted fallback (`bridge0 deletem` + alias-up on
    the carrier port) if activation does not restore prep — both use only the
-   cluster-ops sudoers grants (INC-17067). The activation is time-bounded so an
+   cluster-ops sudoers grants. The activation is time-bounded so an
    unrelated hung activation step cannot wedge bring-up.
 2. Pin the cluster wired ceiling **before anything loads**
    (`sysctl -w iogpu.wired_limit_mb=<clusterWiredLimitMb>`). This is the one
    non-negotiable step and hard-fails on error: a shard loaded over a standalone-sized
    ceiling wires out the GUI working set and triggers a WindowServer watchdog
-   kill / panic (INC-17076, the 2026-07-12 dual-host panic).
+   kill / panic.
 3. Coordinator only: refuse to proceed if `vm.swapusage` used exceeds
    `joinSwapThresholdMb` (default 8000 MB) — loading against stale swap spirals
-   to a panic (INC-17075) — then quiesce standalone serving (bootout the server +
+   to a panic — then quiesce standalone serving (bootout the server +
    warmup agents, wait for zero MLX model-server processes, reap orphans after a
    grace).
 4. Clear a stale `rank-halted` PD-guard latch and any standalone lease, ensure
@@ -42,8 +42,8 @@ environment and behave identically on the coordinator and the worker.
    watcher fires exactly one warm generation (request #1) at bring-up and records
    success by creating the `rank-warmed` marker, and join gates on the rank
    process being up **and** that marker present. So the total post-formation
-   request count is exactly one, issued by one component — Cycle 2 proved a
-   second post-formation request wedges the pipeline (INC-17070). Note the
+   request count is exactly one, issued by one component — a
+   second post-formation request wedges the pipeline. Note the
    contract: the `rank-warmed` marker means "the single warm generation succeeded
    at formation", not "serving is healthy now"; a join re-run against a wedged
    same-session cluster passes on the existing marker by design (zero-probe
@@ -92,11 +92,11 @@ minutes of provably zero tokens. Thresholds are
    `iogpu.wired_limit_mb` equal to the standalone value — never trust the logs.
 2. Coordinator only: verify standalone serving actually restored — the proxy answers
    **and** a real completion returns from the primary resident. The watcher's
-   restore assumes the standalone agents are still loaded and silently no-ops otherwise
-   (INC-17071), so this bootstraps the server agent if needed before probing.
+   restore assumes the standalone agents are still loaded and silently no-ops otherwise,
+   so this bootstraps the server agent if needed before probing.
 3. If `vm.swapusage` used exceeds `detachSwapThresholdMb` (default 20000 MB),
    print a prominent "stale swap — reboot before next join" warning and exit
-   with distinct code **3** so a wrapper can chain a reboot (INC-17075).
+   with distinct code **3** so a wrapper can chain a reboot.
 4. Print an OK/FAIL summary; nonzero exit on any failed postcondition.
 
 ## Zero-click flow: what the watcher does with no human at all
@@ -107,7 +107,7 @@ the watcher enforces the parts a human used to have to get right.
 
 **Start order no longer matters.** A worker whose coordinator had no rank yet
 used to kickstart into a nonexistent rendezvous, leaking a **reboot-only**
-RDMA protection domain per failed attempt (2026-07-24 mandatory reboot). Both
+RDMA protection domain per failed attempt. Both
 ranks now hold for a shared wall-clock boundary and reach distributed init
 together, inside jaccl's ~15 s connect budget. Domains lost anyway are still
 counted in a boot-scoped ledger, capped against the device's 11 — see
@@ -123,8 +123,7 @@ address before starting a rank, and repairs it in place when it does not
 **The halt is not just a file.** The marker records *why* (`cause=...`) beside
 a sticky `rank-halt-latched`; deleting `rank-halted` by hand is only a
 *request* — the watcher re-verifies preconditions first, clears on pass, or
-**re-halts** with `cause=manual-clear-rejected` naming what still fails. That
-stopped the pattern that burned the remaining domains on 2026-07-24.
+**re-halts** with `cause=manual-clear-rejected` naming what still fails.
 Sanctioned resets: a real link cycle, or `cluster-join`.
 
 **Unplug is debounced in seconds, not probes.** `linkDownSettleSecs` (default
@@ -197,6 +196,3 @@ watcher. The alias form rides the `ifconfig en[0-9]* up` grant — the sudoers
 
 - Issues: nix-ai #1284 (this work), #1283 (watcher state-machine defects),
   #1281 (resident streaming defect).
-- Incidents: INC-17067 (link-prep loss), INC-17071 (restore assumes loaded
-  agents), INC-17075 (stale-swap spiral), INC-17076 (ceiling skip → watchdog
-  kill / errno-60 plain-shell rank).

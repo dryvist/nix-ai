@@ -335,10 +335,10 @@ check "...and passing the rank log" 1 \
   "$(printf '%s\n' "$detach_settle_block" | grep -c 'CLUSTER_RANK_ERROR_LOG' || true)"
 
 echo "4. a halt marker left over from a PREVIOUS boot never suppresses THIS boot's charge:"
-# 2026-08-08 night watch: a stale halt from an earlier boot sat on disk when a
-# fresh cycle burned 5 kickstarts under a NEW boot. Reproduces exactly that
-# shape: write a halt under the OLD boot, cross a real reboot, then run the
-# cap path (halt_write + pd_debt_settle_counter) exactly as
+# A stale halt from an earlier boot sitting on disk when a fresh cycle burns
+# kickstarts under a NEW boot must not suppress that fresh charge. Reproduces
+# exactly that shape: write a halt under the OLD boot, cross a real reboot,
+# then run the cap path (halt_write + pd_debt_settle_counter) exactly as
 # cluster-link-watcher.sh does at the kickstart cap. The drop must not eat the
 # fresh charge, and the fresh marker must carry the NEW boot, not the old one.
 reset_state

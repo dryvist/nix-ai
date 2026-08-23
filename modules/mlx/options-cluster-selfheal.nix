@@ -8,9 +8,9 @@
 # options-cluster-resilience.nix, cluster-mode.nix and
 # cluster-mode-maintenance.nix. Only `lib` is referenced.
 #
-# WHAT THIS FILE IS FOR. On 2026-08-01 the Thunderbolt link sat down for 86 hours
-# with the cable seated. Every component behaved as designed and the outage was
-# invisible to all of them:
+# WHAT THIS FILE IS FOR. A generation drift can leave the Thunderbolt link down
+# indefinitely with the cable seated, while every component behaves as designed
+# and the outage stays invisible to all of them:
 #
 #   * the node had drifted off the deployed system generation, so the activation
 #     that aliases the link address never ran — and the only parity check in the
@@ -18,7 +18,7 @@
 #   * the watcher probed the peer, failed, and never looked at its own link prep,
 #     although it already carried the repair for exactly that condition;
 #   * it logged one guess ("cable out, OR denied Local Network permission")
-#     10,440 times, and the truth was neither.
+#     over and over, and the truth was neither.
 #
 # Every value below turns one of those into something that happens on a clock.
 #
@@ -53,8 +53,8 @@
 
         A change in the observed facts is ALWAYS reported immediately regardless
         of this value; the cadence only governs repetition of an unchanged state.
-        That is the half that was missing: 10,440 identical lines do not report a
-        state, they bury the one line where it changed.
+        That is the half that was missing: an unbounded run of identical lines
+        does not report a state, it buries the one line where it changed.
       '';
     };
 
@@ -87,8 +87,8 @@
         tick, and the result is reported as a field of the link facts line in
         every link state.
 
-        Drift is what silently disarmed link prep for 86 hours on 2026-08-01. The
-        watcher reports and pages (once per distinct drift); the HEAL stays in
+        Generation drift can silently disarm link prep for extended periods with
+        no other symptom. The watcher reports and pages (once per distinct drift); the HEAL stays in
         cluster-join, because a `darwin-rebuild switch` fired from a launchd
         agent can be SIGKILLed mid-activation by the very activation it is
         running, and a half-applied activation is worse than drift.

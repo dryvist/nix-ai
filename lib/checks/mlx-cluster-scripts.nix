@@ -58,7 +58,7 @@ in
   # Sources the shipped helpers + guards in the module's concatenation order and
   # stubs only the thin wrappers over macOS-only binaries
   # (ifconfig/networksetup/nc/sysctl), so the decisions under test are the real
-  # ones. Replays the 2026-07-24 incident: a worker that kickstarted into an
+  # ones. Replays the failure shape: a worker that kickstarted into an
   # absent rank 0, exhausted the guard, and was then un-halted by hand.
   mlx-cluster-rank-guards = pkgs.runCommand "check-mlx-cluster-rank-guards" (
     {
@@ -114,7 +114,7 @@ in
   ) "bash ${src}/tests/test-fast-fail-standdown.sh && touch $out";
 
   # THE CHECK THAT FAILS IF A PD-EXHAUSTION HALT CAN SIT WAITING FOR A HUMAN
-  # AGAIN. On 2026-08-01 a host halted and paged correctly, then sat for hours
+  # AGAIN. A host can halt and page correctly, then sit for hours
   # with nothing issuing the reboot its own alert says is required. Asserts:
   # only the two PD-exhaustion causes reboot, never while the link is down,
   # the rate-limit marker survives across calls, and a FileVault host refuses

@@ -53,11 +53,10 @@ note_fail() {
 }
 
 # --- step 0: record the standalone lease (RULE 1: plugged in means clustered) --
-# A detach is a bounded EXCEPTION, never a state. Twice on 2026-08-01 machines
-# sat detached with the cable in — serving nothing clustered and running no
-# benchmark — because nothing recorded that the standalone window was over. So
-# every detach now writes a lease: `<expiry-epoch>\t<created>\t<reason>`, one
-# line. The watcher honours it while it is unexpired and resumes driving the
+# A detach is a bounded EXCEPTION, never a state. A machine can sit detached with
+# the cable in — serving nothing clustered and running no benchmark — because
+# nothing recorded that the standalone window was over. So every detach now
+# writes a lease: `<expiry-epoch>\t<created>\t<reason>`, one line. The watcher honours it while it is unexpired and resumes driving the
 # pair back to clustered the moment it expires; cluster-join ends it early.
 # There is deliberately NO indefinite form — an opt-out that cannot expire
 # recreates the exact failure the rule targets.
@@ -126,9 +125,9 @@ ceiling_restored() {
 # UNLOAD THE JOB BEFORE SIGNALLING THE PROCESS, or the teardown races its own
 # restarter. The watcher converges every tick and it is not told a detach is
 # under way: the link probe still reads up until the down-strikes accumulate, so
-# during that window the watcher sees "no rank running" and kickstarts one. On
-# 2026-08-08 a detach that was still executing was raced exactly that way and
-# three protection domains were spent on rank attempts nobody asked for.
+# during that window the watcher sees "no rank running" and kickstarts one — a
+# detach still executing can be raced exactly that way, spending protection
+# domains on rank attempts nobody asked for.
 #
 # `launchctl kickstart` on a service that is not loaded fails, so booting the
 # job out is what actually closes the window — stopping the process alone cannot,
@@ -270,9 +269,9 @@ fi
 # ends the moment its combined condition holds) and every escalation branch
 # below it can leave those two rows read while that teardown has not begun.
 #
-# That is a FALSE failure, and it looks exactly like a real one: on 2026-08-06
-# detach exited 1 reporting markers present and the ceiling not reverted, and
-# an UNCHANGED re-run converged, because the second invocation read the state
+# That is a FALSE failure, and it looks exactly like a real one: detach can
+# exit 1 reporting markers present and the ceiling not reverted, and an
+# UNCHANGED re-run converges, because the second invocation reads the state
 # the first one had already set in motion. A teardown that needs to be run
 # twice to report the truth trains the operator to ignore its exit code.
 #
@@ -293,10 +292,9 @@ rank_gone || note_fail "rank process still running (pattern ${CLUSTER_RANK_PROCE
 ceiling_restored ||
   note_fail "iogpu.wired_limit_mb=$(/usr/sbin/sysctl -n iogpu.wired_limit_mb 2>/dev/null) != standalone ${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}"
 # Deliberately NOT called "teardown verified" any more. That wording was true and
-# read as false: on 2026-08-01 it printed on a worker that was serving NOTHING,
-# and exit 0 said the node was fine. Naming exactly the three postconditions it
-# covers — and nothing about serving — is what stops the next reader making the
-# same jump.
+# read as false: it could print on a worker that was serving NOTHING, and exit 0
+# said the node was fine. Naming exactly the three postconditions it covers —
+# and nothing about serving — is what stops the next reader making the same jump.
 [ "$failed" -eq 0 ] && echo "cluster-detach: rank teardown verified (markers clear, rank gone, standalone ceiling restored); serving NOT yet restored — step 2"
 
 # --- step 2: BOTH ROLES -- put standalone serving back and prove it serves ---
@@ -404,13 +402,13 @@ if [ "${sigkilled_rank:-0}" -eq 1 ]; then
   echo "                AND its wired shard memory. Recorded: $(pd_debt_phrase "${pd_debt_now:-?}" "${CLUSTER_PD_DEBT_MAX:-?}")" >&2
   echo "                in ${CLUSTER_PD_DEBT_FILE:-unset}. Reboot this node before the next join:" >&2
   echo "                a protection domain is returned by nothing else, and leaked wired" >&2
-  echo "                memory is the INC-17076 panic risk. At the cap, cluster-join refuses" >&2
+  echo "                memory is a panic risk. At the cap, cluster-join refuses" >&2
   echo "                and the link watcher halts rank starts on its own." >&2
   exit 3
 fi
 if [ "$stale_swap" = true ]; then
   echo "cluster-detach: WARNING stale swap -- reboot this node before the next join (or now):" >&2
-  echo "                vm.swapusage used ${used}M > ${swap_threshold}M (INC-17075 spiral risk)" >&2
+  echo "                vm.swapusage used ${used}M > ${swap_threshold}M (spiral risk)" >&2
   exit 3
 fi
 # NO TERMINAL `exit 0`, AND THAT IS DELIBERATE. Falling off the end exits with

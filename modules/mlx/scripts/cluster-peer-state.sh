@@ -15,8 +15,8 @@
 # link address, while it sits at a memory shortfall it cannot clear, and while
 # it runs a different system generation. Every one of those makes a rendezvous
 # certain to fail, and a rendezvous that fails leaks one boot-scoped RDMA
-# protection domain of eleven. On 2026-08-08 that cost five of them in eighteen
-# minutes against a peer that had already stood down.
+# protection domain of eleven — a handful of attempts against a peer that has
+# already stood down can burn a meaningful share of that budget in minutes.
 #
 # The fix is to make the peer's INTENT observable before the attempt, not the
 # attempt itself the way of finding out. Each host publishes one JSON line; each
@@ -281,7 +281,7 @@ peer_armed_ok() {
   # deploy branch; that answers "am I current", not "do we match each other". Two
   # nodes can both be current and still differ for the minutes between one
   # activating and the other, and a mixed mlx/JACCL stack is the untestable
-  # variable behind the INC-17070 deadlock family.
+  # variable behind a class of deadlocks.
   peer_gen="$(printf '%s' "$PEER_STATE_RAW" | jq -r '.generation // ""' 2> /dev/null || echo '')"
   local_gen="$(peer_state_generation "$parity")"
   if [ "$peer_gen" != "$local_gen" ]; then

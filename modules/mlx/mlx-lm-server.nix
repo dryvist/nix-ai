@@ -10,7 +10,7 @@
 # The whole stack now resolves from the Nix store (python-overlay.nix) instead
 # of `uv run --with`. uv minted a COMPLETE ~1.4 GB venv per distinct
 # resolution, shared nothing between them (hardlink count 1), and never
-# evicted one: 328 GB of cache on jevans-mbp against a 62 GB Nix store for the
+# evicted one: 328 GB of cache on the laptop against a 62 GB Nix store for the
 # entire system. Every live uv process also held a shared lock on that cache,
 # so `uv cache prune` could never take the exclusive lock and exited 0 having
 # freed nothing — which is how it grew unnoticed.

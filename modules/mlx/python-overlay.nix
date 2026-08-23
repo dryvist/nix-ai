@@ -5,7 +5,7 @@
 # The serving stack used to be delivered by `uv run --with`, which mints a
 # COMPLETE ~1.4 GB venv per distinct resolution under ~/.cache/uv/archive-v0
 # with hardlink count 1 (no sharing between them) and never evicts one. There
-# are no GC roots and no TTL, so the cache grew to 328 GB on jevans-mbp — five
+# are no GC roots and no TTL, so the cache grew to 328 GB on the laptop — five
 # times the entire 62 GB Nix store for the whole system. Worse, every live uvx
 # process holds a shared lock on ~/.cache/uv/.lock, so `uv cache prune` could
 # never take the exclusive lock and exited 0 having freed nothing. Delivering
@@ -65,7 +65,7 @@
   versions,
   # Wheel platform tag. Apple publishes one wheel per macOS deployment target;
   # uv resolves the highest the running OS supports, which is macosx_26_0 on
-  # both Macs today (jevans-mbp verified at macOS 26.5.2). Pinning that keeps
+  # both Macs today (the laptop verified at macOS 26.5.2). Pinning that keeps
   # behavior identical to the uv path. A node on an older macOS must override
   # this to its own target — the derivation would still BUILD (it only fetches
   # and unzips) but the dylib would fail to load at import.

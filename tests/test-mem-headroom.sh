@@ -3,13 +3,12 @@
 # mem_headroom_halt_if_persistent, all in modules/mlx/scripts/cluster-link-guards.sh)
 # — the precondition that stops a rank starting into a shard that will not fit.
 #
-# WHY THIS EXISTS. Measured 2026-08-01: a rank started while ~72 GiB of
-# unreclaimed wired Metal memory sat on the host from previously-crashed rank
-# processes, leaving only ~25 GiB free against a ~49 GiB shard. That failed
-# distributed init leaked an RDMA protection domain the same way an errno-60
-# timeout does; four retries failed differently and leaked four more, and the
-# PD guard's cap halted the host. It happened on BOTH Macs the same afternoon.
-# This rung stops the FIRST attempt, and this file is the test that fails if it
+# WHY THIS EXISTS. A rank can start while unreclaimed wired Metal memory from
+# previously-crashed rank processes still sits on the host, leaving too little
+# free against the shard it needs. That failed distributed init leaks an RDMA
+# protection domain the same way an errno-60 timeout does, and repeated
+# retries leak one each, until the PD guard's cap halts the host. This rung
+# stops the FIRST attempt, and this file is the test that fails if it
 # regresses — in particular if it is ever "simplified" into an ordinary failure
 # path that consumes a start attempt or charges the PD ledger, which is the
 # exact property that makes the rest of the chain impossible.
@@ -221,10 +220,11 @@ echo "3. the unreclaimed-Metal signature is named when wired covers the requirem
 # Log-only — this must never change the verdict, only explain it. By the time
 # this rung runs, rung 0b (rank_reap_verified, stubbed true here) has already
 # proven no rank process survives, so high wired with nothing left to hold it
-# is the leak signature from the 2026-08-01 incident, not a live session.
+# is the unreclaimed-Metal leak signature this rung exists to catch, not a
+# live session.
 reset_state
 export CLUSTER_SHARD_MEMORY_MB=1000
-write_vmstat 16384 1600 0 0 64000 # 25MB free, 1000MB wired (matches the incident shape)
+write_vmstat 16384 1600 0 0 64000 # 25MB free, 1000MB wired (matches the leak signature)
 mem_headroom_ok 1000 || true
 check "detail names the unreclaimed-Metal signature" yes \
   "$(case "$MEM_HEADROOM_DETAIL" in *"unreclaimed-Metal signature"*) echo yes ;; *) echo no ;; esac)"
@@ -335,7 +335,7 @@ check "the counter advances in the log, not only on disk" yes \
 
 
 echo "7. recovery: fail fast, clear slow — a pass decrements, it does not reset:"
-# THE OSCILLATION THIS PINS. 2026-08-16: this host's free+reclaimable bounced
+# THE OSCILLATION THIS PINS. A host's free+reclaimable can bounce, e.g.
 # 53853 -> 55318 -> 54413 MB against a 56000 MB requirement — noise near the
 # line, not recovery. The old behaviour (rm -f the dwell file on ANY single
 # pass) let one lucky sample fully clear the count, cancelling an escalation
@@ -363,22 +363,21 @@ mem_headroom_halt_if_persistent "$halt_file" "$latch_file" "$dwell_file"
 check "two consecutive passes fully clear a count of two" absent "$([ -f "$dwell_file" ] && echo present || echo absent)"
 
 echo "7b. the literal recorded bounce, asserted on the PUBLISHED armed field:"
-# Same incident as section 7's header comment, but this time driving
+# Same bounce as section 7's header comment, but this time driving
 # peer_state_write end to end and using the exact recorded free+reclaimable MB
-# figures rather than round synthetic ones. WHAT THE PUBLISHER MUST DO CHANGED
-# on 2026-08-22: every sample here is taken against a WARM standalone-serving
-# footprint — before the quiesce that would return that memory — so the
-# published armed bit must IGNORE the bounce entirely (observed live: a host
-# disarmed at armed=false with halted_cause=none over memory quiescing would
-# have freed). armed flips false only when the shortfall proves durable and
-# escalates to the insufficient-memory-persistent HALT, which is a local
-# incapacity; and only then does wired_ok name memory as the reason.
-# Required is set between the samples (55000) so 55318 is the one real
-# passing reading and 53853/54413 are real refusals — the same "near the
-# line" shape the incident had, at whatever the deployed shard requirement
-# happened to be that day. Page size 16384, so MB*64 = pages (all placed in
-# "Pages free" — mem_stat_mb sums free+inactive+speculative, so one field is
-# enough to drive the same total).
+# figures rather than round synthetic ones. Every sample here is taken against
+# a WARM standalone-serving footprint — before the quiesce that would return
+# that memory — so the published armed bit must IGNORE the bounce entirely: a
+# host must not disarm at armed=false with halted_cause=none over memory that
+# quiescing would have freed. armed flips false only when the shortfall
+# proves durable and escalates to the insufficient-memory-persistent HALT,
+# which is a local incapacity; and only then does wired_ok name memory as the
+# reason. Required is set between the samples (55000) so 55318 is the one
+# real passing reading and 53853/54413 are real refusals — the same
+# "near the line" shape as a real deployed shard requirement can produce.
+# Page size 16384, so MB*64 = pages (all placed in "Pages free" —
+# mem_stat_mb sums free+inactive+speculative, so one field is enough to
+# drive the same total).
 reset_state
 export CLUSTER_SHARD_MEMORY_MB=55000
 export CLUSTER_MEM_HEADROOM_DWELL_TICKS=3

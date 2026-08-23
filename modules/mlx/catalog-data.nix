@@ -83,10 +83,10 @@ in
   # "fetch from HuggingFace on first load if not already cached" — a promise the
   # runtime forbids: modules/mlx/worker-env.nix sets HF_HUB_OFFLINE=1, so a
   # first load of an uncached id raises OfflineModeIsEnabled and the request
-  # 502s after minutes of retrying rather than failing fast. Observed on
-  # jevans-ms 2026-08-05: this exact id was registered and requested while only
-  # the OptiQ-4bit variant was on disk, so every call to it 502'd for weeks with
-  # nothing reporting why. Registration makes an id SERVABLE, never CACHED.
+  # 502s after minutes of retrying rather than failing fast. Registering an id
+  # here while a different quant variant is the only one cached on disk means
+  # every call to it 502s with nothing reporting why. Registration makes an id
+  # SERVABLE, never CACHED.
   # `hf download <id>` (or the prefetch agent) is the step that caches it.
   # #1641 (same family as qwen35-9b-optiq): maxNumSeqs low, see its comment.
   qwen35-9b-mlx = {
@@ -161,9 +161,9 @@ in
   # bench); flip to the family parser only with a bench on this variant.
   # Thinking off by default (requests can opt in). agentTimeout is REQUIRED
   # here now that it fronts the fleet: without it the serve worker keeps the
-  # 300 s disconnect_guard, which aborted long cron generations mid-stream
-  # ("ABORTING orphaned request … in 300.4s") and surfaced to Hermes as a
-  # brain-unreachable event on 2026-07-14.
+  # 300 s disconnect_guard, which aborts long-running generations mid-stream
+  # ("ABORTING orphaned request … in 300.4s") and can surface downstream as a
+  # brain-unreachable event.
   qwen36-35b = {
     model = "mlx-community/Qwen3.6-35B-A3B-4bit";
     weightGb = 19.4;
@@ -281,8 +281,9 @@ in
   qwen3-30b-2507 = {
     model = "mlx-community/Qwen3-30B-A3B-Instruct-2507-4bit";
     weightGb = 17.5;
-    # qwen3_moe, standard attention: all 48 layers bear KV. jevans-mbp standalone
-    # default. perTokenKvBytes = 2*48*4*128*2 = 98304 B/token (96 KiB/token).
+    # qwen3_moe, standard attention: all 48 layers bear KV. The laptop's
+    # standalone default. perTokenKvBytes = 2*48*4*128*2 = 98304 B/token
+    # (96 KiB/token).
     kv = {
       kvLayers = 48;
       kvHeads = 4;
