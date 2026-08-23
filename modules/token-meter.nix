@@ -98,14 +98,6 @@ in
   };
 
   config = lib.mkMerge [
-    # Turning the option off has to actually turn the thing off; see the
-    # script's own header for why a rebuild cannot do it on its own.
-    (lib.mkIf (!cfg.enable) {
-      home.activation.tokenMeterCleanup = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-        $DRY_RUN_CMD ${./scripts/token-meter-cleanup.sh}
-      '';
-    })
-
     (lib.mkIf cfg.enable {
       assertions = [
         {
