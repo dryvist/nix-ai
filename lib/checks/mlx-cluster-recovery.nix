@@ -78,6 +78,21 @@
     WATCHER = "${src}/modules/mlx/scripts/cluster-link-watcher.sh";
   } "bash ${src}/tests/test-quiesce-restore.sh && touch $out";
 
+  # THE CHECK THAT FAILS IF THE QUIESCE SNAPSHOT READ CAN KILL THE TICK.
+  # The in-flight snapshot reads a held-open SSE stream through `grep -m1`,
+  # whose hangup kills curl with a write error — which errexit+pipefail turned
+  # into a silent death of the whole coordinator tick, before the snapshot
+  # echo. Pins that both a streaming and an unreachable proxy fall through to
+  # the unload under the watcher's exact shell flags.
+  mlx-cluster-quiesce-snapshot = pkgs.runCommand "check-mlx-cluster-quiesce-snapshot" {
+    nativeBuildInputs = [
+      pkgs.coreutils
+      pkgs.gnugrep
+      pkgs.jq
+    ];
+    HELPERS = "${src}/modules/mlx/scripts/cluster-link-helpers.sh";
+  } "bash ${src}/tests/test-quiesce-snapshot.sh && touch $out";
+
   # THE CHECK THAT FAILS IF A BUSY-BUT-HEALTHY RANK GETS DECLARED WEDGED.
   # The soak probe used to trust only endpoint_busy (a held TCP connection) as
   # proof the pipeline was busy rather than dead — which misses a client that
