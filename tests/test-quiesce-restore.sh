@@ -189,12 +189,33 @@ export FAKE_RESTORE_OK=0
 refusal_tick
 check "restore attempted" 1 "$(restore_count)"
 check "marker still set" present "$(marker)"
-contains "logs the restore failure" "WARN rank start refused after a quiesce" "$out"
+contains "logs the restore failure" "after a quiesce and no rank survives; failed to restore" "$out"
 
 echo "a refusal with no quiesce behind it restores nothing:"
 reset
 refusal_tick
 check "restore did NOT run" 0 "$(restore_count)"
 contains "says so" "nothing to restore" "$out"
+
+# WHICH RUNG REFUSED REACHES THIS STREAM. Each rung of
+# rank_start_preconditions_ok names itself on stderr, which the plist routes to
+# a different file than these stdout summary lines — so without the token here
+# the stdout log shows a refusal with no cause at all.
+echo "the refusing rung's reason token reaches the refusal lines:"
+for reason in peer-not-armed pd-debt-exhausted; do
+  reset
+  PRECONDITION_REASON="$reason"
+  refusal_tick
+  contains "no-quiesce branch names $reason" "(reason=$reason)" "$out"
+  tick # quiesce + kickstart, so the next refusal takes the restore branch
+  refusal_tick
+  contains "post-quiesce branch names $reason" "(reason=$reason)" "$out"
+done
+unset PRECONDITION_REASON
+# Unset is the state on any path that refused before the guard ran; it must not
+# abort the block under `nounset`, and it must still say something.
+reset
+refusal_tick
+contains "an unset reason degrades, not crashes" "(reason=unknown)" "$out"
 
 exit "$fail"
