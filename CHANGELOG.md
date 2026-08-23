@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.23.4](https://github.com/dryvist/nix-ai/compare/v4.23.3...v4.23.4) (2026-08-23)
+
+
+### Bug Fixes
+
+* remove nix-ai's duplicate Claude settings validator ([86a9beb](https://github.com/dryvist/nix-ai/commit/86a9bebed72f423fc9dbe39746e378e891982d52))
+
 ## [4.23.3](https://github.com/dryvist/nix-ai/compare/v4.23.2...v4.23.3) (2026-08-23)
 
 
