@@ -7,11 +7,10 @@
 # jaccl's ~15s connect budget, well inside a 30s tick, so it is never observed
 # running, `rank-started` is never touched, and the standdown is unreachable. It
 # fell through to the kickstart counter and paid one protection domain per
-# attempt to the cap. Measured 2026-08-07: the worker burned 5 of 11 domains in
-# 18 minutes against a coordinator that had already stood down and could never
-# answer. Failing fast bought the expensive path; hanging slow bought the cheap
-# one. tests/test-pd-counter-settle.sh names this exact shape in prose — this is
-# that hole closed.
+# attempt to the cap, against a coordinator that had already stood down and
+# could never answer. Failing fast bought the expensive path; hanging slow
+# bought the cheap one. tests/test-pd-counter-settle.sh names this exact shape
+# in prose — this is that hole closed.
 #
 # THE INVARIANT ASSERTED HERE. Two consecutive launched attempts that die before
 # settling with no rendezvous session stand the rank down under the SAME

@@ -9,8 +9,8 @@
 # real generation proves the cluster is serving. Safe to re-run at any point.
 #
 # Ranks are NEVER started here directly: a plain-shell rank lacks the macOS Local
-# Network entitlement that launchd grants, so JACCL rendezvous dies with errno 60
-# (INC-17076). Only the launchd-owned rank agent may run the rank; this command
+# Network entitlement that launchd grants, so JACCL rendezvous dies with errno 60.
+# Only the launchd-owned rank agent may run the rank; this command
 # just ensures the watcher is loaded and lets it do the kickstart.
 #
 # Consumed environment (baked by the launchd/module wiring, mirrors the watcher):
@@ -89,9 +89,7 @@ fail() {
 # exit after that point which is not a formed cluster used to leave it booted
 # out: the watcher only restores on the up->down edge (an edge a healthy cable
 # never produces) or from one of its own halt paths, so when join itself timed
-# out with no halt recorded, nothing on the host restored anything. Observed
-# 2026-08-08 — 20+ minutes serving nothing, ended by an operator running
-# cluster-restore by hand.
+# out with no halt recorded, nothing on the host restored anything.
 #
 # An EXIT trap rather than a line inside fail(): writeShellApplication runs with
 # errexit, so an abort that never reaches fail() is exactly the case a bare
@@ -161,8 +159,8 @@ fi
 # --- step 0: nix generation parity preflight --------------------------------
 # Every node must run the exact same committed system generation before any
 # clustering config begins: mixed generations mean mismatched mlx/JACCL stacks
-# on the two ranks — the untestable config-parity variable behind the
-# INC-17070 deadlock family.
+# on the two ranks — the untestable config-parity variable behind a class of
+# deadlocks.
 #
 # Drift is a GATE, never a repair. This script reports it and stops; deploying
 # a host is a deliberate `darwin-rebuild switch`, run by whoever owns that
@@ -220,8 +218,8 @@ if link_prep_ok; then
 else
   echo "cluster-join: link prep missing ($CLUSTER_STATIC_SELF_IP not aliased on a free port); repairing via activation"
   # Bound the activation: a full system activation can wedge on an unrelated
-  # step (observed 2026-07-19: a home-manager symlink hung on a stale mount),
-  # which must not block cluster bring-up forever.
+  # step (e.g. a home-manager symlink hanging on a stale mount), which must
+  # not block cluster bring-up forever.
   timeout 150 sudo -n /nix/var/nix/profiles/system/activate > /dev/null 2>&1 || true
   if ! link_prep_ok; then
     echo "cluster-join: activation did not restore link prep; trying direct granted repair"
@@ -267,7 +265,7 @@ else
 fi
 
 # --- step 2: pin the wired ceiling BEFORE anything loads (non-negotiable) ---
-# Skipping this step risks a WindowServer watchdog kill (INC-17076).
+# Skipping this step risks a WindowServer watchdog kill.
 # A shard loaded over a standalone-sized ceiling wires out the GUI working set and
 # panics the host, so a failed apply is a HARD stop, not a warning.
 if [ -n "${CLUSTER_WIRED_LIMIT_MB:-}" ]; then
@@ -295,7 +293,7 @@ if [ "$CLUSTER_ROLE" = "coordinator" ]; then
   threshold="${CLUSTER_JOIN_SWAP_THRESHOLD_MB:-8000}"
   if [ "$used" -gt "$threshold" ]; then
     fail "stale swap, reboot recommended (vm.swapusage used ${used}M > ${threshold}M). \
-Loading a shard against stale swap spirals to a panic (INC-17075)."
+Loading a shard against stale swap spirals to a panic."
   fi
   echo "cluster-join: swap OK (${used}M used <= ${threshold}M)"
 
@@ -443,9 +441,9 @@ if [ "$CLUSTER_ROLE" = "coordinator" ]; then
   # Zero completions from join. The watcher fires exactly ONE warm generation
   # (request #1) as part of bring-up and records success by creating the
   # rank-warmed marker; join CONSUMES that marker instead of issuing its own
-  # probe. Cycle 2 proved a second post-formation request -- join's old probe,
-  # request #2 -- wedges the pipeline (INC-17070), so the total post-formation
-  # request count must be exactly one, issued by exactly one component. Gate on
+  # probe. A second post-formation request -- join's old probe, request #2 --
+  # wedges the pipeline, so the total post-formation request count must be
+  # exactly one, issued by exactly one component. Gate on
   # the rank process being up AND the marker present so a stale marker from a
   # prior session (rank not yet restarted) cannot pass early; the watcher clears
   # rank-warmed on every (re)start, so a fresh formation only trips this once its

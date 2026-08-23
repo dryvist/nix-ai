@@ -13,9 +13,9 @@ Procedure: [cluster-lifecycle.md](cluster-lifecycle.md). RDMA detail:
 ## 0. The rule that outranks the rest
 
 **Any enumerated cause list is non-exhaustive — including every list here.**
-The 86-hour outage's watcher logged a two-item guess 10,440 times; the truth
-was neither item. The next incident (2026-08-02) was nearly misdiagnosed as a
-cable, then as generation drift; it was a Metal OOM. So the watcher reports
+A plausible-looking two-item guess can be logged over and over and still be
+wrong, and a real fault can be misdiagnosed first as a cable issue, then as
+generation drift, before the actual cause (a Metal OOM) turns up. So the watcher reports
 **measured fields** (per-port carrier, where the self address is, prep
 usability, peer answer, generation parity, lease), never candidates. Read the
 fields; never reason from a heading, and never stop at the first matching
@@ -44,8 +44,8 @@ cannot expire is the same failure with extra steps.
 
 Operator: *"the actual, automated, non-AI steps enforce the nix
 generations to march exactly on both / all devices before continuing with
-other setup automated steps."* Drift is how the 86-hour outage happened: the
-activation that aliases the link address had never run.
+other setup automated steps."* Drift means the activation that aliases the
+link address may never have run.
 
 Enforced: parity (against `clusterMode.generationRepo` HEAD) is the **first
 read of every watcher tick** and a precondition rung — under `drift` or
@@ -60,8 +60,8 @@ watcher mid-rebuild. Rank starts stay refused until a human runs
 `darwin-rebuild switch`. **Generation drift is a permanent human-requiring
 stop.**
 
-Parity is a *preventive control*, not the usual suspect: on 2026-08-02 all
-nodes matched deploy HEAD exactly and the cause was a Metal OOM (§6). See §0.
+Parity is a *preventive control*, not the usual suspect: matching generations
+exactly does not rule out other causes, such as a Metal OOM (§6). See §0.
 
 ## 3. The budget is 200 GB aggregate, never 100 GB per host
 
@@ -89,8 +89,7 @@ first-vs-last error in a burst, and `errno 60`/SIGSEGV misattribution.
   Probing `:11440` on the worker means nothing.
 - **Acceptance is a real completion returning coherent text — never a
   `/v1/models` 200.** The readiness latch is one-shot (nix-ai#1275): a 200 can
-  persist over a rank that generates nothing (observed repeatedly, latest
-  2026-08-02). Enforced: the watcher's warm generation and re-check
+  persist over a rank that generates nothing. Enforced: the watcher's warm generation and re-check
   (`warmRecheckSecs`), the peer-liveness probe and `cluster-detach`'s restore
   check all require a generated token. Any monitor treating a 200 as health is
   wrong.
@@ -114,14 +113,13 @@ first-vs-last error in a burst, and `errno 60`/SIGSEGV misattribution.
 memory.** Both are boot-scoped kernel state. A PD-exhausted host **cannot
 cluster again until it reboots** — clearing `rank-halted` returns nothing, and
 `halt_clear_accepted` re-verifies and re-halts on the still-true cause.
-Routing around the guard is never the answer; it burned the remaining domains
-on 2026-07-24.
+Routing around the guard is never the answer.
 
 Enforced: every leak is written to the boot-scoped `pd-debt` ledger (failed
 distributed inits, audited SIGKILLs); starts halt at a cap that *reserves*
 domains (device budget: 11); `cluster-join` refuses at the cap. The design
 completes with a memory-headroom precondition (a shard that cannot fit is a
-refused start, not a leak — the 2026-08-02 Metal OOM) and automatic
+refused start, not a leak) and automatic
 self-reboot at exhaustion, so the terminal state needs no human.
 
 The ledger goes **inert if mis-assembled**: `cluster-boot-scope.sh` must be
@@ -134,7 +132,7 @@ with `ioclasscount AppleThunderboltRDMAProtectionDomain` when it matters (see
 
 ## 7. The reboot recovery path is VERIFIED end-to-end, zero AI
 
-Observed 2026-08-02 on the coordinator, unattended: stale halt dropped by
+Verified on the coordinator, unattended: stale halt dropped by
 boot-scope comparison; link prep self-repaired; PD debt read 0 for the new
 boot; `iogpu.wired_limit_mb` restored by activation — it needs **no**
 re-applying by hand. Post-reboot transients (a `rank-halted` file for one

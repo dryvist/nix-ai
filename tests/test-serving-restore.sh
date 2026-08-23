@@ -2,12 +2,12 @@
 # THE CHECK THAT FAILS IF A TEARDOWN CAN REPORT SUCCESS OVER A HOST THAT IS
 # SERVING NOTHING.
 #
-# On 2026-08-01 cluster-detach on the WORKER printed
+# cluster-detach on the WORKER can print
 #
 #   cluster-detach: teardown verified (markers clear, rank gone, standalone
 #                   ceiling restored)
 #
-# and exited 0, while the seven agents cluster-quiesce had booted out — the model
+# and exit 0, while the agents cluster-quiesce had booted out — the model
 # server and its warmup among them — were still booted out and the endpoint
 # answered connection-refused. Every statement in that line was true. The machine
 # was serving nothing. The cause was structural: the restore lived in TWO places,
@@ -136,8 +136,8 @@ check "print succeeds after a bootstrap" 0 "$loaded"
 
 echo
 echo "coordinator: a booted-out server agent is bootstrapped, then warmed:"
-# INC-17071: the warmup one-shot POSTs to llama-swap over loopback, so kicking it
-# while the server agent is unloaded hits nothing and no-ops SILENTLY.
+# The warmup one-shot POSTs to llama-swap over loopback, so kicking it while
+# the server agent is unloaded hits nothing and no-ops SILENTLY.
 reset_state
 export CLUSTER_ROLE=coordinator
 restore_normal_serving && rc=0 || rc=1

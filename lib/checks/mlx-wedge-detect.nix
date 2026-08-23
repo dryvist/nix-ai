@@ -1,5 +1,5 @@
-# llama-swap slot-accounting wedge auto-recovery (nix-ai#1300, Zammad AI/LLM
-# Serving INC-17114). Two layers, matching the two things that can break:
+# llama-swap slot-accounting wedge auto-recovery (nix-ai#1300). Two layers,
+# matching the two things that can break:
 #
 #   mlx-wedge-classify — the pure two-condition discriminator (wedge_classify
 #     in scripts/wedge-detect.sh) run directly via tests/test-wedge-classify.sh.

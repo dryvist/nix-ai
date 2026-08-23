@@ -11,8 +11,9 @@ in
   # Drop-in successor to qwen36-27b-mxfp4: both are model_type qwen3_5_text with
   # an IDENTICAL attention topology — 64 layers split 16 full_attention /
   # 48 linear_attention, num_key_value_heads 4, head_dim 256 (read from each
-  # model's own config.json on jevans-ms, 2026-08-14). Same geometry means the
-  # incumbent's validated serve flags transfer verbatim; nothing here is guessed.
+  # model's own config.json on the headless host, 2026-08-14). Same geometry
+  # means the incumbent's validated serve flags transfer verbatim; nothing
+  # here is guessed.
   #
   # Note this family is HYBRID attention but is NOT qwen3_next: it does not hit
   # the mlx-lm#1162 paged-block reconstruction failure, which is why the
@@ -25,8 +26,8 @@ in
   # but the kwarg cannot simply be dropped either: the chat template defaults
   # reasoning_effort to 'xhigh' when unset, and at xhigh it does not finish.
   #
-  # All three measured on an isolated worker (jevans-ms, 2026-08-14), weights
-  # proven from its process command line:
+  # All three measured on an isolated worker (the headless host, 2026-08-14),
+  # weights proven from its process command line:
   #
   #   unset -> xhigh   0 answer chars, 16399 reasoning, "length" 3/3 (at 4096)
   #   low              10079 answer, 5051 reasoning, 3842 tokens, "stop" 3/3

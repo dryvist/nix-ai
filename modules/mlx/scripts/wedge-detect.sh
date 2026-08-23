@@ -15,8 +15,8 @@
 # admitted request and released exactly once — on a post-admission error, on
 # cancellation while queued, or on completion (OnServeDone, via a deferred
 # send in internal/router/base.go's trackedServe). Measured on the serving
-# host (~/Library/Logs/mlx-model-server/server.log, 63h/17792 requests,
-# Zammad AI/LLM Serving INC-17114): 65.6% of ALL requests got HTTP 429 while the
+# host (~/Library/Logs/mlx-model-server/server.log, 63h/17792 requests):
+# 65.6% of ALL requests got HTTP 429 while the
 # watchdog's own busy/idle probes showed the worker busy only 47% of the
 # time, and every one of 11,673 429s answered under 100ms with none slower —
 # an in-memory counter answering without touching the model. Static reading

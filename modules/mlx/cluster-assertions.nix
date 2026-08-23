@@ -94,9 +94,9 @@ in
     # rankStartAlignMultiple ticks long. So two publishes are separated by a
     # tick plus the alignment hold plus the probes. At the old 3-against-2 the
     # window equalled the hold plus one tick with nothing over to cover the
-    # probes, and on 2026-08-16 both hosts published every 95-173s against a
-    # 90s window: each read the other as stale, both suppressed every start,
-    # and the cluster could never form with both hosts armed and healthy.
+    # probes: each host can then read the other as stale, both suppress every
+    # start, and the cluster fails to form even with both hosts armed and
+    # healthy.
     assertion = ncfg.peerStateStaleTicks >= ncfg.rankStartAlignMultiple + 3;
     message = "programs.mlx.clusterMode: peerStateStaleTicks must be at least rankStartAlignMultiple + 3, or a host's own rank-start alignment hold delays its next publish past the window its peer judges it by, and both hosts suppress every start while armed and healthy.";
   }
@@ -106,9 +106,9 @@ in
     # hook and no restore hook boots its serving agents out on every join and has
     # no way to bring them back: the watcher's up->down edge, the PD-guard halt,
     # the wedge teardown and cluster-detach all call restore_normal_serving,
-    # which on a worker is nothing but this command. That asymmetry shipped, and
-    # on 2026-08-01 it left a host serving connection-refused for 86 hours while
-    # every teardown path reported success.
+    # which on a worker is nothing but this command. That asymmetry leaves the
+    # host serving connection-refused indefinitely, with every teardown path
+    # still reporting success.
     assertion =
       ncfg.role == "coordinator" || ncfg.quiesceCommand == null || ncfg.restoreCommand != null;
     message = "programs.mlx.clusterMode: a worker with quiesceCommand set must also set restoreCommand, or nothing can bring standalone serving back after a join.";

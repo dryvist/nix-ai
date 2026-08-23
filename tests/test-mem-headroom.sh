@@ -3,13 +3,12 @@
 # mem_headroom_halt_if_persistent, all in modules/mlx/scripts/cluster-link-guards.sh)
 # — the precondition that stops a rank starting into a shard that will not fit.
 #
-# WHY THIS EXISTS. Measured 2026-08-01: a rank started while ~72 GiB of
-# unreclaimed wired Metal memory sat on the host from previously-crashed rank
-# processes, leaving only ~25 GiB free against a ~49 GiB shard. That failed
-# distributed init leaked an RDMA protection domain the same way an errno-60
-# timeout does; four retries failed differently and leaked four more, and the
-# PD guard's cap halted the host. It happened on BOTH Macs the same afternoon.
-# This rung stops the FIRST attempt, and this file is the test that fails if it
+# WHY THIS EXISTS. A rank can start while unreclaimed wired Metal memory from
+# previously-crashed rank processes still sits on the host, leaving too little
+# free against the shard it needs. That failed distributed init leaks an RDMA
+# protection domain the same way an errno-60 timeout does, and repeated
+# retries leak one each, until the PD guard's cap halts the host. This rung
+# stops the FIRST attempt, and this file is the test that fails if it
 # regresses — in particular if it is ever "simplified" into an ordinary failure
 # path that consumes a start attempt or charges the PD ledger, which is the
 # exact property that makes the rest of the chain impossible.
@@ -85,6 +84,20 @@ VMSTAT
 chmod +x "$bin/vm_stat"
 export CLUSTER_VMSTAT_BIN="$bin/vm_stat"
 
+# --- sysctl stub, same generated-executable rule as vm_stat above ------------
+# wired_ceiling_room_ok reads iogpu.wired_limit_mb through CLUSTER_SYSCTL_BIN
+# (a path in a variable), so a shell function would not exercise the same call.
+sysctl_fixture="$state_dir/sysctl-output"
+sysctl_rc="$state_dir/sysctl-rc"
+cat > "$bin/sysctl" << SYSCTL
+#!$BASH
+forced="\$(cat '$sysctl_rc' 2>/dev/null || true)"
+if [ -n "\$forced" ]; then exit "\$forced"; fi
+cat '$sysctl_fixture'
+SYSCTL
+chmod +x "$bin/sysctl"
+export CLUSTER_SYSCTL_BIN="$bin/sysctl"
+
 # The device-PD-budget rung (#1442) sits right after this one in the guard
 # chain and is out of scope here; stubbed healthy, same pattern as
 # rank_reap_verified / generation_parity_cached in test-rank-start-guards.sh.
@@ -150,6 +163,9 @@ reset_state() {
   rm -f "$halt_file" "$latch_file" "$kicks_file" "$debt_file" "$dwell_file" "$vmstat_rc"
   : > "$curl_log"
   unset CLUSTER_RANK_START_ALIGN_SECS CLUSTER_SHARD_MEMORY_MB CLUSTER_MEM_HEADROOM_DWELL_TICKS
+  unset CLUSTER_COMPOSITOR_RESERVE_MB
+  printf '102400\n' > "$sysctl_fixture"
+  rm -f "$sysctl_rc"
   write_vmstat 16384 0 0 0 0
 }
 kicks_now() { cat "$kicks_file" 2> /dev/null || echo absent; }
@@ -204,10 +220,11 @@ echo "3. the unreclaimed-Metal signature is named when wired covers the requirem
 # Log-only — this must never change the verdict, only explain it. By the time
 # this rung runs, rung 0b (rank_reap_verified, stubbed true here) has already
 # proven no rank process survives, so high wired with nothing left to hold it
-# is the leak signature from the 2026-08-01 incident, not a live session.
+# is the unreclaimed-Metal leak signature this rung exists to catch, not a
+# live session.
 reset_state
 export CLUSTER_SHARD_MEMORY_MB=1000
-write_vmstat 16384 1600 0 0 64000 # 25MB free, 1000MB wired (matches the incident shape)
+write_vmstat 16384 1600 0 0 64000 # 25MB free, 1000MB wired (matches the leak signature)
 mem_headroom_ok 1000 || true
 check "detail names the unreclaimed-Metal signature" yes \
   "$(case "$MEM_HEADROOM_DETAIL" in *"unreclaimed-Metal signature"*) echo yes ;; *) echo no ;; esac)"
@@ -318,7 +335,7 @@ check "the counter advances in the log, not only on disk" yes \
 
 
 echo "7. recovery: fail fast, clear slow — a pass decrements, it does not reset:"
-# THE OSCILLATION THIS PINS. 2026-08-16: this host's free+reclaimable bounced
+# THE OSCILLATION THIS PINS. A host's free+reclaimable can bounce, e.g.
 # 53853 -> 55318 -> 54413 MB against a 56000 MB requirement — noise near the
 # line, not recovery. The old behaviour (rm -f the dwell file on ANY single
 # pass) let one lucky sample fully clear the count, cancelling an escalation
@@ -346,22 +363,21 @@ mem_headroom_halt_if_persistent "$halt_file" "$latch_file" "$dwell_file"
 check "two consecutive passes fully clear a count of two" absent "$([ -f "$dwell_file" ] && echo present || echo absent)"
 
 echo "7b. the literal recorded bounce, asserted on the PUBLISHED armed field:"
-# Same incident as section 7's header comment, but this time driving
+# Same bounce as section 7's header comment, but this time driving
 # peer_state_write end to end and using the exact recorded free+reclaimable MB
-# figures rather than round synthetic ones. WHAT THE PUBLISHER MUST DO CHANGED
-# on 2026-08-22: every sample here is taken against a WARM standalone-serving
-# footprint — before the quiesce that would return that memory — so the
-# published armed bit must IGNORE the bounce entirely (observed live: a host
-# disarmed at armed=false with halted_cause=none over memory quiescing would
-# have freed). armed flips false only when the shortfall proves durable and
-# escalates to the insufficient-memory-persistent HALT, which is a local
-# incapacity; and only then does wired_ok name memory as the reason.
-# Required is set between the samples (55000) so 55318 is the one real
-# passing reading and 53853/54413 are real refusals — the same "near the
-# line" shape the incident had, at whatever the deployed shard requirement
-# happened to be that day. Page size 16384, so MB*64 = pages (all placed in
-# "Pages free" — mem_stat_mb sums free+inactive+speculative, so one field is
-# enough to drive the same total).
+# figures rather than round synthetic ones. Every sample here is taken against
+# a WARM standalone-serving footprint — before the quiesce that would return
+# that memory — so the published armed bit must IGNORE the bounce entirely: a
+# host must not disarm at armed=false with halted_cause=none over memory that
+# quiescing would have freed. armed flips false only when the shortfall
+# proves durable and escalates to the insufficient-memory-persistent HALT,
+# which is a local incapacity; and only then does wired_ok name memory as the
+# reason. Required is set between the samples (55000) so 55318 is the one
+# real passing reading and 53853/54413 are real refusals — the same
+# "near the line" shape as a real deployed shard requirement can produce.
+# Page size 16384, so MB*64 = pages (all placed in "Pages free" —
+# mem_stat_mb sums free+inactive+speculative, so one field is enough to
+# drive the same total).
 reset_state
 export CLUSTER_SHARD_MEMORY_MB=55000
 export CLUSTER_MEM_HEADROOM_DWELL_TICKS=3
@@ -425,5 +441,124 @@ Pages wired down:                        0.
 Pages purgeable:                         0.
 POSTQUIESCE
 check "room check passes once quiesce has freed the room" 0 "$(rank_start_room_ok && echo 0 || echo 1)"
+
+echo "10. the GPU wired-ceiling room gate (wired_ceiling_room_ok):"
+# THE COMPOSITOR-STARVATION SHAPE, REPLAYED. A host holding
+# tens of GiB of wired memory with no owning process — stranded by a worker
+# killed mid-Metal-teardown, returned only by a reboot — took a rank start on
+# top and went down. Every number below is in MB, at page size 16384
+# (MB * 64 = pages).
+#
+#   ceiling                      102400   (sysctl iogpu.wired_limit_mb, read live)
+#   compositor reserve            16384   (programs.mlx.clusterMode.compositorReserveMb)
+#   start budget                  86016   = 102400 - 16384
+#   pre-rank wired                47104   (stranded wired + baseline + desktop)
+#   projected shard               51200
+#   wired + shard                 98304   > 86016  -> MUST refuse
+#   the NAIVE gate would compute  98304  <= 102400 -> would PERMIT it
+
+echo "10a. disabled by default — an unset reserve is not a silent partial gate:"
+reset_state
+export CLUSTER_SHARD_MEMORY_MB=51200
+write_vmstat 16384 5373952 0 0 3014656 # the panic's own wired figure
+check "unset reserve disables the wired rung" 0 "$(wired_ceiling_room_ok 51200 && echo 0 || echo 1)"
+export CLUSTER_COMPOSITOR_RESERVE_MB=0
+check "an explicit 0 disables it too" 0 "$(wired_ceiling_room_ok 51200 && echo 0 || echo 1)"
+
+echo "10b. the free-memory rung ALONE is the false green — it passes on the panic:"
+# This is why the wired rung has to exist at all. Leaked wired pages are not
+# free, so 128 GiB less ~46 GiB still leaves ~82 GiB free+reclaimable against a
+# 50 GiB shard: mem_headroom_ok passes, correctly, and the host panics anyway.
+reset_state
+export CLUSTER_SHARD_MEMORY_MB=51200
+export CLUSTER_COMPOSITOR_RESERVE_MB=16384
+write_vmstat 16384 5373952 0 0 3014656 # 83968MB free+reclaimable, 47104MB wired
+check "the free rung sees 83968MB against 51200MB and passes" 0 \
+  "$(mem_headroom_ok 51200 && echo 0 || echo 1)"
+check "the naive 'wired + shard <= ceiling' form would PERMIT the start" permitted \
+  "$([ $((47104 + 51200)) -le 102400 ] && echo permitted || echo refused)"
+
+echo "10c. ...and the wired rung refuses it:"
+check "wired_ceiling_room_ok refuses the starvation shape" 1 \
+  "$(wired_ceiling_room_ok 51200 && echo 0 || echo 1)"
+check "the combined room check refuses, so the watcher never kickstarts" \
+  insufficient-memory "$(roomdict)"
+check "no attempt consumed" absent "$(kicks_now)"
+check "nothing charged to the PD ledger" 0 "$(pd_debt_count "$debt_file")"
+wired_ceiling_room_ok 51200 || true
+check "the detail states the arithmetic, not just a verdict" yes \
+  "$(case "$MEM_HEADROOM_DETAIL" in *"47104MB already wired"*"51200MB"*"86016MB start budget"*) echo yes ;; *) echo no ;; esac)"
+check "and names REBOOT as the reclaim path for the leak signature" yes \
+  "$(case "$MEM_HEADROOM_DETAIL" in *"REBOOT is the only thing that returns it"*) echo yes ;; *) echo no ;; esac)"
+check "and says there is no process left to kill" yes \
+  "$(case "$MEM_HEADROOM_DETAIL" in *"no process to kill"*) echo yes ;; *) echo no ;; esac)"
+
+echo "10d. a NORMAL start from a clean boot is still permitted (the other direction):"
+# A gate that refuses the panic and also refuses legitimate work is not a fix.
+# 5120MB wired + 51200MB shard = 56320 <= 86016.
+reset_state
+export CLUSTER_SHARD_MEMORY_MB=51200
+export CLUSTER_COMPOSITOR_RESERVE_MB=16384
+write_vmstat 16384 7864320 0 0 327680 # 122880MB free, 5120MB wired
+check "clean-boot single-rank start is permitted" 0 \
+  "$(wired_ceiling_room_ok 51200 && echo 0 || echo 1)"
+check "the whole room check proceeds to start" start "$(roomdict)"
+# A workstation, measured live while serving two standalone models:
+# 12754MB wired. 12754 + 51200 = 63954 <= 86016 -> permitted with room to spare.
+write_vmstat 16384 4980736 0 0 816286 # 816286 pages = 12754MB wired
+check "a real busy-desktop wired reading is permitted too" 0 \
+  "$(wired_ceiling_room_ok 51200 && echo 0 || echo 1)"
+# The boundary itself: 86016 - 51200 = 34816MB of pre-existing wired is the
+# most a start may sit on. 34816MB = 2228224 pages; the next page over refuses.
+check "exactly at the budget (34816MB wired) passes" 0 \
+  "$(write_vmstat 16384 4980736 0 0 2228224 && wired_ceiling_room_ok 51200 && echo 0 || echo 1)"
+check "one page over the budget refuses" 1 \
+  "$(write_vmstat 16384 4980736 0 0 2228288 && wired_ceiling_room_ok 51200 && echo 0 || echo 1)"
+
+echo "10e. a shard that cannot fit an EMPTY host is named as config, not a leak:"
+# The other way to be over budget. Sending an operator to reboot a machine that
+# will refuse again identically is how a safety gate loses its credibility, and
+# it is the failure mode of any refusal message that only knows one cause.
+reset_state
+export CLUSTER_SHARD_MEMORY_MB=90000 # larger than the 86016MB budget on its own
+export CLUSTER_COMPOSITOR_RESERVE_MB=16384
+write_vmstat 16384 7864320 0 0 0 # zero wired: an empty host
+check "refuses even with nothing wired" 1 \
+  "$(wired_ceiling_room_ok 90000 && echo 0 || echo 1)"
+wired_ceiling_room_ok 90000 || true
+check "does NOT tell the operator to reboot" no \
+  "$(case "$MEM_HEADROOM_DETAIL" in *REBOOT*) echo yes ;; *) echo no ;; esac)"
+check "it names the three knobs that actually apply" yes \
+  "$(case "$MEM_HEADROOM_DETAIL" in *"a reboot will not change it"*"compositorReserveMb"*) echo yes ;; *) echo no ;; esac)"
+
+echo "10f. FAILS CLOSED on an unreadable probe — the inverse of the running-rank watcher:"
+# Deliberate asymmetry: refusing a start is cheap and the next tick retries;
+# starting blind is what takes the host down. Do not "fix" this open.
+reset_state
+export CLUSTER_SHARD_MEMORY_MB=51200
+export CLUSTER_COMPOSITOR_RESERVE_MB=16384
+write_vmstat 16384 7864320 0 0 327680 # a reading that would otherwise PASS
+printf '1\n' > "$sysctl_rc"
+check "an unreadable sysctl refuses rather than assuming a ceiling" 1 \
+  "$(wired_ceiling_room_ok 51200 && echo 0 || echo 1)"
+wired_ceiling_room_ok 51200 || true
+check "and says so, rather than reporting a fabricated number" yes \
+  "$(case "$MEM_HEADROOM_DETAIL" in *"could not read a usable iogpu.wired_limit_mb"*) echo yes ;; *) echo no ;; esac)"
+check "no attempt consumed while failing closed" absent "$(kicks_now)"
+rm -f "$sysctl_rc"
+printf 'not-a-number\n' > "$sysctl_fixture"
+check "a non-numeric ceiling refuses too" 1 \
+  "$(wired_ceiling_room_ok 51200 && echo 0 || echo 1)"
+printf '0\n' > "$sysctl_fixture"
+check "a 0 ceiling (no limit set / rung 3 failed) refuses rather than guessing" 1 \
+  "$(wired_ceiling_room_ok 51200 && echo 0 || echo 1)"
+printf '102400\n' > "$sysctl_fixture"
+printf '1\n' > "$vmstat_rc"
+check "an unreadable vm_stat refuses too — the wired term is unknown" 1 \
+  "$(wired_ceiling_room_ok 51200 && echo 0 || echo 1)"
+rm -f "$vmstat_rc"
+printf '10240\n' > "$sysctl_fixture"
+check "a reserve at or above the ceiling refuses, never a negative budget" 1 \
+  "$(wired_ceiling_room_ok 51200 && echo 0 || echo 1)"
 
 exit "$fail"

@@ -35,6 +35,7 @@
   ./options-cluster-selfheal.nix
   ./options-cluster-rank-health.nix
   ./options-cluster-memory.nix
+  ./options-cluster-wired-room.nix
   ./options-cluster-peer-state.nix
   ./assertions.nix
   ./packages.nix

@@ -63,11 +63,11 @@ in
   CLUSTER_LINK_DOWN_STRIKES = toString downStrikes;
   CLUSTER_DOWN_REPORT_EVERY = toString downReportEveryTicks;
   CLUSTER_HEARTBEAT_EVERY = toString heartbeatEveryTicks;
-  # --- self-heal and drift detection, the 2026-08-01 pair ---------------------
+  # --- self-heal and drift detection ------------------------------------------
   # The watcher probes the peer; until now it never checked its OWN link prep, so
-  # a host with carrier and no link address probed, failed and logged forever —
-  # 86 hours, 10,440 identical lines, with the fix (the same repair the up-path
-  # already ran) one function call away. This bounds how many consecutive repair
+  # a host with carrier and no link address could probe, fail and log forever,
+  # with the fix (the same repair the up-path already ran) one function call
+  # away. This bounds how many consecutive repair
   # attempts it makes before it stops trying and only reports; the counter resets
   # the instant prep is healthy.
   CLUSTER_LINK_PREP_MAX_REPAIRS = toString ncfg.linkPrepMaxRepairs;
@@ -150,6 +150,9 @@ in
   # vm_stat is not on a writeShellApplication PATH; test seam, like
   # CLUSTER_NETSTAT_BIN / CLUSTER_PGREP_BIN / CLUSTER_KILL_BIN above.
   CLUSTER_VMSTAT_BIN = "/usr/bin/vm_stat";
+  # The GPU wired-ceiling room guard's own two variables live in
+  # ./cluster-watcher-env-wired.nix, merged in below — this file is at the
+  # per-file size cap.
   # The rank's own StandardErrorPath — same file cluster-mode.nix wires the
   # rank launchd agent to. Read by rank_failure_stage (cluster-link-guards.sh)
   # to tell a Stage-A TCP-bootstrap death, which cannot have leaked an RDMA
@@ -157,6 +160,7 @@ in
   CLUSTER_RANK_ERROR_LOG = rankErrorLog;
 }
 // (import ./cluster-watcher-env-peer.nix { inherit ncfg; })
+// (import ./cluster-watcher-env-wired.nix { inherit ncfg; })
 // lib.optionalAttrs isCoordinator {
   # Readiness probe target: launchctl liveness alone cannot see a rank hung in
   # distributed init (see the watcher script). Only rank 0 binds the endpoint, so
@@ -183,8 +187,8 @@ in
   CLUSTER_RANK_SETTLE_SECS = toString ncfg.rankSettleSecs;
   # The link-down re-warm POSTs through llama-swap, so the watcher needs to be
   # able to bootstrap that agent when cluster-join has booted it out -- otherwise
-  # the kickstart silently no-ops and standalone serving never returns
-  # (INC-17071). Same pair cluster-detach already carries, so both paths
+  # the kickstart silently no-ops and standalone serving never returns.
+  # Same pair cluster-detach already carries, so both paths
   # converge.
   CLUSTER_SERVER_LABEL = launchAgentLabel;
   CLUSTER_SERVER_PLIST = "${launchAgentsDir}/${launchAgentLabel}.plist";

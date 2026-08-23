@@ -131,7 +131,7 @@ in
       # the path into a STRING, which forces the whole flake source into the
       # store during evaluation — and `nix flake check --no-build` refuses to
       # realise it, aborting with `path '<hash>-source' is not valid`. That
-      # broke the scheduled whole-lock relock on 2026-08-05, and it only ever
+      # breaks the scheduled whole-lock relock, and it only ever
       # reproduces on a cold store or with `--all-systems`: these checks are
       # scoped to x86_64-linux, so an aarch64-darwin `nix flake check` skips
       # them entirely and reports success. Sibling cluster checks interpolate

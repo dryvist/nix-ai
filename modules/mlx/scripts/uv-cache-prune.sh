@@ -5,8 +5,9 @@
 # module materializes a COMPLETE venv under ~/.cache/uv/archive-v0 (torch + mlx
 # + pyarrow + cv2 ~= 1.4 GB each, hardlink count 1 — no sharing between them).
 # uv never evicts them, so each pinned-set bump strands the previous venv
-# forever. Observed 2026-08-14 on jevans-mbp: 328 GB of cache, 3980 archive
-# entries of which only ~1140 were still referenced by environments-v2.
+# forever, and an unpruned cache grows without bound. Measured at 328 GB of
+# cache, 3980 archive entries, of which only ~1140 were still referenced by
+# environments-v2.
 #
 # Why activation and not a launchd agent: a rebuild is an operator-initiated
 # change with someone watching it. A timer firing on its own is not, and this

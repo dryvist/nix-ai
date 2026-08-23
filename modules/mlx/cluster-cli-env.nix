@@ -85,7 +85,7 @@ let
     }
     // lib.optionalAttrs isCoordinator {
       # join consumes the watcher's rank-warmed marker (zero completions issued
-      # by join itself — INC-17070), so it needs no cluster endpoint URL/model.
+      # by join itself), so it needs no cluster endpoint URL/model.
       CLUSTER_NORMAL_PROXY = "http://127.0.0.1:${toString cfg.port}";
       CLUSTER_SERVER_LABEL = launchAgentLabel;
       # join BOOTS THIS AGENT OUT, so its failure-path restore cannot work
@@ -130,8 +130,8 @@ let
       CLUSTER_STANDALONE_LEASE_SECS = toString ncfg.standaloneLeaseSecs;
       # BOTH ROLES. These were coordinator-only, which is why cluster-detach on a
       # worker could restore nothing, verify nothing, and still exit 0 with
-      # "teardown verified" over a host serving connection-refused (2026-08-01,
-      # 86h). Every node that can be quiesced must be able to prove it came back.
+      # "teardown verified" over a host serving connection-refused. Every node
+      # that can be quiesced must be able to prove it came back.
       CLUSTER_STANDALONE_PROBE_URL = apiUrl;
       CLUSTER_STANDALONE_PROBE_MODEL = cfg.defaultModel;
       # detach BOOTS THE RANK AGENT OUT before it signals anything, so that a

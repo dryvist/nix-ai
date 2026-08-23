@@ -235,7 +235,7 @@ in
           CLUSTER_MODEL = ncfg.model;
           # Same pair cluster-detach and the watcher carry: restore_normal_serving
           # must be able to bootstrap llama-swap, or the teardown silently
-          # no-ops and standalone serving never returns (INC-17071).
+          # no-ops and standalone serving never returns.
           CLUSTER_SERVER_LABEL = launchAgentLabel;
           CLUSTER_SERVER_PLIST = "${launchAgentsDir}/${launchAgentLabel}.plist";
           # Same pair, for the serving watchdog: this supervisor's own

@@ -26,7 +26,7 @@ in
     in
     assert
       hasInfix "endpoint_busy" watcherSrc
-      || throw "cluster: the soak re-check must consult endpoint_busy before probing. mlx-lm serializes generation and blocks HTTP, so a probe fired at a busy pipeline queues behind real work and expires through no fault of the mesh — on 2026-08-08 that killed a healthy rank mid-answer and the teardown leaked the wired shard on both hosts";
+      || throw "cluster: the soak re-check must consult endpoint_busy before probing. mlx-lm serializes generation and blocks HTTP, so a probe fired at a busy pipeline queues behind real work and expires through no fault of the mesh — that can kill a healthy rank mid-answer and the teardown leaks the wired shard on both hosts";
     assert
       hasInfix "CLUSTER_SOAK_BUSY_SKIP_MAX" watcherSrc
       || throw "cluster: the soak's deferral must be BOUNDED. A wedged rank holds its connections open exactly as a busy one does, so deferring on in-flight work alone would let a wedge that never closes its socket escape probing forever";

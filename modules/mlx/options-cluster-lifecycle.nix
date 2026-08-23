@@ -30,8 +30,8 @@
       default = 8000;
       description = ''
         cluster-join refuses to load a shard when vm.swapusage used exceeds this
-        (MB). Loading a shard against stale swap spirals to a panic (INC-17075);
-        the operator is told to reboot first.
+        (MB). Loading a shard against stale swap spirals to a panic; the
+        operator is told to reboot first.
       '';
     };
 
@@ -100,7 +100,7 @@
         `vllm-mlx serve` reap and the zero-engine assert. Empty = quiesce every
         engine (the panic-safe default). Only exempt a backend whose wired
         footprint provably fits under the cluster wired ceiling ALONGSIDE the
-        shard — a resident co-loaded over the ceiling is the INC-17076 panic.
+        shard — a resident co-loaded over the ceiling panics the host.
       '';
     };
   };

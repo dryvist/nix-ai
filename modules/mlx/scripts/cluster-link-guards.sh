@@ -19,7 +19,7 @@
 # Every failed mx.distributed.init() leaks a kernel RDMA Protection Domain and
 # exhaustion is reboot-only. A worker hammering an absent peer therefore converts
 # a trivially recoverable situation (peer not up yet — wait) into a mandatory
-# reboot. It did exactly that on 2026-07-24.
+# reboot.
 #
 # Consumed environment:
 #   CLUSTER_ROLE                     coordinator | worker
@@ -136,12 +136,12 @@ pd_device_budget_ok() {
 #
 # A boot does not produce a usable link. nix-darwin's cluster-link prep runs in
 # root postActivation, which fires before Thunderbolt carrier settles, so the
-# prep pass can find no carrier-active port and therefore address nothing —
-# observed 2026-07-24 on the coordinator: en2 had carrier, activation had run,
-# and no interface held the link address at all. Re-running `activate` fixed it
-# and logged `[cluster-link-prep] set <ip> on en2 (carrier active)`. The rank
-# started in that window died with `[jaccl] Couldn't bind socket (error: 49)` —
-# errno 49 is EADDRNOTAVAIL, i.e. exactly this missing address.
+# prep pass can find no carrier-active port and therefore address nothing: a
+# port can have carrier, activation can have already run, and still no
+# interface holds the link address at all. Re-running `activate` fixes it and
+# logs `[cluster-link-prep] set <ip> on en2 (carrier active)`. A rank started
+# in that window dies with `[jaccl] Couldn't bind socket (error: 49)` — errno
+# 49 is EADDRNOTAVAIL, i.e. exactly this missing address.
 #
 # Direct repair goes FIRST here (unlike cluster-join, which prefers activation
 # for persistence): this runs on a 30s watcher tick, and the direct grant is the
@@ -202,8 +202,9 @@ repair_link_prep() {
 # So a healthy serving rank sits near 3 GiB wired while holding ~50 GiB of
 # shard as ANONYMOUS memory. Both halves of the original note stand: a low
 # wired figure says nothing about what is loaded, and a high one is the
-# unreclaimed-Metal leak signature — consistent with the 96.7 GiB wired seen
-# when this host starved its compositor and hard-reset.
+# unreclaimed-Metal leak signature — wired memory left with no owning
+# process, high enough that the compositor, drawing from the same pool, can
+# be starved of command buffers.
 #
 # HOW THE BAD CORRECTION HAPPENED, recorded so it is not repeated. A ~50 GiB
 # wired reading on the worker was assumed to be "the shard resident". It was
@@ -318,7 +319,7 @@ rank_start_preconditions_ok() {
   # 0'. GENERATION PARITY — THE HARD GATE (RULE 2). Every node must run the
   #    deployed generation BEFORE any setup step below acts: mixed generations
   #    are mismatched mlx/JACCL stacks (the untestable config-parity variable
-  #    behind the INC-17070 deadlock family), and a drifted node's
+  #    behind a class of deadlocks), and a drifted node's
   #    activation-managed cluster state may never have applied. So no reap, no
   #    link repair, no boundary hold, no ceiling write, no quiesce and no start
   #    until parity holds. Reconciliation is not this rung's job: the watcher's
@@ -439,9 +440,9 @@ rank_start_preconditions_ok() {
   #    link address, while it sits at a memory shortfall only a reboot clears,
   #    and while it runs a different system generation. Every one of those makes
   #    the rendezvous certain to fail, and a certain failure still allocates a
-  #    protection domain before it times out. Measured 2026-08-08: five of eleven
-  #    domains spent in eighteen minutes against a peer that had already stood
-  #    down and could never have answered.
+  #    protection domain before it times out — a handful of kickstarts against a
+  #    peer that has already stood down and can never answer is enough to make a
+  #    real dent in a small protection-domain budget.
   #
   #    So the peer now says so itself. Each host publishes one JSON line per tick
   #    and this reads the other's — see ./cluster-peer-state.sh for the channel,
@@ -457,8 +458,8 @@ rank_start_preconditions_ok() {
   #    a wait.
   #
   #    Logged EVERY tick, never a silent skip. A start that is suppressed is a
-  #    decision, and the line says what it cost — the halted branch was silent
-  #    for 28 consecutive ticks on 2026-08-08 and hid a live halt for 14 minutes.
+  #    decision, and the line says what it cost — a halted branch that stays
+  #    silent across many consecutive ticks can hide a live halt for a long time.
   #
   #    Nothing is launched, so nothing leaks, so no attempt is consumed.
   if ! peer_armed_ok "$parity_fact"; then
@@ -503,7 +504,7 @@ rank_start_preconditions_ok() {
     fi
   fi
   # 3. Never start a rank over a standalone-sized ceiling: a shard wiring out
-  #    the GUI working set is the 2026-07-12 dual-host panic.
+  #    the GUI working set risks a dual-host kernel panic.
   if ! set_wired_limit "${CLUSTER_WIRED_LIMIT_MB:-}"; then
     PRECONDITION_REASON="wired-ceiling"
     echo "cluster-link: wired ceiling not applied; NOT starting the rank (no attempt consumed)"
@@ -537,8 +538,145 @@ rank_start_preconditions_ok() {
 # Same "no attempt consumed" contract as every rung above: nothing is
 # launched, so a refusal here costs nothing. Sets MEM_HEADROOM_DETAIL on
 # refusal, same as mem_headroom_ok itself, since callers log it the same way.
+#
+# TWO QUESTIONS, NOT ONE. mem_headroom_ok asks "is there enough FREE memory for
+# the shard's ordinary resident pages". wired_ceiling_room_ok below asks the
+# question free memory cannot answer at all: "does the shard's WIRED demand
+# still fit under the GPU wired ceiling, with the compositor's own draw left
+# standing". Both must hold; either alone is a false green.
 rank_start_room_ok() {
-  mem_headroom_ok "${CLUSTER_SHARD_MEMORY_MB:-0}"
+  mem_headroom_ok "${CLUSTER_SHARD_MEMORY_MB:-0}" &&
+    wired_ceiling_room_ok "${CLUSTER_SHARD_MEMORY_MB:-0}"
+}
+
+# THE RUNG THAT REFUSES A START ONTO AN ALREADY-POISONED HOST.
+#
+# THE FAILURE MODE. A worker killed by an uncaught exception during a Metal
+# teardown strands its wired GPU allocations: the pages stay wired with no
+# owning process, and only a reboot returns them. A rank that then starts onto
+# that host adds its own shard on top, and the compositor — which draws from
+# the same wired pool — can be starved of command buffers near the ceiling,
+# taking the host down with it.
+#
+# WHY THE FREE-MEMORY RUNG ABOVE DOES NOT CATCH IT. Stranded wired pages are
+# not free, so on a 128 GiB host tens of GiB can be unreclaimable while
+# free+reclaimable still comfortably covers a ~50 GiB shard: mem_headroom_ok
+# passes, correctly. Free memory and the wired ceiling are different budgets.
+#
+# WHY NOT A STATIC WIRED CEILING INSTEAD. Because usage is DESIGNED to run up
+# toward the ceiling — a healthy serving rank wires approximately its whole
+# shard (measured: ~9 GiB of MLX-attributable wired against 7.6 GiB of
+# resident standalone model weights). No absolute wired
+# threshold below the ceiling separates legitimate load from a leak, which is
+# why nix-darwin's runtime wiredCeiling watcher is deliberately left disabled.
+# This rung is not a threshold on wired: it is arithmetic on the HEADROOM
+# REMAINING once this specific shard is added.
+#
+# WHY THE NAIVE FORM IS A FALSE GREEN. `wired + shard <= ceiling` permits a
+# start that starves the compositor: 47104 MB already wired + a 51200 MB shard
+# is 98304 MB, under a 102400 MB ceiling, and compositor starvation is reached
+# below that sum. The ceiling is the wrong comparison point
+# because the compositor draws from the same wired pool and the ceiling
+# reserves it nothing (osReserveGb reserves ordinary RAM, not GPU-wired
+# pages). So the budget is the ceiling MINUS a compositor reserve.
+#
+# FAILS CLOSED, DELIBERATELY THE INVERSE OF THE RUNNING-RANK WATCHER. An
+# unreadable probe here refuses the start. The running-rank watcher fails open
+# because tearing down a healthy serving rank on a bad read is expensive and
+# self-inflicted; refusing a START is cheap and recoverable — the next tick
+# retries, nothing is launched, no protection domain leaks. Starting blind is
+# what takes the host down. Do not "fix" this into a fail-open default.
+#
+# NO DWELL ESCALATION HERE, AND THAT IS A DECISION, NOT AN OVERSIGHT. This rung
+# deliberately does NOT feed mem_headroom_halt_if_persistent. Two reasons:
+#
+# 1. THAT HELPER RUNS PRE-QUIESCE, EVERY TICK. A host legitimately serving a
+#    shard-sized standalone model would refuse structurally — and the free
+#    rung's pass-decrement would cancel this rung's increment on the shared
+#    counter, so the dwell would oscillate 0<->1 and never fire anyway.
+#
+# 2. A PER-TICK REFUSAL SELF-CLEARS; A DWELL-HALT LATCHES. If the wired reading
+#    is ever a false positive, refusing this tick costs one start attempt and
+#    the next tick recovers unaided. A dwell that escalates to
+#    insufficient-memory-persistent latches and needs a manual clear, turning a
+#    self-healing refusal into a stuck host. compositorReserveMb is admittedly
+#    provisional, so "slightly too strict" is a live failure mode — the
+#    non-latching behaviour is what makes a provisional threshold safe to ship.
+#
+# SCOPED TO THIS HOST CLASS, NOT UNIVERSAL. On a host that boots unattended and
+# has auto-reboot sanctioned, the leak is a reboot-only-clearable latch and an
+# escalation dwell would be the automated path that keeps it from being reached
+# — the estate rule wants one. That case is a tracked automation gap, not
+# considered-and-rejected. Do not read this comment as covering it.
+#
+# WHAT THIS RUNG DOES NOT COVER AT ALL: a leak that accumulates DURING a
+# session and starves the compositor mid-serve. That is the running-rank
+# watcher's territory and is uncovered today. This closes only "start onto an
+# already-poisoned host" — do not read its existence as broader coverage.
+#
+# $1 = required shard size in MB; 0/unset disables the rung with no probe at
+# all, same convention as mem_headroom_ok. CLUSTER_COMPOSITOR_RESERVE_MB=0
+# disables it independently. Sets MEM_HEADROOM_DETAIL on refusal so the
+# watcher's existing room-check log line carries it unchanged.
+wired_ceiling_room_ok() {
+  local required="$1" reserve ceiling stat_out free wired budget
+  case "$required" in
+    '' | *[!0-9]*) return 0 ;;
+  esac
+  [ "$required" -gt 0 ] || return 0
+  reserve="${CLUSTER_COMPOSITOR_RESERVE_MB:-0}"
+  case "$reserve" in
+    '' | *[!0-9]*) reserve=0 ;;
+  esac
+  [ "$reserve" -gt 0 ] || return 0
+  # GROUND TRUTH, NOT THE CONFIGURED VALUE. CLUSTER_WIRED_LIMIT_MB is what the
+  # module MEANT to apply; rung 3 (set_wired_limit) is what actually applied
+  # it, and a missing sudoers grant is exactly how a guard in this subsystem
+  # has silently gone inert before. Absolute path for the same reason
+  # current_boot_epoch uses one — a sysctl off a sanitized PATH already
+  # disabled the halt marker once. CLUSTER_SYSCTL_BIN is a test seam, like
+  # CLUSTER_VMSTAT_BIN.
+  ceiling="$("${CLUSTER_SYSCTL_BIN:-/usr/sbin/sysctl}" -n iogpu.wired_limit_mb 2> /dev/null)" || ceiling=""
+  case "$ceiling" in
+    '' | *[!0-9]* | 0)
+      # 0 means "no explicit ceiling" (the kernel picks its own), which at THIS
+      # call site also means rung 3 failed to apply the cluster ceiling. Either
+      # way the arithmetic below has no defensible operand, so refuse.
+      MEM_HEADROOM_DETAIL="could not read a usable iogpu.wired_limit_mb (got '${ceiling}'); refusing to guess whether the shard fits under the GPU wired ceiling"
+      return 1
+      ;;
+  esac
+  if ! stat_out="$(mem_stat_mb)"; then
+    MEM_HEADROOM_DETAIL="could not read vm_stat; refusing to guess how much wired memory this host already holds"
+    return 1
+  fi
+  read -r free wired <<< "$stat_out"
+  budget=$((ceiling - reserve))
+  if [ "$budget" -le 0 ]; then
+    MEM_HEADROOM_DETAIL="compositor reserve ${reserve}MB is at or above the ${ceiling}MB wired ceiling; refusing rather than starting under a ${budget}MB budget"
+    return 1
+  fi
+  [ $((wired + required)) -le "$budget" ] && return 0
+  MEM_HEADROOM_DETAIL="${wired}MB already wired + ${required}MB the shard will wire exceeds the ${budget}MB start budget (${ceiling}MB iogpu.wired_limit_mb less ${reserve}MB held back for the compositor)"
+  # WHICH BLOCKER IS IT — and do NOT guess. There are exactly two ways to be
+  # over budget, and they need opposite remedies.
+  if [ "$required" -gt "$budget" ]; then
+    # The shard alone does not fit, on an empty host. That is configuration,
+    # not a leak: no amount of reclaimed memory helps and a reboot changes
+    # nothing. Naming reboot here would send an operator to restart a machine
+    # that will refuse again identically.
+    MEM_HEADROOM_DETAIL="$MEM_HEADROOM_DETAIL. The ${required}MB shard alone exceeds the ${budget}MB budget, so this refuses on an EMPTY host: a reboot will not change it. Raise iogpu.wired_limit_mb, lower compositorReserveMb, or correct shardMemoryMb"
+  else
+    # Wired is the blocker, and here that is unambiguous — unlike the same
+    # signature in mem_headroom_ok, which runs pre-quiesce. By the time this
+    # runs, rank_reap_verified (rung 0b) has proven no rank process survives
+    # AND quiesce_normal_serving has already unloaded standalone serving. So
+    # nothing this host knows about is holding these pages: it is the
+    # unreclaimed-Metal signature, and the operator must be told that killing
+    # processes will not return it, because there are none left to kill.
+    MEM_HEADROOM_DETAIL="$MEM_HEADROOM_DETAIL. The shard itself fits ($required <= $budget) — ${wired}MB of wired memory is the blocker, held with no rank process and standalone serving already quiesced. That is the unreclaimed-Metal leak signature: REBOOT is the only thing that returns it, there is no process to kill"
+  fi
+  return 1
 }
 
 # HALT AT THE RESERVE, NOT AT EXHAUSTION.
@@ -582,11 +720,11 @@ rank_start_room_ok() {
 # inside a 30s tick, so the watcher never observes it running, `rank-started` is
 # never touched, and that block is unreachable. It falls through to the kickstart
 # counter instead and pays one protection domain per attempt up to
-# CLUSTER_MAX_KICKSTARTS. Measured 2026-08-07: the worker burned 5 of an
-# 11-domain budget in 18 minutes against a coordinator that had already stood
-# down and could never answer, while the coordinator spent none. Whether a rank
-# fails fast or hangs slow decided which of the two paths it got, and the fast
-# one is the expensive one — exactly backwards.
+# CLUSTER_MAX_KICKSTARTS. A coordinator that stands down while a peer keeps
+# kickstarting can burn its protection-domain budget rapidly — each kickstart
+# attempt costs one domain regardless of the peer's state. Whether a rank
+# fails fast or hangs slow decides which of the two paths it gets — the fast
+# one is the expensive one, exactly backwards.
 #
 # tests/test-pd-counter-settle.sh already names this shape in prose ("a peer that
 # is UP but not participating ... leaves this host kickstarting into a rendezvous
@@ -703,9 +841,9 @@ pd_debt_halt_if_exhausted() {
 #
 # mem_headroom_ok's rung above is a per-tick skip: free, silent, retried next
 # tick — correct for a shortfall that clears on its own (another process
-# finishing, a warm cache draining). But the 2026-08-01 shortfall was
-# unreclaimed wired Metal memory, which is boot-scoped and does NOT clear on
-# its own. Left as a bare skip, that shape is invisible: the watcher ticks
+# finishing, a warm cache draining). But a shortfall can also be unreclaimed
+# wired Metal memory, which is boot-scoped and does NOT clear on its own. Left
+# as a bare skip, that shape is invisible: the watcher ticks
 # green forever, refusing every start, and the host never clusters even with
 # the cable plugged in the whole time — the "plugged in but not clustered"
 # state the operator's chaos-monkey doctrine rules out.
@@ -792,8 +930,8 @@ mem_headroom_halt_if_persistent() {
 #
 # Every prior guard in this file stops SHORT of the actual fix: they halt the
 # rank-start loop and page, then wait for a human to notice the alert and
-# reboot by hand. On 2026-08-01 that wait cost hours of cluster downtime with
-# the Thunderbolt cable plugged in the whole time — a manual interlock the
+# reboot by hand. That wait can cost hours of cluster downtime with the
+# Thunderbolt cable plugged in the whole time — a manual interlock the
 # operator's chaos-monkey doctrine explicitly bans ("cables plugged in means
 # clustered, unattended, no exceptions"). This closes that gap: the watcher
 # reboots itself once the doctrine ("only a reboot returns a leaked domain")
@@ -917,10 +1055,10 @@ pd_reboot_filevault_off() {
 
 # Decide whether a by-hand clear of the halt marker may stand.
 #
-# On 2026-07-24 the PD guard fired correctly at three consecutive failures, and a
-# human then deleted the marker to force a retry on an unverified hypothesis —
+# The PD guard can fire correctly at three consecutive failures, and a human
+# can then delete the marker to force a retry on an unverified hypothesis —
 # burning the remaining protection domains and making the reboot mandatory. The
-# design invited it: the halt was just a file, and the docs said "rm the marker
+# design invites it: the halt was just a file, and the docs said "rm the marker
 # or replug".
 #
 # So a clear is now a REQUEST, not a fact. It stands only if the preconditions

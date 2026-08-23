@@ -6,9 +6,9 @@
 # worker path at all: on a worker it downed the link, verified markers/rank/
 # ceiling, printed "teardown verified", exited 0 — and left every agent
 # cluster-quiesce had booted out still booted out, with nothing serving on the
-# host. Observed 2026-08-01 (86h). "Standalone ceiling restored" is not
-# "serving restored", and the only way those two can never be confused again is
-# for the restore to be the same function on every path that claims it.
+# host. "Standalone ceiling restored" is not "serving restored", and the only
+# way those two can never be confused again is for the restore to be the same
+# function on every path that claims it.
 #
 # Consumers: the link watcher (up->down edge, PD-guard halt, wedge teardown),
 # the peer-liveness supervisor, and cluster-detach.
@@ -27,7 +27,7 @@ restore_normal_serving() {
   local uid
   uid="$(id -u)"
   if [ "$CLUSTER_ROLE" = "coordinator" ]; then
-    # INC-17071: the warmup one-shot re-warms the preload list by POSTing to
+    # The warmup one-shot re-warms the preload list by POSTing to
     # llama-swap over loopback, so if the server agent is not loaded the
     # kickstart hits nothing and no-ops SILENTLY -- serving never comes back.
     # cluster-join boots that agent out, so any session that used it left the
@@ -48,8 +48,8 @@ restore_normal_serving() {
     launchctl kickstart -k "gui/$uid/$CLUSTER_WARMUP_LABEL" || true
     # The serving watchdog is booted out alongside the server agent above (see
     # cluster-join), so it needs the same bootstrap-back treatment -- a plain
-    # kickstart on an unloaded job fails silently, same failure shape INC-17071
-    # fixed for the warmup one-shot. Best-effort: standalone serving itself is
+    # kickstart on an unloaded job fails silently, the same failure shape
+    # already fixed for the warmup one-shot. Best-effort: standalone serving itself is
     # already restored by this point, so a watchdog that cannot come back is a
     # missing safety net, not a repeat of the outage this function exists to fix.
     if [ -z "${CLUSTER_WATCHDOG_LABEL:-}" ]; then

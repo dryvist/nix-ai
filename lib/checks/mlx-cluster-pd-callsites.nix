@@ -90,10 +90,10 @@ in
     # the regression this pins.
     assert
       hasInfix "pd_auto_reboot_if_warranted" watcherSrc
-      || throw "cluster: the watcher must call pd_auto_reboot_if_warranted from its halted branch. Without it, a PD-exhaustion halt (pd-debt-exhausted or rank-start-failures) sits waiting for a human to notice the alert and reboot by hand — the manual interlock the operator's chaos-monkey doctrine bans, and the exact gap that cost hours of cluster downtime on 2026-08-01";
+      || throw "cluster: the watcher must call pd_auto_reboot_if_warranted from its halted branch. Without it, a PD-exhaustion halt (pd-debt-exhausted or rank-start-failures) sits waiting for a human to notice the alert and reboot by hand — the manual interlock the operator's chaos-monkey doctrine bans, and the exact gap that costs hours of cluster downtime";
     # tests/test-mem-headroom.sh proves mem_headroom_halt_if_persistent behaves;
     # it cannot prove the watcher still calls it. Without this call site a
-    # persistent memory shortfall (the 2026-08-01 unreclaimed-Metal shape) sits
+    # persistent memory shortfall (the unreclaimed-Metal shape) sits
     # refusing every start FOREVER with no escalation — the cluster never forms,
     # even with the cable plugged in the whole time.
     assert
