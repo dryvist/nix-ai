@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.23.2](https://github.com/dryvist/nix-ai/compare/v4.23.1...v4.23.2) (2026-08-23)
+
+
+### Bug Fixes
+
+* **mlx:** tolerate the SSE hangup in the quiesce snapshot read ([#1728](https://github.com/dryvist/nix-ai/issues/1728)) ([07917fe](https://github.com/dryvist/nix-ai/commit/07917fe9357541c7c5a2c95bd9e32edb2951dc82))
+
 ## [4.23.1](https://github.com/dryvist/nix-ai/compare/v4.23.0...v4.23.1) (2026-08-23)
 
 
