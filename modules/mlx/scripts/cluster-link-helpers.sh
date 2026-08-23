@@ -242,8 +242,14 @@ quiesce_normal_serving() {
     # disrupted: snapshot in-flight requests from llama-swap's own SSE event
     # stream (GET /api/events, first message is a full snapshot) before
     # killing them.
+    # `|| true` is load-bearing: /api/events is a stream that stays open, so
+    # `grep -m1` closes the pipe after the first match and curl dies on the
+    # write error (rc 23). Under the watcher's errexit+pipefail that rc would
+    # kill the whole tick BEFORE the snapshot echo — an invisible death on
+    # every coordinator quiesce. The empty-snapshot branch below already
+    # handles a failed read.
     local snapshot
-    snapshot="$(curl -fsS -m 3 --no-buffer "$CLUSTER_NORMAL_PROXY/api/events" 2> /dev/null | grep -m1 '^data:')"
+    snapshot="$(curl -fsS -m 3 --no-buffer "$CLUSTER_NORMAL_PROXY/api/events" 2> /dev/null | grep -m1 '^data:' || true)"
     if [ -n "$snapshot" ]; then
       echo "cluster-link: quiesce in-flight snapshot: $(printf '%s' "${snapshot#data: }" | jq -c '.requests // [] | map(.id)' 2> /dev/null || printf '%s' "$snapshot")"
     else
