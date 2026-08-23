@@ -108,13 +108,14 @@ peer_state_write "$published" "$ok_parity" "$halt_file" "$debt_file"
 [ "$(jq -r '.halted_cause' "$published")" = "null" ] || fail "an unhalted host has no halted_cause"
 [ "$(jq -r '.boot' "$published")" = "1785031601" ] || fail "published boot must be this boot"
 
-# THE 2026-08-22 DEADLOCK, PINNED. The worker halted on rank-start-failures —
-# its starts only failed because the coordinator never joined — and published
-# armed=false over it. The coordinator refused on "peer is not armed", so the
-# worker's retries kept failing, re-earning the halt: a stable mutual refusal,
-# the state cluster-link-truths.md §1 forbids. A halt on a PEER-DERIVED cause
-# must therefore still publish armed=true. The cause itself is still published
-# (it is the state the peer most needs to see), and the decision is logged.
+# THE MUTUAL DEADLOCK, PINNED. A worker that halts on rank-start-failures
+# because the coordinator never joined must not publish armed=false over it —
+# doing so would make the coordinator refuse on "peer is not armed", which
+# would keep the worker's retries failing and re-earning the halt: a stable
+# mutual refusal, the state cluster-link-truths.md §1 forbids. A halt on a
+# PEER-DERIVED cause must therefore still publish armed=true. The cause itself
+# is still published (it is the state the peer most needs to see), and the
+# decision is logged.
 for exempt_cause in rank-start-failures peer-absent peer-halted; do
   printf '%s\tcause=%s\tboot=1785031601\tdetail\n' "2026-08-08T00:00:00Z" "$exempt_cause" > "$halt_file"
   log="$(peer_state_write "$published" "$ok_parity" "$halt_file" "$debt_file" 2>&1)"
@@ -163,12 +164,13 @@ rm -f "$halt_file"
 peer_state_write "$published" "state=drift local=abc123 deploy=def456" "$halt_file" "$debt_file"
 [ "$(jq -r '.armed' "$published")" = "false" ] || fail "a drifted host must publish armed=false"
 
-# THE 2026-08-22 FALSE DISARM, PINNED FROM THE OTHER SIDE. peer_state_write
-# used to fold a raw mem_headroom_ok sample into armed — measured at the top of
-# the tick, against a WARM standalone-serving footprint, i.e. BEFORE the
-# quiesce that would return that memory (observed live: armed=false with
-# halted_cause=none). The publisher must not consult the pre-quiesce sample at
-# all: mem_headroom_ok failing with no halt standing changes NOTHING published.
+# THE FALSE DISARM, PINNED FROM THE OTHER SIDE. peer_state_write used to fold
+# a raw mem_headroom_ok sample into armed — measured at the top of the tick,
+# against a WARM standalone-serving footprint, i.e. BEFORE the quiesce that
+# would return that memory, which can publish armed=false with
+# halted_cause=none for no real cause. The publisher must not consult the
+# pre-quiesce sample at all: mem_headroom_ok failing with no halt standing
+# changes NOTHING published.
 # The must-fail direction of this exemption is the insufficient-memory-
 # persistent case above — the durable, dwelled verdict still disarms.
 mem_ok=1

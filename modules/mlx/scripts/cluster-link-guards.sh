@@ -19,7 +19,7 @@
 # Every failed mx.distributed.init() leaks a kernel RDMA Protection Domain and
 # exhaustion is reboot-only. A worker hammering an absent peer therefore converts
 # a trivially recoverable situation (peer not up yet — wait) into a mandatory
-# reboot. It did exactly that on 2026-07-24.
+# reboot.
 #
 # Consumed environment:
 #   CLUSTER_ROLE                     coordinator | worker
@@ -136,12 +136,12 @@ pd_device_budget_ok() {
 #
 # A boot does not produce a usable link. nix-darwin's cluster-link prep runs in
 # root postActivation, which fires before Thunderbolt carrier settles, so the
-# prep pass can find no carrier-active port and therefore address nothing —
-# observed 2026-07-24 on the coordinator: en2 had carrier, activation had run,
-# and no interface held the link address at all. Re-running `activate` fixed it
-# and logged `[cluster-link-prep] set <ip> on en2 (carrier active)`. The rank
-# started in that window died with `[jaccl] Couldn't bind socket (error: 49)` —
-# errno 49 is EADDRNOTAVAIL, i.e. exactly this missing address.
+# prep pass can find no carrier-active port and therefore address nothing: a
+# port can have carrier, activation can have already run, and still no
+# interface holds the link address at all. Re-running `activate` fixes it and
+# logs `[cluster-link-prep] set <ip> on en2 (carrier active)`. A rank started
+# in that window dies with `[jaccl] Couldn't bind socket (error: 49)` — errno
+# 49 is EADDRNOTAVAIL, i.e. exactly this missing address.
 #
 # Direct repair goes FIRST here (unlike cluster-join, which prefers activation
 # for persistence): this runs on a 30s watcher tick, and the direct grant is the
@@ -202,8 +202,9 @@ repair_link_prep() {
 # So a healthy serving rank sits near 3 GiB wired while holding ~50 GiB of
 # shard as ANONYMOUS memory. Both halves of the original note stand: a low
 # wired figure says nothing about what is loaded, and a high one is the
-# unreclaimed-Metal leak signature — consistent with the 96.7 GiB wired seen
-# when this host starved its compositor and hard-reset.
+# unreclaimed-Metal leak signature — wired memory left with no owning
+# process, high enough that the compositor, drawing from the same pool, can
+# be starved of command buffers.
 #
 # HOW THE BAD CORRECTION HAPPENED, recorded so it is not repeated. A ~50 GiB
 # wired reading on the worker was assumed to be "the shard resident". It was
@@ -318,7 +319,7 @@ rank_start_preconditions_ok() {
   # 0'. GENERATION PARITY — THE HARD GATE (RULE 2). Every node must run the
   #    deployed generation BEFORE any setup step below acts: mixed generations
   #    are mismatched mlx/JACCL stacks (the untestable config-parity variable
-  #    behind the INC-17070 deadlock family), and a drifted node's
+  #    behind a class of deadlocks), and a drifted node's
   #    activation-managed cluster state may never have applied. So no reap, no
   #    link repair, no boundary hold, no ceiling write, no quiesce and no start
   #    until parity holds. Reconciliation is not this rung's job: the watcher's
@@ -439,9 +440,9 @@ rank_start_preconditions_ok() {
   #    link address, while it sits at a memory shortfall only a reboot clears,
   #    and while it runs a different system generation. Every one of those makes
   #    the rendezvous certain to fail, and a certain failure still allocates a
-  #    protection domain before it times out. Measured 2026-08-08: five of eleven
-  #    domains spent in eighteen minutes against a peer that had already stood
-  #    down and could never have answered.
+  #    protection domain before it times out — a handful of kickstarts against a
+  #    peer that has already stood down and can never answer is enough to make a
+  #    real dent in a small protection-domain budget.
   #
   #    So the peer now says so itself. Each host publishes one JSON line per tick
   #    and this reads the other's — see ./cluster-peer-state.sh for the channel,
@@ -457,8 +458,8 @@ rank_start_preconditions_ok() {
   #    a wait.
   #
   #    Logged EVERY tick, never a silent skip. A start that is suppressed is a
-  #    decision, and the line says what it cost — the halted branch was silent
-  #    for 28 consecutive ticks on 2026-08-08 and hid a live halt for 14 minutes.
+  #    decision, and the line says what it cost — a halted branch that stays
+  #    silent across many consecutive ticks can hide a live halt for a long time.
   #
   #    Nothing is launched, so nothing leaks, so no attempt is consumed.
   if ! peer_armed_ok "$parity_fact"; then
@@ -503,7 +504,7 @@ rank_start_preconditions_ok() {
     fi
   fi
   # 3. Never start a rank over a standalone-sized ceiling: a shard wiring out
-  #    the GUI working set is the 2026-07-12 dual-host panic.
+  #    the GUI working set risks a dual-host kernel panic.
   if ! set_wired_limit "${CLUSTER_WIRED_LIMIT_MB:-}"; then
     PRECONDITION_REASON="wired-ceiling"
     echo "cluster-link: wired ceiling not applied; NOT starting the rank (no attempt consumed)"
@@ -719,11 +720,11 @@ wired_ceiling_room_ok() {
 # inside a 30s tick, so the watcher never observes it running, `rank-started` is
 # never touched, and that block is unreachable. It falls through to the kickstart
 # counter instead and pays one protection domain per attempt up to
-# CLUSTER_MAX_KICKSTARTS. Measured 2026-08-07: the worker burned 5 of an
-# 11-domain budget in 18 minutes against a coordinator that had already stood
-# down and could never answer, while the coordinator spent none. Whether a rank
-# fails fast or hangs slow decided which of the two paths it got, and the fast
-# one is the expensive one — exactly backwards.
+# CLUSTER_MAX_KICKSTARTS. A coordinator that stands down while a peer keeps
+# kickstarting can burn its protection-domain budget rapidly — each kickstart
+# attempt costs one domain regardless of the peer's state. Whether a rank
+# fails fast or hangs slow decides which of the two paths it gets — the fast
+# one is the expensive one, exactly backwards.
 #
 # tests/test-pd-counter-settle.sh already names this shape in prose ("a peer that
 # is UP but not participating ... leaves this host kickstarting into a rendezvous
@@ -840,9 +841,9 @@ pd_debt_halt_if_exhausted() {
 #
 # mem_headroom_ok's rung above is a per-tick skip: free, silent, retried next
 # tick — correct for a shortfall that clears on its own (another process
-# finishing, a warm cache draining). But the 2026-08-01 shortfall was
-# unreclaimed wired Metal memory, which is boot-scoped and does NOT clear on
-# its own. Left as a bare skip, that shape is invisible: the watcher ticks
+# finishing, a warm cache draining). But a shortfall can also be unreclaimed
+# wired Metal memory, which is boot-scoped and does NOT clear on its own. Left
+# as a bare skip, that shape is invisible: the watcher ticks
 # green forever, refusing every start, and the host never clusters even with
 # the cable plugged in the whole time — the "plugged in but not clustered"
 # state the operator's chaos-monkey doctrine rules out.
@@ -929,8 +930,8 @@ mem_headroom_halt_if_persistent() {
 #
 # Every prior guard in this file stops SHORT of the actual fix: they halt the
 # rank-start loop and page, then wait for a human to notice the alert and
-# reboot by hand. On 2026-08-01 that wait cost hours of cluster downtime with
-# the Thunderbolt cable plugged in the whole time — a manual interlock the
+# reboot by hand. That wait can cost hours of cluster downtime with the
+# Thunderbolt cable plugged in the whole time — a manual interlock the
 # operator's chaos-monkey doctrine explicitly bans ("cables plugged in means
 # clustered, unattended, no exceptions"). This closes that gap: the watcher
 # reboots itself once the doctrine ("only a reboot returns a leaked domain")
@@ -1054,10 +1055,10 @@ pd_reboot_filevault_off() {
 
 # Decide whether a by-hand clear of the halt marker may stand.
 #
-# On 2026-07-24 the PD guard fired correctly at three consecutive failures, and a
-# human then deleted the marker to force a retry on an unverified hypothesis —
+# The PD guard can fire correctly at three consecutive failures, and a human
+# can then delete the marker to force a retry on an unverified hypothesis —
 # burning the remaining protection domains and making the reboot mandatory. The
-# design invited it: the halt was just a file, and the docs said "rm the marker
+# design invites it: the halt was just a file, and the docs said "rm the marker
 # or replug".
 #
 # So a clear is now a REQUEST, not a fact. It stands only if the preconditions

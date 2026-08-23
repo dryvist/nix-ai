@@ -157,9 +157,9 @@ The watcher does not stop at halting and paging: once a halt's cause is
 text already says "only a reboot clears this" — and the link is up, it issues
 the reboot itself (`pd_auto_reboot_if_warranted` in
 `modules/mlx/scripts/cluster-link-guards.sh`). Waiting for a human to notice
-the alert was the gap: on 2026-08-01 a host sat halted for hours with the
-cable plugged in, which is exactly the manual interlock this project's
-chaos-monkey doctrine bans.
+the alert was the gap — a host sitting halted for hours with the cable
+plugged in is exactly the manual interlock this project's chaos-monkey
+doctrine bans.
 
 Three guards keep it from becoming its own hazard:
 

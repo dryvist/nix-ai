@@ -17,7 +17,7 @@ in
   # floor; also serves as the compression model), 16 GB KV. SINGLE-SLOT (40B+
   # policy, below): maxNumSeqs=1 at the engine AND concurrencyLimit=1 at the
   # proxy — this family's ceiling crashes hit under any concurrency, and
-  # prefix-cache reconstruction is broken upstream (mlx-lm#1162, INC-17130) so
+  # prefix-cache reconstruction is broken upstream (mlx-lm#1162) so
   # every tool turn full-reprefills 85-100s; batching multiple such requests
   # only time-slices one GPU and balloons every caller's latency into the 429
   # storm. One request at a time, queue the rest.

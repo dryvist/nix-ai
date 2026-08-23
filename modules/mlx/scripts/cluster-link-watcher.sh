@@ -222,8 +222,9 @@ quiesce_marker_file="$state_dir/serving-quiesced"
 # every later step's behaviour depends on the generation: link prep aliases
 # what the deployed activation says, quiesce and rank start assemble the stack
 # the deployed revision defines. Until 2026-08-01 the only parity check lived
-# in cluster-join, which is human-initiated — so a drifted node stayed drifted
-# for 86 hours. Now: reported every tick and paged once per distinct drift (see
+# in cluster-join, which is human-initiated — so a drifted node could stay
+# drifted indefinitely between manual joins. Now: reported every tick and
+# paged once per distinct drift (see
 # generation_heal_maybe in cluster-generation-heal.sh). It is NOT auto-rebuilt:
 # a rebuild fired from this agent's own process would be SIGKILLed by the very
 # activation it triggers the moment this agent's own launchd plist content
@@ -265,10 +266,9 @@ peer_state_write "${CLUSTER_PEER_STATE_FILE:-$state_dir/peer-state.json}" \
 # Protection Domain and exhaustion is reboot-only, so the guard halts after
 # CLUSTER_MAX_KICKSTARTS consecutive failures. A flapping link defeats it
 # entirely — each spurious down zeroes the counter, so the halt can never
-# accumulate. Seen 2026-07-19: HALT fired once, then six up/down cycles each
-# logging "kickstarting (attempt 1)" and never reaching 2, with 135
-# `fork: Resource temporarily unavailable` errors as the quiesce/restore churn
-# ran every 30s.
+# accumulate, and repeated up/down cycles can each log "kickstarting (attempt
+# 1)" without ever reaching 2 while quiesce/restore churn spends resources
+# every tick.
 #
 # Two layers, both cheap:
 #   1. -c 3 instead of -c 1: any one reply is enough, so a single dropped
@@ -299,20 +299,18 @@ elif [ "$prev" = "up" ]; then
   fi
 else
   # Link was ALREADY down and the probe still fails. This branch used to be
-  # completely silent, which is how a permanently broken probe hid for 65
-  # minutes on 2026-07-25: the agent ticked 115 times, exited 0 every time,
-  # wrote nothing to stdout OR stderr, and `launchctl print` reported
-  # `runs = 115, last exit code = 0`. Every health signal read green while the
-  # cluster could not form.
+  # completely silent, which is how a permanently broken probe can hide for a
+  # long time: the agent ticks along, exits 0 every time, writes nothing to
+  # stdout OR stderr, and `launchctl print` reports a clean run count. Every
+  # health signal reads green while the cluster cannot form.
   #
   # It then went the other way, and that was worse. The replacement logged a
   # two-item GUESS — "cable out, OR ... denied macOS Local Network permission" —
-  # 10,440 times across 86 hours on 2026-08-01, while the truth was neither: the
-  # cable was seated, a Thunderbolt port had carrier throughout, and this host
-  # simply held no link address because it had drifted off the deployed
-  # generation and the activation that aliases the address never ran. Any
-  # enumerated cause list is non-exhaustive; offering two makes a reader pick one
-  # and diagnose the wrong machine.
+  # while the truth was neither: the cable was seated, a Thunderbolt port had
+  # carrier throughout, and this host simply held no link address because it
+  # had drifted off the deployed generation and the activation that aliases
+  # the address never ran. Any enumerated cause list is non-exhaustive;
+  # offering two makes a reader pick one and diagnose the wrong machine.
   #
   # So: REPAIR FIRST, then report MEASURED STATE. link_prep_self_heal fixes
   # exactly the condition that caused the outage — carrier present, address
@@ -407,10 +405,10 @@ if [ "$cur" = "up" ]; then
     # before mx.distributed.init() throws errno 60 and exits. A tick landing
     # inside that window used to clear the PD guard unconditionally — so the
     # halt was cleared by the corpse of the very attempt that tripped it, and
-    # the watcher retried forever. Observed 2026-07-25: three complete
-    # halt -> clear -> 3x kickstart cycles back to back, each leaking another
-    # protection domain. PD exhaustion is reboot-only, so a defeated guard is
-    # worse than none: it spends the budget while reporting it is protecting it.
+    # the watcher retried forever, cycling halt -> clear -> kickstart and
+    # leaking another protection domain each time. PD exhaustion is
+    # reboot-only, so a defeated guard is worse than none: it spends the
+    # budget while reporting it is protecting it.
     #
     # Require the process to have SETTLED before believing it.
     settled_at="$(/usr/bin/stat -f %m "$started_file" 2> /dev/null || echo 0)"
@@ -462,10 +460,10 @@ if [ "$cur" = "up" ]; then
             # it this teardown deletes its own strike counter two lines down and
             # writes no suppression, so the next tick kickstarts the rank, it
             # settles, the peer is still absent, strikes re-accumulate, and this
-            # block fires again — forever. Measured on jevans-ms with the
-            # Thunderbolt cable out: 560 standdowns and 1686 rendezvous-absent
-            # strikes between 2026-07-12 and 2026-08-05. Each pass calls
-            # restore_normal_serving below, which kickstarts the warmup agent and
+            # block fires again — forever, racking up standdowns and
+            # rendezvous-absent strikes far faster than anything here would
+            # otherwise notice. Each pass calls restore_normal_serving below,
+            # which kickstarts the warmup agent and
             # holds llama-swap's single concurrency slot for the length of the
             # warm, so the loop starves normal serving (mlx-warmup.py names this
             # path as the uncapped caller in its RE-INVOCATION BOUND note).
@@ -529,10 +527,10 @@ if [ "$cur" = "up" ]; then
     # tick, so one miss here is already a sustained symptom, not a transient
     # one landing mid-generation.
     #
-    # Case actually observed (2026-07-25): the one-token warm succeeded, then
-    # the rank wedged on a real 8-token request — 0 bytes after 900s, both
-    # ranks spinning at ~100% CPU. Readiness stayed latched and nothing
-    # escalated for over an hour. This soak is what would have caught it.
+    # A one-token warm can succeed and then the rank wedges on a real
+    # multi-token request — zero bytes streamed for many minutes, both ranks
+    # spinning at high CPU. Readiness stays latched and nothing escalates on
+    # its own. This soak is what catches that.
     # SOAK BLOCK — extracted and run verbatim by tests/test-soak-busy-vs-wedged.sh.
     # Keep these marker comments exactly as written; the test greps for them.
     if [ "$CLUSTER_ROLE" = "coordinator" ] && [ -f "$warm_file" ] &&
@@ -548,8 +546,8 @@ if [ "$cur" = "up" ]; then
         # connection — which vanishes the moment a client disconnects on its own
         # timeout, even while the backend is still doing real work. A soak probe
         # fired into that gap queues behind the work and times out, misreading a
-        # busy-but-healthy pipeline as wedged (2026-08-16: a burst of requests
-        # against unloaded models did exactly this). Checked first because it is
+        # busy-but-healthy pipeline as wedged — a burst of requests against
+        # unloaded models can do exactly this. Checked first because it is
         # strictly stronger evidence than a held connection.
         progressed=0
         if [ -n "${CLUSTER_RANK_PROGRESS_LOG:-}" ]; then
@@ -566,12 +564,12 @@ if [ "$cur" = "up" ]; then
           # NEVER PROBE A BUSY PIPELINE. mlx_lm.server serializes generation and
           # blocks HTTP for its duration, so a 1-token probe fired while a real
           # request is in flight queues behind it and expires on the probe's own
-          # timeout — through no fault of the mesh. On 2026-08-08 that killed a
-          # healthy pipeline mid-answer: a 22k-token generation had streamed
-          # nothing for 181s, the probe expired, the gate declared the rank
-          # wedged, and the SIGTERM teardown leaked the wired shard on both hosts.
-          # In-flight work IS proof of life; the probe exists to find out whether
-          # there is any, and here there demonstrably is.
+          # timeout — through no fault of the mesh. That can kill a healthy
+          # pipeline mid-answer: a long generation streaming nothing for a while
+          # is mistaken for a wedge, the gate declares the rank wedged, and the
+          # SIGTERM teardown leaks the wired shard on both hosts. In-flight work
+          # IS proof of life; the probe exists to find out whether there is any,
+          # and here there demonstrably is.
           #
           # BOUNDED, because a wedged rank holds connections open exactly as a
           # busy one does. After CLUSTER_SOAK_BUSY_SKIP_MAX consecutive deferrals
@@ -721,7 +719,7 @@ if [ "$cur" = "up" ]; then
       else
         # Readiness is a one-shot latch: /v1/models answering once is never
         # re-verified, so a rank that serves the probe but wedges on real
-        # generation (INC-17070) would sit here retrying forever with nothing
+        # generation would sit here retrying forever with nothing
         # escalating. Count consecutive post-readiness gate failures and tear
         # down to standalone at the cap instead of running wedged.
         warm_fails=0
@@ -757,10 +755,10 @@ if [ "$cur" = "up" ]; then
     [ -f "$halt_file" ]; then
     # SAY SO, EVERY TICK. This branch used to be entirely silent: the three
     # helpers above always return 0 and the body only reboots, so a halted
-    # watcher exited 0 every tick writing nothing to stdout OR stderr. On
-    # 2026-08-07 that hid two live halts for 14 and 28 minutes while every
-    # health signal read green — the same failure the already-down probe branch
-    # was fixed for. Cheap and unconditional beats a cadence: one line per tick
+    # watcher exited 0 every tick writing nothing to stdout OR stderr, which
+    # can hide a live halt for a long time while every health signal reads
+    # green — the same failure the already-down probe branch was fixed for.
+    # Cheap and unconditional beats a cadence: one line per tick
     # is the whole cost, and the operator needs the CLEAR CONDITION, not just
     # the cause, because a boot-scoped verdict and a link-scoped one look
     # identical in the marker.
@@ -821,10 +819,10 @@ if [ "$cur" = "up" ]; then
       # standalone model server out. Halting without undoing that leaves the
       # host serving NOTHING for as long as the link stays up, because the only
       # restore was on the up->down edge — an edge that never comes when the
-      # link is healthy and it is the PEER that cannot form the cluster.
-      # Observed 2026-07-25: the worker served no inference for over an hour
-      # while its own link probe read up. The warm-wedged path above already
-      # does this; the PD-guard path simply forgot to.
+      # link is healthy and it is the PEER that cannot form the cluster: the
+      # worker can serve no inference at all for as long as its own link probe
+      # reads up. The warm-wedged path above already does this; the PD-guard
+      # path simply forgot to.
       if [ -n "${CLUSTER_WIRED_LIMIT_MB:-}" ]; then
         set_wired_limit "${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}" || true
       fi

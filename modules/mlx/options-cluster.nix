@@ -127,7 +127,7 @@ in
         /v1/models probe it is never re-verified, because mlx_lm.server blocks
         HTTP during long generations and a timed probe would kill healthy
         ranks. A rank that serves the probe but hangs on real generation
-        (INC-17070) would otherwise retry forever with nothing escalating.
+        would otherwise retry forever with nothing escalating.
       '';
     };
 
@@ -230,8 +230,8 @@ in
         from nix-darwin clusterLinkPrep) before starting the rank — sized for
         this node's pipeline shard, leaving the GUI working set unwirable.
         null = never touch the sysctl. When set, a failed apply SKIPS the
-        rank start: serving a shard over a standalone-sized ceiling is the
-        2026-07-12 dual-host panic.
+        rank start: serving a shard over a standalone-sized ceiling panics
+        both hosts.
       '';
     };
 

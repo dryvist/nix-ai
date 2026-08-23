@@ -76,8 +76,7 @@
     //
     // What it did: blocked Renovate from ever opening a bump for the MLX set,
     // so a human edited lib/versions.nix only after validating the two-Mac
-    // cluster on a new combination from MLX's supported matrix. Installed after
-    // INC-17070 / INC-17076 / INC-17077.
+    // cluster on a new combination from MLX's supported matrix.
     //
     // Why it is gone: the blackout was total, so the set went stale with no
     // signal. mlx sat at 0.31.2 while 0.32.0 shipped 2026-07-07, and the pin

@@ -21,9 +21,7 @@
         halt-and-alert-only behaviour this repo shipped with originally: a
         human has to notice the alert and reboot by hand. That manual step is
         the interlock the operator's chaos-monkey doctrine bans — cables
-        plugged in is supposed to mean clustered, unattended, no exceptions —
-        and it cost real cluster downtime on 2026-08-01 sitting on exactly this
-        halt with the cable plugged in the whole time.
+        plugged in is supposed to mean clustered, unattended, no exceptions.
 
         THE RATE LIMIT, NOT AN ENABLE FLAG, IS THE SAFETY VALVE. A reboot that
         does not resolve the underlying cause (a genuinely absent or

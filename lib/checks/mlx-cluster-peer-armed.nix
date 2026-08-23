@@ -40,9 +40,9 @@ in
     HELPERS = "${src}/modules/mlx/scripts/cluster-link-helpers.sh";
   } "bash ${src}/tests/test-peer-armed-gate.sh && touch $out";
 
-  # THE 2026-08-08 FALSE KILL. The soak probe fired at a pipeline that was
-  # mid-generation, expired on its own timeout, and the teardown that followed
-  # leaked the wired shard on both hosts. Two properties, pulling against each
+  # THE FALSE-KILL SHAPE. A soak probe that fires at a pipeline mid-generation
+  # can expire on its own timeout, and the teardown that follows leaks the
+  # wired shard on both hosts. Two properties, pulling against each
   # other: a busy pipeline must be deferred to, and the deferral must be bounded
   mlx-cluster-peer-armed-env =
     let
@@ -136,7 +136,7 @@ in
       || throw "cluster: the watcher must publish this host's state every tick. Without it the responder serves a file nobody writes, the peer reads a stale timestamp, and BOTH hosts suppress every start forever — the handshake fails closed, which is safe and also means the cluster never forms";
     assert
       hasInfix "peer_armed_ok" guardsSrc
-      || throw "cluster: rank_start_preconditions_ok must gate on the peer being armed. Without it the strongest statement before spending a protection domain is again 'the peer answers ICMP', which is true of a host that is halted, booting, or on a different generation — five of eleven domains in eighteen minutes on 2026-08-08";
+      || throw "cluster: rank_start_preconditions_ok must gate on the peer being armed. Without it the strongest statement before spending a protection domain is again 'the peer answers ICMP', which is true of a host that is halted, booting, or on a different generation";
     assert
       hasInfix "peer_rearm_maybe" watcherSrc
       || throw "cluster: the watcher must attempt an auto re-arm on every up tick. Without it a pair-wide standdown is cleared only by a link cycle, so a plugged-in pair sits halted waiting for a human to replug a cable that was never out — the manual interlock the zero-AI-steps law bans";

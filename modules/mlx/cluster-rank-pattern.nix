@@ -44,7 +44,7 @@
 # uvx passes the entry point as a NAKED CLI ARGUMENT, so its own argv carries the
 # bare token; only the resolved console script carries it as a path suffix. An
 # unanchored match therefore reports the rank alive after the python child has
-# already exited, which blocks a detach forever (INC-17075) — and, worse for this
+# already exited, which blocks a detach forever — and, worse for this
 # module, makes a reap-before-start precondition unsatisfiable against a corpse.
 #
 # escapeRegex matters: the entry point contains a "." that would otherwise be a
