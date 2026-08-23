@@ -122,6 +122,17 @@ in
         expected = null;
       }
       {
+        # Intentionally unset → null → advisor tool disabled by default.
+        name = "settings.advisorModel";
+        actual = cfg.settings.advisorModel;
+        expected = null;
+      }
+      {
+        name = "validateSettings.enable";
+        actual = cfg.validateSettings.enable;
+        expected = true;
+      }
+      {
         name = "sandbox.enabled";
         actual = cfg.settings.sandbox.enabled;
         expected = false;

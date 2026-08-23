@@ -199,7 +199,12 @@ in
       };
 
       settings = {
-        advisorModel = "fable";
+        # advisorModel intentionally left unset: nix-claude-code defaults it
+        # to null, which disables the advisor tool (expensive — forwards the
+        # whole conversation transcript to a stronger reviewer model). Enable
+        # per session with `claude config set advisorModel fable` — a
+        # runtime write, preserved until the next darwin-rebuild reasserts
+        # this Nix default.
         alwaysThinkingEnabled = true;
         cleanupPeriodDays = 180;
         env = import ./claude/settings-env.nix { inherit lib userConfig; };
@@ -223,6 +228,12 @@ in
           enabled = false;
         };
       };
+
+      # Warn-only settings.json schema check (nix-claude-code's own
+      # validate-settings.sh; never blocks activation, adds a small
+      # network dependency for check-jsonschema + the schema fetch).
+      # Off upstream by design; on here so schema drift actually surfaces.
+      validateSettings.enable = true;
 
       # Auto-mode classifier configuration (top-level `autoMode` in settings.json).
       # Prose rules describing trusted infrastructure (environment) plus the
