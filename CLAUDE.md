@@ -74,6 +74,17 @@ feeds `ai-assistant-instructions` content through nix-claude-code's options (the
 nix-claude-code's `rules` option verbatim. Mirror in
 [nix-claude-code `AGENTS.md`](https://github.com/JacobPEvans/nix-claude-code/blob/main/AGENTS.md).
 
+### Test ownership follows the same boundary
+
+A regression test that proves one of nix-claude-code's own declared
+defaults holds — "X stays null/absent unless a consumer overrides it," "the
+runtime merge doesn't resurrect a stale value" — belongs in nix-claude-code's
+own test suite, not here. `lib/checks/claude.nix` should only assert values
+nix-ai itself deliberately sets. Testing "we correctly did not override
+this" duplicates a guarantee that is nix-claude-code's to keep, and only
+nix-claude-code's own suite can prove it holds for every consumer, not just
+this one.
+
 ### What belongs here (nix-ai)
 
 - AI CLI tools (Claude Code, Antigravity, Codex, Copilot, Cursor, qwen-code, cecli)
