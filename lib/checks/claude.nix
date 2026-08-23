@@ -122,6 +122,11 @@ in
         expected = null;
       }
       {
+        name = "validateSettings.enable";
+        actual = cfg.validateSettings.enable;
+        expected = true;
+      }
+      {
         name = "sandbox.enabled";
         actual = cfg.settings.sandbox.enabled;
         expected = false;
