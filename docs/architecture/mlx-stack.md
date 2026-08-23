@@ -80,7 +80,7 @@ Two delivery paths, split by whether a working Nix package exists:
 The serving stack moved off `uv run --with` because uv's cache is append-only
 by design: every distinct resolution mints a COMPLETE venv (~1.4 GB, hardlink
 count 1, so nothing is shared between them) and uv never evicts one. There are
-no GC roots and no TTL. On jevans-mbp that reached **328 GB** — five times the
+no GC roots and no TTL. On the laptop that reached **328 GB** — five times the
 62 GB Nix store for the entire system.
 
 It also could not be cleaned. Every live `uvx` process holds a shared lock on

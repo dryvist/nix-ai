@@ -281,8 +281,9 @@ in
   qwen3-30b-2507 = {
     model = "mlx-community/Qwen3-30B-A3B-Instruct-2507-4bit";
     weightGb = 17.5;
-    # qwen3_moe, standard attention: all 48 layers bear KV. jevans-mbp standalone
-    # default. perTokenKvBytes = 2*48*4*128*2 = 98304 B/token (96 KiB/token).
+    # qwen3_moe, standard attention: all 48 layers bear KV. The laptop's
+    # standalone default. perTokenKvBytes = 2*48*4*128*2 = 98304 B/token
+    # (96 KiB/token).
     kv = {
       kvLayers = 48;
       kvHeads = 4;
