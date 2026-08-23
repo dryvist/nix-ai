@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.24.0](https://github.com/dryvist/nix-ai/compare/v4.23.4...v4.24.0) (2026-08-23)
+
+
+### Features
+
+* **mlx:** gate rank start on GPU wired headroom, not just free memory ([#1740](https://github.com/dryvist/nix-ai/issues/1740)) ([0ec55c3](https://github.com/dryvist/nix-ai/commit/0ec55c3795737c5cefca44d5bcf5f93fd77b0fb4))
+
 ## [4.23.4](https://github.com/dryvist/nix-ai/compare/v4.23.3...v4.23.4) (2026-08-23)
 
 
