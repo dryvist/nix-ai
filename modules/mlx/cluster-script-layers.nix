@@ -64,10 +64,13 @@
     # Automated rank health gate + soak — reads mem_stat_mb from the guards
     # file above, so it must come after it.
     ./scripts/cluster-health-gate.sh
-    # The peer-armed handshake. AFTER the guards, because peer_state_write folds
-    # mem_headroom_ok into what it publishes and a definition must precede the
-    # layer that calls it. Watcher-only for the same SC2329 reason as
-    # cluster-pd-cause.sh above: nothing else publishes or reads peer state.
+    # The peer-armed handshake. After cluster-pd-ledger.sh and
+    # cluster-pd-cause.sh, whose pd_debt_count / pd_cause_budget_ok it calls —
+    # a definition must precede the layer that calls it. It no longer reads
+    # anything from the guards layer: the mem_headroom_ok fold was removed from
+    # peer_state_write (see that function's comment). Watcher-only for the same
+    # SC2329 reason as cluster-pd-cause.sh above: nothing else publishes or
+    # reads peer state.
     ./scripts/cluster-peer-state.sh
     # new_progress_lines, for the soak probe's proof-of-life check ahead of
     # endpoint_busy — the same file cluster-peer-liveness.sh already pulls in.

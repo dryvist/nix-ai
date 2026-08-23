@@ -724,19 +724,20 @@ pd_debt_halt_if_exhausted() {
 # $1 halt marker, $2 latch, $3 dwell-count file (consecutive refusals minus
 # consecutive passes, floored at 0; absent when CLUSTER_MEM_HEADROOM_
 # DWELL_TICKS is 0/unset — same "0 = off" convention the threshold rungs
-# elsewhere in this file use). peer_state_write (cluster-peer-state.sh) reads
-# this SAME file to decide the published `armed` bit — one counter, not two
-# independent samples of the same noisy signal.
+# elsewhere in this file use). This counter is now local to this escalation:
+# peer_state_write no longer reads it, because every sample feeding it is taken
+# pre-quiesce and so cannot answer the question `armed` asks — see that
+# function's own comment. The halt this escalates to is what the peer sees.
 #
 # FAIL FAST, CLEAR SLOW — DELIBERATE, NOT SYMMETRIC. A single passing sample
 # used to zero this file outright. That is wrong when free memory sits close
 # to the required line: measured 2026-08-16, this host's free+reclaimable
 # bounced 53853 -> 55318 -> 54413 MB against a 56000 MB requirement — noise,
-# not recovery. An instant reset let the worker's peer read `armed:true` off
-# one lucky sample even though the very next sample failed again seconds
-# later, launching a real kickstart attempt against a coordinator that could
-# not rendezvous. The costs are asymmetric: a spurious armed:true burns a
-# real attempt; a delayed armed:true only costs latency. So a pass now
+# not recovery. An instant reset would let one lucky sample walk the count all
+# the way back and cancel an escalation that the very next sample re-earns
+# seconds later, so a genuinely stuck shortfall would never reach its halt. The
+# costs are asymmetric: a premature clear leaves the host refusing forever with
+# the cable plugged in; a delayed clear only costs latency. So a pass now
 # decrements by one instead of zeroing, and recovering from N consecutive
 # failures takes N consecutive passes — never one. Do not "simplify" this
 # back to reset-on-pass; that is the bug this fixes.

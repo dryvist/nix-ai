@@ -252,7 +252,7 @@ generation_heal_maybe "$parity_now" "$heal_attempts_file" || true
 # Placed after the parity read because the published generation comes from that
 # same cached fact — one ls-remote per interval, not one per publish.
 peer_state_write "${CLUSTER_PEER_STATE_FILE:-$state_dir/peer-state.json}" \
-  "$parity_now" "$halt_file" "$pd_debt_file" "$mem_dwell_file"
+  "$parity_now" "$halt_file" "$pd_debt_file"
 
 # Link probe, debounced ASYMMETRICALLY — a false "down" is destructive, a false
 # "up" is not. Declaring down tears the rank down, restores standalone serving,
