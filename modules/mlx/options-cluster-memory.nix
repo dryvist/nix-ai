@@ -18,10 +18,18 @@
         Expected per-rank working set (MB) once the cluster shard is loaded.
         rank_start_preconditions_ok refuses a rank start unless free +
         reclaimable memory (vm_stat "Pages free" + "Pages inactive" +
-        "Pages speculative") reports at least this much — measured against
-        FREE memory, never wired: MLX holds a loaded shard's weights in
-        ordinary resident memory, not wired (measured 2026-08-01, a ~49 GiB
-        shard served real tokens while `Pages wired down` read only ~3.5 GiB).
+        "Pages speculative") reports at least this much.
+
+        THIS IS THE FREE-MEMORY HALF ONLY. It asks whether the shard's ordinary
+        resident pages fit; it says nothing about the GPU wired ceiling, which
+        is a separate budget — see compositorReserveMb below.
+
+        CORRECTED. This text used to claim MLX holds a shard's weights in
+        ordinary resident memory and wires only ~3.5 GiB of it. That is false,
+        and it argued against the wired rung below. Measured on a 128 GiB host:
+        ~9 GiB of MLX-attributable `Pages wired down` against 7.6 GiB of
+        resident model weights, and a serving rank accounts for essentially its
+        whole footprint in wired. Size a wired budget for the WHOLE shard.
 
         0 (default) disables the rung cleanly: no vm_stat read, no refusal.
         There is no safe universal default — the right value is the deployed
