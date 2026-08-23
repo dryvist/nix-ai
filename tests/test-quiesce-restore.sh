@@ -204,6 +204,7 @@ contains "says so" "nothing to restore" "$out"
 echo "the refusing rung's reason token reaches the refusal lines:"
 for reason in peer-not-armed pd-debt-exhausted; do
   reset
+  # shellcheck disable=SC2034  # read by the extracted block, not by name here
   PRECONDITION_REASON="$reason"
   refusal_tick
   contains "no-quiesce branch names $reason" "(reason=$reason)" "$out"
