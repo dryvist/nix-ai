@@ -321,11 +321,12 @@ echo "7. recovery: fail fast, clear slow — a pass decrements, it does not rese
 # THE OSCILLATION THIS PINS. 2026-08-16: this host's free+reclaimable bounced
 # 53853 -> 55318 -> 54413 MB against a 56000 MB requirement — noise near the
 # line, not recovery. The old behaviour (rm -f the dwell file on ANY single
-# pass) let one lucky sample fully clear the count, which peer_state_write
-# then read as armed:true — a worker acting on that launches a real kickstart
-# attempt against a coordinator that has not actually recovered. A pass must
-# only walk the count back down by one, so clearing after N consecutive
-# refusals takes N consecutive passes.
+# pass) let one lucky sample fully clear the count, cancelling an escalation
+# the very next sample re-earns — a genuinely stuck shortfall would never
+# reach its insufficient-memory-persistent halt. A pass must only walk the
+# count back down by one, so clearing after N consecutive refusals takes N
+# consecutive passes. (peer_state_write no longer reads this counter at all —
+# see section 7b.)
 reset_state
 export CLUSTER_SHARD_MEMORY_MB=1000
 export CLUSTER_MEM_HEADROOM_DWELL_TICKS=3
@@ -346,8 +347,15 @@ check "two consecutive passes fully clear a count of two" absent "$([ -f "$dwell
 
 echo "7b. the literal recorded bounce, asserted on the PUBLISHED armed field:"
 # Same incident as section 7's header comment, but this time driving
-# peer_state_write end to end (not just the dwell file) and using the exact
-# recorded free+reclaimable MB figures rather than round synthetic ones.
+# peer_state_write end to end and using the exact recorded free+reclaimable MB
+# figures rather than round synthetic ones. WHAT THE PUBLISHER MUST DO CHANGED
+# on 2026-08-22: every sample here is taken against a WARM standalone-serving
+# footprint — before the quiesce that would return that memory — so the
+# published armed bit must IGNORE the bounce entirely (observed live: a host
+# disarmed at armed=false with halted_cause=none over memory quiescing would
+# have freed). armed flips false only when the shortfall proves durable and
+# escalates to the insufficient-memory-persistent HALT, which is a local
+# incapacity; and only then does wired_ok name memory as the reason.
 # Required is set between the samples (55000) so 55318 is the one real
 # passing reading and 53853/54413 are real refusals — the same "near the
 # line" shape the incident had, at whatever the deployed shard requirement
@@ -358,23 +366,24 @@ reset_state
 export CLUSTER_SHARD_MEMORY_MB=55000
 export CLUSTER_MEM_HEADROOM_DWELL_TICKS=3
 peer_out="$state_dir/peer-state.json"
-armed_now() { peer_state_write "$peer_out" "state=ok local=x deploy=x" "$halt_file" "$debt_file" "$dwell_file"; jq -r '.armed' "$peer_out"; }
+armed_now() { peer_state_write "$peer_out" "state=ok local=x deploy=x" "$halt_file" "$debt_file" 2> /dev/null; jq -r '.armed' "$peer_out"; }
 write_vmstat 16384 3446592 0 0 0 # 53853MB free — refuses (seeds the dwell like a prior bad tick)
 mem_headroom_halt_if_persistent "$halt_file" "$latch_file" "$dwell_file"
 check "seed: two consecutive real refusals before the recorded bounce starts" 1 "$(cat "$dwell_file")"
 mem_headroom_halt_if_persistent "$halt_file" "$latch_file" "$dwell_file"
 check "dwell at 2 going into the recorded sequence" 2 "$(cat "$dwell_file")"
+check "armed stays true — a pre-quiesce sample must not reach the published bit" true "$(armed_now)"
 write_vmstat 16384 3540352 0 0 0 # 55318MB free — the one real PASSING sample
 mem_headroom_halt_if_persistent "$halt_file" "$latch_file" "$dwell_file"
 check "one real pass decrements, does not clear a count of two" 1 "$(cat "$dwell_file")"
-check "armed does NOT flip true on the 55318 sample" false "$(armed_now)"
 write_vmstat 16384 3482432 0 0 0 # 54413MB free — refuses again, immediately
 mem_headroom_halt_if_persistent "$halt_file" "$latch_file" "$dwell_file"
 check "the very next real sample (54413) is a refusal, back to 2" 2 "$(cat "$dwell_file")"
-check "armed still false" false "$(armed_now)"
+check "armed still true right up to the halt — the bounce is noise, not a verdict" true "$(armed_now)"
 mem_headroom_halt_if_persistent "$halt_file" "$latch_file" "$dwell_file" # 54413 again
 check "a second consecutive real refusal reaches the configured dwell and halts" insufficient-memory-persistent "$(halt_cause)"
-check "armed still false after the whole recorded bounce" false "$(armed_now)"
+check "the HALT is what disarms — a durable local incapacity, not a sample" false "$(armed_now)"
+check "and only the halt makes wired_ok name memory as the reason" false "$(jq -r '.wired_ok' "$peer_out")"
 
 echo "8. rank_start_preconditions_ok no longer gates on memory at all:"
 # THE DEADLOCK THIS CLOSES. mem_headroom_ok used to run as a rung of
