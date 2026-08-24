@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.26.0](https://github.com/dryvist/nix-ai/compare/v4.25.0...v4.26.0) (2026-08-24)
+
+
+### Features
+
+* **ai-stack:** declare which domains are self-hosted ([#1756](https://github.com/dryvist/nix-ai/issues/1756)) ([c6caa30](https://github.com/dryvist/nix-ai/commit/c6caa3056d984a0f233da5f45a8159b90d107ae3))
+* wire oh-my-openagent into OpenCode and add omo-senpi wrapper ([4235ab7](https://github.com/dryvist/nix-ai/commit/4235ab7ee4eb1a11a2d54be3e0f01a3f369fb303))
+
 ## [4.25.0](https://github.com/dryvist/nix-ai/compare/v4.24.0...v4.25.0) (2026-08-24)
 
 
