@@ -76,6 +76,25 @@ let
   agyBase = enabled.home.sessionVariables.GOOGLE_GEMINI_BASE_URL;
   agyGetsRoot = agyBase == enabled.programs.litellmLocal.rootUrl && !lib.hasSuffix "/v1" agyBase;
 
+  # A caller that must ask the UPSTREAM router what a role resolves to cannot
+  # use OPENAI_API_KEY (the mkBefore override above makes it the local key) and
+  # cannot see through the local `*` wildcard. It gets the router address and
+  # the PATH of the bearer file — never the bearer itself.
+  zshInit = enabled.programs.zsh.initContent;
+  exportsRouterUrl = lib.hasInfix "export LLM_ROUTER_URL=" zshInit;
+  exportsTokenFilePath = lib.hasInfix "export LLM_ROUTER_TOKEN_FILE=" zshInit;
+
+  # Every credential in the snippet must be a runtime read (`cat <path>`) or a
+  # reference to a variable holding one. A literal would mean a secret was
+  # baked into the generated shell init, which lands in the Nix store.
+  keyFilePath = enabled.programs.litellmLocal.keyFile;
+  tokenFilePath = toString enabled.services.aiStack.llmEndpointTokenFile;
+  readsSecretsFromFiles =
+    lib.hasInfix "cat ${keyFilePath}" zshInit && lib.hasInfix "cat ${tokenFilePath}" zshInit;
+  # The token file's CONTENTS must never be exported under the router-token
+  # name: that variable carries the path only.
+  tokenFileIsPathOnly = lib.hasInfix "export LLM_ROUTER_TOKEN_FILE=${tokenFilePath}" zshInit;
+
   agent = enabled.launchd.agents.litellm-local.config;
   agentLoopbackOnly = enabled.programs.litellmLocal.port == 4100;
   # The router URL reaches the agent as plain env; the two secrets do not.
@@ -119,6 +138,18 @@ in
       agyGetsRoot
       || throw "the Gemini-format client must get the proxy root URL, not the /v1 OpenAI base: it appends /v1beta/models/<model>:generateContent itself; got: ${agyBase}";
     assert agentLoopbackOnly || throw "the proxy port default must stay 4100";
+    assert
+      exportsRouterUrl
+      || throw "shell init must export LLM_ROUTER_URL so a caller can reach the upstream router directly; the local wildcard hides what a role resolves to";
+    assert
+      exportsTokenFilePath
+      || throw "shell init must export LLM_ROUTER_TOKEN_FILE; OPENAI_API_KEY holds the local key after the override, so a caller needs a file to read the router bearer from";
+    assert
+      tokenFileIsPathOnly
+      || throw "LLM_ROUTER_TOKEN_FILE must carry the PATH of the bearer file, never its contents";
+    assert
+      readsSecretsFromFiles
+      || throw "every credential in the shell init must be read from its file at runtime; a literal would bake a secret into the generated init, which lands in the Nix store";
     assert
       agentCarriesNoSecret
       || throw "the launchd agent must take the router URL as plain env and read both secrets from files at exec time, never as EnvironmentVariables";

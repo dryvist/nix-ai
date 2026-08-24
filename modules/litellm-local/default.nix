@@ -163,6 +163,15 @@ in
       # the bearer they need is this proxy's key, not the router's. The router
       # bearer stays confined to the launchd agent's own environment.
       #
+      # LLM_ROUTER_URL and LLM_ROUTER_TOKEN_FILE are exported for callers that
+      # must reach the UPSTREAM router directly rather than through this proxy
+      # — asking what a role actually resolves to, which the local `*` wildcard
+      # hides. Such a caller cannot borrow OPENAI_API_KEY for that: after the
+      # override above it holds the local key, not the router bearer. Both
+      # values are non-secret (an address and a path); the token file's
+      # CONTENTS are never exported, so a caller reads the file itself at the
+      # moment it needs the bearer.
+      #
       # ANTHROPIC_CUSTOM_HEADERS lives here rather than in Claude Code's
       # settings.json because settings.json values are literals: rendering the
       # key there would copy it into the Nix store.
@@ -171,6 +180,8 @@ in
         export LITELLM_LOCAL_KEY
         export OPENAI_API_KEY="$LITELLM_LOCAL_KEY"
         export ANTHROPIC_CUSTOM_HEADERS="x-litellm-api-key: Bearer $LITELLM_LOCAL_KEY"
+        export LLM_ROUTER_URL=${lib.escapeShellArg aiStack.llmRouterEndpoint}
+        export LLM_ROUTER_TOKEN_FILE=${lib.escapeShellArg (toString aiStack.llmEndpointTokenFile)}
       '';
     })
   ];
