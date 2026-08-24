@@ -38,8 +38,16 @@ let
     model_list = [
       {
         model_name = "claude-*";
-        # No api_key: this deployment is reached with the credentials the
-        # calling client already holds, forwarded by the scoped rule below.
+        # No api_key, deliberately: this deployment is reached with the OAuth
+        # bearer the calling client already holds, forwarded by the scoped rule
+        # below. An api_key here would override that bearer and bill the wrong
+        # account.
+        #
+        # LiteLLM only treats a client bearer as forwardable OAuth when it
+        # carries the `sk-ant-oat` prefix (see its anthropic common_utils
+        # optionally_handle_anthropic_oauth). A client sending any other token
+        # shape therefore gets no credential on this leg rather than the wrong
+        # one — the failure is a 401, not a silent mis-auth.
         litellm_params.model = "anthropic/*";
       }
       {
