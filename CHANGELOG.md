@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.25.0](https://github.com/dryvist/nix-ai/compare/v4.24.0...v4.25.0) (2026-08-24)
+
+
+### Features
+
+* **litellm-local:** loopback proxy so clients name role aliases ([#1747](https://github.com/dryvist/nix-ai/issues/1747)) ([a9011b2](https://github.com/dryvist/nix-ai/commit/a9011b28939d8921bdb185490fe577a3b4e0f262))
+
 ## [4.24.0](https://github.com/dryvist/nix-ai/compare/v4.23.4...v4.24.0) (2026-08-23)
 
 
