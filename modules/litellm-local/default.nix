@@ -175,14 +175,19 @@ in
       # ANTHROPIC_CUSTOM_HEADERS lives here rather than in Claude Code's
       # settings.json because settings.json values are literals: rendering the
       # key there would copy it into the Nix store.
-      programs.zsh.initContent = lib.mkBefore ''
-        LITELLM_LOCAL_KEY="$(cat ${lib.escapeShellArg cfg.keyFile} 2>/dev/null || echo "")"
-        export LITELLM_LOCAL_KEY
-        export OPENAI_API_KEY="$LITELLM_LOCAL_KEY"
-        export ANTHROPIC_CUSTOM_HEADERS="x-litellm-api-key: Bearer $LITELLM_LOCAL_KEY"
-        export LLM_ROUTER_URL=${lib.escapeShellArg aiStack.llmRouterEndpoint}
-        export LLM_ROUTER_TOKEN_FILE=${lib.escapeShellArg (toString aiStack.llmEndpointTokenFile)}
-      '';
+      programs.zsh.initContent = lib.mkBefore (
+        ''
+          LITELLM_LOCAL_KEY="$(cat ${lib.escapeShellArg cfg.keyFile} 2>/dev/null || echo "")"
+          export LITELLM_LOCAL_KEY
+          export OPENAI_API_KEY="$LITELLM_LOCAL_KEY"
+          export ANTHROPIC_CUSTOM_HEADERS="x-litellm-api-key: Bearer $LITELLM_LOCAL_KEY"
+          export LLM_ROUTER_URL=${lib.escapeShellArg aiStack.llmRouterEndpoint}
+          export LLM_ROUTER_TOKEN_FILE=${lib.escapeShellArg (toString aiStack.llmEndpointTokenFile)}
+        ''
+        + lib.optionalString (aiStack.internalDomains != [ ]) ''
+          export CLAUDE_SUBAGENT_INTERNAL_DOMAINS=${lib.escapeShellArg (lib.concatStringsSep " " aiStack.internalDomains)}
+        ''
+      );
     })
   ];
 }
