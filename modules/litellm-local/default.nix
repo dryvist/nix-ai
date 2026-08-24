@@ -105,13 +105,23 @@ in
       # Generate the master key once, on first activation. Regenerating it on
       # every rebuild would invalidate the header every already-running client
       # is sending, so the guard is `absent`, not `stale`.
+      #
+      # The whole sequence is one script rather than $DRY_RUN_CMD-prefixed
+      # lines: a `>` redirect runs in the activation shell whether or not
+      # DRY_RUN_CMD is a no-op, so the inline form would write the echoed
+      # command line into the key file on a dry run and the guard below would
+      # then treat that constant as a valid key forever. umask closes the
+      # window a write-then-chmod would leave open.
       home.activation.litellmLocalKey = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-        if [ ! -s ${lib.escapeShellArg cfg.keyFile} ]; then
-          $DRY_RUN_CMD mkdir -p ${lib.escapeShellArg (builtins.dirOf cfg.keyFile)}
-          $DRY_RUN_CMD ${lib.getExe' pkgs.openssl "openssl"} rand -hex 32 \
-            > ${lib.escapeShellArg cfg.keyFile}
-          $DRY_RUN_CMD chmod 600 ${lib.escapeShellArg cfg.keyFile}
-        fi
+        $DRY_RUN_CMD ${pkgs.writeShellScript "litellm-local-keygen" ''
+          set -euo pipefail
+          key=${lib.escapeShellArg cfg.keyFile}
+          if [ ! -s "$key" ]; then
+            umask 077
+            mkdir -p "$(dirname "$key")"
+            ${lib.getExe' pkgs.openssl "openssl"} rand -hex 32 > "$key"
+          fi
+        ''}
       '';
 
       launchd.agents.litellm-local = {

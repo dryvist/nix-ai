@@ -53,5 +53,14 @@ in
     home.sessionVariables = lib.mkIf config.programs.litellmLocal.enable {
       GOOGLE_GEMINI_BASE_URL = config.programs.litellmLocal.rootUrl;
     };
+
+    # Select the role rather than a Gemini registry id, so this CLI resolves
+    # the same way as every other client. mkDefault, because whether this CLI
+    # accepts a model name outside its own registry is not verified here — a
+    # consumer that finds it rejected sets defaultModel back to an alias
+    # without editing this module.
+    programs.antigravity-cli.defaultModel = lib.mkIf config.programs.litellmLocal.enable (
+      lib.mkDefault "subagent"
+    );
   };
 }
