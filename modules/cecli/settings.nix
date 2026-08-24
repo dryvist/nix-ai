@@ -32,8 +32,9 @@ let
   # bearer-gated: omit the key so cecli reads OPENAI_API_KEY from the process
   # env, which ai-stack exports at shell init from llmEndpointTokenFile (never
   # baked into the Nix store).
-  endpointBase = resolvedLlmEndpoint;
-  isLocalEndpoint = llmEndpoint == "mlx_local";
+  inherit (config.programs) litellmLocal;
+  endpointBase = if litellmLocal.enable then litellmLocal.baseUrl else resolvedLlmEndpoint;
+  isLocalEndpoint = llmEndpoint == "mlx_local" && !litellmLocal.enable;
 
   # Model names are openai/<role>; llama-swap resolves each role to the
   # physical HF id via useModelName (see services.aiStack.models).
@@ -92,7 +93,15 @@ let
     output_cost_per_token = 0;
   };
 
-  modelMetadata = lib.mapAttrs' (role: _: lib.nameValuePair "openai/${role}" metadataEntry) models;
+  # See the qwen-code module for why these two live here and not in the
+  # shared registry: they resolve upstream, not on this host.
+  proxyOnlyRoles = lib.optionalAttrs litellmLocal.enable {
+    subagent = null;
+    cheap = null;
+  };
+  allRoles = models // proxyOnlyRoles;
+
+  modelMetadata = lib.mapAttrs' (role: _: lib.nameValuePair "openai/${role}" metadataEntry) allRoles;
 
   metadataJson = pkgs.writeText "cecli-model-metadata.json" (builtins.toJSON modelMetadata);
 
@@ -119,7 +128,7 @@ let
     }
     // lib.optionalAttrs (selectedFormat != null) { edit_format = selectedFormat; };
 
-  modelSettings = lib.mapAttrsToList (role: _: makeSettingsEntry "openai/${role}" role) models;
+  modelSettings = lib.mapAttrsToList (role: _: makeSettingsEntry "openai/${role}" role) allRoles;
 
   modelSettingsYaml = yamlFormat.generate "cecli-model-settings.yml" modelSettings;
 

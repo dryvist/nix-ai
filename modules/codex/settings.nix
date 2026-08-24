@@ -13,6 +13,7 @@
 
 let
   cfg = config.programs.codex;
+  inherit (config.programs) litellmLocal;
   homeDir = config.home.homeDirectory;
 
   aiCommon = import ../common {
@@ -113,6 +114,25 @@ let
   // optionalValue "web_search" cfg.webSearch
   // lib.optionalAttrs (cfg.features != { }) {
     inherit (cfg) features;
+  }
+  # Local LiteLLM proxy as an ADDITIONAL provider, not the default one: the
+  # top-level model/model_provider above stay as they are, so the lead model
+  # is unchanged. `codex --profile ox` is the opt-in that runs a job on the
+  # `subagent` role instead.
+  #
+  # wire_api = "responses" because Codex speaks only the Responses API; the
+  # proxy translates /v1/responses to chat for backends that lack it.
+  // lib.optionalAttrs litellmLocal.enable {
+    model_providers.litellm = {
+      name = "LiteLLM (local)";
+      base_url = litellmLocal.baseUrl;
+      wire_api = "responses";
+      env_key = "LITELLM_LOCAL_KEY";
+    };
+    profiles.ox = {
+      model = "subagent";
+      model_provider = "litellm";
+    };
   };
 
   configJson = pkgs.writeText "codex-config.json" (builtins.toJSON configAttrs);

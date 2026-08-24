@@ -6,7 +6,11 @@
 #
 # See: https://code.claude.com/docs/en/settings
 # See: https://code.claude.com/docs/en/model-config
-{ lib, userConfig }:
+{
+  lib,
+  userConfig,
+  litellmLocal,
+}:
 {
   # Model is intentionally left unset (see claude-config.nix), so Claude Code
   # uses the account-tier default. Override per-session via /model, or here
@@ -65,6 +69,25 @@
   # Auto-compact threshold — using upstream default (~95% of context window)
   # CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = "95";
 
+}
+# Local LiteLLM proxy — route Claude Code through it so subagent-tier work
+# resolves to a role alias upstream instead of a physical model id.
+#
+# The main model is deliberately untouched: `claude-*` requests reach Anthropic
+# through the proxy with this client's own credentials forwarded, so the
+# session model is unchanged. Only the subagent and background tiers are
+# repointed at roles.
+#
+# ANTHROPIC_CUSTOM_HEADERS is NOT set here. It carries the proxy's master key,
+# and every value in this attrset is rendered literally into settings.json in
+# the Nix store. The module exports it at shell init from the key file instead.
+// lib.optionalAttrs litellmLocal.enable {
+  ANTHROPIC_BASE_URL = litellmLocal.rootUrl;
+  CLAUDE_CODE_SUBAGENT_MODEL = "subagent";
+  ANTHROPIC_DEFAULT_HAIKU_MODEL = "cheap";
+  # Let the picker list what the proxy actually serves, so a role added
+  # upstream shows up without a rebuild.
+  CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY = "1";
 }
 # OpenTelemetry — opt-in via userConfig.telemetry (maintainer profile). Off by
 # default so a fresh consumer emits no telemetry. Endpoint falls back to the

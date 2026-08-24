@@ -18,6 +18,7 @@
 let
   cfg = config.programs.opencode;
   inherit (cfg) configDir;
+  inherit (config.programs) litellmLocal;
 
   aiCommon = import ../common { inherit lib config nix-claude-code; };
   permission = aiCommon.formatters.opencode.formatPermission aiCommon.permissions;
@@ -50,10 +51,37 @@ let
     client = "opencode";
   };
 
+  # Role aliases the local proxy serves. Each is a stable name; which physical
+  # model it resolves to is an upstream setting, so this list does not change
+  # when the mapping does.
+  litellmRoles = [
+    "lead"
+    "subagent"
+    "judge"
+    "cheap"
+  ];
+
   settings = {
     "$schema" = "https://opencode.ai/config.json";
     inherit permission;
     mcp = mcpServers;
+  }
+  # The primary agent's model is deliberately NOT set: it stays whatever the
+  # user has chosen. Only the cheap background tier is repointed, plus the
+  # provider itself so `litellm/<role>` is selectable per agent.
+  // lib.optionalAttrs litellmLocal.enable {
+    provider.litellm = {
+      npm = "@ai-sdk/openai-compatible";
+      name = "LiteLLM (local)";
+      options = {
+        baseURL = litellmLocal.baseUrl;
+        apiKey = "{env:LITELLM_LOCAL_KEY}";
+      };
+      models = lib.genAttrs litellmRoles (role: {
+        name = role;
+      });
+    };
+    small_model = "litellm/cheap";
   };
 
   # Pretty-printed via jq (same convention as copilot.nix / antigravity-cli):
