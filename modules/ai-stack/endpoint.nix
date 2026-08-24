@@ -67,6 +67,24 @@ in
       '';
     };
 
+    internalDomains = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      example = [ "example.invalid" ];
+      description = ''
+        Domains whose hosts are self-hosted, injected by the consumer (never
+        committed here — a serving domain is environment-specific). Exported
+        as `CLAUDE_SUBAGENT_INTERNAL_DOMAINS` for callers that must decide
+        whether a model deployment keeps traffic inside the estate; the
+        private-workspace subagent guard is the one that reads it.
+
+        Empty by default, which leaves those callers treating only loopback
+        as internal. State the domains rather than letting a caller derive
+        one from another URL: a derived domain can land on a public suffix
+        and cover hosts the operator does not control.
+      '';
+    };
+
     llmEndpointBearerFromEnv = lib.mkOption {
       type = lib.types.bool;
       default = false;

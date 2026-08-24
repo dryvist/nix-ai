@@ -27,6 +27,13 @@
   gwsCli = "0.22.5";
   # renovate: datasource=npm depName=@openwhispr/cli
   openwhisprCli = "0.1.2";
+  # oh-my-openagent Senpi edition (standalone `omo` command). Beta-channel
+  # only: every published version is a prerelease and the `latest` dist-tag
+  # points at a placeholder (0.0.0-beta.0), so a Renovate npm pin would track
+  # the wrong channel. Bump manually against `npm view omo-ai@beta version`.
+  # Deliberately carries no `renovate:` annotation — same rationale as
+  # mcpSdkBound above.
+  omoSenpi = "5.0.0-0.beta.17";
 
   # MCP servers (npm)
   # renovate: datasource=npm depName=@upstash/context7-mcp

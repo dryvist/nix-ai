@@ -178,9 +178,15 @@ in
 
       # OpenCode — skills via the agent-skills registry; upstream's native
       # OpenCode command files come straight from the autoresearch input.
+      # oh-my-openagent (Ultimate) is declared here so the omo installer never
+      # needs to write through the Nix-owned opencode.json symlink: it sees the
+      # plugin entry already present and only manages its own ~/.omo state.
       opencode = {
         enable = true;
         commandDirs = [ "${marketplaceInputs.autoresearch}/.opencode/commands" ];
+        # @latest matches what the omo installer itself writes; bare
+        # "oh-my-openagent" also loads but doctor expects the tagged form.
+        extraSettings.plugin = [ "oh-my-openagent@latest" ];
       };
 
       # Antigravity IDE configuration (settings handled by modules/antigravity-ide/)
