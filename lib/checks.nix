@@ -300,6 +300,7 @@ in
 // (import ./checks/mlx-cluster-soak.nix { inherit pkgs src; })
 // (import ./checks/mlx-cluster-selfheal.nix { inherit pkgs src; })
 // (import ./checks/mlx-cluster-recovery.nix { inherit pkgs src; })
+// (import ./checks/litellm-local.nix { inherit pkgs hmConfig; })
 // (import ./checks/fabric.nix {
   inherit
     pkgs
