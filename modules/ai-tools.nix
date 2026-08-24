@@ -53,6 +53,7 @@
 #   claude-flow: claude-flow (multi-agent orchestration)
 #   gws: @googleworkspace/cli (pinned version)
 #   openwhispr: @openwhispr/cli (voice notes / transcriptions CLI)
+#   omo-senpi: omo-ai (oh-my-openagent Senpi edition — standalone agent, beta)
 #
 # UVX WRAPPER PACKAGES (Python packages not in nixpkgs/homebrew):
 #   hf: huggingface-hub CLI (model downloads, used with HuggingFace MCP)
@@ -83,6 +84,7 @@ let
   claudeFlowVersion = versions.claudeFlow;
   gwsCliVersion = versions.gwsCli;
   openwhisprCliVersion = versions.openwhisprCli;
+  omoSenpiVersion = versions.omoSenpi;
 in
 {
   # AI-specific development tools
@@ -189,6 +191,22 @@ in
     # `openwhispr auth login` stores key in ~/.openwhispr/cli-config.json.
     (writeShellScriptBin "openwhispr" ''
       exec ${bun}/bin/bunx --bun @openwhispr/cli@${openwhisprCliVersion} "$@"
+    '')
+
+    # ==========================================================================
+    # Oh My OpenAgent — Senpi edition
+    # ==========================================================================
+    # Standalone senpi engine with the OMO extension built in (beta channel).
+    # Source: https://github.com/code-yeongyu/oh-my-openagent
+    # NPM: omo-ai (pinned beta version; `latest` tag is a placeholder, see
+    # lib/versions.nix). The Ultimate/Light plugin editions are NOT installed
+    # here — they load inside OpenCode/Codex via their own installers.
+    #
+    # Named omo-senpi, not `omo`: the Codex Light installer links its own
+    # runtime wrapper at ~/.local/bin/omo (ahead of this dir on PATH), and
+    # bare `omo` on npm is an unrelated package by a different author.
+    (writeShellScriptBin "omo-senpi" ''
+      exec ${bun}/bin/bunx --bun omo-ai@${omoSenpiVersion} "$@"
     '')
 
     # ==========================================================================
