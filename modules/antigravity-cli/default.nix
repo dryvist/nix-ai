@@ -44,5 +44,14 @@ in
     home.file.".gemini/antigravity-cli/.keep".text = ''
       # Managed by Nix - programs.antigravity-cli module
     '';
+
+    # This CLI accepts only a Gemini-format endpoint, so it can follow the
+    # local proxy only because that proxy serves the Gemini generateContent
+    # route natively (`/v1beta/models/<model>:generateContent` and its
+    # streaming twin) alongside the OpenAI-compatible one. The root URL is
+    # what goes here — the CLI appends the `/v1beta/...` path itself.
+    home.sessionVariables = lib.mkIf config.programs.litellmLocal.enable {
+      GOOGLE_GEMINI_BASE_URL = config.programs.litellmLocal.rootUrl;
+    };
   };
 }

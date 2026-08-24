@@ -217,6 +217,20 @@ let
       };
     }
   ];
+  # Evaluation with the local LiteLLM proxy enabled. The module is off by
+  # default, so without this fixture every `lib.optionalAttrs
+  # litellmLocal.enable` branch across the client modules would go unevaluated
+  # and a typo in one of them would pass CI.
+  hmConfigLitellmLocal = mkHmConfig [
+    {
+      programs.litellmLocal.enable = true;
+      services.aiStack = {
+        llmEndpoint = "router";
+        llmRouterEndpoint = "https://llm.example.invalid/v1";
+        llmEndpointTokenFile = "/run/secrets/LLM_ROUTER_BEARER";
+      };
+    }
+  ];
 in
 (import ./checks/lint.nix { inherit pkgs src; })
 // (import ./checks/token-meter.nix {
@@ -300,7 +314,13 @@ in
 // (import ./checks/mlx-cluster-soak.nix { inherit pkgs src; })
 // (import ./checks/mlx-cluster-selfheal.nix { inherit pkgs src; })
 // (import ./checks/mlx-cluster-recovery.nix { inherit pkgs src; })
-// (import ./checks/litellm-local.nix { inherit pkgs hmConfig; })
+// (import ./checks/litellm-local.nix {
+  inherit
+    pkgs
+    hmConfig
+    hmConfigLitellmLocal
+    ;
+})
 // (import ./checks/fabric.nix {
   inherit
     pkgs

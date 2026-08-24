@@ -207,7 +207,10 @@ in
         # this Nix default.
         alwaysThinkingEnabled = true;
         cleanupPeriodDays = 180;
-        env = import ./claude/settings-env.nix { inherit lib userConfig; };
+        env = import ./claude/settings-env.nix {
+          inherit lib userConfig;
+          inherit (config.programs) litellmLocal;
+        };
 
         permissions = {
           allow = formatters.claude.formatAllowed permissions;

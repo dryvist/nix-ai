@@ -45,11 +45,25 @@ in
       '';
     };
 
+    rootUrl = lib.mkOption {
+      type = lib.types.str;
+      readOnly = true;
+      default = "http://127.0.0.1:${toString cfg.port}";
+      defaultText = lib.literalExpression ''"http://127.0.0.1:''${port}"'';
+      description = ''
+        Read-only root URL of the local proxy, with no API prefix. Clients
+        that append their own prefix read this: Claude Code appends the
+        Anthropic paths, and a Gemini-format client appends
+        `/v1beta/models/<model>:generateContent`. Clients wanting the
+        OpenAI-compatible base read `baseUrl` instead.
+      '';
+    };
+
     baseUrl = lib.mkOption {
       type = lib.types.str;
       readOnly = true;
-      default = "http://127.0.0.1:${toString cfg.port}/v1";
-      defaultText = lib.literalExpression ''"http://127.0.0.1:''${port}/v1"'';
+      default = "${cfg.rootUrl}/v1";
+      defaultText = lib.literalExpression ''"''${rootUrl}/v1"'';
       description = ''
         Read-only OpenAI-compatible `/v1` base URL of the local proxy. The
         CLI consumers read this instead of composing the loopback URL

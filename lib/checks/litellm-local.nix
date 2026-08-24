@@ -13,8 +13,13 @@
 #
 # Reads programs.litellmLocal.renderedConfig, which the module sets
 # unconditionally, so this needs no second home-manager evaluation.
-{ pkgs, hmConfig }:
+{
+  pkgs,
+  hmConfig,
+  hmConfigLitellmLocal,
+}:
 let
+  inherit (pkgs) lib;
   helpers = import ./helpers.nix { inherit pkgs; };
 
   rendered = hmConfig.config.programs.litellmLocal.renderedConfig;
@@ -38,6 +43,46 @@ let
   # override the forwarded client credential and silently bill the wrong
   # account.
   claudeHasNoKey = !(claudeDeployment.litellm_params ? api_key);
+
+  # ---- enabled-path wiring -------------------------------------------------
+  enabled = hmConfigLitellmLocal.config;
+  proxyBase = enabled.programs.litellmLocal.baseUrl;
+
+  claudeEnv = enabled.programs.claude.settings.env;
+
+  # The main model must stay on Anthropic: only the subagent and background
+  # tiers are repointed at roles.
+  claudeMainUntouched = !(claudeEnv ? ANTHROPIC_MODEL);
+
+  claudeSubagentRole = claudeEnv.CLAUDE_CODE_SUBAGENT_MODEL == "subagent";
+  claudeHaikuRole = claudeEnv.ANTHROPIC_DEFAULT_HAIKU_MODEL == "cheap";
+
+  # The proxy master key must never be rendered into settings.json, which is
+  # a world-readable file in the Nix store. The module exports the header at
+  # shell init instead.
+  claudeNoHeaderInStore = !(claudeEnv ? ANTHROPIC_CUSTOM_HEADERS);
+
+  # Codex must gain the proxy as an ADDITIONAL provider without the default
+  # provider or model changing.
+  codexAgent = enabled.programs.codex;
+  codexDefaultUntouched = codexAgent.modelProvider == hmConfig.config.programs.codex.modelProvider;
+
+  # Every CLI that reads an OpenAI-compatible base URL points at the proxy.
+  fabricBase = enabled.home.sessionVariables.OPENAI_API_BASE_URL == proxyBase;
+  fabricRole = enabled.home.sessionVariables.DEFAULT_MODEL == "cheap";
+
+  # The Gemini-format client appends `/v1beta/...` itself, so it must get the
+  # root URL, not the OpenAI-compatible `/v1` base.
+  agyBase = enabled.home.sessionVariables.GOOGLE_GEMINI_BASE_URL;
+  agyGetsRoot = agyBase == enabled.programs.litellmLocal.rootUrl && !lib.hasSuffix "/v1" agyBase;
+
+  agent = enabled.launchd.agents.litellm-local.config;
+  agentLoopbackOnly = enabled.programs.litellmLocal.port == 4100;
+  # The router URL reaches the agent as plain env; the two secrets do not.
+  agentCarriesNoSecret =
+    (agent.EnvironmentVariables ? LLM_ROUTER_URL)
+    && !(agent.EnvironmentVariables ? OPENAI_API_KEY)
+    && !(agent.EnvironmentVariables ? LITELLM_LOCAL_KEY);
 in
 {
   litellm-local-header-scope =
@@ -54,4 +99,28 @@ in
       wildcardHasOwnKey
       || throw "the litellm-local wildcard deployment must carry its own api_key so it authenticates to the router as itself";
     helpers.mkMarker "check-litellm-local-header-scope" "litellm-local: client-header forwarding scoped to claude-* only, router leg authenticates with its own key";
+
+  litellm-local-client-wiring =
+    assert
+      claudeMainUntouched
+      || throw "enabling the proxy must not pin Claude Code's main model; ANTHROPIC_MODEL was set";
+    assert
+      claudeSubagentRole || throw "Claude Code's subagent tier must resolve to the `subagent` role";
+    assert claudeHaikuRole || throw "Claude Code's background tier must resolve to the `cheap` role";
+    assert
+      claudeNoHeaderInStore
+      || throw "ANTHROPIC_CUSTOM_HEADERS must not be rendered into settings.json: it carries the proxy master key, and settings.json lands in the Nix store";
+    assert
+      codexDefaultUntouched
+      || throw "enabling the proxy must not change Codex's default model provider; the `ox` profile is the opt-in";
+    assert fabricBase || throw "fabric must read the proxy through OPENAI_API_BASE_URL";
+    assert fabricRole || throw "fabric's default model must be the `cheap` role via DEFAULT_MODEL";
+    assert
+      agyGetsRoot
+      || throw "the Gemini-format client must get the proxy root URL, not the /v1 OpenAI base: it appends /v1beta/models/<model>:generateContent itself; got: ${agyBase}";
+    assert agentLoopbackOnly || throw "the proxy port default must stay 4100";
+    assert
+      agentCarriesNoSecret
+      || throw "the launchd agent must take the router URL as plain env and read both secrets from files at exec time, never as EnvironmentVariables";
+    helpers.mkMarker "check-litellm-local-client-wiring" "litellm-local: clients name roles, lead models untouched, no secret rendered into the store";
 }
