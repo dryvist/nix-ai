@@ -42,18 +42,33 @@ let
   # The router is bearer-gated: point qwen-code's envKey at OPENAI_API_KEY,
   # which ai-stack exports at shell init from llmEndpointTokenFile (never in
   # the Nix store), and drop the literal so the real token is read from env.
-  endpointBase = resolvedLlmEndpoint;
-  isLocalEndpoint = llmEndpoint == "mlx_local";
-  apiKeyEnvVar = if isLocalEndpoint then "QWEN_LOCAL_DUMMY_KEY" else "OPENAI_API_KEY";
+  inherit (config.programs) litellmLocal;
+  endpointBase = if litellmLocal.enable then litellmLocal.baseUrl else resolvedLlmEndpoint;
+  isLocalEndpoint = llmEndpoint == "mlx_local" && !litellmLocal.enable;
+  apiKeyEnvVar =
+    if litellmLocal.enable then
+      "LITELLM_LOCAL_KEY"
+    else if isLocalEndpoint then
+      "QWEN_LOCAL_DUMMY_KEY"
+    else
+      "OPENAI_API_KEY";
   providerKey = "mlx-local-llama-swap";
 
   # llama-swap routes capability-class aliases (default, coding, ...). The
   # qwen-code model schema only accepts `name` and `description` — routing
   # is implicit in the provider's baseUrl, not a per-model field.
+  # The proxy serves two role aliases that the local llama-swap registry has
+  # no equivalent for, so enumerate them alongside it rather than adding them
+  # to the shared registry (they resolve upstream, not on this host).
+  proxyOnlyRoles = lib.optionalAttrs litellmLocal.enable {
+    subagent = null;
+    cheap = null;
+  };
+
   modelEntries = lib.mapAttrsToList (role: physical: {
     name = role;
-    description = "${role} → ${physical} via llama-swap";
-  }) models;
+    description = if physical == null then "${role} via the local proxy" else "${role} → ${physical}";
+  }) (models // proxyOnlyRoles);
 
   defaultModelName = cfg.model;
 

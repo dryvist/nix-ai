@@ -14,6 +14,11 @@
 let
   inherit (fabricShared) cfg fabricPkg;
   inherit (config.services.aiStack) resolvedLlmEndpoint llmEndpoint;
+  inherit (config.programs) litellmLocal;
+
+  # With the local proxy up it is the endpoint every CLI talks to; the router
+  # is reached only by the proxy itself.
+  endpointBase = if litellmLocal.enable then litellmLocal.baseUrl else resolvedLlmEndpoint;
 
   # Single source of truth for the patterns symlink location. The relative
   # path (patternsKey) is used as the home.file attribute key; the absolute
@@ -50,7 +55,12 @@ in
 
       sessionVariables = {
         FABRIC_PATTERNS_DIR = patternsDir;
-        FABRIC_DEFAULT_MODEL = cfg.defaultModel;
+        # DEFAULT_MODEL, not FABRIC_DEFAULT_MODEL. fabric builds each setting's
+        # env var as <VENDOR>_<SETTING>, and the vendor holding the default
+        # model is literally named "Default" — so the name carries no `FABRIC_`
+        # prefix. The prefixed spelling this module used before was read by
+        # nothing, which is why the value in the user-managed .env kept winning.
+        DEFAULT_MODEL = if litellmLocal.enable then "cheap" else cfg.defaultModel;
       }
       // lib.optionalAttrs (cfg.customPatternsDir != null) {
         FABRIC_CUSTOM_PATTERNS_DIR = cfg.customPatternsDir;
@@ -63,8 +73,13 @@ in
       # fabric on its .env value, unchanged); godotenv does not override an
       # already-set env var, so this shell export wins over any OPENAI_BASE_URL
       # in .env, but vendor selection and API keys in .env stay authoritative.
-      // lib.optionalAttrs (llmEndpoint != "mlx_local") {
-        OPENAI_BASE_URL = resolvedLlmEndpoint;
+      // lib.optionalAttrs (llmEndpoint != "mlx_local" || litellmLocal.enable) {
+        # OPENAI_API_BASE_URL, not OPENAI_BASE_URL — same <VENDOR>_<SETTING>
+        # derivation as above, with the OpenAI vendor's `API Base URL` setting.
+        # godotenv.Load (not Overload) leaves an already-set variable alone, so
+        # under the correct name this export wins over the user-managed .env.
+        OPENAI_API_BASE_URL = endpointBase;
+        DEFAULT_VENDOR = "OpenAI";
       };
 
       activation = lib.optionalAttrs (cfg.customPatternsDir != null) {

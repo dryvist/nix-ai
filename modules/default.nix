@@ -90,6 +90,7 @@ in
     ./antigravity-ide
     ./antigravity-cli
     ./fabric
+    ./litellm-local
     ./maestro
     ./mcp/module.nix
     ./mlx

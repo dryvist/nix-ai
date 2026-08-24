@@ -74,9 +74,12 @@ in
         actual = hmConfig.config.home.sessionVariables.FABRIC_PATTERNS_DIR;
         expected = "${hmConfig.config.home.homeDirectory}/.config/fabric/patterns";
       }
+      # DEFAULT_MODEL, not FABRIC_DEFAULT_MODEL: fabric derives each setting's
+      # env var as <VENDOR>_<SETTING>, and the vendor owning the default model
+      # is named "Default". The prefixed spelling was read by nothing.
       {
-        name = "fabric.env.FABRIC_DEFAULT_MODEL";
-        actual = hmConfig.config.home.sessionVariables.FABRIC_DEFAULT_MODEL;
+        name = "fabric.env.DEFAULT_MODEL";
+        actual = hmConfig.config.home.sessionVariables.DEFAULT_MODEL;
         expected = cfg.defaultModel;
       }
     ];
