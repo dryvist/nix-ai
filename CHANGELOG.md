@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.26.1](https://github.com/dryvist/nix-ai/compare/v4.26.0...v4.26.1) (2026-08-25)
+
+
+### Bug Fixes
+
+* **litellm-local:** take no proxy credential and keep the claude- prefix upstream ([#1762](https://github.com/dryvist/nix-ai/issues/1762)) ([cd7019f](https://github.com/dryvist/nix-ai/commit/cd7019f624576a80de418f1538f329060fccf370))
+
 ## [4.26.0](https://github.com/dryvist/nix-ai/compare/v4.25.0...v4.26.0) (2026-08-24)
 
 
