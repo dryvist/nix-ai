@@ -28,6 +28,23 @@ in
     }
     {
       assertion = lib.all (
+        modelId:
+        let
+          profile = cfg.modelMtpProfiles.${modelId};
+          backend = cfg.modelBackends.${modelId} or cfg.modelServerBackend;
+        in
+        !profile.enable
+        || (
+          backend == "vllm-mlx"
+          && lib.elem "vllm-mlx" cfg.enabledBackends
+          && (cfg.modelConcurrencyLimits.${modelId} or cfg.proxy.concurrencyLimit) == 1
+          && !config.programs.mlx.clusterMode.enable
+        )
+      ) (lib.attrNames cfg.modelMtpProfiles);
+      message = "An enabled programs.mlx.modelMtpProfiles entry requires enabled vllm-mlx, a c1 model concurrency limit, and non-cluster mode. MTP evidence is experimental c1-only and must not silently enter a clustered or production-concurrent role.";
+    }
+    {
+      assertion = lib.all (
         role:
         let
           physical = config.services.aiStack.models.${role};
