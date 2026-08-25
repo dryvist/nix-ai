@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.26.3](https://github.com/dryvist/nix-ai/compare/v4.26.2...v4.26.3) (2026-08-25)
+
+
+### Bug Fixes
+
+* **codex:** move the ox profile into its own profile file ([#1771](https://github.com/dryvist/nix-ai/issues/1771)) ([fb9bf13](https://github.com/dryvist/nix-ai/commit/fb9bf1327286b84cc6bf9652a5f0d7568fcd49e5))
+* **scripts:** clear a Nix-declared env block before the merge rebuilds it ([#1773](https://github.com/dryvist/nix-ai/issues/1773)) ([771b0eb](https://github.com/dryvist/nix-ai/commit/771b0ebf8ba591e6440533e9c406e9d58505b338))
+
 ## [4.26.2](https://github.com/dryvist/nix-ai/compare/v4.26.1...v4.26.2) (2026-08-25)
 
 
