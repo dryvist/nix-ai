@@ -210,6 +210,7 @@ in
         env = import ./claude/settings-env.nix {
           inherit lib userConfig;
           inherit (config.programs) litellmLocal;
+          inherit (config.services) aiStack;
         };
 
         permissions = {
