@@ -7,7 +7,7 @@
 #
 # Two model groups, and the split between them is the whole point:
 #
-#   claude-*  ->  anthropic/*  with the calling client's own credentials
+#   claude-*  ->  anthropic/claude-*  with the calling client's own credentials
 #                 forwarded (no api_key here on purpose).
 #   *         ->  the router named by services.aiStack.llmRouterEndpoint,
 #                 authenticated with that endpoint's own bearer.
@@ -18,9 +18,31 @@
 # reach the router leg, and the scoped list is what enforces that — the flake
 # check `litellm-local-header-scope` asserts the list stays exactly `claude-*`.
 #
-# Secrets: the router bearer and the proxy's own master key are read from
-# files at exec time by the launchd wrapper, and exported at shell init for
-# the clients. Neither value is ever written into the Nix store.
+# The proxy takes NO credential of its own (no `master_key`), deliberately:
+#
+# - A Claude Code session on a claude.ai subscription must send the gateway
+#   no credential variable at all — any of them replaces the subscription
+#   login (code.claude.com/docs/en/llm-gateway, "Subscriptions and gateways").
+#   The only credential such a session can carry is its own OAuth bearer,
+#   which belongs to Anthropic, not to this proxy.
+# - Claude Code reaches this proxy from every surface — a login shell, the
+#   desktop app, an IDE extension — and only `settings.json` reaches all of
+#   them. `settings.json` is rendered into the Nix store, so nothing secret can
+#   go through it. A proxy key therefore cannot reach every session, and a key
+#   that reaches only some sessions breaks the rest (the 2026-08-24 outage:
+#   every session without the key got `400 No connected db`).
+# - The listener is loopback-only and the bearer it holds is already readable
+#   by every process of the same user (`llmEndpointTokenFile` is that user's
+#   file), so a key would not have guarded anything a local process could not
+#   already read.
+#
+# One header still matters. LiteLLM forwards a client's OAuth `Authorization`
+# upstream only when the request ALSO carries `x-litellm-api-key` — that is
+# what tells it the Authorization header was not the proxy credential
+# (litellm/proxy/litellm_pre_call_utils.py, add_headers_to_llm_call). With no
+# master key its value is never checked, so the header is a constant routing
+# marker (`clientToken`, "local"), not a secret, and it is rendered into
+# `settings.json` like any other plain setting.
 {
   config,
   pkgs,
@@ -30,10 +52,12 @@
 let
   cfg = config.programs.litellmLocal;
   aiStack = config.services.aiStack;
+  versions = import ../../lib/versions.nix;
 
   # `os.environ/NAME` is LiteLLM's own indirection: the literal string is what
   # goes in the config file, and LiteLLM resolves it from the process
-  # environment at load time. That is what keeps every secret out of the store.
+  # environment at load time. That is what keeps the router bearer out of the
+  # store.
   proxyConfig = {
     model_list = [
       {
@@ -48,7 +72,12 @@ let
         # optionally_handle_anthropic_oauth). A client sending any other token
         # shape therefore gets no credential on this leg rather than the wrong
         # one — the failure is a 401, not a silent mis-auth.
-        litellm_params.model = "anthropic/*";
+        #
+        # `anthropic/claude-*`, not `anthropic/*`: the wildcard substitutes only
+        # the part the pattern matched, so `anthropic/*` turned a request for
+        # `claude-opus-5` into an upstream request for `opus-5`, which Anthropic
+        # rejects as an unknown model.
+        litellm_params.model = "anthropic/claude-*";
       }
       {
         model_name = "*";
@@ -66,24 +95,27 @@ let
       drop_params = true;
       model_group_settings.forward_client_headers_to_llm_api = [ "claude-*" ];
     };
-
-    general_settings.master_key = "os.environ/LITELLM_LOCAL_KEY";
   };
 
   configYaml = (pkgs.formats.yaml { }).generate "litellm-local-config.yaml" proxyConfig;
 
-  litellmPkg = pkgs.litellm;
+  # The proxy runs from a uvx environment pinned to the Renovate-tracked release
+  # in lib/versions.nix, the same way the MLX stack does, rather than from
+  # nixpkgs' litellm: nixpkgs lags the upstream release train by months, and
+  # building it from source drags a large Python test closure (the rq test
+  # suite among it) into every CI and workstation rebuild.
+  uvPythonVersion = (import ../../lib/python.nix { inherit pkgs; }).pythonVersion;
 
-  # launchd agents get no shell init, so the wrapper reads both secrets from
-  # their files itself. This is also why the assertion below requires
+  # launchd agents get no shell init, so the wrapper reads the router bearer
+  # from its file itself. This is also why the assertion below requires
   # llmEndpointTokenFile: llmEndpointBearerFromEnv provisions the bearer into
   # an interactive shell, which this agent never has.
   proxyScript = pkgs.writeShellScript "litellm-local-start" ''
     set -euo pipefail
     OPENAI_API_KEY="$(cat ${lib.escapeShellArg (toString aiStack.llmEndpointTokenFile)})"
-    LITELLM_LOCAL_KEY="$(cat ${lib.escapeShellArg cfg.keyFile})"
-    export OPENAI_API_KEY LITELLM_LOCAL_KEY
-    exec ${lib.getExe' litellmPkg "litellm"} \
+    export OPENAI_API_KEY
+    exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} \
+      --from "litellm[proxy]==${versions.litellm}" litellm \
       --config ${configYaml} \
       --host 127.0.0.1 \
       --port ${toString cfg.port}
@@ -110,28 +142,6 @@ in
         }
       ];
 
-      # Generate the master key once, on first activation. Regenerating it on
-      # every rebuild would invalidate the header every already-running client
-      # is sending, so the guard is `absent`, not `stale`.
-      #
-      # The whole sequence is one script rather than $DRY_RUN_CMD-prefixed
-      # lines: a `>` redirect runs in the activation shell whether or not
-      # DRY_RUN_CMD is a no-op, so the inline form would write the echoed
-      # command line into the key file on a dry run and the guard below would
-      # then treat that constant as a valid key forever. umask closes the
-      # window a write-then-chmod would leave open.
-      home.activation.litellmLocalKey = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-        $DRY_RUN_CMD ${pkgs.writeShellScript "litellm-local-keygen" ''
-          set -euo pipefail
-          key=${lib.escapeShellArg cfg.keyFile}
-          if [ ! -s "$key" ]; then
-            umask 077
-            mkdir -p "$(dirname "$key")"
-            ${lib.getExe' pkgs.openssl "openssl"} rand -hex 32 > "$key"
-          fi
-        ''}
-      '';
-
       launchd.agents.litellm-local = {
         enable = true;
         config = {
@@ -154,33 +164,28 @@ in
         };
       };
 
-      # Exec-time client credentials, mirroring ai-stack/endpoint.nix.
+      # Client-side environment for the OpenAI-compatible CLIs.
       #
       # mkBefore, deliberately: endpoint.nix appends a `:-` guarded
       # OPENAI_API_KEY export that defers to an already-set value, so running
-      # first makes this the winner. That is the correct precedence — with the
-      # proxy enabled, no interactive client talks to the router directly, so
-      # the bearer they need is this proxy's key, not the router's. The router
-      # bearer stays confined to the launchd agent's own environment.
+      # first makes this the winner. With the proxy enabled no interactive
+      # client talks to the router directly, so none of them needs the router
+      # bearer; the proxy checks no credential, but OpenAI-compatible SDKs
+      # refuse an empty key, so every client sends the same placeholder. The
+      # router bearer stays confined to the launchd agent's own environment.
       #
       # LLM_ROUTER_URL and LLM_ROUTER_TOKEN_FILE are exported for callers that
       # must reach the UPSTREAM router directly rather than through this proxy
       # — asking what a role actually resolves to, which the local `*` wildcard
-      # hides. Such a caller cannot borrow OPENAI_API_KEY for that: after the
-      # override above it holds the local key, not the router bearer. Both
-      # values are non-secret (an address and a path); the token file's
-      # CONTENTS are never exported, so a caller reads the file itself at the
-      # moment it needs the bearer.
-      #
-      # ANTHROPIC_CUSTOM_HEADERS lives here rather than in Claude Code's
-      # settings.json because settings.json values are literals: rendering the
-      # key there would copy it into the Nix store.
+      # hides. Both values are non-secret (an address and a path); the token
+      # file's CONTENTS are never exported, so a caller reads the file itself
+      # at the moment it needs the bearer. Claude Code gets the same three
+      # non-secret values through settings.json (modules/claude/settings-env.nix)
+      # so its hooks see them from every surface, not only a login shell.
       programs.zsh.initContent = lib.mkBefore (
         ''
-          LITELLM_LOCAL_KEY="$(cat ${lib.escapeShellArg cfg.keyFile} 2>/dev/null || echo "")"
-          export LITELLM_LOCAL_KEY
+          export LITELLM_LOCAL_KEY=${lib.escapeShellArg cfg.clientToken}
           export OPENAI_API_KEY="$LITELLM_LOCAL_KEY"
-          export ANTHROPIC_CUSTOM_HEADERS="x-litellm-api-key: Bearer $LITELLM_LOCAL_KEY"
           export LLM_ROUTER_URL=${lib.escapeShellArg aiStack.llmRouterEndpoint}
           export LLM_ROUTER_TOKEN_FILE=${lib.escapeShellArg (toString aiStack.llmEndpointTokenFile)}
         ''

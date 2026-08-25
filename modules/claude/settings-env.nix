@@ -10,6 +10,7 @@
   lib,
   userConfig,
   litellmLocal,
+  aiStack,
 }:
 {
   # Model is intentionally left unset (see claude-config.nix), so Claude Code
@@ -78,17 +79,36 @@
 # session model is unchanged. Only the subagent and background tiers are
 # repointed at roles.
 #
-# ANTHROPIC_CUSTOM_HEADERS is NOT set here. It carries the proxy's master key,
-# and every value in this attrset is rendered literally into settings.json in
-# the Nix store. The module exports it at shell init from the key file instead.
-// lib.optionalAttrs litellmLocal.enable {
-  ANTHROPIC_BASE_URL = litellmLocal.rootUrl;
-  CLAUDE_CODE_SUBAGENT_MODEL = "subagent";
-  ANTHROPIC_DEFAULT_HAIKU_MODEL = "cheap";
-  # Let the picker list what the proxy actually serves, so a role added
-  # upstream shows up without a rebuild.
-  CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY = "1";
-}
+# Everything the proxy needs from Claude Code lives HERE, and nowhere else.
+# settings.json is the one channel that reaches every session — a login shell,
+# the desktop app, an IDE extension, and a session already running when the
+# rebuild lands. Splitting the wiring across settings.json and shell init is
+# what caused the 2026-08-24 outage: the base URL reached every session while
+# the header reached only new login shells, so every other session failed.
+# Nothing here is secret (the header is a constant marker; see the litellm-local
+# module header for why the proxy takes no credential), so nothing here needs
+# to stay out of the Nix store.
+#
+# No CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY: the proxy serves two wildcard
+# groups, so `/v1/models` would list `claude-*` and `*` — not models — and the
+# picker would show those as rows. The role names are declared below instead.
+// lib.optionalAttrs litellmLocal.enable (
+  {
+    ANTHROPIC_BASE_URL = litellmLocal.rootUrl;
+    ANTHROPIC_CUSTOM_HEADERS = "x-litellm-api-key: Bearer ${litellmLocal.clientToken}";
+    CLAUDE_CODE_SUBAGENT_MODEL = "subagent";
+    ANTHROPIC_DEFAULT_HAIKU_MODEL = "cheap";
+    # For the private-workspace agent guard (nix-claude-code): it asks the
+    # UPSTREAM router what a role resolves to, because the local `*` wildcard
+    # hides that. Address and path only — the bearer file's contents are read
+    # by the hook at the moment it needs them, never exported.
+    LLM_ROUTER_URL = aiStack.llmRouterEndpoint;
+    LLM_ROUTER_TOKEN_FILE = toString aiStack.llmEndpointTokenFile;
+  }
+  // lib.optionalAttrs (aiStack.internalDomains != [ ]) {
+    CLAUDE_SUBAGENT_INTERNAL_DOMAINS = lib.concatStringsSep " " aiStack.internalDomains;
+  }
+)
 # OpenTelemetry — opt-in via userConfig.telemetry (maintainer profile). Off by
 # default so a fresh consumer emits no telemetry. Endpoint falls back to the
 # registry port so flipping telemetry.enable alone reaches the local collector.

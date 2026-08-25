@@ -15,7 +15,11 @@ in
       directly with the calling client's own credentials forwarded, and every
       other model name is a role alias proxied to the router named by
       `services.aiStack.llmRouterEndpoint`. Clients therefore name a stable
-      role and the role-to-model mapping changes upstream, with no change here
+      role and the role-to-model mapping changes upstream, with no change here.
+
+      The proxy checks no credential of its own — it is loopback-only, and a
+      subscription Claude Code session cannot send a gateway credential
+      without losing the subscription (see the module header)
     '';
 
     port = lib.mkOption {
@@ -29,19 +33,17 @@ in
       '';
     };
 
-    keyFile = lib.mkOption {
+    clientToken = lib.mkOption {
       type = lib.types.str;
-      default = "${config.xdg.stateHome}/litellm-local/master-key";
-      defaultText = lib.literalExpression ''"''${config.xdg.stateHome}/litellm-local/master-key"'';
+      readOnly = true;
+      default = "local";
       description = ''
-        Path to the proxy's master key. Generated on activation when absent
-        and never regenerated, so the value survives rebuilds; only the path
-        is committed, mirroring `services.aiStack.llmEndpointTokenFile`.
-
-        The proxy listens on loopback only, so this key is a guard against
-        other local processes rather than a network credential. It is read at
-        exec time by the launchd agent and exported at shell init for the
-        clients — it is never written into the Nix store.
+        The placeholder every client sends the proxy as its API key. Not a
+        secret: the proxy checks no credential (see the module header for
+        why it cannot). It exists because OpenAI-compatible SDKs refuse an
+        empty key, and because LiteLLM forwards a client's own OAuth bearer
+        upstream only when the request also carries `x-litellm-api-key` —
+        Claude Code sends this value in that header for exactly that reason.
       '';
     };
 

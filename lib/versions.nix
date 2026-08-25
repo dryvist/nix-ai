@@ -137,6 +137,11 @@
   # AI tools (pypi)
   # renovate: datasource=pypi depName=browser-use
   browserUse = "0.13.7";
+  # The loopback proxy (modules/litellm-local). Runs from uvx rather than
+  # nixpkgs so it tracks the upstream release train; nixpkgs lags by months
+  # and builds it from source with a large test closure.
+  # renovate: datasource=pypi depName=litellm
+  litellm = "1.98.0";
 
   # Fabric Go CLI (github-releases)
   # The flake input fabric-src is ALSO tracked by Renovate's nix manager and
