@@ -34,7 +34,20 @@ if [[ -f "$TARGET" ]] && [[ ! -L "$TARGET" ]]; then
   # Strip Nix-authoritative sections from existing config before merge.
   # This prevents stale entries (e.g. removed MCP servers) from persisting.
   # del(.mcpServers) is a no-op on files without that key (safe for Claude settings.json).
-  if ! STRIPPED=$(jq 'del(.mcpServers)' "$TARGET" 2>/dev/null); then
+  #
+  # `.env` is stripped only when the Nix side actually declares it. A deep
+  # merge cannot express a REMOVAL: once Nix stops emitting a variable, there
+  # is nothing to overwrite the runtime copy with and it keeps being applied
+  # forever. Observed here after a client moved from a local endpoint to the
+  # proxy — the dummy key from the old endpoint stayed behind.
+  #
+  # The condition matters because this script is shared by clients whose Nix
+  # config declares no env block at all. Stripping unconditionally would erase
+  # a whole runtime-owned block for those, trading one silent bug for another;
+  # when Nix declares the block it regenerates it in full, so removal is safe.
+  if ! STRIPPED=$(jq --slurpfile nix "$NIX_SETTINGS" \
+    'del(.mcpServers) | if ($nix[0] | type == "object") and ($nix[0] | has("env")) then del(.env) else . end' \
+    "$TARGET" 2>/dev/null); then
     echo "$(date '+%Y-%m-%d %H:%M:%S') [WARN] Failed to strip Nix-managed keys from existing ${TARGET_NAME}, using existing file contents as-is" >&2
     if ! STRIPPED=$(cat "$TARGET"); then
       echo "$(date '+%Y-%m-%d %H:%M:%S') [WARN] Failed to read existing ${TARGET_NAME}, using Nix config" >&2

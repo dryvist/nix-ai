@@ -45,7 +45,14 @@ if [[ -f "$TARGET" ]] && [[ ! -L "$TARGET" ]]; then
   }
   # Strip Nix-authoritative sections from existing config before merge.
   # This prevents stale entries (e.g. removed MCP servers) from persisting.
-  if STRIPPED_EXISTING_JSON=$(jq 'del(.mcp_servers)' <<< "$EXISTING_JSON"); then
+  #
+  # The legacy profile table and selector are stripped for a sharper reason
+  # than staleness: the CLI now REFUSES to start on a config that still
+  # carries either, and named profiles live in their own per-profile file
+  # instead. Nix stopped emitting them, and a merge that only overlays would
+  # leave the rejected keys in place forever — so the deployed config would
+  # keep failing even after the fix shipped. Nothing regenerates them.
+  if STRIPPED_EXISTING_JSON=$(jq 'del(.mcp_servers, .profiles, .profile)' <<< "$EXISTING_JSON"); then
     EXISTING_JSON="$STRIPPED_EXISTING_JSON"
   else
     echo "$(date '+%Y-%m-%d %H:%M:%S') [WARN] Failed to strip Nix-authoritative sections from existing ${TARGET_NAME}, preserving existing runtime state for merge" >&2
