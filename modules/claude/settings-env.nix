@@ -97,7 +97,13 @@
     ANTHROPIC_BASE_URL = litellmLocal.rootUrl;
     ANTHROPIC_CUSTOM_HEADERS = "x-litellm-api-key: Bearer ${litellmLocal.clientToken}";
     CLAUDE_CODE_SUBAGENT_MODEL = "subagent";
-    ANTHROPIC_DEFAULT_HAIKU_MODEL = "cheap";
+    # The haiku tier deliberately stays on Anthropic. Claude Code's background
+    # requests carry its full system prompt (measured ~36k tokens), and the
+    # `cheap` role targets the always-on small local model, whose 32k window
+    # the router's pre-call check honestly refuses — so an override here fails
+    # every background call rather than saving money. The subscription covers
+    # the haiku tier; `cheap` stays the role for bounded CLI work (fabric,
+    # summaries), whose prompts fit.
     # For the private-workspace agent guard (nix-claude-code): it asks the
     # UPSTREAM router what a role resolves to, because the local `*` wildcard
     # hides that. Address and path only — the bearer file's contents are read
