@@ -76,7 +76,11 @@ let
   claudeMainUntouched = !(claudeEnv ? ANTHROPIC_MODEL);
 
   claudeSubagentRole = claudeEnv.CLAUDE_CODE_SUBAGENT_MODEL == "subagent";
-  claudeHaikuRole = claudeEnv.ANTHROPIC_DEFAULT_HAIKU_MODEL == "cheap";
+
+  # The haiku tier stays on Anthropic: Claude Code's background requests carry
+  # its full system prompt (~36k tokens), which the `cheap` role's 32k-window
+  # local target cannot hold, so an override fails every background call.
+  claudeHaikuUntouched = !(claudeEnv ? ANTHROPIC_DEFAULT_HAIKU_MODEL);
 
   # The header is what makes LiteLLM forward the OAuth bearer instead of
   # treating it as the proxy credential. It must be in settings.json (every
@@ -151,7 +155,9 @@ in
       || throw "enabling the proxy must not pin Claude Code's main model; ANTHROPIC_MODEL was set";
     assert
       claudeSubagentRole || throw "Claude Code's subagent tier must resolve to the `subagent` role";
-    assert claudeHaikuRole || throw "Claude Code's background tier must resolve to the `cheap` role";
+    assert
+      claudeHaikuUntouched
+      || throw "Claude Code's haiku tier must stay on Anthropic: the `cheap` role's local target cannot hold Claude Code's system prompt, so an override fails every background call";
     assert
       claudeHeaderIsMarker
       || throw "settings.json must carry ANTHROPIC_CUSTOM_HEADERS as the constant marker `x-litellm-api-key: Bearer ${clientToken}`: it is what makes LiteLLM forward the OAuth bearer, and it must reach every session surface; got: ${
