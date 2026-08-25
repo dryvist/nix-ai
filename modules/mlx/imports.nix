@@ -26,6 +26,7 @@
   ./options-filters.nix
   ./options-parsers.nix
   ./options-runtime.nix
+  ./options-mtp-profiles.nix
   ./options-model-backends.nix
   ./options-residency.nix
   ./options-cluster.nix
