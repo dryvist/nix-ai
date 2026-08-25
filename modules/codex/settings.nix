@@ -129,11 +129,23 @@ let
       wire_api = "responses";
       env_key = "LITELLM_LOCAL_KEY";
     };
-    profiles.ox = {
-      model = "subagent";
-      model_provider = "litellm";
-    };
   };
+
+  # The `ox` profile is a FILE, not a table in the config above. Codex dropped
+  # the legacy `[profiles.<name>]` table (and the top-level `profile =`
+  # selector) in 0.134.0: a config still carrying one is refused outright, so
+  # `--profile ox` failed to start rather than falling back. Each profile now
+  # lives in its own `~/.codex/<name>.config.toml` with its keys at the TOP
+  # level, selected the same way on the command line.
+  oxProfileAttrs = {
+    model = "subagent";
+    model_provider = "litellm";
+  };
+
+  oxProfileJson = pkgs.writeText "codex-ox-profile.json" (builtins.toJSON oxProfileAttrs);
+  oxProfileToml = pkgs.runCommand "codex-ox.config.toml" { nativeBuildInputs = [ pkgs.yj ]; } ''
+    yj -jt < ${oxProfileJson} > $out
+  '';
 
   configJson = pkgs.writeText "codex-config.json" (builtins.toJSON configAttrs);
   configToml = pkgs.runCommand "codex-config.toml" { nativeBuildInputs = [ pkgs.yj ]; } ''
@@ -159,7 +171,12 @@ in
             "${homeDir}/.codex/config.toml"
         '';
 
-        file."${configDir}/rules/default.rules".text = formatters.codex.formatRulesFile permissions;
+        file = {
+          "${configDir}/rules/default.rules".text = formatters.codex.formatRulesFile permissions;
+        }
+        // lib.optionalAttrs litellmLocal.enable {
+          "${configDir}/ox.config.toml".source = oxProfileToml;
+        };
       };
     })
   ];
