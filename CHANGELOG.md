@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.26.2](https://github.com/dryvist/nix-ai/compare/v4.26.1...v4.26.2) (2026-08-25)
+
+
+### Bug Fixes
+
+* **claude:** keep the haiku tier on Anthropic ([#1766](https://github.com/dryvist/nix-ai/issues/1766)) ([32ce5fe](https://github.com/dryvist/nix-ai/commit/32ce5fee38b068912315246e5c176df87b3c841b))
+
 ## [4.26.1](https://github.com/dryvist/nix-ai/compare/v4.26.0...v4.26.1) (2026-08-25)
 
 
