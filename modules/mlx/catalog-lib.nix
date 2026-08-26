@@ -55,13 +55,15 @@
 # An entry only offers the classes it has been validated for; requesting an
 # unoffered class fails the eval.
 #
-# KV-QUANT / MTP FLAGS: DO NOT ADD to any entry. Measured against the
+# KV-QUANT / MTP FLAGS: DO NOT ADD to normal catalog entries. Measured against the
 # deployed release mlx-lm 0.31.3 wrapper's own --help (2026-08): no
 # --kv-bits/--kv-group-size, no MTP flag exists on the release server at all.
 # The backend is official mlx-lm only (vllm-mlx disabled, enforced by
 # lib/checks/mlx-catalog.nix); #1334's KV-quant half is not actionable until
 # mlx-lm ships the flags, and its MTP half is vllm-mlx-only and stays
-# unavailable unless that backend is re-enabled. A future git-wheel
+# unavailable unless that backend is re-enabled. `modelMtpProfiles` provides a
+# separate, opt-in c1-only experimental contract when a served snapshot and
+# backend have both been verified. A future git-wheel
 # serverVariant (staged DeepSeek rollout) adds --mtp but drops
 # --harmony-tool-parser — never select it for gpt-oss.
 {

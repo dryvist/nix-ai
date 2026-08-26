@@ -200,8 +200,8 @@
       description = "Per-physical-model override of programs.mlx.proxy.concurrencyLimit (llama-swap in-flight cap), for models that must be serialized independent of the global default.";
     };
 
-    # modelBackends — the per-model counterpart of modelServerBackend above —
-    # lives in ./options-model-backends.nix (12 KB gate).
+    # modelMtpProfiles and modelBackends — per-model backend capabilities —
+    # live in dedicated files at the 12 KB gate.
 
     # Per-physical-id llama-swap lifecycle for role-registry models. This is
     # backend-neutral: unlike vllm-mlx's worker-side auto-unload flag, the
