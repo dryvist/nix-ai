@@ -86,8 +86,15 @@ let
 
   # Model metadata — cecli uses LiteLLM. Unknown models fall back to GPT
   # limits which may be wrong. Generate an entry per openai/<role> alias.
-  metadataEntry = {
-    max_input_tokens = 32768;
+  maxInputTokensFor =
+    model:
+    if model == null then
+      32768
+    else
+      lib.attrByPath [ model ] 32768 config.programs.mlx.modelContextWindows;
+
+  metadataEntry = model: {
+    max_input_tokens = maxInputTokensFor model;
     max_output_tokens = 8192;
     input_cost_per_token = 0;
     output_cost_per_token = 0;
@@ -101,7 +108,9 @@ let
   };
   allRoles = models // proxyOnlyRoles;
 
-  modelMetadata = lib.mapAttrs' (role: _: lib.nameValuePair "openai/${role}" metadataEntry) allRoles;
+  modelMetadata = lib.mapAttrs' (
+    role: model: lib.nameValuePair "openai/${role}" (metadataEntry model)
+  ) allRoles;
 
   metadataJson = pkgs.writeText "cecli-model-metadata.json" (builtins.toJSON modelMetadata);
 

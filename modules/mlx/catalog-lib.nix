@@ -12,6 +12,10 @@
 # Entry schema:
 #   model            physical Hugging Face id
 #   weightGb         4-bit weight footprint (co-residency budget accounting)
+#   contextWindowTokens (optional) maximum accepted prompt-plus-generation
+#                    tokens advertised to clients and used for conservative
+#                    admission sizing. It is distinct from maxRequestTokens,
+#                    which is a vllm-mlx generation guard.
 #   kv               (optional) per-token KV-cache geometry for admission control.
 #                    Fields fetched from the model's HF config.json:
 #                      kvLayers     count of KV-BEARING attention layers. For a
