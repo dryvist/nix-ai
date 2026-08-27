@@ -1,5 +1,14 @@
 # Changelog
 
+## [4.27.0](https://github.com/dryvist/nix-ai/compare/v4.26.3...v4.27.0) (2026-08-27)
+
+
+### Features
+
+* **claude:** configure outputStyle = "concise" by default ([#1777](https://github.com/dryvist/nix-ai/issues/1777)) ([95d7dfe](https://github.com/dryvist/nix-ai/commit/95d7dfe5509795ee81bc48113ce9e6d72a37d233))
+* gate experimental MTP profiles ([bc9afc7](https://github.com/dryvist/nix-ai/commit/bc9afc7ff64aadeea00e4fe1c4a78f6f34ee9ac5))
+* gate experimental MTP profiles ([fc3f191](https://github.com/dryvist/nix-ai/commit/fc3f191501445d422642d676b746549ceeab33f0))
+
 ## [4.26.3](https://github.com/dryvist/nix-ai/compare/v4.26.2...v4.26.3) (2026-08-25)
 
 
