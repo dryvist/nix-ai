@@ -79,9 +79,19 @@ let
     acc: name: acc // lib.genAttrs enabled.${name}.roles (_role: (entryFor name).model)
   ) { } (lib.attrNames enabled);
   selectedRoles = lib.concatMap (name: enabled.${name}.roles) (lib.attrNames enabled);
+  catalogContextWindows = lib.mapAttrs' (
+    name: _: lib.nameValuePair (entryFor name).model ((entryFor name).contextWindowTokens or 32768)
+  ) enabled;
 in
 {
   options.programs.mlx = {
+    modelContextWindows = lib.mkOption {
+      type = lib.types.attrsOf lib.types.ints.positive;
+      default = { };
+      internal = true;
+      description = "Selected catalog context windows keyed by physical model id.";
+    };
+
     catalog = lib.mkOption {
       type = lib.types.attrsOf (
         lib.types.submodule {
@@ -151,6 +161,7 @@ in
   };
 
   config = lib.mkIf (cfg.enable && enabled != { }) {
+    programs.mlx.modelContextWindows = catalogContextWindows;
     assertions = [
       {
         assertion = residentWeightGb <= cfg.residentWeightBudgetGb;

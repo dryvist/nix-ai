@@ -23,11 +23,12 @@ let
   # Dense-attention KV cache cost per token, the pessimistic bound (MoE
   # families cost less, at 20 KiB/token). See docs/architecture/mlx-stack.md.
   kvPerTokenDenseKiB = 64;
-  # Largest maxRequestTokens actually granted by a catalog entry (the HIGH
-  # agentic-context profile; modules/mlx/catalog-data.nix,
-  # modules/mlx/catalog-data-qwen38-27b.nix). One in-flight request at this
-  # ceiling sets the largest single-request KV reservation to budget for.
-  maxGrantedRequestTokens = 65536;
+  # Largest catalog context window actually compiled into a selected model.
+  # One in-flight request at this ceiling sets the largest KV reservation to
+  # budget for. maxRequestTokens is a vllm generation guard, not an MLX-LM
+  # context declaration, so it must not stand in for this calculation.
+  configuredContextWindows = lib.attrValues config.programs.mlx.modelContextWindows;
+  maxGrantedRequestTokens = lib.foldl' lib.max 32768 configuredContextWindows;
   kvPerSeqGiB = (kvPerTokenDenseKiB * maxGrantedRequestTokens) / (1024 * 1024);
   # Memory-only headroom after the peak weight, sliced into pessimistic-KV
   # portions: how many concurrent max-length requests the budget FITS.
