@@ -35,6 +35,7 @@ in
         "mcpServerNames"
         "mcpServers"
         "model"
+        "outputStyle"
         "plugins"
         "remoteControlAtStartup"
         "rules"
@@ -114,6 +115,11 @@ in
         name = "model";
         actual = cfg.model;
         expected = "opusplan";
+      }
+      {
+        name = "outputStyle";
+        actual = cfg.outputStyle;
+        expected = "concise";
       }
       {
         # Intentionally unset → null → Claude Code uses the upstream default.

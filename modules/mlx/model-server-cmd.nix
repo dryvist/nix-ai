@@ -53,6 +53,11 @@ rec {
     modelId:
     let
       backend = cfg.modelBackends.${modelId} or cfg.modelServerBackend;
+      mtp =
+        cfg.modelMtpProfiles.${modelId} or {
+          enable = false;
+          draftBlockSize = null;
+        };
       serverPkg = mlxModelServerPkgs.${backend} or mlxModelServerPkg;
       overrides = cfg.modelFlagOverrides.${modelId} or { };
       unknown = lib.filter (k: !(lib.elem k overridableFlags)) (lib.attrNames overrides);
@@ -94,6 +99,11 @@ rec {
           (toString c.autoUnloadIdleSeconds)
         ]
         ++ lib.optionals c.enableMetrics [ "--enable-metrics" ]
+        ++ lib.optionals mtp.enable [ "--enable-mtp" ]
+        ++ lib.optionals (mtp.enable && mtp.draftBlockSize != null) [
+          "--draft-block-size"
+          (toString mtp.draftBlockSize)
+        ]
         ++ lib.optionals c.continuousBatching [ "--continuous-batching" ]
         # Applied server-side so every request carries the same logits
         # processor — a batch mixing penalized with penalty-free requests

@@ -93,6 +93,7 @@ Everything is enabled with sensible defaults. Common toggles on the default modu
 | Option | Type | Default | Description |
 | ------ | ---- | ------- | ----------- |
 | `programs.claude.model` | str or null | `null` | Override the default model (e.g. `"opus"`, `"sonnet"`) |
+| `programs.claude.outputStyle` | str or null | `null` | Output style (e.g. `"concise"`, `"explanatory"`); null = upstream default |
 | `programs.claude.effortLevel` | enum or null | `null` | Reasoning effort (`"low"` / `"medium"` / `"high"`); null = upstream default |
 | `programs.claude.settings.sandbox.enabled` | bool | `false` | Filesystem/network sandbox isolation |
 | `programs.claude.trustedProjectDirs` | list of str | `[]` | Directories auto-trusted for CLAUDE.md imports |
