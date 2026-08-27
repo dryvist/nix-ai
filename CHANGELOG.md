@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.28.0](https://github.com/dryvist/nix-ai/compare/v4.27.0...v4.28.0) (2026-08-27)
+
+
+### Features
+
+* **mlx:** expose Qwen3.8 128k context window ([3d3a677](https://github.com/dryvist/nix-ai/commit/3d3a6776f62e36c9b0727622ae837eda71c14725))
+
 ## [4.27.0](https://github.com/dryvist/nix-ai/compare/v4.26.3...v4.27.0) (2026-08-27)
 
 
