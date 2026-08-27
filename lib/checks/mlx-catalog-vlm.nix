@@ -116,7 +116,7 @@ in
       && builtins.match ".*--draft-kind mtp.*" mtpCmd != null
       && builtins.match ".*--draft-block-size 4.*" mtpCmd != null
       && builtins.match ".*--max-num-seqs 1.*" mtpCmd != null
-      && lib.elem "MLX_VLM_TOKEN_QUEUE_TIMEOUT=1800" mtpEnv
+      && builtins.elem "MLX_VLM_TOKEN_QUEUE_TIMEOUT=1800" mtpEnv
       || throw "catalog: enabled native MTP must emit its target, drafter, 128k window, batch width, and long-context queue timeout";
     pkgs.runCommand "check-mlx-mtp-native-contract" { } "touch $out";
 }
