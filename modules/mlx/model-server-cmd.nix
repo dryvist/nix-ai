@@ -56,6 +56,10 @@ rec {
       mtp =
         cfg.modelMtpProfiles.${modelId} or {
           enable = false;
+          drafterModel = null;
+          maxKvTokens = 131072;
+          maxNumSeqs = 1;
+          tokenQueueTimeoutSeconds = 1800;
           draftBlockSize = null;
         };
       serverPkg = mlxModelServerPkgs.${backend} or mlxModelServerPkg;
@@ -195,11 +199,33 @@ rec {
       # local HF cache with HF_HUB_OFFLINE=1 (worker-env.nix), so this executes
       # pinned on-disk code, never anything fetched at serve time.
       mlxVlmFlags = "--trust-remote-code";
+      mlxVlmNativeFlags = lib.concatStringsSep " " (
+        [
+          "--trust-remote-code"
+          "--max-tokens"
+          (toString effectiveMlxLmMaxTokens)
+          "--max-kv-size"
+          (toString mtp.maxKvTokens)
+        ]
+        ++ lib.optionals mtp.enable [
+          "--draft-model"
+          mtp.drafterModel
+          "--draft-kind"
+          "mtp"
+          "--max-num-seqs"
+          (toString mtp.maxNumSeqs)
+        ]
+        ++ lib.optionals (mtp.enable && mtp.draftBlockSize != null) [
+          "--draft-block-size"
+          (toString mtp.draftBlockSize)
+        ]
+      );
       mlxModelServerFlags =
         {
           mlx-lm = mlxLmFlags;
           vllm-mlx = vllmMlxFlags;
           mlx-vlm = mlxVlmFlags;
+          mlx-vlm-native = mlxVlmNativeFlags;
         }
         .${backend};
     in

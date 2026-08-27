@@ -27,6 +27,8 @@
         lib.types.enum [
           "mlx-lm"
           "vllm-mlx"
+          "mlx-vlm"
+          "mlx-vlm-native"
         ]
       );
       default = [ "mlx-lm" ];
@@ -64,6 +66,8 @@
       type = lib.types.enum [
         "mlx-lm"
         "vllm-mlx"
+        "mlx-vlm"
+        "mlx-vlm-native"
       ];
       default = "mlx-lm";
       description = "Implementation used by every standalone MLX model server. The selected value must also be present in enabledBackends.";

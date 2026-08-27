@@ -53,6 +53,7 @@ let
     # path suffix — same shape as the mlx-lm launcher above, and derived from
     # the same single source for the same reason.
     mlx-vlm = lib.escapeRegex mlxVlmServer.launchScriptBasename;
+    mlx-vlm-native = lib.escapeRegex mlxVlmServer.nativeLaunchScriptBasename;
   };
   backendsInUse = lib.unique ([ cfg.modelServerBackend ] ++ lib.attrValues cfg.modelBackends);
   selected = map (backend: patterns.${backend}) backendsInUse;

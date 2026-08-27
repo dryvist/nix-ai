@@ -28,6 +28,7 @@
         "mlx-lm"
         "vllm-mlx"
         "mlx-vlm"
+        "mlx-vlm-native"
       ]
     );
     default = { };

@@ -67,12 +67,13 @@ in
     # it to 1 would make llama-swap serialize every request on the host.
     classes = {
       # Fleet-brain resident profile, matched to the entry it takes over from:
-      # HIGH caps for 40-58K agentic contexts. maxRequestTokens 65536 is load
-      # bearing — 32768 fed a truncation/retry death-loop.
+      # The 128k catalog window must also be admitted by the serving worker;
+      # a lower request cap would turn the declared default into a client-only
+      # hint and force long-context callers to fail before model dispatch.
       resident.flags = block512 // {
         cacheMemoryMb = 16384;
         maxNumSeqs = 8;
-        maxRequestTokens = 65536;
+        maxRequestTokens = 131072;
       };
       swap.flags =
         block256

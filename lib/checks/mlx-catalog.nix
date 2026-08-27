@@ -77,6 +77,9 @@ in
       c.modelContextWindows.${judge27b} == 131072
       || throw "catalog: Qwen3.8 must compile its 131072-token production window";
     assert
+      c.modelFlagOverrides.${judge27b}.maxRequestTokens == 131072
+      || throw "catalog: Qwen3.8 must admit its declared 131072-token production window";
+    assert
       c.modelServerBackend == "mlx-lm"
       || throw "catalog: the goal judge must use the selected mlx_lm.server deployment path";
     assert
