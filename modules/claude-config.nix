@@ -132,6 +132,10 @@ in
       # Model: opusplan — Opus for planning, Sonnet for execution (1M context).
       model = "opusplan";
 
+      # Output style: concise responses by default
+      # See: https://code.claude.com/docs/en/output-styles
+      outputStyle = "concise";
+
       # Effort intentionally left unset: nix-claude-code defaults `effortLevel`
       # to null, which Claude Code reads as the upstream default. Override
       # per-session via /effort.
