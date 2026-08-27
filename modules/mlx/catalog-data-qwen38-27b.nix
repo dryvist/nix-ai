@@ -51,6 +51,10 @@ in
   qwen38-27b = {
     model = "mlx-community/Qwen3.8-27B-4bit";
     weightGb = 16.1;
+    # The model supports a native 262,144-token window. Production roles use
+    # 131,072 so the remaining range is available for separately managed 200K
+    # feasibility work rather than silently becoming a fleet default.
+    contextWindowTokens = 131072;
     args = [
       "--chat-template-args"
       (builtins.toJSON {
