@@ -78,11 +78,13 @@ let
     inherit pkgs mlxVlmVersion uvPythonVersion;
   };
   mlxVlmServerPkg = mlxVlmServer.pkg;
+  mlxVlmNativeServerPkg = mlxVlmServer.nativePkg;
 
   mlxModelServerPkgs = {
     mlx-lm = mlxLmServerPkg;
     vllm-mlx = vllmMlxServerAdapterPkg;
     mlx-vlm = mlxVlmServerPkg;
+    mlx-vlm-native = mlxVlmNativeServerPkg;
   };
   mlxModelServerPkg = mlxModelServerPkgs.${cfg.modelServerBackend};
   mlxWarmupPkg = pkgs.writeShellScriptBin "mlx-warmup" ''

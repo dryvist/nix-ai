@@ -44,9 +44,14 @@ in
     exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} --from "mlx-vlm==${mlxVlmVersion}" python ${adapter} "$@"
   '';
 
+  nativePkg = pkgs.writeShellScriptBin "mlx-vlm-native-server" ''
+    exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} --from "mlx-vlm==${mlxVlmVersion}" python -m mlx_vlm.server "$@"
+  '';
+
   # The single source ./model-server-pattern.nix derives its mlx-vlm entry
   # from, mirroring mlx-lm-server.nix. Derived, never hand-typed: a literal is
   # exactly what silently drifted from the real invocation before, leaving
   # every pattern-based reap a no-op.
   launchScriptBasename = builtins.baseNameOf (toString adapter);
+  nativeLaunchScriptBasename = "mlx-vlm-native-server";
 }

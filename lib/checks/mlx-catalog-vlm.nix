@@ -20,6 +20,26 @@
 let
   c = hmConfigCatalog.config.programs.mlx;
   ocr = "mlx-community/Unlimited-OCR-bf16";
+  mtpTarget = "mlx-community/test-mtp-target";
+  mtpDrafter = "mlx-community/test-mtp-drafter";
+  mtpCfg = c // {
+    modelBackends = c.modelBackends // {
+      ${mtpTarget} = "mlx-vlm-native";
+    };
+    modelConcurrencyLimits = c.modelConcurrencyLimits // {
+      ${mtpTarget} = 1;
+    };
+    modelMtpProfiles = c.modelMtpProfiles // {
+      ${mtpTarget} = {
+        enable = true;
+        drafterModel = mtpDrafter;
+        maxKvTokens = 131072;
+        maxNumSeqs = 1;
+        tokenQueueTimeoutSeconds = 1800;
+        draftBlockSize = 4;
+      };
+    };
+  };
   commandBuilder = import ../../modules/mlx/model-server-cmd.nix {
     inherit (pkgs) lib;
     cfg = c;
@@ -29,6 +49,21 @@ let
     };
   };
   ocrCmd = commandBuilder.mkModelCmd ocr;
+  mtpCommandBuilder = import ../../modules/mlx/model-server-cmd.nix {
+    inherit (pkgs) lib;
+    cfg = mtpCfg;
+    mlxModelServerPkg = pkgs.writeShellScriptBin "mlx-model-server" "";
+    mlxModelServerPkgs = {
+      mlx-vlm-native = pkgs.writeShellScriptBin "stub-mlx-vlm-native-server" "";
+    };
+  };
+  mtpCmd = mtpCommandBuilder.mkModelCmd mtpTarget;
+  mtpEnv =
+    (import ../../modules/mlx/worker-env.nix {
+      inherit (pkgs) lib;
+      cfg = mtpCfg;
+    }).workerEnv
+      mtpTarget;
   # mlx_vlm.server shares only --model/--port/--host with mlx_lm.server and
   # rejects the rest, so a leaked mlx-lm flag is a startup failure, not a
   # cosmetic difference.
@@ -72,4 +107,16 @@ in
   mlx-vlm-adapter = pkgs.runCommand "check-mlx-vlm-adapter" { } ''
     ${pkgs.python3}/bin/python3 ${src}/tests/test-mlx-vlm-adapter.py && touch $out
   '';
+
+  mlx-mtp-native-contract =
+    assert
+      builtins.match ".*stub-mlx-vlm-native-server --model ${mtpTarget} .*" mtpCmd != null
+      && builtins.match ".*--max-kv-size 131072.*" mtpCmd != null
+      && builtins.match ".*--draft-model ${mtpDrafter}.*" mtpCmd != null
+      && builtins.match ".*--draft-kind mtp.*" mtpCmd != null
+      && builtins.match ".*--draft-block-size 4.*" mtpCmd != null
+      && builtins.match ".*--max-num-seqs 1.*" mtpCmd != null
+      && lib.elem "MLX_VLM_TOKEN_QUEUE_TIMEOUT=1800" mtpEnv
+      || throw "catalog: enabled native MTP must emit its target, drafter, 128k window, batch width, and long-context queue timeout";
+    pkgs.runCommand "check-mlx-mtp-native-contract" { } "touch $out";
 }
