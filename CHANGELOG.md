@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.29.1](https://github.com/dryvist/nix-ai/compare/v4.29.0...v4.29.1) (2026-08-28)
+
+
+### Bug Fixes
+
+* **claude:** give the subagent tier a 1M context window ([#1790](https://github.com/dryvist/nix-ai/issues/1790)) ([8130702](https://github.com/dryvist/nix-ai/commit/8130702cadb93b36fa8d697042a94bb8a235b0a8))
+
 ## [4.29.0](https://github.com/dryvist/nix-ai/compare/v4.28.0...v4.29.0) (2026-08-28)
 
 
