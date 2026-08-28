@@ -65,38 +65,6 @@ let
 
   hmConfig = mkHmConfig [ ];
 
-  # Telemetry evaluations. Three profiles, because the interesting behaviour is
-  # what does NOT render: an endpoint is required, and traces are a separate
-  # opt-in on top of it. See lib/checks/telemetry.nix.
-  hmConfigTelemetryFull = mkHmConfigWith {
-    telemetry = {
-      enable = true;
-      otlpEndpoint = "https://otel.test.invalid";
-      tracesEndpoint = "https://otel.test.invalid/v1/traces";
-    };
-  } [ ];
-
-  hmConfigTelemetryNoTraces = mkHmConfigWith {
-    telemetry = {
-      enable = true;
-      otlpEndpoint = "https://otel.test.invalid";
-    };
-  } [ ];
-
-  hmConfigTelemetryNoEndpoint = mkHmConfigWith {
-    telemetry.enable = true;
-  } [ ];
-
-  # Traces wired, metrics/logs deliberately not — the shape used against a
-  # collector whose pipeline extracts spans only.
-  hmConfigTelemetryTracesOnly = mkHmConfigWith {
-    telemetry = {
-      enable = true;
-      tracesEndpoint = "https://otel.test.invalid/v1/traces";
-      resourceAttributes."host.name" = "test-host";
-    };
-  } [ ];
-
   hmConfigAgentSkillsShared = mkHmConfig [
     {
       programs.agentSkills.root = "agents";
@@ -300,15 +268,7 @@ in
 // (import ./checks/ai-stack.nix { inherit pkgs testLocalModelId; })
 // (import ./checks/ai-stack-endpoint.nix { inherit pkgs; })
 // (import ./checks/claude.nix { inherit pkgs hmConfig; })
-// (import ./checks/telemetry.nix {
-  inherit
-    pkgs
-    hmConfigTelemetryFull
-    hmConfigTelemetryNoTraces
-    hmConfigTelemetryNoEndpoint
-    hmConfigTelemetryTracesOnly
-    ;
-})
+// (import ./checks/telemetry.nix { inherit pkgs mkHmConfigWith; })
 // (import ./checks/agent-skills.nix {
   inherit
     pkgs

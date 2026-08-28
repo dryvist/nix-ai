@@ -101,12 +101,8 @@ in
               MLX_WORKER_PORT_COUNT = toString workerPortCount;
             }
             // lib.optionalAttrs (cfg.telemetry.enable && cfg.telemetry.otlpEndpoint != null) {
-              # Standard OTel env vars inherited by llama-swap and mlx_lm.server
-              # children. The collector fans out to the log platform and
-              # (optionally) to the eval platform — see
-              # docs/adr/0003-galileo-ai-observability.md. Gated on a non-null
-              # endpoint: there is no default, because the previous loopback
-              # default served nothing and exported into a black hole.
+              # OTel env inherited by llama-swap and mlx_lm.server children.
+              # Gated on a non-null endpoint — see options-server.nix.
               OTEL_SERVICE_NAME = "mlx-model-server";
               # Base URL only — the exporter appends the signal path itself.
               OTEL_EXPORTER_OTLP_ENDPOINT = cfg.telemetry.otlpEndpoint;

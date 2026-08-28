@@ -10,21 +10,42 @@
 # nowhere — a failure with no error message, no dropped-export warning, and no
 # way to tell from the config that it was broken. The fix was to remove the
 # default entirely; these checks keep it removed.
-{
-  pkgs,
-  hmConfigTelemetryFull,
-  hmConfigTelemetryNoTraces,
-  hmConfigTelemetryNoEndpoint,
-  hmConfigTelemetryTracesOnly,
-}:
+{ pkgs, mkHmConfigWith }:
 let
   helpers = import ./helpers.nix { inherit pkgs; };
-  envOf = c: c.config.programs.claude.settings.env;
 
-  full = envOf hmConfigTelemetryFull;
-  noTraces = envOf hmConfigTelemetryNoTraces;
-  noEndpoint = envOf hmConfigTelemetryNoEndpoint;
-  tracesOnly = envOf hmConfigTelemetryTracesOnly;
+  # Four profiles, because the interesting behaviour is what does NOT render.
+  # `userConfig` reaches modules through `_module.args`, which admits one
+  # non-default definition, so each profile needs its own evaluation rather
+  # than an override layered on a shared one.
+  envOf = userConfigExtra: (mkHmConfigWith userConfigExtra [ ]).config.programs.claude.settings.env;
+
+  endpoint = "https://otel.test.invalid";
+  traces = "${endpoint}/v1/traces";
+
+  full = envOf {
+    telemetry = {
+      enable = true;
+      otlpEndpoint = endpoint;
+      tracesEndpoint = traces;
+    };
+  };
+  noTraces = envOf {
+    telemetry = {
+      enable = true;
+      otlpEndpoint = endpoint;
+    };
+  };
+  noEndpoint = envOf { telemetry.enable = true; };
+  # Traces wired, metrics/logs deliberately not — the shape used against a
+  # collector whose pipeline extracts spans only.
+  tracesOnly = envOf {
+    telemetry = {
+      enable = true;
+      tracesEndpoint = traces;
+      resourceAttributes."host.name" = "test-host";
+    };
+  };
 
   has = env: k: builtins.hasAttr k env;
 in
@@ -50,13 +71,13 @@ in
       {
         name = "generic endpoint passed through verbatim";
         actual = full.OTEL_EXPORTER_OTLP_ENDPOINT;
-        expected = "https://otel.test.invalid";
+        expected = endpoint;
       }
       # Signal-specific, so it carries the full path.
       {
         name = "traces endpoint passed through verbatim";
         actual = full.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT;
-        expected = "https://otel.test.invalid/v1/traces";
+        expected = traces;
       }
       {
         name = "telemetry enabled";
