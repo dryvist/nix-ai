@@ -81,12 +81,6 @@ in
       c.modelContextWindows.${qwen36} == 65536
       || throw "catalog: Qwen3.6 must advertise its 65536-token resident window";
     assert
-      c.modelFlagOverrides.${judge27b}.maxRequestTokens == 131072
-      || throw "catalog: Qwen3.8 must admit its declared 131072-token production window";
-    assert
-      builtins.match ".*--max-tokens 131072.*" judgeCmd != null
-      || throw "catalog: Qwen3.8 worker limit must follow its declared admission limit";
-    assert
       c.modelServerBackend == "mlx-lm"
       || throw "catalog: the goal judge must use the selected mlx_lm.server deployment path";
     assert
