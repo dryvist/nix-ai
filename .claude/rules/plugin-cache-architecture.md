@@ -39,10 +39,16 @@ loop that requires force-killing the process.
 Cache staleness is handled automatically by `verify-cache-integrity.sh` on every
 `darwin-rebuild switch`. No manual cache deletion is ever needed.
 
-## Never Mutate Plugin Cache from Activation Scripts
+## Never Mutate Plugin Cache While Any Session Is Live
 
 `home.activation` scripts MUST NOT run `claude plugins update`, `claude plugins marketplace update`,
 or any command that creates/deletes directories under `~/.claude/plugins/cache/`.
+
+The same prohibition applies to **hooks**, including `sessionStart` hooks. The hazard is a live
+session, not an activation script — a `sessionStart` hook runs while every *other* session is
+mid-flight, so `claude plugin install` from one starting session re-points paths the others
+already resolved. A hook that mutates the cache must first confirm it is the only live session
+and defer otherwise, leaving its work marker in place so the next solo session picks it up.
 
 These commands regenerate cache directories with new hashes, which breaks `${CLAUDE_PLUGIN_ROOT}`
 references in active Claude Code sessions. All registered hooks (PreToolUse, PostToolUse, Stop)
@@ -87,4 +93,9 @@ version and `installPath`. When a marketplace's Nix store path changes, `verify-
 purges the stale cache dir, which orphans those `installPath`s; the `marketplace-refresh`
 sessionStart hook then has Claude natively reinstall the affected enabled plugins so the registry
 is re-pointed. Both live in `nix-claude-code`. Never edit `installed_plugins.json` from an
-activation script while Claude may be running.
+activation script or a hook while Claude may be running.
+
+Both halves need the live-session check independently. `verify-cache-integrity` defers its purge
+when a session is running, but it writes the refresh marker *before* that check — so the marker
+survives and the reinstall is what reaches the cache. `marketplace-refresh` therefore counts live
+sessions itself and refreshes only when it is the sole one.
