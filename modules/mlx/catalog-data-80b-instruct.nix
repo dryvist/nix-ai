@@ -47,6 +47,12 @@ in
     # (Hermes crons + fleet traffic), and the crash-loop respawn storm exhausts
     # the per-uid process table — reliability over throughput.
     concurrencyLimit = 1;
+    # resident cacheMemoryMb=8192 / swap cacheMemoryMb=4096 are LIVE
+    # literals, not derived: no (concurrency, window) pair reproduces either
+    # against this entry's kv geometry, checked at concurrency=1 against both
+    # the header's stated 65536 serving window and derive.nix's 32768
+    # fallback — the 65536 case does not even fit this entry's weight budget
+    # under forModel's committable-share math. Tracked: Vikunja #106.
     classes = {
       resident.flags = hybridNoPaged // {
         cacheMemoryMb = 8192;

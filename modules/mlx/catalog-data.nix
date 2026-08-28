@@ -98,6 +98,10 @@ in
     args = [ ];
     classes = {
       # The global maxRequestTokens default is too low for agentic multi-turn.
+      # cacheMemoryMb is NOT set here — it inherits model-server-cmd.nix's
+      # global null-default, not a derive.nix output. A derived value at
+      # concurrency=1 differs materially from that default; tracked rather
+      # than silently changed: Vikunja #106.
       resident.flags = block512 // {
         maxRequestTokens = 32768;
       };
@@ -151,12 +155,27 @@ in
   qwen3-next-80b = {
     model = "mlx-community/Qwen3-Next-80B-A3B-Thinking-4bit";
     weightGb = 42.0;
+    # qwen3_next HYBRID, identical topology to the Instruct sibling
+    # (catalog-data-80b-instruct.nix): 48 layers, full_attention_interval=4,
+    # 12 full-attention layers carry paged KV, kvHeads=2, headDim=256.
+    # perTokenKvBytes = 2*12*2*256*2 = 24576 B/token. Backfilled for
+    # completeness (Vikunja #106); NOT wired to cacheMemoryMb below — see
+    # that field's comment.
+    kv = {
+      kvLayers = 12;
+      kvHeads = 2;
+      headDim = 256;
+      kvDtypeBytes = 2;
+    };
     args = [ ];
     # 40B+ single-slot policy: proxy queues (single in-flight), engine batch
     # capped at 1 (in swap.flags). Same hybrid-attention re-prefill constraint
     # as the Instruct sibling.
     concurrencyLimit = 1;
     classes = {
+      # cacheMemoryMb = 4096 is a LIVE literal, not derived — same finding as
+      # the Instruct sibling's swap class: no (concurrency, window) pair
+      # reproduces it. Tracked: Vikunja #106.
       swap.flags =
         swapFlags
         // hybridNoPaged
