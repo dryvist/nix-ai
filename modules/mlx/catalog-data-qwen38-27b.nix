@@ -81,10 +81,27 @@ in
       # The 128k catalog window must also be admitted by the serving worker;
       # a lower request cap would turn the declared default into a client-only
       # hint and force long-context callers to fail before model dispatch.
-      resident.flags = block512 // {
-        cacheMemoryMb = 16384;
-        maxNumSeqs = 8;
-        maxRequestTokens = 131072;
+      #
+      # maxNumSeqs/maxRequestTokens are declared for the vllm-mlx backend this
+      # entry does not currently run on (mlx-lm is the deployed backend
+      # fleet-wide; see lib/checks/mlx-catalog.nix). model-server-cmd.nix's
+      # mlxLmFlags never reads them, so they are inert today. Left declared
+      # rather than removed: they are the correct values IF vllm-mlx is
+      # re-enabled, and removing them would silently lose that intent.
+      #
+      # cacheMemoryMb is DERIVED, not stated: cacheProvisioning.concurrency=1
+      # means "guarantee ONE genuinely-simultaneous full-window (128k) stream
+      # stays cached, plus a second slot for an alternating conversation" —
+      # derive.nix's promptCacheSlotsPerStream=2 calibration already encodes
+      # that second-slot rationale. Verified exact: at this host's
+      # memoryHardLimitGb this reproduces 16384 (the prior literal) precisely,
+      # with headroom to spare — see options-catalog.nix's derivedCacheMb.
+      resident = {
+        cacheProvisioning.concurrency = 1;
+        flags = block512 // {
+          maxNumSeqs = 8;
+          maxRequestTokens = 131072;
+        };
       };
       swap.flags =
         block256
