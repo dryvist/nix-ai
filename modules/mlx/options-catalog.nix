@@ -19,6 +19,7 @@
 let
   cfg = config.programs.mlx;
   catalogData = import ./catalog-data.nix;
+  derive = import ./derive.nix { inherit lib; };
 
   enabled = lib.filterAttrs (_: sel: sel.enable) cfg.catalog;
 
@@ -29,16 +30,38 @@ let
       Known entries: ${lib.concatStringsSep ", " (lib.attrNames catalogData)}
     '');
 
+  # cacheMemoryMb, DERIVED when a class opts in via `cacheProvisioning`
+  # (worked example: catalog-data-qwen38-27b.nix resident). `concurrency` is
+  # a STATED provisioning target, never guessed — see forModel's docs for
+  # why that differs from maxNumSeqs. budgetGb reads THIS host's
+  # memoryHardLimitGb, so one class re-derives per host.
+  derivedCacheMb =
+    entry: classDef:
+    (derive.forModel {
+      inherit (entry) kv weightGb;
+      inherit (classDef.cacheProvisioning) concurrency;
+      windowTokens = entry.contextWindowTokens or 32768;
+      budgetGb = cfg.memoryHardLimitGb;
+    }).cacheMemoryMb;
+
   profileFor =
     name: sel:
     let
       entry = entryFor name;
+      classDef =
+        entry.classes.${sel.class} or (throw ''
+          programs.mlx.catalog."${name}": class "${sel.class}" is not offered by
+          this entry (offered: ${lib.concatStringsSep ", " (lib.attrNames entry.classes)}).
+          A class must be validated on real hardware before the catalog offers it.
+        '');
     in
-    entry.classes.${sel.class}.flags or (throw ''
-      programs.mlx.catalog."${name}": class "${sel.class}" is not offered by
-      this entry (offered: ${lib.concatStringsSep ", " (lib.attrNames entry.classes)}).
-      A class must be validated on real hardware before the catalog offers it.
-    '');
+    # flags defaults to { }: an all-derived class (cacheProvisioning, no
+    # literal flags — catalog-data.nix's 9B resident classes) needs no
+    # empty flags = { } alongside it.
+    (classDef.flags or { })
+    // lib.optionalAttrs (classDef ? cacheProvisioning) {
+      cacheMemoryMb = derivedCacheMb entry classDef;
+    };
 
   # Bounded host tweaks (non-null only) merge over the validated class profile.
   # ttl is proxy/idle lifecycle, not a serve flag — pulled out separately.
