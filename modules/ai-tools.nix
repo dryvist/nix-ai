@@ -196,16 +196,7 @@ in
       exec ${bun}/bin/bunx --bun @openwhispr/cli@${openwhisprCliVersion} "$@"
     '')
 
-    # ==========================================================================
-    # Langfuse CLI
-    # ==========================================================================
-    # Query and manage Langfuse traces, prompts, datasets, and scores.
-    # Source: https://github.com/langfuse/langfuse-cli
-    # NPM: langfuse-cli (pinned version); global install exposes `langfuse`.
-    (writeShellScriptBin "langfuse" ''
-      exec ${bun}/bin/bunx --bun langfuse-cli@${langfuseCliVersion} "$@"
-    '')
-
+    (import ./ai-tools/langfuse-cli.nix { inherit pkgs langfuseCliVersion; })
     # ==========================================================================
     # Oh My OpenAgent — Senpi edition
     # ==========================================================================
