@@ -11,6 +11,7 @@
   autoresearch,
   context-engineering-kit,
   managing-dependencies,
+  langfuse-skills,
   awesome-claude-skills,
   vct-cribl-cli,
   vct-splunk-cli,
@@ -53,6 +54,7 @@ let
     inherit autoresearch;
     inherit context-engineering-kit;
     inherit managing-dependencies;
+    inherit langfuse-skills;
   };
 in
 {

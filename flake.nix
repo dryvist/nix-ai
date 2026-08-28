@@ -96,13 +96,7 @@
       flake = false;
     };
 
-    # ---- Third-party skill inputs -------------------------------------
-    # modules/agent-skills walks each for every known SKILL.md layout and
-    # deploys to ~/.agents/skills. One that also ships .claude-plugin/ is
-    # "dual-channel": register it in modules/claude/marketplaces.nix and enable
-    # its plugin in a tier file to reach Claude, which does not read
-    # ~/.agents/skills. Licenses noted only where they constrain us — consuming
-    # from the store is fine, copying into a repo we publish is not.
+    # ---- Third-party skill inputs (modules/agent-skills + dual-channel marketplaces)
 
     # Animated technical diagrams as self-contained HTML+SVG. Cross-tool only.
     dashmotion = {
@@ -141,6 +135,11 @@
     # marketplace declares a single plugin at ./.
     managing-dependencies = {
       url = "github:andrew/managing-dependencies";
+      flake = false;
+    };
+
+    langfuse-skills = {
+      url = "github:langfuse/skills";
       flake = false;
     };
 
@@ -184,6 +183,7 @@
       autoresearch,
       context-engineering-kit,
       managing-dependencies,
+      langfuse-skills,
       awesome-claude-skills,
       vct-cribl-cli,
       vct-splunk-cli,
@@ -234,6 +234,7 @@
           autoresearch
           context-engineering-kit
           managing-dependencies
+          langfuse-skills
           awesome-claude-skills
           vct-cribl-cli
           vct-splunk-cli

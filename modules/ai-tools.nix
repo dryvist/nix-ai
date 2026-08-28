@@ -45,6 +45,7 @@
 #   codex: OpenAI Codex CLI
 #   block-goose-cli: Block's AI agent (nixpkgs outdated at time of addition)
 #   antigravity-cli: Google Antigravity CLI (`agy`)
+#   langgraph-cli: LangGraph platform deploy CLI (not in nixpkgs)
 #
 # BUNX WRAPPER PACKAGES (npm packages not in nixpkgs/homebrew):
 #   cclint: @felixgeelhaar/cclint (CLAUDE.md linter)
@@ -53,6 +54,7 @@
 #   claude-flow: claude-flow (multi-agent orchestration)
 #   gws: @googleworkspace/cli (pinned version)
 #   openwhispr: @openwhispr/cli (voice notes / transcriptions CLI)
+#   langfuse: langfuse-cli (Langfuse API CLI — traces, prompts, datasets)
 #   omo-senpi: omo-ai (oh-my-openagent Senpi edition — standalone agent, beta)
 #
 # UVX WRAPPER PACKAGES (Python packages not in nixpkgs/homebrew):
@@ -84,6 +86,7 @@ let
   claudeFlowVersion = versions.claudeFlow;
   gwsCliVersion = versions.gwsCli;
   openwhisprCliVersion = versions.openwhisprCli;
+  langfuseCliVersion = versions.langfuseCli;
   omoSenpiVersion = versions.omoSenpi;
 in
 {
@@ -193,6 +196,7 @@ in
       exec ${bun}/bin/bunx --bun @openwhispr/cli@${openwhisprCliVersion} "$@"
     '')
 
+    (import ./ai-tools/langfuse-cli.nix { inherit pkgs langfuseCliVersion; })
     # ==========================================================================
     # Oh My OpenAgent — Senpi edition
     # ==========================================================================

@@ -310,6 +310,7 @@ in
         ];
         workspace = [ "file-organizer" ];
         diagrams = [ "dashmotion" ];
+        observability = [ "langfuse" ];
       };
     };
   };

@@ -102,5 +102,11 @@
     # version so consumers can sanity-check what brew has.
     # renovate: datasource=github-releases depName=QwenLM/qwen-code
     qwen-code = "0.19.6";
+
+    # LangGraph platform CLI — brew-installed via nix-darwin homebrew.brews;
+    # this pin documents the expected version so consumers can sanity-check
+    # what brew has.
+    # renovate: datasource=homebrew formula=langgraph-cli
+    langgraph-cli = "0.4.31";
   };
 }

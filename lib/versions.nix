@@ -27,6 +27,8 @@
   gwsCli = "0.22.5";
   # renovate: datasource=npm depName=@openwhispr/cli
   openwhisprCli = "0.1.2";
+  # renovate: datasource=npm depName=langfuse-cli
+  langfuseCli = "0.0.12";
   # oh-my-openagent Senpi edition (standalone `omo` command). Beta-channel
   # only: every published version is a prerelease and the `latest` dist-tag
   # points at a placeholder (0.0.0-beta.0), so a Renovate npm pin would track
