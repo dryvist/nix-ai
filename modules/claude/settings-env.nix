@@ -102,7 +102,11 @@
     # A cheaper tier than the caller is the point — the parent corrects its
     # subagents. Repoint at a local model, or a cheap cloud one with zero data
     # retention, once either holds this tier's context.
-    CLAUDE_CODE_SUBAGENT_MODEL = "sonnet";
+    #
+    # The `[1m]` id, not the bare `sonnet` alias: measured subagent context runs
+    # to 284k at p90, which a 200k window truncates. The suffix only resolves on
+    # an explicit id — `sonnet[1m]` is not an alias the proxy can route.
+    CLAUDE_CODE_SUBAGENT_MODEL = "claude-sonnet-5[1m]";
     # The haiku tier deliberately stays on Anthropic. Claude Code's background
     # requests carry its full system prompt (measured ~36k tokens), and the
     # `cheap` role targets the always-on small local model, whose 32k window
