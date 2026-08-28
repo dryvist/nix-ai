@@ -30,6 +30,9 @@ set -o pipefail
 # names itself instead of surfacing as an exec error further down.
 mlxLmRoot="${mlxLmRoot:?site-packages dir of the built patched mlx-lm}"
 patchSrc="${patchSrc:?path to modules/mlx/mlx-lm-patch}"
+# The tests live in tests/mlx-lm-patch and `import harmony` from the patch
+# source, so the patch dir goes on PYTHONPATH rather than holding the tests.
+pythonTests="${pythonTests:?path to tests/mlx-lm-patch}"
 python3="${python3:?path to a python3 that has the regex module}"
 out="${out:?derivation output path}"
 
@@ -37,7 +40,9 @@ out="${out:?derivation output path}"
 test -f "$mlxLmRoot/mlx_lm/server.py" \
   && test -f "$mlxLmRoot/mlx_lm/tool_parsers/harmony.py" \
   && cp -r "$patchSrc" ./patch \
-  && chmod -R u+w ./patch \
-  && cd ./patch \
-  && MLX_LM_ROOT="$mlxLmRoot" "$python3" -m unittest discover -v -p 'test_*.py' \
+  && cp -r "$pythonTests" ./pytests \
+  && chmod -R u+w ./patch ./pytests \
+  && cd ./pytests \
+  && MLX_LM_ROOT="$mlxLmRoot" PYTHONPATH="../patch:${PYTHONPATH:-}" \
+    "$python3" -m unittest discover -v -p 'test_*.py' \
   && touch "$out"
