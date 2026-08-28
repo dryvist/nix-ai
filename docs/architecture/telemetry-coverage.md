@@ -23,7 +23,7 @@ wiring one means adding its own config surface, not reusing Claude Code's.
 
 | Tool | Configuration surface | Protocol notes | Source |
 |---|---|---|---|
-| OpenAI Codex CLI | `[otel]` in `~/.codex/config.toml` (`exporter`, `metrics_exporter`, `trace_exporter`, each with an `otlp-http`/`otlp-grpc` sub-table); also honors `OTEL_EXPORTER_OTLP_ENDPOINT` | `otlp-http` supported. Opt-in, off by default. `codex mcp-server` emits nothing; `codex exec` emits traces and logs but no metrics | [openai/codex observability](https://deepwiki.com/openai/codex/9.4-observability-and-telemetry) |
+| OpenAI Codex CLI | `[otel]` in `~/.codex/config.toml`. Schema read from the 0.150.1 binary: `{tool_result, log_user_prompt, environment, exporter, trace_exporter, metrics_exporter, span_attributes, tracestate}`, exporter kinds `none \| statsig \| otlp-http{endpoint,headers,protocol,tls} \| otlp-grpc`, protocol `binary \| json` | Embeds the Rust `opentelemetry-otlp` 0.31.0 exporter, so it also honors the standard `OTEL_EXPORTER_OTLP_*` env vars — **including their `http://localhost:4318` default**, which is the same silent-export shape this repo removed from its own options. Opt-in, off by default. `codex mcp-server` emits nothing | [openai/codex observability](https://deepwiki.com/openai/codex/9.4-observability-and-telemetry) |
 | Gemini CLI | `telemetry` object in `.gemini/settings.json` (`enabled`, `target`, `otlpEndpoint`, `otlpProtocol`); env vars override settings, CLI flags override both | OTLP is the wire protocol for both the local-collector and hosted targets | [gemini-cli docs/cli/telemetry.md](https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/telemetry.md) |
 | GitHub Copilot CLI | `COPILOT_OTEL_ENABLED` + `OTEL_EXPORTER_OTLP_ENDPOINT`, forwarded from the editor extension to the agent-host process; enterprise-managed settings can mandate an endpoint centrally | HTTP only — a gRPC config is silently downgraded | [Copilot SDK observability](https://docs.github.com/en/copilot/how-tos/copilot-sdk/observability/opentelemetry) |
 | qwen-code | `telemetry.otlpEndpoint`/`otlpProtocol` in `.qwen/settings.json`; `QWEN_TELEMETRY_OTLP_*` env vars take precedence over generic `OTEL_*`; `--telemetry-otlp-endpoint` flag | `otlpProtocol: "http"` auto-appends the signal path; gRPC also supported | [qwen-code telemetry docs](https://github.com/QwenLM/qwen-code/blob/main/docs/developers/development/telemetry.md) |
@@ -42,6 +42,19 @@ wiring one means adding its own config surface, not reusing Claude Code's.
 | Antigravity CLI (`agy`) | Distinct from Gemini CLI despite the shared settings-directory lineage. Standard `OTEL_EXPORTER_OTLP_*` env vars produce no output — reproduced by a user in an open feature request. Only a non-OTLP product-analytics toggle exists | [antigravity-cli#366](https://github.com/google-antigravity/antigravity-cli/issues/366) |
 | fabric | No telemetry, OTLP, or tracing surface. `--debug` is local verbosity and `--show-metadata` writes token counts to stderr; neither is exported | [fabric README](https://github.com/danielmiessler/fabric) |
 | cecli | No telemetry surface found across the documented configuration sections. Not exhaustive — the per-format config subpages were not individually checked, so treat this as "none found", not "proven absent" | [cecli docs](https://cecli.dev/docs/) |
+
+## Why the unwired tools are not wired yet
+
+Wiring a tool here means shipping a config that a vendor binary parses at
+startup. Codex refuses to start on a config it cannot parse — that is how the
+legacy `[profiles.*]` table broke `--profile` — so a guessed schema is not a
+cheap mistake. More to the point, this repo's whole position on telemetry is
+that configuration which *looks* right proves nothing: a signal counts as
+wired when an event from it has been seen in the backend.
+
+Each tool above therefore stays documented rather than configured until its
+wiring can be verified against a real event. The schema notes are recorded so
+that work starts from evidence rather than from a search result.
 
 ## Not OTLP: the transcript-file path
 
