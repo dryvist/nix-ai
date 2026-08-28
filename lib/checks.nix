@@ -48,8 +48,6 @@ let
     };
   };
 
-  baseTestModule = mkBaseTestModule { };
-
   mkHmConfigWith =
     userConfigExtra: extraModules:
     home-manager.lib.homeManagerConfiguration {
