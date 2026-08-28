@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.30.0](https://github.com/dryvist/nix-ai/compare/v4.29.2...v4.30.0) (2026-08-28)
+
+
+### Features
+
+* **codex:** export trace spans to the shared collector ([#1807](https://github.com/dryvist/nix-ai/issues/1807)) ([0abe59b](https://github.com/dryvist/nix-ai/commit/0abe59b4ebfc4752c5752e787ab9aa060b532336))
+
 ## [4.29.2](https://github.com/dryvist/nix-ai/compare/v4.29.1...v4.29.2) (2026-08-28)
 
 
