@@ -19,8 +19,17 @@ TOKEN="${LITELLM_LOCAL_TOKEN:-local}"
 MAX_TOKENS="${PROBE_MAX_TOKENS:-200}"
 TIMEOUT="${PROBE_TIMEOUT:-120}"
 
+# With no arguments, probe the chain this host is configured to fall through.
+# LITELLM_FALLBACK_CHAIN is a space-separated list; splitting it is intentional,
+# so word-splitting is enabled for exactly this expansion.
+if [ "$#" -eq 0 ]; then
+  # shellcheck disable=SC2086
+  set -- ${LITELLM_FALLBACK_CHAIN:-}
+fi
+
 if [ "$#" -eq 0 ]; then
   echo "usage: ${0##*/} MODEL_NAME [MODEL_NAME ...]" >&2
+  echo "   or: set LITELLM_FALLBACK_CHAIN to a space-separated list" >&2
   exit 2
 fi
 

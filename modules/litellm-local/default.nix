@@ -47,6 +47,7 @@
   config,
   pkgs,
   lib,
+  userConfig,
   ...
 }:
 let
@@ -58,6 +59,27 @@ let
   # under the .file-size.yml ceiling; see that file for why a chain replaced a
   # single pinned model.
   fallbackTier = import ./fallback-tier.nix { inherit lib; };
+
+  # Reuses the maintainer profile's single traces endpoint rather than adding a
+  # second one: this proxy's spans belong on the same path as Claude Code's and
+  # Codex's, and one endpoint is one thing to keep correct. Null (the default,
+  # and the only value a fresh consumer has) disables the callback entirely.
+  #
+  # `userConfig` is a MODULE ARGUMENT, not `config.userConfig`. Reading it off
+  # `config` returns nothing and the `or null` swallows that into "telemetry is
+  # off" — the config renders cleanly, the agent starts, and it exports nothing,
+  # with no error anywhere. Same shape as the codex module, deliberately.
+  telemetryEnabled =
+    (userConfig.telemetry.enable or false) && (userConfig.telemetry.tracesEndpoint or null) != null;
+  telemetryTracesEndpoint = if telemetryEnabled then userConfig.telemetry.tracesEndpoint else null;
+
+  # LiteLLM's OTLP callback lives behind these three packages; litellm[proxy]
+  # does not pull them. Same set the shared router installs, so the two agree.
+  otelPackages = [
+    "opentelemetry-api"
+    "opentelemetry-sdk"
+    "opentelemetry-exporter-otlp"
+  ];
 
   # `os.environ/NAME` is LiteLLM's own indirection: the literal string is what
   # goes in the config file, and LiteLLM resolves it from the process
@@ -128,7 +150,22 @@ let
       # downgrade. That makes it the one case where routing the main tier
       # elsewhere is safe.
       context_window_fallbacks = [ { "claude-*" = [ "subagent-cheap" ]; } ];
-    };
+    }
+    # Every non-Anthropic call this host makes traverses this proxy, so with no
+    # callback the entire local fabric is an observability blind spot.
+    #
+    # `otel`, NOT `langfuse` — a deliberate match with the shared router rather
+    # than a second mechanism. LiteLLM's `langfuse` callback needs the v2 SDK
+    # and errors on init against the v3 that pip resolves today; the collector
+    # already fans traces out to Langfuse, so one emitter on one path reaches
+    # the same sink with nothing extra to keep in step. It also means this
+    # proxy needs no Langfuse credential of its own.
+    #
+    # Only ever set when there is somewhere to send them: an OTLP exporter with
+    # no endpoint falls back to a conventional loopback address and exports
+    # into a black hole, which is exactly the failure this repo already fixed
+    # once for Claude Code. No endpoint, no callback.
+    // lib.optionalAttrs (telemetryTracesEndpoint != null) { callbacks = [ "otel" ]; };
   };
 
   configYaml = (pkgs.formats.yaml { }).generate "litellm-local-config.yaml" proxyConfig;
@@ -149,9 +186,14 @@ let
       pkgs.curl
       pkgs.python3
     ];
+    # The chain is passed as an environment variable, not as default
+    # arguments: `"''${@:-a b c}"` collapses the default into ONE argument, so
+    # the probe asked for a model literally named "a b c" and got a 404 that
+    # looked like a dead chain. Word-splitting the default belongs in the
+    # script, which is also where the no-inline-shell rule wants it.
     text = ''
-      exec ${./../scripts/litellm-fallback-probe.sh} \
-        "''${@:-${lib.concatStringsSep " " fallbackTier.names}}"
+      LITELLM_FALLBACK_CHAIN=${lib.escapeShellArg (lib.concatStringsSep " " fallbackTier.names)} \
+        exec ${./../scripts/litellm-fallback-probe.sh} "$@"
     '';
   };
 
@@ -164,7 +206,12 @@ let
     OPENAI_API_KEY="$(cat ${lib.escapeShellArg (toString aiStack.llmEndpointTokenFile)})"
     export OPENAI_API_KEY
     exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} \
-      --from "litellm[proxy]==${versions.litellm}" litellm \
+      --from "litellm[proxy]==${versions.litellm}" \
+      ${
+        lib.concatMapStringsSep " " (p: "--with ${lib.escapeShellArg p}") (
+          lib.optionals (telemetryTracesEndpoint != null) otelPackages
+        )
+      } litellm \
       --config ${configYaml} \
       --host 127.0.0.1 \
       --port ${toString cfg.port}
@@ -210,6 +257,15 @@ in
             # exec-time file read.
             LLM_ROUTER_URL = aiStack.llmRouterEndpoint;
             HOME = config.home.homeDirectory;
+          }
+          # LiteLLM reads its OWN names here — `OTEL_EXPORTER` / `OTEL_ENDPOINT`
+          # — not the standard OTEL_EXPORTER_OTLP_* pair. Setting the standard
+          # names instead leaves the callback pointed at its loopback default
+          # and exporting nowhere, with no error. Endpoint carries the full
+          # signal path because LiteLLM posts it verbatim.
+          // lib.optionalAttrs (telemetryTracesEndpoint != null) {
+            OTEL_EXPORTER = "otlp_http";
+            OTEL_ENDPOINT = telemetryTracesEndpoint;
           };
           StandardOutPath = "${config.home.homeDirectory}/Library/Logs/litellm-local/litellm-local.log";
           StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/litellm-local/litellm-local.error.log";
