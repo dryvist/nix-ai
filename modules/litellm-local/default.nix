@@ -54,6 +54,11 @@ let
   aiStack = config.services.aiStack;
   versions = import ../../lib/versions.nix;
 
+  # Cost-ordered fallback chain for the subagent tier. Its own file to stay
+  # under the .file-size.yml ceiling; see that file for why a chain replaced a
+  # single pinned model.
+  fallbackTier = import ./fallback-tier.nix { inherit lib; };
+
   # `os.environ/NAME` is LiteLLM's own indirection: the literal string is what
   # goes in the config file, and LiteLLM resolves it from the process
   # environment at load time. That is what keeps the router bearer out of the
@@ -87,13 +92,42 @@ let
           api_key = "os.environ/OPENAI_API_KEY";
         };
       }
-    ];
+    ]
+    # Named tier groups come after the wildcards deliberately: an explicit
+    # model_name always wins over `*`, so ordering here is documentation, not
+    # routing. Naming them at all is the point — `*` would resolve
+    # `subagent-free` upstream, where the alias may not exist.
+    ++ fallbackTier.modelList;
 
     litellm_settings = {
       # Clients disagree about which sampling params they send; dropping the
       # ones a given backend rejects keeps a role swap from breaking a client.
       drop_params = true;
       model_group_settings.forward_client_headers_to_llm_api = [ "claude-*" ];
+
+      # Retry a transient upstream failure before declaring the group down.
+      # This is the cheap half of "never let it die": most 5xx and connection
+      # resets clear on a retry, and only a persistent failure should spend a
+      # fallback.
+      num_retries = 3;
+
+      # The cost-ordered chain. `[{group: [fallback, ...]}]` is LiteLLM's own
+      # shape (proxy_server_config.yaml), and the same shape the upstream
+      # router already reports back in its error payloads.
+      #
+      # Scoped to the tier groups on purpose — there is deliberately NO
+      # `default_fallbacks` here. A blanket default would also catch
+      # `claude-*`, silently answering a main session from a free model when
+      # Anthropic rate-limits. Losing the request is recoverable; not noticing
+      # the model changed underneath a long session is not. The main tier gets
+      # retries and a context-window fallback, never a silent quality swap.
+      fallbacks = fallbackTier.fallbacks;
+
+      # A context-window overflow is unambiguous — the request cannot succeed
+      # as sent, and a larger window is strictly better rather than a
+      # downgrade. That makes it the one case where routing the main tier
+      # elsewhere is safe.
+      context_window_fallbacks = [ { "claude-*" = [ "subagent-cheap" ]; } ];
     };
   };
 
@@ -105,6 +139,21 @@ let
   # building it from source drags a large Python test closure (the rq test
   # suite among it) into every CI and workstation rebuild.
   uvPythonVersion = (import ../../lib/python.nix { inherit pkgs; }).pythonVersion;
+
+  # Liveness probe for the fallback chain. The chain's members are named here
+  # so the command needs no arguments in the common case — running it bare
+  # checks exactly what this host is configured to fall back through.
+  fallbackProbe = pkgs.writeShellApplication {
+    name = "litellm-fallback-probe";
+    runtimeInputs = [
+      pkgs.curl
+      pkgs.python3
+    ];
+    text = ''
+      exec ${./../scripts/litellm-fallback-probe.sh} \
+        "''${@:-${lib.concatStringsSep " " fallbackTier.names}}"
+    '';
+  };
 
   # launchd agents get no shell init, so the wrapper reads the router bearer
   # from its file itself. This is also why the assertion below requires
@@ -140,7 +189,10 @@ in
           assertion = aiStack.llmEndpointTokenFile != null && aiStack.llmEndpointTokenFile != "";
           message = "programs.litellmLocal.enable requires services.aiStack.llmEndpointTokenFile: the proxy runs as a launchd agent, which has no shell init, so services.aiStack.llmEndpointBearerFromEnv cannot reach it. Point llmEndpointTokenFile at the file holding the router bearer.";
         }
-      ];
+      ]
+      ++ fallbackTier.assertions;
+
+      home.packages = [ fallbackProbe ];
 
       launchd.agents.litellm-local = {
         enable = true;
