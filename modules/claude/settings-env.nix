@@ -126,18 +126,24 @@
   }
 )
 # OpenTelemetry — opt-in via userConfig.telemetry (maintainer profile). Off by
-# default so a fresh consumer emits no telemetry. Endpoint falls back to the
-# registry port so flipping telemetry.enable alone reaches the local collector.
-// lib.optionalAttrs (userConfig.telemetry.enable or false) {
-  CLAUDE_CODE_ENABLE_TELEMETRY = "1";
-  OTEL_EXPORTER_OTLP_ENDPOINT =
-    userConfig.telemetry.otlpEndpoint
-      or "http://localhost:${toString (import ../../vars/ai-stack.nix).nodeports.otel_grpc}";
-  OTEL_EXPORTER_OTLP_PROTOCOL = "grpc";
-  OTEL_METRICS_EXPORTER = "otlp";
-  OTEL_LOGS_EXPORTER = "otlp";
-  OTEL_TRACES_EXPORTER = "otlp";
-}
+# default so a fresh consumer emits no telemetry. BOTH enable and a non-null
+# otlpEndpoint are required: there is no fallback endpoint, because a default
+# that points nowhere exports into a black hole that is indistinguishable from
+# working telemetry. This config previously defaulted to a loopback registry
+# port that nothing has ever served, and every metric and log went nowhere for
+# as long as it was enabled.
+//
+  lib.optionalAttrs
+    ((userConfig.telemetry.enable or false) && (userConfig.telemetry.otlpEndpoint or null) != null)
+    {
+      CLAUDE_CODE_ENABLE_TELEMETRY = "1";
+      # Base URL only — the exporter appends /v1/metrics and /v1/logs itself.
+      OTEL_EXPORTER_OTLP_ENDPOINT = userConfig.telemetry.otlpEndpoint;
+      OTEL_EXPORTER_OTLP_PROTOCOL = "http/protobuf";
+      OTEL_METRICS_EXPORTER = "otlp";
+      OTEL_LOGS_EXPORTER = "otlp";
+      OTEL_TRACES_EXPORTER = "otlp";
+    }
 # Trace spans → a dedicated OTLP/HTTP endpoint, separate from the metrics/logs
 # collector above. Only when telemetry.tracesEndpoint is set. Turns on the
 # enhanced-telemetry tracing beta (the flag that makes Claude Code emit the

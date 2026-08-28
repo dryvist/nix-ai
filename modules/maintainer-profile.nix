@@ -21,11 +21,6 @@
 # and stays `mkDefault` so a consumer that injects `_module.args.userConfig`
 # directly (as nix-darwin does via extraSpecialArgs) takes precedence.
 { lib, config, ... }:
-let
-  # OTEL endpoint comes from the cross-repo registry so the port stays in one
-  # place (vars/ai-stack.nix nodeports.otel_grpc).
-  aiVars = import ../vars/ai-stack.nix;
-in
 {
   options.userConfig = lib.mkOption {
     type = lib.types.submodule {
@@ -86,14 +81,29 @@ in
             default = false;
             description = ''
               Emit Claude Code OpenTelemetry to `otlpEndpoint`. Off by default;
-              requires a reachable OTLP collector.
+              requires a reachable OTLP collector. Enabling this without also
+              setting `otlpEndpoint` emits nothing — see that option.
             '';
           };
 
           otlpEndpoint = lib.mkOption {
-            type = lib.types.str;
-            default = "http://localhost:${toString aiVars.nodeports.otel_grpc}";
-            description = "OTLP gRPC endpoint for Claude Code telemetry when enabled.";
+            type = lib.types.nullOr lib.types.str;
+            default = null;
+            example = "https://otel.example.internal";
+            description = ''
+              OTLP/HTTP base URL for Claude Code metrics and logs. The OTLP spec
+              has the exporter append the signal path itself (`/v1/metrics`,
+              `/v1/logs`), so this is the BASE url with no `/v1/...` suffix —
+              unlike `tracesEndpoint`, which is signal-specific and must carry
+              the full path.
+
+              Null by default, and null means no OTLP export even when
+              `enable` is true. There is deliberately no fallback default: a
+              collector address is site-specific, and a wrong-but-plausible one
+              exports into a black hole that looks identical to working
+              telemetry. Kept out of the committed default for the same reason
+              as `tracesEndpoint` — no private hostname in a public config.
+            '';
           };
 
           tracesEndpoint = lib.mkOption {
@@ -104,10 +114,14 @@ in
               Optional OTLP/HTTP endpoint for Claude Code *trace spans* only. When
               set (alongside telemetry.enable), the enhanced-telemetry tracing beta
               is turned on and trace spans are exported here over http/protobuf,
-              while metrics and logs continue to otlpEndpoint. Leave null to keep
-              all signals on otlpEndpoint. Kept out of the committed default so no
-              private hostname is baked into a public config — set it in your own
-              user config.
+              while metrics and logs continue to otlpEndpoint. Unlike
+              otlpEndpoint this is a signal-specific endpoint, so it must carry
+              the full `/v1/traces` path — the exporter appends nothing. Leave
+              null to emit no spans at all: plain `enable` yields counters and
+              log events only, never the interaction/llm_request/tool/subagent
+              span tree. Kept out of the committed default so no private
+              hostname is baked into a public config — set it in your own user
+              config.
             '';
           };
         };

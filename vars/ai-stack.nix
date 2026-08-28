@@ -68,10 +68,15 @@
 
   # OrbStack NodePort allocations. Authoritative source for any consumer
   # that needs to know where a service listens.
+  #
+  # otel_grpc/otel_http were removed: they named loopback ports that no
+  # collector has ever served, and the telemetry options that defaulted to
+  # them exported into a black hole for as long as telemetry was enabled. A
+  # port entry here is a claim that something listens — do not add one for a
+  # service that is only planned. OTLP endpoints are site-specific and now
+  # come from userConfig.telemetry.otlpEndpoint / programs.mlx.telemetry.
   nodeports = {
     cribl_mcp = 30030;
-    otel_grpc = 30317;
-    otel_http = 30318;
     cribl_hec = 30088;
     cribl_stream_ui = 30900;
     cribl_edge_ui = 30910;

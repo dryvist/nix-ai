@@ -29,11 +29,17 @@ let
   # parameterized).
   testLocalModelId = "mlx-community/test-model";
 
-  # Shared test module configuration — used by claude, mlx, and fabric regression checks
-  baseTestModule = {
+  # Shared test module configuration — used by claude, mlx, and fabric regression
+  # checks. `userConfig` reaches modules through `_module.args`, which admits
+  # exactly one non-default definition, so the maintainer-profile knobs cannot be
+  # overridden from an extra module the way an ordinary option can. Taking the
+  # extra attrs here instead lets a check evaluate the stack under a different
+  # profile (e.g. telemetry on) without a definition conflict.
+  mkBaseTestModule = userConfigExtra: {
     _module.args.userConfig = {
       user.fullName = "JacobPEvans";
-    };
+    }
+    // userConfigExtra;
     services.aiStack.defaultLocalModelId = testLocalModelId;
     home = {
       username = "test-user";
@@ -42,18 +48,44 @@ let
     };
   };
 
-  mkHmConfig =
-    extraModules:
+  baseTestModule = mkBaseTestModule { };
+
+  mkHmConfigWith =
+    userConfigExtra: extraModules:
     home-manager.lib.homeManagerConfiguration {
       inherit pkgs;
       modules = [
         aiModule
-        baseTestModule
+        (mkBaseTestModule userConfigExtra)
       ]
       ++ extraModules;
     };
 
+  mkHmConfig = mkHmConfigWith { };
+
   hmConfig = mkHmConfig [ ];
+
+  # Telemetry evaluations. Three profiles, because the interesting behaviour is
+  # what does NOT render: an endpoint is required, and traces are a separate
+  # opt-in on top of it. See lib/checks/telemetry.nix.
+  hmConfigTelemetryFull = mkHmConfigWith {
+    telemetry = {
+      enable = true;
+      otlpEndpoint = "https://otel.test.invalid";
+      tracesEndpoint = "https://otel.test.invalid/v1/traces";
+    };
+  } [ ];
+
+  hmConfigTelemetryNoTraces = mkHmConfigWith {
+    telemetry = {
+      enable = true;
+      otlpEndpoint = "https://otel.test.invalid";
+    };
+  } [ ];
+
+  hmConfigTelemetryNoEndpoint = mkHmConfigWith {
+    telemetry.enable = true;
+  } [ ];
 
   hmConfigAgentSkillsShared = mkHmConfig [
     {
@@ -258,6 +290,14 @@ in
 // (import ./checks/ai-stack.nix { inherit pkgs testLocalModelId; })
 // (import ./checks/ai-stack-endpoint.nix { inherit pkgs; })
 // (import ./checks/claude.nix { inherit pkgs hmConfig; })
+// (import ./checks/telemetry.nix {
+  inherit
+    pkgs
+    hmConfigTelemetryFull
+    hmConfigTelemetryNoTraces
+    hmConfigTelemetryNoEndpoint
+    ;
+})
 // (import ./checks/agent-skills.nix {
   inherit
     pkgs
