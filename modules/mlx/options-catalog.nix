@@ -19,7 +19,7 @@
 let
   cfg = config.programs.mlx;
   catalogData = import ./catalog-data.nix;
-  derive = import ./derive.nix { inherit lib; };
+  derivePinning = import ./derive-pinning.nix { inherit lib; };
 
   enabled = lib.filterAttrs (_: sel: sel.enable) cfg.catalog;
 
@@ -30,16 +30,15 @@ let
       Known entries: ${lib.concatStringsSep ", " (lib.attrNames catalogData)}
     '');
 
-  # cacheMemoryMb, DERIVED when a class opts in via `cacheProvisioning`
-  # (worked example: catalog-data-qwen38-27b.nix resident). `concurrency` is
-  # a STATED provisioning target, never guessed — see forModel's docs for
-  # why that differs from maxNumSeqs. budgetGb reads THIS host's
-  # memoryHardLimitGb, so one class re-derives per host.
+  # cacheMemoryMb, resolved when a class opts in via `cacheProvisioning` —
+  # see derive-pinning.nix's cacheMemoryMbFor for the derive-vs-pin split.
+  # budgetGb is THIS host's memoryHardLimitGb: a derived class re-derives
+  # per host; a pinned class ignores it, same as its old literal did.
   derivedCacheMb =
     entry: classDef:
-    (derive.forModel {
+    (derivePinning.cacheMemoryMbFor {
       inherit (entry) kv weightGb;
-      inherit (classDef.cacheProvisioning) concurrency;
+      inherit (classDef) cacheProvisioning;
       windowTokens = entry.contextWindowTokens or 32768;
       budgetGb = cfg.memoryHardLimitGb;
     }).cacheMemoryMb;

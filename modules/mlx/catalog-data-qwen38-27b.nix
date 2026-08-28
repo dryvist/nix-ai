@@ -103,19 +103,17 @@ in
           maxRequestTokens = 131072;
         };
       };
-      # cacheMemoryMb = 3072 is a LIVE literal, not derived: no (concurrency,
-      # window) pair under derive.nix's forModel reproduces it against this
-      # entry's kv geometry, checked at concurrency=1 against both this
-      # entry's 131072 window and derive.nix's 32768 fallback. Deriving it
-      # would silently change what this swap-tier model actually gets
-      # allocated — a real limit-value change, not a refactor. Tracked:
-      # Vikunja #106 (needs an accept-or-pin decision, not more engineering).
-      swap.flags =
-        block256
-        // swapFlags
-        // {
-          cacheMemoryMb = 3072;
+      # cacheMemoryMb PINNED (derive.nix's cacheMemoryMbFor): forModel does
+      # not reproduce 3072 for this shape, and it is unvalidated against a
+      # real run. Tracked: Vikunja #106.
+      swap = {
+        cacheProvisioning.pinned = {
+          mb = 3072;
+          reason = "live working value; forModel's derivation for this shape unvalidated against a real run";
+          tracking = "vikunja#106";
         };
+        flags = block256 // swapFlags;
+      };
     };
   };
 }

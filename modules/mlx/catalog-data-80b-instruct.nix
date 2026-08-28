@@ -47,25 +47,35 @@ in
     # (Hermes crons + fleet traffic), and the crash-loop respawn storm exhausts
     # the per-uid process table — reliability over throughput.
     concurrencyLimit = 1;
-    # resident cacheMemoryMb=8192 / swap cacheMemoryMb=4096 are LIVE
-    # literals, not derived: no (concurrency, window) pair reproduces either
-    # against this entry's kv geometry, checked at concurrency=1 against both
-    # the header's stated 65536 serving window and derive.nix's 32768
-    # fallback — the 65536 case does not even fit this entry's weight budget
-    # under forModel's committable-share math. Tracked: Vikunja #106.
+    # Both cacheMemoryMb values PINNED (derive.nix's cacheMemoryMbFor):
+    # forModel's derivation is unvalidated against a real run, and this
+    # entry has a documented metal::malloc crash history under concurrency
+    # — not a formula's call to make alone. Tracked: Vikunja #106.
     classes = {
-      resident.flags = hybridNoPaged // {
-        cacheMemoryMb = 8192;
-        maxNumSeqs = 1;
-        maxRequestTokens = 65536;
-      };
-      swap.flags =
-        swapFlags
-        // hybridNoPaged
-        // {
-          cacheMemoryMb = 4096;
-          maxNumSeqs = 1; # 40B+ single-slot policy (overrides swapFlags maxNumSeqs=2)
+      resident = {
+        cacheProvisioning.pinned = {
+          mb = 8192;
+          reason = "live working value; unvalidated formula, documented crash history under concurrency";
+          tracking = "vikunja#106";
         };
+        flags = hybridNoPaged // {
+          maxNumSeqs = 1;
+          maxRequestTokens = 65536;
+        };
+      };
+      swap = {
+        cacheProvisioning.pinned = {
+          mb = 4096;
+          reason = "live working value; unvalidated formula, documented crash history under concurrency";
+          tracking = "vikunja#106";
+        };
+        flags =
+          swapFlags
+          // hybridNoPaged
+          // {
+            maxNumSeqs = 1; # 40B+ single-slot policy (overrides swapFlags maxNumSeqs=2)
+          };
+      };
     };
   };
 }
