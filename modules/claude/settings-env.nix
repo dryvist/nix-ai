@@ -96,7 +96,13 @@
   {
     ANTHROPIC_BASE_URL = litellmLocal.rootUrl;
     ANTHROPIC_CUSTOM_HEADERS = "x-litellm-api-key: Bearer ${litellmLocal.clientToken}";
-    CLAUDE_CODE_SUBAGENT_MODEL = "subagent";
+    # A capability alias or an explicit model_list group; the flake check
+    # enforces it.
+    #
+    # A cheaper tier than the caller is the point — the parent corrects its
+    # subagents. Repoint at a local model, or a cheap cloud one with zero data
+    # retention, once either holds this tier's context.
+    CLAUDE_CODE_SUBAGENT_MODEL = "sonnet";
     # The haiku tier deliberately stays on Anthropic. Claude Code's background
     # requests carry its full system prompt (measured ~36k tokens), and the
     # `cheap` role targets the always-on small local model, whose 32k window
