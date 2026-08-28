@@ -44,7 +44,7 @@ let
       cmd =
         mkModelCmd physical + lib.optionalString (extraArgs != [ ]) (" " + lib.escapeShellArgs extraArgs);
       ttl = cfg.modelTtls.${physical} or cfg.proxy.idleTtl;
-      env = workerEnv;
+      env = workerEnv physical;
       checkEndpoint = "/v1/models";
       proxy = proxyUrl;
       aliases = roles;
@@ -72,7 +72,7 @@ let
           " " + lib.concatStringsSep " " modelCfg.extraArgs
         );
       ttl = if modelCfg.ttl > 0 then modelCfg.ttl else cfg.proxy.idleTtl;
-      env = workerEnv;
+      env = workerEnv name;
       checkEndpoint = "/v1/models";
       proxy = proxyUrl;
       concurrencyLimit = effectiveConcurrency name;

@@ -75,7 +75,27 @@ let
   # tiers are repointed at roles.
   claudeMainUntouched = !(claudeEnv ? ANTHROPIC_MODEL);
 
-  claudeSubagentRole = claudeEnv.CLAUDE_CODE_SUBAGENT_MODEL == "subagent";
+  # Every model name Claude Code is pointed at must be one the proxy can resolve
+  # WITHOUT the `*` wildcard — either an Anthropic capability alias / model id
+  # that lands in the `claude-*` group, or an explicit `model_name` in the
+  # model_list. Naming an upstream ROLE is what caused the outage: the router
+  # served no `subagent` group, so the request fell through `*` and 404'd on
+  # every subagent spawn. `*` must never be what makes a Claude Code tier work.
+  explicitGroups = map (d: d.model_name) rendered.model_list;
+  claudeTierNames = lib.filter (n: n != null) [
+    (claudeEnv.CLAUDE_CODE_SUBAGENT_MODEL or null)
+    (claudeEnv.ANTHROPIC_MODEL or null)
+  ];
+  claudeTierNamesResolveLocally = lib.all (
+    n:
+    lib.hasPrefix "claude" n
+    || lib.elem n [
+      "opus"
+      "sonnet"
+      "haiku"
+    ]
+    || lib.elem n explicitGroups
+  ) claudeTierNames;
 
   # The haiku tier stays on Anthropic: Claude Code's background requests carry
   # its full system prompt (~36k tokens), which the `cheap` role's 32k-window
@@ -154,7 +174,8 @@ in
       claudeMainUntouched
       || throw "enabling the proxy must not pin Claude Code's main model; ANTHROPIC_MODEL was set";
     assert
-      claudeSubagentRole || throw "Claude Code's subagent tier must resolve to the `subagent` role";
+      claudeTierNamesResolveLocally
+      || throw "every model name Claude Code is pointed at must resolve without the `*` wildcard — an Anthropic alias (opus/sonnet/haiku), a claude-* id, or an explicit model_list group. Naming an upstream ROLE 404s every call in that tier the moment the router stops serving it; got: ${builtins.toJSON claudeTierNames}";
     assert
       claudeHaikuUntouched
       || throw "Claude Code's haiku tier must stay on Anthropic: the `cheap` role's local target cannot hold Claude Code's system prompt, so an override fails every background call";

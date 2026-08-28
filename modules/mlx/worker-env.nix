@@ -26,8 +26,23 @@ let
       ++ lib.optionals (cfg.gpuMemoryUtilization != null) [
         "VLLM_MLX_GPU_MEMORY_UTILIZATION=${toString cfg.gpuMemoryUtilization}"
       ];
+    mlx-vlm = shared;
+    mlx-vlm-native = shared;
   };
 in
 {
-  workerEnv = mlxModelServerEnvironments.${cfg.modelServerBackend};
+  workerEnv =
+    modelId:
+    let
+      backend = cfg.modelBackends.${modelId} or cfg.modelServerBackend;
+      mtp =
+        cfg.modelMtpProfiles.${modelId} or {
+          enable = false;
+          tokenQueueTimeoutSeconds = 1800;
+        };
+    in
+    mlxModelServerEnvironments.${backend}
+    ++ lib.optionals (backend == "mlx-vlm-native" && mtp.enable) [
+      "MLX_VLM_TOKEN_QUEUE_TIMEOUT=${toString mtp.tokenQueueTimeoutSeconds}"
+    ];
 }

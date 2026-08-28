@@ -24,7 +24,7 @@
         mkModelCmd cfg.judge.model
         + lib.optionalString (cfg.judge.extraArgs != [ ]) (" " + lib.escapeShellArgs cfg.judge.extraArgs);
       ttl = 0; # persistent group already keeps it resident; no idle unload
-      env = workerEnv;
+      env = workerEnv cfg.judge.model;
       checkEndpoint = "/v1/models";
       aliases = cfg.judge.aliases;
       useModelName = cfg.judge.model;

@@ -35,13 +35,14 @@ in
         in
         !profile.enable
         || (
-          backend == "vllm-mlx"
-          && lib.elem "vllm-mlx" cfg.enabledBackends
-          && (cfg.modelConcurrencyLimits.${modelId} or cfg.proxy.concurrencyLimit) == 1
+          backend == "mlx-vlm-native"
+          && lib.elem "mlx-vlm-native" cfg.enabledBackends
+          && profile.drafterModel != null
+          && profile.maxNumSeqs == (cfg.modelConcurrencyLimits.${modelId} or cfg.proxy.concurrencyLimit)
           && !config.programs.mlx.clusterMode.enable
         )
       ) (lib.attrNames cfg.modelMtpProfiles);
-      message = "An enabled programs.mlx.modelMtpProfiles entry requires enabled vllm-mlx, a c1 model concurrency limit, and non-cluster mode. MTP evidence is experimental c1-only and must not silently enter a clustered or production-concurrent role.";
+      message = "An enabled programs.mlx.modelMtpProfiles entry requires the native mlx-vlm backend, a drafter, matching proxy/worker concurrency, and non-cluster mode. MTP must not silently enter a clustered role.";
     }
     {
       assertion = lib.all (
