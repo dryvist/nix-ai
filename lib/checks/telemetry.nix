@@ -15,6 +15,7 @@
   hmConfigTelemetryFull,
   hmConfigTelemetryNoTraces,
   hmConfigTelemetryNoEndpoint,
+  hmConfigTelemetryTracesOnly,
 }:
 let
   helpers = import ./helpers.nix { inherit pkgs; };
@@ -23,6 +24,7 @@ let
   full = envOf hmConfigTelemetryFull;
   noTraces = envOf hmConfigTelemetryNoTraces;
   noEndpoint = envOf hmConfigTelemetryNoEndpoint;
+  tracesOnly = envOf hmConfigTelemetryTracesOnly;
 
   has = env: k: builtins.hasAttr k env;
 in
@@ -94,6 +96,68 @@ in
       {
         name = "no protocol rendered when otlpEndpoint is null";
         actual = has noEndpoint "OTEL_EXPORTER_OTLP_PROTOCOL";
+        expected = false;
+      }
+      # An OTel SDK with no endpoint falls back to a conventional loopback
+      # address, so every exporter must be pinned explicitly rather than left
+      # unset — otherwise "not configured" silently becomes "exporting into
+      # nothing", which is the failure this whole change exists to remove.
+      {
+        name = "metrics exporter pinned off when otlpEndpoint is null";
+        actual = noEndpoint.OTEL_METRICS_EXPORTER;
+        expected = "none";
+      }
+      {
+        name = "logs exporter pinned off when otlpEndpoint is null";
+        actual = noEndpoint.OTEL_LOGS_EXPORTER;
+        expected = "none";
+      }
+      {
+        name = "traces exporter pinned off when tracesEndpoint is null";
+        actual = noTraces.OTEL_TRACES_EXPORTER;
+        expected = "none";
+      }
+      # Traces-only: each signal is gated on its OWN endpoint, so wiring spans
+      # alone must not drag metrics and logs along to a pipeline that discards
+      # them.
+      {
+        name = "traces-only still enables telemetry";
+        actual = tracesOnly.CLAUDE_CODE_ENABLE_TELEMETRY;
+        expected = "1";
+      }
+      {
+        name = "traces-only exports spans";
+        actual = tracesOnly.OTEL_TRACES_EXPORTER;
+        expected = "otlp";
+      }
+      {
+        name = "traces-only pins metrics off";
+        actual = tracesOnly.OTEL_METRICS_EXPORTER;
+        expected = "none";
+      }
+      {
+        name = "traces-only pins logs off";
+        actual = tracesOnly.OTEL_LOGS_EXPORTER;
+        expected = "none";
+      }
+      {
+        name = "traces-only sets no generic endpoint";
+        actual = has tracesOnly "OTEL_EXPORTER_OTLP_ENDPOINT";
+        expected = false;
+      }
+      {
+        name = "service name identifies the emitter";
+        actual = tracesOnly.OTEL_SERVICE_NAME;
+        expected = "claude-code";
+      }
+      {
+        name = "resource attributes rendered";
+        actual = tracesOnly.OTEL_RESOURCE_ATTRIBUTES;
+        expected = "host.name=test-host";
+      }
+      {
+        name = "prompt content off unless explicitly enabled";
+        actual = has tracesOnly "OTEL_LOG_USER_PROMPTS";
         expected = false;
       }
     ];

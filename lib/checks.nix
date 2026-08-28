@@ -87,6 +87,16 @@ let
     telemetry.enable = true;
   } [ ];
 
+  # Traces wired, metrics/logs deliberately not — the shape used against a
+  # collector whose pipeline extracts spans only.
+  hmConfigTelemetryTracesOnly = mkHmConfigWith {
+    telemetry = {
+      enable = true;
+      tracesEndpoint = "https://otel.test.invalid/v1/traces";
+      resourceAttributes."host.name" = "test-host";
+    };
+  } [ ];
+
   hmConfigAgentSkillsShared = mkHmConfig [
     {
       programs.agentSkills.root = "agents";
@@ -296,6 +306,7 @@ in
     hmConfigTelemetryFull
     hmConfigTelemetryNoTraces
     hmConfigTelemetryNoEndpoint
+    hmConfigTelemetryTracesOnly
     ;
 })
 // (import ./checks/agent-skills.nix {

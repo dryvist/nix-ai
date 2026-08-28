@@ -126,36 +126,93 @@
   }
 )
 # OpenTelemetry — opt-in via userConfig.telemetry (maintainer profile). Off by
-# default so a fresh consumer emits no telemetry. BOTH enable and a non-null
-# otlpEndpoint are required: there is no fallback endpoint, because a default
-# that points nowhere exports into a black hole that is indistinguishable from
-# working telemetry. This config previously defaulted to a loopback registry
-# port that nothing has ever served, and every metric and log went nowhere for
-# as long as it was enabled.
+# default so a fresh consumer emits no telemetry.
+#
+# The two endpoints are INDEPENDENT, and each signal is exported only when its
+# own endpoint is set. Neither carries a default. That is the whole point: an
+# OTel SDK given no endpoint falls back to a conventional loopback address, so
+# "leave it unset" is not the same as "do not export" — it silently exports to
+# somewhere nothing is listening. Every exporter is therefore pinned to an
+# explicit `otlp` or `none` below, never left to the SDK's default. A collector
+# address is site-specific; a wrong-but-plausible one is indistinguishable from
+# working telemetry at every layer, which is why no default is offered here.
+#
+# Splitting metrics/logs from traces also matters downstream: a collector may
+# accept and acknowledge all three signals while its pipeline only extracts
+# one, so pointing a signal at a collector that discards it reproduces the same
+# silent loss one layer further away.
+
+# Master switch: on when telemetry is enabled AND at least one signal has
+# somewhere to go. Without it Claude Code emits nothing, whatever the exporters
+# and endpoints below say.
+//
+  lib.optionalAttrs
+    (
+      (userConfig.telemetry.enable or false)
+      && (
+        (userConfig.telemetry.otlpEndpoint or null) != null
+        || (userConfig.telemetry.tracesEndpoint or null) != null
+      )
+    )
+    (
+      {
+        CLAUDE_CODE_ENABLE_TELEMETRY = "1";
+        OTEL_SERVICE_NAME = userConfig.telemetry.serviceName or "claude-code";
+      }
+      // lib.optionalAttrs (userConfig.telemetry.logUserPrompts or false) {
+        OTEL_LOG_USER_PROMPTS = "1";
+      }
+      // lib.optionalAttrs (userConfig.telemetry.logToolDetails or false) {
+        OTEL_LOG_TOOL_DETAILS = "1";
+      }
+      // lib.optionalAttrs ((userConfig.telemetry.resourceAttributes or { }) != { }) {
+        OTEL_RESOURCE_ATTRIBUTES = lib.concatStringsSep "," (
+          lib.mapAttrsToList (k: v: "${k}=${v}") userConfig.telemetry.resourceAttributes
+        );
+      }
+    )
+
+# Metrics and logs. The generic endpoint is a BASE url — the exporter appends
+# /v1/metrics and /v1/logs itself.
 //
   lib.optionalAttrs
     ((userConfig.telemetry.enable or false) && (userConfig.telemetry.otlpEndpoint or null) != null)
     {
-      CLAUDE_CODE_ENABLE_TELEMETRY = "1";
-      # Base URL only — the exporter appends /v1/metrics and /v1/logs itself.
       OTEL_EXPORTER_OTLP_ENDPOINT = userConfig.telemetry.otlpEndpoint;
       OTEL_EXPORTER_OTLP_PROTOCOL = "http/protobuf";
       OTEL_METRICS_EXPORTER = "otlp";
       OTEL_LOGS_EXPORTER = "otlp";
-      OTEL_TRACES_EXPORTER = "otlp";
     }
-# Trace spans → a dedicated OTLP/HTTP endpoint, separate from the metrics/logs
-# collector above. Only when telemetry.tracesEndpoint is set. Turns on the
-# enhanced-telemetry tracing beta (the flag that makes Claude Code emit the
-# interaction/llm_request/tool/tool.execution/subagent span tree at all — plain
-# telemetry.enable exports only counters and log events, no spans). A
-# signal-specific TRACES endpoint is required: with only the generic
-# OTEL_EXPORTER_OTLP_ENDPOINT set, the CLI emits zero trace traffic.
+
+# ...and explicitly off when it is not set, so the SDK cannot fall back to its
+# conventional loopback default and export into nothing.
+//
+  lib.optionalAttrs
+    ((userConfig.telemetry.enable or false) && (userConfig.telemetry.otlpEndpoint or null) == null)
+    {
+      OTEL_METRICS_EXPORTER = "none";
+      OTEL_LOGS_EXPORTER = "none";
+    }
+
+# Trace spans → a signal-specific endpoint carrying the full /v1/traces path;
+# nothing is appended to it. Setting it also turns on the enhanced-telemetry
+# beta, which is the flag that makes Claude Code emit the
+# interaction/llm_request/tool/tool.execution/subagent span tree at all. With
+# only the generic endpoint set, the CLI emits zero trace traffic.
 //
   lib.optionalAttrs
     ((userConfig.telemetry.enable or false) && (userConfig.telemetry.tracesEndpoint or null) != null)
     {
       CLAUDE_CODE_ENHANCED_TELEMETRY_BETA = "1";
+      OTEL_TRACES_EXPORTER = "otlp";
       OTEL_EXPORTER_OTLP_TRACES_ENDPOINT = userConfig.telemetry.tracesEndpoint;
       OTEL_EXPORTER_OTLP_TRACES_PROTOCOL = "http/protobuf";
+    }
+
+# ...and explicitly off otherwise, for the same reason as metrics and logs.
+//
+  lib.optionalAttrs
+    ((userConfig.telemetry.enable or false) && (userConfig.telemetry.tracesEndpoint or null) == null)
+    {
+      OTEL_TRACES_EXPORTER = "none";
     }

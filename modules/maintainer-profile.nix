@@ -106,6 +106,46 @@
             '';
           };
 
+          serviceName = lib.mkOption {
+            type = lib.types.str;
+            default = "claude-code";
+            description = ''
+              `service.name` on every exported signal. Identifies this emitter
+              in the backend against everything else writing to the same
+              collector.
+            '';
+          };
+
+          resourceAttributes = lib.mkOption {
+            type = lib.types.attrsOf lib.types.str;
+            default = { };
+            example = {
+              "host.name" = "workstation-01";
+            };
+            description = ''
+              Extra OTel resource attributes, rendered into
+              OTEL_RESOURCE_ATTRIBUTES. Use for the identity a backend needs to
+              tell one emitting host from another; a span without it is hard to
+              attribute once more than one machine reports.
+            '';
+          };
+
+          logUserPrompts = lib.mkOption {
+            type = lib.types.bool;
+            default = false;
+            description = ''
+              Include full user prompt text in exported telemetry. Off by
+              default: this ships conversation content off the machine, so only
+              enable it against a collector whose whole path you control.
+            '';
+          };
+
+          logToolDetails = lib.mkOption {
+            type = lib.types.bool;
+            default = false;
+            description = "Include MCP server and tool names in exported telemetry.";
+          };
+
           tracesEndpoint = lib.mkOption {
             type = lib.types.nullOr lib.types.str;
             default = null;
