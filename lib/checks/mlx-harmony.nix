@@ -11,6 +11,7 @@
 let
   helpers = import ./helpers.nix { inherit pkgs; };
   patchSrc = ../../modules/mlx/mlx-lm-patch;
+  pythonTests = ../../tests/mlx-lm-patch;
   # The patched mlx-lm source. Was an unzipped wheel; mlx-lm now carries the
   # harmony patch as a postPatch (modules/mlx/python-overlay.nix), and
   # mlx-lm-patch.nix exports that same step applied to a platform-independent
@@ -39,7 +40,7 @@ in
   # its subjects out of $MLX_LM_ROOT and refuses to run without it, so that an
   # upstream rename breaks extraction loudly instead of testing a stale copy.
   mlx-harmony-parser = pkgs.runCommand "check-mlx-harmony-parser" {
-    inherit mlxLmRoot patchSrc;
+    inherit mlxLmRoot patchSrc pythonTests;
     # `regex`, because the wheel's own tool_parsers/qwen3_coder.py imports it —
     # a bare python3 stops at that import and never reaches the assertions.
     python3 = "${pkgs.python3.withPackages (ps: [ ps.regex ])}/bin/python3";
