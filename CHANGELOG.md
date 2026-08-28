@@ -1,5 +1,17 @@
 # Changelog
 
+## [4.29.0](https://github.com/dryvist/nix-ai/compare/v4.28.0...v4.29.0) (2026-08-28)
+
+
+### Features
+
+* **mlx:** add native MTP serving contract ([#1787](https://github.com/dryvist/nix-ai/issues/1787)) ([84b9bf4](https://github.com/dryvist/nix-ai/commit/84b9bf46ca090409eb856f1bafe902846b1e6efe))
+
+
+### Bug Fixes
+
+* **claude:** point the subagent tier at an alias, not a proxy role ([#1789](https://github.com/dryvist/nix-ai/issues/1789)) ([fd9c4d3](https://github.com/dryvist/nix-ai/commit/fd9c4d3676ea71887faca9a9726d1c5c9ce93448))
+
 ## [4.28.0](https://github.com/dryvist/nix-ai/compare/v4.27.0...v4.28.0) (2026-08-27)
 
 
