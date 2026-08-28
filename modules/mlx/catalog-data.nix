@@ -80,7 +80,14 @@ in
     ];
     concurrencyLimit = 1;
     classes = {
-      resident.flags = { };
+      # No host currently selects this class for this entry (grepped
+      # nix-darwin: absent entirely for qwen35-9b-optiq, swap-only for
+      # qwen35-9b-mlx) — offered so a future host CAN run either resident,
+      # but dead today. Wiring cacheMemoryMb here changes no live behavior,
+      # so it is safe to derive rather than leave silently defaulted:
+      # concurrency=1 matches the entry's own concurrencyLimit=1 above
+      # (#1641 caution — do not raise either without re-testing).
+      resident.cacheProvisioning.concurrency = 1;
       swap.flags = swapFlags;
     };
   };
@@ -122,7 +129,14 @@ in
     ];
     concurrencyLimit = 1;
     classes = {
-      resident.flags = { };
+      # No host currently selects this class for this entry (grepped
+      # nix-darwin: absent entirely for qwen35-9b-optiq, swap-only for
+      # qwen35-9b-mlx) — offered so a future host CAN run either resident,
+      # but dead today. Wiring cacheMemoryMb here changes no live behavior,
+      # so it is safe to derive rather than leave silently defaulted:
+      # concurrency=1 matches the entry's own concurrencyLimit=1 above
+      # (#1641 caution — do not raise either without re-testing).
+      resident.cacheProvisioning.concurrency = 1;
       swap.flags = swapFlags;
     };
   };

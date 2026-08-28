@@ -58,7 +58,11 @@ let
           A class must be validated on real hardware before the catalog offers it.
         '');
     in
-    classDef.flags
+    # A class may be all-literal (flags, no cacheProvisioning), all-derived
+    # (cacheProvisioning, no flags — see catalog-data.nix's 9B resident
+    # classes), or a mix; `flags` defaults to `{ }` so a purely-derived class
+    # never needs an empty literal alongside it.
+    (classDef.flags or { })
     // lib.optionalAttrs (classDef ? cacheProvisioning) {
       cacheMemoryMb = derivedCacheMb entry classDef;
     };
