@@ -16,6 +16,7 @@ in
       gptOss = "mlx-community/gpt-oss-120b-MXFP4-Q8";
       next80 = "mlx-community/Qwen3-Next-80B-A3B-Thinking-4bit";
       next80Instruct = "mlx-community/Qwen3-Next-80B-A3B-Instruct-4bit";
+      qwen36 = "mlx-community/Qwen3.6-35B-A3B-4bit";
       judge27b = "mlx-community/Qwen3.8-27B-4bit";
       optiqFlags = c.modelFlagOverrides.${optiq};
       judgeArgs = builtins.concatStringsSep " " c.modelExtraArgs.${judge27b};

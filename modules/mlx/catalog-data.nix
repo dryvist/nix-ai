@@ -167,10 +167,6 @@ in
   qwen36-35b = {
     model = "mlx-community/Qwen3.6-35B-A3B-4bit";
     weightGb = 19.4;
-    # The checkpoint supports 262144 positions, but this resident profile is
-    # deliberately admitted and served at 65536.  Keep the advertised window
-    # aligned with its worker request cap so campaign inventory does not
-    # schedule a cell the live worker will reject.
     contextWindowTokens = 65536;
     args = [
       "--chat-template-args"
