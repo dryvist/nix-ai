@@ -64,6 +64,15 @@
           No fallback default is provided on purpose: this previously defaulted
           to a loopback port nothing served, so the agent exported into a black
           hole indistinguishable from working telemetry.
+
+          Setting this is currently NOT sufficient to get telemetry out of MLX.
+          These variables are inherited by llama-swap and the mlx_lm.server
+          children, but no component in that chain is OpenTelemetry-instrumented
+          — scanning the installed mlx_lm package and the llama-swap binary
+          finds no OpenTelemetry reference in either. The option is kept because
+          the environment is the right shape the moment either gains
+          instrumentation; until then, a configured endpoint here means nothing
+          is being emitted, not that emission is going somewhere.
         '';
       };
     };

@@ -14,7 +14,12 @@ for the signal/endpoint shape.
 | Tool | Configured via | Signals |
 |---|---|---|
 | Claude Code | `userConfig.telemetry.{enable,otlpEndpoint,tracesEndpoint}` → `modules/claude/settings-env.nix` | metrics, logs, spans |
-| MLX model server | `programs.mlx.telemetry.{enable,otlpEndpoint}` → `modules/mlx/launchd.nix` | inherited by llama-swap and worker children |
+
+## Wired, but emits nothing
+
+| Tool | State |
+|---|---|
+| MLX model server | `programs.mlx.telemetry` sets the standard `OTEL_*` variables on the llama-swap LaunchAgent, inherited by the `mlx_lm.server` children. **No component in that chain is OpenTelemetry-instrumented**, so setting an endpoint produces no telemetry — verified by scanning the installed `mlx_lm` package and the `llama-swap` binary for any OpenTelemetry reference (none in either). The option is retained because the env is the right shape the moment either gains instrumentation, but do not read its presence as evidence that MLX is observable. |
 
 ## Supported upstream, not wired here
 
