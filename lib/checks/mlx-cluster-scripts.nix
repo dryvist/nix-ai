@@ -51,7 +51,7 @@ in
     # the whole guard set would imply a call graph it does not have, which is
     # exactly the confusion the layer split exists to prevent.
     HELPERS = "${src}/modules/mlx/scripts/cluster-link-helpers.sh";
-  } (builtins.readFile ../../modules/mlx/scripts/alert-payload-test.sh);
+  } (builtins.readFile ../../tests/alert-payload-test.sh);
 
   # Rank-start guards: the preconditions that decide whether a rank may start at
   # all, and whether a start attempt may be COUNTED against the RDMA PD guard.

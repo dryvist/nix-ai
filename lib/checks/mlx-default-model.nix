@@ -4,7 +4,7 @@
 # "default" roleOverride and a key->physical keymap) and the runtime half
 # (default-model.py moves the alias, is loud when an override is in effect, and
 # falls back loudly on an unusable key instead of serving nothing). The runtime
-# half lives in ./scripts/mlx-default-model-test.sh — no inline shell here.
+# half lives in ../../tests/mlx-default-model-test.sh — no inline shell here.
 { pkgs, hmConfigDefaultModel }:
 let
   cfg = hmConfigDefaultModel.config.programs.mlx;
@@ -51,7 +51,7 @@ in
         OVERRIDE = qwen36-35b;
       }
       ''
-        bash ${./scripts/mlx-default-model-test.sh}
+        bash ${../../tests/mlx-default-model-test.sh}
         touch $out
       '';
 }

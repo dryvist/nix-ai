@@ -43,17 +43,17 @@ in
     # `regex`, because the wheel's own tool_parsers/qwen3_coder.py imports it —
     # a bare python3 stops at that import and never reaches the assertions.
     python3 = "${pkgs.python3.withPackages (ps: [ ps.regex ])}/bin/python3";
-  } (builtins.readFile ../../modules/mlx/scripts/harmony-parser-test.sh);
+  } (builtins.readFile ../../tests/harmony-parser-test.sh);
 
   # The patch is only useful if it lands in the mlx-lm the worker actually runs.
   # Building this check applies it against the pinned mlx-lm release, so an
   # upstream bump that moves an anchor fails here instead of at model-load time.
   # It also pins the SELECTION gate, which is what #1429 shipped without: asking
   # only whether harmony is present kept this green while harmony was replacing
-  # every other model's parser. See scripts/harmony-patch-test.sh.
+  # every other model's parser. See tests/harmony-patch-test.sh.
   mlx-harmony-patch = pkgs.runCommand "check-mlx-harmony-patch" {
     inherit mlxLmRoot;
-  } (builtins.readFile ../../modules/mlx/scripts/harmony-patch-test.sh);
+  } (builtins.readFile ../../tests/harmony-patch-test.sh);
 
   # The flag must reach the serve command, and the catalog's per-model pin must
   # beat the global default — per-model divergence is the point here.
