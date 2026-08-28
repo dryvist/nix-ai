@@ -8,6 +8,7 @@
   config,
   lib,
   nix-claude-code,
+  userConfig,
   ...
 }:
 
@@ -86,6 +87,36 @@ let
 
   optionalValue = key: value: lib.optionalAttrs (value != null) { ${key} = value; };
 
+  # OpenTelemetry, sharing the one telemetry surface with Claude Code
+  # (userConfig.telemetry) so both agents point at the same collector.
+  #
+  # Two things here differ from Claude Code and were measured, not assumed:
+  #
+  #  - Codex posts to the configured endpoint VERBATIM. Pointed at
+  #    `http://host:port` it POSTs to `/`, appending no signal path — so this
+  #    takes the full `/v1/traces` URL, the opposite of the generic
+  #    OTEL_EXPORTER_OTLP_ENDPOINT that Claude Code uses as a base.
+  #  - `protocol = "binary"` is OTLP/HTTP protobuf. The collector answers 501
+  #    to JSON, so the encoding is load-bearing rather than cosmetic.
+  #
+  # metrics_exporter is pinned off: the collector's pipeline extracts spans
+  # only, and Codex embeds an OTel SDK whose unset default is a conventional
+  # loopback address — leaving it unset would export into nothing.
+  telemetryEnabled =
+    (userConfig.telemetry.enable or false) && (userConfig.telemetry.tracesEndpoint or null) != null;
+
+  otelAttrs = lib.optionalAttrs telemetryEnabled {
+    otel = {
+      environment = "homelab";
+      log_user_prompt = userConfig.telemetry.logUserPrompts or false;
+      metrics_exporter = "none";
+      trace_exporter.otlp-http = {
+        endpoint = userConfig.telemetry.tracesEndpoint;
+        protocol = "binary";
+      };
+    };
+  };
+
   # Nix-managed defaults for config.toml.
   configAttrs = {
     approval_policy = cfg.approvalPolicy;
@@ -122,6 +153,7 @@ let
   #
   # wire_api = "responses" because Codex speaks only the Responses API; the
   # proxy translates /v1/responses to chat for backends that lack it.
+  // otelAttrs
   // lib.optionalAttrs litellmLocal.enable {
     model_providers.litellm = {
       name = "LiteLLM (local)";
