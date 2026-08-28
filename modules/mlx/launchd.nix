@@ -100,13 +100,13 @@ in
               MLX_WORKER_PORT_RANGE_START = toString llamaSwapConfigAttrs.startPort;
               MLX_WORKER_PORT_COUNT = toString workerPortCount;
             }
-            // lib.optionalAttrs cfg.telemetry.enable {
-              # Standard OTel env vars inherited by llama-swap and mlx_lm.server children.
-              # The OTEL Collector at :30317 fans out to Cribl/Splunk and (optionally)
-              # to Galileo — see docs/adr/0003-galileo-ai-observability.md.
+            // lib.optionalAttrs (cfg.telemetry.enable && cfg.telemetry.otlpEndpoint != null) {
+              # OTel env inherited by llama-swap and mlx_lm.server children.
+              # Gated on a non-null endpoint — see options-server.nix.
               OTEL_SERVICE_NAME = "mlx-model-server";
+              # Base URL only — the exporter appends the signal path itself.
               OTEL_EXPORTER_OTLP_ENDPOINT = cfg.telemetry.otlpEndpoint;
-              OTEL_EXPORTER_OTLP_PROTOCOL = "grpc";
+              OTEL_EXPORTER_OTLP_PROTOCOL = "http/protobuf";
               OTEL_RESOURCE_ATTRIBUTES = "service.namespace=mlx,deployment.environment=homelab";
             };
             StandardOutPath = "${config.home.homeDirectory}/Library/Logs/mlx-model-server/server.log";

@@ -5,9 +5,6 @@
 # default-model passthrough that ties this server to the ai-stack registry.
 #
 { config, lib, ... }:
-let
-  aiStackVars = import ../../vars/ai-stack.nix;
-in
 {
   options.programs.mlx = {
     enable = lib.mkEnableOption "MLX inference server";
@@ -54,11 +51,19 @@ in
       enable = lib.mkEnableOption "OpenTelemetry trace export from the MLX inference stack";
 
       otlpEndpoint = lib.mkOption {
-        type = lib.types.str;
-        default = "http://localhost:${toString aiStackVars.nodeports.otel_grpc}";
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        example = "https://otel.example.internal";
         description = ''
-          gRPC OTLP endpoint for the OpenTelemetry Collector.
-          Matches the existing Claude Code telemetry pipeline endpoint.
+          OTLP/HTTP base URL for the OpenTelemetry Collector — no `/v1/...`
+          suffix, the exporter appends the signal path itself. Matches the
+          Claude Code telemetry pipeline endpoint
+          (userConfig.telemetry.otlpEndpoint).
+
+          Null by default, and null means no export even when `enable` is true.
+          No fallback default is provided on purpose: this previously defaulted
+          to a loopback port nothing served, so the agent exported into a black
+          hole indistinguishable from working telemetry.
         '';
       };
     };

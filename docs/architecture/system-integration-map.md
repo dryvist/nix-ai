@@ -115,8 +115,13 @@ and adding any required runtime secret injection.
 | 8180 | Fabric REST API (opt-in) | HTTP + Swagger UI | `modules/fabric/` |
 | 9379 | LiteRT-LM classifier (Antigravity CLI gemma router, opt-in) | HTTP | `modules/antigravity-cli/` |
 | 30030 | Cribl MCP | HTTP | `orbstack-kubernetes` repo |
-| 30317 | OTEL Collector (gRPC receiver) | gRPC | `orbstack-kubernetes` repo |
-| 4317 | Cribl OTEL ingest | gRPC | `orbstack-kubernetes` repo |
+
+OTLP collector endpoints are **not** listed here. They are site-specific and
+carry no default: set `userConfig.telemetry.otlpEndpoint` (Claude Code) and
+`programs.mlx.telemetry.otlpEndpoint` in your own configuration. This table
+previously listed a loopback OTEL port that nothing served, and both modules
+defaulted to it — the export silently went nowhere. A row here is a claim that
+something listens; do not add one for a planned service.
 
 Reserved but avoid: **11435** (macOS app conflict, see PR #230).
 
@@ -125,22 +130,35 @@ Reserved but avoid: **11435** (macOS app conflict, see PR #230).
 ```mermaid
 graph LR
     CC["Claude Code\n(metrics + logs)"]
-    MLX["MLX model server\n(traces, when telemetry.enable=true)"]
-    OTEL["OTEL Collector\n:30317"]
-    CRIBL["Cribl Stream\n:4317"]
-    SPLUNK["Splunk HEC"]
-    GAL["Galileo SaaS\napi.galileo.ai/otel/traces"]
+    CCT["Claude Code\n(spans, when tracesEndpoint is set)"]
+    MLX["MLX model server\n(when telemetry.enable + otlpEndpoint)"]
+    OTEL["OTLP collector\n(site-configured endpoint)"]
+    LOGS["Log platform"]
+    EVAL["Eval platform (gated)"]
 
-    CC -->|grpc OTLP| OTEL
-    MLX -->|grpc OTLP| OTEL
-    OTEL -->|grpc OTLP| CRIBL
-    CRIBL --> SPLUNK
-    OTEL -->|"otlphttp (gated: X-Trace-Sink header\n+ content denylist)"| GAL
+    CC -->|"OTLP http/protobuf\n(base URL, exporter appends /v1/*)"| OTEL
+    CCT -->|"OTLP http/protobuf\n(full /v1/traces path)"| OTEL
+    MLX -->|OTLP http/protobuf| OTEL
+    OTEL --> LOGS
+    OTEL -->|"gated: X-Trace-Sink header\n+ content denylist"| EVAL
 ```
 
-**Galileo gate:** only spans carrying `X-Trace-Sink: galileo` AND passing the
-content denylist (no Splunk/Cisco/client keywords) are forwarded to Galileo.
-All other spans flow only to Cribl/Splunk. See [ADR 0003](../adr/0003-galileo-ai-observability.md).
+Both signals are **OTLP over HTTP protobuf**, not gRPC. Two endpoint options
+exist because Claude Code treats traces separately:
+
+| Option | Signals | Path shape |
+|---|---|---|
+| `telemetry.otlpEndpoint` | metrics, logs | base URL — exporter appends `/v1/metrics`, `/v1/logs` |
+| `telemetry.tracesEndpoint` | spans | full `/v1/traces` path, and it also turns on the enhanced-telemetry beta |
+
+Setting `telemetry.enable` alone emits nothing: each endpoint is null by
+default and null means no export for that signal. Spans in particular require
+`tracesEndpoint` — plain `enable` yields counters and log events only, never
+the interaction / llm_request / tool / subagent span tree.
+
+**Eval-platform gate:** only spans carrying `X-Trace-Sink: galileo` AND passing
+the content denylist are forwarded onward. All other spans flow only to the log
+platform. See [ADR 0003](../adr/0003-galileo-ai-observability.md).
 
 ## Fabric's Four Integration Channels
 

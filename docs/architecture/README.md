@@ -60,6 +60,17 @@ flake. Reference implementations: `modules/cecli/` (`buildPythonApplication`) an
 modules (Claude/Antigravity/Codex/fabric) to the uniform layout, or extracting a module
 into a standalone flake.
 
+### [telemetry-coverage.md](telemetry-coverage.md)
+
+Per-CLI OpenTelemetry support: which tools are wired here, which support OTLP
+upstream but are not wired, which are degraded, and which have no support at
+all — each with the vendor source cited. Also records why the telemetry
+endpoint options carry no default.
+
+**Read when**: Wiring a new AI CLI for telemetry, deciding whether a tool can be
+observed at all, or checking whether "no telemetry" means unsupported or
+merely unconfigured.
+
 ### [plugin-scoping.md](plugin-scoping.md)
 
 The two-layer model partitioning Claude Code plugins between user-level (every session)
