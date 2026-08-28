@@ -97,13 +97,19 @@ in
     };
     args = [ ];
     classes = {
-      # The global maxRequestTokens default is too low for agentic multi-turn.
-      # cacheMemoryMb is NOT set here — it inherits model-server-cmd.nix's
-      # global null-default, not a derive.nix output. A derived value at
-      # concurrency=1 differs materially from that default; tracked rather
-      # than silently changed: Vikunja #106.
-      resident.flags = block512 // {
-        maxRequestTokens = 32768;
+      # cacheMemoryMb PINNED at today's inherited global null-default
+      # (derive.nix's cacheMemoryMbFor) — forModel's derivation is
+      # unvalidated against a real run. Tracked: Vikunja #106.
+      resident = {
+        cacheProvisioning.pinned = {
+          mb = 8192;
+          reason = "matches today's inherited global null-default; forModel's derivation unvalidated against a real run";
+          tracking = "vikunja#106";
+        };
+        # The global maxRequestTokens default is too low for agentic multi-turn.
+        flags = block512 // {
+          maxRequestTokens = 32768;
+        };
       };
       swap.flags = block256 // swapFlags;
     };
@@ -173,16 +179,21 @@ in
     # as the Instruct sibling.
     concurrencyLimit = 1;
     classes = {
-      # cacheMemoryMb = 4096 is a LIVE literal, not derived — same finding as
-      # the Instruct sibling's swap class: no (concurrency, window) pair
-      # reproduces it. Tracked: Vikunja #106.
-      swap.flags =
-        swapFlags
-        // hybridNoPaged
-        // {
-          cacheMemoryMb = 4096;
-          maxNumSeqs = 1; # 40B+ single-slot policy (overrides swapFlags maxNumSeqs=2)
+      # cacheMemoryMb PINNED (derive.nix's cacheMemoryMbFor) — same finding
+      # as the Instruct sibling's swap class. Tracked: Vikunja #106.
+      swap = {
+        cacheProvisioning.pinned = {
+          mb = 4096;
+          reason = "live working value; unvalidated formula, documented crash history under concurrency";
+          tracking = "vikunja#106";
         };
+        flags =
+          swapFlags
+          // hybridNoPaged
+          // {
+            maxNumSeqs = 1; # 40B+ single-slot policy (overrides swapFlags maxNumSeqs=2)
+          };
+      };
     };
   };
 

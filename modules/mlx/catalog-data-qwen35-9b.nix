@@ -45,11 +45,18 @@ in
       # concurrency=1 matches the entry's own concurrencyLimit=1 above
       # (#1641 caution — do not raise either without re-testing).
       resident.cacheProvisioning.concurrency = 1;
-      # swap (the LIVE class for this entry) inherits the global null-default
-      # cacheMemoryMb, not a derive.nix output — a derived value at
-      # concurrency=1 differs materially from that default. Tracked:
-      # Vikunja #106.
-      swap.flags = swapFlags;
+      # swap (the LIVE class) PINNED at today's inherited global
+      # null-default: forModel's derivation is unvalidated against a real
+      # run, and this family has a documented Metal-buffer-leak history
+      # (#1641) under batched decode. Tracked: Vikunja #106.
+      swap = {
+        cacheProvisioning.pinned = {
+          mb = 8192;
+          reason = "matches today's inherited global null-default; unvalidated formula, #1641 buffer-leak history";
+          tracking = "vikunja#106";
+        };
+        flags = swapFlags;
+      };
     };
   };
 
@@ -98,11 +105,18 @@ in
       # concurrency=1 matches the entry's own concurrencyLimit=1 above
       # (#1641 caution — do not raise either without re-testing).
       resident.cacheProvisioning.concurrency = 1;
-      # swap (the LIVE class for this entry) inherits the global null-default
-      # cacheMemoryMb, not a derive.nix output — a derived value at
-      # concurrency=1 differs materially from that default. Tracked:
-      # Vikunja #106.
-      swap.flags = swapFlags;
+      # swap (the LIVE class) PINNED at today's inherited global
+      # null-default: forModel's derivation is unvalidated against a real
+      # run, and this family has a documented Metal-buffer-leak history
+      # (#1641) under batched decode. Tracked: Vikunja #106.
+      swap = {
+        cacheProvisioning.pinned = {
+          mb = 8192;
+          reason = "matches today's inherited global null-default; unvalidated formula, #1641 buffer-leak history";
+          tracking = "vikunja#106";
+        };
+        flags = swapFlags;
+      };
     };
   };
 }
