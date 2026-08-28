@@ -96,7 +96,19 @@
   {
     ANTHROPIC_BASE_URL = litellmLocal.rootUrl;
     ANTHROPIC_CUSTOM_HEADERS = "x-litellm-api-key: Bearer ${litellmLocal.clientToken}";
-    CLAUDE_CODE_SUBAGENT_MODEL = "subagent";
+    # A capability ALIAS, never a router role. `subagent` was a role the router
+    # does not serve, so it fell through the proxy's `*` wildcard, reached the
+    # router, and 404'd — every subagent spawn on this host failed for days
+    # (`model_not_found`, "model sent to the API: subagent"). An alias always
+    # resolves to a real Anthropic model and reaches the `claude-*` group with
+    # this client's own credentials forwarded, so it cannot 404 that way.
+    #
+    # `sonnet` and not the caller's own tier: a subagent on the same model as
+    # its caller does not split judgment from labor, it just doubles the price
+    # of it. The caller stays the judge and retries as needed. Measured over 7
+    # days, Opus and Fable SUBAGENTS were 19.3% of all spend while Sonnet
+    # subagents served a comparable call count for ~3.5x less.
+    CLAUDE_CODE_SUBAGENT_MODEL = "sonnet";
     # The haiku tier deliberately stays on Anthropic. Claude Code's background
     # requests carry its full system prompt (measured ~36k tokens), and the
     # `cheap` role targets the always-on small local model, whose 32k window
