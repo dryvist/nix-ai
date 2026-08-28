@@ -14,6 +14,13 @@ for the signal/endpoint shape.
 | Tool | Configured via | Signals |
 |---|---|---|
 | Claude Code | `userConfig.telemetry.{enable,otlpEndpoint,tracesEndpoint}` → `modules/claude/settings-env.nix` | metrics, logs, spans |
+| Codex CLI | the same `userConfig.telemetry` surface → `[otel]` in `modules/codex/settings.nix` | spans |
+
+**Codex takes the endpoint verbatim.** Pointed at `http://host:port` it POSTs to
+`/`, appending no signal path — so it is given the full `/v1/traces` URL, the
+opposite of the generic endpoint Claude Code treats as a base. Measured on the
+wire against a local sink, not inferred. Its `protocol = "binary"` is OTLP/HTTP
+protobuf; the encoding is load-bearing, not cosmetic.
 
 ## Wired, but emits nothing
 
@@ -21,18 +28,33 @@ for the signal/endpoint shape.
 |---|---|
 | MLX model server | `programs.mlx.telemetry` sets the standard `OTEL_*` variables on the llama-swap LaunchAgent, inherited by the `mlx_lm.server` children. **No component in that chain is OpenTelemetry-instrumented**, so setting an endpoint produces no telemetry — verified by scanning the installed `mlx_lm` package and the `llama-swap` binary for any OpenTelemetry reference (none in either). The option is retained because the env is the right shape the moment either gains instrumentation, but do not read its presence as evidence that MLX is observable. |
 
-## Supported upstream, not wired here
+## Supported upstream, but not reachable here
 
-Each of these has first-party OTLP support. None is wired in this repo yet;
-wiring one means adding its own config surface, not reusing Claude Code's.
+| Tool | Finding | Evidence |
+|---|---|---|
+| qwen-code | Supports OTLP, but **cannot talk to this collector**. It accepts only two protocol values — the CLI rejects anything else with `Invalid telemetry OTLP protocol: http/protobuf. Valid values are: grpc, http` — and its `http` mode sends `Content-Type: application/json` (observed on the wire). Every OTLP ingest point in this estate answers **501 to JSON and 200 to protobuf**, and no gRPC listener is open. So it is wired-capable in principle and unreachable in practice. | Measured both ends: qwen's own error text and request content-type; collector response codes per encoding. |
 
-| Tool | Configuration surface | Protocol notes | Source |
-|---|---|---|---|
-| OpenAI Codex CLI | `[otel]` in `~/.codex/config.toml`. Schema read from the 0.150.1 binary: `{tool_result, log_user_prompt, environment, exporter, trace_exporter, metrics_exporter, span_attributes, tracestate}`, exporter kinds `none \| statsig \| otlp-http{endpoint,headers,protocol,tls} \| otlp-grpc`, protocol `binary \| json` | Embeds the Rust `opentelemetry-otlp` 0.31.0 exporter, so it also honors the standard `OTEL_EXPORTER_OTLP_*` env vars — **including their `http://localhost:4318` default**, which is the same silent-export shape this repo removed from its own options. Opt-in, off by default. `codex mcp-server` emits nothing | [openai/codex observability](https://deepwiki.com/openai/codex/9.4-observability-and-telemetry) |
-| Gemini CLI | `telemetry` object in `.gemini/settings.json` (`enabled`, `target`, `otlpEndpoint`, `otlpProtocol`); env vars override settings, CLI flags override both | OTLP is the wire protocol for both the local-collector and hosted targets | [gemini-cli docs/cli/telemetry.md](https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/telemetry.md) |
-| GitHub Copilot CLI | `COPILOT_OTEL_ENABLED` + `OTEL_EXPORTER_OTLP_ENDPOINT`, forwarded from the editor extension to the agent-host process; enterprise-managed settings can mandate an endpoint centrally | HTTP only — a gRPC config is silently downgraded | [Copilot SDK observability](https://docs.github.com/en/copilot/how-tos/copilot-sdk/observability/opentelemetry) |
-| qwen-code | `telemetry.otlpEndpoint`/`otlpProtocol` in `.qwen/settings.json`; `QWEN_TELEMETRY_OTLP_*` env vars take precedence over generic `OTEL_*`; `--telemetry-otlp-endpoint` flag | `otlpProtocol: "http"` auto-appends the signal path; gRPC also supported | [qwen-code telemetry docs](https://github.com/QwenLM/qwen-code/blob/main/docs/developers/development/telemetry.md) |
-| Cursor | **Org-level only** — configured in Cursor's web admin (Team Settings → OpenTelemetry Export), not per-process env vars. There is no documented client-side `OTEL_*` support | OTLP/HTTP binary protobuf only; gRPC and JSON are explicitly unsupported | [Cursor OpenTelemetry export](https://cursor.com/docs/enterprise/opentelemetry-export) |
+Closing this needs a JSON-accepting or gRPC OTLP route on the collector side —
+an infrastructure change, not a client one. Until that exists, configuring qwen
+telemetry would send spans that are rejected on arrival, which is exactly the
+silently-broken state the rest of this page exists to prevent.
+
+## Not installed on this machine
+
+Assessed and found absent, so there is nothing to wire. Listed because "no
+telemetry configured" would otherwise read as an unclosed gap:
+
+| Tool | Upstream OTLP support | Config surface, if it is ever installed |
+|---|---|---|
+| Gemini CLI | yes | `telemetry` object in `.gemini/settings.json` ([docs](https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/telemetry.md)) |
+| GitHub Copilot CLI | yes, HTTP only — a gRPC config is silently downgraded | `COPILOT_OTEL_ENABLED` + `OTEL_EXPORTER_OTLP_ENDPOINT` ([docs](https://docs.github.com/en/copilot/how-tos/copilot-sdk/observability/opentelemetry)) |
+| cecli | none found | [docs](https://cecli.dev/docs/) — not exhaustive, treat as "none found" |
+
+## Installed, org-level telemetry only
+
+| Tool | Finding | Source |
+|---|---|---|
+| Cursor / cursor-agent | Configured entirely in Cursor's web admin (Team Settings → OpenTelemetry Export). No documented client-side env var or config file, so there is nothing for this repo to set. OTLP/HTTP binary protobuf only; gRPC and JSON unsupported. | [Cursor OpenTelemetry export](https://cursor.com/docs/enterprise/opentelemetry-export) |
 
 ## Degraded
 
