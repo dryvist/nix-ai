@@ -34,11 +34,31 @@
 #
 #   3. options-residency.nix states the invariant
 #        maxResidentWorkers * memoryHardLimitGb <= host wired ceiling
-#      in prose, warns that "2 workers at the default 99 GiB permits 198 GiB
-#      against a 100 GiB ceiling, which over-commits it", and then leaves both
-#      numbers to be set by hand. Co-residency therefore silently over-commits
-#      unless a human remembers to lower the other number. Here it cannot:
-#      memoryHardLimitGb is derived FROM the ceiling and k_max.
+#      in prose. THIS FILE DOES NOT OWN THAT DERIVATION — nix-darwin's
+#      hosts/common/residency-budget.nix already computes memoryHardLimitGb
+#      from the host's appleSiliconTunables.wiredLimitMb sysctl and k_max, in
+#      the same evaluation closure that reads the sysctl. That value is a
+#      taken-as-given INPUT here (see forModel's budgetGb), never re-derived.
+#
+# WHAT THIS FILE DOES NOT OWN (found while wiring it in, 2026-08-28):
+#
+#   `maxNumSeqs` (the engine's decode/prompt BATCH-ADMISSION width) and
+#   `proxy.concurrencyLimit` / `serveConcurrency` (llama-swap's in-flight
+#   admission cap) are NOT the same thing as `concurrency` below, and an
+#   earlier version of this file conflated them. Proof: plugging today's real
+#   qwen38-27b values (maxNumSeqs=8, window=131072, weightGb=16.1) into
+#   forModel's KV formula demands ~80 GiB against a 48 GiB per-worker budget
+#   — yet that exact config runs today with cacheMemoryMb=16384 (16 GiB) and
+#   does not fall over. maxNumSeqs is a throughput ceiling the runtime paged-
+#   cache admission check enforces AT CALL TIME (see docs/local-llm/memory-
+#   ceilings.mdx "load-time admission control") — it does not promise that
+#   many simultaneous full-window streams get pre-reserved capacity. The
+#   admission-width number already has a single source: the ADR at
+#   d/decisions/llm-serving-concurrency-single-source (docs-starlight) plus
+#   the per-entry `concurrencyLimit` field already in the catalog. This file
+#   does not set, read, or derive `maxNumSeqs`/`concurrencyLimit` — only
+#   memory and buffer sizing for a stated provisioning target (see
+#   `concurrency`'s definition on forModel below).
 #
 # ON THE NUMBERS: the calibration constants below are seeded from single
 # observations on one host under uncontrolled load, not controlled benchmarks.
@@ -136,9 +156,7 @@ let
       windowTokens,
       blockSize,
     }:
-    (divCeil (concurrency * windowTokens) blockSize)
-    * kv.kvLayers
-    * calibration.bufferPerBlockPerLayer;
+    (divCeil (concurrency * windowTokens) blockSize) * kv.kvLayers * calibration.bufferPerBlockPerLayer;
 
   selectBlockSize =
     args:
@@ -152,37 +170,27 @@ in
 rec {
   inherit metalBufferCeiling calibration perTokenKvBytes;
 
-  # ---- HOST-LEVEL DERIVATION ----------------------------------------------
-
-  # memoryHardLimitGb, derived rather than declared.
-  #
-  # options-residency.nix carries the invariant
-  #   maxResidentWorkers * memoryHardLimitGb <= host wired ceiling
-  # and warns what happens when the two are set independently. Deriving the
-  # per-worker budget FROM the ceiling makes over-commitment unrepresentable:
-  # raising k_max necessarily lowers the per-worker budget, which is the
-  # correction the prose asked a human to remember.
-  #
-  # The cushion is one whole GiB below the exact share, matching the existing
-  # "99 GiB under the 100 GiB ceiling" posture at k_max = 1.
-  memoryHardLimitGbFor =
-    {
-      hostWiredCeilingGb,
-      maxResidentWorkers,
-    }:
-    lib.max 1 (hostWiredCeilingGb / maxResidentWorkers - 1);
-
   # ---- PER-MODEL DERIVATION ------------------------------------------------
 
-  # Every serve limit for one model, from that model's facts plus its two
-  # choices. The result is consumed directly by model-server-cmd.nix and the
-  # llama-swap topology; nothing downstream recomputes or overrides any of it.
+  # Memory and buffer-count sizing for one model's PROMPT CACHE, from that
+  # model's facts plus a stated provisioning target. Consumed by
+  # model-server-cmd.nix for cacheMemoryMb/pagedCacheBlockSize only.
   #
   #   kv            { kvLayers; kvHeads; headDim; kvDtypeBytes; } from config.json
   #   weightGb      4-bit weight footprint
-  #   concurrency   THE input — in-flight streams this model serves
-  #   windowTokens  THE other input — max context per stream
-  #   budgetGb      this worker's share, from memoryHardLimitGbFor
+  #   concurrency   how many GENUINELY SIMULTANEOUS full-window streams to
+  #                 guarantee cache capacity for — a provisioning target you
+  #                 choose, NOT the engine's maxNumSeqs batch-admission width
+  #                 and NOT proxy.concurrencyLimit/serveConcurrency. Those are
+  #                 throughput ceilings enforced by the runtime admission
+  #                 check at call time; this is a memory-sizing promise. The
+  #                 two may legitimately differ by a wide margin (today's
+  #                 fleet brain: maxNumSeqs=8 for throughput, but nobody
+  #                 promises 8 simultaneous 131k-token conversations fit).
+  #   windowTokens  max context per guaranteed stream
+  #   budgetGb      this worker's memoryHardLimitGb — an INPUT taken as given
+  #                 (nix-darwin's hosts/common/residency-budget.nix derives
+  #                 it from the host ceiling and k_max; this file does not)
   forModel =
     {
       kv,
@@ -244,22 +252,15 @@ rec {
       maxCacheBlocks = if blockSize == null then null else divCeil totalTokens blockSize;
       inherit predictedBuffers;
 
-      # --- concurrency, one value reaching every layer that caps it.
-      # maxNumSeqs is the model server's batch cap and concurrencyLimit is
-      # llama-swap's in-flight cap; they were independent numbers before, which
-      # meant llama-swap's default of 1 silently serialized a server configured
-      # for 8. Both derive from `concurrency` here so they cannot disagree.
-      maxNumSeqs = concurrency;
-      decodeConcurrency = concurrency;
-      promptConcurrency = concurrency;
-      concurrencyLimit = concurrency;
-
-      # --- context
-      maxRequestTokens = windowTokens;
-
       # --- fitness, for assertions and for reporting a shape that cannot serve
       fitsMemory = committable >= inelastic;
       fitsBuffers = blockSize != null;
+
+      # maxNumSeqs / concurrencyLimit / maxRequestTokens are DELIBERATELY not
+      # emitted here. maxRequestTokens is the catalog's own contextWindowTokens
+      # field (a vllm-mlx generation guard already single-sourced there);
+      # maxNumSeqs and concurrencyLimit are the ADR-governed admission width
+      # (see the file header) — neither is this file's to set.
     };
 
   # ---- CEILING -------------------------------------------------------------

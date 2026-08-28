@@ -59,6 +59,17 @@ in
   qwen35-9b-optiq = {
     model = "mlx-community/Qwen3.5-9B-OptiQ-4bit";
     weightGb = 7.7;
+    # qwen3_5_text HYBRID, same family as qwen38-27b: 32 layers,
+    # full_attention_interval 4 -> 8 full-attention layers carry paged KV, the
+    # other 24 linear-attention layers carry none.
+    # perTokenKvBytes = 2*8*4*256*2 = 32768 B/token (32 KiB/token). Verified
+    # against the model's own config.json (2026-08-27).
+    kv = {
+      kvLayers = 8;
+      kvHeads = 4;
+      headDim = 256;
+      kvDtypeBytes = 2;
+    };
     # The model card's Hermes recipe serves this text quant with mlx_lm.server.
     # Keep it off the multimodal-aware vllm-mlx loader.
     args = [
@@ -92,6 +103,16 @@ in
   qwen35-9b-mlx = {
     model = "mlx-community/Qwen3.5-9B-MLX-4bit";
     weightGb = 5.2;
+    # Same qwen3_5_text HYBRID geometry as qwen35-9b-optiq above: 32 layers,
+    # 8 full-attention (full_attention_interval 4) carry paged KV.
+    # perTokenKvBytes = 2*8*4*256*2 = 32768 B/token (32 KiB/token). Verified
+    # against the model's own config.json (2026-08-27).
+    kv = {
+      kvLayers = 8;
+      kvHeads = 4;
+      headDim = 256;
+      kvDtypeBytes = 2;
+    };
     # Text quant served through mlx_lm.server; keep off the vllm-mlx loader.
     args = [
       "--chat-template-args"

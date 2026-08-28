@@ -51,6 +51,17 @@ in
   qwen38-27b = {
     model = "mlx-community/Qwen3.8-27B-4bit";
     weightGb = 16.1;
+    # qwen3_5_text HYBRID: 64 layers, 16 full_attention / 48 linear_attention
+    # (already stated above — full_attention_interval 4). Only the 16
+    # full-attention layers carry paged KV; the 48 linear layers carry none.
+    # perTokenKvBytes = 2*16*4*256*2 = 65536 B/token (64 KiB/token). Verified
+    # against the model's own config.json (2026-08-27).
+    kv = {
+      kvLayers = 16;
+      kvHeads = 4;
+      headDim = 256;
+      kvDtypeBytes = 2;
+    };
     # The model supports a native 262,144-token window. Production roles use
     # 131,072 so the remaining range is available for separately managed 200K
     # feasibility work rather than silently becoming a fleet default.
