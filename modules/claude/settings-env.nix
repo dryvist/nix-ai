@@ -96,15 +96,12 @@
   {
     ANTHROPIC_BASE_URL = litellmLocal.rootUrl;
     ANTHROPIC_CUSTOM_HEADERS = "x-litellm-api-key: Bearer ${litellmLocal.clientToken}";
-    # Must name something that always resolves — a capability alias or an
-    # explicit model_list group, never a bare role the proxy can only reach
-    # through its `*` wildcard. A role nothing serves 404s every call in this
-    # tier; the flake check enforces that.
+    # A capability alias or an explicit model_list group; the flake check
+    # enforces it.
     #
-    # A cheaper tier than the caller is the point: the parent corrects its
-    # subagents, so buying far more subagent work for a fraction of the price is
-    # the trade. Repoint this at a local model, or a cheap cloud one with zero
-    # data retention, as soon as either can hold the context this tier needs.
+    # A cheaper tier than the caller is the point — the parent corrects its
+    # subagents. Repoint at a local model, or a cheap cloud one with zero data
+    # retention, once either holds this tier's context.
     CLAUDE_CODE_SUBAGENT_MODEL = "sonnet";
     # The haiku tier deliberately stays on Anthropic. Claude Code's background
     # requests carry its full system prompt (measured ~36k tokens), and the
