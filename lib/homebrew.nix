@@ -12,6 +12,7 @@
   brews = {
     goose = [ "block-goose-cli" ];
     qwenCode = [ "qwen-code" ];
+    langgraphCli = [ "langgraph-cli" ];
   };
 
   casks = {

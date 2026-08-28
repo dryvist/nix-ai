@@ -144,6 +144,12 @@
       flake = false;
     };
 
+    # Langfuse LLM observability skill + Claude plugin. Dual-channel.
+    langfuse-skills = {
+      url = "github:langfuse/skills";
+      flake = false;
+    };
+
     # Only `file-organizer` is taken; its <repo>/<skill>/SKILL.md layout
     # matches no discovery pattern, so it is wired by path through
     # programs.agentSkills.local. Unlicensed upstream — never copied.
@@ -184,6 +190,7 @@
       autoresearch,
       context-engineering-kit,
       managing-dependencies,
+      langfuse-skills,
       awesome-claude-skills,
       vct-cribl-cli,
       vct-splunk-cli,
@@ -234,6 +241,7 @@
           autoresearch
           context-engineering-kit
           managing-dependencies
+          langfuse-skills
           awesome-claude-skills
           vct-cribl-cli
           vct-splunk-cli

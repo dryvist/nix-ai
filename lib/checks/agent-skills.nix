@@ -137,6 +137,9 @@ in
       builtins.elem ".codex/skills/managing-dependencies" managedSkillEntries
       || throw "managing-dependencies skill not discovered from its flake input";
     assert
+      builtins.elem ".codex/skills/langfuse" managedSkillEntries
+      || throw "langfuse skill not discovered from langfuse-skills input";
+    assert
       builtins.elem ".codex/skills/file-organizer" managedSkillEntries
       || throw "file-organizer skill not deployed from programs.agentSkills.local";
     # The INDEX is what the loader-less harnesses (Copilot, cecli) actually read,

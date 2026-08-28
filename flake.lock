@@ -518,6 +518,22 @@
         "type": "github"
       }
     },
+    "langfuse-skills": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1787848255,
+        "narHash": "sha256-y9rjS7yBqw4GZ59T96PnTCkzf/aZlhrMPPaNAkGKTuw=",
+        "owner": "langfuse",
+        "repo": "skills",
+        "rev": "790948f99db67d2bac10081efab9bd87e40bab2c",
+        "type": "github"
+      },
+      "original": {
+        "owner": "langfuse",
+        "repo": "skills",
+        "type": "github"
+      }
+    },
     "last30days-skill": {
       "flake": false,
       "locked": {
@@ -763,6 +779,7 @@
         "home-manager": "home-manager",
         "jacobpevans-cc-plugins": "jacobpevans-cc-plugins",
         "karpathy-skills": "karpathy-skills",
+        "langfuse-skills": "langfuse-skills",
         "last30days-skill": "last30days-skill",
         "managing-dependencies": "managing-dependencies",
         "nix-agy": "nix-agy",

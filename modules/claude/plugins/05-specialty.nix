@@ -92,6 +92,13 @@ _:
     "hf-mcp@huggingface-skills" = false;
 
     # ========================================================================
+    # langfuse-skills — langfuse/skills
+    # ========================================================================
+    # Langfuse tracing, prompt management, and evaluation. Flows to every
+    # harness via agent-skills auto-discovery (~/.codex/skills/langfuse).
+    "langfuse@langfuse-skills" = true;
+
+    # ========================================================================
     # karpathy-skills — forrestchang/andrej-karpathy-skills (113639★)
     # ========================================================================
     # Single skill: karpathy-guidelines. Behavioral rules for LLM coding:

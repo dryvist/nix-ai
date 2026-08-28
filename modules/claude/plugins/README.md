@@ -27,7 +27,7 @@ disable the lower-tier one. Document each disable inline with a reason.
 | **2** | First-party AI/cloud vendors | `openai-codex`, MCP integrations under `claude-plugins-official/external_plugins/*` |
 | **3** | Personal | `jacobpevans-cc-plugins` |
 | **4** | Broad-scope community marketplaces (multi-plugin); ordering within the tier follows GitHub stars | `claude-code-workflows` (34k★), `superpowers-marketplace` (925★), `cc-marketplace` (679★), `claude-skills` (129★) |
-| **5** | Niche / specialty / single-purpose / synthetic — classified by use-case scope, not stars | `lunar-claude`, `claude-code-plugins-plus`, `bitwarden-marketplace`, `cc-dev-tools`, `fabric-patterns`, `huggingface-skills`, `obsidian-skills`, `axton-obsidian-visual-skills`, `visual-explainer-marketplace`, `browser-use-skills`, `vct-cribl-pack-validator-skills`, `wakatime` |
+| **5** | Niche / specialty / single-purpose / synthetic — classified by use-case scope, not stars | `lunar-claude`, `claude-code-plugins-plus`, `bitwarden-marketplace`, `cc-dev-tools`, `fabric-patterns`, `huggingface-skills`, `langfuse-skills`, `obsidian-skills`, `axton-obsidian-visual-skills`, `visual-explainer-marketplace`, `browser-use-skills`, `vct-cribl-pack-validator-skills`, `wakatime` |
 
 > Tier 4 vs Tier 5 is **not** purely a star count comparison. Several Tier 5
 > entries wrap very high-star upstream repos (e.g., `browser-use` 91k★,
