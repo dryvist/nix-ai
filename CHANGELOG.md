@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.29.2](https://github.com/dryvist/nix-ai/compare/v4.29.1...v4.29.2) (2026-08-28)
+
+
+### Bug Fixes
+
+* **telemetry:** export OTLP over http/protobuf and require an endpoint ([#1801](https://github.com/dryvist/nix-ai/issues/1801)) ([ddd5056](https://github.com/dryvist/nix-ai/commit/ddd5056cb469cd6029d88c6de6818a3dc5eae5fe))
+
 ## [4.29.1](https://github.com/dryvist/nix-ai/compare/v4.29.0...v4.29.1) (2026-08-28)
 
 
