@@ -31,13 +31,10 @@ let
     '');
 
   # cacheMemoryMb, DERIVED when a class opts in via `cacheProvisioning`
-  # instead of stating a literal (see catalog-data-qwen38-27b.nix's resident
-  # class for the worked example). `cacheProvisioning.concurrency` is a
-  # STATED provisioning target — how many genuinely-simultaneous full-window
-  # streams this class guarantees cache capacity for — never guessed here;
-  # see derive.nix's forModel docs for why that differs from maxNumSeqs.
-  # budgetGb reads THIS host's memoryHardLimitGb, so the same class
-  # definition re-derives correctly on every host that enables it.
+  # (worked example: catalog-data-qwen38-27b.nix resident). `concurrency` is
+  # a STATED provisioning target, never guessed — see forModel's docs for
+  # why that differs from maxNumSeqs. budgetGb reads THIS host's
+  # memoryHardLimitGb, so one class re-derives per host.
   derivedCacheMb =
     entry: classDef:
     (derive.forModel {
@@ -58,10 +55,9 @@ let
           A class must be validated on real hardware before the catalog offers it.
         '');
     in
-    # A class may be all-literal (flags, no cacheProvisioning), all-derived
-    # (cacheProvisioning, no flags — see catalog-data.nix's 9B resident
-    # classes), or a mix; `flags` defaults to `{ }` so a purely-derived class
-    # never needs an empty literal alongside it.
+    # flags defaults to { }: an all-derived class (cacheProvisioning, no
+    # literal flags — catalog-data.nix's 9B resident classes) needs no
+    # empty flags = { } alongside it.
     (classDef.flags or { })
     // lib.optionalAttrs (classDef ? cacheProvisioning) {
       cacheMemoryMb = derivedCacheMb entry classDef;

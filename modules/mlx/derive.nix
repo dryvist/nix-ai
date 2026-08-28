@@ -1,71 +1,56 @@
 # MLX Module — the serving-limit derivation
 #
-# Every memory, concurrency, and cache limit the model servers run with is
-# computed HERE, from a small set of inputs, and nowhere else. Before this file
-# those values were literals spread across catalog entries, catalog-lib profiles
-# and options-proxy, each hand-calculated once and then hand-synced forever —
-# a shape that had already drifted (see the three notes below).
+# Every memory/buffer limit a model server runs with is computed HERE from a
+# small input set, not hand-set at a call site. Before this file the values
+# were literals in catalog entries, catalog-lib, and options-proxy, hand-
+# calculated once and hand-synced forever — already drifted (below).
 #
-# The contract, and the reason to reach for this file rather than edit a number:
+#   INPUT       a hardware/model fact or deliberate choice. Written once.
+#   CALIBRATION an empirical coefficient, not derivable from first
+#               principles. Named, isolated, TUNED HERE when reality
+#               disagrees — never worked around at a call site.
+#   DERIVED     computed below, never hand-set/overridden. Wrong output ->
+#               fix an input or calibration constant, not a call-site literal.
 #
-#   INPUT      a fact about hardware or a model, or a deliberate choice.
-#              Written once, in one place.
-#   CALIBRATION an empirical coefficient that cannot be derived from first
-#              principles. Named, isolated, and TUNED HERE when reality
-#              disagrees — never worked around at a call site.
-#   DERIVED    computed below. Never hand-set, never overridden. If a derived
-#              value is wrong, the fix is an input or a calibration constant,
-#              because a literal at the call site is how this rotted last time.
-#
-# WHAT WAS WRONG BEFORE (2026-08-27), kept here because each is a live trap:
+# WHAT WAS WRONG BEFORE (2026-08-27), each a live trap:
 #
 #   1. catalog-lib.nix documents
 #        perTokenKvBytes = 2 * kvLayers * kvHeads * headDim * kvDtypeBytes
-#      and the `kv` schema that feeds it — but the formula was never executed in
-#      Nix. Every occurrence of perTokenKvBytes was a hand-evaluated result
-#      pasted into a COMMENT. This file is the first code that computes it.
+#      but never executed it — every occurrence was hand-evaluated into a
+#      COMMENT. This file is the first code that computes it.
 #
-#   2. options-proxy.nix derived concurrencyLimitCeiling from four constants
-#      that restate the catalog instead of reading it: peakWeightGiB = 31,
-#      kvPerTokenDenseKiB = 64, maxGrantedRequestTokens = 65536. That last one
-#      is the sharpest trap — raise a model's window and the ceiling meant to
-#      protect memory keeps computing against the old number, with nothing
-#      detecting the drift.
+#   2. options-proxy.nix's concurrencyLimitCeiling restated the catalog
+#      instead of reading it (peakWeightGiB=31, kvPerTokenDenseKiB=64,
+#      maxGrantedRequestTokens=65536). The last one is sharpest: raise a
+#      window and the memory ceiling keeps computing against the old number.
 #
-#   3. options-residency.nix states the invariant
+#   3. options-residency.nix states
 #        maxResidentWorkers * memoryHardLimitGb <= host wired ceiling
-#      in prose. THIS FILE DOES NOT OWN THAT DERIVATION — nix-darwin's
+#      in prose. NOT THIS FILE'S DERIVATION — nix-darwin's
 #      hosts/common/residency-budget.nix already computes memoryHardLimitGb
-#      from the host's appleSiliconTunables.wiredLimitMb sysctl and k_max, in
-#      the same evaluation closure that reads the sysctl. That value is a
-#      taken-as-given INPUT here (see forModel's budgetGb), never re-derived.
+#      from appleSiliconTunables.wiredLimitMb + k_max, same closure as the
+#      sysctl read. Taken as a given INPUT here (forModel's budgetGb).
 #
-# WHAT THIS FILE DOES NOT OWN (found while wiring it in, 2026-08-28):
+# WHAT THIS FILE DOES NOT OWN (found wiring it in, 2026-08-28): `maxNumSeqs`
+# (engine batch-admission width) and `proxy.concurrencyLimit`/
+# `serveConcurrency` (llama-swap's admission cap) are NOT `concurrency`
+# below — an earlier version conflated them. Proof: today's real qwen38-27b
+# values (maxNumSeqs=8, window=131072, weightGb=16.1) demand ~80 GiB in the
+# old KV formula against a 48 GiB budget, yet this config runs fine today at
+# cacheMemoryMb=16384. maxNumSeqs is a throughput ceiling the runtime paged-
+# cache admission check enforces AT CALL TIME (docs/local-llm/memory-
+# ceilings.mdx "load-time admission control"), not a promise of pre-reserved
+# capacity for that many simultaneous streams. Admission width already has a
+# single source: the ADR at d/decisions/llm-serving-concurrency-single-source
+# (docs-starlight) plus the catalog's per-entry `concurrencyLimit`. This file
+# sets neither — only sizing for a stated provisioning target (see
+# `concurrency` on forModel).
 #
-#   `maxNumSeqs` (the engine's decode/prompt BATCH-ADMISSION width) and
-#   `proxy.concurrencyLimit` / `serveConcurrency` (llama-swap's in-flight
-#   admission cap) are NOT the same thing as `concurrency` below, and an
-#   earlier version of this file conflated them. Proof: plugging today's real
-#   qwen38-27b values (maxNumSeqs=8, window=131072, weightGb=16.1) into
-#   forModel's KV formula demands ~80 GiB against a 48 GiB per-worker budget
-#   — yet that exact config runs today with cacheMemoryMb=16384 (16 GiB) and
-#   does not fall over. maxNumSeqs is a throughput ceiling the runtime paged-
-#   cache admission check enforces AT CALL TIME (see docs/local-llm/memory-
-#   ceilings.mdx "load-time admission control") — it does not promise that
-#   many simultaneous full-window streams get pre-reserved capacity. The
-#   admission-width number already has a single source: the ADR at
-#   d/decisions/llm-serving-concurrency-single-source (docs-starlight) plus
-#   the per-entry `concurrencyLimit` field already in the catalog. This file
-#   does not set, read, or derive `maxNumSeqs`/`concurrencyLimit` — only
-#   memory and buffer sizing for a stated provisioning target (see
-#   `concurrency`'s definition on forModel below).
-#
-# ON THE NUMBERS: the calibration constants below are seeded from single
-# observations on one host under uncontrolled load, not controlled benchmarks.
-# They are directional, and they are expected to be wrong at the edges. That is
-# precisely why they are isolated and labelled — tuning one of them is the
-# supported way to respond to a measurement, and the reason none of their
-# consequences are written down as literals anywhere else.
+# ON THE NUMBERS: calibration constants are seeded from single observations
+# on one host under uncontrolled load, not controlled benchmarks — directional
+# and expected wrong at the edges. That is why they are isolated and named:
+# tuning one is the supported response to a measurement, and the reason none
+# of their consequences are literals anywhere else.
 { lib }:
 let
   # ---- PLATFORM FACTS ------------------------------------------------------
@@ -80,30 +65,27 @@ let
   # Empirical. Tune HERE against measurement; never compensate at a call site.
 
   calibration = {
-    # Metal buffers held per paged KV block per KV-bearing layer. Cannot be
-    # derived from first principles — it depends on MLX allocator internals.
+    # Metal buffers held per paged KV block per KV-bearing layer. Depends on
+    # MLX allocator internals, not derivable from first principles.
     #
-    # SEEDED AT 1 AND DELIBERATELY UNCALIBRATED. The obvious anchor was
-    # catalog-lib's "~98K buffers at maxNumSeqs 8 x 65K window", but that
-    # figure is not yet trustworthy: catalog-data.nix records
-    # perTokenKvBytes = 98304 B/token for an unrelated model, and two distinct
-    # quantities carrying the same number is exactly how a hand-copied constant
-    # loses its units. Calibrate this against a real buffer-exhaustion run
-    # before treating headroom reported here as meaningful.
+    # SEEDED AT 1, DELIBERATELY UNCALIBRATED: no real buffer-exhaustion run
+    # exists to fit it to yet (catalog-lib's "~98K buffers at maxNumSeqs 8 x
+    # 65K window" and catalog-data.nix's unrelated-model
+    # perTokenKvBytes=98304 B/token were checked 2026-08-28 and are
+    # legitimately different quantities, not a units collision — but neither
+    # is a calibration measurement). Fit to a real run before trusting the
+    # headroom this reports.
     bufferPerBlockPerLayer = 1;
 
-    # Prompt-cache slots per in-flight stream. Each concurrent stream needs at
-    # least its own slot or streams evict each other between turns; the
-    # measured cost of getting this wrong was large (model-server-cmd.nix
-    # records 0.22s warm vs 8.34s cold at 7k tokens with a single shared slot,
-    # and re-prefill cost scales with context, so a long-context stream pays
-    # far more). 2 gives each stream its slot plus one for an alternating
-    # conversation rather than sizing exactly to concurrency.
+    # Prompt-cache slots per in-flight stream — each needs its own or streams
+    # evict each other between turns (model-server-cmd.nix: 0.22s warm vs
+    # 8.34s cold at 7k tokens, single shared slot; re-prefill cost scales with
+    # context). 2 = own slot plus one for an alternating conversation.
     promptCacheSlotsPerStream = 2;
 
-    # Fraction of a budget that may be committed, leaving room for the
-    # allocator's own overhead and fragmentation. Applies to both the per-worker
-    # memory budget and the Metal buffer ceiling.
+    # Committable fraction of a budget, leaving allocator overhead/
+    # fragmentation headroom. Applies to the per-worker memory budget and the
+    # Metal buffer ceiling alike.
     safetyFraction = 90; # percent
 
     # Practical decode concurrency on a single Apple GPU. Throughput collapses
