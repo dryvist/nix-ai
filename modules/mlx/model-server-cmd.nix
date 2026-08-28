@@ -70,7 +70,13 @@ rec {
           cfg // overrides
         else
           throw "programs.mlx.modelFlagOverrides.\"${modelId}\": not overridable serve option(s): ${lib.concatStringsSep ", " unknown}";
-      effectiveMlxLmMaxTokens = if c.maxTokens == null then 8192 else c.maxTokens;
+      effectiveMlxLmMaxTokens =
+        if c.maxTokens != null then
+          c.maxTokens
+        else if c.maxRequestTokens != null then
+          c.maxRequestTokens
+        else
+          8192;
       # Honor the configured prompt-cache budget up to 16 GiB. The prior 8 GiB
       # clamp silently capped catalog entries that ask for more (e.g. the
       # large-context resident class at cacheMemoryMb = 16384), making the
