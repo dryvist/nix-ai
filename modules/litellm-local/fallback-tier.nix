@@ -1,79 +1,46 @@
-# Cost-ordered fallback tier for the local proxy.
+# Cost-ordered fallback tier for the local proxy, built from generated data.
 #
-# Split out of ./default.nix to stay under the 12KB ceiling in .file-size.yml
-# (split rather than exempt, the same pattern the mlx checks use).
+# WHY A CHAIN: a single hardcoded subagent model dies silently. On 2026-08-28
+# the router's `subagent` alias still resolved to `openrouter/stealth/ox-alpha`
+# whose testing period had ended — every call returned 404, and the router
+# reported `Available Model Group Fallbacks=None`. Nothing noticed until a call
+# was made by hand. One name in one place is a single point of failure.
 #
-# WHY THIS EXISTS, in one sentence: a single hardcoded subagent model dies
-# silently. On 2026-08-28 the router's `subagent` alias still resolved to
-# `openrouter/stealth/ox-alpha`, whose testing period had ended — every call
-# returned 404 with "Thank you for participating in the Stealth Ox Alpha
-# testing period", and the upstream router reported
-# `Available Model Group Fallbacks=None` for that group. Nothing noticed until
-# a call was made by hand. One name in one place is a single point of failure;
-# an ordered chain plus a liveness check is not.
+# WHY GENERATED: the first hand-written version of this file recorded
+# deepseek-v4-flash at $0.030/$0.100 with a 1,310,720-token window. One day
+# later the catalog said $0.087/$0.173 and 1,048,576. A price table maintained
+# by hand is wrong almost immediately, and a chain ordered by wrong prices is
+# not cost-ordered. `litellm-tier-refresh` regenerates ./tier-candidates.json
+# from the live OpenRouter catalog intersected with what the upstream router
+# will actually serve; this file only assembles what that produced.
 #
-# ORDERING IS BY COST, cheapest first. LiteLLM walks the list in order and
-# stops at the first member that answers, so the cheapest capable tier wins
-# and the expensive one is only ever reached when everything above it is down.
+# THE HEAD IS ALWAYS NAMED `subagent`. Consumers name that one string forever
+# and a refresh reorders what sits behind it without touching them. It also
+# shadows the upstream router's own `subagent` alias — an explicit model_list
+# group beats the `*` wildcard — so the retired alias cannot reach this host.
 #
-# The window matters as much as the price. Measured subagent context runs to
-# ~284k tokens at p90, so a 200k-window model truncates real work. Every
-# member below therefore advertises >= 262k input tokens; that is a hard
-# selection criterion, not a preference.
-#
-# Prices are per Mtok (input/output) as published by the OpenRouter catalog on
-# 2026-08-28, recorded so a future reader can tell whether the ordering still
-# reflects reality. They are a snapshot, NOT a contract — the
-# `litellm-fallback-probe` command verifies that a member still ANSWERS, never
-# what it costs. Re-rank when the catalog moves; it is keyless at
-# https://openrouter.ai/api/v1/models, so re-ranking needs no credential.
+# WHAT THIS FILE CANNOT PROVE: that a member still answers. Catalog metadata is
+# a claim, not behaviour — ox-alpha resolved cleanly in /v1/model/info for days
+# after it stopped serving. `litellm-fallback-probe` sends a real completion to
+# every member and is the only check that settles it.
 { lib }:
 let
-  # Each member: the model_name this proxy exposes, the upstream id the router
-  # resolves, and the evidence that earned it a place in the chain.
-  members = [
-    {
-      name = "subagent-free";
-      upstream = "nvidia/nemotron-3-ultra-550b-a55b:free";
-      # $0/$0 per Mtok, 1,000,000-token window.
-      # Verified live through this proxy 2026-08-28: finish_reason=stop.
-      costPerMtok = "0/0";
-      minInputTokens = 1000000;
-    }
-    {
-      name = "subagent-cheap";
-      upstream = "deepseek/deepseek-v4-flash";
-      # $0.030/$0.100 per Mtok, 1,310,720-token window — the cheapest paid
-      # model in the catalog that clears the window requirement by a wide
-      # margin. Verified live through this proxy 2026-08-28.
-      costPerMtok = "0.030/0.100";
-      minInputTokens = 1310720;
-    }
-    {
-      name = "subagent-capable";
-      upstream = "minimax/minimax-m3";
-      # Last non-Anthropic rung: a stronger model for when the two cheaper
-      # tiers are both refusing. Verified live through this proxy 2026-08-28.
-      costPerMtok = "see-catalog";
-      minInputTokens = 262144;
-    }
-  ];
+  data = builtins.fromJSON (builtins.readFile ./tier-candidates.json);
 
-  # The window every member must clear, from measured p90 subagent context.
-  # An entry that does not clear it truncates real work rather than failing
-  # loudly, which is the worse failure — so this is asserted, not documented.
-  requiredInputTokens = 262144;
+  inherit (data) policy members;
+  requiredInputTokens = policy.requiredInputTokens;
 
   routerParams = member: {
     model = "openai/${member.upstream}";
     api_base = "os.environ/LLM_ROUTER_URL";
     api_key = "os.environ/OPENAI_API_KEY";
   };
+
+  isFree = m: m.promptCostPerMtok == 0 && m.completionCostPerMtok == 0;
 in
 rec {
-  inherit members requiredInputTokens;
+  inherit members requiredInputTokens policy;
 
-  # model_list entries this tier contributes, in cost order.
   modelList = map (m: {
     model_name = m.name;
     litellm_params = routerParams m;
@@ -85,21 +52,20 @@ rec {
   entryPoint = builtins.head names;
   chain = builtins.tail names;
 
-  # `fallbacks` is a list of single-key attrsets, `[{group: [fb, ...]}]` —
-  # the shape LiteLLM's own proxy_server_config.yaml uses and the shape the
-  # upstream router already reports in its error payloads. Each rung falls
-  # through to every cheaper-than-nothing rung below it, so the chain still
-  # completes when the failure starts partway down.
+  # `[{group: [fb, ...]}]` — the shape LiteLLM's own proxy_server_config.yaml
+  # uses and the shape the upstream router reports in its error payloads. Each
+  # rung falls through to every rung below it, so the chain still completes
+  # when the failure starts partway down.
   fallbacks = lib.imap0 (i: name: { ${name} = lib.drop (i + 1) names; }) (lib.init names);
 
   assertions = [
     {
-      assertion = lib.all (m: m.minInputTokens >= requiredInputTokens) members;
+      assertion = lib.all (m: m.contextLength >= requiredInputTokens) members;
       message =
         "litellm-local: every fallback-tier member must advertise at least "
         + "${toString requiredInputTokens} input tokens (measured p90 subagent "
         + "context is ~284k; a smaller window truncates work instead of "
-        + "failing loudly).";
+        + "failing loudly). Re-run litellm-tier-refresh.";
     }
     {
       assertion = lib.length members >= 2;
@@ -111,6 +77,38 @@ rec {
     {
       assertion = lib.length (lib.unique names) == lib.length names;
       message = "litellm-local: fallback-tier member names must be unique.";
+    }
+    {
+      assertion = entryPoint == "subagent";
+      message =
+        "litellm-local: the head of the fallback chain must be named "
+        + "`subagent` so consumers never change when the ranking does, and so "
+        + "it shadows the upstream router's retired alias of the same name.";
+    }
+    {
+      # Free models share ONE upstream quota pool. A chain made only of them
+      # has a single point of failure wearing several names: exhaust the daily
+      # free cap and every rung dies in the same instant.
+      assertion = policy.paidTail == 0 || lib.any (m: !isFree m) members;
+      message =
+        "litellm-local: policy.paidTail requires at least one billing model in "
+        + "the chain — an all-free chain dies all at once when the shared "
+        + "OpenRouter free quota is spent, which is the failure this tier "
+        + "exists to prevent.";
+    }
+    {
+      # Ordering is the entire value of the tier; an unsorted list still works
+      # and silently spends money it did not need to.
+      assertion =
+        let
+          costs = map (m: m.promptCostPerMtok + m.completionCostPerMtok) members;
+        in
+        costs == lib.sort (a: b: a < b) costs;
+      message =
+        "litellm-local: fallback-tier members must be ordered cheapest-first; "
+        + "LiteLLM walks the list in order, so an unsorted chain reaches for an "
+        + "expensive model before a cheaper one that would have served. "
+        + "Re-run litellm-tier-refresh rather than reordering by hand.";
     }
   ];
 }

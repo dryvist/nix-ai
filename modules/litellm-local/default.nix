@@ -197,6 +197,21 @@ let
     '';
   };
 
+  # Regenerates ./tier-candidates.json from the live catalog. It writes into a
+  # CHECKOUT, not the store, so the candidates path is a required argument
+  # rather than baked in — a wrapper pointing at the read-only store copy would
+  # fail at the last step, after both network fetches.
+  tierRefresh = pkgs.writeShellApplication {
+    name = "litellm-tier-refresh";
+    runtimeInputs = [
+      pkgs.curl
+      pkgs.python3
+    ];
+    text = ''
+      exec ${./../scripts/litellm-tier-refresh.sh} "$@"
+    '';
+  };
+
   # launchd agents get no shell init, so the wrapper reads the router bearer
   # from its file itself. This is also why the assertion below requires
   # llmEndpointTokenFile: llmEndpointBearerFromEnv provisions the bearer into
@@ -239,7 +254,10 @@ in
       ]
       ++ fallbackTier.assertions;
 
-      home.packages = [ fallbackProbe ];
+      home.packages = [
+        fallbackProbe
+        tierRefresh
+      ];
 
       launchd.agents.litellm-local = {
         enable = true;

@@ -128,7 +128,7 @@
     # subagents. Every member of the chain clears the ~284k p90 subagent
     # context measured on this host; that window is a selection criterion for
     # membership, so it does not need restating per tier here.
-    CLAUDE_CODE_SUBAGENT_MODEL = "subagent-free";
+    CLAUDE_CODE_SUBAGENT_MODEL = "subagent";
     # The haiku tier deliberately stays on Anthropic. Claude Code's background
     # requests carry its full system prompt (measured ~36k tokens), and the
     # `cheap` role targets the always-on small local model, whose 32k window

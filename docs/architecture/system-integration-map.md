@@ -52,12 +52,32 @@ Claude Code is the exception to "no local gateway hop": with
 proxy on `:4100`. The proxy splits traffic by model name — `claude-*` reaches
 Anthropic with the session's own forwarded credentials (so the main model still
 bills the subscription and is never rerouted), while every other name resolves
-through the shared router. The subagent tier names a group from
-[`fallback-tier.nix`](../../modules/litellm-local/fallback-tier.nix), a
-cost-ordered chain rather than one model, so a single retired upstream model
-cannot take every subagent down with it. Run `litellm-fallback-probe` to check
-that every member of that chain still answers — a model can stop serving with
-no config change on either side, and only a real completion detects it.
+through the shared router.
+
+The subagent tier names one stable group, `subagent`, which heads a cost-ordered
+chain assembled by
+[`fallback-tier.nix`](../../modules/litellm-local/fallback-tier.nix) from
+generated data in `tier-candidates.json`. A chain rather than one model, so a
+single retired upstream model cannot take every subagent down with it; a stable
+head name, so re-ranking the chain never edits a consumer.
+
+**The chain is generated, not hand-written.** `litellm-tier-refresh` re-ranks it
+against two live sources and keeps only their intersection: the public model
+catalog supplies cost, context window, output modality and tool-calling support,
+while the shared router supplies the set of models this host can actually reach.
+Ranking the catalog alone proposes models the router refuses outright — measured,
+not assumed. Selection also requires text output and tool-call support, since a
+subagent that cannot call tools fails as a wrong answer rather than an error.
+
+The hand-owned half is the `policy` block in that JSON, which the generator
+preserves verbatim: the required context window, how many members, an ordered
+`pin` list that overrides ranking, a `deny` list, and `paidTail` — the number of
+trailing slots reserved for billing models, because zero-cost models share one
+upstream quota pool and an all-free chain dies in a single instant.
+
+Run `litellm-fallback-probe` after any refresh. Catalog metadata is a claim, not
+behaviour: a model can stop serving with no config change on either side, and
+only a real completion detects it.
 
 The other local nix-ai clients (qwen-code, cecli, Fabric) call llama-swap
 directly at `:11434` by default — no gateway hop. Setting

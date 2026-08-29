@@ -17,6 +17,11 @@ for the signal/endpoint shape.
 | Codex CLI | the same `userConfig.telemetry` surface → `[otel]` in `modules/codex/settings.nix` | spans |
 | Local LiteLLM proxy | `userConfig.telemetry.tracesEndpoint` → `litellm_settings.callbacks` in `modules/litellm-local/` | spans, when an endpoint is set |
 
+Proxy spans carry the resolved model name, so they are also how a fallback shows
+up after the fact: a request served by a rung below the head means the tier
+above it failed. Without them a chain degrades silently, which is the same blind
+spot the chain itself was built to remove — one layer up.
+
 **Both the proxy and Codex gate on `telemetry.enable && tracesEndpoint != null`,
 so both are inert while no endpoint is configured.** Setting `telemetry.enable`
 alone is not enough and never has been. Check the rendered config rather than
