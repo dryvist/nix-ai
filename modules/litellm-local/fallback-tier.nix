@@ -28,7 +28,7 @@ let
   data = builtins.fromJSON (builtins.readFile ./tier-candidates.json);
 
   inherit (data) policy members;
-  requiredInputTokens = policy.requiredInputTokens;
+  inherit (policy) requiredInputTokens;
 
   routerParams = member: {
     model = "openai/${member.upstream}";

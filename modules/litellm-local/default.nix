@@ -104,7 +104,20 @@ let
       otelPackages
       ;
   };
-  inherit (commands) fallbackProbe tierRefresh proxyScript;
+  inherit (commands)
+    fallbackProbe
+    tierRefresh
+    tierRefreshJob
+    tierRefreshScript
+    proxyScript
+    ;
+
+  refreshCfg = cfg.tierRefresh;
+  refreshCandidates =
+    if refreshCfg.checkout == null then
+      null
+    else
+      "${refreshCfg.checkout}/modules/litellm-local/tier-candidates.json";
 
 in
 {
@@ -126,6 +139,10 @@ in
           assertion = aiStack.llmEndpointTokenFile != null && aiStack.llmEndpointTokenFile != "";
           message = "programs.litellmLocal.enable requires services.aiStack.llmEndpointTokenFile: the proxy runs as a launchd agent, which has no shell init, so services.aiStack.llmEndpointBearerFromEnv cannot reach it. Point llmEndpointTokenFile at the file holding the router bearer.";
         }
+        {
+          assertion = !refreshCfg.enable || refreshCfg.checkout != null;
+          message = "programs.litellmLocal.tierRefresh.enable requires tierRefresh.checkout: the refresh rewrites tier-candidates.json in a working copy, and the Nix store copy is read-only, so a job with no checkout would fail after both network fetches rather than before them.";
+        }
       ]
       ++ fallbackTier.assertions;
 
@@ -134,35 +151,17 @@ in
         tierRefresh
       ];
 
-      launchd.agents.litellm-local = {
-        enable = true;
-        config = {
-          Label = "dev.litellm-local";
-          ProgramArguments = [ "${proxyScript}" ];
-          RunAtLoad = true;
-          KeepAlive = true;
-          # Throttle restarts so a bad config or an unreadable secret file
-          # fails visibly in the log instead of spinning.
-          ThrottleInterval = 30;
-          ProcessType = "Background";
-          EnvironmentVariables = {
-            # Not a secret — the router URL is a plain address, so it needs no
-            # exec-time file read.
-            LLM_ROUTER_URL = aiStack.llmRouterEndpoint;
-            HOME = config.home.homeDirectory;
-          }
-          # LiteLLM reads its OWN names here — `OTEL_EXPORTER` / `OTEL_ENDPOINT`
-          # — not the standard OTEL_EXPORTER_OTLP_* pair. Setting the standard
-          # names instead leaves the callback pointed at its loopback default
-          # and exporting nowhere, with no error. Endpoint carries the full
-          # signal path because LiteLLM posts it verbatim.
-          // lib.optionalAttrs (telemetryTracesEndpoint != null) {
-            OTEL_EXPORTER = "otlp_http";
-            OTEL_ENDPOINT = telemetryTracesEndpoint;
-          };
-          StandardOutPath = "${config.home.homeDirectory}/Library/Logs/litellm-local/litellm-local.log";
-          StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/litellm-local/litellm-local.error.log";
-        };
+      launchd.agents = import ./launchd.nix {
+        inherit
+          config
+          lib
+          cfg
+          aiStack
+          proxyScript
+          tierRefreshJob
+          tierRefreshScript
+          refreshCandidates
+          ;
       };
 
       # Client-side environment for the OpenAI-compatible CLIs.

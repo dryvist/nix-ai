@@ -30,8 +30,7 @@ let
   rendered = hmConfig.config.programs.litellmLocal.renderedConfig;
 
   # Cost-ordered fallback-tier assertions live in their own file (12KB gate).
-  firstFallbackFailure =
-    (import ./litellm-local-fallbacks.nix { inherit lib rendered; }).firstFallbackFailure;
+  inherit (import ./litellm-local-fallbacks.nix { inherit lib rendered; }) firstFallbackFailure;
 
   # Proxy auth + per-deployment api_key scoping (12KB gate).
   keys = import ./litellm-local-keys.nix { inherit rendered; };

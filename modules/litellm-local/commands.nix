@@ -82,7 +82,30 @@ let
       --host 127.0.0.1 \
       --port ${toString cfg.port}
   '';
+  # Timer entry point. diffutils is an explicit runtime input because the job
+  # reports WHAT moved when the selection changes, and `diff` is not otherwise
+  # in a launchd agent's empty PATH.
+  tierRefreshJob = pkgs.writeShellApplication {
+    name = "litellm-tier-refresh-job";
+    runtimeInputs = [
+      pkgs.curl
+      pkgs.python3
+      pkgs.diffutils
+    ];
+    text = ''
+      exec ${./../scripts/litellm-tier-refresh-job.sh} "$@"
+    '';
+  };
+
+  # The refresh script the job drives, as a store path the agent can name.
+  tierRefreshScript = ./../scripts/litellm-tier-refresh.sh;
 in
 {
-  inherit fallbackProbe tierRefresh proxyScript;
+  inherit
+    fallbackProbe
+    tierRefresh
+    tierRefreshJob
+    tierRefreshScript
+    proxyScript
+    ;
 }

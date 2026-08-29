@@ -77,7 +77,7 @@
     # Anthropic rate-limits. Losing the request is recoverable; not noticing
     # the model changed underneath a long session is not. The main tier gets
     # retries and a context-window fallback, never a silent quality swap.
-    fallbacks = fallbackTier.fallbacks;
+    inherit (fallbackTier) fallbacks;
 
     # A context-window overflow is unambiguous — the request cannot succeed
     # as sent, and a larger window is strictly better rather than a

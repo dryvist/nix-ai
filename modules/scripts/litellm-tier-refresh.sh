@@ -45,9 +45,32 @@ ROUTER_BASE="${ROUTER_URL%/v1}"
 # large exceeds the exec argument limit (E2BIG) on macOS.
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
-curl -sS --max-time 60 "$CATALOG_URL" > "$work/catalog.json"
-curl -sS --max-time 60 -H "Authorization: Bearer $(cat "$ROUTER_TOKEN_FILE")" \
-  "$ROUTER_BASE/v1/model/info" > "$work/served.json"
+
+# Both fetches retry. The router's model/info endpoint was measured hanging for
+# 30s with zero bytes and then answering in 0.15s a minute later — intermittent,
+# not down. Without a retry a scheduled refresh would fail on a blip it could
+# have ridden out. --retry-all-errors is what makes curl retry a TIMEOUT; plain
+# --retry only covers transient HTTP codes and connection refusals.
+#
+# Fetch order matters on failure: both land in temp files and the rewrite
+# happens only after both succeed, so a failed fetch leaves the candidates file
+# exactly as it was rather than half-updated. Verified against a live router
+# timeout.
+fetch() {
+  curl -sS --max-time 45 --retry 2 --retry-delay 5 --retry-all-errors "$@"
+}
+
+if ! fetch "$CATALOG_URL" > "$work/catalog.json"; then
+  echo "failed to fetch the model catalog after retries: $CATALOG_URL" >&2
+  exit 1
+fi
+if ! fetch -H "Authorization: Bearer $(cat "$ROUTER_TOKEN_FILE")" \
+  "$ROUTER_BASE/v1/model/info" > "$work/served.json"; then
+  echo "failed to reach the router's model/info endpoint after retries." >&2
+  echo "The candidates file is unchanged. This endpoint is known to hang" >&2
+  echo "intermittently; a later run will pick it up." >&2
+  exit 1
+fi
 
 python3 - "$CANDIDATES" "$work/catalog.json" "$work/served.json" <<'PY'
 import json, os, sys, datetime
