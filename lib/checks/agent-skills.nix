@@ -3,10 +3,27 @@
   pkgs,
   hmConfig,
   hmConfigAgentSkillsShared,
-  hmConfigAgentSkillsGrouped,
+  mkHmConfig,
 }:
 let
   helpers = import ./helpers.nix { inherit pkgs; };
+
+  # Group-gated evaluation fixture: only the `core` group's skills may deploy.
+  # Members name real discovered skills plus one that matches nothing (must be
+  # ignored, same forward-tolerance as categories).
+  hmConfigAgentSkillsGrouped = mkHmConfig [
+    {
+      programs.agentSkills = {
+        root = "agents";
+        groups.core = [
+          "autoresearch"
+          "kaizen"
+          "not-a-real-skill"
+        ];
+        activeGroups = [ "core" ];
+      };
+    }
+  ];
   cfg = hmConfig.config.programs.agentSkills;
   sharedCfg = hmConfigAgentSkillsShared.config.programs.agentSkills;
   homeFileNames = builtins.attrNames hmConfig.config.home.file;
