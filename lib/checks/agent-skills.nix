@@ -3,6 +3,7 @@
   pkgs,
   hmConfig,
   hmConfigAgentSkillsShared,
+  hmConfigAgentSkillsGrouped,
 }:
 let
   helpers = import ./helpers.nix { inherit pkgs; };
@@ -29,6 +30,8 @@ in
       "local"
       "categories"
       "root"
+      "groups"
+      "activeGroups"
     ];
   };
 
@@ -172,4 +175,36 @@ in
       pkgs.lib.hasInfix "/nix/store/*-home-manager-files/.codex/skills/*" inactiveRootCleanup
       || throw "Agent Skills agents root must clean stale Home Manager links from the inactive Codex root";
     helpers.mkMarker "check-agent-skills-shared-root" "Agent Skills agents override deploys one canonical root";
+
+  # Group gating: activeGroups deploys exactly the union of the named groups.
+  # The grouped fixture activates only `core` = [ autoresearch kaizen
+  # not-a-real-skill ]; the phantom member must be ignored, every other
+  # discovered skill (e.g. `why` from the same input as kaizen) must NOT
+  # deploy, and the INDEX manifest must shrink to match — the manifest is what
+  # loader-less harnesses read, so a stale entry there is a silent lie.
+  agent-skills-groups =
+    let
+      groupedFiles = hmConfigAgentSkillsGrouped.config.home.file;
+      groupedNames = builtins.attrNames groupedFiles;
+      groupedSkillEntries = builtins.filter (
+        n: builtins.match "^\\.agents/skills/[^/]+$" n != null && n != ".agents/skills/INDEX.md"
+      ) groupedNames;
+      groupedIndex = groupedFiles.".agents/skills/INDEX.md".text;
+    in
+    assert
+      builtins.elem ".agents/skills/autoresearch" groupedSkillEntries
+      || throw "group gating dropped a core-group skill (autoresearch)";
+    assert
+      builtins.elem ".agents/skills/kaizen" groupedSkillEntries
+      || throw "group gating dropped a core-group skill (kaizen)";
+    assert
+      !(builtins.elem ".agents/skills/why" groupedSkillEntries)
+      || throw "group gating deployed a skill outside the active groups (why)";
+    assert
+      builtins.length groupedSkillEntries == 2
+      || throw "group gating must deploy exactly the active groups' skills, got ${builtins.toJSON groupedSkillEntries}";
+    assert
+      builtins.match ".*[^-]why.*" groupedIndex == null
+      || throw "INDEX.md lists a skill the group gate excluded (why)";
+    helpers.mkMarker "check-agent-skills-groups" "Agent Skills group gating: ${toString (builtins.length groupedSkillEntries)} skills from active groups only";
 }

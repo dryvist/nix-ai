@@ -69,6 +69,23 @@ let
     }
   ];
 
+  # Group-gated evaluation: only the `core` group's skills may deploy. Members
+  # name real discovered skills plus one that matches nothing (must be ignored,
+  # same forward-tolerance as categories).
+  hmConfigAgentSkillsGrouped = mkHmConfig [
+    {
+      programs.agentSkills = {
+        root = "agents";
+        groups.core = [
+          "autoresearch"
+          "kaizen"
+          "not-a-real-skill"
+        ];
+        activeGroups = [ "core" ];
+      };
+    }
+  ];
+
   hmConfigVctCli = mkHmConfig [
     {
       programs.vctCli.enable = true;
@@ -277,6 +294,7 @@ in
     pkgs
     hmConfig
     hmConfigAgentSkillsShared
+    hmConfigAgentSkillsGrouped
     ;
 })
 // (import ./checks/codex.nix { inherit pkgs hmConfig; })
