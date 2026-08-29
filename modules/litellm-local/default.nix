@@ -149,7 +149,11 @@ let
       # as sent, and a larger window is strictly better rather than a
       # downgrade. That makes it the one case where routing the main tier
       # elsewhere is safe.
-      context_window_fallbacks = [ { "claude-*" = [ "subagent-cheap" ]; } ];
+      # Target is the tier's OWN entry point, never a literal: the head group
+      # is named once in fallback-tier.nix and a refresh reorders what sits
+      # behind it. A hardcoded name here ("subagent-cheap") was not an emitted
+      # model_list group at all, so it failed the explicit-group check.
+      context_window_fallbacks = [ { "claude-*" = [ fallbackTier.entryPoint ]; } ];
     }
     # Every non-Anthropic call this host makes traverses this proxy, so with no
     # callback the entire local fabric is an observability blind spot.
