@@ -182,6 +182,15 @@
       OTEL_EXPORTER_OTLP_PROTOCOL = "http/protobuf";
       OTEL_METRICS_EXPORTER = "otlp";
       OTEL_LOGS_EXPORTER = "otlp";
+      # Prometheus-family sinks (VictoriaMetrics, Mimir, Prometheus) silently
+      # drop delta-temporality metrics — the pipeline looks healthy while
+      # storing nothing. Cumulative is what they expect and is accepted by
+      # every OTLP collector, so it is safe to pin unconditionally.
+      OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE = "cumulative";
+      # The SDK's 60s default loses the final interval of short sessions —
+      # a sub-minute CLI run can exit having exported nothing. 10s bounds
+      # that loss without meaningful overhead at this metric volume.
+      OTEL_METRIC_EXPORT_INTERVAL = "10000";
     }
 
 # ...and explicitly off when it is not set, so the SDK cannot fall back to its
