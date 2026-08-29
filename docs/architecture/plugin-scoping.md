@@ -138,3 +138,26 @@ After adding per-repo `.claude/settings.json` in a consumer repo:
 - `modules/claude/plugins/05-specialty.nix` — globally disabled project-specific plugins
 - `modules/claude-config.nix` — Claude config wiring (`skillListingBudgetFraction`, plugin enables)
 - `.claude/rules/plugin-cache-architecture.md` — read/write boundaries for plugin cache
+
+## Skill groups (non-Claude harnesses)
+
+Claude sessions are scoped by the two-layer plugin model above. The shared
+`~/.agents/skills` catalog consumed by the other harnesses (Codex, OpenCode,
+qwen, gemini, loader-less agents via `INDEX.md`) has the same context-cost
+problem and its own gate: `programs.agentSkills.groups` +
+`programs.agentSkills.activeGroups`.
+
+- `groups` — named skill groups over the catalog, defined once (a skill may
+  belong to several). Members that match no discovered skill are ignored,
+  same forward-tolerance as `categories`.
+- `activeGroups = null` (default) deploys every discovered skill — the
+  previous behavior. A list deploys exactly the union of the named groups,
+  and `INDEX.md` shrinks to match, so loader-less harnesses see the same
+  scoped surface.
+- Naming an undefined group is an eval-time assertion failure, not a silent
+  no-op.
+
+Definitions belong in this repo (or in data merged from the instruction SSOT
+input); host configs (nix-darwin) only choose `activeGroups`. Regression
+coverage: `lib/checks/agent-skills.nix` (`agent-skills-groups`).
+

@@ -41,6 +41,39 @@ in
       '';
     };
 
+    # Named skill groups over the shared catalog. Definitions live here (or in
+    # data merged in by the consuming host); harness/host configs only choose
+    # which groups are active. A skill may belong to several groups. Group
+    # members that match no deployed skill are ignored — same forward-tolerant
+    # rule as `categories` — so a group can name a skill before its input lands.
+    groups = lib.mkOption {
+      type = lib.types.attrsOf (lib.types.listOf lib.types.str);
+      default = { };
+      example = {
+        core = [
+          "managing-dependencies"
+          "kaizen"
+        ];
+        iac = [ "terraform-module" ];
+      };
+      description = "Group name -> skill names. Groups gate deployment via activeGroups; a skill may appear in more than one group.";
+    };
+
+    # Which groups deploy. null (the default) keeps today's behavior: every
+    # discovered skill deploys. A list deploys exactly the union of the named
+    # groups' skills — the lever that keeps a session's skill surface (and so
+    # its context cost) proportional to the work. Naming an undefined group is
+    # an eval-time error, not a silent no-op.
+    activeGroups = lib.mkOption {
+      type = lib.types.nullOr (lib.types.listOf lib.types.str);
+      default = null;
+      example = [
+        "core"
+        "iac"
+      ];
+      description = "Groups to deploy, or null to deploy every discovered skill.";
+    };
+
     fromFlakeInputs = lib.mkOption {
       type = lib.types.listOf componentModule;
       default = [ ];
