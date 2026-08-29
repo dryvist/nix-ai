@@ -35,6 +35,7 @@ let
 
   # Proxy auth + per-deployment api_key scoping (12KB gate).
   keys = import ./litellm-local-keys.nix { inherit rendered; };
+  inherit (keys) claudeTargetModel;
   inherit (keys)
     noGlobalForwarding
     noMasterKey
@@ -148,7 +149,7 @@ in
       || throw "the litellm-local claude-* deployment must carry no api_key so the forwarded client credential is what authenticates it";
     assert
       claudeKeepsPrefix
-      || throw "the litellm-local claude-* deployment must target anthropic/claude-*: LiteLLM substitutes only the matched tail, so anthropic/* sends claude-opus-5 upstream as opus-5; got: ${claudeDeployment.litellm_params.model}";
+      || throw "the litellm-local claude-* deployment must target anthropic/claude-*: LiteLLM substitutes only the matched tail, so anthropic/* sends claude-opus-5 upstream as opus-5; got: ${claudeTargetModel}";
     assert
       wildcardHasOwnKey
       || throw "the litellm-local wildcard deployment must carry its own api_key so it authenticates to the router as itself";

@@ -36,6 +36,9 @@ let
   claudeKeepsPrefix = claudeDeployment.litellm_params.model == "anthropic/claude-*";
 in
 {
+  # The parent's failure message quotes the actual compiled target.
+  claudeTargetModel = claudeDeployment.litellm_params.model;
+
   inherit
     noGlobalForwarding
     noMasterKey
