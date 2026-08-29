@@ -94,6 +94,11 @@ let
             roles = [ "goal-judge" ];
           };
           qwen36-optiq.class = "resident";
+          # Stock Qwen3.6 sibling, swap-class: enabled so the compiled
+          # modelContextWindows carries its declared 65536 window for
+          # mlx-catalog.nix to assert. Resident would push the fixture past
+          # residentWeightBudgetGb for no added coverage.
+          qwen36-35b.class = "swap";
           qwen3-coder-30b.class = "resident";
           gpt-oss-120b.class = "swap";
           qwen3-next-80b = {
