@@ -115,9 +115,15 @@ in
     assertions = [
       {
         assertion = cfg.activeGroups == null || builtins.all (g: cfg.groups ? ${g}) cfg.activeGroups;
+        # `or [ ]` does not null-coalesce — activeGroups defaults to an explicit
+        # null, so the filter must guard it or forcing this message crashes eval.
         message =
           "programs.agentSkills.activeGroups names undefined group(s): "
-          + builtins.toJSON (builtins.filter (g: !(cfg.groups ? ${g})) (cfg.activeGroups or [ ]));
+          + builtins.toJSON (
+            builtins.filter (g: !(cfg.groups ? ${g})) (
+              if cfg.activeGroups == null then [ ] else cfg.activeGroups
+            )
+          );
       }
     ];
 
