@@ -38,6 +38,13 @@ cannot be the routine command. The `nix eval` form above forces every check's
 Verified both ways: it passes on a healthy tree and fails on a deliberately
 broken one.
 
+**This is a workaround, and the structural fix is in flight.** PR #1819 builds
+`checks` for every supported system instead of x86_64-linux alone, which makes a
+plain `nix flake check` run the darwin assertions directly. Once that lands,
+drop the `nix eval` invocation above and use `nix flake check` — and note its CI
+caveat, that `--all-systems` from a Linux-only runner then tries to realise the
+darwin markers and fails.
+
 Assertions only fire when something forces them, so a check that reads a few
 attributes of a large structure proves nothing about the rest. Where a check
 covers a nested tree (the launchd agents, for one) it should `deepSeq` it.
