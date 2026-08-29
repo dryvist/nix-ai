@@ -15,9 +15,32 @@ Nix home-manager modules.
 **Static** (every change):
 
 ```bash
-nix flake check    # Formatting, statix, deadnix, regression tests
 nix fmt            # Fix formatting
+nix flake check    # Packages, formatters, devShells
+
+# Regression suite (lib/checks/) — REQUIRED on macOS, see below
+nix eval --raw .#checks.x86_64-linux \
+  --apply 'cs: builtins.concatStringsSep "\n" (map (c: c.outPath) (builtins.attrValues cs))' \
+  >/dev/null
 ```
+
+**A bare `nix flake check` on a Mac runs none of `lib/checks/`.** The `checks`
+output is scoped to `x86_64-linux` (flake.nix), so on aarch64-darwin it reports
+"The check omitted these incompatible systems: x86_64-linux", prints a wall of
+green for packages and formatters, and tells you nothing about the regression
+suite. A module argument that `launchd.nix` required and `default.nix` never
+passed survived a green bare check and failed only at `darwin-rebuild`.
+
+`--all-systems` does surface the assertions, but it then tries to *build* Linux
+derivations on darwin and exits non-zero for that unrelated reason — so it
+cannot be the routine command. The `nix eval` form above forces every check's
+`outPath`, which runs every assertion at evaluation time and builds nothing.
+Verified both ways: it passes on a healthy tree and fails on a deliberately
+broken one.
+
+Assertions only fire when something forces them, so a check that reads a few
+attributes of a large structure proves nothing about the rest. Where a check
+covers a nested tree (the launchd agents, for one) it should `deepSeq` it.
 
 **Runtime** (changes to plugins, hooks, settings, activations, MCP servers):
 

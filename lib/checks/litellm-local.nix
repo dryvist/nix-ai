@@ -126,6 +126,15 @@ let
   exportsPlaceholder = lib.hasInfix "export LITELLM_LOCAL_KEY=${clientToken}" zshInit;
 
   agent = enabled.launchd.agents.litellm-local.config;
+
+  # Nix evaluates lazily, so reading three attributes off one agent proves
+  # nothing about the rest of the tree. A module argument that launchd.nix
+  # required but default.nix never passed satisfied every assertion in this
+  # file and only surfaced during `darwin-rebuild`, after a full flake check had
+  # gone green. deepSeq forces the whole agent set, which is what makes a
+  # missing argument or an undefined binding a check failure instead of a
+  # rebuild failure.
+  agentsFullyEvaluate = builtins.deepSeq enabled.launchd.agents true;
   agentLoopbackOnly = enabled.programs.litellmLocal.port == 4100;
   # The router URL reaches the agent as plain env; the bearer does not — the
   # wrapper reads it from the file at exec time.
@@ -199,6 +208,7 @@ in
     assert
       exportsPlaceholder
       || throw "shell init must export LITELLM_LOCAL_KEY as the constant placeholder `${clientToken}`; the proxy checks no credential and OpenAI-compatible SDKs refuse an empty key";
+    assert agentsFullyEvaluate || throw "unreachable: deepSeq either forces the agent tree or raises";
     assert
       agentCarriesNoSecret
       || throw "the launchd agent must take the router URL as plain env and read the bearer from its file at exec time, never as an EnvironmentVariable";

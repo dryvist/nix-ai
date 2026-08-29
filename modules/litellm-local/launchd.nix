@@ -19,6 +19,7 @@
   cfg,
   aiStack,
   proxyScript,
+  telemetryTracesEndpoint,
   tierRefreshJob,
   tierRefreshScript,
   refreshCandidates,
@@ -28,7 +29,7 @@ let
   logDir = "${config.home.homeDirectory}/Library/Logs/litellm-local";
 in
 {
-  launchd.agents.litellm-local = {
+  litellm-local = {
     enable = true;
     config = {
       Label = "dev.litellm-local";
@@ -63,7 +64,7 @@ in
   # proxy is KeepAlive and must never restart because a refresh failed,
   # and the refresh is a short interval job that must be allowed to fail
   # without taking traffic with it.
-  launchd.agents.litellm-tier-refresh = lib.mkIf refreshCfg.enable {
+  litellm-tier-refresh = lib.mkIf refreshCfg.enable {
     enable = true;
     config = {
       Label = "dev.litellm-tier-refresh";

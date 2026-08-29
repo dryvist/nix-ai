@@ -158,6 +158,7 @@ in
           cfg
           aiStack
           proxyScript
+          telemetryTracesEndpoint
           tierRefreshJob
           tierRefreshScript
           refreshCandidates
