@@ -36,9 +36,20 @@ in
       ProgramArguments = [ "${proxyScript}" ];
       RunAtLoad = true;
       KeepAlive = true;
-      # Throttle restarts so a bad config or an unreadable secret file
-      # fails visibly in the log instead of spinning.
-      ThrottleInterval = 30;
+      # Throttle restarts so a bad config or an unreadable secret file fails
+      # visibly in the log instead of spinning.
+      #
+      # 10, not 30, and the difference is a live-session outage. Claude Code on
+      # this host reaches Anthropic THROUGH this proxy, so every restart is a
+      # hard outage for every session on the machine — and `darwin-rebuild`
+      # rewrites this plist, so any converge that touches this module bounces
+      # it. launchd will not restart a job sooner than ThrottleInterval after
+      # it stopped, so 30 turned a measured 3.2s startup into an outage of up
+      # to ~33s: long enough to outrun a client's retry budget and drop the
+      # session. Measured 2026-08-28 — readiness from cold start to a serving
+      # /v1/models is 3.2s, so 10s still leaves a crash loop slow enough to
+      # read in the log while cutting the worst case to ~13s.
+      ThrottleInterval = 10;
       ProcessType = "Background";
       EnvironmentVariables = {
         # Not a secret — the router URL is a plain address, so it needs no
