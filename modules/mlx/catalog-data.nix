@@ -126,6 +126,7 @@ in
   qwen36-35b = {
     model = "mlx-community/Qwen3.6-35B-A3B-4bit";
     weightGb = 19.4;
+    contextWindowTokens = 65536;
     args = [
       "--chat-template-args"
       (builtins.toJSON {
