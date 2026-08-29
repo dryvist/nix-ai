@@ -121,12 +121,4 @@ base
     };
     flakeInput = marketplaceInputs.managing-dependencies;
   };
-  # langfuse-skills is a single-plugin marketplace rooted at ./.
-  "langfuse-skills" = {
-    source = {
-      type = "github";
-      url = "langfuse/skills";
-    };
-    flakeInput = marketplaceInputs.langfuse-skills;
-  };
 }
