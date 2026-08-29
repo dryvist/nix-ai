@@ -51,6 +51,17 @@ in
   qwen38-27b = {
     model = "mlx-community/Qwen3.8-27B-4bit";
     weightGb = 16.1;
+    # qwen3_5_text HYBRID: 64 layers, 16 full_attention / 48 linear_attention
+    # (already stated above — full_attention_interval 4). Only the 16
+    # full-attention layers carry paged KV; the 48 linear layers carry none.
+    # perTokenKvBytes = 2*16*4*256*2 = 65536 B/token (64 KiB/token). Verified
+    # against the model's own config.json (2026-08-27).
+    kv = {
+      kvLayers = 16;
+      kvHeads = 4;
+      headDim = 256;
+      kvDtypeBytes = 2;
+    };
     # The model supports a native 262,144-token window. Production roles use
     # 131,072 so the remaining range is available for separately managed 200K
     # feasibility work rather than silently becoming a fleet default.
@@ -70,17 +81,39 @@ in
       # The 128k catalog window must also be admitted by the serving worker;
       # a lower request cap would turn the declared default into a client-only
       # hint and force long-context callers to fail before model dispatch.
-      resident.flags = block512 // {
-        cacheMemoryMb = 16384;
-        maxNumSeqs = 8;
-        maxRequestTokens = 131072;
-      };
-      swap.flags =
-        block256
-        // swapFlags
-        // {
-          cacheMemoryMb = 3072;
+      #
+      # maxNumSeqs/maxRequestTokens are declared for the vllm-mlx backend this
+      # entry does not currently run on (mlx-lm is the deployed backend
+      # fleet-wide; see lib/checks/mlx-catalog.nix). model-server-cmd.nix's
+      # mlxLmFlags never reads them, so they are inert today. Left declared
+      # rather than removed: they are the correct values IF vllm-mlx is
+      # re-enabled, and removing them would silently lose that intent.
+      #
+      # cacheMemoryMb is DERIVED, not stated: cacheProvisioning.concurrency=1
+      # means "guarantee ONE genuinely-simultaneous full-window (128k) stream
+      # stays cached, plus a second slot for an alternating conversation" —
+      # derive.nix's promptCacheSlotsPerStream=2 calibration already encodes
+      # that second-slot rationale. Verified exact: at this host's
+      # memoryHardLimitGb this reproduces 16384 (the prior literal) precisely,
+      # with headroom to spare — see options-catalog.nix's derivedCacheMb.
+      resident = {
+        cacheProvisioning.concurrency = 1;
+        flags = block512 // {
+          maxNumSeqs = 8;
+          maxRequestTokens = 131072;
         };
+      };
+      # cacheMemoryMb PINNED (derive.nix's cacheMemoryMbFor): forModel does
+      # not reproduce 3072 for this shape, and it is unvalidated against a
+      # real run. Tracked: Vikunja #106.
+      swap = {
+        cacheProvisioning.pinned = {
+          mb = 3072;
+          reason = "live working value; forModel's derivation for this shape unvalidated against a real run";
+          tracking = "vikunja#106";
+        };
+        flags = block256 // swapFlags;
+      };
     };
   };
 }

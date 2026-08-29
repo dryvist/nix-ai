@@ -3,10 +3,10 @@
 # (parser stacks, timeout, paged-block sizes, swap tier) are documented in
 # catalog-lib.nix; this file is split out to keep each under the 12KB gate.
 # See catalog-lib.nix for the #1334 KV-quant/MTP flag-availability note.
-# qwen3-next-80b-instruct and qwen38-27b live in their own files, merged
-# below, for the same size-gate reason. Both carry long measurement notes,
-# which is exactly what pushed this file over the gate — split the entry,
-# never trim the evidence.
+# qwen3-next-80b-instruct, qwen38-27b, and the qwen35-9b pair live in their
+# own files, merged below, for the same size-gate reason. Each carries long
+# measurement notes, which is exactly what pushed this file over the gate —
+# split the entry, never trim the evidence.
 let
   inherit (import ./catalog-lib.nix)
     block256
@@ -17,6 +17,7 @@ let
 in
 (import ./catalog-data-80b-instruct.nix)
 // (import ./catalog-data-qwen38-27b.nix)
+// (import ./catalog-data-qwen35-9b.nix)
 // {
   # Document OCR, on demand. The only non-text entry in the catalog: an
   # SAM + CLIP-L + DeepSeek-V2 vision-language model, so it CANNOT run on the
@@ -51,60 +52,8 @@ in
     };
   };
 
-  # Small resident auxiliary model for bounded classification and judging.
-  # OptiQ keeps tool/reasoning compatibility with the Qwen family while the
-  # 4-bit footprint permits it to stay warm beside the primary 80B brain.
-  # #1641: batched decode leaks Metal buffers on this family — swapFlags'
-  # maxNumSeqs=2 keeps it narrow; do not raise it.
-  qwen35-9b-optiq = {
-    model = "mlx-community/Qwen3.5-9B-OptiQ-4bit";
-    weightGb = 7.7;
-    # The model card's Hermes recipe serves this text quant with mlx_lm.server.
-    # Keep it off the multimodal-aware vllm-mlx loader.
-    args = [
-      "--chat-template-args"
-      (builtins.toJSON {
-        enable_thinking = false;
-      })
-    ];
-    concurrencyLimit = 1;
-    classes = {
-      resident.flags = { };
-      swap.flags = swapFlags;
-    };
-  };
-
-  # Small on-demand summarizer. An hourly note-capture pipe requests
-  # this exact physical id ("mlx-community/Qwen3.5-9B-MLX-4bit"); registering it
-  # swap-class (no roles -> compiles to a llama-swap models.<id> entry keyed by
-  # the physical id) lets that request route without evicting a resident.
-  #
-  # WEIGHTS MUST BE PRE-CACHED under HF_HOME. This comment used to promise they
-  # "fetch from HuggingFace on first load if not already cached" — a promise the
-  # runtime forbids: modules/mlx/worker-env.nix sets HF_HUB_OFFLINE=1, so a
-  # first load of an uncached id raises OfflineModeIsEnabled and the request
-  # 502s after minutes of retrying rather than failing fast. Registering an id
-  # here while a different quant variant is the only one cached on disk means
-  # every call to it 502s with nothing reporting why. Registration makes an id
-  # SERVABLE, never CACHED.
-  # `hf download <id>` (or the prefetch agent) is the step that caches it.
-  # #1641 (same family as qwen35-9b-optiq): maxNumSeqs low, see its comment.
-  qwen35-9b-mlx = {
-    model = "mlx-community/Qwen3.5-9B-MLX-4bit";
-    weightGb = 5.2;
-    # Text quant served through mlx_lm.server; keep off the vllm-mlx loader.
-    args = [
-      "--chat-template-args"
-      (builtins.toJSON {
-        enable_thinking = false;
-      })
-    ];
-    concurrencyLimit = 1;
-    classes = {
-      resident.flags = { };
-      swap.flags = swapFlags;
-    };
-  };
+  # qwen35-9b-optiq and qwen35-9b-mlx moved to catalog-data-qwen35-9b.nix
+  # (12KB gate); merged into this attrset at the top of the file.
 
   # Agentic tool-calling brain (2026-07-08 bench winner; verdicts in
   # HF JacobPEvans/mlx-benchmarks). Thinking ON is part of the verdict.
@@ -148,9 +97,19 @@ in
     };
     args = [ ];
     classes = {
-      # The global maxRequestTokens default is too low for agentic multi-turn.
-      resident.flags = block512 // {
-        maxRequestTokens = 32768;
+      # cacheMemoryMb PINNED at today's inherited global null-default
+      # (derive.nix's cacheMemoryMbFor) — forModel's derivation is
+      # unvalidated against a real run. Tracked: Vikunja #106.
+      resident = {
+        cacheProvisioning.pinned = {
+          mb = 8192;
+          reason = "matches today's inherited global null-default; forModel's derivation unvalidated against a real run";
+          tracking = "vikunja#106";
+        };
+        # The global maxRequestTokens default is too low for agentic multi-turn.
+        flags = block512 // {
+          maxRequestTokens = 32768;
+        };
       };
       swap.flags = block256 // swapFlags;
     };
@@ -203,19 +162,39 @@ in
   qwen3-next-80b = {
     model = "mlx-community/Qwen3-Next-80B-A3B-Thinking-4bit";
     weightGb = 42.0;
+    # qwen3_next HYBRID, identical topology to the Instruct sibling
+    # (catalog-data-80b-instruct.nix): 48 layers, full_attention_interval=4,
+    # 12 full-attention layers carry paged KV, kvHeads=2, headDim=256.
+    # perTokenKvBytes = 2*12*2*256*2 = 24576 B/token. Backfilled for
+    # completeness (Vikunja #106); NOT wired to cacheMemoryMb below — see
+    # that field's comment.
+    kv = {
+      kvLayers = 12;
+      kvHeads = 2;
+      headDim = 256;
+      kvDtypeBytes = 2;
+    };
     args = [ ];
     # 40B+ single-slot policy: proxy queues (single in-flight), engine batch
     # capped at 1 (in swap.flags). Same hybrid-attention re-prefill constraint
     # as the Instruct sibling.
     concurrencyLimit = 1;
     classes = {
-      swap.flags =
-        swapFlags
-        // hybridNoPaged
-        // {
-          cacheMemoryMb = 4096;
-          maxNumSeqs = 1; # 40B+ single-slot policy (overrides swapFlags maxNumSeqs=2)
+      # cacheMemoryMb PINNED (derive.nix's cacheMemoryMbFor) — same finding
+      # as the Instruct sibling's swap class. Tracked: Vikunja #106.
+      swap = {
+        cacheProvisioning.pinned = {
+          mb = 4096;
+          reason = "live working value; unvalidated formula, documented crash history under concurrency";
+          tracking = "vikunja#106";
         };
+        flags =
+          swapFlags
+          // hybridNoPaged
+          // {
+            maxNumSeqs = 1; # 40B+ single-slot policy (overrides swapFlags maxNumSeqs=2)
+          };
+      };
     };
   };
 
