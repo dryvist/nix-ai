@@ -15,9 +15,35 @@ Nix home-manager modules.
 **Static** (every change):
 
 ```bash
-nix flake check    # Formatting, statix, deadnix, regression tests
 nix fmt            # Fix formatting
+nix flake check    # Packages, formatters, devShells
+
+# Regression suite (lib/checks/) — REQUIRED on macOS, see below
+nix eval --raw .#checks.x86_64-linux \
+  --apply 'cs: builtins.concatStringsSep "\n" (map (c: c.outPath) (builtins.attrValues cs))' \
+  >/dev/null
 ```
+
+**A bare `nix flake check` on a Mac runs none of `lib/checks/`.** `checks` is
+scoped to `x86_64-linux` (flake.nix), so on aarch64-darwin it omits them, prints
+green for packages and formatters, and says nothing about the regression suite.
+A module argument `launchd.nix` required and `default.nix` never passed survived
+a green bare check and failed only at `darwin-rebuild`.
+
+`--all-systems` surfaces the assertions but then tries to *build* Linux
+derivations on darwin, exiting non-zero for that unrelated reason — so it cannot
+be routine. The `nix eval` form above forces every check's `outPath`: every
+assertion runs at evaluation time, nothing builds. Verified both ways — passes
+on a healthy tree, fails on a deliberately broken one.
+
+**Workaround; PR #1819 is the structural fix.** It builds `checks` for every
+supported system, so a plain `nix flake check` runs the darwin assertions.
+When it lands, replace the `nix eval` form above — noting `--all-systems` on a
+Linux-only runner then tries to realise the darwin markers and fails.
+
+Assertions only fire when something forces them, so a check that reads a few
+attributes of a large structure proves nothing about the rest. Where a check
+covers a nested tree (the launchd agents, for one) it should `deepSeq` it.
 
 **Runtime** (changes to plugins, hooks, settings, activations, MCP servers):
 

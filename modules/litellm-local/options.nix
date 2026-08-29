@@ -73,6 +73,46 @@ in
       '';
     };
 
+    tierRefresh = {
+      enable = lib.mkEnableOption ''
+        a periodic re-ranking of the subagent fallback tier against the live
+        model catalog and the router's served set.
+
+        The job only rewrites `tier-candidates.json` in a working copy; nothing
+        reaches the running proxy until the next rebuild. That ordering is
+        deliberate — the job proposes a re-ranking and logs whether the
+        selection moved, and a human converges it. A timer that silently
+        repointed live subagent traffic would reintroduce the failure the
+        chain exists to remove: nobody notices the model changed
+      '';
+
+      checkout = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        example = "/Users/you/git/nix-ai";
+        description = ''
+          Absolute path to a working copy of this repository. The refresh
+          rewrites `modules/litellm-local/tier-candidates.json` inside it.
+
+          Required when `tierRefresh.enable` is set, and it must be a checkout
+          rather than the Nix store path: the store copy is read-only, so a
+          job pointed at it would fail at the last step, after both network
+          fetches. The job fails loudly when this path does not exist.
+        '';
+      };
+
+      interval = lib.mkOption {
+        type = lib.types.ints.positive;
+        default = 86400;
+        description = ''
+          Seconds between refreshes. Daily by default: two HTTP GETs is cheap,
+          and it matches how fast the catalog actually moves — prices were
+          observed drifting within a single day, and a model's availability
+          within a week.
+        '';
+      };
+    };
+
     renderedConfig = lib.mkOption {
       type = lib.types.attrs;
       readOnly = true;

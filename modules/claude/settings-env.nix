@@ -67,8 +67,24 @@
   # Effort level via env var (alternative to settings.json key)
   # CLAUDE_CODE_EFFORT_LEVEL = "medium";
 
-  # Auto-compact threshold — using upstream default (~95% of context window)
-  # CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = "95";
+  # Auto-compact threshold.
+  #
+  # NOT the upstream default, despite what this comment used to claim:
+  # nix-claude-code's `autoCompactThresholdPercent` defaults to 60, and that
+  # default reaches every session whether or not anything is set here. The
+  # stale comment mattered — it told a reader the value was upstream's ~95%
+  # when the effective value was 60.
+  #
+  # 60 is the right number for a 1M-token window, which is the case its author
+  # reasoned about: 60% of 1M still leaves ~600k of working space. It is the
+  # wrong number for a 200k window, where it compacts at 120k and spends the
+  # session summarizing. Set explicitly to the value that suits the window this
+  # host's default model actually has.
+  #
+  # Raise toward upstream's ~95 only with the summarization pass in mind: the
+  # compaction itself needs headroom, so a threshold close to the ceiling can
+  # leave too little room to summarize.
+  CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = "80";
 
 }
 # Local LiteLLM proxy — route Claude Code through it so subagent-tier work
@@ -96,17 +112,23 @@
   {
     ANTHROPIC_BASE_URL = litellmLocal.rootUrl;
     ANTHROPIC_CUSTOM_HEADERS = "x-litellm-api-key: Bearer ${litellmLocal.clientToken}";
-    # A capability alias or an explicit model_list group; the flake check
-    # enforces it.
+    # The entry point of the cost-ordered chain in
+    # modules/litellm-local/fallback-tier.nix, not a single model: cheapest
+    # capable tier first, falling through to progressively more expensive ones
+    # only when a tier is actually down.
+    #
+    # An explicit model_list group, never an upstream role name. A role falls
+    # through the `*` wildcard to the router, and if the router's own alias is
+    # stale the request 404s on every subagent spawn — which is exactly what
+    # happened when this was `subagent` and the router still pointed that alias
+    # at a model whose preview period had ended. The flake check
+    # `claudeTierNamesResolveLocally` enforces the explicit-group rule.
     #
     # A cheaper tier than the caller is the point — the parent corrects its
-    # subagents. Repoint at a local model, or a cheap cloud one with zero data
-    # retention, once either holds this tier's context.
-    #
-    # The `[1m]` id, not the bare `sonnet` alias: measured subagent context runs
-    # to 284k at p90, which a 200k window truncates. The suffix only resolves on
-    # an explicit id — `sonnet[1m]` is not an alias the proxy can route.
-    CLAUDE_CODE_SUBAGENT_MODEL = "claude-sonnet-5[1m]";
+    # subagents. Every member of the chain clears the ~284k p90 subagent
+    # context measured on this host; that window is a selection criterion for
+    # membership, so it does not need restating per tier here.
+    CLAUDE_CODE_SUBAGENT_MODEL = "subagent";
     # The haiku tier deliberately stays on Anthropic. Claude Code's background
     # requests carry its full system prompt (measured ~36k tokens), and the
     # `cheap` role targets the always-on small local model, whose 32k window

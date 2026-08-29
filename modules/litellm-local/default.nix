@@ -47,6 +47,7 @@
   config,
   pkgs,
   lib,
+  userConfig,
   ...
 }:
 let
@@ -54,72 +55,70 @@ let
   aiStack = config.services.aiStack;
   versions = import ../../lib/versions.nix;
 
-  # `os.environ/NAME` is LiteLLM's own indirection: the literal string is what
-  # goes in the config file, and LiteLLM resolves it from the process
-  # environment at load time. That is what keeps the router bearer out of the
-  # store.
-  proxyConfig = {
-    model_list = [
-      {
-        model_name = "claude-*";
-        # No api_key, deliberately: this deployment is reached with the OAuth
-        # bearer the calling client already holds, forwarded by the scoped rule
-        # below. An api_key here would override that bearer and bill the wrong
-        # account.
-        #
-        # LiteLLM only treats a client bearer as forwardable OAuth when it
-        # carries the `sk-ant-oat` prefix (see its anthropic common_utils
-        # optionally_handle_anthropic_oauth). A client sending any other token
-        # shape therefore gets no credential on this leg rather than the wrong
-        # one — the failure is a 401, not a silent mis-auth.
-        #
-        # `anthropic/claude-*`, not `anthropic/*`: the wildcard substitutes only
-        # the part the pattern matched, so `anthropic/*` turned a request for
-        # `claude-opus-5` into an upstream request for `opus-5`, which Anthropic
-        # rejects as an unknown model.
-        litellm_params.model = "anthropic/claude-*";
-      }
-      {
-        model_name = "*";
-        litellm_params = {
-          model = "openai/*";
-          api_base = "os.environ/LLM_ROUTER_URL";
-          api_key = "os.environ/OPENAI_API_KEY";
-        };
-      }
-    ];
+  # Cost-ordered fallback chain for the subagent tier. Its own file to stay
+  # under the .file-size.yml ceiling; see that file for why a chain replaced a
+  # single pinned model.
+  fallbackTier = import ./fallback-tier.nix { inherit lib; };
 
-    litellm_settings = {
-      # Clients disagree about which sampling params they send; dropping the
-      # ones a given backend rejects keeps a role swap from breaking a client.
-      drop_params = true;
-      model_group_settings.forward_client_headers_to_llm_api = [ "claude-*" ];
-    };
+  # Reuses the maintainer profile's single traces endpoint rather than adding a
+  # second one: this proxy's spans belong on the same path as Claude Code's and
+  # Codex's, and one endpoint is one thing to keep correct. Null (the default,
+  # and the only value a fresh consumer has) disables the callback entirely.
+  #
+  # `userConfig` is a MODULE ARGUMENT, not `config.userConfig`. Reading it off
+  # `config` returns nothing and the `or null` swallows that into "telemetry is
+  # off" — the config renders cleanly, the agent starts, and it exports nothing,
+  # with no error anywhere. Same shape as the codex module, deliberately.
+  telemetryEnabled =
+    (userConfig.telemetry.enable or false) && (userConfig.telemetry.tracesEndpoint or null) != null;
+  telemetryTracesEndpoint = if telemetryEnabled then userConfig.telemetry.tracesEndpoint else null;
+
+  # LiteLLM's OTLP callback lives behind these three packages; litellm[proxy]
+  # does not pull them. Same set the shared router installs, so the two agree.
+  otelPackages = [
+    "opentelemetry-api"
+    "opentelemetry-sdk"
+    "opentelemetry-exporter-otlp"
+  ];
+
+  # What the proxy serves, and how each group authenticates. Its own file; the
+  # credential-forwarding scope that keeps a client bearer off the router leg
+  # is documented there.
+  proxyConfig = import ./proxy-config.nix {
+    inherit lib fallbackTier telemetryTracesEndpoint;
   };
 
   configYaml = (pkgs.formats.yaml { }).generate "litellm-local-config.yaml" proxyConfig;
 
-  # The proxy runs from a uvx environment pinned to the Renovate-tracked release
-  # in lib/versions.nix, the same way the MLX stack does, rather than from
-  # nixpkgs' litellm: nixpkgs lags the upstream release train by months, and
-  # building it from source drags a large Python test closure (the rq test
-  # suite among it) into every CI and workstation rebuild.
-  uvPythonVersion = (import ../../lib/python.nix { inherit pkgs; }).pythonVersion;
+  # The launchd entry point plus the two operator commands.
+  commands = import ./commands.nix {
+    inherit
+      pkgs
+      lib
+      aiStack
+      cfg
+      versions
+      configYaml
+      fallbackTier
+      telemetryTracesEndpoint
+      otelPackages
+      ;
+  };
+  inherit (commands)
+    fallbackProbe
+    tierRefresh
+    tierRefreshJob
+    tierRefreshScript
+    proxyScript
+    ;
 
-  # launchd agents get no shell init, so the wrapper reads the router bearer
-  # from its file itself. This is also why the assertion below requires
-  # llmEndpointTokenFile: llmEndpointBearerFromEnv provisions the bearer into
-  # an interactive shell, which this agent never has.
-  proxyScript = pkgs.writeShellScript "litellm-local-start" ''
-    set -euo pipefail
-    OPENAI_API_KEY="$(cat ${lib.escapeShellArg (toString aiStack.llmEndpointTokenFile)})"
-    export OPENAI_API_KEY
-    exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} \
-      --from "litellm[proxy]==${versions.litellm}" litellm \
-      --config ${configYaml} \
-      --host 127.0.0.1 \
-      --port ${toString cfg.port}
-  '';
+  refreshCfg = cfg.tierRefresh;
+  refreshCandidates =
+    if refreshCfg.checkout == null then
+      null
+    else
+      "${refreshCfg.checkout}/modules/litellm-local/tier-candidates.json";
+
 in
 {
   imports = [ ./options.nix ];
@@ -140,28 +139,30 @@ in
           assertion = aiStack.llmEndpointTokenFile != null && aiStack.llmEndpointTokenFile != "";
           message = "programs.litellmLocal.enable requires services.aiStack.llmEndpointTokenFile: the proxy runs as a launchd agent, which has no shell init, so services.aiStack.llmEndpointBearerFromEnv cannot reach it. Point llmEndpointTokenFile at the file holding the router bearer.";
         }
+        {
+          assertion = !refreshCfg.enable || refreshCfg.checkout != null;
+          message = "programs.litellmLocal.tierRefresh.enable requires tierRefresh.checkout: the refresh rewrites tier-candidates.json in a working copy, and the Nix store copy is read-only, so a job with no checkout would fail after both network fetches rather than before them.";
+        }
+      ]
+      ++ fallbackTier.assertions;
+
+      home.packages = [
+        fallbackProbe
+        tierRefresh
       ];
 
-      launchd.agents.litellm-local = {
-        enable = true;
-        config = {
-          Label = "dev.litellm-local";
-          ProgramArguments = [ "${proxyScript}" ];
-          RunAtLoad = true;
-          KeepAlive = true;
-          # Throttle restarts so a bad config or an unreadable secret file
-          # fails visibly in the log instead of spinning.
-          ThrottleInterval = 30;
-          ProcessType = "Background";
-          EnvironmentVariables = {
-            # Not a secret — the router URL is a plain address, so it needs no
-            # exec-time file read.
-            LLM_ROUTER_URL = aiStack.llmRouterEndpoint;
-            HOME = config.home.homeDirectory;
-          };
-          StandardOutPath = "${config.home.homeDirectory}/Library/Logs/litellm-local/litellm-local.log";
-          StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/litellm-local/litellm-local.error.log";
-        };
+      launchd.agents = import ./launchd.nix {
+        inherit
+          config
+          lib
+          cfg
+          aiStack
+          proxyScript
+          telemetryTracesEndpoint
+          tierRefreshJob
+          tierRefreshScript
+          refreshCandidates
+          ;
       };
 
       # Client-side environment for the OpenAI-compatible CLIs.

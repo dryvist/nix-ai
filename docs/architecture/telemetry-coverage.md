@@ -15,6 +15,34 @@ for the signal/endpoint shape.
 |---|---|---|
 | Claude Code | `userConfig.telemetry.{enable,otlpEndpoint,tracesEndpoint}` → `modules/claude/settings-env.nix` | metrics, logs, spans |
 | Codex CLI | the same `userConfig.telemetry` surface → `[otel]` in `modules/codex/settings.nix` | spans |
+| Local LiteLLM proxy | `userConfig.telemetry.tracesEndpoint` → `litellm_settings.callbacks` in `modules/litellm-local/` | spans, when an endpoint is set |
+
+Proxy spans carry the resolved model name, so they are also how a fallback shows
+up after the fact: a request served by a rung below the head means the tier
+above it failed. Without them a chain degrades silently, which is the same blind
+spot the chain itself was built to remove — one layer up.
+
+**Both the proxy and Codex gate on `telemetry.enable && tracesEndpoint != null`,
+so both are inert while no endpoint is configured.** Setting `telemetry.enable`
+alone is not enough and never has been. Check the rendered config rather than
+the deployed file before concluding either one is emitting: `~/.claude/settings.json`
+and `~/.codex/config.toml` are activation-merged, so they can still carry
+endpoints from an older generation after the config that produced them is gone.
+A deployed file showing an endpoint is evidence about the past, not the present.
+
+**The proxy emits `otel`, not `langfuse`, and that is deliberate.** LiteLLM's
+`langfuse` callback requires the v2 SDK and errors on init against the v3 that
+pip resolves; the collector already fans traces out to Langfuse, so one emitter
+on the shared path reaches the same sink with nothing extra to keep in step —
+and the proxy needs no Langfuse credential of its own. The shared router made
+the same call for the same reason, so the two agree by construction.
+
+**LiteLLM uses its own variable names.** `OTEL_EXPORTER` and `OTEL_ENDPOINT`,
+not the standard `OTEL_EXPORTER_OTLP_*` pair. Setting the standard names leaves
+the callback on its loopback default, exporting nowhere, with no error raised.
+Like Codex, it takes the endpoint verbatim, so it is given the full
+`/v1/traces` URL. The callback is only configured when a traces endpoint is
+set — no endpoint, no callback, rather than a silent export into a black hole.
 
 **Codex takes the endpoint verbatim.** Pointed at `http://host:port` it POSTs to
 `/`, appending no signal path — so it is given the full `/v1/traces` URL, the
