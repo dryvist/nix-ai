@@ -1,7 +1,7 @@
 # nix-ai - AI Agent Instructions
 
 AI CLI ecosystem for Claude, Antigravity, Codex, Copilot, and MCP servers via
-Nix home-manager modules.
+Nix home-manager modules, plus the herdr multiplexer they run inside.
 
 ## Critical Constraints
 
@@ -62,8 +62,16 @@ This repo exports home-manager modules consumed by nix-darwin:
 
 - `homeManagerModules.default` — Full AI stack
 - `homeManagerModules.claude` — Claude Code only
+- `homeManagerModules.herdr` — herdr client (workstation half)
 - `homeManagerModules.maestro` — Maestro orchestration only
+- `nixosModules.herdr` — herdr server (Linux guest half)
 - `lib.ci.claudeSettingsJson` — Pure JSON for CI validation
+
+`nixosModules` is new. Everything this flake managed used to run on one Mac
+under launchd; herdr is the first component that also runs as a systemd service
+on a Linux guest. Both halves take their binaries from the same `llm-agents`
+input, which is what makes "one flake, server and workstation" true rather than
+aspirational.
 
 ### Self-contained design
 
@@ -119,6 +127,28 @@ this one.
 - MLX inference server (vllm-mlx LaunchAgent + wrappers)
 - AI-specific shell utilities (hf CLI wrapper, Doppler-wrapped aliases)
 
+### Where CLI binaries come from
+
+**nixpkgs → llm-agents.nix → homebrew (GUI only) → bunx → uvx.**
+
+`github:numtide/llm-agents.nix` supplies the agent CLIs nixpkgs does not carry
+(`claude-code`, `antigravity-cli`, `copilot-cli`, `herdr`) for
+`aarch64-darwin`, `x86_64-linux` and `aarch64-linux`, rebuilt daily and
+substituted from `cache.numtide.com`. It replaced four Homebrew casks/brews —
+`claude-code@latest`, `codex`, `antigravity-cli`, `qwen-code` — which had no
+Linux path and were the concrete reason this stack could not leave the MacBook.
+
+Two things to know before touching that input:
+
+- **It deliberately does not `follows` nixpkgs**, unlike every other input.
+  It pins its own `nixpkgs-unstable` and the numtide cache is keyed to that
+  pin; forcing 26.05 breaks builds *and* loses every cache hit.
+- **`lib/homebrew.nix` is GUI-only now.** Do not add a CLI cask back. If macOS
+  starts re-prompting for TCC permissions after a Codex or Claude Code bump,
+  that is the known cost of a Nix store path changing per version — the
+  Homebrew cask existed for stable TCC paths. Fix it for darwin specifically
+  rather than reverting the Linux path.
+
 ### Package placement
 
 The `nix-package-placement` rule lives in
@@ -142,8 +172,10 @@ instead. Design decisions in [`docs/adr/`](docs/adr/README.md).
 - `modules/mcp/catalog.nix` — MCP server definitions
 - `modules/mlx/` — MLX inference server (vllm-mlx LaunchAgent, CLI tools)
 - `modules/common/` — Shared permission engine and formatters
+- `modules/herdr/` — herdr config + `nixos.nix` (the systemd service)
+- `lib/homebrew.nix` — GUI casks only; CLIs come from nixpkgs/llm-agents.nix
 - `vars/ai-stack.nix` — Central model/endpoint/version registry
-- `lib/checks/` — Per-domain regression tests (lint, claude, mlx)
+- `lib/checks/` — Per-domain regression tests (lint, claude, mlx, herdr)
 
 ## MLX Ecosystem
 

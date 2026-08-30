@@ -7,6 +7,15 @@ in
   options.programs.opencode = {
     enable = lib.mkEnableOption "OpenCode (sst/opencode terminal agent)";
 
+    package = lib.mkOption {
+      type = lib.types.nullOr lib.types.package;
+      default = null;
+      description = ''
+        OpenCode package. Defaults to pkgs.opencode (nixpkgs).
+        Null skips installation, for a host that supplies the binary itself.
+      '';
+    };
+
     configDir = lib.mkOption {
       type = lib.types.str;
       default = ".config/opencode";

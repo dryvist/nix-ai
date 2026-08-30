@@ -41,6 +41,17 @@ in
   options.programs.antigravity-cli = {
     enable = lib.mkEnableOption "Antigravity CLI configuration";
 
+    package = lib.mkOption {
+      type = lib.types.nullOr lib.types.package;
+      default = null;
+      description = ''
+        Antigravity CLI (`agy`) package. Defaults to llm-agents.nix's
+        antigravity-cli — nixpkgs does not carry it, and the Homebrew cask it
+        replaces was macOS-only. Null skips installation, for a host that
+        supplies the binary itself.
+      '';
+    };
+
     # Commands
     commands = {
       fromFlakeInputs = lib.mkOption {

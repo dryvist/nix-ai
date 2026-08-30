@@ -18,6 +18,8 @@
 {
   config,
   lib,
+  pkgs,
+  llm-agents,
   ...
 }:
 
@@ -40,6 +42,15 @@ in
   ];
 
   config = lib.mkIf cfg.enable {
+    # `agy` came from the antigravity-cli Homebrew cask, which has no Linux
+    # path. llm-agents.nix packages it for aarch64-darwin and x86_64-linux
+    # alike; nixpkgs does not carry it at all.
+    programs.antigravity-cli.package = lib.mkDefault (
+      llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.antigravity-cli
+    );
+
+    home.packages = lib.optional (cfg.package != null) cfg.package;
+
     # Ensure directory structure exists
     home.file.".gemini/antigravity-cli/.keep".text = ''
       # Managed by Nix - programs.antigravity-cli module

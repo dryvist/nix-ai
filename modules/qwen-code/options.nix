@@ -10,19 +10,27 @@ in
   options.programs.qwen-code = {
     enable = lib.mkEnableOption "Qwen Code (Alibaba terminal coding agent)";
 
+    package = lib.mkOption {
+      type = lib.types.nullOr lib.types.package;
+      default = null;
+      description = ''
+        Qwen Code package. Defaults to pkgs.qwen-code (nixpkgs).
+        Null skips installation, for a host that supplies the binary itself.
+      '';
+    };
+
     installVia = lib.mkOption {
       type = lib.types.enum [
+        "nixpkgs"
         "brew"
       ];
-      default = "brew";
+      default = "nixpkgs";
       description = ''
-        Install source. Currently brew-only — declared via nix-darwin's
-        homebrew.brews, sourced from this flake's lib.homebrewFor.
-        The npm activation-script fallback was removed in favor of
-        proper Nix derivations elsewhere; a buildNpmPackage derivation
-        for qwen-code's workspace + cross-platform optionalDependencies
-        layout is non-trivial and deferred. Linux hosts need brew (or
-        Linuxbrew) to use qwen-code through this module.
+        Install source. nixpkgs ships qwen-code as of 26.05, so the brew
+        formula is no longer needed and no longer the default — that
+        dependency is what kept this module macOS-only. "brew" is retained
+        for a host that deliberately wants the bottled build; it installs
+        nothing here, relying on nix-darwin's homebrew.brews.
       '';
     };
 

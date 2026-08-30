@@ -1,6 +1,6 @@
 # OpenCode Module
 #
-# Config-only (binary installed out-of-band, like qwen-code). OpenCode never
+# Binary from nixpkgs; config declarative. OpenCode never
 # rewrites its global config — state lives in ~/.local/share/opencode — so
 # opencode.json is a plain declarative home.file, no deep-merge activation.
 #
@@ -128,6 +128,13 @@ in
       programs.opencode.mcpServerNames = lib.attrNames mcpServers;
     }
     (lib.mkIf cfg.enable {
+      # nixpkgs packages opencode for both supported systems, so the binary is
+      # no longer "installed out-of-band" — that gap is why a Linux host got
+      # config with nothing to run it.
+      programs.opencode.package = lib.mkDefault pkgs.opencode;
+
+      home.packages = lib.optional (cfg.package != null) cfg.package;
+
       home.file = {
         "${configDir}/opencode.json".source = settingsJson;
       }

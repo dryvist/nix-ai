@@ -15,20 +15,27 @@
 #    - Benefits: Binary cache, security updates, integration
 #    - Example: github-mcp-server, terraform-mcp-server
 #
-# 2. **homebrew** (ONLY if not in nixpkgs)
-#    - Fallback for packages missing from nixpkgs
-#    - Check: brew search <package>
-#    - Add to modules/darwin/homebrew.nix with clear justification
-#    - Document WHY homebrew is needed (not in nixpkgs, severely outdated, etc.)
+# 2. **llm-agents.nix** (AI agent CLIs missing from nixpkgs)
+#    - github:numtide/llm-agents.nix — 150+ agent CLIs, rebuilt daily,
+#      substituted from cache.numtide.com
+#    - Covers x86_64-linux, aarch64-linux and aarch64-darwin
+#    - Example: copilot-cli, antigravity-cli, claude-code, herdr
+#    - Reach for this BEFORE homebrew: a cask cannot run on the fleet's
+#      Linux guests, which is what used to pin this stack to one MacBook
 #
-# 3. **bunx wrapper** (for npm packages not in nixpkgs or homebrew)
+# 3. **homebrew** (GUI applications only — see lib/homebrew.nix)
+#    - macOS .app bundles with no Nix equivalent: Claude Desktop, ChatGPT,
+#      Antigravity IDE, Codex app
+#    - NOT for CLIs. Every CLI cask has been retired; do not add one back.
+#
+# 4. **bunx wrapper** (for npm packages not in nixpkgs or llm-agents.nix)
 #    - Standard solution for npm/bun packages
 #    - Always pin to specific version: package@x.y.z
 #    - Downloads on first run, cached locally by bun
 #    - Benefits: Simple, minimal code, easy version updates
 #    - Pattern: writeShellScriptBin with bunx --bun
 #
-# 4. **uvx** (for Python packages not in nixpkgs or version-lagging)
+# 5. **uvx** (for Python packages not in nixpkgs or version-lagging)
 #    - Standard solution for Python CLI tools
 #    - Run on-demand: uvx <package>
 #    - Benefits: Isolated environments, always-latest, no global pollution
@@ -38,14 +45,17 @@
 # CURRENT STATUS
 # ============================================================================
 #
-# NIXPKGS PACKAGES (from nixpkgs, available on stable 25.11):
-#   github-mcp-server, terraform-mcp-server, whisper-cpp, openai-whisper, entire
+# NIXPKGS PACKAGES (from nixpkgs, available on stable 26.05):
+#   github-mcp-server, terraform-mcp-server, whisper-cpp, openai-whisper, entire,
+#   yt-dlp, codex, opencode, qwen-code, cursor-cli
 #
-# HOMEBREW PACKAGES (from lib/homebrew.nix):
-#   codex: OpenAI Codex CLI
+# LLM-AGENTS.NIX PACKAGES (agent CLIs nixpkgs does not carry):
+#   claude-code, antigravity-cli (`agy`), copilot-cli, herdr
+#
+# HOMEBREW PACKAGES (from lib/homebrew.nix — GUI + two non-agent CLIs):
 #   block-goose-cli: Block's AI agent (nixpkgs outdated at time of addition)
-#   antigravity-cli: Google Antigravity CLI (`agy`)
 #   langgraph-cli: LangGraph platform deploy CLI (not in nixpkgs)
+#   claude / codex-app / chatgpt / antigravity / antigravity-ide: desktop apps
 #
 # BUNX WRAPPER PACKAGES (npm packages not in nixpkgs/homebrew):
 #   cclint: @felixgeelhaar/cclint (CLAUDE.md linter)
@@ -77,9 +87,10 @@
 #   2. Add to packages list below
 #   3. Add to version check script (scripts/workflows/check-package-versions.sh)
 
-{ pkgs, ... }:
+{ pkgs, llm-agents, ... }:
 let
   versions = import ../lib/versions.nix;
+  llmAgents = llm-agents.packages.${pkgs.stdenv.hostPlatform.system};
   cclintVersion = versions.cclint;
   ghCopilotVersion = versions.ghCopilot;
   chatgptCliVersion = versions.chatgptCli;
@@ -149,8 +160,14 @@ in
     # ==========================================================================
     # GitHub Copilot CLI
     # ==========================================================================
-    # Source: https://github.com/github/gh-copilot
-    # NPM: @githubnext/github-copilot-cli (pinned version)
+    # `copilot` — the current CLI. Not in nixpkgs; llm-agents.nix packages it
+    # for both supported systems. Its config (~/.copilot) is written by
+    # modules/copilot.nix, which previously configured a binary nothing here
+    # installed.
+    llmAgents.copilot-cli
+
+    # `gh-copilot` — the older gh extension, kept for the shell-suggest
+    # workflow it still serves. Source: https://github.com/github/gh-copilot
     (writeShellScriptBin "gh-copilot" ''
       exec ${bun}/bin/bunx --bun @githubnext/github-copilot-cli@${ghCopilotVersion} "$@"
     '')
