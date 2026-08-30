@@ -10,9 +10,15 @@ in
 {
   # Fail evaluation when coupled options or generated proxy contracts drift.
   assertions = lib.optionals cfg.enable [
+    # A DENY of vllm-mlx, not `enabledBackends == [ "mlx-lm" ]` as it read until
+    # 2026-08-30. That exact-equality made the MTP assertion below
+    # unsatisfiable (it needs "mlx-vlm-native" IN the list), so every enabled
+    # modelMtpProfiles entry was rejected and the option was dead code. Same
+    # intent, without forbidding the per-model overrides the OCR entry already
+    # relies on. Full account in lib/checks/mlx-mtp-reachable.nix.
     {
-      assertion = cfg.modelServerBackend == "mlx-lm" && cfg.enabledBackends == [ "mlx-lm" ];
-      message = "programs.mlx must use only the enabled mlx-lm backend; vllm-mlx remains preserved but disabled.";
+      assertion = cfg.modelServerBackend == "mlx-lm" && !(lib.elem "vllm-mlx" cfg.enabledBackends);
+      message = "programs.mlx.modelServerBackend must stay mlx-lm and enabledBackends must not list vllm-mlx; vllm-mlx remains preserved but disabled.";
     }
     {
       assertion = cfg.singleModel == null || builtins.hasAttr cfg.singleModel allModels;
