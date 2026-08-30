@@ -38,7 +38,6 @@ let
   inherit (marketplaceOverrides)
     browserUseMarketplace
     criblPackValidatorMarketplace
-    jacobpevansMarketplace
     fabricMarketplace
     ;
 
@@ -60,14 +59,26 @@ base
   "vct-cribl-pack-validator-skills" = (base."vct-cribl-pack-validator-skills" or { }) // {
     flakeInput = criblPackValidatorMarketplace;
   };
-  # jacobpevans-cc-plugins isn't in nix-claude-code's catalog yet;
-  # register it directly with the synthetic wrapper derivation.
+  # Claude owns this marketplace's content; Nix only declares it.
+  #
+  # Deliberately no flakeInput. A flakeInput makes nix-claude-code symlink
+  # ~/.claude/plugins/marketplaces/<name> at a read-only /nix/store path, which
+  # Claude can neither git-pull into nor stamp an mtime on (it reports
+  # lastUpdated 1970-01-01), so every store-path change purged the plugin cache
+  # with no working path back. Leaving it null lets Claude clone and self-heal
+  # the directory itself, which is what the other marketplaces already do.
+  #
+  # This does not affect the shared ~/.agents skills tree: agent-skills
+  # discovery walks marketplaceInputs directly, not this flakeInput, so
+  # OpenCode/Gemini keep the same store paths as before.
+  #
+  # Registration survives via settings.nix extraKnownMarketplaces, which maps
+  # every declared marketplace regardless of flakeInput.
   "jacobpevans-cc-plugins" = {
     source = {
       type = "github";
       url = "JacobPEvans/claude-code-plugins";
     };
-    flakeInput = jacobpevansMarketplace;
   };
   # Inherit the catalog source (nix-claude-code marks fabric-patterns
   # source.type = "local" → a Claude `directory` source, so Claude reads the
