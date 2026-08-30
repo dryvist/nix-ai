@@ -91,7 +91,13 @@ in
       ours = lib.filterAttrs (name: _: lib.hasPrefix "${cfg.configDir}/" name) files;
     in
     assert lib.hasAttr configPath files || throw "herdr: ${configPath} is not rendered";
-    assert builtins.deepSeq (lib.mapAttrsToList (_: f: f.source) ours) true;
+    # Force each rendered file's STORE PATH, not the derivation itself.
+    # `deepSeq` over a derivation walks its whole attrset — drvAttrs, passthru,
+    # every build input — which is both enormously slow and prone to erroring on
+    # attributes that were never meant to be forced. Interpolating to a string
+    # forces exactly what this check is about: that every file under configDir
+    # actually renders to a path.
+    assert builtins.deepSeq (lib.mapAttrsToList (_: f: "${f.source}") ours) true;
     helpers.mkMarker "check-herdr-rendered-files-regression" "herdr renders ${toString (lib.length (lib.attrNames ours))} file(s) under ${cfg.configDir}.";
 
   herdr-agent-coverage-regression =
