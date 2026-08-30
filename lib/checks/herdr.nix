@@ -92,11 +92,11 @@ in
     in
     assert lib.hasAttr configPath files || throw "herdr: ${configPath} is not rendered";
     assert builtins.deepSeq (lib.mapAttrsToList (_: f: f.source) ours) true;
-    helpers.mkMarker "check-herdr-rendered-files-regression"
-      "herdr renders ${toString (lib.length (lib.attrNames ours))} file(s) under ${cfg.configDir}.";
+    helpers.mkMarker "check-herdr-rendered-files-regression" "herdr renders ${toString (lib.length (lib.attrNames ours))} file(s) under ${cfg.configDir}.";
 
   herdr-agent-coverage-regression =
-    assert uncovered == [ ]
+    assert
+      uncovered == [ ]
       || throw ''
         herdr agent-detection coverage gap: ${lib.concatStringsSep ", " uncovered}
 
@@ -111,6 +111,5 @@ in
         now, name it in programs.herdr.knownUnsupportedAgents instead, which
         makes it reviewable rather than invisible.
       '';
-    helpers.mkMarker "check-herdr-agent-coverage-regression"
-      "herdr detection covers all ${toString (lib.length enabledAgents)} enabled agent CLIs.";
+    helpers.mkMarker "check-herdr-agent-coverage-regression" "herdr detection covers all ${toString (lib.length enabledAgents)} enabled agent CLIs.";
 }

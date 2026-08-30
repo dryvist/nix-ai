@@ -33,9 +33,7 @@ in
   ];
 
   config = lib.mkIf cfg.enable {
-    programs.qwen-code.package = lib.mkIf (cfg.installVia == "nixpkgs") (
-      lib.mkDefault pkgs.qwen-code
-    );
+    programs.qwen-code.package = lib.mkIf (cfg.installVia == "nixpkgs") (lib.mkDefault pkgs.qwen-code);
 
     home = {
       packages = lib.optional (cfg.package != null) cfg.package;

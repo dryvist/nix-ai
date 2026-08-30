@@ -61,8 +61,8 @@ feature loads without errors before claiming done.
 This repo exports home-manager modules consumed by nix-darwin:
 
 - `homeManagerModules.default` — Full AI stack
-- `homeManagerModules.{claude,herdr,maestro}` — subsets
-- `nixosModules.herdr` — herdr server (only non-darwin output)
+- `homeManagerModules.claude` — Claude Code only
+- `homeManagerModules.maestro` — Maestro orchestration only
 - `lib.ci.claudeSettingsJson` — Pure JSON for CI validation
 
 ### Self-contained design
@@ -136,15 +136,14 @@ instead. Design decisions in [`docs/adr/`](docs/adr/README.md).
 
 ## Key Files
 
-- `modules/default.nix` — Entry point
-- `modules/claude-config.nix` — Claude Code config (schema/renderer from `nix-claude-code`)
-- `modules/claude/plugins/` — Plugin tiers ([README](modules/claude/plugins/README.md))
+- `modules/default.nix` — Module entry point
+- `modules/claude-config.nix` — Claude Code config (settings/permissions/marketplace catalog come from the `nix-claude-code` flake input)
+- `modules/claude/plugins/` — Plugin tier files ([README](modules/claude/plugins/README.md))
 - `modules/mcp/catalog.nix` — MCP server definitions
-- `modules/herdr/` — herdr ([README](modules/herdr/README.md))
-- `modules/mlx/` — MLX inference server (LaunchAgent, CLI tools)
-- `modules/common/` — Permission engine and formatters
-- `vars/ai-stack.nix` — Model/endpoint/version registry
-- `lib/checks/` — Per-domain regression tests (lint, claude, mlx, herdr)
+- `modules/mlx/` — MLX inference server (vllm-mlx LaunchAgent, CLI tools)
+- `modules/common/` — Shared permission engine and formatters
+- `vars/ai-stack.nix` — Central model/endpoint/version registry
+- `lib/checks/` — Per-domain regression tests (lint, claude, mlx)
 
 ## MLX Ecosystem
 
