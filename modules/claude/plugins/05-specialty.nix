@@ -97,8 +97,10 @@ _:
     # Single skill: karpathy-guidelines. Behavioral rules for LLM coding:
     # Think Before Coding, Simplicity First, Surgical Changes, Goal-Driven Execution.
     # Complements Tier 1 code-review; focuses on pre-coding discipline rather than review.
-    # Also flows to ~/.agents/skills/ automatically via agent-skills auto-discovery.
-    "andrej-karpathy-skills@karpathy-skills" = true;
+    # DISABLED (never invoked). Note this also withdraws the skill from
+    # ~/.agents/skills — agent-skills discovery only contributes a marketplace's
+    # skills while at least one of its plugins is enabled.
+    "andrej-karpathy-skills@karpathy-skills" = false;
 
     # ========================================================================
     # ponytail — DietrichGebert/ponytail (minimalism / YAGNI behavioral mode)

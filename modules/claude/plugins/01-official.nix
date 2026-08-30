@@ -43,7 +43,9 @@ _:
     # in 04-community.nix (codebase-cleanup, tdd-workflows, code-refactoring all ship
     # a code-reviewer agent that we disable there).
     "code-review@claude-plugins-official" = true;
-    "pr-review-toolkit@claude-plugins-official" = true;
+    # pr-review-toolkit: DISABLED (never invoked). code-review above remains the
+    # keeper code-reviewer; this was the second, unused variant.
+    "pr-review-toolkit@claude-plugins-official" = false;
 
     # Feature Development — provides feature-dev:code-reviewer (high-confidence
     # filter variant, complementary to pr-review-toolkit:code-reviewer).
@@ -52,13 +54,15 @@ _:
     # Security guidance (useful for infra work)
     "security-guidance@claude-plugins-official" = true;
 
-    # Plugin Development (user maintains claude-code-plugins repo)
-    "plugin-dev@claude-plugins-official" = true;
+    # Plugin Development (user maintains claude-code-plugins repo).
+    # DISABLED (never invoked) — re-enable while actually authoring plugins.
+    "plugin-dev@claude-plugins-official" = false;
     "hookify@claude-plugins-official" = true;
 
     # Setup & Management
     "claude-code-setup@claude-plugins-official" = true;
-    "claude-md-management@claude-plugins-official" = true;
+    # claude-md-management: DISABLED (never invoked).
+    "claude-md-management@claude-plugins-official" = false;
 
     # Frontend Design — standalone single-skill plugin. The bundled
     # variant inside anthropic-agent-skills now ships under the kept
@@ -66,14 +70,14 @@ _:
     # standalone is retained because its description text differs from
     # the bundled variant; loaders that match on description benefit
     # from both being present.
-    "frontend-design@claude-plugins-official" = true;
+    "frontend-design@claude-plugins-official" = false;
 
-    # Code transformation skills — refactoring + simplification for docs
-    # work and general code maintenance.
+    # Code transformation skills — refactoring + simplification.
+    # code-simplifier: DISABLED (never invoked).
     # code-modernization: DISABLED (legacy/mainframe uplift; 0 real use per
     # Splunk). Import per-repo via packs.nix `modernization` when needed.
     "code-modernization@claude-plugins-official" = false;
-    "code-simplifier@claude-plugins-official" = true;
+    "code-simplifier@claude-plugins-official" = false;
 
     # Dev kits — Agent SDK + MCP server scaffolding. DISABLED (0 real use per
     # Splunk). Import per-repo via packs.nix `mcp-dev` when building MCP/SDK apps.
