@@ -1,5 +1,27 @@
 # Changelog
 
+## [4.31.0](https://github.com/dryvist/nix-ai/compare/v4.30.0...v4.31.0) (2026-08-30)
+
+
+### Features
+
+* add Langfuse CLI, skills, and langgraph-cli homebrew catalog ([633305a](https://github.com/dryvist/nix-ai/commit/633305a45be44b4251349b8a96f0a7db4e8177b0))
+* add Langfuse CLI, skills, and langgraph-cli homebrew catalog ([99c6448](https://github.com/dryvist/nix-ai/commit/99c64487cb2fccdfff5a895a5f632c09b12c0e1f))
+* **agent-skills:** gate deployed skills by named groups ([#1817](https://github.com/dryvist/nix-ai/issues/1817)) ([9049e08](https://github.com/dryvist/nix-ai/commit/9049e08d2a3954dc2ca8b11b3e82ab3fba50040b))
+* **herdr:** add herdr and source agent CLIs from llm-agents.nix ([#1836](https://github.com/dryvist/nix-ai/issues/1836)) ([7d2e70c](https://github.com/dryvist/nix-ai/commit/7d2e70ca81b80f2bfe1a97a2a243e87f2563b9bd))
+* **litellm:** cost-ordered subagent fallback tier with a liveness probe ([#1814](https://github.com/dryvist/nix-ai/issues/1814)) ([13a6d9c](https://github.com/dryvist/nix-ai/commit/13a6d9c849065af8655d702619396e0f717f6432))
+* **mlx:** make derive.nix the single source for every serving limit via a pinned-override primitive ([#1816](https://github.com/dryvist/nix-ai/issues/1816)) ([d31f49e](https://github.com/dryvist/nix-ai/commit/d31f49ecad31f88eaa29a35905a4f9d94f93c259))
+* **telemetry:** pin cumulative temporality + 10s metric export interval ([#1818](https://github.com/dryvist/nix-ai/issues/1818)) ([5ceb136](https://github.com/dryvist/nix-ai/commit/5ceb136b6d12ca3d37a38e4a065c9ec8222813f0))
+
+
+### Bug Fixes
+
+* **deps:** lock the llm-agents input that flake.nix already declares ([#1838](https://github.com/dryvist/nix-ai/issues/1838)) ([4ddcf27](https://github.com/dryvist/nix-ai/commit/4ddcf27007d64583fb71830ef59cb13560403cec))
+* **mlx:** correct derive.nix concurrency semantics, backfill kv ([#1813](https://github.com/dryvist/nix-ai/issues/1813)) ([a36df26](https://github.com/dryvist/nix-ai/commit/a36df26d45c33238d0ab7b56567f2a3f254e65c2))
+* **mlx:** make modelMtpProfiles reachable, and prove it ([#1835](https://github.com/dryvist/nix-ai/issues/1835)) ([0d4456d](https://github.com/dryvist/nix-ai/commit/0d4456d7d7854876a02fc3ceb55de4ffe6d66111))
+* **session-archive:** make the agent script executable ([#1824](https://github.com/dryvist/nix-ai/issues/1824)) ([43f22ae](https://github.com/dryvist/nix-ai/commit/43f22ae5d645ddd561e4c73924146ba04a5c1e93))
+* stay under file-size limits for flake.nix and ai-tools.nix ([06a3e12](https://github.com/dryvist/nix-ai/commit/06a3e125c9b985e938d39266b7a11ba57c15c9a7))
+
 ## [4.30.0](https://github.com/dryvist/nix-ai/compare/v4.29.2...v4.30.0) (2026-08-28)
 
 
