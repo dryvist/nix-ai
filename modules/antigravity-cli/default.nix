@@ -18,11 +18,14 @@
 {
   config,
   lib,
+  pkgs,
+  llm-agents,
   ...
 }:
 
 let
   cfg = config.programs.antigravity-cli;
+  agyPackage = llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.antigravity-cli;
 in
 {
   # home-manager release-26.05 gained its own programs.antigravity-cli
@@ -40,27 +43,36 @@ in
   ];
 
   config = lib.mkIf cfg.enable {
-    # Ensure directory structure exists
-    home.file.".gemini/antigravity-cli/.keep".text = ''
-      # Managed by Nix - programs.antigravity-cli module
-    '';
+    home = {
+      packages = lib.optional (cfg.package != null) cfg.package;
 
-    # This CLI accepts only a Gemini-format endpoint, so it can follow the
-    # local proxy only because that proxy serves the Gemini generateContent
-    # route natively (`/v1beta/models/<model>:generateContent` and its
-    # streaming twin) alongside the OpenAI-compatible one. The root URL is
-    # what goes here — the CLI appends the `/v1beta/...` path itself.
-    home.sessionVariables = lib.mkIf config.programs.litellmLocal.enable {
-      GOOGLE_GEMINI_BASE_URL = config.programs.litellmLocal.rootUrl;
+      # Ensure directory structure exists
+      file.".gemini/antigravity-cli/.keep".text = ''
+        # Managed by Nix - programs.antigravity-cli module
+      '';
+
+      # This CLI accepts only a Gemini-format endpoint, so it can follow the
+      # local proxy only because that proxy serves the Gemini generateContent
+      # route natively (`/v1beta/models/<model>:generateContent` and its
+      # streaming twin) alongside the OpenAI-compatible one. The root URL is
+      # what goes here — the CLI appends the `/v1beta/...` path itself.
+      sessionVariables = lib.mkIf config.programs.litellmLocal.enable {
+        GOOGLE_GEMINI_BASE_URL = config.programs.litellmLocal.rootUrl;
+      };
     };
 
-    # Select the role rather than a Gemini registry id, so this CLI resolves
-    # the same way as every other client. mkDefault, because whether this CLI
-    # accepts a model name outside its own registry is not verified here — a
-    # consumer that finds it rejected sets defaultModel back to an alias
-    # without editing this module.
-    programs.antigravity-cli.defaultModel = lib.mkIf config.programs.litellmLocal.enable (
-      lib.mkDefault "subagent"
-    );
+    programs.antigravity-cli = {
+      # `agy` came from the antigravity-cli Homebrew cask, which has no Linux
+      # path. llm-agents.nix packages it for aarch64-darwin and x86_64-linux
+      # alike; nixpkgs does not carry it at all.
+      package = lib.mkDefault agyPackage;
+
+      # Select the role rather than a Gemini registry id, so this CLI resolves
+      # the same way as every other client. mkDefault, because whether this CLI
+      # accepts a model name outside its own registry is not verified here — a
+      # consumer that finds it rejected sets defaultModel back to an alias
+      # without editing this module.
+      defaultModel = lib.mkIf config.programs.litellmLocal.enable (lib.mkDefault "subagent");
+    };
   };
 }

@@ -13,6 +13,7 @@
   ai-assistant-instructions,
   nix-claude-code,
   marketplaceInputs,
+  llm-agents,
   userConfig ? {
     user.fullName = "JacobPEvans";
   },
@@ -90,6 +91,7 @@ in
     ./antigravity-ide
     ./antigravity-cli
     ./fabric
+    ./herdr
     ./litellm-local
     ./maestro
     ./mcp/module.nix
@@ -105,7 +107,7 @@ in
   config = {
     home = {
       # AI development tools (MCP servers, linters, CLI wrappers)
-      inherit (import ./ai-tools.nix { inherit pkgs; }) packages;
+      inherit (import ./ai-tools.nix { inherit pkgs llm-agents; }) packages;
 
       file = copilotFiles // agentsMdSymlinks // brewTrustFiles;
 
@@ -220,6 +222,12 @@ in
       # Bleeding-edge Claude Code at ~/.local/bin/claude via the upstream
       # opt-in module (nix-claude-code owns programs.claude.latest).
       claude.latest.enable = true;
+
+      # herdr — the multiplexer the agent CLIs above run inside. On the
+      # workstation this is the client half; `herdr --remote <name>` attaches
+      # to a server-hosted herd using the same config.toml the server renders
+      # from this flake.
+      herdr.enable = true;
     };
   };
 }

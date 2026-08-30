@@ -15,6 +15,7 @@
   ai-assistant-instructions,
   nix-claude-code,
   marketplaceInputs,
+  llm-agents,
   claude-cookbooks,
   fabric-src,
   userConfig ? {
@@ -115,11 +116,12 @@ in
     programs.claude = {
       enable = true;
 
-      # Binary comes from Homebrew (claude-code@latest cask in nix-darwin);
-      # Nix manages config only. Claude's native updater (latest channel)
-      # overlays the newest build at ~/.local/bin/claude on top of the brew
-      # baseline. See nix-claude-code core.nix: package = null skips home.packages.
-      package = null;
+      # Binary comes from llm-agents.nix, which packages claude-code for
+      # aarch64-darwin AND x86_64-linux. It used to be the claude-code@latest
+      # Homebrew cask, which is why nothing but the Mac could run this stack.
+      # Claude's native updater (programs.claude.latest) still overlays a newer
+      # build at ~/.local/bin/claude on top of this baseline.
+      package = llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.claude-code;
 
       # API Key Helper for headless authentication (cron jobs, CI/CD)
       # Uses Bitwarden Secrets Manager to securely fetch OAuth token
