@@ -19,6 +19,7 @@
 let
   cfg = config.programs.mlx;
   catalogData = import ./catalog-data.nix;
+  derivePinning = import ./derive-pinning.nix { inherit lib; };
 
   enabled = lib.filterAttrs (_: sel: sel.enable) cfg.catalog;
 
@@ -29,16 +30,37 @@ let
       Known entries: ${lib.concatStringsSep ", " (lib.attrNames catalogData)}
     '');
 
+  # cacheMemoryMb, resolved when a class opts in via `cacheProvisioning` —
+  # see derive-pinning.nix's cacheMemoryMbFor for the derive-vs-pin split.
+  # budgetGb is THIS host's memoryHardLimitGb: a derived class re-derives
+  # per host; a pinned class ignores it, same as its old literal did.
+  derivedCacheMb =
+    entry: classDef:
+    (derivePinning.cacheMemoryMbFor {
+      inherit (entry) kv weightGb;
+      inherit (classDef) cacheProvisioning;
+      windowTokens = entry.contextWindowTokens or 32768;
+      budgetGb = cfg.memoryHardLimitGb;
+    }).cacheMemoryMb;
+
   profileFor =
     name: sel:
     let
       entry = entryFor name;
+      classDef =
+        entry.classes.${sel.class} or (throw ''
+          programs.mlx.catalog."${name}": class "${sel.class}" is not offered by
+          this entry (offered: ${lib.concatStringsSep ", " (lib.attrNames entry.classes)}).
+          A class must be validated on real hardware before the catalog offers it.
+        '');
     in
-    entry.classes.${sel.class}.flags or (throw ''
-      programs.mlx.catalog."${name}": class "${sel.class}" is not offered by
-      this entry (offered: ${lib.concatStringsSep ", " (lib.attrNames entry.classes)}).
-      A class must be validated on real hardware before the catalog offers it.
-    '');
+    # flags defaults to { }: an all-derived class (cacheProvisioning, no
+    # literal flags — catalog-data.nix's 9B resident classes) needs no
+    # empty flags = { } alongside it.
+    (classDef.flags or { })
+    // lib.optionalAttrs (classDef ? cacheProvisioning) {
+      cacheMemoryMb = derivedCacheMb entry classDef;
+    };
 
   # Bounded host tweaks (non-null only) merge over the validated class profile.
   # ttl is proxy/idle lifecycle, not a serve flag — pulled out separately.

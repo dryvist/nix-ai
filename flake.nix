@@ -1,6 +1,15 @@
 {
   description = "AI CLI ecosystem for Claude, Gemini, Copilot, and Codex (Nix flake)";
 
+  # Binary cache for the llm-agents.nix input below. Without it every agent CLI
+  # is a from-source build; with it they are all substituted.
+  nixConfig = {
+    extra-substituters = [ "https://cache.numtide.com" ];
+    extra-trusted-public-keys = [
+      "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
+    ];
+  };
+
   inputs = {
     # Both are channel branches = the intended major-version pins. Renovate
     # cannot bump either — a branch ref never changes, so there is nothing to
@@ -9,6 +18,17 @@
     # Second nixpkgs only for llama-swap: 25.11-darwin froze it at v165 on
     # 2025-09-22 with no backports. See nix-ai#801.
     nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+
+    # Nix packages for AI coding agent CLIs (claude-code, codex, antigravity-cli,
+    # copilot-cli, herdr, ...), rebuilt daily by numtide CI for x86_64-linux,
+    # aarch64-linux and aarch64-darwin. This is what lets the stack run anywhere
+    # but the Mac: the CLIs it supplies used to come from Homebrew casks, which
+    # have no Linux path at all.
+    #
+    # Deliberately does NOT set `inputs.nixpkgs.follows`, unlike every other
+    # input here. It pins its own nixpkgs-unstable and cache.numtide.com is keyed
+    # to that pin — forcing 26.05 both breaks builds and loses every cache hit.
+    llm-agents.url = "github:numtide/llm-agents.nix";
 
     home-manager = {
       url = "github:nix-community/home-manager/release-26.05";
@@ -96,13 +116,7 @@
       flake = false;
     };
 
-    # ---- Third-party skill inputs -------------------------------------
-    # modules/agent-skills walks each for every known SKILL.md layout and
-    # deploys to ~/.agents/skills. One that also ships .claude-plugin/ is
-    # "dual-channel": register it in modules/claude/marketplaces.nix and enable
-    # its plugin in a tier file to reach Claude, which does not read
-    # ~/.agents/skills. Licenses noted only where they constrain us — consuming
-    # from the store is fine, copying into a repo we publish is not.
+    # ---- Third-party skill inputs (modules/agent-skills + dual-channel marketplaces)
 
     # Animated technical diagrams as self-contained HTML+SVG. Cross-tool only.
     dashmotion = {
@@ -144,6 +158,11 @@
       flake = false;
     };
 
+    langfuse-skills = {
+      url = "github:langfuse/skills";
+      flake = false;
+    };
+
     # Only `file-organizer` is taken; its <repo>/<skill>/SKILL.md layout
     # matches no discovery pattern, so it is wired by path through
     # programs.agentSkills.local. Unlicensed upstream — never copied.
@@ -168,6 +187,7 @@
       self,
       nixpkgs,
       nixpkgs-unstable,
+      llm-agents,
       home-manager,
       ai-llm-prompts,
       ai-assistant-instructions,
@@ -184,6 +204,7 @@
       autoresearch,
       context-engineering-kit,
       managing-dependencies,
+      langfuse-skills,
       awesome-claude-skills,
       vct-cribl-cli,
       vct-splunk-cli,
@@ -207,15 +228,6 @@
           homebrewNix
           ;
       };
-      orchestratorPromptNames = [
-        "nix-ai-code-explain-example"
-        "nix-ai-code-review-analysis-example"
-        "nix-ai-code-review-categorization-example"
-        "nix-ai-code-review-example"
-        "nix-ai-default-system"
-        "nix-ai-structured-extract-example"
-        "nix-ai-vault-search-example"
-      ];
       orchestratorPromptDir =
         system: "${ai-llm-prompts.packages.${system}.applications}/share/ai-llm-prompts/applications";
     in
@@ -228,12 +240,14 @@
           nix-claude-code
           karpathy-skills
           nixpkgs-unstable
+          llm-agents
           dashmotion
           ponytail
           last30days-skill
           autoresearch
           context-engineering-kit
           managing-dependencies
+          langfuse-skills
           awesome-claude-skills
           vct-cribl-cli
           vct-splunk-cli
@@ -245,49 +259,23 @@
       # comments — see that file. The public `nix-ai.lib.*` shape is unchanged.
       lib = nixAiLib;
 
-      # Scoped to x86_64-linux only so `nix flake check --all-systems` succeeds
-      # from a single linux runner. All checks in lib/checks.nix are source-only
-      # or evaluation-wrapped — running once on the CI system is sufficient.
-      # Cross-platform breakage is still caught by `--all-systems` evaluating
-      # `packages.<system>`, `formatter.<system>`, and `overlays.default` on
-      # every declared system.
-      checks =
-        let
-          system = "x86_64-linux";
-          pkgs = import nixpkgs {
-            inherit system;
-            config.allowUnfree = true;
-          };
-        in
-        {
-          ${system} =
-            (import ./lib/checks.nix {
-              inherit
-                pkgs
-                home-manager
-                ;
-              src = ./.;
-              aiModule = self.homeManagerModules.default;
-              inherit (nixAiLib) renderAutonomous;
-            })
-            // {
-              # `nix flake check` only *evaluates* packages.<system> (reports
-              # "build skipped") — it never compiles them, so a stale fabric
-              # vendorHash after a fabric-src bump passes CI unnoticed (this
-              # happened twice: #1145, fixed by #1156/#1159). Aliasing the package
-              # as a check forces the Go build — and its vendorHash verification —
-              # to actually run. Scoped to the CI system (x86_64-linux) like every
-              # other check so a single linux runner covers it.
-              fabric-ai-build = self.packages.${system}.fabric-ai;
-              orchestrator-prompt-assets =
-                assert builtins.all (
-                  name: builtins.pathExists (ai-llm-prompts + "/applications/${name}.md")
-                ) orchestratorPromptNames;
-                pkgs.writeText "nix-ai-orchestrator-prompt-assets" ''
-                  Validated ${toString (builtins.length orchestratorPromptNames)} catalog prompts.
-                '';
-            };
-        };
+      # System-level modules. herdr is the first thing this flake manages that
+      # runs as a service on a Linux guest rather than a launchd agent on the
+      # Mac, so this output is new — see flake/nixos-modules.nix.
+      nixosModules = import ./flake/nixos-modules.nix { inherit llm-agents; };
+
+      # Extracted to flake/checks.nix to stay under the 12KB file-size gate.
+      # Still x86_64-linux-scoped; see that file for why.
+      checks = import ./flake/checks.nix {
+        inherit
+          self
+          nixpkgs
+          home-manager
+          nixAiLib
+          ai-llm-prompts
+          ;
+        src = ./.;
+      };
 
       # Extracted to flake/packages.nix to stay under the 12KB file-size gate.
       packages = import ./flake/packages.nix {

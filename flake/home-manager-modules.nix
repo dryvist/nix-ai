@@ -5,12 +5,14 @@
   nix-claude-code,
   karpathy-skills,
   nixpkgs-unstable,
+  llm-agents,
   dashmotion,
   ponytail,
   last30days-skill,
   autoresearch,
   context-engineering-kit,
   managing-dependencies,
+  langfuse-skills,
   awesome-claude-skills,
   vct-cribl-cli,
   vct-splunk-cli,
@@ -53,6 +55,7 @@ let
     inherit autoresearch;
     inherit context-engineering-kit;
     inherit managing-dependencies;
+    inherit langfuse-skills;
   };
 in
 {
@@ -79,6 +82,7 @@ in
         awesome-claude-skills
         marketplaceInputs
         nixpkgs-unstable
+        llm-agents
         vct-cribl-cli
         vct-splunk-cli
         ;
@@ -109,6 +113,7 @@ in
       inherit
         nix-claude-code
         marketplaceInputs
+        llm-agents
         ;
     };
   };
@@ -152,6 +157,7 @@ in
         ai-assistant-instructions
         nix-claude-code
         marketplaceInputs
+        llm-agents
         ;
     };
   };
@@ -220,6 +226,13 @@ in
     ];
     _module.args = {
       inherit nix-claude-code;
+    };
+  };
+
+  herdr = {
+    imports = [ ../modules/herdr ];
+    _module.args = {
+      inherit llm-agents;
     };
   };
 

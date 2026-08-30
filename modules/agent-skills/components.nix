@@ -47,7 +47,22 @@ let
   # Grouped by category so the list stays navigable as it grows. A skill listed
   # under two categories appears twice on purpose — the reader arrives from one
   # domain or the other and should find it either way.
-  allSkillNames = lib.unique (map (c: c.name) cfg.fromFlakeInputs ++ builtins.attrNames cfg.local);
+  # Group gating — THE single filter point. `activeGroups = null` deploys
+  # everything (the compatible default); a list deploys exactly the union of
+  # the named groups. Everything downstream (home.file entries, INDEX.md,
+  # categories) derives from the deployed* sets, so the gate cannot drift.
+  activeSkillNames =
+    if cfg.activeGroups == null then
+      null
+    else
+      lib.unique (lib.concatMap (g: cfg.groups.${g}) cfg.activeGroups);
+  skillActive = name: activeSkillNames == null || lib.elem name activeSkillNames;
+  deployedFlakeInputs = builtins.filter (c: skillActive c.name) cfg.fromFlakeInputs;
+  deployedLocal = lib.filterAttrs (name: _: skillActive name) cfg.local;
+
+  allSkillNames = lib.unique (
+    map (c: c.name) deployedFlakeInputs ++ builtins.attrNames deployedLocal
+  );
 
   # Only categories that actually match a deployed skill become a heading, so a
   # category naming a skill from a removed input silently disappears instead of
@@ -97,6 +112,21 @@ let
 in
 {
   config = lib.mkIf cfg.enable {
+    assertions = [
+      {
+        assertion = cfg.activeGroups == null || builtins.all (g: cfg.groups ? ${g}) cfg.activeGroups;
+        # `or [ ]` does not null-coalesce — activeGroups defaults to an explicit
+        # null, so the filter must guard it or forcing this message crashes eval.
+        message =
+          "programs.agentSkills.activeGroups names undefined group(s): "
+          + builtins.toJSON (
+            builtins.filter (g: !(cfg.groups ? ${g})) (
+              if cfg.activeGroups == null then [ ] else cfg.activeGroups
+            )
+          );
+      }
+    ];
+
     home = {
       activation.cleanupLegacySkillCopies = lib.hm.dag.entryBefore [ "checkLinkTargets" ] ''
         cleanup_legacy_root_link() {
@@ -179,8 +209,8 @@ in
       }
       // harnessSymlinks
       // harnessAgentsMdSymlinks
-      // mkSkillFiles cfg.fromFlakeInputs
-      // mkLocalSkills cfg.local;
+      // mkSkillFiles deployedFlakeInputs
+      // mkLocalSkills deployedLocal;
     };
   };
 }

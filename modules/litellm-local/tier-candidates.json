@@ -1,0 +1,36 @@
+{
+  "policy": {
+    "requiredInputTokens": 262144,
+    "memberCount": 3,
+    "paidTail": 1,
+    "pin": [],
+    "deny": []
+  },
+  "generatedAt": "2026-08-29T00:02:39Z",
+  "members": [
+    {
+      "name": "subagent",
+      "upstream": "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "catalogId": "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "contextLength": 1000000,
+      "promptCostPerMtok": 0.0,
+      "completionCostPerMtok": 0.0
+    },
+    {
+      "name": "subagent-fallback1",
+      "upstream": "deepseek/deepseek-v4-flash",
+      "catalogId": "deepseek/deepseek-v4-flash",
+      "contextLength": 1048576,
+      "promptCostPerMtok": 0.086,
+      "completionCostPerMtok": 0.172
+    },
+    {
+      "name": "subagent-fallback2",
+      "upstream": "openrouter/nvidia/nemotron-3.5-lightning",
+      "catalogId": "nvidia/nemotron-3.5-lightning",
+      "contextLength": 262144,
+      "promptCostPerMtok": 0.08,
+      "completionCostPerMtok": 0.2
+    }
+  ]
+}

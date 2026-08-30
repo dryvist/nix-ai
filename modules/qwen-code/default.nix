@@ -11,22 +11,15 @@
 # Dashscope / OpenRouter / OpenAI access is opt-in via the `d-qwen`
 # Doppler-wrapped shell alias.
 #
-# Why brew (not nixpkgs / uvx):
-#   - Not packaged in nixpkgs.
-#   - Homebrew has a bottled formula (`qwen-code`) — this is the
-#     install-order rule's preferred path after nixpkgs and a local
-#     buildNpmPackage derivation. The npm-derivation path is deferred
-#     (qwen-code's workspace + cross-platform optionalDependencies
-#     need deeper packaging work).
-#
-# The brew install itself lives in nix-darwin (homebrew.brews is a
-# nix-darwin option, not a home-manager one). lib/homebrew.nix owns the
-# package identity; nix-darwin enables its capability. This module only
-# handles configuration.
+# Why nixpkgs (not brew / uvx): nixpkgs packages qwen-code as of 26.05.
+# It used to come from a Homebrew formula, which had no Linux path and so was
+# one of the reasons this stack could not leave the Mac. `installVia = "brew"`
+# is still selectable for a host that wants the bottled build.
 #
 {
   config,
   lib,
+  pkgs,
   ...
 }:
 
@@ -40,6 +33,11 @@ in
   ];
 
   config = lib.mkIf cfg.enable {
-    home.file.".qwen/.keep".text = "# Managed by Nix — programs.qwen-code\n";
+    programs.qwen-code.package = lib.mkIf (cfg.installVia == "nixpkgs") (lib.mkDefault pkgs.qwen-code);
+
+    home = {
+      packages = lib.optional (cfg.package != null) cfg.package;
+      file.".qwen/.keep".text = "# Managed by Nix — programs.qwen-code\n";
+    };
   };
 }

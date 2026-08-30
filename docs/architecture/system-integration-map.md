@@ -35,6 +35,11 @@ graph TD
     CC -->|HTTP MCP| CRIBL["Cribl MCP\n:30030"]
     MAE -->|claude subprocess| CC
 
+    CC -->|Anthropic API| LL["Local LiteLLM proxy\n:4100 (loopback)"]
+    CDX -->|ox profile only| LL
+    LL -->|"claude-* (client's own credentials)"| ANTH["Anthropic API"]
+    LL -->|"every other model name"| ROUTER["Shared LLM router"]
+
     FAB_MCP -->|reads patterns| FAB
 
     FAB -->|HTTP /v1| LS
@@ -42,8 +47,40 @@ graph TD
     LS -->|manages processes| WORKERS
 ```
 
-Local nix-ai clients (qwen-code, cecli, Fabric) call llama-swap directly at
-`:11434` by default — there is no local gateway hop. Setting
+Claude Code is the exception to "no local gateway hop": with
+`programs.litellmLocal.enable`, its `ANTHROPIC_BASE_URL` points at the loopback
+proxy on `:4100`. The proxy splits traffic by model name — `claude-*` reaches
+Anthropic with the session's own forwarded credentials (so the main model still
+bills the subscription and is never rerouted), while every other name resolves
+through the shared router.
+
+The subagent tier names one stable group, `subagent`, which heads a cost-ordered
+chain assembled by
+[`fallback-tier.nix`](../../modules/litellm-local/fallback-tier.nix) from
+generated data in `tier-candidates.json`. A chain rather than one model, so a
+single retired upstream model cannot take every subagent down with it; a stable
+head name, so re-ranking the chain never edits a consumer.
+
+**The chain is generated, not hand-written.** `litellm-tier-refresh` re-ranks it
+against two live sources and keeps only their intersection: the public model
+catalog supplies cost, context window, output modality and tool-calling support,
+while the shared router supplies the set of models this host can actually reach.
+Ranking the catalog alone proposes models the router refuses outright — measured,
+not assumed. Selection also requires text output and tool-call support, since a
+subagent that cannot call tools fails as a wrong answer rather than an error.
+
+The hand-owned half is the `policy` block in that JSON, which the generator
+preserves verbatim: the required context window, how many members, an ordered
+`pin` list that overrides ranking, a `deny` list, and `paidTail` — the number of
+trailing slots reserved for billing models, because zero-cost models share one
+upstream quota pool and an all-free chain dies in a single instant.
+
+Run `litellm-fallback-probe` after any refresh. Catalog metadata is a claim, not
+behaviour: a model can stop serving with no config change on either side, and
+only a real completion detects it.
+
+The other local nix-ai clients (qwen-code, cecli, Fabric) call llama-swap
+directly at `:11434` by default — no gateway hop. Setting
 `services.aiStack.llmEndpoint = "router"` repoints those OpenAI-compatible
 consumers at the cluster-hosted LiteLLM router instead (bearer-gated via
 `services.aiStack.llmEndpointTokenFile`). The chat UI is no longer local: the
@@ -55,6 +92,7 @@ cluster-hosted Open WebUI.
 | Product | Module Path | Transport | Purpose | Key Config Files |
 |---------|------------|-----------|---------|-----------------|
 | Claude Code | `modules/claude-config.nix` | Desktop app | Primary AI coding assistant | `~/.claude/settings.json`, `~/.claude.json` |
+| Local LiteLLM proxy | `modules/litellm-local/` | HTTP :4100 (loopback) | Role aliases + cost-ordered subagent fallback chain | rendered config, `modules/litellm-local/fallback-tier.nix` |
 | Antigravity CLI | `modules/antigravity-cli/` | CLI | Google Antigravity assistant | `~/.gemini/antigravity-cli/settings.json` |
 | Codex CLI | `modules/codex/` | CLI | OpenAI coding assistant | `~/.codex/config.toml` |
 | Qwen Code | `modules/qwen-code/` | CLI | Local-first coding assistant | `~/.qwen/settings.json` |
@@ -110,6 +148,7 @@ and adding any required runtime secret injection.
 
 | Port | Service | Protocol | Module |
 |------|---------|----------|--------|
+| 4100 | Local LiteLLM proxy (loopback only) | HTTP (Anthropic + OpenAI-compatible) | `modules/litellm-local/` |
 | 11434 | llama-swap proxy | HTTP (OpenAI-compatible) | `modules/mlx/` |
 | 11436+ | MLX model-server workers (mlx-lm) | HTTP (managed by llama-swap) | `modules/mlx/` |
 | 8180 | Fabric REST API (opt-in) | HTTP + Swagger UI | `modules/fabric/` |

@@ -29,38 +29,23 @@ let
 
   rendered = hmConfig.config.programs.litellmLocal.renderedConfig;
 
+  # Cost-ordered fallback-tier assertions live in their own file (12KB gate).
+  inherit (import ./litellm-local-fallbacks.nix { inherit lib rendered; }) firstFallbackFailure;
+
+  # Proxy auth + per-deployment api_key scoping (12KB gate).
+  keys = import ./litellm-local-keys.nix { inherit rendered; };
+  inherit (keys) claudeTargetModel;
+  inherit (keys)
+    noGlobalForwarding
+    noMasterKey
+    wildcardHasOwnKey
+    claudeHasNoKey
+    claudeKeepsPrefix
+    ;
+
   forwardList = rendered.litellm_settings.model_group_settings.forward_client_headers_to_llm_api;
 
   scopedToClaudeOnly = forwardList == [ "claude-*" ];
-
-  noGlobalForwarding =
-    !(rendered ? general_settings) || !(rendered.general_settings ? forward_client_headers_to_llm_api);
-
-  # No master key, by design: a subscription Claude Code session may send the
-  # gateway no credential variable, and settings.json (the only channel that
-  # reaches every session) cannot carry a secret. With a master key present,
-  # LiteLLM treats the OAuth bearer as a virtual key and answers
-  # `400 No connected db` — the outage's exact symptom.
-  noMasterKey = !(rendered ? general_settings) || !(rendered.general_settings ? master_key);
-
-  # The wildcard deployment must carry its own api_key, so it authenticates to
-  # the router as itself rather than relying on whatever a client sent.
-  wildcardDeployment = builtins.head (builtins.filter (m: m.model_name == "*") rendered.model_list);
-  claudeDeployment = builtins.head (
-    builtins.filter (m: m.model_name == "claude-*") rendered.model_list
-  );
-
-  wildcardHasOwnKey = wildcardDeployment.litellm_params ? api_key;
-
-  # Conversely the claude-* deployment must NOT carry one: a key here would
-  # override the forwarded client credential and silently bill the wrong
-  # account.
-  claudeHasNoKey = !(claudeDeployment.litellm_params ? api_key);
-
-  # LiteLLM substitutes only the matched tail of a wildcard into the target,
-  # so `anthropic/*` sent `claude-opus-5` upstream as `opus-5`. The target
-  # must repeat the prefix.
-  claudeKeepsPrefix = claudeDeployment.litellm_params.model == "anthropic/claude-*";
 
   # ---- enabled-path wiring -------------------------------------------------
   enabled = hmConfigLitellmLocal.config;
@@ -141,6 +126,15 @@ let
   exportsPlaceholder = lib.hasInfix "export LITELLM_LOCAL_KEY=${clientToken}" zshInit;
 
   agent = enabled.launchd.agents.litellm-local.config;
+
+  # Nix evaluates lazily, so reading three attributes off one agent proves
+  # nothing about the rest of the tree. A module argument that launchd.nix
+  # required but default.nix never passed satisfied every assertion in this
+  # file and only surfaced during `darwin-rebuild`, after a full flake check had
+  # gone green. deepSeq forces the whole agent set, which is what makes a
+  # missing argument or an undefined binding a check failure instead of a
+  # rebuild failure.
+  agentsFullyEvaluate = builtins.deepSeq enabled.launchd.agents true;
   agentLoopbackOnly = enabled.programs.litellmLocal.port == 4100;
   # The router URL reaches the agent as plain env; the bearer does not — the
   # wrapper reads it from the file at exec time.
@@ -163,7 +157,7 @@ in
       || throw "the litellm-local claude-* deployment must carry no api_key so the forwarded client credential is what authenticates it";
     assert
       claudeKeepsPrefix
-      || throw "the litellm-local claude-* deployment must target anthropic/claude-*: LiteLLM substitutes only the matched tail, so anthropic/* sends claude-opus-5 upstream as opus-5; got: ${claudeDeployment.litellm_params.model}";
+      || throw "the litellm-local claude-* deployment must target anthropic/claude-*: LiteLLM substitutes only the matched tail, so anthropic/* sends claude-opus-5 upstream as opus-5; got: ${claudeTargetModel}";
     assert
       wildcardHasOwnKey
       || throw "the litellm-local wildcard deployment must carry its own api_key so it authenticates to the router as itself";
@@ -214,8 +208,13 @@ in
     assert
       exportsPlaceholder
       || throw "shell init must export LITELLM_LOCAL_KEY as the constant placeholder `${clientToken}`; the proxy checks no credential and OpenAI-compatible SDKs refuse an empty key";
+    assert agentsFullyEvaluate || throw "unreachable: deepSeq either forces the agent tree or raises";
     assert
       agentCarriesNoSecret
       || throw "the launchd agent must take the router URL as plain env and read the bearer from its file at exec time, never as an EnvironmentVariable";
     helpers.mkMarker "check-litellm-local-client-wiring" "litellm-local: clients name roles, lead models untouched, every Claude Code setting non-secret and in settings.json";
+
+  litellm-local-fallback-tier =
+    assert firstFallbackFailure == null || throw firstFallbackFailure.msg;
+    helpers.mkMarker "check-litellm-local-fallback-tier" "litellm-local: subagent tier is a cost-ordered chain of explicit groups, main tier never silently downgraded";
 }

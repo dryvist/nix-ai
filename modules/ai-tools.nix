@@ -7,44 +7,27 @@
 # PACKAGE HIERARCHY (STRICT - NO EXCEPTIONS)
 # ============================================================================
 #
-# ALWAYS follow this order when choosing how to install a package:
+# nixpkgs -> llm-agents.nix -> homebrew (GUI only) -> bunx wrapper -> uvx.
 #
-# 1. **nixpkgs** (ALWAYS FIRST, NO EXCEPTIONS)
-#    - Check: nix search nixpkgs <package>
-#    - Use if package exists and is reasonably up-to-date
-#    - Benefits: Binary cache, security updates, integration
-#    - Example: github-mcp-server, terraform-mcp-server
-#
-# 2. **homebrew** (ONLY if not in nixpkgs)
-#    - Fallback for packages missing from nixpkgs
-#    - Check: brew search <package>
-#    - Add to modules/darwin/homebrew.nix with clear justification
-#    - Document WHY homebrew is needed (not in nixpkgs, severely outdated, etc.)
-#
-# 3. **bunx wrapper** (for npm packages not in nixpkgs or homebrew)
-#    - Standard solution for npm/bun packages
-#    - Always pin to specific version: package@x.y.z
-#    - Downloads on first run, cached locally by bun
-#    - Benefits: Simple, minimal code, easy version updates
-#    - Pattern: writeShellScriptBin with bunx --bun
-#
-# 4. **uvx** (for Python packages not in nixpkgs or version-lagging)
-#    - Standard solution for Python CLI tools
-#    - Run on-demand: uvx <package>
-#    - Benefits: Isolated environments, always-latest, no global pollution
-#    - Replaced pipx (pipx removed from nix-home — antipattern in Nix env)
+# The full decision matrix, and why each rung exists, lives in
+# modules/herdr/README.md. The short version: check `nix search nixpkgs <pkg>`
+# first; reach for github:numtide/llm-agents.nix for an agent CLI nixpkgs does
+# not carry; homebrew is GUI applications ONLY (a cask cannot run on the
+# fleet's Linux guests, which is what used to pin this stack to one MacBook —
+# do not add a CLI cask back); bunx for npm packages, always version-pinned;
+# uvx for Python CLI tools.
 #
 # ============================================================================
 # CURRENT STATUS
 # ============================================================================
 #
-# NIXPKGS PACKAGES (from nixpkgs, available on stable 25.11):
-#   github-mcp-server, terraform-mcp-server, whisper-cpp, openai-whisper, entire
+# NIXPKGS: github-mcp-server, terraform-mcp-server, whisper-cpp,
+#   openai-whisper, entire, yt-dlp, codex, opencode, qwen-code, cursor-cli
 #
-# HOMEBREW PACKAGES (from lib/homebrew.nix):
-#   codex: OpenAI Codex CLI
-#   block-goose-cli: Block's AI agent (nixpkgs outdated at time of addition)
-#   antigravity-cli: Google Antigravity CLI (`agy`)
+# LLM-AGENTS.NIX: claude-code, antigravity-cli (`agy`), copilot-cli, herdr
+#
+# HOMEBREW (lib/homebrew.nix): block-goose-cli, langgraph-cli, and the desktop
+#   apps (claude, codex-app, chatgpt, antigravity, antigravity-ide)
 #
 # BUNX WRAPPER PACKAGES (npm packages not in nixpkgs/homebrew):
 #   cclint: @felixgeelhaar/cclint (CLAUDE.md linter)
@@ -53,6 +36,7 @@
 #   claude-flow: claude-flow (multi-agent orchestration)
 #   gws: @googleworkspace/cli (pinned version)
 #   openwhispr: @openwhispr/cli (voice notes / transcriptions CLI)
+#   langfuse: langfuse-cli (Langfuse API CLI — traces, prompts, datasets)
 #   omo-senpi: omo-ai (oh-my-openagent Senpi edition — standalone agent, beta)
 #
 # UVX WRAPPER PACKAGES (Python packages not in nixpkgs/homebrew):
@@ -75,15 +59,17 @@
 #   2. Add to packages list below
 #   3. Add to version check script (scripts/workflows/check-package-versions.sh)
 
-{ pkgs, ... }:
+{ pkgs, llm-agents, ... }:
 let
   versions = import ../lib/versions.nix;
+  llmAgents = llm-agents.packages.${pkgs.stdenv.hostPlatform.system};
   cclintVersion = versions.cclint;
   ghCopilotVersion = versions.ghCopilot;
   chatgptCliVersion = versions.chatgptCli;
   claudeFlowVersion = versions.claudeFlow;
   gwsCliVersion = versions.gwsCli;
   openwhisprCliVersion = versions.openwhisprCli;
+  langfuseCliVersion = versions.langfuseCli;
   omoSenpiVersion = versions.omoSenpi;
 in
 {
@@ -146,8 +132,14 @@ in
     # ==========================================================================
     # GitHub Copilot CLI
     # ==========================================================================
-    # Source: https://github.com/github/gh-copilot
-    # NPM: @githubnext/github-copilot-cli (pinned version)
+    # `copilot` — the current CLI. Not in nixpkgs; llm-agents.nix packages it
+    # for both supported systems. Its config (~/.copilot) is written by
+    # modules/copilot.nix, which previously configured a binary nothing here
+    # installed.
+    llmAgents.copilot-cli
+
+    # `gh-copilot` — the older gh extension, kept for the shell-suggest
+    # workflow it still serves. Source: https://github.com/github/gh-copilot
     (writeShellScriptBin "gh-copilot" ''
       exec ${bun}/bin/bunx --bun @githubnext/github-copilot-cli@${ghCopilotVersion} "$@"
     '')
@@ -193,6 +185,7 @@ in
       exec ${bun}/bin/bunx --bun @openwhispr/cli@${openwhisprCliVersion} "$@"
     '')
 
+    (import ./ai-tools/langfuse-cli.nix { inherit pkgs langfuseCliVersion; })
     # ==========================================================================
     # Oh My OpenAgent — Senpi edition
     # ==========================================================================

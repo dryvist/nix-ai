@@ -73,6 +73,13 @@ in
         actual = full.OTEL_EXPORTER_OTLP_ENDPOINT;
         expected = endpoint;
       }
+      # Prometheus-family sinks silently drop delta metrics; the module pins
+      # cumulative unconditionally alongside the metrics exporter.
+      {
+        name = "metrics temporality pinned cumulative";
+        actual = full.OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE;
+        expected = "cumulative";
+      }
       # Signal-specific, so it carries the full path.
       {
         name = "traces endpoint passed through verbatim";
