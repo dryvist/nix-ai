@@ -108,6 +108,11 @@ in
     ${pkgs.python3}/bin/python3 ${src}/tests/test-mlx-vlm-adapter.py && touch $out
   '';
 
+  # SCOPE: argv only. mtpCfg above is a hand-built attrset passed straight to
+  # model-server-cmd.nix, so the module system never runs and this cannot see
+  # whether any config could reach this code path. It could not, from the day
+  # the option landed until 2026-08-30. ./mlx-mtp-reachable.nix owns that half;
+  # keep them paired.
   mlx-mtp-native-contract =
     assert
       builtins.match ".*stub-mlx-vlm-native-server --model ${mtpTarget} .*" mtpCmd != null
