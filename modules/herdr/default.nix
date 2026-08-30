@@ -31,6 +31,7 @@
 
 let
   cfg = config.programs.herdr;
+  herdrPackage = llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.herdr;
 in
 {
   imports = [
@@ -39,9 +40,7 @@ in
   ];
 
   config = lib.mkIf cfg.enable {
-    programs.herdr.package = lib.mkDefault (
-      llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.herdr
-    );
+    programs.herdr.package = lib.mkDefault herdrPackage;
 
     home.packages = lib.optional (cfg.package != null) cfg.package;
   };

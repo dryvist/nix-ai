@@ -133,12 +133,14 @@ in
       # config with nothing to run it.
       programs.opencode.package = lib.mkDefault pkgs.opencode;
 
-      home.packages = lib.optional (cfg.package != null) cfg.package;
+      home = {
+        packages = lib.optional (cfg.package != null) cfg.package;
 
-      home.file = {
-        "${configDir}/opencode.json".source = settingsJson;
-      }
-      // lib.foldl' (acc: dir: acc // mkCommandLinks dir) { } cfg.commandDirs;
+        file = {
+          "${configDir}/opencode.json".source = settingsJson;
+        }
+        // lib.foldl' (acc: dir: acc // mkCommandLinks dir) { } cfg.commandDirs;
+      };
     })
   ];
 }

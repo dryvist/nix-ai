@@ -37,8 +37,9 @@ in
       lib.mkDefault pkgs.qwen-code
     );
 
-    home.packages = lib.optional (cfg.package != null) cfg.package;
-
-    home.file.".qwen/.keep".text = "# Managed by Nix — programs.qwen-code\n";
+    home = {
+      packages = lib.optional (cfg.package != null) cfg.package;
+      file.".qwen/.keep".text = "# Managed by Nix — programs.qwen-code\n";
+    };
   };
 }

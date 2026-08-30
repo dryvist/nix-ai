@@ -7,55 +7,27 @@
 # PACKAGE HIERARCHY (STRICT - NO EXCEPTIONS)
 # ============================================================================
 #
-# ALWAYS follow this order when choosing how to install a package:
+# nixpkgs -> llm-agents.nix -> homebrew (GUI only) -> bunx wrapper -> uvx.
 #
-# 1. **nixpkgs** (ALWAYS FIRST, NO EXCEPTIONS)
-#    - Check: nix search nixpkgs <package>
-#    - Use if package exists and is reasonably up-to-date
-#    - Benefits: Binary cache, security updates, integration
-#    - Example: github-mcp-server, terraform-mcp-server
-#
-# 2. **llm-agents.nix** (AI agent CLIs missing from nixpkgs)
-#    - github:numtide/llm-agents.nix — 150+ agent CLIs, rebuilt daily,
-#      substituted from cache.numtide.com
-#    - Covers x86_64-linux, aarch64-linux and aarch64-darwin
-#    - Example: copilot-cli, antigravity-cli, claude-code, herdr
-#    - Reach for this BEFORE homebrew: a cask cannot run on the fleet's
-#      Linux guests, which is what used to pin this stack to one MacBook
-#
-# 3. **homebrew** (GUI applications only — see lib/homebrew.nix)
-#    - macOS .app bundles with no Nix equivalent: Claude Desktop, ChatGPT,
-#      Antigravity IDE, Codex app
-#    - NOT for CLIs. Every CLI cask has been retired; do not add one back.
-#
-# 4. **bunx wrapper** (for npm packages not in nixpkgs or llm-agents.nix)
-#    - Standard solution for npm/bun packages
-#    - Always pin to specific version: package@x.y.z
-#    - Downloads on first run, cached locally by bun
-#    - Benefits: Simple, minimal code, easy version updates
-#    - Pattern: writeShellScriptBin with bunx --bun
-#
-# 5. **uvx** (for Python packages not in nixpkgs or version-lagging)
-#    - Standard solution for Python CLI tools
-#    - Run on-demand: uvx <package>
-#    - Benefits: Isolated environments, always-latest, no global pollution
-#    - Replaced pipx (pipx removed from nix-home — antipattern in Nix env)
+# The full decision matrix, and why each rung exists, lives in
+# modules/herdr/README.md. The short version: check `nix search nixpkgs <pkg>`
+# first; reach for github:numtide/llm-agents.nix for an agent CLI nixpkgs does
+# not carry; homebrew is GUI applications ONLY (a cask cannot run on the
+# fleet's Linux guests, which is what used to pin this stack to one MacBook —
+# do not add a CLI cask back); bunx for npm packages, always version-pinned;
+# uvx for Python CLI tools.
 #
 # ============================================================================
 # CURRENT STATUS
 # ============================================================================
 #
-# NIXPKGS PACKAGES (from nixpkgs, available on stable 26.05):
-#   github-mcp-server, terraform-mcp-server, whisper-cpp, openai-whisper, entire,
-#   yt-dlp, codex, opencode, qwen-code, cursor-cli
+# NIXPKGS: github-mcp-server, terraform-mcp-server, whisper-cpp,
+#   openai-whisper, entire, yt-dlp, codex, opencode, qwen-code, cursor-cli
 #
-# LLM-AGENTS.NIX PACKAGES (agent CLIs nixpkgs does not carry):
-#   claude-code, antigravity-cli (`agy`), copilot-cli, herdr
+# LLM-AGENTS.NIX: claude-code, antigravity-cli (`agy`), copilot-cli, herdr
 #
-# HOMEBREW PACKAGES (from lib/homebrew.nix — GUI + two non-agent CLIs):
-#   block-goose-cli: Block's AI agent (nixpkgs outdated at time of addition)
-#   langgraph-cli: LangGraph platform deploy CLI (not in nixpkgs)
-#   claude / codex-app / chatgpt / antigravity / antigravity-ide: desktop apps
+# HOMEBREW (lib/homebrew.nix): block-goose-cli, langgraph-cli, and the desktop
+#   apps (claude, codex-app, chatgpt, antigravity, antigravity-ide)
 #
 # BUNX WRAPPER PACKAGES (npm packages not in nixpkgs/homebrew):
 #   cclint: @felixgeelhaar/cclint (CLAUDE.md linter)

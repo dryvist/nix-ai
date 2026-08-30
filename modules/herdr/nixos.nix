@@ -95,17 +95,19 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    users.groups.${cfg.user} = { };
+    users = {
+      groups.${cfg.user} = { };
 
-    users.users.${cfg.user} = {
-      isSystemUser = true;
-      group = cfg.user;
-      home = cfg.stateDir;
-      createHome = true;
-      # A real shell, deliberately: herdr's whole job is to run interactive
-      # agent CLIs in PTYs. The guest is the blast-radius boundary, the same
-      # reasoning the fleet's hermes and agent-exec users are documented with.
-      shell = pkgs.bashInteractive;
+      users.${cfg.user} = {
+        isSystemUser = true;
+        group = cfg.user;
+        home = cfg.stateDir;
+        createHome = true;
+        # A real shell, deliberately: herdr's whole job is to run interactive
+        # agent CLIs in PTYs. The guest is the blast-radius boundary, the same
+        # reasoning the fleet's hermes and agent-exec users are documented with.
+        shell = pkgs.bashInteractive;
+      };
     };
 
     environment.systemPackages = [ cfg.package ] ++ cfg.agentPackages ++ cfg.extraPackages;
