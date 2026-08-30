@@ -46,5 +46,11 @@ in
   enabledPlugins = jacobpevansPlugins // {
     # Per-plugin overrides go here (e.g., to disable a specific plugin):
     # "<plugin-name>@jacobpevans-cc-plugins" = false;
+
+    # config-management: DISABLED. Both skills it ships (quick-add-permission,
+    # sync-permissions) are self-described as deprecated — permissions moved to
+    # nix-claude-code and permission sync is retired — and it records zero uses.
+    # Its skill descriptions still cost listing budget on every session start.
+    "config-management@jacobpevans-cc-plugins" = false;
   };
 }
