@@ -143,9 +143,13 @@ in
         expected = true;
       }
       {
+        # null, not true: Remote Control cannot start while ANTHROPIC_BASE_URL
+        # points at the local proxy, so declaring it true wrote an inert `true`
+        # into settings.json. Opt in per session with `claude-rc`. See
+        # modules/claude-config.nix for the full rationale.
         name = "remoteControlAtStartup";
         actual = cfg.remoteControlAtStartup;
-        expected = true;
+        expected = null;
       }
       {
         name = "apiKeyHelper.enable";
