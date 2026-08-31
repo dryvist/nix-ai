@@ -1,5 +1,17 @@
 # Changelog
 
+## [4.34.0](https://github.com/dryvist/nix-ai/compare/v4.33.0...v4.34.0) (2026-08-31)
+
+
+### Features
+
+* **herdr:** correct qwen-code coverage and document herdr operations ([#1847](https://github.com/dryvist/nix-ai/issues/1847)) ([cedeb8d](https://github.com/dryvist/nix-ai/commit/cedeb8d82273d266135ff5ae689ac86618bd8991))
+
+
+### Bug Fixes
+
+* **herdr:** correct the socket contract, the licence claim, and manifest-name coverage ([#1869](https://github.com/dryvist/nix-ai/issues/1869)) ([2592401](https://github.com/dryvist/nix-ai/commit/2592401f64dce1e90afe49a6ed05e9b336a308b1))
+
 ## [4.33.0](https://github.com/dryvist/nix-ai/compare/v4.32.0...v4.33.0) (2026-08-31)
 
 
