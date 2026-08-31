@@ -12,6 +12,7 @@ When to use which tool for AI-assisted tasks in the nix-ai ecosystem.
 | Want to explicitly call a pattern from Claude Code | Fabric MCP server | Pattern appears as a callable MCP tool |
 | Single local model call | llama-swap (`127.0.0.1:11434`) | OpenAI-compatible, direct to local MLX |
 | Second opinion / adversarial review from another model | `/delegate-to-ai` (Codex / native subagent) | No local gateway needed |
+| Long-running agent session that must survive a client disconnect, or be driven by another agent | herdr | The server owns the PTY; panes carry working/blocked/idle state over a socket API |
 | Writing Python/Go code that calls an LLM | Anthropic SDK / OpenAI SDK | Direct API, no middleware |
 
 ## When to Use Fabric CLI
@@ -92,6 +93,30 @@ For a non-Claude *cloud* model or a second opinion from another model, use
 `/delegate-to-ai` (Codex or a native subagent) — there is no local gateway to
 route through.
 
+## When to Use herdr
+
+Best for: **running agent CLIs in panes that something else can observe or drive**
+
+```bash
+# start an agent in a pane and confirm it was detected
+herdr agent start <name> --kind claude --pane <id>
+
+# block until it finishes, then act on the result
+herdr agent wait <name> --until idle --timeout 300000
+```
+
+Use when:
+
+- An agent must be driven programmatically, not typed at
+- Something downstream needs to know whether an agent is working, blocked, or idle
+- You want the pane layout to survive the client going away
+
+Not for:
+
+- One-shot pipelines — use the Fabric CLI, which needs no PTY
+- Making an agent's config changes stick; `herdr integration install` and the
+  `herdr config` writers fight Nix-managed files
+
 ## Anti-Patterns
 
 | Don't Do This | Do This Instead |
@@ -99,3 +124,4 @@ route through.
 | Use MCP server for a quick shell pipeline | `echo "text" \| fabric --pattern X` |
 | Manually invoke fabric skills from Claude Code | Let auto-discovery match by description |
 | Use fabric for multi-step automated workflows | Use the orchestrator (when it has consumers) |
+| Run `herdr integration install <agent>` | Declare the hooks in Nix (`programs.claude.hooks`); the config file is a read-only store symlink |

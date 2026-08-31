@@ -77,11 +77,41 @@ dashboard's approvals — silently sees nothing to report.
 `lib/checks/herdr.nix` fails when an enabled CLI is neither detected upstream,
 nor given a manifest here, nor named in `knownUnsupportedAgents`.
 
-`qwen-code` and `cecli` are in that list today: herdr ships no manifest for
-either, and the rule schema is herdr's, so those entries are **declared rather
-than guessed at**. Author real ones against
-`herdr agent explain <target> --json` on a live pane, then reload with
-`herdr server reload-agent-manifests`.
+Only `cecli` is in that list. herdr ships no manifest for it, and the rule
+schema is herdr's, so the entry is **declared rather than guessed at**. Author
+a real one against `herdr agent explain <target> --json` on a live pane, then
+reload with `herdr server reload-agent-manifests`.
+
+`qwen-code` was listed too, and that was wrong. herdr detects it out of the box
+via its `qwen` manifest — a live pane reports `manifest qwen.toml`
+`2026.08.14.1`, matched rule `composer_idle`, no fallback and no warning. Names
+skew between the two systems: herdr calls it `qwen`, this flake calls the option
+`qwen-code`, the same skew `antigravity-cli` (herdr: `agy`) already carries.
+
+## Detection state is fetched, not pinned
+
+`herdr server agent-manifests` reports what is actually live. Measured on the
+workstation: **19 of 20 manifests came from the network**, one (`grok`) fell
+back to the bundled copy because the fetched version was older than the one
+herdr shipped.
+
+So the rules that decide working/blocked/idle are, by default, remote state
+refreshed at runtime — which is why `agentManifests` exists. A local override
+wins, and `explain` names the winner in `manifest_source` and flags it in
+`local_override_shadowing_remote`.
+
+## Enabling the server half pulls an unfree package
+
+`services.herdr.agentPackages` defaults to the CLIs this flake manages, and one
+of them (`cursor-cli`) is unfree. On a NixOS host that has not allowed unfree
+packages, `services.herdr.enable = true` therefore fails at **evaluation**:
+
+```text
+error: Refusing to evaluate package 'cursor-cli-...' because it has an unfree license
+```
+
+Allow that one package on the host, or narrow `agentPackages`. The error names
+a package the operator never asked for, so it reads as unrelated to herdr.
 
 ## The socket path is a contract
 
