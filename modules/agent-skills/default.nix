@@ -312,6 +312,36 @@ in
         diagrams = [ "dashmotion" ];
         observability = [ "langfuse" ];
       };
+
+      # Deployment groups, mirroring the categories above 1:1. `categories`
+      # only affects the generated INDEX.md's headings (cosmetic); `groups` is
+      # what `activeGroups` actually gates. They started separate and drifted
+      # apart — most skills are still Uncategorized here, same as in
+      # `categories`, so no host should set `activeGroups` to a subset of
+      # these six names yet: it would silently drop everything uncategorized,
+      # commit/plan-task/create-pr included. Curating the other ~220 skills
+      # into real groups is the remaining work before activeGroups is safe to
+      # use as a restrictive filter.
+      groups = lib.mkDefault {
+        research = [
+          "github-code-search"
+          "last30days"
+          "managing-dependencies"
+        ];
+        reasoning = [
+          "why"
+          "kaizen"
+          "ponytail"
+        ];
+        engineering = [
+          "kaizen"
+          "managing-dependencies"
+          "ponytail"
+        ];
+        workspace = [ "file-organizer" ];
+        diagrams = [ "dashmotion" ];
+        observability = [ "langfuse" ];
+      };
     };
   };
 }
