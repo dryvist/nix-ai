@@ -50,6 +50,39 @@ in
       # its vendorHash verification — to actually run. Scoped to the CI system
       # (x86_64-linux) like every other check so a single linux runner covers it.
       fabric-ai-build = self.packages.${system}.fabric-ai;
+
+      # The only check that evaluates the NixOS half. Without it `nix flake
+      # check` proves `nixosModules.herdr` is an attrset and nothing more,
+      # which is how an unfree default (cursor-cli) shipped green through this
+      # repo AND its consumer and was found by hand instead.
+      #
+      # Two things make it work, and both are easy to get wrong:
+      #  - `nixpkgs.lib.nixosSystem` is used rather than the `pkgs` above,
+      #    because that one sets allowUnfree. This must evaluate with the
+      #    stock policy or it cannot catch the regression it exists for.
+      #  - `system.build.toplevel` is forced, not `ExecStart`. Forcing
+      #    ExecStart alone does NOT pull in `agentPackages`, so it passes even
+      #    when a default is unfree.
+      # drvPath only: this evaluates the system, it never builds one.
+      herdr-nixos-eval =
+        let
+          host = nixpkgs.lib.nixosSystem {
+            inherit system;
+            modules = [
+              self.nixosModules.herdr
+              {
+                services.herdr.enable = true;
+                boot.loader.grub.enable = false;
+                fileSystems."/" = {
+                  device = "nodev";
+                  fsType = "ext4";
+                };
+                system.stateVersion = "26.05";
+              }
+            ];
+          };
+        in
+        pkgs.writeText "herdr-nixos-eval" host.config.system.build.toplevel.drvPath;
       orchestrator-prompt-assets =
         assert builtins.all (
           name: builtins.pathExists (ai-llm-prompts + "/applications/${name}.md")

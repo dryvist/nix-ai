@@ -71,18 +71,27 @@ in
         pkgs.opencode
         pkgs.qwen-code
       ];
-      defaultText = lib.literalExpression "the freely-licensed AI CLIs this flake manages";
+      defaultText = lib.literalExpression "the AI CLIs this flake manages that evaluate without allowUnfree";
       description = ''
         The agent CLIs herdr can start in a pane. Same source as the
         home-manager module uses on the workstation, so a pane on the server
         runs the same build as a pane on the Mac.
 
-        Every default is freely licensed, so enabling this service evaluates on
-        a stock host. `cursor-cli` is deliberately NOT here: it is unfree, and
-        an unfree default makes `services.herdr.enable = true` fail at
-        evaluation on any host that has not opted in — naming a package the
-        operator never asked for. Add it through `extraPackages` alongside the
-        host's own unfree opt-in.
+        Every default evaluates on a stock host, so enabling this service does
+        not require an unfree opt-in. `cursor-cli` is deliberately NOT here: it
+        is gated unfree, and an unfree default makes `services.herdr.enable =
+        true` fail at evaluation on any host that has not opted in — naming a
+        package the operator never asked for. Add it through `extraPackages`
+        alongside the host's own unfree opt-in.
+
+        "Evaluates on a stock host" is not the same as "freely licensed", and
+        the difference is load-bearing. Claude Code, Antigravity CLI and Copilot
+        CLI are proprietary: their `meta.license` carries
+        `shortName = "unfree"` and `redistributable = false`, but also
+        `free = true`, so nixpkgs derives `meta.unfree = false` and never gates
+        them. If that upstream declaration is ever corrected, three of these
+        defaults start failing evaluation at once, and the breakage will look
+        unrelated to herdr.
       '';
     };
 
@@ -156,6 +165,11 @@ in
         Group = cfg.user;
         WorkingDirectory = cfg.stateDir;
         StateDirectory = "herdr";
+        # systemd applies this to the directory on every start, overriding the
+        # 0700 that createHome produces, and its own default is laxer than that.
+        # This directory holds agent credentials, so pin it to the same 0700 the
+        # nixpkgs modules for credential-holding services use.
+        StateDirectoryMode = "0700";
         # Creates (and tears down) the directory the socket lives in. The
         # socket itself is placed there by HERDR_SOCKET_PATH below; this
         # option alone does not move it.

@@ -103,8 +103,8 @@ wins, and `explain` names the winner in `manifest_source` and flags it in
 ## Unfree packages stay out of the defaults
 
 `services.herdr.agentPackages` defaults to the agent CLIs this flake manages,
-and every one of them is freely licensed, so enabling the service evaluates on
-a stock host.
+every one of which evaluates on a stock host, so enabling the service needs no
+unfree opt-in.
 
 `cursor-cli` is deliberately excluded. It is unfree, and an unfree default made
 `services.herdr.enable = true` fail at **evaluation** on any host that had not
@@ -117,6 +117,14 @@ error: Refusing to evaluate package 'cursor-cli-...' because it has an unfree li
 The error names a package the operator never asked for, so it reads as
 unrelated to the option they just set. Add it through `extraPackages`, together
 with the host's own unfree opt-in.
+
+**"Evaluates on a stock host" is not "freely licensed".** Claude Code,
+Antigravity CLI and Copilot CLI are proprietary. Their `meta.license` says
+`shortName = "unfree"` and `redistributable = false` — but also `free = true`,
+from which nixpkgs derives `meta.unfree = false`, so nothing gates them. Audit
+on `shortName`/`redistributable` when the question is licensing, and on
+`meta.unfree` only when the question is whether evaluation succeeds. If that
+upstream declaration is corrected, three defaults break at once.
 
 ## The socket path is a contract
 
