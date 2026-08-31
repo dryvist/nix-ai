@@ -173,6 +173,7 @@
       (userConfig.telemetry.enable or false)
       && (
         (userConfig.telemetry.otlpEndpoint or null) != null
+        || (userConfig.telemetry.metricsEndpoint or null) != null
         || (userConfig.telemetry.tracesEndpoint or null) != null
       )
     )
@@ -194,36 +195,60 @@
       }
     )
 
-# Metrics and logs. The generic endpoint is a BASE url — the exporter appends
-# /v1/metrics and /v1/logs itself.
+# Logs, and metrics when they share the generic endpoint. That endpoint is a
+# BASE url — the exporter appends /v1/metrics and /v1/logs itself.
 //
   lib.optionalAttrs
     ((userConfig.telemetry.enable or false) && (userConfig.telemetry.otlpEndpoint or null) != null)
     {
       OTEL_EXPORTER_OTLP_ENDPOINT = userConfig.telemetry.otlpEndpoint;
-      OTEL_EXPORTER_OTLP_PROTOCOL = "http/protobuf";
-      OTEL_METRICS_EXPORTER = "otlp";
       OTEL_LOGS_EXPORTER = "otlp";
-      # Prometheus-family sinks (VictoriaMetrics, Mimir, Prometheus) silently
-      # drop delta-temporality metrics — the pipeline looks healthy while
-      # storing nothing. Cumulative is what they expect and is accepted by
-      # every OTLP collector, so it is safe to pin unconditionally.
-      OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE = "cumulative";
-      # The SDK's 60s default loses the final interval of short sessions —
-      # a sub-minute CLI run can exit having exported nothing. 10s bounds
-      # that loss without meaningful overhead at this metric volume.
-      OTEL_METRIC_EXPORT_INTERVAL = "10000";
     }
 
-# ...and explicitly off when it is not set, so the SDK cannot fall back to its
-# conventional loopback default and export into nothing.
+# Metrics ride the generic endpoint unless a signal-specific one is set. A
+# metrics-only sink is common — a Prometheus-family TSDB accepts OTLP metrics
+# and has no logs route at all — and pointing the generic endpoint at one turns
+# on a logs exporter that fails every interval. metricsEndpoint carries the
+# full /v1/metrics path and wins when both are set.
 //
   lib.optionalAttrs
-    ((userConfig.telemetry.enable or false) && (userConfig.telemetry.otlpEndpoint or null) == null)
-    {
-      OTEL_METRICS_EXPORTER = "none";
-      OTEL_LOGS_EXPORTER = "none";
-    }
+    (
+      (userConfig.telemetry.enable or false)
+      && (
+        (userConfig.telemetry.metricsEndpoint or null) != null
+        || (userConfig.telemetry.otlpEndpoint or null) != null
+      )
+    )
+    (
+      {
+        OTEL_EXPORTER_OTLP_PROTOCOL = "http/protobuf";
+        OTEL_METRICS_EXPORTER = "otlp";
+        # Prometheus-family sinks (VictoriaMetrics, Mimir, Prometheus) silently
+        # drop delta-temporality metrics — the pipeline looks healthy while
+        # storing nothing. Cumulative is what they expect and is accepted by
+        # every OTLP collector, so it is safe to pin unconditionally.
+        OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE = "cumulative";
+        # The SDK's 60s default loses the final interval of short sessions —
+        # a sub-minute CLI run can exit having exported nothing. 10s bounds
+        # that loss without meaningful overhead at this metric volume.
+        OTEL_METRIC_EXPORT_INTERVAL = "10000";
+      }
+      // lib.optionalAttrs ((userConfig.telemetry.metricsEndpoint or null) != null) {
+        OTEL_EXPORTER_OTLP_METRICS_ENDPOINT = userConfig.telemetry.metricsEndpoint;
+      }
+    )
+
+# ...and each signal is explicitly off when it has no endpoint, so the SDK
+# cannot fall back to its conventional loopback default and export into
+# nothing.
+// lib.optionalAttrs (
+  (userConfig.telemetry.enable or false)
+  && (userConfig.telemetry.metricsEndpoint or null) == null
+  && (userConfig.telemetry.otlpEndpoint or null) == null
+) { OTEL_METRICS_EXPORTER = "none"; }
+// lib.optionalAttrs (
+  (userConfig.telemetry.enable or false) && (userConfig.telemetry.otlpEndpoint or null) == null
+) { OTEL_LOGS_EXPORTER = "none"; }
 
 # Trace spans → a signal-specific endpoint carrying the full /v1/traces path;
 # nothing is appended to it. Setting it also turns on the enhanced-telemetry

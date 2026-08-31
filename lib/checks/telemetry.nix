@@ -47,6 +47,24 @@ let
     };
   };
 
+  metricsUrl = "${endpoint}/opentelemetry/v1/metrics";
+  # Metrics wired, logs deliberately not — the shape used against a
+  # Prometheus-family TSDB, which ingests OTLP metrics and has no logs route.
+  metricsOnly = envOf {
+    telemetry = {
+      enable = true;
+      metricsEndpoint = metricsUrl;
+    };
+  };
+  # Both set: the signals go to different services.
+  splitSignals = envOf {
+    telemetry = {
+      enable = true;
+      metricsEndpoint = metricsUrl;
+      otlpEndpoint = endpoint;
+    };
+  };
+
   has = env: k: builtins.hasAttr k env;
 in
 {
@@ -186,6 +204,63 @@ in
       {
         name = "prompt content off unless explicitly enabled";
         actual = has tracesOnly "OTEL_LOG_USER_PROMPTS";
+        expected = false;
+      }
+      # Metrics-only: a metrics sink with no logs route must not get a logs
+      # exporter aimed at it, or every export interval fails against a path
+      # that does not exist.
+      {
+        name = "metrics-only still enables telemetry";
+        actual = metricsOnly.CLAUDE_CODE_ENABLE_TELEMETRY;
+        expected = "1";
+      }
+      {
+        name = "metrics-only exports metrics";
+        actual = metricsOnly.OTEL_METRICS_EXPORTER;
+        expected = "otlp";
+      }
+      {
+        name = "metrics-only pins logs off";
+        actual = metricsOnly.OTEL_LOGS_EXPORTER;
+        expected = "none";
+      }
+      {
+        name = "metrics-only sets no generic endpoint";
+        actual = has metricsOnly "OTEL_EXPORTER_OTLP_ENDPOINT";
+        expected = false;
+      }
+      # Signal-specific, so it carries the full path and nothing is appended.
+      {
+        name = "metrics endpoint passed through verbatim";
+        actual = metricsOnly.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT;
+        expected = metricsUrl;
+      }
+      {
+        name = "metrics-only still pins cumulative temporality";
+        actual = metricsOnly.OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE;
+        expected = "cumulative";
+      }
+      # Split: metricsEndpoint wins for metrics, logs stay on the generic one.
+      {
+        name = "split sends metrics to the signal-specific endpoint";
+        actual = splitSignals.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT;
+        expected = metricsUrl;
+      }
+      {
+        name = "split keeps logs on the generic endpoint";
+        actual = splitSignals.OTEL_EXPORTER_OTLP_ENDPOINT;
+        expected = endpoint;
+      }
+      {
+        name = "split still exports logs";
+        actual = splitSignals.OTEL_LOGS_EXPORTER;
+        expected = "otlp";
+      }
+      # Backward compatibility: generic-only must render no metrics-specific
+      # endpoint, so existing configs keep the exact behaviour they had.
+      {
+        name = "generic-only renders no metrics-specific endpoint";
+        actual = has full "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT";
         expected = false;
       }
     ];
