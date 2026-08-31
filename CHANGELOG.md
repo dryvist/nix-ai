@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.33.0](https://github.com/dryvist/nix-ai/compare/v4.32.0...v4.33.0) (2026-08-31)
+
+
+### Features
+
+* **agent-skills:** mirror categories into a groups default ([#1856](https://github.com/dryvist/nix-ai/issues/1856)) ([c6a87ac](https://github.com/dryvist/nix-ai/commit/c6a87acee8d1997eb277a78888f58cc34f41c720))
+
 ## [4.32.0](https://github.com/dryvist/nix-ai/compare/v4.31.2...v4.32.0) (2026-08-31)
 
 
