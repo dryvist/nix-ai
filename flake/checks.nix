@@ -90,7 +90,13 @@ in
           # proves nothing about the rest of it.
           forced = map (p: p.drvPath) (unit.path ++ host.config.environment.systemPackages);
         in
-        builtins.deepSeq forced (pkgs.writeText "herdr-nixos-eval" unit.serviceConfig.ExecStart);
+        # The content is a constant with NO store path in it. Interpolating
+        # ExecStart (or a drvPath) puts a store reference in the output, which
+        # the check's own build must then realise — on CI that means compiling
+        # agent CLIs from source, because the substituter holding them is
+        # untrusted there. deepSeq above does all the forcing; the content only
+        # has to exist.
+        builtins.deepSeq forced (pkgs.writeText "herdr-nixos-eval" "herdr NixOS module evaluated");
       orchestrator-prompt-assets =
         assert builtins.all (
           name: builtins.pathExists (ai-llm-prompts + "/applications/${name}.md")
