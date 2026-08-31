@@ -9,7 +9,7 @@ dependencies = [
   # file is a standalone dev environment that no nix build consumes, so a
   # divergence here is silent — it previously sat a full minor ahead after a
   # rollback updated versions.nix and missed this file.
-  "mlx>=0.32.0,<0.32.1",
+  "mlx>=0.32.2,<0.32.3",
   "mlx-lm>=0.31.3,<0.31.4",
   "huggingface-hub>=1.27.0,<1.27.1",
 ]

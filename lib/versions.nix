@@ -124,7 +124,7 @@
   # mlx-server/pyproject.toml must track this value; it is a dev environment no
   # build consumes, so drift there is invisible.
   # renovate: datasource=pypi depName=mlx
-  mlx = "0.32.0";
+  mlx = "0.32.2";
   # renovate: datasource=pypi depName=mlx-lm
   mlxLm = "0.31.3";
   # renovate.json5 blocks the exact 5.13.0 build via allowedVersions — that
