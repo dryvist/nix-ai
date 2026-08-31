@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.32.0](https://github.com/dryvist/nix-ai/compare/v4.31.2...v4.32.0) (2026-08-31)
+
+
+### Features
+
+* **litellm-local:** pin subagents to Anthropic and gate the router tier on ZDR ([#1861](https://github.com/dryvist/nix-ai/issues/1861)) ([89e54d4](https://github.com/dryvist/nix-ai/commit/89e54d4f0536c3d609dd1fd08bfd3a058ac238d1))
+
 ## [4.31.2](https://github.com/dryvist/nix-ai/compare/v4.31.1...v4.31.2) (2026-08-31)
 
 
