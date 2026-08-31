@@ -109,37 +109,44 @@
 # groups, so `/v1/models` would list `claude-*` and `*` — not models — and the
 # picker would show those as rows. The role names are declared below instead.
 // lib.optionalAttrs litellmLocal.enable (
-  {
+  # The proxy hop itself. Omitted entirely when `claudeDirect` is set, which
+  # is the "no routing at all" switch: with no base URL and no marker header,
+  # Claude Code resolves Anthropic directly and nothing here can reroute it.
+  lib.optionalAttrs (!litellmLocal.claudeDirect) {
     ANTHROPIC_BASE_URL = litellmLocal.rootUrl;
     ANTHROPIC_CUSTOM_HEADERS = "x-litellm-api-key: Bearer ${litellmLocal.clientToken}";
-    # The entry point of the cost-ordered chain in
-    # modules/litellm-local/fallback-tier.nix, not a single model: cheapest
-    # capable tier first, falling through to progressively more expensive ones
-    # only when a tier is actually down.
+  }
+  // {
+    # Which tier subagents run on. Default `anthropic` — a NATIVE Claude
+    # subagent, pinned to an explicit `claude-*[1m]` id so it matches the
+    # `claude-*` group and reaches Anthropic on the caller's own forwarded
+    # credential. It never touches the router leg, so there is no third-party
+    # egress and no retention question.
     #
-    # An explicit model_list group, never an upstream role name. A role falls
-    # through the `*` wildcard to the router, and if the router's own alias is
-    # stale the request 404s on every subagent spawn — which is exactly what
-    # happened when this was `subagent` and the router still pointed that alias
-    # at a model whose preview period had ended. The flake check
-    # `claudeTierNamesResolveLocally` enforces the explicit-group rule.
-    #
-    # A cheaper tier than the caller is the point — the parent corrects its
-    # subagents. Every member of the chain clears the ~284k p90 subagent
-    # context measured on this host; that window is a selection criterion for
-    # membership, so it does not need restating per tier here.
-    CLAUDE_CODE_SUBAGENT_MODEL = "subagent";
+    # `router` names `subagent`, the head of the generated chain in
+    # ./fallback-tier.nix. That is a LOCAL model_list group which deliberately
+    # shadows the upstream router's same-named alias — the upstream one still
+    # points at a model whose preview period ended and 404s every call. Naming
+    # the role without that local group is what breaks every subagent spawn,
+    # and `claudeShapedNamesCannotReachWildcard` is what keeps a Claude-shaped
+    # name from silently taking that path instead.
+    CLAUDE_CODE_SUBAGENT_MODEL =
+      if litellmLocal.subagentTier == "anthropic" then
+        litellmLocal.subagentAnthropicModel
+      else
+        "subagent";
+
     # The haiku tier deliberately stays on Anthropic. Claude Code's background
     # requests carry its full system prompt (measured ~36k tokens), and the
     # `cheap` role targets the always-on small local model, whose 32k window
     # the router's pre-call check honestly refuses — so an override here fails
-    # every background call rather than saving money. The subscription covers
-    # the haiku tier; `cheap` stays the role for bounded CLI work (fabric,
-    # summaries), whose prompts fit.
+    # every background call rather than saving money.
+
     # For the private-workspace agent guard (nix-claude-code): it asks the
     # UPSTREAM router what a role resolves to, because the local `*` wildcard
     # hides that. Address and path only — the bearer file's contents are read
-    # by the hook at the moment it needs them, never exported.
+    # by the hook at the moment it needs them, never exported. Kept even under
+    # `claudeDirect`: the guard still needs to resolve roles.
     LLM_ROUTER_URL = aiStack.llmRouterEndpoint;
     LLM_ROUTER_TOKEN_FILE = toString aiStack.llmEndpointTokenFile;
   }

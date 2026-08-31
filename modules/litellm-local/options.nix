@@ -22,6 +22,68 @@ in
       without losing the subscription (see the module header)
     '';
 
+    subagentTier = lib.mkOption {
+      type = lib.types.enum [
+        "anthropic"
+        "router"
+      ];
+      default = "anthropic";
+      description = ''
+        Which tier Claude Code's subagents run on.
+
+        `anthropic` (default) pins `CLAUDE_CODE_SUBAGENT_MODEL` to an explicit
+        `claude-*` id, so a subagent is a NATIVE Claude subagent: the request
+        matches the `claude-*` group, reaches Anthropic with the caller's own
+        forwarded credential, and never touches the router leg. No third-party
+        egress, so no data-retention question to answer.
+
+        `router` points subagents at the generated cost-ordered tier in
+        ./fallback-tier.nix, which egresses to OpenRouter. That path is opt-in
+        on purpose. Two constraints make it unsuitable as a default: every
+        endpoint meeting the 512k floor AND a zero-data-retention policy is
+        PAID (the free head the tier policy assumes does not exist at that
+        window — verified against OpenRouter's /api/v1/endpoints/zdr), and a
+        role that quietly bills turns a backend outage into spend nobody
+        chose.
+      '';
+    };
+
+    claudeDirect = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        Take the proxy out of Claude Code's path entirely.
+
+        When true, `ANTHROPIC_BASE_URL` and `ANTHROPIC_CUSTOM_HEADERS` are not
+        emitted at all, so Claude Code talks straight to Anthropic with no
+        LiteLLM hop, no wildcard group, and nothing that can reroute a
+        Claude-shaped model name. The proxy keeps running for the OpenAI-shaped
+        clients that need it; only Claude Code stops using it.
+
+        This is the panic switch for "no routing or impact at all". The cost is
+        observability: Claude Code traffic no longer passes the proxy, so the
+        `otel` callback there sees none of it (Claude Code's own OTEL export is
+        unaffected).
+      '';
+    };
+
+    subagentAnthropicModel = lib.mkOption {
+      type = lib.types.str;
+      default = "claude-sonnet-5[1m]";
+      description = ''
+        The model id `subagentTier = "anthropic"` pins subagents to.
+
+        Must be a full `claude-*` id carrying the `[1m]` suffix. Both halves
+        matter. A bare capability alias (`sonnet`, or `sonnet[1m]`) does NOT
+        match the proxy's `claude-*` group, so it falls through the `*`
+        wildcard to the router and egresses to a third party — the exact leak
+        `claudeShapedNamesCannotReachWildcard` in
+        lib/checks/litellm-local.nix now rejects. The `[1m]` suffix is
+        required because a subagent here is expected to carry a context no
+        200k window can hold.
+      '';
+    };
+
     port = lib.mkOption {
       type = lib.types.port;
       default = 4100;

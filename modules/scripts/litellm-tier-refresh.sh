@@ -34,6 +34,7 @@ fi
 [ -f "$CANDIDATES" ] || { echo "no such file: $CANDIDATES" >&2; exit 2; }
 
 CATALOG_URL="${OPENROUTER_CATALOG_URL:-https://openrouter.ai/api/v1/models}"
+ZDR_URL="${OPENROUTER_ZDR_URL:-https://openrouter.ai/api/v1/endpoints/zdr}"
 
 ROUTER_URL="${LLM_ROUTER_URL:?LLM_ROUTER_URL must be set}"
 ROUTER_TOKEN_FILE="${LLM_ROUTER_TOKEN_FILE:?LLM_ROUTER_TOKEN_FILE must be set}"
@@ -72,6 +73,16 @@ if ! fetch -H "Authorization: Bearer $(cat "$ROUTER_TOKEN_FILE")" \
   exit 1
 fi
 
+# The retention gate's data source. Separate fetch because the model catalog
+# carries no retention field — see the ZDR block in the selector below.
+if ! fetch "$ZDR_URL" > "$work/zdr.json"; then
+  echo "failed to fetch the ZDR endpoint list after retries: $ZDR_URL" >&2
+  echo "Refusing to regenerate: without it every candidate would be treated" >&2
+  echo "as non-ZDR and the tier would come back empty, or worse, unfiltered." >&2
+  exit 1
+fi
+
+ZDR_ENDPOINTS_JSON="$work/zdr.json" \
 python3 - "$CANDIDATES" "$work/catalog.json" "$work/served.json" <<'PY'
 import json, os, sys, datetime
 
@@ -97,6 +108,24 @@ for row in served_rows:
             request_name[cid] = name
 
 need_ctx = policy["requiredInputTokens"]
+# Zero data retention is a HARD gate, not a ranking preference: this tier
+# carries delegated bulk labor, so every prompt it sees is workspace content
+# leaving the machine. OpenRouter publishes the qualifying endpoint list at
+# /api/v1/endpoints/zdr, keyed by `model_id` (NOT `model_name`, which is the
+# human-readable display string and matches nothing). Fetched separately
+# because the main catalog carries no retention field at all — there is no way
+# to derive this from catalog metadata.
+require_zdr = policy.get("requireZdr", False)
+zdr_ids = set()
+if require_zdr:
+    zdr_path = os.environ.get("ZDR_ENDPOINTS_JSON")
+    if not zdr_path:
+        sys.exit("requireZdr is set but ZDR_ENDPOINTS_JSON was not provided")
+    for e in json.load(open(zdr_path)).get("data", []):
+        if e.get("model_id"):
+            zdr_ids.add(e["model_id"])
+    if not zdr_ids:
+        sys.exit("the ZDR endpoint list came back empty; refusing to widen the tier")
 deny = set(policy.get("deny", []))
 pin = policy.get("pin", [])
 count = policy["memberCount"]
@@ -124,6 +153,11 @@ def eligible(m):
     if m["id"] not in request_name:
         return False
     if (m.get("context_length") or 0) < need_ctx:
+        return False
+    # Non-ZDR is disqualifying, never a penalty. An endpoint OpenRouter cannot
+    # establish a policy for is marked as retaining, so absence from the list
+    # is itself the conservative answer.
+    if require_zdr and m["id"] not in zdr_ids:
         return False
     p, c = price(m, "prompt"), price(m, "completion")
     if p is None or c is None:
