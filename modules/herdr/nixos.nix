@@ -5,10 +5,17 @@
 # herdr's own docs describe a user-session daemon you attach to from a terminal.
 # On a single-purpose guest a system service running as a dedicated user is more
 # deterministic — no lingering, no login session to lose — and it buys the thing
-# the rest of this design needs: a STABLE SOCKET PATH. RuntimeDirectory pins it
-# at /run/herdr, so the Slack bridge can forward it over SSH from its own
-# container (`ssh -L /run/herdr/herdr.sock:/run/herdr/herdr.sock`) instead of
-# guessing at $XDG_RUNTIME_DIR/<uid>.
+# the rest of this design needs: a STABLE SOCKET PATH, so the Slack bridge can
+# forward it over SSH from its own container
+# (`ssh -L /run/herdr/herdr.sock:/run/herdr/herdr.sock`).
+#
+# That path is pinned by HERDR_SOCKET_PATH, NOT by RuntimeDirectory alone.
+# Verified against herdr 0.8.2: the default socket is derived from the CONFIG
+# directory (`herdr status` reports ~/.config/herdr/herdr.sock), and
+# XDG_RUNTIME_DIR appears exactly once in the binary, in unrelated
+# pane-graphics path validation. Setting only RuntimeDirectory would leave
+# /run/herdr empty and put the real socket under ${stateDir}/.config, so the
+# forward above would forward nothing.
 {
   config,
   lib,
@@ -20,6 +27,12 @@
 let
   cfg = config.services.herdr;
   agents = llm-agents.packages.${pkgs.stdenv.hostPlatform.system};
+
+  # Bound once: systemd creates /run/${runtimeDirName} from RuntimeDirectory,
+  # and herdr is told to listen inside it. Two literals would drift silently.
+  runtimeDirName = "herdr";
+  runtimeDir = "/run/${runtimeDirName}";
+  socketPath = "${runtimeDir}/herdr.sock";
 in
 {
   options.services.herdr = {
@@ -143,9 +156,10 @@ in
         Group = cfg.user;
         WorkingDirectory = cfg.stateDir;
         StateDirectory = "herdr";
-        # Pins the control socket at /run/herdr instead of a uid-derived
-        # $XDG_RUNTIME_DIR path, so remote bridges can forward a known path.
-        RuntimeDirectory = "herdr";
+        # Creates (and tears down) the directory the socket lives in. The
+        # socket itself is placed there by HERDR_SOCKET_PATH below; this
+        # option alone does not move it.
+        RuntimeDirectory = runtimeDirName;
         RuntimeDirectoryMode = "0750";
         Restart = "always";
         RestartSec = "5s";
@@ -156,7 +170,12 @@ in
 
       environment = {
         HOME = cfg.stateDir;
-        XDG_RUNTIME_DIR = "/run/herdr";
+        # The actual pin. Without this herdr derives the socket from its config
+        # directory and lands at ${cfg.stateDir}/.config/herdr/herdr.sock.
+        HERDR_SOCKET_PATH = socketPath;
+        # Not the socket mechanism — set so agent CLIs started in a pane get a
+        # writable runtime dir rather than inheriting none.
+        XDG_RUNTIME_DIR = runtimeDir;
       };
     };
   };

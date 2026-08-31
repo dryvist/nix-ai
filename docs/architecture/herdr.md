@@ -25,7 +25,7 @@ graph TD
     subgraph Guest["Linux guest — NixOS"]
         NIXOPT["services.herdr\nmodules/herdr/nixos.nix"]
         UNIT["systemd unit\nUser=herdr"]
-        GSOCK["/run/herdr/herdr.sock\nRuntimeDirectory=herdr"]
+        GSOCK["/run/herdr/herdr.sock\nHERDR_SOCKET_PATH"]
     end
 
     AGENTS["llm-agents.nix + nixpkgs\nthe same agent CLI builds"]
@@ -40,10 +40,14 @@ graph TD
 Both halves take their binary from the same `llm-agents` input, so a pane on
 the guest runs the same build as a pane on the workstation.
 
-The guest pins its socket at a fixed path rather than a uid-derived
-`$XDG_RUNTIME_DIR` one, because a bridge forwards that socket over SSH and
-needs a predictable path. Changing it fails silently — a quiet fleet, not an
-error.
+The guest pins its socket at a fixed path, because a bridge forwards that
+socket over SSH and needs a predictable one. The pin is `HERDR_SOCKET_PATH`;
+`RuntimeDirectory` only creates the directory it sits in. Left to itself herdr
+derives the socket from its **config** directory, so a guest that sets the
+directory but not the variable ends up with an empty `/run/herdr` and a live
+socket somewhere under the state directory. Nothing errors in that state — the
+bridge forwards a path that does not exist, so the fleet goes quiet rather than
+failing.
 
 ## How a pane becomes a classified agent
 

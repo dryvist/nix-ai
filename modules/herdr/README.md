@@ -120,8 +120,17 @@ with the host's own unfree opt-in.
 
 ## The socket path is a contract
 
-`nixos.nix` sets `RuntimeDirectory=herdr`, pinning the control socket at
-`/run/herdr` instead of a uid-derived `$XDG_RUNTIME_DIR` path. That is
-deliberate: the Slack bridge runs in its own container and forwards the socket
-over SSH, which needs a predictable path. Changing it breaks that forward, and
-the failure mode is a permanently quiet fleet rather than an error.
+`nixos.nix` pins the control socket at `/run/herdr/herdr.sock`, because the
+Slack bridge runs in its own container and forwards it over SSH, which needs a
+predictable path.
+
+**`RuntimeDirectory` is not what pins it.** herdr derives its socket from the
+**config** directory — on the workstation `herdr status` reports
+`~/.config/herdr/herdr.sock`, and `XDG_RUNTIME_DIR` appears once in the 0.8.2
+binary, in unrelated pane-graphics validation. The pin is `HERDR_SOCKET_PATH`,
+set in the unit's `environment`; `RuntimeDirectory` only creates and tears down
+the directory it lives in. Setting one without the other yields an empty
+`/run/herdr` and a socket under the state directory.
+
+Changing either breaks the forward, and the failure mode is a permanently quiet
+fleet rather than an error.
