@@ -23,6 +23,16 @@ across tools vs product-specific.
 **Read when**: Understanding the overall topology, debugging why a tool cannot reach another,
 adding a new AI product.
 
+### [herdr.md](herdr.md)
+
+The terminal multiplexer that owns agent panes: the workstation and Linux-guest
+halves, what pins the control socket, how a pane becomes a classified
+working/blocked/idle agent, and why manifest precedence means detection rules
+are mostly fetched at runtime rather than pinned by this flake.
+
+**Read when**: Enabling herdr on a new host, debugging a pane that shows as a bare
+shell, or deciding whether an agent CLI needs a local detection manifest.
+
 ### [config-lifecycle.md](config-lifecycle.md)
 
 The 3-phase config generation pipeline unique to Nix home-manager: build-time pure evaluation,
@@ -92,5 +102,6 @@ If you find yourself wondering "why does it work this way?", the ADR index is th
 
 | Runbook | Purpose |
 |---------|---------|
+| [herdr.md](../runbooks/herdr.md) | Enabling herdr, verifying agent detection on a live pane, authoring a manifest, and diagnosing a pane stuck as a bare shell |
 | [galileo-onboarding.md](../runbooks/galileo-onboarding.md) | Galileo AI observability setup, daily use, denylist management, and kill switches |
 | [rdma-protection-domains.md](../runbooks/rdma-protection-domains.md) | Why a leaked RDMA protection domain needs a reboot, the boot-scoped ledger that counts them, and the guards that halt before exhaustion |
