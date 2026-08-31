@@ -1,36 +1,37 @@
 {
-  "policy": {
-    "requiredInputTokens": 262144,
-    "memberCount": 3,
-    "paidTail": 1,
-    "pin": [],
-    "deny": []
-  },
   "generatedAt": "2026-08-29T00:02:39Z",
   "members": [
     {
-      "name": "subagent",
-      "upstream": "nvidia/nemotron-3-ultra-550b-a55b:free",
-      "catalogId": "nvidia/nemotron-3-ultra-550b-a55b:free",
-      "contextLength": 1000000,
-      "promptCostPerMtok": 0.0,
-      "completionCostPerMtok": 0.0
-    },
-    {
-      "name": "subagent-fallback1",
-      "upstream": "deepseek/deepseek-v4-flash",
       "catalogId": "deepseek/deepseek-v4-flash",
+      "completionCostPerMtok": 0.177212,
       "contextLength": 1048576,
-      "promptCostPerMtok": 0.086,
-      "completionCostPerMtok": 0.172
+      "name": "subagent",
+      "promptCostPerMtok": 0.088606,
+      "upstream": "deepseek/deepseek-v4-flash"
     },
     {
+      "catalogId": "xiaomi/mimo-v2.5",
+      "completionCostPerMtok": 0.28,
+      "contextLength": 1050000,
+      "name": "subagent-fallback1",
+      "promptCostPerMtok": 0.14,
+      "upstream": "openrouter/xiaomi/mimo-v2.5"
+    },
+    {
+      "catalogId": "openai/gpt-4.1-nano",
+      "completionCostPerMtok": 0.4,
+      "contextLength": 1047576,
       "name": "subagent-fallback2",
-      "upstream": "openrouter/nvidia/nemotron-3.5-lightning",
-      "catalogId": "nvidia/nemotron-3.5-lightning",
-      "contextLength": 262144,
-      "promptCostPerMtok": 0.08,
-      "completionCostPerMtok": 0.2
+      "promptCostPerMtok": 0.1,
+      "upstream": "openrouter/openai/gpt-4.1-nano"
     }
-  ]
+  ],
+  "policy": {
+    "deny": [],
+    "memberCount": 3,
+    "paidTail": 3,
+    "pin": [],
+    "requireZdr": true,
+    "requiredInputTokens": 524288
+  }
 }

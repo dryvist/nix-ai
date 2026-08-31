@@ -60,47 +60,39 @@ let
   # tiers are repointed at roles.
   claudeMainUntouched = !(claudeEnv ? ANTHROPIC_MODEL);
 
-  # Every model name Claude Code is pointed at must be one the proxy can resolve
-  # WITHOUT the `*` wildcard — either an Anthropic capability alias / model id
-  # that lands in the `claude-*` group, or an explicit `model_name` in the
-  # model_list. Naming an upstream ROLE is what caused the outage: the router
-  # served no `subagent` group, so the request fell through `*` and 404'd on
-  # every subagent spawn. `*` must never be what makes a Claude Code tier work.
-  explicitGroups = map (d: d.model_name) rendered.model_list;
-  claudeTierNames = lib.filter (n: n != null) [
-    (claudeEnv.CLAUDE_CODE_SUBAGENT_MODEL or null)
-    (claudeEnv.ANTHROPIC_MODEL or null)
-  ];
-  claudeTierNamesResolveLocally = lib.all (
-    n:
-    lib.hasPrefix "claude" n
-    || lib.elem n [
-      "opus"
-      "sonnet"
-      "haiku"
-    ]
-    || lib.elem n explicitGroups
-  ) claudeTierNames;
+  # Claude tier-name resolution + the wildcard leak gate (12KB gate).
+  inherit
+    (import ./litellm-local-claude-tier.nix {
+      inherit
+        lib
+        claudeEnv
+        rendered
+        routerUrl
+        tokenFilePath
+        ;
+    })
+    claudeTierNames
+    claudeTierNamesResolveLocally
+    claudeTierNamesAre1m
+    claudeShapedNamesCannotReachWildcard
+    claudeHaikuUntouched
+    claudeNoDiscovery
+    claudeGetsRouterAddress
+    claudeGetsTokenPathOnly
+    ;
 
-  # The haiku tier stays on Anthropic: Claude Code's background requests carry
-  # its full system prompt (~36k tokens), which the `cheap` role's 32k-window
-  # local target cannot hold, so an override fails every background call.
-  claudeHaikuUntouched = !(claudeEnv ? ANTHROPIC_DEFAULT_HAIKU_MODEL);
-
-  # The header is what makes LiteLLM forward the OAuth bearer instead of
-  # treating it as the proxy credential. It must be in settings.json (every
-  # surface) and it must be the constant marker, never a key.
+  # Under `claudeDirect` the proxy is out of Claude Code's path, so both the
+  # base URL and the marker header are absent by design. The pair must move
+  # together: a URL without the header is the 2026-08-24 outage, and a header
+  # without the URL points at nothing.
+  claudeDirect = enabled.programs.litellmLocal.claudeDirect;
+  claudeHasBaseUrl = claudeEnv ? ANTHROPIC_BASE_URL;
   claudeHeaderIsMarker =
-    claudeEnv.ANTHROPIC_CUSTOM_HEADERS == "x-litellm-api-key: Bearer ${clientToken}";
-
-  # Discovery would list the two wildcard groups as picker rows.
-  claudeNoDiscovery = !(claudeEnv ? CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY);
-
-  # The private-workspace guard asks the upstream router what a role resolves
-  # to; it must find the address and the bearer file PATH from settings.json,
-  # since a GUI-launched session never runs shell init.
-  claudeGetsRouterAddress = claudeEnv.LLM_ROUTER_URL == routerUrl;
-  claudeGetsTokenPathOnly = claudeEnv.LLM_ROUTER_TOKEN_FILE == tokenFilePath;
+    if claudeDirect then
+      !claudeHasBaseUrl && !(claudeEnv ? ANTHROPIC_CUSTOM_HEADERS)
+    else
+      claudeHasBaseUrl
+      && claudeEnv.ANTHROPIC_CUSTOM_HEADERS == "x-litellm-api-key: Bearer ${clientToken}";
 
   # Codex must gain the proxy as an ADDITIONAL provider without the default
   # provider or model changing.
@@ -169,15 +161,21 @@ in
       || throw "enabling the proxy must not pin Claude Code's main model; ANTHROPIC_MODEL was set";
     assert
       claudeTierNamesResolveLocally
-      || throw "every model name Claude Code is pointed at must resolve without the `*` wildcard — an Anthropic alias (opus/sonnet/haiku), a claude-* id, or an explicit model_list group. Naming an upstream ROLE 404s every call in that tier the moment the router stops serving it; got: ${builtins.toJSON claudeTierNames}";
+      || throw "a Claude Code tier name must resolve without `*`: a full claude-* id or an explicit model_list group. A bare alias (opus/sonnet/haiku, with or without [1m]) does not match claude-*, so it egresses to the router; got: ${builtins.toJSON claudeTierNames}";
+    assert
+      claudeTierNamesAre1m
+      || throw "a claude-* tier id must carry [1m]: a subagent outgrows a 200k window, and an over-long request truncates into a confident wrong answer; got: ${builtins.toJSON claudeTierNames}";
+    assert
+      claudeShapedNamesCannotReachWildcard
+      || throw "a Claude-shaped alias names a tier with no explicit model_list group, so it resolves through `*` and leaves for the router; got: ${builtins.toJSON claudeTierNames}";
     assert
       claudeHaikuUntouched
       || throw "Claude Code's haiku tier must stay on Anthropic: the `cheap` role's local target cannot hold Claude Code's system prompt, so an override fails every background call";
     assert
       claudeHeaderIsMarker
-      || throw "settings.json must carry ANTHROPIC_CUSTOM_HEADERS as the constant marker `x-litellm-api-key: Bearer ${clientToken}`: it is what makes LiteLLM forward the OAuth bearer, and it must reach every session surface; got: ${
-        claudeEnv.ANTHROPIC_CUSTOM_HEADERS or "<unset>"
-      }";
+      || throw "Claude Code's proxy wiring is all-or-nothing: claudeDirect=false needs ANTHROPIC_BASE_URL plus the constant marker header `x-litellm-api-key: Bearer ${clientToken}` (what makes LiteLLM forward the OAuth bearer) on every surface; claudeDirect=true needs neither. Got direct=${lib.boolToString claudeDirect}, url ${
+        if claudeHasBaseUrl then "set" else "unset"
+      }, header ${claudeEnv.ANTHROPIC_CUSTOM_HEADERS or "unset"}";
     assert
       claudeNoDiscovery
       || throw "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY must stay unset: the proxy's /v1/models lists wildcard groups, not models";
