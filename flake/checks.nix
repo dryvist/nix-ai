@@ -60,10 +60,12 @@ in
       #  - `nixpkgs.lib.nixosSystem` is used rather than the `pkgs` above,
       #    because that one sets allowUnfree. This must evaluate with the
       #    stock policy or it cannot catch the regression it exists for.
-      #  - `system.build.toplevel` is forced, not `ExecStart`. Forcing
-      #    ExecStart alone does NOT pull in `agentPackages`, so it passes even
-      #    when a default is unfree.
-      # drvPath only: this evaluates the system, it never builds one.
+      #  - the unit's `path` is forced, not `ExecStart`. Forcing ExecStart
+      #    alone does NOT pull in `agentPackages`, so it passes even when a
+      #    default is unfree. Forcing `system.build.toplevel` also works but
+      #    instantiates an entire NixOS closure, which was too much work for
+      #    the CI runner to survive.
+      # Forces drvPaths only: this evaluates, it never builds.
       herdr-nixos-eval =
         let
           host = nixpkgs.lib.nixosSystem {
@@ -81,8 +83,14 @@ in
               }
             ];
           };
+          unit = host.config.systemd.services.herdr;
+          # agentPackages reach the service through the unit's `path`, so
+          # forcing every drvPath there is what catches an unfree default.
+          # deepSeq because reading a couple of attributes of a large structure
+          # proves nothing about the rest of it.
+          forced = map (p: p.drvPath) (unit.path ++ host.config.environment.systemPackages);
         in
-        pkgs.writeText "herdr-nixos-eval" host.config.system.build.toplevel.drvPath;
+        builtins.deepSeq forced (pkgs.writeText "herdr-nixos-eval" unit.serviceConfig.ExecStart);
       orchestrator-prompt-assets =
         assert builtins.all (
           name: builtins.pathExists (ai-llm-prompts + "/applications/${name}.md")
