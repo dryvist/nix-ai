@@ -100,6 +100,19 @@ refreshed at runtime — which is why `agentManifests` exists. A local override
 wins, and `explain` names the winner in `manifest_source` and flags it in
 `local_override_shadowing_remote`.
 
+## Enabling the server half pulls an unfree package
+
+`services.herdr.agentPackages` defaults to the CLIs this flake manages, and one
+of them (`cursor-cli`) is unfree. On a NixOS host that has not allowed unfree
+packages, `services.herdr.enable = true` therefore fails at **evaluation**:
+
+```text
+error: Refusing to evaluate package 'cursor-cli-...' because it has an unfree license
+```
+
+Allow that one package on the host, or narrow `agentPackages`. The error names
+a package the operator never asked for, so it reads as unrelated to herdr.
+
 ## The socket path is a contract
 
 `nixos.nix` sets `RuntimeDirectory=herdr`, pinning the control socket at
