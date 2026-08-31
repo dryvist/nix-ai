@@ -71,22 +71,73 @@ deliberately.
 
 herdr classifies a pane by matching manifest rules against the foreground
 process. A CLI with no manifest shows as a bare shell, and everything
-downstream — the Slack bridge's blocked-agent alerts, `herdr agent wait`, the
-dashboard's approvals — silently sees nothing to report.
+downstream — blocked-agent alerting, `herdr agent wait`, the dashboard's
+approvals — silently sees nothing to report.
 
 `lib/checks/herdr.nix` fails when an enabled CLI is neither detected upstream,
 nor given a manifest here, nor named in `knownUnsupportedAgents`.
 
-`qwen-code` and `cecli` are in that list today: herdr ships no manifest for
-either, and the rule schema is herdr's, so those entries are **declared rather
-than guessed at**. Author real ones against
-`herdr agent explain <target> --json` on a live pane, then reload with
-`herdr server reload-agent-manifests`.
+Only `cecli` is in that list. herdr ships no manifest for it, and the rule
+schema is herdr's, so the entry is **declared rather than guessed at**. Author
+a real one against `herdr agent explain <target> --json` on a live pane, then
+reload with `herdr server reload-agent-manifests`.
+
+`qwen-code` was listed too, and that was wrong. herdr detects it out of the box
+via its `qwen` manifest — a live pane reports `manifest qwen.toml`
+`2026.08.14.1`, matched rule `composer_idle`, no fallback and no warning. Names
+skew between the two systems: herdr calls it `qwen`, this flake calls the option
+`qwen-code`, the same skew `antigravity-cli` (herdr: `agy`) already carries.
+
+## Detection state is fetched, not pinned
+
+`herdr server agent-manifests` reports what is actually live. Measured on the
+workstation: **19 of 20 manifests came from the network**, one (`grok`) fell
+back to the bundled copy because the fetched version was older than the one
+herdr shipped.
+
+So the rules that decide working/blocked/idle are, by default, remote state
+refreshed at runtime — which is why `agentManifests` exists. A local override
+wins, and `explain` names the winner in `manifest_source` and flags it in
+`local_override_shadowing_remote`.
+
+## Unfree packages stay out of the defaults
+
+`services.herdr.agentPackages` defaults to the agent CLIs this flake manages,
+every one of which evaluates on a stock host, so enabling the service needs no
+unfree opt-in.
+
+`cursor-cli` is deliberately excluded. It is unfree, and an unfree default made
+`services.herdr.enable = true` fail at **evaluation** on any host that had not
+opted in:
+
+```text
+error: Refusing to evaluate package 'cursor-cli-...' because it has an unfree license
+```
+
+The error names a package the operator never asked for, so it reads as
+unrelated to the option they just set. Add it through `extraPackages`, together
+with the host's own unfree opt-in.
+
+**"Evaluates on a stock host" is not "freely licensed".** Claude Code,
+Antigravity CLI and Copilot CLI are proprietary. Their `meta.license` says
+`shortName = "unfree"` and `redistributable = false` — but also `free = true`,
+from which nixpkgs derives `meta.unfree = false`, so nothing gates them. Audit
+on `shortName`/`redistributable` when the question is licensing, and on
+`meta.unfree` only when the question is whether evaluation succeeds. If that
+upstream declaration is corrected, three defaults break at once.
 
 ## The socket path is a contract
 
-`nixos.nix` sets `RuntimeDirectory=herdr`, pinning the control socket at
-`/run/herdr` instead of a uid-derived `$XDG_RUNTIME_DIR` path. That is
-deliberate: the Slack bridge runs in its own container and forwards the socket
-over SSH, which needs a predictable path. Changing it breaks that forward, and
-the failure mode is a permanently quiet fleet rather than an error.
+`nixos.nix` pins the control socket at `/run/herdr/herdr.sock`, because remote
+clients reach it at a known location rather than discovering it.
+
+**`RuntimeDirectory` is not what pins it.** herdr derives its socket from the
+**config** directory — on the workstation `herdr status` reports
+`~/.config/herdr/herdr.sock`, and `XDG_RUNTIME_DIR` appears once in the 0.8.2
+binary, in unrelated pane-graphics validation. The pin is `HERDR_SOCKET_PATH`,
+set in the unit's `environment`; `RuntimeDirectory` only creates and tears down
+the directory it lives in. Setting one without the other yields an empty
+`/run/herdr` and a socket under the state directory.
+
+Changing either breaks the forward, and the failure mode is a permanently quiet
+fleet rather than an error.

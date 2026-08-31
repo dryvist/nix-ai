@@ -3,8 +3,8 @@
 # The coverage check is the load-bearing one. herdr classifies a pane as
 # working/blocked/idle by matching manifest rules against the foreground
 # process; a CLI with no manifest shows up as a bare shell, and every downstream
-# consumer — the Slack bridge's blocked-agent alerts, `herdr agent wait`, the
-# web dashboard's approvals — silently sees nothing to report. Adding a CLI to
+# consumer — blocked-agent alerting, `herdr agent wait`, the web dashboard's
+# approvals — silently sees nothing to report. Adding a CLI to
 # this flake without a manifest is exactly the "a newly advertised tier cannot
 # go unmonitored" failure the fabric watchdog's assert exists to prevent.
 { pkgs, hmConfig }:
@@ -14,8 +14,9 @@ let
   cfg = hmConfig.config.programs.herdr;
   programs = hmConfig.config.programs;
 
-  # Which of this flake's CLIs herdr is expected to recognise, and the manifest
-  # name herdr knows each by (its own name, not ours).
+  # Which of this flake's CLIs herdr is expected to recognise, keyed by THIS
+  # flake's option name. Translation to herdr's own manifest name happens in
+  # `covered` below, and only for the agentManifests branch.
   managedAgents = {
     claude = programs.claude.enable or false;
     codex = programs.codex.enable or false;
@@ -28,10 +29,26 @@ let
 
   enabledAgents = lib.attrNames (lib.filterAttrs (_: v: v) managedAgents);
 
+  # herdr selects a local manifest by FILENAME, and agentManifests renders
+  # `<attrname>.toml`. So a manifest must be keyed by HERDR's name for the
+  # agent, not by this flake's option name: `agentManifests.qwen-code` writes
+  # qwen-code.toml, which herdr ignores without warning while still looking
+  # like coverage here. Verified live against 0.8.2 — an identical manifest is
+  # picked up as `source_kind: local override` under qwen.toml and produces no
+  # local override, and no diagnostic, under any other filename.
+  #
+  # Only this branch needs the translation. knownUpstreamAgents is keyed by
+  # option name on purpose, because it answers "is the CLI we enable detected",
+  # not "what is the file called".
+  herdrManifestName = {
+    antigravity-cli = "agy";
+    qwen-code = "qwen";
+  };
+
   covered =
     name:
     lib.elem name cfg.knownUpstreamAgents
-    || lib.hasAttr name cfg.agentManifests
+    || lib.hasAttr (herdrManifestName.${name} or name) cfg.agentManifests
     || lib.elem name cfg.knownUnsupportedAgents;
 
   uncovered = lib.filter (name: !(covered name)) enabledAgents;

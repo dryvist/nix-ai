@@ -5,10 +5,16 @@
 # herdr's own docs describe a user-session daemon you attach to from a terminal.
 # On a single-purpose guest a system service running as a dedicated user is more
 # deterministic — no lingering, no login session to lose — and it buys the thing
-# the rest of this design needs: a STABLE SOCKET PATH. RuntimeDirectory pins it
-# at /run/herdr, so the Slack bridge can forward it over SSH from its own
-# container (`ssh -L /run/herdr/herdr.sock:/run/herdr/herdr.sock`) instead of
-# guessing at $XDG_RUNTIME_DIR/<uid>.
+# the rest of this design needs: a STABLE SOCKET PATH, so a remote client can
+# reach the socket at a known location rather than discovering it.
+#
+# That path is pinned by HERDR_SOCKET_PATH, NOT by RuntimeDirectory alone.
+# Verified against herdr 0.8.2: the default socket is derived from the CONFIG
+# directory (`herdr status` reports ~/.config/herdr/herdr.sock), and
+# XDG_RUNTIME_DIR appears exactly once in the binary, in unrelated
+# pane-graphics path validation. Setting only RuntimeDirectory would leave
+# /run/herdr empty and put the real socket under ${stateDir}/.config, so the
+# forward above would forward nothing.
 {
   config,
   lib,
@@ -20,6 +26,18 @@
 let
   cfg = config.services.herdr;
   agents = llm-agents.packages.${pkgs.stdenv.hostPlatform.system};
+
+  # Bound once: systemd creates /run/${runtimeDirName} from RuntimeDirectory,
+  # and herdr is told to listen inside it. Two literals would drift silently.
+  runtimeDirName = "herdr";
+  runtimeDir = "/run/${runtimeDirName}";
+  socketPath = "${runtimeDir}/herdr.sock";
+
+  # systemd's StateDirectory is always relative to /var/lib, so it has to be
+  # derived from stateDir rather than hardcoded -- otherwise overriding
+  # stateDir leaves systemd managing an unused /var/lib/herdr while the real
+  # directory gets none of its ownership or mode handling.
+  stateDirName = lib.removePrefix "/var/lib/" cfg.stateDir;
 in
 {
   options.services.herdr = {
@@ -57,13 +75,28 @@ in
         pkgs.codex
         pkgs.opencode
         pkgs.qwen-code
-        pkgs.cursor-cli
       ];
-      defaultText = lib.literalExpression "the AI CLIs this flake manages";
+      defaultText = lib.literalExpression "the AI CLIs this flake manages that evaluate without allowUnfree";
       description = ''
         The agent CLIs herdr can start in a pane. Same source as the
         home-manager module uses on the workstation, so a pane on the server
         runs the same build as a pane on the Mac.
+
+        Every default evaluates on a stock host, so enabling this service does
+        not require an unfree opt-in. `cursor-cli` is deliberately NOT here: it
+        is gated unfree, and an unfree default makes `services.herdr.enable =
+        true` fail at evaluation on any host that has not opted in — naming a
+        package the operator never asked for. Add it through `extraPackages`
+        alongside the host's own unfree opt-in.
+
+        "Evaluates on a stock host" is not the same as "freely licensed", and
+        the difference is load-bearing. Claude Code, Antigravity CLI and Copilot
+        CLI are proprietary: their `meta.license` carries
+        `shortName = "unfree"` and `redistributable = false`, but also
+        `free = true`, so nixpkgs derives `meta.unfree = false` and never gates
+        them. If that upstream declaration is ever corrected, three of these
+        defaults start failing evaluation at once, and the breakage will look
+        unrelated to herdr.
       '';
     };
 
@@ -95,6 +128,13 @@ in
   };
 
   config = lib.mkIf cfg.enable {
+    assertions = [
+      {
+        assertion = lib.hasPrefix "/var/lib/" cfg.stateDir;
+        message = "services.herdr.stateDir must be under /var/lib, because systemd's StateDirectory is relative to it.";
+      }
+    ];
+
     users = {
       groups.${cfg.user} = { };
 
@@ -110,7 +150,11 @@ in
       };
     };
 
-    environment.systemPackages = [ cfg.package ] ++ cfg.agentPackages ++ cfg.extraPackages;
+    # Only the herdr CLI is installed system-wide, so an operator can attach.
+    # The agent CLIs reach the service through the unit's own `path` below;
+    # putting them in systemPackages would install every one of them for every
+    # user on the host and pull them into the system closure.
+    environment.systemPackages = [ cfg.package ];
 
     systemd.services.herdr = {
       description = "herdr agent multiplexer server";
@@ -136,10 +180,16 @@ in
         User = cfg.user;
         Group = cfg.user;
         WorkingDirectory = cfg.stateDir;
-        StateDirectory = "herdr";
-        # Pins the control socket at /run/herdr instead of a uid-derived
-        # $XDG_RUNTIME_DIR path, so remote bridges can forward a known path.
-        RuntimeDirectory = "herdr";
+        StateDirectory = stateDirName;
+        # systemd applies this to the directory on every start, overriding the
+        # 0700 that createHome produces, and its own default is laxer than that.
+        # This directory holds agent credentials, so pin it to the same 0700 the
+        # nixpkgs modules for credential-holding services use.
+        StateDirectoryMode = "0700";
+        # Creates (and tears down) the directory the socket lives in. The
+        # socket itself is placed there by HERDR_SOCKET_PATH below; this
+        # option alone does not move it.
+        RuntimeDirectory = runtimeDirName;
         RuntimeDirectoryMode = "0750";
         Restart = "always";
         RestartSec = "5s";
@@ -150,7 +200,12 @@ in
 
       environment = {
         HOME = cfg.stateDir;
-        XDG_RUNTIME_DIR = "/run/herdr";
+        # The actual pin. Without this herdr derives the socket from its config
+        # directory and lands at ${cfg.stateDir}/.config/herdr/herdr.sock.
+        HERDR_SOCKET_PATH = socketPath;
+        # Not the socket mechanism — set so agent CLIs started in a pane get a
+        # writable runtime dir rather than inheriting none.
+        XDG_RUNTIME_DIR = runtimeDir;
       };
     };
   };
