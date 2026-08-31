@@ -67,12 +67,23 @@ in
       # alike; nixpkgs does not carry it at all.
       package = lib.mkDefault agyPackage;
 
-      # Select the role rather than a Gemini registry id, so this CLI resolves
-      # the same way as every other client. mkDefault, because whether this CLI
-      # accepts a model name outside its own registry is not verified here — a
-      # consumer that finds it rejected sets defaultModel back to an alias
-      # without editing this module.
-      defaultModel = lib.mkIf config.programs.litellmLocal.enable (lib.mkDefault "subagent");
+      # Deliberately left unset. Selecting the router role here (`"subagent"`)
+      # was tried and is now known to be rejected: the CLI validates `model`
+      # against its own registry when it LOADS the settings file, and on a
+      # miss discards the whole file — not just the model key — falling back
+      # to built-in defaults. Sandbox, folder trust, permissions, policyPaths
+      # and every configured MCP server silently stop applying:
+      #
+      #   failed to load cli settings, using defaults: invalid settings:
+      #   model: invalid value { "name": "subagent" }
+      #
+      # This is schema validation, not routing, so no proxy alias or catch-all
+      # route can satisfy it — the file is rejected before any request is made.
+      # With the key absent the CLI picks its own default and still routes
+      # through the proxy via GOOGLE_GEMINI_BASE_URL above, which is the
+      # behaviour this module wants anyway. A consumer that needs a specific
+      # model sets a value the CLI's own registry accepts (see the in-CLI
+      # /model dialog), never a router role name.
     };
   };
 }
