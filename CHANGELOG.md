@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.31.1](https://github.com/dryvist/nix-ai/compare/v4.31.0...v4.31.1) (2026-08-31)
+
+
+### Bug Fixes
+
+* **antigravity-cli:** stop defaulting the model to a router role ([#1842](https://github.com/dryvist/nix-ai/issues/1842)) ([591872f](https://github.com/dryvist/nix-ai/commit/591872fd2ea31e48d435bfae4c36241846379059))
+
 ## [4.31.0](https://github.com/dryvist/nix-ai/compare/v4.30.0...v4.31.0) (2026-08-30)
 
 
