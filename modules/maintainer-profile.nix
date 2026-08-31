@@ -106,6 +106,26 @@
             '';
           };
 
+          metricsEndpoint = lib.mkOption {
+            type = lib.types.nullOr lib.types.str;
+            default = null;
+            example = "https://metrics.example.internal/opentelemetry/v1/metrics";
+            description = ''
+              Optional OTLP/HTTP endpoint for Claude Code *metrics* only. Set it
+              when the metrics sink is not the same service as the logs sink —
+              a Prometheus-family TSDB accepts OTLP metrics but has no logs
+              route, so aiming `otlpEndpoint` at one turns on a logs exporter
+              that fails every interval.
+
+              Like `tracesEndpoint`, this is signal-specific and must carry the
+              full `/v1/metrics` path; the exporter appends nothing. It takes
+              precedence over `otlpEndpoint` for metrics, so the two can be set
+              together to split the signals. Leave null to fall back to
+              `otlpEndpoint`. Kept out of the committed default so no private
+              hostname is baked into a public config.
+            '';
+          };
+
           serviceName = lib.mkOption {
             type = lib.types.str;
             default = "claude-code";
