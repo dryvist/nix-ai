@@ -57,13 +57,19 @@ in
         pkgs.codex
         pkgs.opencode
         pkgs.qwen-code
-        pkgs.cursor-cli
       ];
-      defaultText = lib.literalExpression "the AI CLIs this flake manages";
+      defaultText = lib.literalExpression "the freely-licensed AI CLIs this flake manages";
       description = ''
         The agent CLIs herdr can start in a pane. Same source as the
         home-manager module uses on the workstation, so a pane on the server
         runs the same build as a pane on the Mac.
+
+        Every default is freely licensed, so enabling this service evaluates on
+        a stock host. `cursor-cli` is deliberately NOT here: it is unfree, and
+        an unfree default makes `services.herdr.enable = true` fail at
+        evaluation on any host that has not opted in — naming a package the
+        operator never asked for. Add it through `extraPackages` alongside the
+        host's own unfree opt-in.
       '';
     };
 
