@@ -3,6 +3,7 @@
 # Declarative configuration for shared cross-tool skills.
 # Discovers plugin skills and deploys them to the configured canonical root.
 {
+  config,
   lib,
   pkgs,
   marketplaceInputs,
@@ -312,6 +313,18 @@ in
         diagrams = [ "dashmotion" ];
         observability = [ "langfuse" ];
       };
+
+      # Deployment groups. `categories` only drives the generated INDEX.md
+      # headings; `groups` is what `activeGroups` actually gates. Spelling the
+      # same map twice would leave two copies to keep in sync, so derive one
+      # from the other — a host overriding categories gets matching groups for
+      # free and the two cannot drift apart.
+      #
+      # NOT yet safe as a restrictive filter: most skills are named in no
+      # category, so setting `activeGroups` would silently drop everything
+      # uncategorized, commit/plan-task/create-pr included. Curating the rest
+      # is the remaining work before any host sets it.
+      groups = lib.mkDefault config.programs.agentSkills.categories;
     };
   };
 }
