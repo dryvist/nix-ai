@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.31.2](https://github.com/dryvist/nix-ai/compare/v4.31.1...v4.31.2) (2026-08-31)
+
+
+### Bug Fixes
+
+* **claude:** stop declaring Remote Control enabled where it cannot run ([#1852](https://github.com/dryvist/nix-ai/issues/1852)) ([a5c0c67](https://github.com/dryvist/nix-ai/commit/a5c0c67abaf22bcc45b7a31c88df6e12f5c20c9b))
+
 ## [4.31.1](https://github.com/dryvist/nix-ai/compare/v4.31.0...v4.31.1) (2026-08-31)
 
 
