@@ -32,6 +32,12 @@ let
   runtimeDirName = "herdr";
   runtimeDir = "/run/${runtimeDirName}";
   socketPath = "${runtimeDir}/herdr.sock";
+
+  # systemd's StateDirectory is always relative to /var/lib, so it has to be
+  # derived from stateDir rather than hardcoded -- otherwise overriding
+  # stateDir leaves systemd managing an unused /var/lib/herdr while the real
+  # directory gets none of its ownership or mode handling.
+  stateDirName = lib.removePrefix "/var/lib/" cfg.stateDir;
 in
 {
   options.services.herdr = {
@@ -122,6 +128,13 @@ in
   };
 
   config = lib.mkIf cfg.enable {
+    assertions = [
+      {
+        assertion = lib.hasPrefix "/var/lib/" cfg.stateDir;
+        message = "services.herdr.stateDir must be under /var/lib, because systemd's StateDirectory is relative to it.";
+      }
+    ];
+
     users = {
       groups.${cfg.user} = { };
 
@@ -137,7 +150,11 @@ in
       };
     };
 
-    environment.systemPackages = [ cfg.package ] ++ cfg.agentPackages ++ cfg.extraPackages;
+    # Only the herdr CLI is installed system-wide, so an operator can attach.
+    # The agent CLIs reach the service through the unit's own `path` below;
+    # putting them in systemPackages would install every one of them for every
+    # user on the host and pull them into the system closure.
+    environment.systemPackages = [ cfg.package ];
 
     systemd.services.herdr = {
       description = "herdr agent multiplexer server";
@@ -163,7 +180,7 @@ in
         User = cfg.user;
         Group = cfg.user;
         WorkingDirectory = cfg.stateDir;
-        StateDirectory = "herdr";
+        StateDirectory = stateDirName;
         # systemd applies this to the directory on every start, overriding the
         # 0700 that createHome produces, and its own default is laxer than that.
         # This directory holds agent credentials, so pin it to the same 0700 the

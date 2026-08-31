@@ -75,16 +75,21 @@ ordering is the whole reason `programs.herdr.agentManifests` exists: without a
 local override, the rules deciding agent state are remote state refreshed at
 runtime.
 
-Measured on a workstation: **19 of 20 active manifests came from the network**,
+Measured on a workstation on 2026-08-31: **19 of 20 active manifests came from
+the network**,
 with one falling back to the bundled copy because the fetched version was older
 than the one herdr shipped. `herdr server agent-manifests` reports the live
 answer, and `explain` names the winner in `manifest_source`.
 
-## Coverage is enforced at evaluation time
+## Coverage is enforced by the regression suite
 
 `lib/checks/herdr.nix` fails when a CLI this flake enables is neither detected
 upstream, nor given a local manifest, nor explicitly declared unsupported. The
 gap is therefore always declared rather than silent.
+
+`checks` is scoped to `x86_64-linux`, so a bare `nix flake check` on a darwin
+workstation runs none of this. Force it with the `nix eval` form in
+[`CLAUDE.md`](../../CLAUDE.md), or rely on CI.
 
 Two traps in that check:
 

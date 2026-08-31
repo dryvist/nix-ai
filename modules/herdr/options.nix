@@ -96,11 +96,11 @@ in
         this is the opposite of `knownUpstreamAgents`, which is keyed by option
         name.
 
-        herdr ships manifests for Claude Code, Codex, Cursor Agent, OpenCode,
-        Copilot CLI, Antigravity CLI, Grok, Droid, Pi and Hermes Agent. Any CLI
-        this flake enables that is NOT on that list needs an entry here, or
-        herdr will show its pane as a bare shell with no working/blocked/idle
-        state. `lib/checks/herdr.nix` enforces that.
+        Any CLI this flake enables that herdr does not already detect needs an
+        entry here, or herdr shows its pane as a bare shell with no
+        working/blocked/idle state. `lib/checks/herdr.nix` enforces that.
+        `herdr server agent-manifests` lists what herdr currently ships; that
+        set changes upstream, so it is not enumerated here.
 
         The rule schema is herdr's, not ours — author an entry against
         `herdr agent explain <target> --json` on a live pane rather than from

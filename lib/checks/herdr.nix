@@ -14,8 +14,9 @@ let
   cfg = hmConfig.config.programs.herdr;
   programs = hmConfig.config.programs;
 
-  # Which of this flake's CLIs herdr is expected to recognise, and the manifest
-  # name herdr knows each by (its own name, not ours).
+  # Which of this flake's CLIs herdr is expected to recognise, keyed by THIS
+  # flake's option name. Translation to herdr's own manifest name happens in
+  # `covered` below, and only for the agentManifests branch.
   managedAgents = {
     claude = programs.claude.enable or false;
     codex = programs.codex.enable or false;
