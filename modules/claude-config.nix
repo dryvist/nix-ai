@@ -142,8 +142,13 @@ in
       # to null, which Claude Code reads as the upstream default. Override
       # per-session via /effort.
 
-      # Enable Remote Control for all sessions (Feb 2026 feature).
-      remoteControlAtStartup = true;
+      # Deliberately unset, not true. Remote Control refuses to start while
+      # ANTHROPIC_BASE_URL points anywhere but api.anthropic.com, and
+      # modules/claude/settings-env.nix points it at the local proxy for every
+      # session, so the two are mutually exclusive and this flag was inert.
+      # No per-session opt-in exists; removing the variable from settings.json
+      # works but trades away subagent routing. Detail: dryvist/nix-ai#1852.
+      remoteControlAtStartup = null;
 
       # Auto-approve CLAUDE.md external imports under the consumer's workspace
       # roots (userConfig.trustedProjectDirs, maintainer profile). Empty default
