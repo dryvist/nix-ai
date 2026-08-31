@@ -93,7 +93,6 @@ in
       type = lib.types.listOf lib.types.str;
       default = [
         "cecli"
-        "qwen-code"
       ];
       description = ''
         CLIs this flake enables that herdr knowingly cannot detect, and for
@@ -125,11 +124,20 @@ in
         "hermes"
         "opencode"
         "pi"
+        # herdr's manifest is named `qwen`; this flake's option is `qwen-code`,
+        # the same name skew `antigravity-cli` (herdr: `agy`) already carries.
+        # Verified live: `herdr agent explain` on a qwen pane reports
+        # manifest qwen.toml 2026.08.14.1, matched rule `composer_idle`,
+        # no fallback and no warning.
+        "qwen-code"
       ];
       description = ''
         Agents herdr detects out of the box, as declared by its own supported-
         agents documentation. Read-only: it describes upstream, so a consumer
         overriding it would only be lying to the coverage check.
+
+        Names here are THIS flake's option names, not herdr's manifest names,
+        because the coverage check keys off the option that enables the CLI.
       '';
     };
   };
