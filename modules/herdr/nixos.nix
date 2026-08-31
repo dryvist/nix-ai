@@ -5,9 +5,8 @@
 # herdr's own docs describe a user-session daemon you attach to from a terminal.
 # On a single-purpose guest a system service running as a dedicated user is more
 # deterministic — no lingering, no login session to lose — and it buys the thing
-# the rest of this design needs: a STABLE SOCKET PATH, so the Slack bridge can
-# forward it over SSH from its own container
-# (`ssh -L /run/herdr/herdr.sock:/run/herdr/herdr.sock`).
+# the rest of this design needs: a STABLE SOCKET PATH, so a remote client can
+# reach the socket at a known location rather than discovering it.
 #
 # That path is pinned by HERDR_SOCKET_PATH, NOT by RuntimeDirectory alone.
 # Verified against herdr 0.8.2: the default socket is derived from the CONFIG

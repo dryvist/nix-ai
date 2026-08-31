@@ -3,8 +3,8 @@
 # The coverage check is the load-bearing one. herdr classifies a pane as
 # working/blocked/idle by matching manifest rules against the foreground
 # process; a CLI with no manifest shows up as a bare shell, and every downstream
-# consumer — the Slack bridge's blocked-agent alerts, `herdr agent wait`, the
-# web dashboard's approvals — silently sees nothing to report. Adding a CLI to
+# consumer — blocked-agent alerting, `herdr agent wait`, the web dashboard's
+# approvals — silently sees nothing to report. Adding a CLI to
 # this flake without a manifest is exactly the "a newly advertised tier cannot
 # go unmonitored" failure the fabric watchdog's assert exists to prevent.
 { pkgs, hmConfig }:

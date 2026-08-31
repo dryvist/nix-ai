@@ -71,8 +71,8 @@ deliberately.
 
 herdr classifies a pane by matching manifest rules against the foreground
 process. A CLI with no manifest shows as a bare shell, and everything
-downstream — the Slack bridge's blocked-agent alerts, `herdr agent wait`, the
-dashboard's approvals — silently sees nothing to report.
+downstream — blocked-agent alerting, `herdr agent wait`, the dashboard's
+approvals — silently sees nothing to report.
 
 `lib/checks/herdr.nix` fails when an enabled CLI is neither detected upstream,
 nor given a manifest here, nor named in `knownUnsupportedAgents`.
@@ -128,9 +128,8 @@ upstream declaration is corrected, three defaults break at once.
 
 ## The socket path is a contract
 
-`nixos.nix` pins the control socket at `/run/herdr/herdr.sock`, because the
-Slack bridge runs in its own container and forwards it over SSH, which needs a
-predictable path.
+`nixos.nix` pins the control socket at `/run/herdr/herdr.sock`, because remote
+clients reach it at a known location rather than discovering it.
 
 **`RuntimeDirectory` is not what pins it.** herdr derives its socket from the
 **config** directory — on the workstation `herdr status` reports
