@@ -6,14 +6,17 @@
 > rules are actually live.
 
 herdr is enabled by default in `modules/default.nix`, so a consumer normally
-needs no config at all. A workstation that has no `herdr` binary is running a
-stale pin of this flake, not a disabled module. Check the pin before adding an
-enable line that will do nothing.
+needs no config at all. A workstation with no `herdr` binary is usually running
+a stale pin of this flake rather than a disabled module — but check
+`programs.herdr.enable` and `programs.herdr.package` first, since a consumer can
+set either to disable installation deliberately. Confirm which before bumping a
+pin that is not the problem.
 
 ## Verify it is actually running
 
 1. `herdr --version` — confirms the binary is on PATH from the current
-   generation. If it is missing, bump the consumer's pin; do not add config.
+   generation. If it is missing, check `enable` and `package` before assuming a
+   stale pin.
 2. `herdr status` — reports client and server separately. The workstation half
    starts no daemon of its own, so `server: not running` is normal until a
    client or `herdr server` starts one. On a guest, the systemd unit owns it.
@@ -70,16 +73,23 @@ shell, so nothing downstream fires on its state. Work down this list:
 
 ## Two traps that cost real time
 
-**`agent wait` immediately after `agent prompt` returns instantly.** The agent
-has not left `idle` yet, so a wait for `idle` matches the state it never left.
-Wait for the transition first, then for completion:
+**A standalone `agent wait` for `idle` right after `agent prompt` can match the
+state the agent never left.** Use `--wait` on the prompt itself rather than
+sequencing two commands:
 
 ```bash
-herdr agent wait <name> --until working --timeout 20000 &
-herdr agent prompt <name> "<text>"
-wait
-herdr agent wait <name> --until idle --timeout 300000
+herdr agent prompt <name> "<text>" --wait --timeout 300000
 ```
+
+`--wait` settles on the first `idle`, `done` or `blocked` after submission, and
+a prompt that produces no lifecycle change within five seconds returns
+`agent_prompt_stalled` rather than waiting forever. herdr's own guidance
+(`herdr --skill`) is explicit that repeating those defaults with `--until` is
+wrong. Reserve `--until` for a state-specific wait on an already-running agent,
+such as `--until blocked` to catch an approval prompt.
+
+Note there are five states, not three: `--until idle` alone can miss an agent
+that settles on `done`.
 
 **`config.toml` is a read-only symlink into the Nix store.** Any herdr
 subcommand that rewrites its own config fails or is reverted on the next

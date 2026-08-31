@@ -70,18 +70,37 @@ in
       type = lib.types.attrsOf tomlFormat.type;
       default = { };
       example = lib.literalExpression ''
-        { qwen-code = { detection = { }; }; }
+        {
+          qwen = {
+            id = "qwen";
+            version = "2099.01.01.1";
+            min_engine_version = 1;
+            rules = [
+              {
+                id = "composer_idle";
+                state = "idle";
+                region = "bottom_non_empty_lines(5)";
+              }
+            ];
+          };
+        }
       '';
       description = ''
         Local agent-detection manifest overrides, rendered to
         `<configDir>/agent-detection/<name>.toml`. Local manifests take
         precedence over herdr's bundled and remotely-fetched ones.
 
-        herdr ships manifests for Claude Code, Codex, Cursor Agent, OpenCode,
-        Copilot CLI, Antigravity CLI, Grok, Droid, Pi and Hermes Agent. Any CLI
-        this flake enables that is NOT on that list needs an entry here, or
-        herdr will show its pane as a bare shell with no working/blocked/idle
-        state. `lib/checks/herdr.nix` enforces that.
+        `<name>` must be HERDR's name for the agent, not this flake's option
+        name — herdr selects a manifest by filename, so `qwen-code.toml` is
+        ignored where `qwen.toml` is honoured, and the mismatch is silent. Note
+        this is the opposite of `knownUpstreamAgents`, which is keyed by option
+        name.
+
+        Any CLI this flake enables that herdr does not already detect needs an
+        entry here, or herdr shows its pane as a bare shell with no
+        working/blocked/idle state. `lib/checks/herdr.nix` enforces that.
+        `herdr server agent-manifests` lists what herdr currently ships; that
+        set changes upstream, so it is not enumerated here.
 
         The rule schema is herdr's, not ours — author an entry against
         `herdr agent explain <target> --json` on a live pane rather than from
@@ -138,6 +157,8 @@ in
 
         Names here are THIS flake's option names, not herdr's manifest names,
         because the coverage check keys off the option that enables the CLI.
+        `agentManifests` is the other way round — it is keyed by herdr's name,
+        because there the name becomes a filename herdr has to match.
       '';
     };
   };

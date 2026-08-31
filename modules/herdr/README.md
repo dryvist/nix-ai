@@ -71,8 +71,8 @@ deliberately.
 
 herdr classifies a pane by matching manifest rules against the foreground
 process. A CLI with no manifest shows as a bare shell, and everything
-downstream — the Slack bridge's blocked-agent alerts, `herdr agent wait`, the
-dashboard's approvals — silently sees nothing to report.
+downstream — blocked-agent alerting, `herdr agent wait`, the dashboard's
+approvals — silently sees nothing to report.
 
 `lib/checks/herdr.nix` fails when an enabled CLI is neither detected upstream,
 nor given a manifest here, nor named in `knownUnsupportedAgents`.
@@ -100,23 +100,44 @@ refreshed at runtime — which is why `agentManifests` exists. A local override
 wins, and `explain` names the winner in `manifest_source` and flags it in
 `local_override_shadowing_remote`.
 
-## Enabling the server half pulls an unfree package
+## Unfree packages stay out of the defaults
 
-`services.herdr.agentPackages` defaults to the CLIs this flake manages, and one
-of them (`cursor-cli`) is unfree. On a NixOS host that has not allowed unfree
-packages, `services.herdr.enable = true` therefore fails at **evaluation**:
+`services.herdr.agentPackages` defaults to the agent CLIs this flake manages,
+every one of which evaluates on a stock host, so enabling the service needs no
+unfree opt-in.
+
+`cursor-cli` is deliberately excluded. It is unfree, and an unfree default made
+`services.herdr.enable = true` fail at **evaluation** on any host that had not
+opted in:
 
 ```text
 error: Refusing to evaluate package 'cursor-cli-...' because it has an unfree license
 ```
 
-Allow that one package on the host, or narrow `agentPackages`. The error names
-a package the operator never asked for, so it reads as unrelated to herdr.
+The error names a package the operator never asked for, so it reads as
+unrelated to the option they just set. Add it through `extraPackages`, together
+with the host's own unfree opt-in.
+
+**"Evaluates on a stock host" is not "freely licensed".** Claude Code,
+Antigravity CLI and Copilot CLI are proprietary. Their `meta.license` says
+`shortName = "unfree"` and `redistributable = false` — but also `free = true`,
+from which nixpkgs derives `meta.unfree = false`, so nothing gates them. Audit
+on `shortName`/`redistributable` when the question is licensing, and on
+`meta.unfree` only when the question is whether evaluation succeeds. If that
+upstream declaration is corrected, three defaults break at once.
 
 ## The socket path is a contract
 
-`nixos.nix` sets `RuntimeDirectory=herdr`, pinning the control socket at
-`/run/herdr` instead of a uid-derived `$XDG_RUNTIME_DIR` path. That is
-deliberate: the Slack bridge runs in its own container and forwards the socket
-over SSH, which needs a predictable path. Changing it breaks that forward, and
-the failure mode is a permanently quiet fleet rather than an error.
+`nixos.nix` pins the control socket at `/run/herdr/herdr.sock`, because remote
+clients reach it at a known location rather than discovering it.
+
+**`RuntimeDirectory` is not what pins it.** herdr derives its socket from the
+**config** directory — on the workstation `herdr status` reports
+`~/.config/herdr/herdr.sock`, and `XDG_RUNTIME_DIR` appears once in the 0.8.2
+binary, in unrelated pane-graphics validation. The pin is `HERDR_SOCKET_PATH`,
+set in the unit's `environment`; `RuntimeDirectory` only creates and tears down
+the directory it lives in. Setting one without the other yields an empty
+`/run/herdr` and a socket under the state directory.
+
+Changing either breaks the forward, and the failure mode is a permanently quiet
+fleet rather than an error.
