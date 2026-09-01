@@ -184,38 +184,15 @@ in
 
   config = lib.mkIf (cfg.enable && enabled != { }) {
     programs.mlx.modelContextWindows = catalogContextWindows;
-    assertions = [
-      {
-        assertion = residentWeightGb <= cfg.residentWeightBudgetGb;
-        message = ''
-          programs.mlx.catalog: resident-class weights sum to ${toString residentWeightGb} GB,
-          exceeding residentWeightBudgetGb = ${toString cfg.residentWeightBudgetGb}.
-          Demote an entry to class = "swap" or raise the budget deliberately.
-        '';
-      }
-      {
-        assertion = lib.length selectedRoles == lib.length (lib.unique selectedRoles);
-        message = "programs.mlx.catalog: each logical role may be assigned to only one enabled catalog entry.";
-      }
-      {
-        # ttl is lifecycle for on-demand models; residents ignore it (they
-        # follow proxy.idleTtl), so a resident ttl tweak would be a silent
-        # no-op misconfiguration.
-        assertion = lib.all (name: residents.${name}.tweaks.ttl == null) (lib.attrNames residents);
-        message = ''
-          programs.mlx.catalog: tweaks.ttl is only meaningful on class = "swap"
-          entries — resident-class models follow programs.mlx.proxy.idleTtl.
-          Remove the ttl tweak from the resident entr(y/ies) or demote them.
-        '';
-      }
-      {
-        assertion = cfg.gpuMemoryUtilization == null || cfg.gpuMemoryUtilization <= 0.85;
-        message = ''
-          programs.mlx.gpuMemoryUtilization must stay <= 0.85 on catalog hosts —
-          above that the Metal cache-clear trip sits inside normal serving load.
-        '';
-      }
-    ];
+    assertions = import ./catalog-assertions.nix {
+      inherit
+        lib
+        cfg
+        residentWeightGb
+        selectedRoles
+        residents
+        ;
+    };
 
     programs.mlx = {
       # Registry models (residents + role-registered swaps) read
