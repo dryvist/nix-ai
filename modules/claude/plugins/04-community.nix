@@ -45,22 +45,22 @@ _:
     "backend-development@claude-code-workflows" = false;
 
     # Agents: django-pro, fastapi-pro, python-pro (all unique).
-    "python-development@claude-code-workflows" = true;
+    "python-development@claude-code-workflows" = false;
 
     # Agents: monorepo-architect (unique).
-    "developer-essentials@claude-code-workflows" = true;
+    "developer-essentials@claude-code-workflows" = false;
 
     # Testing (selective)
     # Agents: debugger (unique), test-automator (KEEPER for this role).
     # Best-judgement keeper among 5 community test-automator dups: this one
     # has the most direct name match for general unit-testing work.
-    "unit-testing@claude-code-workflows" = true;
+    "unit-testing@claude-code-workflows" = false;
 
-    # DISABLED — code-reviewer (DUP, superseded by Tier 1 pr-review-toolkit:code-reviewer)
+    # DISABLED — code-reviewer (DUP, superseded by Tier 1 code-review@claude-plugins-official)
     #            tdd-orchestrator (DUP — keeper backend-development:tdd-orchestrator).
     "tdd-workflows@claude-code-workflows" = false;
 
-    # DISABLED — code-reviewer (DUP, superseded by Tier 1 pr-review-toolkit:code-reviewer)
+    # DISABLED — code-reviewer (DUP, superseded by Tier 1 code-review@claude-plugins-official)
     #            legacy-modernizer (rarely used).
     "code-refactoring@claude-code-workflows" = false;
 
@@ -78,19 +78,19 @@ _:
 
     # Orchestration & Observability (kept — unique agents)
     # Agents: context-manager (unique).
-    "agent-orchestration@claude-code-workflows" = true;
+    "agent-orchestration@claude-code-workflows" = false;
 
     # Agents: database-optimizer (unique), network-engineer (unique),
     #         observability-engineer (unique), performance-engineer (KEEPER
     #         for this role across 4 community variants — best domain fit).
-    "observability-monitoring@claude-code-workflows" = true;
+    "observability-monitoring@claude-code-workflows" = false;
 
     # Cloud / DevOps
     # Agents: cloud-architect (unique), deployment-engineer (KEEPER — keeper
     #         for this role; full-stack-orchestration variant disabled above),
     #         devops-troubleshooter, kubernetes-architect, terraform-specialist
     #         (all unique).
-    "cicd-automation@claude-code-workflows" = true;
+    "cicd-automation@claude-code-workflows" = false;
 
     # ========================================================================
     # superpowers-marketplace — obra/superpowers-marketplace (925★)
@@ -121,10 +121,10 @@ _:
     # Essential issue analysis + worktree creation utilities (unique to this marketplace).
     # analyze-issue: DISABLED (0 real use per Splunk) — packs.nix `devtools`.
     "analyze-issue@cc-marketplace" = false;
-    "create-worktrees@cc-marketplace" = true;
+    "create-worktrees@cc-marketplace" = false;
 
     # User actively uses Python — kept for python-expert agent (unique).
-    "python-expert@cc-marketplace" = true;
+    "python-expert@cc-marketplace" = false;
 
     # CI/CD, cloud infra, monitoring, deployment automation (unique).
     # DISABLED (0 real use per Splunk) — import per-repo via packs.nix `devtools`.
@@ -171,7 +171,7 @@ _:
     # apply to every session, so they belong at user level rather than a pack.
     # The kit's other plugins (reflexion, review, git) duplicate roles already
     # held by higher tiers and stay off.
-    "kaizen@context-engineering-kit" = true;
+    "kaizen@context-engineering-kit" = false;
 
     # ========================================================================
     # managing-dependencies — andrew/managing-dependencies
@@ -181,6 +181,6 @@ _:
     # provenance, license classification. Universal — every repo here has
     # dependencies, and the "verify it exists before suggesting it" rule guards
     # a failure mode that is not repo-specific.
-    "managing-dependencies@managing-dependencies" = true;
+    "managing-dependencies@managing-dependencies" = false;
   };
 }

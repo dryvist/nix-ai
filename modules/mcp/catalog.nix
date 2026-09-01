@@ -105,6 +105,9 @@ in
   huggingface = codexMcp {
     command = "${mcpPkgs.huggingface-mcp-server}/bin/huggingface-mcp-server";
     args = [ ];
+    # The hosted connector already serves the same Hub tools; a second copy
+    # only doubles the schema every session pays for.
+    disabled = true;
   };
 
   # Fabric MCP - community-maintained (ksylvan/fabric-mcp), exposes fabric
@@ -122,6 +125,9 @@ in
   # process.
   splunk = codexMcp {
     command = "splunk-mcp-connect";
+    # Off until the launcher receives its secret-zero and the endpoint answers
+    # (tracked in the task tracker); today it fails to connect on every start.
+    disabled = true;
     # Codex forwards stdio-server environment variables only when they are
     # explicitly declared. Keep the OpenBao bootstrap scoped to this launcher.
     env_vars = [

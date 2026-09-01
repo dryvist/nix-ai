@@ -6,8 +6,6 @@ let
   expectedGlobalServers = [
     "codex"
     "fabric"
-    "huggingface"
-    "splunk"
     "time"
     "zammad"
   ]
