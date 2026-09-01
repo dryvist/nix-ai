@@ -82,6 +82,10 @@ let
         printf '{"running":[{"model":"brain-physical","state":"ready","proxy":"http://127.0.0.1:11437"}]}'
         exit 0
         ;;
+      */api/models/unload/*)
+        printf '%s\n' "''${url##*/unload/}" >> "$UNLOAD_LOG"
+        exit 0
+        ;;
       *) exit 1 ;;
     esac
     if [[ "$wfmt" == *time_total* ]]; then
@@ -253,6 +257,9 @@ in
     export MLX_WATCHDOG_WEDGE_INCIDENT_MARKER="$TMPDIR/wedge-incidents"
     export MLX_WATCHDOG_STUCK_BUSY_DIR="$TMPDIR/stuck-busy"
     export MLX_WATCHDOG_STUCK_BUSY_CONSECUTIVE=3
+    export MLX_WATCHDOG_STUCK_BUSY_RECOVER_MAX=2
+    export UNLOAD_LOG="$TMPDIR/unloads"
+    : > "$UNLOAD_LOG"
     export MLX_WATCHDOG_ALERT_URL_FILE="$TMPDIR/no-alert"
     export MLX_WATCHDOG_HEALTHCHECK_URL_FILE="$TMPDIR/no-healthcheck"
     export FAKE_NOW_FILE="$TMPDIR/now"
@@ -295,9 +302,26 @@ in
       echo "FAIL: metrics-free path must PAGE, never restart"; exit 1
     fi
 
-    echo "tick 4: still wedged -> page suppressed by the interval"
+    echo "tick 3 must also RECOVER: unload that model only, never the sibling"
+    grep -q 'unloaded wedged model stuck-model' "$TMPDIR/t3.log"
+    grep -q 'stuck-model' "$UNLOAD_LOG"
+    if grep -q 'tool-calling' "$UNLOAD_LOG"; then
+      echo "FAIL: unloaded the healthy sibling"; exit 1
+    fi
+
+    echo "a successful unload clears the streak, so detection restarts"
     tick "$TMPDIR/t4.log"
-    grep -q 'page suppressed' "$TMPDIR/t4.log"
+    grep -q 'busy 1/3' "$TMPDIR/t4.log"
+
+    echo "recovery is BOUNDED: second unload allowed, third refused"
+    tick "$TMPDIR/t5.log"; tick "$TMPDIR/t6.log"
+    grep -q 'recovery 2/2' "$TMPDIR/t6.log"
+    tick "$TMPDIR/t7.log"; tick "$TMPDIR/t8.log"; tick "$TMPDIR/t9.log"
+    grep -q 'NOT unloading again' "$TMPDIR/t9.log"
+    grep -q 'alerting only' "$TMPDIR/t9.log"
+    if [[ "$(grep -c . "$UNLOAD_LOG")" != "2" ]]; then
+      echo "FAIL: expected exactly 2 unloads, got $(grep -c . "$UNLOAD_LOG")"; exit 1
+    fi
 
     touch $out
   '';

@@ -88,6 +88,11 @@ stuck_busy_consecutive="${MLX_WATCHDOG_STUCK_BUSY_CONSECUTIVE:-5}"
 # persists for hours does not page every tick.
 stuck_busy_alert_interval="${MLX_WATCHDOG_STUCK_BUSY_ALERT_INTERVAL:-3600}"
 stuck_busy_dir="${MLX_WATCHDOG_STUCK_BUSY_DIR:-${HOME}/Library/Caches/mlx-model-server/watchdog-stuck-busy}"
+# Max per-model unload recoveries inside stuck_busy_alert_interval before this
+# path stops trying and only pages. Unloading is cheap and safe, but a wedge
+# that returns immediately after every unload is a defect to escalate, not to
+# paper over on a loop.
+stuck_busy_recover_max="${MLX_WATCHDOG_STUCK_BUSY_RECOVER_MAX:-2}"
 llama_swap_config="${MLX_WATCHDOG_CONFIG:-${HOME}/.config/mlx/llama-swap.json}"
 # Untracked Slack incoming-webhook url (a write capability for its channel, so
 # never committed; missing = no page). Shared with the cluster watcher so one
@@ -458,15 +463,68 @@ if (( ${#busy_nonbrain[@]} > 0 )) && [[ -n "$healthy_sibling" ]]; then
       echo "$(ts) mlx-watchdog: model ${m} busy ${streak}/${stuck_busy_consecutive} ticks (sibling ${healthy_sibling} healthy) -> watching, no page yet"
       continue
     fi
+    echo "$(ts) mlx-watchdog: WEDGE (metrics-free) model=${m} streak=${streak} sibling=${healthy_sibling} healthy" >&2
+
+    # RECOVERY: unload THIS model only. llama-swap's per-model unload route
+    # leaves every other resident model loaded (verified against a live proxy:
+    # the target went unloaded while a warm sibling stayed loaded), so this is
+    # not the stack restart the engine-metric gate exists to prevent -- it
+    # cannot disturb the healthy models that just served as the control.
+    #
+    # Safe by construction: the streak proves this model is serving none of its
+    # traffic, so there is no in-flight work to lose, and llama-swap reloads it
+    # on the next request. Bounded, because a wedge that returns immediately
+    # after each unload is a defect to escalate rather than loop on.
+    recover_marker="${marker}.recoveries"
+    rec_since=0; rec_count=0
+    if [[ -r "$recover_marker" ]]; then
+      read -r rec_since rec_count < "$recover_marker" || true
+    fi
+    [[ "$rec_since" =~ ^[0-9]+$ ]] || rec_since=0
+    [[ "$rec_count" =~ ^[0-9]+$ ]] || rec_count=0
+    if (( rec_since == 0 || now - rec_since > stuck_busy_alert_interval )); then
+      rec_since="$now"; rec_count=0
+    fi
+    recovered="no"
+    if (( rec_count < stuck_busy_recover_max )); then
+      rec_count=$(( rec_count + 1 ))
+      printf '%s\t%s\n' "$rec_since" "$rec_count" > "$recover_marker"
+      encoded="$(jq -rn --arg m "$m" '$m|@uri')"
+      # Derived here, not borrowed: the only other api_root assignment lives
+      # inside brain_progress_snapshot, so it is unset unless that function has
+      # already run this tick -- and reading it under `set -u` would abort the
+      # watchdog outright.
+      unload_root="${api_url%/v1}"
+      if curl -fsS -m 30 -X POST "${unload_root}/api/models/unload/${encoded}" >/dev/null 2>&1; then
+        recovered="yes"
+        echo "$(ts) mlx-watchdog: unloaded wedged model ${m} (recovery ${rec_count}/${stuck_busy_recover_max}) -> slot cleared, reloads on next request" >&2
+        rm -f "$marker"
+      else
+        echo "$(ts) mlx-watchdog: per-model unload of ${m} FAILED (recovery ${rec_count}/${stuck_busy_recover_max})" >&2
+      fi
+    else
+      echo "$(ts) mlx-watchdog: ${m} wedged again after ${rec_count} unloads in ${stuck_busy_alert_interval}s -> NOT unloading again, alerting only" >&2
+    fi
+
+    # Page rate-limiting is applied HERE, around the alert alone. It must never
+    # gate recovery: an earlier revision returned before the unload whenever a
+    # page had been sent inside the interval, so a wedge recurring within the
+    # hour was skipped entirely and silently -- the exact silent-guard shape
+    # this detector exists to remove. Recovery has its own bound
+    # (stuck_busy_recover_max); the two limits are independent on purpose.
     last_marker="${marker}.alerted"
     last_alert="$(read_int "$last_marker")"
-    if (( now - last_alert < stuck_busy_alert_interval )); then
-      echo "$(ts) mlx-watchdog: model ${m} still wedged (streak ${streak}) -> page suppressed, last was $(( now - last_alert ))s ago"
+    if (( last_alert != 0 && now - last_alert < stuck_busy_alert_interval )); then
+      echo "$(ts) mlx-watchdog: page suppressed for ${m} (last was $(( now - last_alert ))s ago, recovery=${recovered}); detection and recovery still ran"
       continue
     fi
     printf '%s\n' "$now" > "$last_marker"
-    echo "$(ts) mlx-watchdog: WEDGE (metrics-free) model=${m} streak=${streak} sibling=${healthy_sibling} healthy -> paging" >&2
-    alert "$(/bin/hostname -s): model '${m}' has refused every request for ${streak} consecutive checks while sibling '${healthy_sibling}' serves normally on the same proxy. That is a slot-accounting wedge, not saturation. NOT restarting (no engine metrics on this backend to confirm); clear that model's worker to recover."
+
+    if [[ "$recovered" == "yes" ]]; then
+      alert "$(/bin/hostname -s): model '${m}' refused every request for ${streak} consecutive checks while sibling '${healthy_sibling}' served normally — a slot-accounting wedge, not saturation. RECOVERED by unloading that model only (${rec_count}/${stuck_busy_recover_max} this window); other models untouched. Recurrence means the counter leak itself needs fixing."
+    else
+      alert "$(/bin/hostname -s): model '${m}' has refused every request for ${streak} consecutive checks while sibling '${healthy_sibling}' serves normally on the same proxy. That is a slot-accounting wedge, not saturation. Automatic per-model unload did not run or did not succeed — clear that model's worker manually."
+    fi
   done
 fi
 # Any model that answered healthy is not wedged -- drop its streak so a
