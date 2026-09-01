@@ -1,5 +1,18 @@
 # Changelog
 
+## [4.37.0](https://github.com/dryvist/nix-ai/compare/v4.36.0...v4.37.0) (2026-09-01)
+
+
+### Features
+
+* **herdr:** make the herdr guests deployable and run the hail bridge ([#1892](https://github.com/dryvist/nix-ai/issues/1892)) ([71e13b7](https://github.com/dryvist/nix-ai/commit/71e13b7527e1b362fe17397adeee9a88d6c6d0cd))
+
+
+### Bug Fixes
+
+* **litellm-local:** make the terminal rung name a group the router serves ([#1891](https://github.com/dryvist/nix-ai/issues/1891)) ([175b7bc](https://github.com/dryvist/nix-ai/commit/175b7bc27c80db62f9d48f1ede6acb3bc904fa16))
+* **mlx:** add the wheel hashes for the pinned mlx version ([#1890](https://github.com/dryvist/nix-ai/issues/1890)) ([048a1be](https://github.com/dryvist/nix-ai/commit/048a1be363ce3964a42f5c183b6dd745a74e0e0a))
+
 ## [4.36.0](https://github.com/dryvist/nix-ai/compare/v4.35.0...v4.36.0) (2026-09-01)
 
 
