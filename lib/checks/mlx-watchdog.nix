@@ -107,7 +107,11 @@ in
     # only exists once llama-swap-reap.sh is ahead of mlx-watchdog.sh in one
     # script (nix-ai#1423).
     combined="$TMPDIR/mlx-watchdog-combined.sh"
-    cat ${src}/modules/mlx/scripts/llama-swap-reap.sh ${src}/modules/mlx/scripts/mlx-watchdog.sh > "$combined"
+    cat ${
+      pkgs.lib.concatMapStringsSep " " (f: "${src}/modules/mlx/scripts/${f}") (
+        import ../../modules/mlx/watchdog-parts.nix
+      )
+    } > "$combined"
 
     printf '%s\n' '{"models":{"brain-physical":{"aliases":["tool-calling"]},"other-physical":{"aliases":["coding"]}}}' > "$MLX_WATCHDOG_CONFIG"
     printf 'busy\n' > "$FAKE_MODE_FILE"
