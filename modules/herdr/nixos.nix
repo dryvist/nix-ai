@@ -40,8 +40,24 @@ let
   stateDirName = lib.removePrefix "/var/lib/" cfg.stateDir;
 in
 {
+  # The Slack/Discord bridge lives in its own file: this one is already close
+  # to the repo's 12KB error gate, and .file-size.yml says to split rather
+  # than grant an extended limit.
+  imports = [ ./hail.nix ];
+
   options.services.herdr = {
     enable = lib.mkEnableOption "the herdr agent-multiplexer server";
+
+    # Not settable: it is bound to RuntimeDirectory above, and the whole point
+    # of the pin is that exactly one path exists. Exposed as an option only so
+    # hail.nix (and any out-of-tree consumer) can read it instead of restating
+    # the literal and drifting from it silently.
+    socketPath = lib.mkOption {
+      type = lib.types.path;
+      readOnly = true;
+      default = socketPath;
+      description = "Absolute path of the control socket, pinned by HERDR_SOCKET_PATH.";
+    };
 
     package = lib.mkOption {
       type = lib.types.package;

@@ -48,6 +48,23 @@ let
     '';
   };
 
+  # The probe, on a schedule, paging when a rung stops answering. The probe
+  # itself was already "the only check that settles it" (fallback-tier.nix) and
+  # nothing ran it, so a converged host could carry a correct config and a rung
+  # that 404s every request with the machine having no opinion about it.
+  fallbackWatch = pkgs.writeShellApplication {
+    name = "litellm-fallback-watch";
+    runtimeInputs = [
+      pkgs.curl
+      pkgs.python3
+      pkgs.coreutils
+    ];
+    text = ''
+      LITELLM_PROBE_BIN=${fallbackProbe}/bin/litellm-fallback-probe \
+        exec ${./../scripts/litellm-fallback-watch.sh} "$@"
+    '';
+  };
+
   proxyScript = pkgs.writeShellScript "litellm-local-start" ''
     set -euo pipefail
     OPENAI_API_KEY="$(cat ${lib.escapeShellArg (toString aiStack.llmEndpointTokenFile)})"
@@ -67,6 +84,7 @@ in
 {
   inherit
     fallbackProbe
+    fallbackWatch
     proxyScript
     ;
 }

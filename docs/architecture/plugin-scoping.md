@@ -160,4 +160,3 @@ problem and its own gate: `programs.agentSkills.groups` +
 Definitions belong in this repo (or in data merged from the instruction SSOT
 input); host configs (nix-darwin) only choose `activeGroups`. Regression
 coverage: `lib/checks/agent-skills.nix` (`agent-skills-groups`).
-

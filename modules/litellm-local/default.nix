@@ -82,6 +82,7 @@ let
   fallbackTier = import ./fallback-tier.nix {
     inherit lib;
     localModels = resolvedLocalModels;
+    inherit (cfg) routerEntryModel;
   };
 
   # Reuses the maintainer profile's single traces endpoint rather than adding a
@@ -130,6 +131,7 @@ let
   };
   inherit (commands)
     fallbackProbe
+    fallbackWatch
     proxyScript
     ;
 
@@ -165,6 +167,7 @@ in
           cfg
           aiStack
           proxyScript
+          fallbackWatch
           telemetryTracesEndpoint
           ;
       };

@@ -7,8 +7,8 @@
 +from .tool_parsers.harmony import HarmonyStream as _HarmonyStream
 +from .tool_parsers.harmony import parse_tool_call as _harmony_parse_tool_call
  from .utils import _parse_size, load, sharded_load
- 
- 
+
+
 +def _make_harmony_stream(cli_args, ctx):
 +    """HarmonyStream for this completion, or None when harmony must stay out.
 +
@@ -49,8 +49,8 @@
      return f"{__version__}-{mx.__version__}-{platform.platform()}-{gpu_arch}"
 @@ -91,6 +128,46 @@
          return result
- 
- 
+
+
 +class _LoudToolCallFormatter(ToolCallFormatter):
 +    """ToolCallFormatter that never silently drops a tool call.
 +
@@ -96,7 +96,7 @@
          "system_prompt": (
 @@ -1437,7 +1514,12 @@
              logging.debug("Starting completion:")
- 
+
          # Tool call formatter
 -        tool_formatter = ToolCallFormatter(ctx.tool_parser, request.tools, self.stream)
 +        harmony_stream = _make_harmony_stream(self.response_generator.cli_args, ctx)
@@ -105,7 +105,7 @@
 +            request.tools,
 +            self.stream,
 +        )
- 
+
          # Variables to save the generated text, tokens, logprobs, tools etc
          prev_state = None
 @@ -1466,7 +1548,15 @@
@@ -122,7 +122,7 @@
 +                        if delta.tool_calls:
 +                            tool_calls.extend(delta.tool_calls)
 +                            made_tool_call = True
- 
+
                  # Add the tokens and logprobs to the vars.
                  tokens.append(gen.token)
 @@ -1480,10 +1570,12 @@
@@ -142,7 +142,7 @@
 @@ -1501,14 +1593,28 @@
                  tool_calls.append(tool_text)
                  made_tool_call = True
- 
+
 -            if finish_reason == "stop" and made_tool_call:
 +            if harmony_stream is not None:
 +                delta = harmony_stream.finish()
@@ -160,7 +160,7 @@
 +
 +            if finish_reason == "stop" and made_tool_call and tool_formatter.emitted:
                  finish_reason = "tool_calls"
- 
+
              if self.stream:
                  resp = self.generate_response(
                      text,

@@ -9,12 +9,24 @@
 # modules through `_module.args`, never as function parameters.
 {
   llm-agents,
+  herdr-remote-src,
+  herdr-hail-src,
 }:
 {
   herdr = {
     imports = [ ../modules/herdr/nixos.nix ];
     _module.args = {
-      inherit llm-agents;
+      inherit llm-agents herdr-hail-src;
+    };
+  };
+
+  # The dashboard half. Separate module because it is a separate guest with a
+  # separate blast radius: it holds no agent state and drives runtimes over
+  # SSH, so it never needs herdr's control socket.
+  herdr-remote = {
+    imports = [ ../modules/herdr-remote/nixos.nix ];
+    _module.args = {
+      inherit herdr-remote-src;
     };
   };
 }

@@ -504,6 +504,40 @@
         "type": "github"
       }
     },
+    "herdr-hail-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1784424997,
+        "narHash": "sha256-OSHT5D3RhZku0ktBCYyu/XZvlw/6WsYnI5UTdx4pJF8=",
+        "owner": "natori-hrj",
+        "repo": "herdr-hail",
+        "rev": "9f7120be96cfcc511548eb446ee4ca8b52519b31",
+        "type": "github"
+      },
+      "original": {
+        "owner": "natori-hrj",
+        "repo": "herdr-hail",
+        "rev": "9f7120be96cfcc511548eb446ee4ca8b52519b31",
+        "type": "github"
+      }
+    },
+    "herdr-remote-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1788249624,
+        "narHash": "sha256-mTHcGe806gLnDdBo/K4QJlIDA8IkFWk2LYbQeuaELig=",
+        "owner": "dcolinmorgan",
+        "repo": "herdr-remote",
+        "rev": "1f5bd32b5121af92c21c9a3b123b10d508f29365",
+        "type": "github"
+      },
+      "original": {
+        "owner": "dcolinmorgan",
+        "repo": "herdr-remote",
+        "rev": "1f5bd32b5121af92c21c9a3b123b10d508f29365",
+        "type": "github"
+      }
+    },
     "home-manager": {
       "inputs": {
         "nixpkgs": [
@@ -744,11 +778,11 @@
         "wakatime": "wakatime"
       },
       "locked": {
-        "lastModified": 1788266794,
-        "narHash": "sha256-a9XMTnvU4MW6PBffwOcdrvo3trvbSsaXv4KqWUSdcmk=",
+        "lastModified": 1788294873,
+        "narHash": "sha256-OoxmtGD+0bS2Jx0l2n3H9O8W4Ak/qDwTn2ygAiUo+dA=",
         "owner": "dryvist",
         "repo": "nix-claude-code",
-        "rev": "537ca45e3381893e72843a1734af0e5023815f3c",
+        "rev": "e7e825e164608b0910f87a2182df9089b18e2102",
         "type": "github"
       },
       "original": {
@@ -886,6 +920,8 @@
         "context-engineering-kit": "context-engineering-kit",
         "dashmotion": "dashmotion",
         "fabric-src": "fabric-src",
+        "herdr-hail-src": "herdr-hail-src",
+        "herdr-remote-src": "herdr-remote-src",
         "home-manager": "home-manager",
         "jacobpevans-cc-plugins": "jacobpevans-cc-plugins",
         "karpathy-skills": "karpathy-skills",

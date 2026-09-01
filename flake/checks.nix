@@ -13,6 +13,7 @@
   home-manager,
   nixAiLib,
   ai-llm-prompts,
+  herdr-remote-src,
   src,
 }:
 let
@@ -97,6 +98,62 @@ in
         # untrusted there. deepSeq above does all the forcing; the content only
         # has to exist.
         builtins.deepSeq forced (pkgs.writeText "herdr-nixos-eval" "herdr NixOS module evaluated");
+      # herdr-remote's dependency list is TRANSCRIBED into
+      # modules/herdr-remote/package.nix from a PEP 723 block in upstream's
+      # herdr_relay.py, because upstream ships no lockfile and is run with
+      # `uv run`, which resolves from the network at start time — something a
+      # guest built from a pinned flake must not do.
+      #
+      # A transcription with nothing checking it is the whole problem: a new
+      # upstream import fails at RUNTIME on the guest with ModuleNotFoundError,
+      # long after the closure was built and copied. This re-parses that block
+      # from the pinned source and compares it to the list the package
+      # actually installs, so the drift fails the build on the controller.
+      #
+      # It asserts set EQUALITY, not "every declared dep is present" — the
+      # weaker form passes when upstream ADDS one, which is exactly the
+      # direction that breaks.
+      herdr-remote-pep723-deps =
+        let
+          inherit (nixpkgs) lib;
+          text = builtins.readFile "${herdr-remote-src}/relay/herdr_relay.py";
+          depLines = builtins.filter (l: lib.hasInfix "dependencies = [" l) (lib.splitString "\n" text);
+          # A missing block means upstream restructured the header. Fail loudly
+          # rather than silently comparing against an empty list, which would
+          # pass only when our own list was empty too.
+          depLine =
+            if depLines == [ ] then
+              throw "herdr-remote: no PEP 723 `dependencies = [` line in relay/herdr_relay.py -- upstream restructured its header; re-check modules/herdr-remote/package.nix by hand."
+            else
+              builtins.head depLines;
+          # Split on the quote character and keep the odd indices: those are
+          # exactly the quoted requirement strings. Deliberately NOT a bracket
+          # regex -- `[^]]` is valid POSIX but libstdc++'s ERE engine, which is
+          # what builtins.match uses, rejects it outright.
+          quoted = builtins.genList (i: builtins.elemAt (lib.splitString "\"" depLine) (i * 2 + 1)) (
+            (builtins.length (lib.splitString "\"" depLine) - 1) / 2
+          );
+          # "websockets>=14.0" -> "websockets": keep the distribution name,
+          # drop every PEP 440 comparator.
+          nameOf =
+            req:
+            let
+              m = builtins.match "([A-Za-z0-9_.-]+).*" req;
+            in
+            if m == null then null else builtins.head m;
+          upstream = lib.sort (a: b: a < b) (builtins.filter (x: x != null) (map nameOf quoted));
+          ours = lib.sort (a: b: a < b) self.packages.${system}.herdr-remote-relay.pep723Deps;
+        in
+        if upstream == ours then
+          pkgs.writeText "herdr-remote-pep723-deps" "matched: ${lib.concatStringsSep " " ours}"
+        else
+          throw ''
+            herdr-remote dependency drift.
+              upstream relay/herdr_relay.py PEP 723: ${lib.concatStringsSep " " upstream}
+              modules/herdr-remote/package.nix:      ${lib.concatStringsSep " " ours}
+            Reconcile package.nix's pep723Deps with upstream, then re-run.
+          '';
+
       orchestrator-prompt-assets =
         assert builtins.all (
           name: builtins.pathExists (ai-llm-prompts + "/applications/${name}.md")

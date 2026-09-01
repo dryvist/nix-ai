@@ -49,6 +49,10 @@
   localModels ? [ ],
   localEndpointEnvVar ? "LOCAL_LLM_URL",
   terminalName ? "subagent-homelab",
+  # The group the shared router serves. Null keeps the bare wildcard, which is
+  # only correct when the terminal rung carries the name consumers already send
+  # upstream (the localModels == [] case below).
+  routerEntryModel ? null,
 }:
 let
   # Every rung this host serves itself, in declared order. `contextWindow` is
@@ -77,10 +81,21 @@ let
   # provider, no model id, no price. Whatever the router decides to do behind
   # this — its own local legs, then its cloud rungs — is the router's business
   # and is configured exactly once, over there.
+  # `openai/*` is a PASSTHROUGH: LiteLLM forwards whatever group name the
+  # caller asked for. That is correct only while the rung's own name is a name
+  # the router serves. The moment localModels is non-empty the rung is renamed
+  # to subagent-homelab, and forwarding THAT upstream 404s — the rung then
+  # fails when addressed directly, not merely as a fallback, so the chain ends
+  # on something that cannot answer.
+  #
+  # Observed on a converged host 2026-09-01: a direct request to
+  # subagent-homelab returned "no router for requested model", and a fallback
+  # into it reported "Error doing the fallback: NotFoundError". Naming the
+  # upstream group explicitly is what makes the last rung reachable.
   terminal = {
     model_name = effectiveTerminalName;
     litellm_params = {
-      model = "openai/*";
+      model = if routerEntryModel == null then "openai/*" else "openai/${routerEntryModel}";
       api_base = "os.environ/LLM_ROUTER_URL";
       api_key = "os.environ/OPENAI_API_KEY";
     };
@@ -144,6 +159,32 @@ rec {
     {
       assertion = lib.length (lib.unique names) == lib.length names;
       message = "litellm-local: fallback-tier rung names must be unique.";
+    }
+    {
+      # Makes the broken shape impossible rather than merely fixable. Without
+      # this the config renders cleanly, the proxy starts, and the failure only
+      # appears when something actually falls back — which is the worst moment
+      # to discover the last rung cannot answer.
+      # Null is not the only broken value. The rung renders as
+      # "openai/${routerEntryModel}", so "" yields a bare `openai/` and a value
+      # that already carries a provider yields `openai/openai/...` — both
+      # render cleanly and both 404 at runtime, which is the same
+      # config-looks-right/rung-is-dead failure this option exists to end.
+      # Requiring a plain group name also holds the rule that no provider is
+      # named on this host.
+      assertion =
+        localModels == [ ]
+        || (routerEntryModel != null && routerEntryModel != "" && !(lib.hasInfix "/" routerEntryModel));
+      message =
+        "litellm-local: programs.litellmLocal.routerEntryModel must be a "
+        + "non-empty router GROUP name with no `/` once localModels is "
+        + "non-empty (got ${builtins.toJSON routerEntryModel}). The terminal "
+        + "rung renders as `openai/<value>` and forwards it upstream: null or "
+        + "an empty value leaves the rung forwarding `${terminalName}`, which "
+        + "the shared router does not serve, and a provider-prefixed value "
+        + "renders `openai/openai/...`. All three render cleanly and 404 at "
+        + "runtime. Name the router's own entry group — a group name, not a "
+        + "provider or model id.";
     }
     {
       # `!= null` FIRST, and Nix's `&&` short-circuits: a null contextWindow
