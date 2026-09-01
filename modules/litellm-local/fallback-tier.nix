@@ -165,15 +165,26 @@ rec {
       # this the config renders cleanly, the proxy starts, and the failure only
       # appears when something actually falls back — which is the worst moment
       # to discover the last rung cannot answer.
-      assertion = localModels == [ ] || routerEntryModel != null;
+      # Null is not the only broken value. The rung renders as
+      # "openai/${routerEntryModel}", so "" yields a bare `openai/` and a value
+      # that already carries a provider yields `openai/openai/...` — both
+      # render cleanly and both 404 at runtime, which is the same
+      # config-looks-right/rung-is-dead failure this option exists to end.
+      # Requiring a plain group name also holds the rule that no provider is
+      # named on this host.
+      assertion =
+        localModels == [ ]
+        || (routerEntryModel != null && routerEntryModel != "" && !(lib.hasInfix "/" routerEntryModel));
       message =
-        "litellm-local: set programs.litellmLocal.routerEntryModel once "
-        + "localModels is non-empty. The terminal rung forwards the requested "
-        + "group name upstream, and with local models declared that name is "
-        + "`${terminalName}`, which the shared router does not serve — so the "
-        + "rung 404s both as a fallback and when addressed directly, leaving "
-        + "the chain with no working last rung. Name the router's own entry "
-        + "group (a group name, not a provider or model id).";
+        "litellm-local: programs.litellmLocal.routerEntryModel must be a "
+        + "non-empty router GROUP name with no `/` once localModels is "
+        + "non-empty (got ${builtins.toJSON routerEntryModel}). The terminal "
+        + "rung renders as `openai/<value>` and forwards it upstream: null or "
+        + "an empty value leaves the rung forwarding `${terminalName}`, which "
+        + "the shared router does not serve, and a provider-prefixed value "
+        + "renders `openai/openai/...`. All three render cleanly and 404 at "
+        + "runtime. Name the router's own entry group — a group name, not a "
+        + "provider or model id.";
     }
     {
       # `!= null` FIRST, and Nix's `&&` short-circuits: a null contextWindow

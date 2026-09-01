@@ -228,31 +228,33 @@ rec {
   hmConfigLitellmLocal = mkHmConfig [
     {
       programs = {
-        litellmLocal.enable = true;
-        # Required once localModels is non-empty: the terminal rung forwards
-        # the requested group name upstream, so it must name a group the shared
-        # router serves rather than passing through the local rung's own name.
-        litellmLocal.routerEntryModel = "test-router-entry";
-        # Local rungs are what give the subagent tier real depth: this host's own
-        # models first, the shared router appended automatically as the terminal
-        # rung. Declared here so the fallback-tier check asserts against the
-        # shape a real host uses, not against an empty chain.
-        litellmLocal.localModels = [
-          {
-            name = "subagent";
-            id = "test-local/small-4bit";
-            contextWindow = 131072;
-          }
-          {
-            # contextWindow OMITTED on purpose: this rung exercises the
-            # derivation from `mlx.modelContextWindows` below. Without a rung
-            # that leaves it null, the suite could only ever prove the
-            # hand-written path and would pass unchanged if the derivation were
-            # deleted.
-            name = "subagent-local2";
-            id = "test-local/tiny-4bit";
-          }
-        ];
+        litellmLocal = {
+          enable = true;
+          # Required once localModels is non-empty: the terminal rung forwards
+          # the requested group name upstream, so it must name a group the shared
+          # router serves rather than passing through the local rung's own name.
+          routerEntryModel = "test-router-entry";
+          # Local rungs are what give the subagent tier real depth: this host's own
+          # models first, the shared router appended automatically as the terminal
+          # rung. Declared here so the fallback-tier check asserts against the
+          # shape a real host uses, not against an empty chain.
+          localModels = [
+            {
+              name = "subagent";
+              id = "test-local/small-4bit";
+              contextWindow = 131072;
+            }
+            {
+              # contextWindow OMITTED on purpose: this rung exercises the
+              # derivation from `mlx.modelContextWindows` below. Without a rung
+              # that leaves it null, the suite could only ever prove the
+              # hand-written path and would pass unchanged if the derivation were
+              # deleted.
+              name = "subagent-local2";
+              id = "test-local/tiny-4bit";
+            }
+          ];
+        };
         # The catalog side of that derivation. Keyed by physical model id, the
         # same shape options-catalog.nix builds from real entries.
         mlx.modelContextWindows = {

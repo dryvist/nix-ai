@@ -48,12 +48,22 @@ let
   contextFallbacksAreExplicit = lib.all (t: lib.elem t renderedGroups) contextFallbackTargets;
 
   # The last rung in the rendered model_list is the terminal one.
-  terminalEntry = lib.last rendered.model_list;
+  #
+  # `lib.last` THROWS on an empty list, which would abort evaluation with a
+  # builtins error instead of failing this check with its own message — turning
+  # the most degenerate case (nothing rendered at all) into the least legible
+  # one. Guard it so an empty or missing model_list falls through to a normal
+  # failing check.
+  renderedList = rendered.model_list or [ ];
+  terminalEntry = if renderedList == [ ] then { } else lib.last renderedList;
   terminalParams = terminalEntry.litellm_params or { };
   # A bare wildcard passes the caller's own group name through. Acceptable only
   # when the terminal rung IS the group consumers address; the fixture declares
   # local rungs, so here it must name the router's group explicitly.
-  terminalNamesUpstreamGroup = (terminalParams.model or "openai/*") != "openai/*";
+  # An absent model_list has no terminal rung, so it cannot be naming an
+  # upstream group: fail rather than pass vacuously.
+  terminalNamesUpstreamGroup =
+    renderedList != [ ] && (terminalParams.model or "openai/*") != "openai/*";
 
   retriesConfigured = (settings.num_retries or 0) > 0;
 
@@ -138,5 +148,9 @@ let
   firstFallbackFailure = lib.findFirst (c: !c.ok) null fallbackTierChecks;
 in
 {
-  inherit firstFallbackFailure;
+  # `terminalNamesUpstreamGroup` is exported for lib/checks/
+  # litellm-local-negative.nix only. `firstFallbackFailure` stops at the
+  # first failing check, and an empty model_list fails an earlier one, so the
+  # empty-list guard on `lib.last` is unreachable through it.
+  inherit firstFallbackFailure terminalNamesUpstreamGroup;
 }
