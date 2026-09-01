@@ -109,18 +109,8 @@ let
   };
   inherit (commands)
     fallbackProbe
-    tierRefresh
-    tierRefreshJob
-    tierRefreshScript
     proxyScript
     ;
-
-  refreshCfg = cfg.tierRefresh;
-  refreshCandidates =
-    if refreshCfg.checkout == null then
-      null
-    else
-      "${refreshCfg.checkout}/modules/litellm-local/tier-candidates.json";
 
 in
 {
@@ -142,17 +132,10 @@ in
           assertion = aiStack.llmEndpointTokenFile != null && aiStack.llmEndpointTokenFile != "";
           message = "programs.litellmLocal.enable requires services.aiStack.llmEndpointTokenFile: the proxy runs as a launchd agent, which has no shell init, so services.aiStack.llmEndpointBearerFromEnv cannot reach it. Point llmEndpointTokenFile at the file holding the router bearer.";
         }
-        {
-          assertion = !refreshCfg.enable || refreshCfg.checkout != null;
-          message = "programs.litellmLocal.tierRefresh.enable requires tierRefresh.checkout: the refresh rewrites tier-candidates.json in a working copy, and the Nix store copy is read-only, so a job with no checkout would fail after both network fetches rather than before them.";
-        }
       ]
       ++ fallbackTier.assertions;
 
-      home.packages = [
-        fallbackProbe
-        tierRefresh
-      ];
+      home.packages = [ fallbackProbe ];
 
       launchd.agents = import ./launchd.nix {
         inherit
@@ -162,9 +145,6 @@ in
           aiStack
           proxyScript
           telemetryTracesEndpoint
-          tierRefreshJob
-          tierRefreshScript
-          refreshCandidates
           ;
       };
 

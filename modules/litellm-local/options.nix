@@ -37,14 +37,12 @@ in
         forwarded credential, and never touches the router leg. No third-party
         egress, so no data-retention question to answer.
 
-        `router` points subagents at the generated cost-ordered tier in
-        ./fallback-tier.nix, which egresses to OpenRouter. That path is opt-in
-        on purpose. Two constraints make it unsuitable as a default: every
-        endpoint meeting the 512k floor AND a zero-data-retention policy is
-        PAID (the free head the tier policy assumes does not exist at that
-        window — verified against OpenRouter's /api/v1/endpoints/zdr), and a
-        role that quietly bills turns a backend outage into spend nobody
-        chose.
+        `router` points subagents at the tier in ./fallback-tier.nix: this
+        host's own models first, then the shared router as the terminal rung.
+        That path is opt-in on purpose. A local rung serves at no cost, but a
+        request that overflows its window escapes to the terminal rung, and
+        what the router does behind that — including whether it bills — is
+        configured there rather than here.
       '';
     };
 
@@ -179,46 +177,6 @@ in
         CLI consumers read this instead of composing the loopback URL
         themselves, so the port is declared once.
       '';
-    };
-
-    tierRefresh = {
-      enable = lib.mkEnableOption ''
-        a periodic re-ranking of the subagent fallback tier against the live
-        model catalog and the router's served set.
-
-        The job only rewrites `tier-candidates.json` in a working copy; nothing
-        reaches the running proxy until the next rebuild. That ordering is
-        deliberate — the job proposes a re-ranking and logs whether the
-        selection moved, and a human converges it. A timer that silently
-        repointed live subagent traffic would reintroduce the failure the
-        chain exists to remove: nobody notices the model changed
-      '';
-
-      checkout = lib.mkOption {
-        type = lib.types.nullOr lib.types.str;
-        default = null;
-        example = "/Users/you/git/nix-ai";
-        description = ''
-          Absolute path to a working copy of this repository. The refresh
-          rewrites `modules/litellm-local/tier-candidates.json` inside it.
-
-          Required when `tierRefresh.enable` is set, and it must be a checkout
-          rather than the Nix store path: the store copy is read-only, so a
-          job pointed at it would fail at the last step, after both network
-          fetches. The job fails loudly when this path does not exist.
-        '';
-      };
-
-      interval = lib.mkOption {
-        type = lib.types.ints.positive;
-        default = 86400;
-        description = ''
-          Seconds between refreshes. Daily by default: two HTTP GETs is cheap,
-          and it matches how fast the catalog actually moves — prices were
-          observed drifting within a single day, and a model's availability
-          within a week.
-        '';
-      };
     };
 
     renderedConfig = lib.mkOption {

@@ -20,12 +20,8 @@
   aiStack,
   proxyScript,
   telemetryTracesEndpoint,
-  tierRefreshJob,
-  tierRefreshScript,
-  refreshCandidates,
 }:
 let
-  refreshCfg = cfg.tierRefresh;
   logDir = "${config.home.homeDirectory}/Library/Logs/litellm-local";
 in
 {
@@ -73,38 +69,4 @@ in
     };
   };
 
-  # Periodic re-ranking. Separate agent from the proxy on purpose: the
-  # proxy is KeepAlive and must never restart because a refresh failed,
-  # and the refresh is a short interval job that must be allowed to fail
-  # without taking traffic with it.
-  litellm-tier-refresh = lib.mkIf refreshCfg.enable {
-    enable = true;
-    config = {
-      Label = "dev.litellm-tier-refresh";
-      ProgramArguments = [
-        "${lib.getExe tierRefreshJob}"
-        refreshCandidates
-        "${tierRefreshScript}"
-      ];
-      StartInterval = refreshCfg.interval;
-      # Not at load: a rebuild already re-reads the file it would rewrite,
-      # so firing on every login adds two network round trips and no
-      # information.
-      RunAtLoad = false;
-      ProcessType = "Background";
-      LowPriorityIO = true;
-      Nice = 10;
-      EnvironmentVariables = {
-        HOME = config.home.homeDirectory;
-        # Both are non-secret — an address and a PATH. The bearer itself is
-        # read from that file at exec time by the refresh script, never
-        # placed in a launchd environment, matching the proxy agent and the
-        # assertion in lib/checks/litellm-local.nix.
-        LLM_ROUTER_URL = aiStack.llmRouterEndpoint;
-        LLM_ROUTER_TOKEN_FILE = toString aiStack.llmEndpointTokenFile;
-      };
-      StandardOutPath = "${logDir}/tier-refresh.log";
-      StandardErrorPath = "${logDir}/tier-refresh.error.log";
-    };
-  };
 }
