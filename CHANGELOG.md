@@ -1,5 +1,21 @@
 # Changelog
 
+## [4.36.0](https://github.com/dryvist/nix-ai/compare/v4.35.0...v4.36.0) (2026-09-01)
+
+
+### Features
+
+* **litellm-local:** serve local models first, shared router as terminal rung ([#1877](https://github.com/dryvist/nix-ai/issues/1877)) ([d6d3852](https://github.com/dryvist/nix-ai/commit/d6d3852e743114596943e7ad496279beea46851d))
+* **mlx:** make vllm-mlx selectable so a batched lane can exist ([#1883](https://github.com/dryvist/nix-ai/issues/1883)) ([3680ced](https://github.com/dryvist/nix-ai/commit/3680cedff772b97e111d13ac85c461e75956e0c3))
+* **mlx:** page on a wedged model when the backend has no engine metrics ([#1879](https://github.com/dryvist/nix-ai/issues/1879)) ([467dc13](https://github.com/dryvist/nix-ai/commit/467dc136dfe264ffaa1bdc3bf38f386f1246ed0d))
+
+
+### Bug Fixes
+
+* **litellm-local:** derive each local rung's context window from the mlx catalog ([#1882](https://github.com/dryvist/nix-ai/issues/1882)) ([2793a4d](https://github.com/dryvist/nix-ai/commit/2793a4d0e56022a4179cfb0ab8d6f5dcd0a29cfe))
+* **mlx:** clear the wedge streak on a tick with no healthy sibling ([#1886](https://github.com/dryvist/nix-ai/issues/1886)) ([2b4e812](https://github.com/dryvist/nix-ai/commit/2b4e812be5f0219114c228bc322019f52f04417a))
+* **mlx:** derive continuousBatching's default from the backend ([#1884](https://github.com/dryvist/nix-ai/issues/1884)) ([e607d6b](https://github.com/dryvist/nix-ai/commit/e607d6be6e02019bb8fcee7f65e0c50d3d1115dd))
+
 ## [4.35.0](https://github.com/dryvist/nix-ai/compare/v4.34.0...v4.35.0) (2026-09-01)
 
 
