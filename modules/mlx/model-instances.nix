@@ -13,6 +13,7 @@
   lib,
   cfg,
   mkModelCmd,
+  backendFor,
   effectiveConcurrency,
   workerEnv,
   defaultFilters,
@@ -20,6 +21,35 @@
 }:
 let
   proxyUrl = "http://127.0.0.1:\${PORT}";
+
+  # Catalog `args` (options-catalog.nix -> modelExtraArgs / models.*.extraArgs)
+  # are backend-neutral: one entry declares chat-template kwargs once and is
+  # served by whichever backend the host selected. The backends do not spell
+  # those flags the same way, and an unknown flag is not ignored -- the worker
+  # exits at startup with
+  #   vllm-mlx: error: unrecognized arguments: --chat-template-args {...}
+  # so every worker llama-swap starts dies immediately and the tier answers
+  # 500. Rename here, the one place the resolved backend and the raw arg list
+  # are both in hand.
+  #
+  # --chat-template-args (mlx_lm.server) and --default-chat-template-kwargs
+  # (vllm-mlx >= 0.4.1) take the identical JSON object, so this is a pure
+  # rename with no semantic loss; only the flag token differs.
+  #
+  # Matching on the bare token is correct for both call sites below: the swap
+  # path's args arrive already run through lib.escapeShellArg, which returns
+  # shell-safe tokens like this one unquoted.
+  extraArgRenames = {
+    vllm-mlx = {
+      "--chat-template-args" = "--default-chat-template-kwargs";
+    };
+  };
+  adaptExtraArgs =
+    modelId: args:
+    let
+      renames = extraArgRenames.${backendFor modelId} or { };
+    in
+    if renames == { } then args else map (tok: renames.${tok} or tok) args;
 
   # useModelName makes llama-swap rewrite the OpenAI-compatible request body's
   # `model` field to the physical model id before forwarding to the MLX server.
@@ -38,7 +68,7 @@ let
   registryModels = lib.mapAttrs (
     physical: roles:
     let
-      extraArgs = cfg.modelExtraArgs.${physical} or [ ];
+      extraArgs = adaptExtraArgs physical (cfg.modelExtraArgs.${physical} or [ ]);
     in
     {
       cmd =
@@ -69,7 +99,7 @@ let
       cmd =
         mkModelCmd name
         + lib.optionalString (modelCfg.extraArgs != [ ]) (
-          " " + lib.concatStringsSep " " modelCfg.extraArgs
+          " " + lib.concatStringsSep " " (adaptExtraArgs name modelCfg.extraArgs)
         );
       ttl = if modelCfg.ttl > 0 then modelCfg.ttl else cfg.proxy.idleTtl;
       env = workerEnv name;

@@ -18,6 +18,14 @@ rec {
   # 1, and the excess came back as HTTP 429 (2026-07-24 cron kills).
   effectiveConcurrency = modelId: cfg.modelConcurrencyLimits.${modelId} or cfg.proxy.concurrencyLimit;
 
+  # Per-model backend resolution, exported so mkModelCmd and model-instances.nix
+  # share one answer: the latter needs it to decide how the catalog's
+  # backend-neutral extraArgs must be spelled for that backend, and a second
+  # copy of the `or` chain there would drift from the flag builder it must agree
+  # with. worker-env.nix and assertions.nix still inline the same expression —
+  # folding those in is a separate change, not part of this fix.
+  backendFor = modelId: cfg.modelBackends.${modelId} or cfg.modelServerBackend;
+
   # Build the selected serving command for a given model ID.
   # Global option values may be replaced per physical model via
   # modelFlagOverrides; every override key must appear in overridableFlags —
@@ -52,7 +60,7 @@ rec {
   mkModelCmd =
     modelId:
     let
-      backend = cfg.modelBackends.${modelId} or cfg.modelServerBackend;
+      backend = backendFor modelId;
       mtp =
         cfg.modelMtpProfiles.${modelId} or {
           enable = false;
