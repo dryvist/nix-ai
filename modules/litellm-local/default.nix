@@ -131,6 +131,7 @@ let
   };
   inherit (commands)
     fallbackProbe
+    fallbackWatch
     proxyScript
     ;
 
@@ -166,6 +167,7 @@ in
           cfg
           aiStack
           proxyScript
+          fallbackWatch
           telemetryTracesEndpoint
           ;
       };
