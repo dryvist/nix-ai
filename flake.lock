@@ -310,6 +310,23 @@
         "type": "github"
       }
     },
+    "claude-swap": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1786474943,
+        "narHash": "sha256-BDfwyH7h7Ii7QYaunHDnf0Epk5nUEd8OdOH3QCf1CJU=",
+        "owner": "realiti4",
+        "repo": "claude-swap",
+        "rev": "9f625064763d3fb04cbe31e90a7f3f9ef123df99",
+        "type": "github"
+      },
+      "original": {
+        "owner": "realiti4",
+        "ref": "v0.25.0",
+        "repo": "claude-swap",
+        "type": "github"
+      }
+    },
     "context-engineering-kit": {
       "flake": false,
       "locked": {
@@ -701,6 +718,7 @@
         "claude-cookbooks": "claude-cookbooks",
         "claude-plugins-official": "claude-plugins-official",
         "claude-skills": "claude-skills",
+        "claude-swap": "claude-swap",
         "dryvist-github": "dryvist-github",
         "fabric-src": [
           "fabric-src"
@@ -726,11 +744,11 @@
         "wakatime": "wakatime"
       },
       "locked": {
-        "lastModified": 1788152415,
-        "narHash": "sha256-EaSyKDKcxN5IbP8Ol/gQM0/4F2VrzvlP0YW/Gl3R/zI=",
+        "lastModified": 1788266794,
+        "narHash": "sha256-a9XMTnvU4MW6PBffwOcdrvo3trvbSsaXv4KqWUSdcmk=",
         "owner": "dryvist",
         "repo": "nix-claude-code",
-        "rev": "4c743aca6b838f88ac3197edad52a81c6ff191db",
+        "rev": "537ca45e3381893e72843a1734af0e5023815f3c",
         "type": "github"
       },
       "original": {
