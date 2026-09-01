@@ -146,11 +146,19 @@ rec {
       message = "litellm-local: fallback-tier rung names must be unique.";
     }
     {
-      assertion = lib.all (m: m ? contextWindow && m.contextWindow > 0) localModels;
+      # `!= null` FIRST, and Nix's `&&` short-circuits: a null contextWindow
+      # reaching `> 0` throws an opaque type error from deep in the module
+      # system instead of this message, which is precisely the case an operator
+      # is most likely to hit (a model id the mlx catalog does not serve).
+      assertion = lib.all (m: (m.contextWindow or null) != null && m.contextWindow > 0) localModels;
       message =
-        "litellm-local: every local rung must declare contextWindow. Without "
-        + "it LiteLLM cannot detect an overflow, and an oversized request is "
-        + "truncated by the model instead of escaping to the terminal rung.";
+        "litellm-local: every local rung needs a contextWindow, and one rung "
+        + "has none. It is normally DERIVED from programs.mlx.modelContextWindows, "
+        + "so the usual cause is naming an `id` the mlx catalog does not serve "
+        + "-- check the id, or set contextWindow explicitly for a model served "
+        + "outside the catalog. Without it LiteLLM cannot detect an overflow, "
+        + "and an oversized request is truncated by the model instead of "
+        + "escaping to the terminal rung.";
     }
     {
       # THE DRY GUARD. This is the assertion that keeps the duplication from
