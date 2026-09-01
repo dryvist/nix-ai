@@ -5,6 +5,7 @@
       "release-type": "simple",
       "version-file": "VERSION",
       "include-v-in-tag": true,
+      "draft": true,
       "changelog-sections": [
         {"type": "feat", "section": "Features"},
         {"type": "fix", "section": "Bug Fixes"},
