@@ -24,14 +24,18 @@ in
     assert
       builtins.elem c.modelServerBackend c.enabledBackends
       || throw "catalog: the selected modelServerBackend must be listed in enabledBackends";
-    # NOT asserted here, deliberately, and worth knowing why:
-    # programs.mlx.continuousBatching DEFAULTS TO TRUE while the mlx-lm flag
-    # builder emits no --continuous-batching at all. So today's config reads as
-    # "batching on" against a backend that cannot batch, and nothing surfaces
-    # the discrepancy -- which is how a serial tier gets mistaken for Lane A.
-    # A guard rejecting that combination fails every current mlx-lm host, so it
-    # belongs with the fix (make the default backend-aware), not with the change
-    # that merely lifts the vllm-mlx deny. Tracked separately.
-    helpers.mkMarker "check-mlx-backend-selection"
-      "MLX backend selection: the selected backend is enabled, and the batching-default gap is documented where a reader will hit it";
+    # Now assertable, because continuousBatching's default is backend-derived.
+    # It used to be a flat `true`, so this guard would have failed every mlx-lm
+    # host and had to be deferred; with the default telling the truth, the only
+    # way to trip it is an explicit override asking a backend for batching it
+    # cannot perform.
+    #
+    # Why it matters: only the vllm-mlx flag builder emits
+    # --continuous-batching. Setting it on mlx-lm yields a SERIAL server whose
+    # config claims to batch, which is how a serial tier gets mistaken for a
+    # batched one.
+    assert
+      (c.continuousBatching -> c.modelServerBackend == "vllm-mlx")
+      || throw "catalog: continuousBatching is set on ${c.modelServerBackend}, which emits no --continuous-batching flag. The server would run serial while the config claims batching -- set the backend to vllm-mlx or leave continuousBatching at its derived default.";
+    helpers.mkMarker "check-mlx-backend-selection" "MLX backend selection: the selected backend is enabled, and batching is only claimed on a backend that can perform it";
 }

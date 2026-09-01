@@ -117,9 +117,14 @@ in
         expected = null;
       }
       {
+        # DERIVED from the backend, not a constant. It was a flat `true`, which
+        # meant an mlx-lm host's config read "batching on" against a builder
+        # that emits no --continuous-batching at all -- a config that described
+        # a capability the server did not have. This fixture selects mlx-lm, so
+        # false is the truthful value; a vllm-mlx host gets true.
         name = "mlx.continuousBatching";
         actual = mlxCfg.continuousBatching;
-        expected = true;
+        expected = mlxCfg.modelServerBackend == "vllm-mlx";
       }
       {
         name = "mlx.maxNumSeqs";

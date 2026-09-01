@@ -5,18 +5,34 @@
 # 0.2.9 fixed the 0.2.8 MLLM detection bug for Qwen3-class models, so
 # continuous batching + maxNumSeqs are now defaults rather than opt-in.
 #
-{ lib, ... }:
+{ lib, config, ... }:
 {
   options.programs.mlx = {
     # continuousBatching — Enable continuous batching (--continuous-batching).
     # Improves multi-user throughput by interleaving prefill and decode across
-    # requests. The 0.2.8 MLLM-detection bug for Qwen3-class models is fixed
-    # in 0.2.9, so this is now safe to default on. Pairs with maxNumSeqs to
-    # bound concurrent memory pressure.
+    # requests. Pairs with maxNumSeqs to bound concurrent memory pressure.
+    #
+    # THE DEFAULT IS BACKEND-DERIVED, and that is the point. Only the vllm-mlx
+    # flag builder emits --continuous-batching; the mlx-lm builder emits no
+    # such flag at all (modules/mlx/model-server-cmd.nix). A flat `default =
+    # true` therefore made every mlx-lm host's config read "batching on"
+    # against a server that cannot batch, with nothing anywhere surfacing the
+    # discrepancy.
+    #
+    # That is not a cosmetic mismatch. It is how a serial tier gets mistaken
+    # for a batched one: on 2026-09-01 the mlx-lm tier was driven at 4-way
+    # concurrency and produced 16.8s / 21.1s / 79.1s against a ~12s serial
+    # baseline with one request never returning -- queueing and stalling, from
+    # a config that claimed continuous batching was enabled.
+    #
+    # Deriving it means the value is true exactly when it is honoured, so the
+    # config states what the server does rather than what was asked for. No
+    # behaviour changes for an mlx-lm host: the flag was already ignored there.
     continuousBatching = lib.mkOption {
       type = lib.types.bool;
-      default = true;
-      description = "Enable continuous batching. Better throughput across concurrent requests.";
+      default = config.programs.mlx.modelServerBackend == "vllm-mlx";
+      defaultText = lib.literalExpression "modelServerBackend == \"vllm-mlx\"";
+      description = "Enable continuous batching. Defaults to whether the selected backend can actually honour it.";
     };
 
     # defaultRepetitionPenalty — server-side default
