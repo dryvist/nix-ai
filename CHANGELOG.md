@@ -1,5 +1,19 @@
 # Changelog
 
+## [4.35.0](https://github.com/dryvist/nix-ai/compare/v4.34.0...v4.35.0) (2026-09-01)
+
+
+### Features
+
+* **claude:** enable Claude Swap ([e239282](https://github.com/dryvist/nix-ai/commit/e23928253a1bdc79b3b43ff1ff7b8e6ffd5bf9d7))
+* **claude:** enable Claude Swap ([f29c0f4](https://github.com/dryvist/nix-ai/commit/f29c0f49333b6791566f03f53e6c6831051edf91))
+* **mlx:** stamp a timestamp on the proxy's own log lines ([#1875](https://github.com/dryvist/nix-ai/issues/1875)) ([b4749bd](https://github.com/dryvist/nix-ai/commit/b4749bda5fda0f857c8cfff54be619a5bc8676cd))
+
+
+### Bug Fixes
+
+* **deps:** update dependency mlx to v0.32.2 ([#1872](https://github.com/dryvist/nix-ai/issues/1872)) ([ce172a4](https://github.com/dryvist/nix-ai/commit/ce172a489073312275aa83bed6d23cd7595892bc))
+
 ## [4.34.0](https://github.com/dryvist/nix-ai/compare/v4.33.0...v4.34.0) (2026-08-31)
 
 
