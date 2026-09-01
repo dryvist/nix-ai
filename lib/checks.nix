@@ -137,6 +137,7 @@ in
     hmConfigLitellmLocal
     ;
 })
+// (import ./checks/litellm-local-negative.nix { inherit pkgs mkHmConfig; })
 // (import ./checks/fabric.nix {
   inherit
     pkgs

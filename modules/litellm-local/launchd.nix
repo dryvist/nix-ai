@@ -19,10 +19,15 @@
   cfg,
   aiStack,
   proxyScript,
+  fallbackWatch,
   telemetryTracesEndpoint,
 }:
 let
   logDir = "${config.home.homeDirectory}/Library/Logs/litellm-local";
+  # Same operator-seeded pager the mlx watchdog uses. Deliberately the SAME
+  # file: a host with a pager configured should not have to seed a second one
+  # to learn that its fallback chain died.
+  alertUrlFile = "${config.home.homeDirectory}/.config/mlx-cluster/alert-url";
 in
 {
   litellm-local = {
@@ -69,4 +74,34 @@ in
     };
   };
 
+  # ALERT ON ABSENCE OF SUCCESS. KeepAlive above restarts the proxy only when
+  # the process EXITS, so every "up but not serving" mode is invisible to
+  # launchd — and a fallback rung that 404s every request keeps the proxy
+  # perfectly healthy. Config inspection cannot see it either: a rung's params
+  # can render exactly right and still name a group the upstream does not
+  # serve.
+  #
+  # So this sends a REAL completion to every rung on an interval and pages when
+  # one stops answering. Its own agent, not folded into the proxy: this reaches
+  # the network and must never be able to restart something that was serving
+  # fine.
+  litellm-fallback-watch = {
+    enable = true;
+    config = {
+      Label = "dev.litellm-fallback-watch";
+      ProgramArguments = [ "${fallbackWatch}/bin/litellm-fallback-watch" ];
+      # Not RunAtLoad: a converge bounces the proxy, and probing it mid-restart
+      # would page on the restart rather than on a dead rung.
+      RunAtLoad = false;
+      StartInterval = 900;
+      ProcessType = "Background";
+      EnvironmentVariables = {
+        HOME = config.home.homeDirectory;
+        LITELLM_LOCAL_URL = "http://127.0.0.1:${toString cfg.port}";
+        LITELLM_ALERT_URL_FILE = alertUrlFile;
+      };
+      StandardOutPath = "${logDir}/fallback-watch.log";
+      StandardErrorPath = "${logDir}/fallback-watch.error.log";
+    };
+  };
 }

@@ -47,6 +47,24 @@ let
   );
   contextFallbacksAreExplicit = lib.all (t: lib.elem t renderedGroups) contextFallbackTargets;
 
+  # The last rung in the rendered model_list is the terminal one.
+  #
+  # `lib.last` THROWS on an empty list, which would abort evaluation with a
+  # builtins error instead of failing this check with its own message — turning
+  # the most degenerate case (nothing rendered at all) into the least legible
+  # one. Guard it so an empty or missing model_list falls through to a normal
+  # failing check.
+  renderedList = rendered.model_list or [ ];
+  terminalEntry = if renderedList == [ ] then { } else lib.last renderedList;
+  terminalParams = terminalEntry.litellm_params or { };
+  # A bare wildcard passes the caller's own group name through. Acceptable only
+  # when the terminal rung IS the group consumers address; the fixture declares
+  # local rungs, so here it must name the router's group explicitly.
+  # An absent model_list has no terminal rung, so it cannot be naming an
+  # upstream group: fail rather than pass vacuously.
+  terminalNamesUpstreamGroup =
+    renderedList != [ ] && (terminalParams.model or "openai/*") != "openai/*";
+
   retriesConfigured = (settings.num_retries or 0) > 0;
 
   # The main tier gets retries and a context-window repair, never a silent
@@ -104,6 +122,24 @@ let
         + builtins.toJSON derivedWindow;
     }
     {
+      # The terminal rung is a wildcard passthrough, so LiteLLM forwards the
+      # REQUESTED group name upstream. While the rung is named
+      # `subagent-homelab`, forwarding that name reaches a router that does not
+      # serve it: the rung then 404s as a fallback AND when addressed directly,
+      # so the chain ends on something that cannot answer. Observed live on a
+      # converged host before this check existed.
+      #
+      # Asserting the rendered param, not the option, because the option can be
+      # set and still not reach the config.
+      ok = terminalNamesUpstreamGroup;
+      msg =
+        "the terminal rung must forward a group the shared router serves, not "
+        + "pass through its own name: with local rungs declared the rung is "
+        + "named `subagent-homelab`, and `openai/*` forwards THAT upstream, "
+        + "which 404s. Rendered terminal params: "
+        + builtins.toJSON terminalParams;
+    }
+    {
       ok = mainTierNotInFallbacks;
       msg = "the main Anthropic tier must not appear as a fallback source group: it gets retries and a context-window repair, never a silent quality swap";
     }
@@ -112,5 +148,9 @@ let
   firstFallbackFailure = lib.findFirst (c: !c.ok) null fallbackTierChecks;
 in
 {
-  inherit firstFallbackFailure;
+  # `terminalNamesUpstreamGroup` is exported for lib/checks/
+  # litellm-local-negative.nix only. `firstFallbackFailure` stops at the
+  # first failing check, and an empty model_list fails an earlier one, so the
+  # empty-list guard on `lib.last` is unreachable through it.
+  inherit firstFallbackFailure terminalNamesUpstreamGroup;
 }
