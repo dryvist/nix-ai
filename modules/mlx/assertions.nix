@@ -16,9 +16,30 @@ in
     # modelMtpProfiles entry was rejected and the option was dead code. Same
     # intent, without forbidding the per-model overrides the OCR entry already
     # relies on. Full account in lib/checks/mlx-mtp-reachable.nix.
+    # Until 2026-09-01 this denied vllm-mlx outright ("preserved but
+    # disabled"). That posture is lifted, because the reason for it was the
+    # cost of switching and the reason against it is now measured: on
+    # 2026-09-01 the mlx-lm tier was driven at 4-way concurrency and produced
+    # 16.8s / 21.1s / 79.1s against a ~12s serial baseline, with one request
+    # never returning at all. Flat-ish latency under concurrency is what a
+    # batching server produces; that is queueing plus stalling. A stalled
+    # request also never fires llama-swap's deferred completion callback, so
+    # its admission reservation is never released -- which is the instant-429
+    # the agent fleet has been hitting.
+    #
+    # So the deny is replaced by coherence guards rather than removed: the
+    # selected backend must actually be enabled, and the vllm-only coupling
+    # assertions below still bind. Selecting vllm-mlx remains a HOST decision;
+    # nothing here changes which backend a host runs.
     {
-      assertion = cfg.modelServerBackend == "mlx-lm" && !(lib.elem "vllm-mlx" cfg.enabledBackends);
-      message = "programs.mlx.modelServerBackend must stay mlx-lm and enabledBackends must not list vllm-mlx; vllm-mlx remains preserved but disabled.";
+      assertion = lib.elem cfg.modelServerBackend cfg.enabledBackends;
+      message =
+        "programs.mlx.modelServerBackend (${cfg.modelServerBackend}) must be "
+        + "listed in programs.mlx.enabledBackends "
+        + "(${lib.concatStringsSep ", " cfg.enabledBackends}). Selecting a "
+        + "backend that was never enabled builds a launchd command against a "
+        + "server binary the closure does not contain, and fails at exec time "
+        + "rather than at evaluation.";
     }
     {
       assertion = cfg.singleModel == null || builtins.hasAttr cfg.singleModel allModels;

@@ -83,12 +83,6 @@ in
     assert
       c.modelContextWindows.${qwen36} == 65536
       || throw "catalog: Qwen3.6 must advertise its 65536-token declared window";
-    assert
-      c.modelServerBackend == "mlx-lm"
-      || throw "catalog: the goal judge must use the selected mlx_lm.server deployment path";
-    assert
-      c.enabledBackends == [ "mlx-lm" ]
-      || throw "catalog: official mlx-lm must be the only enabled backend; vllm-mlx must remain preserved but disabled";
     # The watchdog is the only thing that notices a proxy that is up but not
     # serving, so on a host with a resident set it MUST be running. This used
     # to assert the opposite — that it stay disabled — back when its busy
