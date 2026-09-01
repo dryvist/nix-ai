@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.38.0](https://github.com/dryvist/nix-ai/compare/v4.37.0...v4.38.0) (2026-09-01)
+
+
+### Features
+
+* **claude:** trim the per-session surface — eighteen unused plugins, duplicate and unreachable MCP servers ([#1895](https://github.com/dryvist/nix-ai/issues/1895)) ([1a4acea](https://github.com/dryvist/nix-ai/commit/1a4aceaa400a1aee7b6e7dd06f839de21d875854))
+
 ## [4.37.0](https://github.com/dryvist/nix-ai/compare/v4.36.0...v4.37.0) (2026-09-01)
 
 
