@@ -77,9 +77,18 @@ let
   # "3.14" -> "cp314", the wheel's interpreter/ABI tag.
   cpTag = "cp" + (pkgs.lib.replaceStrings [ "." ] [ "" ] py.pythonVersion);
 
-  # Hashes are per (version, platform). Both wheels move together with the mlx
-  # pin in lib/versions.nix; bumping the pin without updating these fails the
-  # build loudly rather than silently resolving something else.
+  # Keyed by mlx VERSION ONLY, and valid for the default wheelPlatform above.
+  # A caller that overrides wheelPlatform fetches a different wheel while this
+  # map still hands back the default platform's hash, so the fetch fails on a
+  # hash mismatch. That is loud, not silent — nix verifies the hash — but it is
+  # a mismatch error rather than a message about the override, so: overriding
+  # wheelPlatform means supplying hashes for that platform too. No platform
+  # dimension is modelled here because every host this serves resolves the same
+  # target; add one when that stops being true rather than in advance.
+  #
+  # Both wheels move together with the mlx pin in lib/versions.nix; bumping the
+  # pin without updating these fails the build loudly rather than silently
+  # resolving something else.
   #
   # THE PIN AND THIS TABLE ARE UPDATED BY DIFFERENT HANDS. Renovate moves
   # versions.mlx on its own and knows nothing about this map, so an automated
@@ -108,6 +117,8 @@ let
     };
   };
 
+  # The message names the platform actually in effect, so an override that
+  # needs its own hashes says which target to prefetch for.
   hashes =
     wheelHashes.${versions.mlx}
       or (throw "python-overlay.nix: no wheel hashes for mlx ${versions.mlx}. Add them to wheelHashes (nix-prefetch-url the cp${cpTag}/${wheelPlatform} wheels from PyPI).");
