@@ -116,6 +116,10 @@ in
     programs.claude = {
       enable = true;
 
+      # nix-claude-code keeps account switching disabled by default. This
+      # workstation stack opts into its manual switch and parallel-session CLI.
+      swap.disabled = false;
+
       # Binary comes from llm-agents.nix, which packages claude-code for
       # aarch64-darwin AND x86_64-linux. It used to be the claude-code@latest
       # Homebrew cask, which is why nothing but the Mac could run this stack.
