@@ -42,6 +42,7 @@ in
         "settings"
         "showTurnDuration"
         "skills"
+        "swap"
         "statusline"
         "teammateMode"
         "trustedProjectDirs"
@@ -155,6 +156,11 @@ in
         name = "apiKeyHelper.enable";
         actual = cfg.apiKeyHelper.enable;
         expected = true;
+      }
+      {
+        name = "swap.disabled";
+        actual = cfg.swap.disabled;
+        expected = false;
       }
     ];
   };

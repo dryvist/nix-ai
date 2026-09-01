@@ -10,7 +10,7 @@
   # Older pins left typer unbounded (>=0.20.0), floating to 0.26.x which vendored
   # click and dropped the external dep the hf CLI imports → ModuleNotFoundError.
   # renovate: datasource=pypi depName=huggingface-hub
-  huggingfaceHub = "1.27.0";
+  huggingfaceHub = "1.29.0";
   # renovate: datasource=pypi depName=huggingface-mcp-server
   hfMcpServer = "0.1.0";
 
@@ -124,7 +124,7 @@
   # mlx-server/pyproject.toml must track this value; it is a dev environment no
   # build consumes, so drift there is invisible.
   # renovate: datasource=pypi depName=mlx
-  mlx = "0.32.0";
+  mlx = "0.32.2";
   # renovate: datasource=pypi depName=mlx-lm
   mlxLm = "0.31.3";
   # renovate.json5 blocks the exact 5.13.0 build via allowedVersions — that
@@ -132,7 +132,7 @@
   # string key mlx-lm passes), taking every worker down. The rule there carries
   # the reproduction detail.
   # renovate: datasource=pypi depName=transformers
-  transformers = "5.15.0";
+  transformers = "5.16.1";
   # renovate: datasource=pypi depName=lm-eval
   lmEval = "0.4.12";
 
