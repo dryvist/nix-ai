@@ -6,6 +6,7 @@
   vct-splunk-cli,
   nixosConfigurations,
   herdr-remote-src,
+  herdr-hail-src,
 }:
 
 forAllSystems (
@@ -23,6 +24,14 @@ forAllSystems (
   in
   {
     fabric-ai = pkgs.callPackage ../modules/fabric/package.nix { inherit fabric-src; };
+
+    # All systems, unlike the two linux-only entries below: hail is portable
+    # node and the point of exposing it is that CI can BUILD it. A module
+    # default is only ever evaluated, and an npm lockfile hash that has never
+    # been fetched is one that is wrong without anything saying so.
+    herdr-hail = pkgs.callPackage ../modules/herdr-hail/package.nix {
+      src = herdr-hail-src;
+    };
     cecli = cecliPkg;
     inherit (cecliPkg.passthru) mcp;
     inherit (vctCliPkgs) vct-cribl-cli vct-splunk-cli;

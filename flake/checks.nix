@@ -117,9 +117,7 @@ in
         let
           inherit (nixpkgs) lib;
           text = builtins.readFile "${herdr-remote-src}/relay/herdr_relay.py";
-          depLines = builtins.filter (l: lib.hasInfix "dependencies = [" l) (
-            lib.splitString "\n" text
-          );
+          depLines = builtins.filter (l: lib.hasInfix "dependencies = [" l) (lib.splitString "\n" text);
           # A missing block means upstream restructured the header. Fail loudly
           # rather than silently comparing against an empty list, which would
           # pass only when our own list was empty too.
@@ -135,9 +133,9 @@ in
           # exactly the quoted requirement strings. Deliberately NOT a bracket
           # regex -- `[^]]` is valid POSIX but libstdc++'s ERE engine, which is
           # what builtins.match uses, rejects it outright.
-          quoted = builtins.genList (
-            i: builtins.elemAt (lib.splitString "\"" depLine) (i * 2 + 1)
-          ) ((builtins.length (lib.splitString "\"" depLine) - 1) / 2);
+          quoted = builtins.genList (i: builtins.elemAt (lib.splitString "\"" depLine) (i * 2 + 1)) (
+            (builtins.length (lib.splitString "\"" depLine) - 1) / 2
+          );
           # "websockets>=14.0" -> "websockets": keep the distribution name,
           # drop every PEP 440 comparator.
           nameOf =
@@ -146,9 +144,7 @@ in
               m = builtins.match "([A-Za-z0-9_.-]+).*" req;
             in
             if m == null then null else builtins.head m;
-          upstream = lib.sort (a: b: a < b) (
-            builtins.filter (x: x != null) (map nameOf quoted)
-          );
+          upstream = lib.sort (a: b: a < b) (builtins.filter (x: x != null) (map nameOf quoted));
           ours = lib.sort (a: b: a < b) self.packages.${system}.herdr-remote-relay.pep723Deps;
         in
         if upstream == ours then

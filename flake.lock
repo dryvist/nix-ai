@@ -504,6 +504,23 @@
         "type": "github"
       }
     },
+    "herdr-hail-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1784424997,
+        "narHash": "sha256-OSHT5D3RhZku0ktBCYyu/XZvlw/6WsYnI5UTdx4pJF8=",
+        "owner": "natori-hrj",
+        "repo": "herdr-hail",
+        "rev": "9f7120be96cfcc511548eb446ee4ca8b52519b31",
+        "type": "github"
+      },
+      "original": {
+        "owner": "natori-hrj",
+        "repo": "herdr-hail",
+        "rev": "9f7120be96cfcc511548eb446ee4ca8b52519b31",
+        "type": "github"
+      }
+    },
     "herdr-remote-src": {
       "flake": false,
       "locked": {
@@ -903,6 +920,7 @@
         "context-engineering-kit": "context-engineering-kit",
         "dashmotion": "dashmotion",
         "fabric-src": "fabric-src",
+        "herdr-hail-src": "herdr-hail-src",
         "herdr-remote-src": "herdr-remote-src",
         "home-manager": "home-manager",
         "jacobpevans-cc-plugins": "jacobpevans-cc-plugins",

@@ -10,12 +10,13 @@
 {
   llm-agents,
   herdr-remote-src,
+  herdr-hail-src,
 }:
 {
   herdr = {
     imports = [ ../modules/herdr/nixos.nix ];
     _module.args = {
-      inherit llm-agents;
+      inherit llm-agents herdr-hail-src;
     };
   };
 
