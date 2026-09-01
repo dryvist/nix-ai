@@ -454,7 +454,13 @@ fi
 # worker is never torn down on a guess, and this does not loosen it: it adds
 # evidence, not a restart path. Converting a day of silence into a page within
 # minutes is the whole requirement; the restart is optional and stays gated.
-if (( ${#busy_nonbrain[@]} > 0 )) && [[ -n "$healthy_sibling" ]]; then
+# One rule, evaluated once and used by both the accrual below and the clear
+# loop after it, so "consecutive" cannot mean two different things in the two
+# places. See scripts/stuck-busy-streak.sh for why a tick without a healthy
+# sibling must CLEAR rather than hold.
+if [[ -n "$healthy_sibling" ]]; then sibling_flag=yes; else sibling_flag=no; fi
+stuck_busy_mode="$(stuck_busy_action yes "$sibling_flag")"
+if (( ${#busy_nonbrain[@]} > 0 )) && [[ "$stuck_busy_mode" == "accrue" ]]; then
   for m in "${busy_nonbrain[@]}"; do
     marker="${stuck_busy_dir}/$(printf '%s' "$m" | tr '/:' '__')"
     streak=$(( $(read_int "$marker") + 1 ))
@@ -527,13 +533,31 @@ if (( ${#busy_nonbrain[@]} > 0 )) && [[ -n "$healthy_sibling" ]]; then
     fi
   done
 fi
-# Any model that answered healthy is not wedged -- drop its streak so a
-# recovered worker does not page on a stale count.
+# Drop the streak of every non-brain model that did NOT accrue this tick --
+# both a model that answered healthy (recovered, must not page on a stale
+# count) and a model still busy with no healthy sibling to serve as the
+# control. The second case is the one that used to freeze instead of clearing.
+# Every decision is logged, including the no-op, so a streak that never
+# advances is visible rather than silent.
 for m in "${probe_models[@]}"; do
-  if [[ "$m" != "$brain_model" ]] && ! printf '%s\n' "${busy_nonbrain[@]:-}" | grep -qxF "$m"; then
-    rm -f "${stuck_busy_dir}/$(printf '%s' "$m" | tr '/:' '__')" \
-          "${stuck_busy_dir}/$(printf '%s' "$m" | tr '/:' '__').alerted"
+  [[ "$m" == "$brain_model" ]] && continue
+  if printf '%s\n' "${busy_nonbrain[@]:-}" | grep -qxF "$m"; then
+    model_busy=yes
+  else
+    model_busy=no
   fi
+  if [[ "$(stuck_busy_action "$model_busy" "$sibling_flag")" == "accrue" ]]; then
+    continue
+  fi
+  marker="${stuck_busy_dir}/$(printf '%s' "$m" | tr '/:' '__')"
+  if [[ -s "$marker" ]]; then
+    if [[ "$model_busy" == "yes" ]]; then
+      echo "$(ts) mlx-watchdog: model ${m} still busy but no healthy sibling this tick -> clearing streak $(read_int "$marker") (no control, so the evidence cannot show a wedge)"
+    else
+      echo "$(ts) mlx-watchdog: model ${m} answered healthy -> clearing streak $(read_int "$marker")"
+    fi
+  fi
+  rm -f "$marker" "${marker}.alerted"
 done
 
 case "$brain_state" in

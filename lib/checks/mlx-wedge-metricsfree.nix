@@ -99,7 +99,11 @@ in
     export FAKE_LATENCY_S_FILE="$TMPDIR/latency"
 
     combined="$TMPDIR/mlx-watchdog-combined.sh"
-    cat ${src}/modules/mlx/scripts/llama-swap-reap.sh ${src}/modules/mlx/scripts/wedge-detect.sh ${src}/modules/mlx/scripts/mlx-watchdog.sh > "$combined"
+    cat ${
+      pkgs.lib.concatMapStringsSep " " (f: "${src}/modules/mlx/scripts/${f}") (
+        import ../../modules/mlx/watchdog-parts.nix
+      )
+    } > "$combined"
 
     printf '%s\n' '{"models":{"brain-physical":{"aliases":["tool-calling"]}}}' > "$MLX_WATCHDOG_CONFIG"
     printf '1\n' > "$MLX_WATCHDOG_MARKER"
