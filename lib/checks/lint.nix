@@ -61,6 +61,45 @@
         touch $out
       '';
 
+  # Guard: every script under modules/scripts/ must carry the executable bit.
+  #
+  # Those scripts are invoked by home-manager wrappers that exec an interpolated
+  # store path directly, rather than handing it to a shell. A store path inherits the source tree's mode, so a file committed 100644
+  # lands non-executable and the wrapper dies with exit 126 ("Permission
+  # denied") BEFORE the script's first line runs — no log output, no alert, and
+  # a launchd agent that looks scheduled while doing nothing. That shipped once
+  # (the litellm fallback watcher, 2026-09-01) and survived a rehearsal, because
+  # the rehearsal invoked the script as `bash <path>`, which never consults the
+  # mode. Its sibling probe worked only because its mode happened to be right.
+  #
+  # Deliberately scoped to modules/scripts/: that directory holds only
+  # wrapper-executed scripts. Elsewhere an interpolated store path may sit in
+  # argument position — lib/checks/mcp.nix hands one to a `bash` test harness —
+  # where no executable bit is needed and a broader scan would false-positive.
+  # Scripts consumed with builtins.readFile (modules/mlx/scripts, and others)
+  # are inlined as text and likewise need no mode.
+  script-exec-bits = pkgs.runCommand "check-script-exec-bits" { } ''
+    found=0
+    failed=0
+    for script in ${src}/modules/scripts/*.sh; do
+      found=$((found + 1))
+      if [ ! -x "$script" ]; then
+        echo "ERROR: modules/scripts/$(basename "$script") is not executable — a wrapper that execs it fails with exit 126 before running" >&2
+        failed=1
+      fi
+    done
+    if [ "$found" -eq 0 ]; then
+      echo "ERROR: no scripts found under modules/scripts/ — this check would pass vacuously" >&2
+      exit 1
+    fi
+    if [ "$failed" -ne 0 ]; then
+      echo "Fix with: git update-index --chmod=+x <file> && chmod +x <file>" >&2
+      exit 1
+    fi
+    echo "all $found script(s) under modules/scripts/ are executable"
+    touch $out
+  '';
+
   # Guard: physical MLX model ids belong only in the runtime registry
   # (services.aiStack.defaultLocalModelId, sourced from AI_MODEL_LOCAL_LLM).
   # Every consumer references a capability role, never a hardcoded id — so a
