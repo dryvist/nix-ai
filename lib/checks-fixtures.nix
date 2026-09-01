@@ -228,6 +228,22 @@ rec {
   hmConfigLitellmLocal = mkHmConfig [
     {
       programs.litellmLocal.enable = true;
+      # Local rungs are what give the subagent tier real depth: this host's own
+      # models first, the shared router appended automatically as the terminal
+      # rung. Declared here so the fallback-tier check asserts against the
+      # shape a real host uses, not against an empty chain.
+      programs.litellmLocal.localModels = [
+        {
+          name = "subagent";
+          id = "test-local/small-4bit";
+          contextWindow = 131072;
+        }
+        {
+          name = "subagent-local2";
+          id = "test-local/tiny-4bit";
+          contextWindow = 32768;
+        }
+      ];
       services.aiStack = {
         llmEndpoint = "router";
         llmRouterEndpoint = "https://llm.example.invalid/v1";

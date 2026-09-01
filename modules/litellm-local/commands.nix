@@ -48,25 +48,6 @@ let
     '';
   };
 
-  # Regenerates ./tier-candidates.json from the live catalog. It writes into a
-  # CHECKOUT, not the store, so the candidates path is a required argument
-  # rather than baked in — a wrapper pointing at the read-only store copy would
-  # fail at the last step, after both network fetches.
-  tierRefresh = pkgs.writeShellApplication {
-    name = "litellm-tier-refresh";
-    runtimeInputs = [
-      pkgs.curl
-      pkgs.python3
-    ];
-    text = ''
-      exec ${./../scripts/litellm-tier-refresh.sh} "$@"
-    '';
-  };
-
-  # launchd agents get no shell init, so the wrapper reads the router bearer
-  # from its file itself. This is also why the assertion below requires
-  # llmEndpointTokenFile: llmEndpointBearerFromEnv provisions the bearer into
-  # an interactive shell, which this agent never has.
   proxyScript = pkgs.writeShellScript "litellm-local-start" ''
     set -euo pipefail
     OPENAI_API_KEY="$(cat ${lib.escapeShellArg (toString aiStack.llmEndpointTokenFile)})"
@@ -82,30 +63,10 @@ let
       --host 127.0.0.1 \
       --port ${toString cfg.port}
   '';
-  # Timer entry point. diffutils is an explicit runtime input because the job
-  # reports WHAT moved when the selection changes, and `diff` is not otherwise
-  # in a launchd agent's empty PATH.
-  tierRefreshJob = pkgs.writeShellApplication {
-    name = "litellm-tier-refresh-job";
-    runtimeInputs = [
-      pkgs.curl
-      pkgs.python3
-      pkgs.diffutils
-    ];
-    text = ''
-      exec ${./../scripts/litellm-tier-refresh-job.sh} "$@"
-    '';
-  };
-
-  # The refresh script the job drives, as a store path the agent can name.
-  tierRefreshScript = ./../scripts/litellm-tier-refresh.sh;
 in
 {
   inherit
     fallbackProbe
-    tierRefresh
-    tierRefreshJob
-    tierRefreshScript
     proxyScript
     ;
 }
