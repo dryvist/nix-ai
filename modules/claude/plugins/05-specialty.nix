@@ -98,7 +98,7 @@ _:
     # Think Before Coding, Simplicity First, Surgical Changes, Goal-Driven Execution.
     # Complements Tier 1 code-review; focuses on pre-coding discipline rather than review.
     # Also flows to ~/.agents/skills/ automatically via agent-skills auto-discovery.
-    "andrej-karpathy-skills@karpathy-skills" = true;
+    "andrej-karpathy-skills@karpathy-skills" = false;
 
     # ========================================================================
     # ponytail — DietrichGebert/ponytail (minimalism / YAGNI behavioral mode)
@@ -131,7 +131,7 @@ _:
     # Enabled globally: the upstream Browser Use CLI skill is shared with every
     # configured harness through programs.agentSkills. This native Claude
     # plugin remains the Claude Code entrypoint; do not maintain a forked copy.
-    "browser-use@browser-use-skills" = true;
+    "browser-use@browser-use-skills" = false;
 
     # ========================================================================
     # vct-cribl-pack-validator-skills — private source (synthetic)

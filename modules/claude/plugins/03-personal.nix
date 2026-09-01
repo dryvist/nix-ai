@@ -46,5 +46,7 @@ in
   enabledPlugins = jacobpevansPlugins // {
     # Per-plugin overrides go here (e.g., to disable a specific plugin):
     # "<plugin-name>@jacobpevans-cc-plugins" = false;
+    # Both of its skills are marked deprecated; permissions live in nix-claude-code.
+    "config-management@jacobpevans-cc-plugins" = false;
   };
 }

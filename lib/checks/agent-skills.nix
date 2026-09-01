@@ -17,7 +17,7 @@ let
         root = "agents";
         groups.core = [
           "autoresearch"
-          "kaizen"
+          "premium-agent-orchestration"
           "not-a-real-skill"
         ];
         activeGroups = [ "core" ];
@@ -144,18 +144,11 @@ in
     assert
       builtins.elem ".codex/skills/premium-agent-orchestration" managedSkillEntries
       || throw "premium-agent-orchestration skill not discovered from the direct plugin input";
+    # Discovery follows the plugin flag: a disabled plugin's skills must not
+    # deploy, or disabling a plugin would trim the listing but not the tree.
     assert
-      builtins.elem ".codex/skills/browser-use" managedSkillEntries
-      || throw "browser-use skill not discovered from the enabled Browser Use plugin";
-    assert
-      builtins.elem ".codex/skills/why" managedSkillEntries
-      || throw "why skill not discovered from the context-engineering-kit input";
-    assert
-      builtins.elem ".codex/skills/kaizen" managedSkillEntries
-      || throw "kaizen skill not discovered from the context-engineering-kit input";
-    assert
-      builtins.elem ".codex/skills/managing-dependencies" managedSkillEntries
-      || throw "managing-dependencies skill not discovered from its flake input";
+      !(builtins.elem ".codex/skills/browser-use" managedSkillEntries)
+      || throw "browser-use skill deployed although its plugin is disabled";
     assert
       builtins.elem ".codex/skills/langfuse" managedSkillEntries
       || throw "langfuse skill not discovered from langfuse-skills input";
@@ -212,16 +205,16 @@ in
       builtins.elem ".agents/skills/autoresearch" groupedSkillEntries
       || throw "group gating dropped a core-group skill (autoresearch)";
     assert
-      builtins.elem ".agents/skills/kaizen" groupedSkillEntries
-      || throw "group gating dropped a core-group skill (kaizen)";
+      builtins.elem ".agents/skills/premium-agent-orchestration" groupedSkillEntries
+      || throw "group gating dropped a core-group skill (premium-agent-orchestration)";
     assert
-      !(builtins.elem ".agents/skills/why" groupedSkillEntries)
-      || throw "group gating deployed a skill outside the active groups (why)";
+      !(builtins.elem ".agents/skills/writing-clearly-and-concisely" groupedSkillEntries)
+      || throw "group gating deployed a skill outside the active groups (writing-clearly-and-concisely)";
     assert
       builtins.length groupedSkillEntries == 2
       || throw "group gating must deploy exactly the active groups' skills, got ${builtins.toJSON groupedSkillEntries}";
     assert
-      builtins.match ".*[^-]why.*" groupedIndex == null
-      || throw "INDEX.md lists a skill the group gate excluded (why)";
+      builtins.match ".*writing-clearly-and-concisely.*" groupedIndex == null
+      || throw "INDEX.md lists a skill the group gate excluded (writing-clearly-and-concisely)";
     helpers.mkMarker "check-agent-skills-groups" "Agent Skills group gating: ${toString (builtins.length groupedSkillEntries)} skills from active groups only";
 }
