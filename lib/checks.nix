@@ -106,6 +106,7 @@ in
 // (import ./checks/mlx-model-extra-args.nix { inherit pkgs; })
 // (import ./checks/mlx-catalog.nix { inherit pkgs hmConfigCatalog; })
 // (import ./checks/mlx-backend-selection.nix { inherit pkgs hmConfigCatalog; })
+// (import ./checks/mlx-worker-flag-surface.nix { inherit pkgs hmConfigCatalog; })
 // (import ./checks/mlx-proxy-logging.nix { inherit pkgs hmConfigCatalog; })
 // (import ./checks/mlx-default-model.nix { inherit pkgs hmConfigDefaultModel; })
 // (import ./checks/mlx-catalog-roles.nix {

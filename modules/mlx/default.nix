@@ -145,6 +145,7 @@ let
         ;
     })
     mkModelCmd
+    backendFor
     effectiveConcurrency
     ;
 
@@ -188,6 +189,7 @@ let
         lib
         cfg
         mkModelCmd
+        backendFor
         effectiveConcurrency
         workerEnv
         defaultFilters
