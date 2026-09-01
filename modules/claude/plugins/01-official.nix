@@ -63,9 +63,8 @@ _:
     # Frontend Design — standalone single-skill plugin. The bundled
     # variant inside anthropic-agent-skills now ships under the kept
     # document-skills plugin only (example-skills disabled below). This
-    # standalone is retained because its description text differs from
-    # the bundled variant; loaders that match on description benefit
-    # from both being present.
+    # standalone is off: no recorded use, and the bundled variant covers
+    # the same ground. Re-enable here, never in user settings.
     "frontend-design@claude-plugins-official" = false;
 
     # Code transformation skills — refactoring + simplification for docs

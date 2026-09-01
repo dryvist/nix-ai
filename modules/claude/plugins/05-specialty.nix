@@ -128,9 +128,10 @@ _:
     # ========================================================================
     # browser-use-skills — browser-use/browser-use (synthetic)
     # ========================================================================
-    # Enabled globally: the upstream Browser Use CLI skill is shared with every
-    # configured harness through programs.agentSkills. This native Claude
-    # plugin remains the Claude Code entrypoint; do not maintain a forked copy.
+    # Off: no recorded use. Flipping this to true is the only way to enable
+    # it — programs.agentSkills discovery follows this flag, so a disabled
+    # plugin's skills leave every harness, not just Claude Code. Do not
+    # maintain a forked copy.
     "browser-use@browser-use-skills" = false;
 
     # ========================================================================
