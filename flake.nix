@@ -48,6 +48,25 @@
       flake = false;
     };
 
+    # herdr-remote's relay (the web/phone dashboard half of herdr). Upstream
+    # ships no flake and no nixpkgs entry, so this is a source pin that
+    # modules/herdr-remote/package.nix builds. Pinned by REV, never a branch:
+    # this is a third-party repo and a branch ref would silently redeploy
+    # whatever landed upstream between converges.
+    herdr-remote-src = {
+      url = "github:dcolinmorgan/herdr-remote/1f5bd32b5121af92c21c9a3b123b10d508f29365";
+      flake = false;
+    };
+
+    # herdr-hail: the Slack/Discord bridge, an upstream herdr PLUGIN rather
+    # than a service of its own. Packaged here so it can run on the herdr
+    # guest against the local socket; pinned by rev for the same reason as
+    # herdr-remote-src above.
+    herdr-hail-src = {
+      url = "github:natori-hrj/herdr-hail/9f7120be96cfcc511548eb446ee4ca8b52519b31";
+      flake = false;
+    };
+
     # AI Assistant Instructions - source of truth for AI agent configuration.
     ai-assistant-instructions = {
       url = "github:JacobPEvans/ai-assistant-instructions";
@@ -208,6 +227,8 @@
       awesome-claude-skills,
       vct-cribl-cli,
       vct-splunk-cli,
+      herdr-remote-src,
+      herdr-hail-src,
       ...
     }:
     let
@@ -262,7 +283,18 @@
       # System-level modules. herdr is the first thing this flake manages that
       # runs as a service on a Linux guest rather than a launchd agent on the
       # Mac, so this output is new — see flake/nixos-modules.nix.
-      nixosModules = import ./flake/nixos-modules.nix { inherit llm-agents; };
+      nixosModules = import ./flake/nixos-modules.nix {
+        inherit llm-agents herdr-remote-src herdr-hail-src;
+      };
+
+      # Whole-guest configurations. `nixosModules` above are importable but not
+      # deployable; ansible-proxmox-ai's nixos_deploy role dereferences
+      # `nixosConfigurations.<host>`, which is what this provides. x86_64-linux
+      # only — see flake/nixos-configurations.nix.
+      nixosConfigurations = import ./flake/nixos-configurations.nix {
+        inherit nixpkgs llm-agents;
+        inherit (self) nixosModules;
+      };
 
       # Extracted to flake/checks.nix to stay under the 12KB file-size gate.
       # Still x86_64-linux-scoped; see that file for why.
@@ -273,6 +305,7 @@
           home-manager
           nixAiLib
           ai-llm-prompts
+          herdr-remote-src
           ;
         src = ./.;
       };
@@ -286,6 +319,8 @@
           vct-cribl-cli
           vct-splunk-cli
           ;
+        inherit (self) nixosConfigurations;
+        inherit herdr-remote-src herdr-hail-src;
       };
 
       devShells = forAllSystems (
@@ -301,23 +336,8 @@
         }
       );
 
-      # Default overlay — injects every flake-exported package into pkgs.
-      # Consumers register this via:
-      #   nixpkgs.overlays = [ nix-ai.overlays.default ];
-      # Required when importing this flake's homeManagerModules, since those
-      # modules reference pkgs.<name> (e.g. modules/cecli/packages.nix uses
-      # pkgs.cecli). Any package added to `packages` above is automatically
-      # available — consumers do not need to enumerate package names.
-      #
-      # Use prev.stdenv.hostPlatform.system (not prev.system). The bare
-      # `system` attribute is a deprecated alias in nixpkgs whose
-      # warnAlias machinery triggers infinite recursion when evaluated
-      # inside an overlay during home-manager's _module.args.pkgs path.
-      # The stdenv check guards against the empty attrsets the
-      # flake schema validator passes (`overlay {} {}`).
-      overlays.default =
-        _final: prev:
-        if prev ? stdenv then self.packages.${prev.stdenv.hostPlatform.system} or { } else { };
+      # Extracted to flake/overlays.nix to stay under the 12KB file-size gate.
+      overlays = import ./flake/overlays.nix { inherit self; };
 
       # Formatter
       formatter = forAllSystems (system: nixpkgs.legacyPackages.${system}.nixfmt-tree);
