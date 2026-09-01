@@ -121,9 +121,6 @@ in
           # A missing block means upstream restructured the header. Fail loudly
           # rather than silently comparing against an empty list, which would
           # pass only when our own list was empty too.
-          # A missing block means upstream restructured the header. Fail loudly
-          # rather than silently comparing against an empty list, which would
-          # pass only when our own list was empty too.
           depLine =
             if depLines == [ ] then
               throw "herdr-remote: no PEP 723 `dependencies = [` line in relay/herdr_relay.py -- upstream restructured its header; re-check modules/herdr-remote/package.nix by hand."
