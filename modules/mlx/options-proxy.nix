@@ -97,6 +97,29 @@ in
           selected MLX model-server output.
         '';
       };
+      logTimeFormat = lib.mkOption {
+        type = lib.types.str;
+        default = "2006-01-02T15:04:05Z07:00";
+        example = "";
+        description = ''
+          Go time layout stamped on llama-swap's own log lines. Upstream
+          defaults this to the empty string, which emits request lines
+          carrying client address, path, status and duration but NO time —
+          so a rejection cannot be tied to the moment it happened.
+
+          That gap is not cosmetic. The proxy's request lines are the only
+          record of which client got a 429 or a 502, while the MLX servers'
+          own lines beneath them ARE timestamped but show only the loopback
+          address of the proxy. Correlating a fleet-side failure against the
+          serving tier therefore has no shared axis: one side has identity
+          without time, the other time without identity.
+
+          The default here is RFC 3339 with offset, matching the timestamps
+          the rest of the estate's alarms and journals use, so a failure at a
+          known instant can be looked up directly. Set to "" to restore
+          upstream's untimestamped behaviour.
+        '';
+      };
       concurrencyLimit = lib.mkOption {
         # The ceiling is derived above from the residency budget, then capped
         # at operatorConcurrencyCap (throughput, not memory, is the limit

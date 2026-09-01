@@ -221,11 +221,21 @@ let
   };
 
   llamaSwapConfigAttrs = {
-    inherit (cfg.proxy) healthCheckTimeout logLevel logToStdout;
+    inherit (cfg.proxy)
+      healthCheckTimeout
+      logLevel
+      logToStdout
+      logTimeFormat
+      ;
     # logLevel="info" keeps lifecycle/routing evidence without prompt bodies.
     # logToStdout="both" merges proxy and MLX server output into one stream.
+    # logTimeFormat stamps the proxy's OWN request lines, which upstream leaves
+    # untimestamped by default — without it those lines carry client address
+    # and status but no time, so a 429 or 502 cannot be tied to the failure it
+    # caused. See the option's description for why the MLX servers' own
+    # timestamps do not close that gap.
     # Tap live I/O with: curl http://127.0.0.1:11434/logs/stream
-    # Configurable via programs.mlx.proxy.logLevel / logToStdout.
+    # Configurable via programs.mlx.proxy.logLevel / logToStdout / logTimeFormat.
     startPort = 11436;
     # Deliberately llama-swap's own default (10s), not left unset by accident.
     # Bounds how long /api/models/unload blocks per process during cluster
