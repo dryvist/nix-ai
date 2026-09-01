@@ -20,6 +20,7 @@ pkgs.writeShellApplication {
   text = lib.concatStringsSep "\n" [
     (builtins.readFile ./scripts/llama-swap-reap.sh)
     (builtins.readFile ./scripts/wedge-detect.sh)
+    (builtins.readFile ./scripts/stuck-busy-streak.sh)
     (builtins.readFile ./scripts/mlx-watchdog.sh)
   ];
 }

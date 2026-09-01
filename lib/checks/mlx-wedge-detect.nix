@@ -72,6 +72,17 @@ in
     ];
   } "bash ${src}/tests/test-wedge-classify.sh && touch $out";
 
+  # The sibling-control streak rule (stuck_busy_action, stuck-busy-streak.sh).
+  # Its own derivation rather than another line in the one above: the two
+  # functions answer different questions (is this a wedge / may this tick's
+  # evidence count), and a failure should name which contract broke.
+  mlx-stuck-busy-streak = pkgs.runCommand "check-mlx-stuck-busy-streak" {
+    nativeBuildInputs = [
+      pkgs.bash
+      pkgs.coreutils
+    ];
+  } "bash ${src}/tests/test-stuck-busy-streak.sh && touch $out";
+
   mlx-wedge-recovery = pkgs.runCommand "check-mlx-wedge-recovery" { } ''
     export PATH=${fakeCurl}/bin:${fakeDate}/bin:${fakeSleep}/bin:${pkgs.bash}/bin:${pkgs.coreutils}/bin:${pkgs.gawk}/bin:${pkgs.jq}/bin:${pkgs.gnugrep}/bin
     export HOME="$TMPDIR/home"
