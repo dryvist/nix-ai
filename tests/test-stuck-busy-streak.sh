@@ -33,7 +33,7 @@ check "not busy + healthy sibling" clear "$(stuck_busy_action no yes)"
 echo "busy with NO control clears rather than holding:"
 check "busy + no healthy sibling" clear "$(stuck_busy_action yes no)"
 
-echo "neither condition clears:"
+echo "with neither condition met there is nothing to accrue, so it clears:"
 check "not busy + no healthy sibling" clear "$(stuck_busy_action no no)"
 
 echo "anything that is not an explicit yes is not a yes:"
