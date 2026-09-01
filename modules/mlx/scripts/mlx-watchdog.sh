@@ -79,6 +79,15 @@ wedge_incident_window="${MLX_WATCHDOG_WEDGE_INCIDENT_WINDOW:-3600}"
 # shellcheck disable=SC2034 # read by wedge-detect.sh's check_wedge, same
 # concatenated layer (mlx-watchdog-pkg.nix)
 wedge_incident_max="${MLX_WATCHDOG_WEDGE_INCIDENT_MAX:-3}"
+# Consecutive ticks a non-brain model must stay `busy` -- while a sibling on
+# the same proxy answers healthy -- before the metrics-free wedge page fires.
+# Higher than wedge_consecutive: this path has no engine cross-check, so it
+# buys confidence with duration instead.
+stuck_busy_consecutive="${MLX_WATCHDOG_STUCK_BUSY_CONSECUTIVE:-5}"
+# Seconds between repeat pages for the same stuck model, so a wedge that
+# persists for hours does not page every tick.
+stuck_busy_alert_interval="${MLX_WATCHDOG_STUCK_BUSY_ALERT_INTERVAL:-3600}"
+stuck_busy_dir="${MLX_WATCHDOG_STUCK_BUSY_DIR:-${HOME}/Library/Caches/mlx-model-server/watchdog-stuck-busy}"
 llama_swap_config="${MLX_WATCHDOG_CONFIG:-${HOME}/.config/mlx/llama-swap.json}"
 # Untracked Slack incoming-webhook url (a write capability for its channel, so
 # never committed; missing = no page). Shared with the cluster watcher so one
@@ -123,7 +132,7 @@ uid="$(id -u)"
 
 mkdir -p "$(dirname "$marker")" "$(dirname "$fail_marker")" \
   "$(dirname "$busy_marker")" "$(dirname "$progress_marker")" "$(dirname "$wedge_marker")" \
-  "$(dirname "$wedge_incident_marker")"
+  "$(dirname "$wedge_incident_marker")" "$stuck_busy_dir"
 
 ts() { date -u +%FT%TZ; }
 
@@ -392,13 +401,18 @@ fi
 # Probe the brain explicitly if a host names one outside its preload list.
 brain_state=""
 dead_nonbrain=()
+busy_nonbrain=()
+healthy_sibling=""
 for m in "${probe_models[@]}"; do
   state="$(probe_model_state "$m")"
   echo "$(ts) mlx-watchdog: probe model=${m} state=${state}"
+  [[ "$state" == "healthy" ]] && healthy_sibling="$m"
   if [[ "$m" == "$brain_model" ]]; then
     brain_state="$state"
   elif [[ "$state" == "dead" || "$state" == "down" ]]; then
     dead_nonbrain+=("$m")
+  elif [[ "$state" == "busy" ]]; then
+    busy_nonbrain+=("$m")
   fi
 done
 if [[ -z "$brain_state" ]]; then
@@ -414,6 +428,55 @@ if (( ${#dead_nonbrain[@]} > 0 )); then
     alert "$(/bin/hostname -s): non-brain model '${m}' not serving; NOT restarting the stack (brain=${brain_model} state=${brain_state}). Investigate that worker."
   done
 fi
+
+# --- metrics-free wedge page (sibling control) -------------------------------
+# check_wedge above needs engine-step movement to separate a leaked admission
+# counter from a genuinely busy worker, and returns on its FIRST line for any
+# backend that publishes no metrics -- which is every mlx-lm host. That left a
+# model refusing 100% of arrivals classified as `busy`, which the table above
+# documents as "NOT a failure", so it never paged. Observed 2026-09-01: a
+# resident model refused every request for a day, then a second one joined it,
+# with no alert of any kind. Silence, not a late alarm.
+#
+# The discriminator that needs no metrics is a SIBLING. This loop already
+# probes every resident model, so the data is free: a model stuck `busy` across
+# consecutive ticks WHILE another model on the same proxy answers healthy in
+# the same tick cannot be explained by host load or a saturated GPU. Measured
+# by hand that day -- a 20-word and a 35,000-word request refused at the same
+# instant in ~0.1s each, 18/18 over 2m17s, while a sibling served in 0.23s.
+#
+# PAGE ONLY, deliberately. The engine-metric gate exists so a merely-saturated
+# worker is never torn down on a guess, and this does not loosen it: it adds
+# evidence, not a restart path. Converting a day of silence into a page within
+# minutes is the whole requirement; the restart is optional and stays gated.
+if (( ${#busy_nonbrain[@]} > 0 )) && [[ -n "$healthy_sibling" ]]; then
+  for m in "${busy_nonbrain[@]}"; do
+    marker="${stuck_busy_dir}/$(printf '%s' "$m" | tr '/:' '__')"
+    streak=$(( $(read_int "$marker") + 1 ))
+    printf '%s\n' "$streak" > "$marker"
+    if (( streak < stuck_busy_consecutive )); then
+      echo "$(ts) mlx-watchdog: model ${m} busy ${streak}/${stuck_busy_consecutive} ticks (sibling ${healthy_sibling} healthy) -> watching, no page yet"
+      continue
+    fi
+    last_marker="${marker}.alerted"
+    last_alert="$(read_int "$last_marker")"
+    if (( now - last_alert < stuck_busy_alert_interval )); then
+      echo "$(ts) mlx-watchdog: model ${m} still wedged (streak ${streak}) -> page suppressed, last was $(( now - last_alert ))s ago"
+      continue
+    fi
+    printf '%s\n' "$now" > "$last_marker"
+    echo "$(ts) mlx-watchdog: WEDGE (metrics-free) model=${m} streak=${streak} sibling=${healthy_sibling} healthy -> paging" >&2
+    alert "$(/bin/hostname -s): model '${m}' has refused every request for ${streak} consecutive checks while sibling '${healthy_sibling}' serves normally on the same proxy. That is a slot-accounting wedge, not saturation. NOT restarting (no engine metrics on this backend to confirm); clear that model's worker to recover."
+  done
+fi
+# Any model that answered healthy is not wedged -- drop its streak so a
+# recovered worker does not page on a stale count.
+for m in "${probe_models[@]}"; do
+  if [[ "$m" != "$brain_model" ]] && ! printf '%s\n' "${busy_nonbrain[@]:-}" | grep -qxF "$m"; then
+    rm -f "${stuck_busy_dir}/$(printf '%s' "$m" | tr '/:' '__')" \
+          "${stuck_busy_dir}/$(printf '%s' "$m" | tr '/:' '__').alerted"
+  fi
+done
 
 case "$brain_state" in
   healthy)
