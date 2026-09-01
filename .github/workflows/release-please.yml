@@ -50,6 +50,10 @@ jobs:
             printf '  %s\n' "${found[@]}" >&2
             exit 1
           fi
-          tag="$(gh release view --json tagName --jq .tagName)"
+          # Releases are immutable once published, so release-please creates a
+          # draft (release-please-config.json); attach the asset, then publish.
+          tag="$(gh release list --limit 10 --json tagName,isDraft --jq '[.[] | select(.isDraft)][0].tagName // empty')"
+          [ -n "$tag" ] || { echo 'no draft release to attach the template to' >&2; exit 1; }
           sha256sum "${found[0]}"
           gh release upload "$tag" "${found[0]}#nixos-herdr-lxc.tar.xz" --clobber
+          gh release edit "$tag" --draft=false
