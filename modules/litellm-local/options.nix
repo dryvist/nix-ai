@@ -95,8 +95,23 @@ in
               description = "Model id as this host's own server serves it.";
             };
             contextWindow = lib.mkOption {
-              type = lib.types.ints.positive;
-              description = "Real serving window in tokens. Required: it is what lets LiteLLM detect an overflow and escape to the shared router instead of letting the model truncate silently.";
+              type = lib.types.nullOr lib.types.ints.positive;
+              default = null;
+              description = ''
+                Real serving window in tokens -- what lets LiteLLM detect an
+                overflow and escape to the shared router instead of letting the
+                model truncate silently.
+
+                Null (the default) DERIVES it from `programs.mlx.modelContextWindows`,
+                which the mlx catalog already computes for the model this host
+                serves. Leave it null: the catalog is the single source, and a
+                number written here is free to drift above the real window,
+                which silently disables the escape.
+
+                Set it only for a model served by something other than the mlx
+                catalog. An id the catalog does not serve and that carries no
+                explicit value fails the build.
+              '';
             };
           };
         }

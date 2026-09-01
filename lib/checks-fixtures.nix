@@ -239,11 +239,19 @@ rec {
           contextWindow = 131072;
         }
         {
+          # contextWindow OMITTED on purpose: this rung exercises the derivation
+          # from `programs.mlx.modelContextWindows` below. Without a rung that
+          # leaves it null, the suite could only ever prove the hand-written
+          # path and would pass unchanged if the derivation were deleted.
           name = "subagent-local2";
           id = "test-local/tiny-4bit";
-          contextWindow = 32768;
         }
       ];
+      # The catalog side of that derivation. Keyed by physical model id, the
+      # same shape options-catalog.nix builds from real entries.
+      programs.mlx.modelContextWindows = {
+        "test-local/tiny-4bit" = 32768;
+      };
       services.aiStack = {
         llmEndpoint = "router";
         llmRouterEndpoint = "https://llm.example.invalid/v1";
