@@ -56,6 +56,14 @@ let
   # Declared as data and folded once below, rather than a run of
   # `assert x || throw ...` lines. One list is easier to extend, and the
   # failure message comes from the same place the condition does.
+  # The deployment for the rung whose contextWindow is derived, not declared.
+  derivedWindow =
+    let
+      hit = lib.findFirst (d: d.model_name == "subagent-local2") null (rendered.model_list or [ ]);
+    in
+    if hit == null then null else hit.model_info.max_input_tokens or null;
+  derivedWindowLanded = derivedWindow == 32768;
+
   fallbackTierChecks = [
     {
       ok = fallbackEntries != [ ];
@@ -80,6 +88,20 @@ let
     {
       ok = retriesConfigured;
       msg = "litellm_settings.num_retries must be greater than zero so a transient upstream failure is retried before it spends a fallback";
+    }
+    {
+      # The fixture declares `subagent-local2` with NO contextWindow, so the
+      # only way 32768 reaches the rendered config is the derivation from
+      # `programs.mlx.modelContextWindows` in modules/litellm-local/default.nix.
+      # Delete that derivation and this fails -- which is the point: without it
+      # the suite could only ever prove the hand-written path.
+      ok = derivedWindowLanded;
+      msg =
+        "the local rung declaring no contextWindow must inherit one from "
+        + "programs.mlx.modelContextWindows: without it LiteLLM cannot detect "
+        + "an overflow, and an oversized request is truncated by the local "
+        + "model instead of escaping to the shared router. Got: "
+        + builtins.toJSON derivedWindow;
     }
     {
       ok = mainTierNotInFallbacks;

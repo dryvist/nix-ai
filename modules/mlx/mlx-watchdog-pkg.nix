@@ -17,9 +17,9 @@ pkgs.writeShellApplication {
     gawk
     jq
   ];
-  text = lib.concatStringsSep "\n" [
-    (builtins.readFile ./scripts/llama-swap-reap.sh)
-    (builtins.readFile ./scripts/wedge-detect.sh)
-    (builtins.readFile ./scripts/mlx-watchdog.sh)
-  ];
+  # Parts and their order come from ./watchdog-parts.nix so the shipped script
+  # and the script every check exercises cannot drift apart.
+  text = lib.concatMapStringsSep "\n" (f: builtins.readFile (./scripts + "/${f}")) (
+    import ./watchdog-parts.nix
+  );
 }

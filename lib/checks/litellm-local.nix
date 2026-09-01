@@ -29,8 +29,18 @@ let
 
   rendered = hmConfig.config.programs.litellmLocal.renderedConfig;
 
-  # Cost-ordered fallback-tier assertions live in their own file (12KB gate).
-  inherit (import ./litellm-local-fallbacks.nix { inherit lib rendered; }) firstFallbackFailure;
+  # Fallback-tier assertions live in their own file (12KB gate). They read the
+  # litellm-local fixture rather than the bare base one: the tier's depth comes
+  # from this host's declared local models, and the base fixture declares none,
+  # so asserting against it would only ever prove the empty case.
+  renderedTier = hmConfigLitellmLocal.config.programs.litellmLocal.renderedConfig;
+  inherit
+    (import ./litellm-local-fallbacks.nix {
+      inherit lib;
+      rendered = renderedTier;
+    })
+    firstFallbackFailure
+    ;
 
   # Proxy auth + per-deployment api_key scoping (12KB gate).
   keys = import ./litellm-local-keys.nix { inherit rendered; };

@@ -37,14 +37,12 @@ in
         forwarded credential, and never touches the router leg. No third-party
         egress, so no data-retention question to answer.
 
-        `router` points subagents at the generated cost-ordered tier in
-        ./fallback-tier.nix, which egresses to OpenRouter. That path is opt-in
-        on purpose. Two constraints make it unsuitable as a default: every
-        endpoint meeting the 512k floor AND a zero-data-retention policy is
-        PAID (the free head the tier policy assumes does not exist at that
-        window — verified against OpenRouter's /api/v1/endpoints/zdr), and a
-        role that quietly bills turns a backend outage into spend nobody
-        chose.
+        `router` points subagents at the tier in ./fallback-tier.nix: this
+        host's own models first, then the shared router as the terminal rung.
+        That path is opt-in on purpose. A local rung serves at no cost, but a
+        request that overflows its window escapes to the terminal rung, and
+        what the router does behind that — including whether it bills — is
+        configured there rather than here.
       '';
     };
 
@@ -81,6 +79,67 @@ in
         lib/checks/litellm-local.nix now rejects. The `[1m]` suffix is
         required because a subagent here is expected to carry a context no
         200k window can hold.
+      '';
+    };
+
+    localModels = lib.mkOption {
+      type = lib.types.listOf (
+        lib.types.submodule {
+          options = {
+            name = lib.mkOption {
+              type = lib.types.str;
+              description = "Group name clients address. The FIRST entry must be `subagent` — consumers name that string forever.";
+            };
+            id = lib.mkOption {
+              type = lib.types.str;
+              description = "Model id as this host's own server serves it.";
+            };
+            contextWindow = lib.mkOption {
+              type = lib.types.nullOr lib.types.ints.positive;
+              default = null;
+              description = ''
+                Real serving window in tokens -- what lets LiteLLM detect an
+                overflow and escape to the shared router instead of letting the
+                model truncate silently.
+
+                Null (the default) DERIVES it from `programs.mlx.modelContextWindows`,
+                which the mlx catalog already computes for the model this host
+                serves. Leave it null: the catalog is the single source, and a
+                number written here is free to drift above the real window,
+                which silently disables the escape.
+
+                Set it only for a model served by something other than the mlx
+                catalog. An id the catalog does not serve and that carries no
+                explicit value fails the build.
+              '';
+            };
+          };
+        }
+      );
+      default = [ ];
+      description = ''
+        Models THIS host serves itself, tried before the shared router.
+
+        Ordered: LiteLLM walks the list as written. The shared homelab router is
+        appended automatically as the final rung, so the chain always ends
+        somewhere with the router's own fallbacks behind it.
+
+        Empty (the default) preserves the previous behaviour — everything goes
+        straight to the router.
+
+        Never name a cloud provider here. The router already owns a
+        credentialed, budgeted, ordered cloud chain; naming one here puts the
+        decision in two places, and `fallback-tier.nix` asserts against it.
+      '';
+    };
+
+    localEndpoint = lib.mkOption {
+      type = lib.types.str;
+      default = "http://127.0.0.1:11434/v1";
+      description = ''
+        OpenAI-compatible base URL for this host's own model server. Loopback by
+        default — the point of the local rungs is that they keep working when
+        the network or the shared router does not.
       '';
     };
 
@@ -133,46 +192,6 @@ in
         CLI consumers read this instead of composing the loopback URL
         themselves, so the port is declared once.
       '';
-    };
-
-    tierRefresh = {
-      enable = lib.mkEnableOption ''
-        a periodic re-ranking of the subagent fallback tier against the live
-        model catalog and the router's served set.
-
-        The job only rewrites `tier-candidates.json` in a working copy; nothing
-        reaches the running proxy until the next rebuild. That ordering is
-        deliberate — the job proposes a re-ranking and logs whether the
-        selection moved, and a human converges it. A timer that silently
-        repointed live subagent traffic would reintroduce the failure the
-        chain exists to remove: nobody notices the model changed
-      '';
-
-      checkout = lib.mkOption {
-        type = lib.types.nullOr lib.types.str;
-        default = null;
-        example = "/Users/you/git/nix-ai";
-        description = ''
-          Absolute path to a working copy of this repository. The refresh
-          rewrites `modules/litellm-local/tier-candidates.json` inside it.
-
-          Required when `tierRefresh.enable` is set, and it must be a checkout
-          rather than the Nix store path: the store copy is read-only, so a
-          job pointed at it would fail at the last step, after both network
-          fetches. The job fails loudly when this path does not exist.
-        '';
-      };
-
-      interval = lib.mkOption {
-        type = lib.types.ints.positive;
-        default = 86400;
-        description = ''
-          Seconds between refreshes. Daily by default: two HTTP GETs is cheap,
-          and it matches how fast the catalog actually moves — prices were
-          observed drifting within a single day, and a model's availability
-          within a week.
-        '';
-      };
     };
 
     renderedConfig = lib.mkOption {

@@ -55,10 +55,34 @@ let
   aiStack = config.services.aiStack;
   versions = import ../../lib/versions.nix;
 
-  # Cost-ordered fallback chain for the subagent tier. Its own file to stay
-  # under the .file-size.yml ceiling; see that file for why a chain replaced a
-  # single pinned model.
-  fallbackTier = import ./fallback-tier.nix { inherit lib; };
+  # Fallback chain for the subagent tier: this host's own models first, the
+  # shared router as the terminal rung. Its own file to stay under the
+  # .file-size.yml ceiling; see that file for why no cloud model is named here.
+  # Every local rung's serving window comes from the mlx catalog by default,
+  # never from a number typed at the call site.
+  # `programs.mlx.modelContextWindows` is already derived from the catalog entry
+  # that decides what this host actually serves, so the window exists in exactly
+  # one place. A second, hand-written copy would be free to disagree with the
+  # server, and the direction it would disagree in is the dangerous one: an
+  # OVER-declared window never trips the context-window escape, so an oversized
+  # request is truncated locally instead of reaching the router -- precisely the
+  # silent truncation the escape hatch exists to prevent. (The weights' own
+  # `max_position_embeddings` is the wrong number for this: it states what the
+  # architecture permits, not what this host's KV budget serves.)
+  #
+  # An id the catalog does not serve resolves to null and trips
+  # fallback-tier.nix's contextWindow assertion. That is intended -- naming a
+  # model this host does not serve is a build error, not a runtime 404.
+  mlxWindows = config.programs.mlx.modelContextWindows or { };
+  resolvedLocalModels = map (m: {
+    inherit (m) name id;
+    contextWindow = if m.contextWindow != null then m.contextWindow else mlxWindows.${m.id} or null;
+  }) cfg.localModels;
+
+  fallbackTier = import ./fallback-tier.nix {
+    inherit lib;
+    localModels = resolvedLocalModels;
+  };
 
   # Reuses the maintainer profile's single traces endpoint rather than adding a
   # second one: this proxy's spans belong on the same path as Claude Code's and
@@ -106,18 +130,8 @@ let
   };
   inherit (commands)
     fallbackProbe
-    tierRefresh
-    tierRefreshJob
-    tierRefreshScript
     proxyScript
     ;
-
-  refreshCfg = cfg.tierRefresh;
-  refreshCandidates =
-    if refreshCfg.checkout == null then
-      null
-    else
-      "${refreshCfg.checkout}/modules/litellm-local/tier-candidates.json";
 
 in
 {
@@ -139,17 +153,10 @@ in
           assertion = aiStack.llmEndpointTokenFile != null && aiStack.llmEndpointTokenFile != "";
           message = "programs.litellmLocal.enable requires services.aiStack.llmEndpointTokenFile: the proxy runs as a launchd agent, which has no shell init, so services.aiStack.llmEndpointBearerFromEnv cannot reach it. Point llmEndpointTokenFile at the file holding the router bearer.";
         }
-        {
-          assertion = !refreshCfg.enable || refreshCfg.checkout != null;
-          message = "programs.litellmLocal.tierRefresh.enable requires tierRefresh.checkout: the refresh rewrites tier-candidates.json in a working copy, and the Nix store copy is read-only, so a job with no checkout would fail after both network fetches rather than before them.";
-        }
       ]
       ++ fallbackTier.assertions;
 
-      home.packages = [
-        fallbackProbe
-        tierRefresh
-      ];
+      home.packages = [ fallbackProbe ];
 
       launchd.agents = import ./launchd.nix {
         inherit
@@ -159,9 +166,6 @@ in
           aiStack
           proxyScript
           telemetryTracesEndpoint
-          tierRefreshJob
-          tierRefreshScript
-          refreshCandidates
           ;
       };
 

@@ -100,10 +100,12 @@ in
 // (import ./checks/mlx-bash32.nix { inherit pkgs hmConfig src; })
 // (import ./checks/mlx-watchdog.nix { inherit pkgs src; })
 // (import ./checks/mlx-wedge-detect.nix { inherit pkgs src; })
+// (import ./checks/mlx-wedge-metricsfree.nix { inherit pkgs src; })
 // (import ./checks/mlx-worker-reap.nix { inherit pkgs hmConfig src; })
 // (import ./checks/mlx-warmup.nix { inherit pkgs src; })
 // (import ./checks/mlx-model-extra-args.nix { inherit pkgs; })
 // (import ./checks/mlx-catalog.nix { inherit pkgs hmConfigCatalog; })
+// (import ./checks/mlx-backend-selection.nix { inherit pkgs hmConfigCatalog; })
 // (import ./checks/mlx-proxy-logging.nix { inherit pkgs hmConfigCatalog; })
 // (import ./checks/mlx-default-model.nix { inherit pkgs hmConfigDefaultModel; })
 // (import ./checks/mlx-catalog-roles.nix {
