@@ -94,9 +94,16 @@ in
     assert
       failures == [ ]
       || throw "mlx mtp: a config with an enabled modelMtpProfiles entry must satisfy every assertion, but ${toString (builtins.length failures)} failed:\n  ${failureMessages}";
+    # The pattern tracks the backend-selection assertion, whose WORDING changed
+    # on 2026-09-01 when the blanket vllm-mlx deny was replaced by a coherence
+    # guard. The INTENT this check defends is unchanged and is the reason it
+    # exists: whatever that assertion says, it must still admit a config that
+    # enables mlx-vlm-native for one model. The original exact-equality form
+    # (enabledBackends == [ "mlx-lm" ]) silently killed every MTP profile, and
+    # this check is what would catch a return to that shape.
     assert
-      assertionMatching ".*enabledBackends must not list vllm-mlx.*"
-      || throw "mlx mtp: the backend-policy assertion must admit a config enabling mlx-vlm-native for one model; back at enabledBackends == [ \"mlx-lm\" ] it has re-killed every MTP profile";
+      assertionMatching ".*must be listed in programs.mlx.enabledBackends.*"
+      || throw "mlx mtp: the backend-selection assertion must admit a config enabling mlx-vlm-native for one model; an exact-equality form re-kills every MTP profile";
     assert
       assertionMatching ".*requires the native mlx-vlm backend, a drafter.*"
       || throw "mlx mtp: the MTP profile assertion must hold for a correctly-formed profile (native backend, drafter set, matched concurrency, non-cluster)";

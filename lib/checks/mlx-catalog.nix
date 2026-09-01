@@ -83,12 +83,25 @@ in
     assert
       c.modelContextWindows.${qwen36} == 65536
       || throw "catalog: Qwen3.6 must advertise its 65536-token declared window";
+    # These two used to pin the backend to mlx-lm and forbid vllm-mlx outright.
+    # Both are now coherence checks rather than a policy pin, because the policy
+    # changed: measured at 4-way concurrency on 2026-09-01 the mlx-lm tier
+    # queued and stalled rather than batching (16.8s / 21.1s / 79.1s against a
+    # ~12s serial baseline, one request never returning), and a stalled request
+    # never releases llama-swap's admission slot. Which backend a host runs is
+    # that host's decision; what must hold either way is that the selection is
+    # coherent.
     assert
-      c.modelServerBackend == "mlx-lm"
-      || throw "catalog: the goal judge must use the selected mlx_lm.server deployment path";
-    assert
-      c.enabledBackends == [ "mlx-lm" ]
-      || throw "catalog: official mlx-lm must be the only enabled backend; vllm-mlx must remain preserved but disabled";
+      builtins.elem c.modelServerBackend c.enabledBackends
+      || throw "catalog: the selected modelServerBackend must be listed in enabledBackends";
+    # NOT asserted here, deliberately, and worth knowing why:
+    # programs.mlx.continuousBatching DEFAULTS TO TRUE while the mlx-lm flag
+    # builder emits no --continuous-batching at all. So today's config reads as
+    # "batching on" against a backend that cannot batch, and nothing surfaces
+    # the discrepancy -- which is how a serial tier gets mistaken for Lane A.
+    # A guard rejecting that combination fails every current mlx-lm host, so it
+    # belongs with the fix (make the default backend-aware), not with the change
+    # that merely lifts the vllm-mlx deny. Tracked separately.
     # The watchdog is the only thing that notices a proxy that is up but not
     # serving, so on a host with a resident set it MUST be running. This used
     # to assert the opposite — that it stay disabled — back when its busy
