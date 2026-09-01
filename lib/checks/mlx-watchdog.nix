@@ -87,6 +87,19 @@ in
     export MLX_WATCHDOG_PROBE_MODELS_JSON='["tool-calling"]'
     export MLX_WATCHDOG_BRAIN_MODEL=tool-calling
     export MLX_WATCHDOG_BUSY_GRACE=900
+    # This check's subject is the busy-grace ladder, and check_wedge sits ahead
+    # of that ladder with its own `exit 0` on a confirmed wedge. The scenarios
+    # below drive exactly the shape check_wedge scores as suspect (fast 429s,
+    # flat brain steps), so by the third invocation it would short-circuit and
+    # the ladder under test would never be reached.
+    #
+    # Raise its threshold out of range rather than omitting wedge-detect.sh
+    # from the assembly. Omitting it is what this check used to do, and the
+    # result was `check_wedge: command not found` on every invocation, swallowed
+    # by the `if` as "no wedge" -- a check of the shipped script that quietly
+    # ran a script that does not ship. The wedge path has its own coverage in
+    # mlx-wedge-detect.nix and mlx-wedge-metricsfree.nix.
+    export MLX_WATCHDOG_WEDGE_CONSECUTIVE=999999
     export MLX_WATCHDOG_COOLDOWN=90
     export MLX_WATCHDOG_CONFIG="$TMPDIR/llama-swap.json"
     export MLX_WATCHDOG_MARKER="$TMPDIR/last-kick"
