@@ -42,7 +42,7 @@ _:
     "greptile@claude-plugins-official" = false; # Removed 2026-03-20: not worth cost
 
     # Documentation & Context
-    "context7@claude-plugins-official" = true; # CONTEXT7_API_KEY optional
+    "context7@claude-plugins-official" = false; # duplicated by the hosted connector # CONTEXT7_API_KEY optional
 
     # Backend & Infrastructure
     "firebase@claude-plugins-official" = false;
