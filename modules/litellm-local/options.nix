@@ -133,6 +133,28 @@ in
       '';
     };
 
+    routerEntryModel = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      example = "hermes-default";
+      description = ''
+        The model group the SHARED ROUTER serves, that this host's terminal
+        rung forwards to.
+
+        Required once localModels is non-empty, and the reason is not obvious:
+        the terminal rung is a wildcard passthrough, so LiteLLM forwards the
+        REQUESTED group name upstream. With local models declared, the terminal
+        rung is named `subagent-homelab`, so a fallback forwards
+        `subagent-homelab` to the router — a name the router does not serve,
+        which 404s. The rung then fails not only as a fallback but when
+        addressed directly, so the chain has no working last rung at all.
+
+        This is a GROUP name, not a provider, model id, or price — naming it
+        here keeps the "no cloud policy on this host" rule intact while making
+        the rung actually reachable.
+      '';
+    };
+
     localEndpoint = lib.mkOption {
       type = lib.types.str;
       default = "http://127.0.0.1:11434/v1";

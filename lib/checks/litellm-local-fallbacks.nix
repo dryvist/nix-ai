@@ -47,6 +47,14 @@ let
   );
   contextFallbacksAreExplicit = lib.all (t: lib.elem t renderedGroups) contextFallbackTargets;
 
+  # The last rung in the rendered model_list is the terminal one.
+  terminalEntry = lib.last rendered.model_list;
+  terminalParams = terminalEntry.litellm_params or { };
+  # A bare wildcard passes the caller's own group name through. Acceptable only
+  # when the terminal rung IS the group consumers address; the fixture declares
+  # local rungs, so here it must name the router's group explicitly.
+  terminalNamesUpstreamGroup = (terminalParams.model or "openai/*") != "openai/*";
+
   retriesConfigured = (settings.num_retries or 0) > 0;
 
   # The main tier gets retries and a context-window repair, never a silent
@@ -102,6 +110,24 @@ let
         + "an overflow, and an oversized request is truncated by the local "
         + "model instead of escaping to the shared router. Got: "
         + builtins.toJSON derivedWindow;
+    }
+    {
+      # The terminal rung is a wildcard passthrough, so LiteLLM forwards the
+      # REQUESTED group name upstream. While the rung is named
+      # `subagent-homelab`, forwarding that name reaches a router that does not
+      # serve it: the rung then 404s as a fallback AND when addressed directly,
+      # so the chain ends on something that cannot answer. Observed live on a
+      # converged host before this check existed.
+      #
+      # Asserting the rendered param, not the option, because the option can be
+      # set and still not reach the config.
+      ok = terminalNamesUpstreamGroup;
+      msg =
+        "the terminal rung must forward a group the shared router serves, not "
+        + "pass through its own name: with local rungs declared the rung is "
+        + "named `subagent-homelab`, and `openai/*` forwards THAT upstream, "
+        + "which 404s. Rendered terminal params: "
+        + builtins.toJSON terminalParams;
     }
     {
       ok = mainTierNotInFallbacks;

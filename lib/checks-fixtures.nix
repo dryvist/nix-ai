@@ -229,6 +229,10 @@ rec {
     {
       programs = {
         litellmLocal.enable = true;
+        # Required once localModels is non-empty: the terminal rung forwards
+        # the requested group name upstream, so it must name a group the shared
+        # router serves rather than passing through the local rung's own name.
+        litellmLocal.routerEntryModel = "test-router-entry";
         # Local rungs are what give the subagent tier real depth: this host's own
         # models first, the shared router appended automatically as the terminal
         # rung. Declared here so the fallback-tier check asserts against the
