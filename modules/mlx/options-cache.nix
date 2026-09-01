@@ -40,9 +40,15 @@
     };
 
     # gpuMemoryUtilization — a device fraction, NOT the share of the host given
-    # to inference (that is appleSiliconTunables.wiredLimitMb). It both caps each
-    # worker and places the engine's emergency KV-clear trip point, so it is
-    # coupled to the host ceiling and the two must be changed together.
+    # to inference (that is appleSiliconTunables.wiredLimitMb). It both caps
+    # each worker and places the engine's emergency KV-clear trip point.
+    #
+    # It is NOT, however, in a fixed relationship with the host ceiling. This
+    # header used to say the two "must be changed together", which implied the
+    # trip tracks the ceiling by a known margin. It does not: the cap and the
+    # trip are computed on different bases, so raising the ceiling moves one
+    # and not the other. Changing either still warrants looking at both — but
+    # re-derive the two numbers below rather than assuming a margin.
     #
     # THE CAP AND THE TRIP ARE COMPUTED ON DIFFERENT BASES. This is the single
     # most misread thing about this option, and the description below said
@@ -71,8 +77,12 @@
     # A third consumer (worker.py) sizes KV availability from hw.memsize * util
     # * 0.5, a third base again. Any reasoning about this option that names only
     # one base is reasoning about one third of the behaviour.
-    # Sizing rules, the invariant, and the re-derivation formula:
+    # Sizing rules and the re-derivation formula:
     # https://docs.jacobpevans.com/local-llm/memory-ceilings
+    # (That page states the invariant as footprint < trip < ceiling. With the
+    # bases above, the aggregate form of that invariant is unsatisfiable for
+    # any worker count, because the +0.05 offset is per worker and multiplies.
+    # Treat the cap as the protection until the page is corrected.)
     #
     # This is the per-worker enforcement layer that HardResourceLimits could not
     # provide (see launchd.nix) because it acts inside the worker process itself.
