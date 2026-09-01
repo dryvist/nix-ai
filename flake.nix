@@ -48,6 +48,16 @@
       flake = false;
     };
 
+    # herdr-remote's relay (the web/phone dashboard half of herdr). Upstream
+    # ships no flake and no nixpkgs entry, so this is a source pin that
+    # modules/herdr-remote/package.nix builds. Pinned by REV, never a branch:
+    # this is a third-party repo and a branch ref would silently redeploy
+    # whatever landed upstream between converges.
+    herdr-remote-src = {
+      url = "github:dcolinmorgan/herdr-remote/1f5bd32b5121af92c21c9a3b123b10d508f29365";
+      flake = false;
+    };
+
     # AI Assistant Instructions - source of truth for AI agent configuration.
     ai-assistant-instructions = {
       url = "github:JacobPEvans/ai-assistant-instructions";
@@ -208,6 +218,7 @@
       awesome-claude-skills,
       vct-cribl-cli,
       vct-splunk-cli,
+      herdr-remote-src,
       ...
     }:
     let
@@ -262,7 +273,16 @@
       # System-level modules. herdr is the first thing this flake manages that
       # runs as a service on a Linux guest rather than a launchd agent on the
       # Mac, so this output is new — see flake/nixos-modules.nix.
-      nixosModules = import ./flake/nixos-modules.nix { inherit llm-agents; };
+      nixosModules = import ./flake/nixos-modules.nix { inherit llm-agents herdr-remote-src; };
+
+      # Whole-guest configurations. `nixosModules` above are importable but not
+      # deployable; ansible-proxmox-ai's nixos_deploy role dereferences
+      # `nixosConfigurations.<host>`, which is what this provides. x86_64-linux
+      # only — see flake/nixos-configurations.nix.
+      nixosConfigurations = import ./flake/nixos-configurations.nix {
+        inherit nixpkgs llm-agents;
+        nixosModules = self.nixosModules;
+      };
 
       # Extracted to flake/checks.nix to stay under the 12KB file-size gate.
       # Still x86_64-linux-scoped; see that file for why.
@@ -273,6 +293,7 @@
           home-manager
           nixAiLib
           ai-llm-prompts
+          herdr-remote-src
           ;
         src = ./.;
       };
@@ -286,6 +307,8 @@
           vct-cribl-cli
           vct-splunk-cli
           ;
+        nixosConfigurations = self.nixosConfigurations;
+        inherit herdr-remote-src;
       };
 
       devShells = forAllSystems (
