@@ -36,6 +36,6 @@ in
     # batched one.
     assert
       (c.continuousBatching -> c.modelServerBackend == "vllm-mlx")
-      || throw "catalog: continuousBatching is set on ${c.modelServerBackend}, which emits no --continuous-batching flag. The server would run serial while the config claims batching -- set the backend to vllm-mlx or leave continuousBatching at its derived default.";
+      || throw "catalog: continuousBatching is set on ${c.modelServerBackend}, whose flag builder does not emit --continuous-batching, so the setting has no effect on the rendered command while the config reads as batching enabled -- set the backend to vllm-mlx or leave continuousBatching at its derived default.";
     helpers.mkMarker "check-mlx-backend-selection" "MLX backend selection: the selected backend is enabled, and batching is only claimed on a backend that can perform it";
 }

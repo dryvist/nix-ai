@@ -2,8 +2,12 @@
 # MLX Module — Concurrency and batching options
 #
 # Complete parameter reference from `vllm-mlx serve --help`.
-# 0.2.9 fixed the 0.2.8 MLLM detection bug for Qwen3-class models, so
-# continuous batching + maxNumSeqs are now defaults rather than opt-in.
+#
+# These are vllm-mlx flags. continuousBatching therefore DEFAULTS TO WHETHER
+# vllm-mlx is the selected backend, not to true -- on a backend whose flag
+# builder does not emit --continuous-batching, a `true` here would describe a
+# capability the rendered command does not carry. maxNumSeqs still defaults
+# unconditionally; it is inert on a builder that does not emit it.
 #
 { lib, config, ... }:
 {
