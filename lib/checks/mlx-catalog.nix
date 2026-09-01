@@ -154,6 +154,15 @@ in
     assert
       c.proxy.logLevel == "info"
       || throw "catalog: production proxy logging must remain prompt-safe INFO";
+    # The proxy's request lines are the only record of which client received a
+    # 429 or 502. Upstream leaves them untimestamped, which makes them
+    # impossible to correlate with a fleet-side failure at a known instant —
+    # observed 2026-09-01 while trying to attribute cron failures to the tier.
+    # A non-empty layout is the whole point of the option; an empty one silently
+    # restores the ambiguity.
+    assert
+      c.proxy.logTimeFormat != ""
+      || throw "catalog: proxy request lines must carry a timestamp or they cannot be correlated with anything";
     assert
       hmConfigCatalog.config.services.aiStack.roleOverrides.goal-judge == judge27b
       || throw "catalog: logical goal-judge role must resolve to the catalog-owned physical model";
