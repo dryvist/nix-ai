@@ -53,8 +53,10 @@ in
       ProcessType = "Background";
       EnvironmentVariables = {
         # Not a secret — the router URL is a plain address, so it needs no
-        # exec-time file read.
+        # exec-time file read. Same for the loopback endpoint this host's own
+        # models are served on.
         LLM_ROUTER_URL = aiStack.llmRouterEndpoint;
+        LOCAL_LLM_URL = cfg.localEndpoint;
         HOME = config.home.homeDirectory;
       }
       # LiteLLM reads its OWN names here — `OTEL_EXPORTER` / `OTEL_ENDPOINT`

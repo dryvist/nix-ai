@@ -87,7 +87,17 @@
     # is named once in fallback-tier.nix and a refresh reorders what sits
     # behind it. A hardcoded name here ("subagent-cheap") was not an emitted
     # model_list group at all, so it failed the explicit-group check.
-    context_window_fallbacks = [ { "claude-*" = [ fallbackTier.entryPoint ]; } ];
+    #
+    # The tier's own overflow routes come from fallback-tier.nix: a request
+    # too large for one of this host's local models escapes to the shared
+    # router's terminal rung rather than being truncated by the model. That is
+    # what replaces the old per-member minimum-window assertion — local models
+    # have small windows on purpose, and the escape hatch is what makes that
+    # safe instead of lossy.
+    context_window_fallbacks = [
+      { "claude-*" = [ fallbackTier.entryPoint ]; }
+    ]
+    ++ fallbackTier.contextWindowFallbacks;
   }
   # Every non-Anthropic call this host makes traverses this proxy, so with no
   # callback the entire local fabric is an observability blind spot.

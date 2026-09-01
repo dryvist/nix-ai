@@ -84,6 +84,52 @@ in
       '';
     };
 
+    localModels = lib.mkOption {
+      type = lib.types.listOf (
+        lib.types.submodule {
+          options = {
+            name = lib.mkOption {
+              type = lib.types.str;
+              description = "Group name clients address. The FIRST entry must be `subagent` — consumers name that string forever.";
+            };
+            id = lib.mkOption {
+              type = lib.types.str;
+              description = "Model id as this host's own server serves it.";
+            };
+            contextWindow = lib.mkOption {
+              type = lib.types.ints.positive;
+              description = "Real serving window in tokens. Required: it is what lets LiteLLM detect an overflow and escape to the shared router instead of letting the model truncate silently.";
+            };
+          };
+        }
+      );
+      default = [ ];
+      description = ''
+        Models THIS host serves itself, tried before the shared router.
+
+        Ordered: LiteLLM walks the list as written. The shared homelab router is
+        appended automatically as the final rung, so the chain always ends
+        somewhere with the router's own fallbacks behind it.
+
+        Empty (the default) preserves the previous behaviour — everything goes
+        straight to the router.
+
+        Never name a cloud provider here. The router already owns a
+        credentialed, budgeted, ordered cloud chain; naming one here puts the
+        decision in two places, and `fallback-tier.nix` asserts against it.
+      '';
+    };
+
+    localEndpoint = lib.mkOption {
+      type = lib.types.str;
+      default = "http://127.0.0.1:11434/v1";
+      description = ''
+        OpenAI-compatible base URL for this host's own model server. Loopback by
+        default — the point of the local rungs is that they keep working when
+        the network or the shared router does not.
+      '';
+    };
+
     port = lib.mkOption {
       type = lib.types.port;
       default = 4100;

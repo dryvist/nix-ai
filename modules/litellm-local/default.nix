@@ -55,10 +55,13 @@ let
   aiStack = config.services.aiStack;
   versions = import ../../lib/versions.nix;
 
-  # Cost-ordered fallback chain for the subagent tier. Its own file to stay
-  # under the .file-size.yml ceiling; see that file for why a chain replaced a
-  # single pinned model.
-  fallbackTier = import ./fallback-tier.nix { inherit lib; };
+  # Fallback chain for the subagent tier: this host's own models first, the
+  # shared router as the terminal rung. Its own file to stay under the
+  # .file-size.yml ceiling; see that file for why no cloud model is named here.
+  fallbackTier = import ./fallback-tier.nix {
+    inherit lib;
+    inherit (cfg) localModels;
+  };
 
   # Reuses the maintainer profile's single traces endpoint rather than adding a
   # second one: this proxy's spans belong on the same path as Claude Code's and
