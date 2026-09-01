@@ -77,16 +77,48 @@ let
   # "3.14" -> "cp314", the wheel's interpreter/ABI tag.
   cpTag = "cp" + (pkgs.lib.replaceStrings [ "." ] [ "" ] py.pythonVersion);
 
-  # Hashes are per (version, platform). Both wheels move together with the mlx
-  # pin in lib/versions.nix; bumping the pin without updating these fails the
-  # build loudly rather than silently resolving something else.
+  # Keyed by mlx VERSION ONLY, and valid for the default wheelPlatform above.
+  # A caller that overrides wheelPlatform fetches a different wheel while this
+  # map still hands back the default platform's hash, so the fetch fails on a
+  # hash mismatch. That is loud, not silent — nix verifies the hash — but it is
+  # a mismatch error rather than a message about the override, so: overriding
+  # wheelPlatform means supplying hashes for that platform too. No platform
+  # dimension is modelled here because every host this serves resolves the same
+  # target; add one when that stops being true rather than in advance.
+  #
+  # Both wheels move together with the mlx pin in lib/versions.nix; bumping the
+  # pin without updating these fails the build loudly rather than silently
+  # resolving something else.
+  #
+  # THE PIN AND THIS TABLE ARE UPDATED BY DIFFERENT HANDS. Renovate moves
+  # versions.mlx on its own and knows nothing about this map, so an automated
+  # bump lands a version with no entry here and every aarch64-darwin build
+  # stops at the throw below. That is the designed behaviour, not a surprise --
+  # but it means a renovate mlx PR is not complete until someone adds the row.
+  #
+  # To add one, take the version from lib/versions.nix and prefetch both wheels
+  # for this file's cpTag and wheelPlatform:
+  #
+  #   nix-prefetch-url --type sha256 <pypi url for mlx-<v>-cp314-cp314-<plat>.whl>
+  #   nix-prefetch-url --type sha256 <pypi url for mlx_metal-<v>-py3-none-<plat>.whl>
+  #   nix hash convert --hash-algo sha256 --to sri <each result>
+  #
+  # Superseded versions are kept rather than replaced: the map is keyed by the
+  # pin, so there is no ambiguity about which row is live, and keeping them
+  # means rolling the pin back does not also require re-deriving hashes.
   wheelHashes = {
     "0.32.0" = {
       mlx = "sha256-I+g8jnSiMVZpbp+ZBdFqF7fSe1pZbBvA9yCpjfHFqt8=";
       mlxMetal = "sha256-OvdqSY2EgE9mEZgASZ+dFD19/7CHig3Q18KEblhWX9c=";
     };
+    "0.32.2" = {
+      mlx = "sha256-NQNhfjqmqOQR31MjbVvKA5/MqXVW8a3hxOXMimTeUtI=";
+      mlxMetal = "sha256-5qvqyaxSZYMMnBVBtvlum+N6hcJEZ2OkatRmxjo4N6s=";
+    };
   };
 
+  # The message names the platform actually in effect, so an override that
+  # needs its own hashes says which target to prefetch for.
   hashes =
     wheelHashes.${versions.mlx}
       or (throw "python-overlay.nix: no wheel hashes for mlx ${versions.mlx}. Add them to wheelHashes (nix-prefetch-url the cp${cpTag}/${wheelPlatform} wheels from PyPI).");
