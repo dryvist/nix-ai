@@ -56,11 +56,11 @@ _:
     # has the most direct name match for general unit-testing work.
     "unit-testing@claude-code-workflows" = false;
 
-    # DISABLED — code-reviewer (DUP, superseded by Tier 1 pr-review-toolkit:code-reviewer)
+    # DISABLED — code-reviewer (DUP, superseded by the Tier 1 code-review plugin)
     #            tdd-orchestrator (DUP — keeper backend-development:tdd-orchestrator).
     "tdd-workflows@claude-code-workflows" = false;
 
-    # DISABLED — code-reviewer (DUP, superseded by Tier 1 pr-review-toolkit:code-reviewer)
+    # DISABLED — code-reviewer (DUP, superseded by the Tier 1 code-review plugin)
     #            legacy-modernizer (rarely used).
     "code-refactoring@claude-code-workflows" = false;
 

@@ -97,7 +97,8 @@ _:
     # Single skill: karpathy-guidelines. Behavioral rules for LLM coding:
     # Think Before Coding, Simplicity First, Surgical Changes, Goal-Driven Execution.
     # Complements Tier 1 code-review; focuses on pre-coding discipline rather than review.
-    # Also flows to ~/.agents/skills/ automatically via agent-skills auto-discovery.
+    # Off: no recorded use. Enabling it here is what deploys the skill to
+    # ~/.agents/skills/ for every harness (agent-skills discovery follows this flag).
     "andrej-karpathy-skills@karpathy-skills" = false;
 
     # ========================================================================
