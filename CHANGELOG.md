@@ -1,5 +1,14 @@
 # Changelog
 
+## [4.38.1](https://github.com/dryvist/nix-ai/compare/v4.38.0...v4.38.1) (2026-09-01)
+
+
+### Bug Fixes
+
+* **ci:** attach the LXC template to a draft release, then publish ([#1903](https://github.com/dryvist/nix-ai/issues/1903)) ([211ea3c](https://github.com/dryvist/nix-ai/commit/211ea3c0a2aee56577ba5ac8f5f80c26dba577a0))
+* **litellm-local:** make the fallback watcher script executable so its launchd wrapper can exec it ([#1904](https://github.com/dryvist/nix-ai/issues/1904)) ([2b7a633](https://github.com/dryvist/nix-ai/commit/2b7a633de96fa503934684d0294b56ac39c25f1b))
+* **mlx:** keep mlx-lm-only flags out of the vllm-mlx worker command ([#1902](https://github.com/dryvist/nix-ai/issues/1902)) ([dbe6a4d](https://github.com/dryvist/nix-ai/commit/dbe6a4d3206565cb0a0e1537aafaf141bc1095d6))
+
 ## [4.38.0](https://github.com/dryvist/nix-ai/compare/v4.37.0...v4.38.0) (2026-09-01)
 
 
