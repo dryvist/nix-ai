@@ -75,7 +75,6 @@ in
     pkgs
     hmConfig
     hmConfigAgentSkillsShared
-    mkHmConfig
     ;
 })
 // (import ./checks/codex.nix { inherit pkgs hmConfig; })

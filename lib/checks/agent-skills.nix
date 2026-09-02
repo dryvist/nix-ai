@@ -3,7 +3,6 @@
   pkgs,
   hmConfig,
   hmConfigAgentSkillsShared,
-  mkHmConfig,
 }:
 let
   helpers = import ./helpers.nix { inherit pkgs; };

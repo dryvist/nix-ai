@@ -24,7 +24,14 @@
         lib.concatStringsSep "\n" (lib.mapAttrsToList (rel: target: "${rel}\t${target}") links) + "\n"
       );
     in
-    lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    # entryBetween, not entryAfter: home-manager's own `linkGeneration` is
+    # itself `entryAfter [ "writeBoundary" ]` (modules/files.nix), so anchoring
+    # only on writeBoundary makes this a SIBLING of linkGeneration with no edge
+    # between them — the observed order would come from the topo-sort tiebreak
+    # on entry names and could flip on a rename or a home-manager bump. The
+    # explicit edge keeps these links in place before linkGeneration runs, and
+    # therefore before anything ordered after it reads the directory.
+    lib.hm.dag.entryBetween [ "linkGeneration" ] [ "writeBoundary" ] ''
       $DRY_RUN_CMD ${./stable-links.sh} ${manifest} "$HOME"
     '';
 }
