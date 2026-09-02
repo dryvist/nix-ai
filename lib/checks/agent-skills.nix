@@ -117,7 +117,17 @@ in
         in
         entry ? source && pkgs.lib.hasSuffix "/SKILL.md" (toString entry.source)
       ) managedSkillEntries;
+      # `groups` is derived from `categories`, so a deployed skill named in no
+      # category is invisible to every host that sets `activeGroups`. Fail
+      # here rather than let it drop out of every harness silently.
+      categorised = pkgs.lib.unique (builtins.concatLists (builtins.attrValues cfg.categories));
+      uncategorised = builtins.filter (n: !(builtins.elem n categorised)) (
+        map (n: pkgs.lib.removePrefix ".codex/skills/" n) managedSkillEntries
+      );
     in
+    assert
+      uncategorised == [ ]
+      || throw "Agent Skills deployed without a category (add to modules/agent-skills/categories.nix): ${builtins.toJSON uncategorised}";
     assert skillIndex != "" || throw "Agent Skills .codex/skills/INDEX.md is empty (module not loaded)";
     assert builtins.length managedSkillEntries > 0 || throw "No managed .codex skill entries found";
     assert

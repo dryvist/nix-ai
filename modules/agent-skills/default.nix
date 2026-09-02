@@ -291,28 +291,18 @@ in
       # would then scan every input's root for skill-shaped directories.
       local.file-organizer = "${awesome-claude-skills}/file-organizer/SKILL.md";
 
-      # Category map for the generated INDEX.md. A skill may be named more than
-      # once; anything unnamed lands under "Uncategorized".
-      categories = lib.mkDefault {
-        research = [
-          "github-code-search"
-          "last30days"
-          "managing-dependencies"
-        ];
-        reasoning = [
-          "why"
-          "kaizen"
-          "ponytail"
-        ];
-        engineering = [
-          "kaizen"
-          "managing-dependencies"
-          "ponytail"
-        ];
-        workspace = [ "file-organizer" ];
-        diagrams = [ "dashmotion" ];
-        observability = [ "langfuse" ];
-      };
+      # Category map for the generated INDEX.md and, through `groups` below,
+      # the deployment groups `activeGroups` gates. Every deployed skill is
+      # named exactly once; the regression check fails on an orphan.
+      #
+      #   core      — engineering workflow every repository needs
+      #   nix       — Nix, nix-darwin, home-manager, macOS system config
+      #   homelab   — Proxmox, OpenTofu, Ansible, Terrakube, OpenBao, network
+      #   ai        — LLM serving, routing, Hugging Face, delegation to Codex
+      #   docs      — documentation sites, diagrams, long-form writing
+      #   research  — code and paper search, reading, summarising
+      #   workspace — office formats, design, art, personal organisation
+      categories = lib.mkDefault (import ./categories.nix);
 
       # Deployment groups. `categories` only drives the generated INDEX.md
       # headings; `groups` is what `activeGroups` actually gates. Spelling the
@@ -320,10 +310,8 @@ in
       # from the other — a host overriding categories gets matching groups for
       # free and the two cannot drift apart.
       #
-      # NOT yet safe as a restrictive filter: most skills are named in no
-      # category, so setting `activeGroups` would silently drop everything
-      # uncategorized, commit/plan-task/create-pr included. Curating the rest
-      # is the remaining work before any host sets it.
+      # Safe as a restrictive filter since every deployed skill is named above;
+      # the agent-skills check fails the build the moment one is not.
       groups = lib.mkDefault config.programs.agentSkills.categories;
     };
   };
