@@ -51,9 +51,14 @@ jobs:
             exit 1
           fi
           # Releases are immutable once published, so release-please creates a
-          # draft (release-please-config.json); attach the asset, then publish.
-          tag="$(gh release list --limit 10 --json tagName,isDraft --jq '[.[] | select(.isDraft)][0].tagName // empty')"
-          [ -n "$tag" ] || { echo 'no draft release to attach the template to' >&2; exit 1; }
-          sha256sum "${found[0]}"
-          gh release upload "$tag" "${found[0]}#nixos-herdr-lxc.tar.xz" --clobber
+          # draft (release-please-config.json, with force-tag-creation so the
+          # tag exists at once). Attach the asset to the draft THIS run created
+          # — matched by commit, never "the newest draft" — then publish it.
+          tag="$(gh api "repos/${GITHUB_REPOSITORY}/releases" \
+            --jq ".[] | select(.draft and .target_commitish == \"${GITHUB_SHA}\") | .tag_name")"
+          [ -n "$tag" ] || { echo "no draft release targets ${GITHUB_SHA}" >&2; exit 1; }
+          # `file#label` only relabels; the download name is the file name.
+          cp "${found[0]}" nixos-herdr-lxc.tar.xz
+          sha256sum nixos-herdr-lxc.tar.xz
+          gh release upload "$tag" nixos-herdr-lxc.tar.xz --clobber
           gh release edit "$tag" --draft=false
