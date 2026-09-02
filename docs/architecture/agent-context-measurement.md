@@ -25,6 +25,34 @@ transcript** — plugin instructions, agent definitions and MCP server
 instructions arrive inside the system prompt, not as attachments. It is named
 as unattributed rather than folded into a plausible label.
 
+## `tools:` in an agent definition is the largest single lever
+
+An agent's `tools:` frontmatter gates which tool schemas are **loaded**, not
+only which may be executed. Measured in one window, two identical runs each:
+
+| Configuration | Tokens |
+| --- | ---: |
+| main session | 81,110 |
+| custom agent, no `tools:` field (all tools) | 72,245 |
+| built-in `Explore` | 74,612 |
+| **custom agent, `tools: Read`** | **22,680** |
+
+The narrow agent answers correctly (`PROBE_OK`, `is_error: false`), so this is a
+real reduction and not an early failure.
+
+**This puts a subagent 58,430 tokens below a main session and well under a 60k
+budget on its own** — no skill, MCP or instruction work required. It also means
+the 32,914 "floor" is only the floor *for a session that loads every built-in
+tool*; the irreducible base is lower still.
+
+The practical rule: **every purpose-built agent should declare the narrowest
+`tools:` list that lets it do its job.** An agent that only reads and reports
+does not need Edit, Write, Bash or the rest, and today it pays for all of them.
+
+This was recorded earlier in this effort as "a `tools:` frontmatter field does
+NOT reduce context — it is an execution allowlist only". That was asserted, never
+measured, and it is wrong by roughly 50,000 tokens per subagent.
+
 ## Properties of the instrument
 
 - **`--strict-mcp-config` is mandatory.** A bare `claude -p` attaches hosted MCP

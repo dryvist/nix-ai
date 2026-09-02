@@ -29,8 +29,11 @@ user settings), read from the first `usage` block of each transcript.
 
 Read it as two blocks:
 
-- **Floor 32,914** — Claude Code's own system prompt plus its built-in tool
-  schemas. Not addressable from this repo.
+- **Floor 32,914 — for a session that loads every built-in tool.** Claude
+  Code's own system prompt plus its built-in tool schemas. It is *not* an
+  absolute floor: an agent definition declaring `tools: Read` measures
+  **22,680**, because `tools:` gates which schemas load, not merely which may
+  execute. See the measurement companion.
 - **Addressable ~56k** — everything above it: the plugin set and the skill and
   agent listings it generates, MCP configuration, and the instruction chain.
   Roughly 3,900 of what the old figure called immovable is instruction content,
