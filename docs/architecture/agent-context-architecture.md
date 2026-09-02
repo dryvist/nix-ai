@@ -147,3 +147,53 @@ Per-harness native equivalents, no new code:
 | qwen / agy | tree parity against `~/.agents/skills` |
 
 Targets: **main session < 90k**; **subagent within ~10k of the 64k floor**.
+
+## Measured: MCP is the largest block, not skills
+
+Measured 2026-09-02 with `claude -p "reply OK"` in `nix-ai`, first-request
+tokens. This supersedes the initial framing of this document, which assumed the
+skill listing was the dominant cost.
+
+| Configuration | First request |
+| --- | ---: |
+| default | 111,311 |
+| `--strict-mcp-config` (no MCP) | 71,516 |
+| `--strict-mcp-config --setting-sources ''` | 36,693 |
+
+MCP tool schemas cost **39,795 tokens**. For comparison, in the same session the
+skill listing is 17,026, the agent listing 6,217, and the always-on instruction
+chain roughly 13,500.
+
+Isolating the local servers (`--strict-mcp-config --mcp-config <file>`):
+
+| Local MCP set | First request | Cost over no-MCP |
+| --- | ---: | ---: |
+| none | 71,516 | — |
+| `codex,fabric,grep,time` | 76,990 | 5,474 |
+| all seven | 109,015 | 37,499 |
+
+Per server, over the four-server baseline: **zammad 22,139**, apple-events
+6,746, vikunja 3,140. A single incident-tracking server that a typical session
+never calls is one fifth of that session's entire context.
+
+Hence the third tier applies to MCP servers exactly as it does to skills:
+`programs.aiMcp.onDemandServers` holds servers out of the always-on profile and
+renders each to `~/.claude/mcp-available/<name>.json`, so a session that needs
+one attaches it explicitly:
+
+```sh
+claude --mcp-config ~/.claude/mcp-available/zammad.json
+```
+
+`lib/checks/mcp.nix` -> `shared-mcp-on-demand-reachable` asserts both halves:
+an on-demand server must be absent from the always-on profile **and** present as
+an attachable file. Absent from both is a silent capability loss, which is the
+failure mode this tier is most likely to produce.
+
+### `ENABLE_TOOL_SEARCH` does not help — settled
+
+Tested as a real environment variable rather than a `--settings` override, which
+an earlier measurement had used and which does not reach the startup decision:
+`auto:10` 108,176 / `auto` 113,580 / unset 111,311 / `false` 111,311. The
+documented "load everything" value equals the default exactly. The knob is inert
+on this stack; the saving has to come from not attaching a server at all.

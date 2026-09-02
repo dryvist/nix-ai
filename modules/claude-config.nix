@@ -104,6 +104,22 @@ let
     client = "claude";
   };
 
+  # Servers held out of the always-on profile (programs.aiMcp.onDemandServers)
+  # are still rendered, one ready-to-attach file each, so nothing a session
+  # might need becomes unreachable:
+  #   claude --mcp-config ~/.claude/mcp-available/zammad.json
+  onDemandMcpServers = mcpClient.renderServers {
+    enabledServers = config.programs.aiMcp.onDemandEnabledServers;
+    excluded = config.programs.claude.excludedMcpServers;
+    normalize = normalizeClaudeMcpServer;
+    client = "claude";
+  };
+
+  onDemandMcpFiles = lib.mapAttrs' (name: server: {
+    name = ".claude/mcp-available/${name}.json";
+    value.text = builtins.toJSON { mcpServers.${name} = server; };
+  }) onDemandMcpServers;
+
 in
 {
   # excludedMcpServers + mcpServerNames come from the shared MCP client helper,
@@ -289,5 +305,7 @@ in
         refreshMarketplaces = true;
       };
     };
+
+    home.file = onDemandMcpFiles;
   };
 }
