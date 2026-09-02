@@ -20,6 +20,8 @@ let
           "premium-agent-orchestration"
           "not-a-real-skill"
         ];
+        # Not active: must still appear in GROUPS.json for repo-level linking.
+        groups.other = [ "ponytail" ];
         activeGroups = [ "core" ];
       };
     }
@@ -219,6 +221,9 @@ in
       groupedNames = builtins.attrNames groupedFiles;
       groupedSkillEntries = builtins.filter (n: isSkillEntry ".agents/skills" n) groupedNames;
       groupedIndex = groupedFiles.".agents/skills/INDEX.md".text;
+      groupedGroups = builtins.fromJSON (
+        builtins.unsafeDiscardStringContext groupedFiles.".agents/skills/GROUPS.json".text
+      );
     in
     assert
       builtins.elem ".agents/skills/autoresearch" groupedSkillEntries
@@ -235,5 +240,11 @@ in
     assert
       builtins.match ".*writing-clearly-and-concisely.*" groupedIndex == null
       || throw "INDEX.md lists a skill the group gate excluded (writing-clearly-and-concisely)";
+    assert
+      (groupedGroups.other or { }) ? ponytail
+      || throw "GROUPS.json must list inactive groups' skills so a repository can link them";
+    assert
+      !((groupedGroups.core or { }) ? not-a-real-skill)
+      || throw "GROUPS.json must not list a group member that matches no skill";
     helpers.mkMarker "check-agent-skills-groups" "Agent Skills group gating: ${toString (builtins.length groupedSkillEntries)} skills from active groups only";
 }
