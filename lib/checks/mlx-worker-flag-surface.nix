@@ -69,6 +69,38 @@ in
           gptOss
         ];
 
+      # MTP-enabled render. The base fixture leaves every modelMtpProfiles entry
+      # disabled, so the two flags behind `mtp.enable` are never rendered and no
+      # amount of comparing the base commands can say anything about them.
+      mtpBuilder = import ../../modules/mlx/model-server-cmd.nix {
+        inherit lib;
+        cfg = c // {
+          modelServerBackend = "vllm-mlx";
+          modelBackends = { };
+          modelMtpProfiles = c.modelMtpProfiles // {
+            ${optiq} = {
+              enable = true;
+              drafterModel = "flag-surface/probe-drafter";
+              maxKvTokens = 131072;
+              maxNumSeqs = 2;
+              tokenQueueTimeoutSeconds = 1800;
+              draftBlockSize = 3;
+            };
+          };
+        };
+        mlxModelServerPkg = pkgs.writeShellScriptBin "mlx-model-server" "";
+      };
+      vllmMtpFlags = lib.unique (flagsOf (mtpBuilder.mkModelCmd optiq));
+
+      # The external truth the derived allowlist below cannot supply. See the
+      # header of ./vllm-mlx-cli-flags.nix for why a hand-pasted list is the
+      # point rather than a shortcut.
+      cli = import ./vllm-mlx-cli-flags.nix;
+      # --model is the mlx-model-server adapter's own flag; it is consumed
+      # before `vllm-mlx serve` is exec'd, so argparse never sees it.
+      cliAllowed = cli.flags ++ [ "--model" ];
+      cliUnknown = lib.subtractLists cliAllowed (lib.unique (vllmFull ++ vllmMtpFlags));
+
       # unique: per-path lists are concatenated, so a shared flag would
       # otherwise be named twice in a failure message.
       mlxLmFull = lib.unique (fullFlags "mlx-lm");
@@ -107,7 +139,20 @@ in
     assert
       leaked == [ ]
       || throw "mlx-worker-flag-surface: the vllm-mlx worker command carries flag(s) ${lib.concatStringsSep ", " leaked} that the vllm-mlx flag builder does not emit and that are not a known rename target.";
-    # (c) the semantic survived the rename instead of being silently dropped.
+    # (c) every emitted flag is one the real CLI accepts. The three asserts
+    # below are ordered liveness-guard, coverage, verdict: without the first two
+    # the third is vacuously true whenever the MTP branch stops rendering.
+    assert
+      lib.elem "--enable-mtp" vllmMtpFlags
+      || throw "mlx-worker-flag-surface: the MTP fixture renders no --enable-mtp, so the flags behind mtp.enable are unexercised and the CLI-surface assertion below proves nothing about them.";
+    assert
+      lib.elem "--mllm-draft-block-size" vllmMtpFlags
+      || throw "mlx-worker-flag-surface: an MTP profile with a draftBlockSize renders no --mllm-draft-block-size, so the drafter's block size is silently dropped rather than passed to vllm-mlx.";
+    assert
+      cliUnknown == [ ]
+      || throw "mlx-worker-flag-surface: the vllm-mlx worker command carries flag(s) ${lib.concatStringsSep ", " cliUnknown} that `vllm-mlx serve --help` does not list at version ${cli.version}. vllm-mlx exits at startup with 'unrecognized arguments', so every worker llama-swap starts dies immediately. Fix the spelling, or re-capture ./vllm-mlx-cli-flags.nix if the pin moved.";
+    # (d) the chat-template semantic survived the rename instead of being
+    # silently dropped.
     assert
       lib.elem "--default-chat-template-kwargs" vllmFull
       || throw "mlx-worker-flag-surface: the vllm-mlx worker command has no --default-chat-template-kwargs, so the catalog's chat-template kwargs were dropped rather than translated.";
