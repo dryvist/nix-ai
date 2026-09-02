@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.77.1](https://github.com/dryvist/nix-ai/compare/v4.77.0...v4.77.1) (2026-09-02)
+
+
+### Bug Fixes
+
+* **agent-skills:** list every group in GROUPS.json regardless of the host gate ([#1993](https://github.com/dryvist/nix-ai/issues/1993)) ([36a93ab](https://github.com/dryvist/nix-ai/commit/36a93abd3c30832bdaec48d73fc2260df2d946d6))
+
 ## [4.77.0](https://github.com/dryvist/nix-ai/compare/v4.76.0...v4.77.0) (2026-09-02)
 
 
