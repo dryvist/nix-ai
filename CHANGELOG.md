@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.2.0](https://github.com/dryvist/nix-ai/compare/v5.1.0...v5.2.0) (2026-09-02)
+
+
+### Features
+
+* **claude:** add the manual-invoke skill tier ([#2016](https://github.com/dryvist/nix-ai/issues/2016)) ([1933a84](https://github.com/dryvist/nix-ai/commit/1933a841e55a7549f3b736867552b4fc13ef14ce))
+
 ## [5.1.0](https://github.com/dryvist/nix-ai/compare/v5.0.0...v5.1.0) (2026-09-02)
 
 
