@@ -112,8 +112,12 @@ rec {
         ]
         ++ lib.optionals c.enableMetrics [ "--enable-metrics" ]
         ++ lib.optionals mtp.enable [ "--enable-mtp" ]
+        # vllm-mlx spells this --mllm-draft-block-size; the bare
+        # --draft-block-size below is mlx-vlm's own CLI, a different binary.
+        # vllm-mlx exits at startup on an unknown flag, so the wrong spelling
+        # kills every worker llama-swap starts for an MTP-enabled model.
         ++ lib.optionals (mtp.enable && mtp.draftBlockSize != null) [
-          "--draft-block-size"
+          "--mllm-draft-block-size"
           (toString mtp.draftBlockSize)
         ]
         ++ lib.optionals c.continuousBatching [ "--continuous-batching" ]
