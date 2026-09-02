@@ -155,15 +155,31 @@ in
     # empty-string guard keeps a misconfigured `""` from running `cat` with no
     # argument (which would block on stdin) — belt-and-suspenders with the
     # non-empty assertion above.
+    # Wrap each router consumer in a same-named zsh function instead of an
+    # unconditional shell-init export: the token now lives only in the
+    # environment of the one child process being launched, not in every
+    # process a login shell later spawns. `command <name>` inside the
+    # function bypasses the function itself to reach the real binary on PATH.
     programs.zsh.initContent =
       lib.mkIf
         (
           cfg.llmEndpoint != "mlx_local" && cfg.llmEndpointTokenFile != null && cfg.llmEndpointTokenFile != ""
         )
         (
-          lib.mkAfter ''
-            export OPENAI_API_KEY="''${OPENAI_API_KEY:-"$(cat ${lib.escapeShellArg cfg.llmEndpointTokenFile} 2>/dev/null || echo "")"}"
-          ''
+          lib.mkAfter (
+            lib.concatMapStringsSep "\n"
+              (name: ''
+                ${name}() {
+                  OPENAI_API_KEY="''${OPENAI_API_KEY:-"$(cat ${lib.escapeShellArg cfg.llmEndpointTokenFile} 2>/dev/null || echo "")"}" \
+                    command ${name} "$@"
+                }
+              '')
+              [
+                "cecli"
+                "qwen-code"
+                "fabric"
+              ]
+          )
         );
   };
 }
