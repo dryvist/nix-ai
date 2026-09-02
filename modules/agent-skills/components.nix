@@ -21,12 +21,11 @@ let
 
   # Harness fan-out: one registry generates the symlinks, the cleanup sweep,
   # and (via lib/checks/agent-skills.nix) the regression coverage. harnesses.nix
-  # stays the static default registry; the opencode entries are re-derived from
-  # `opencodeConfigDir` so a relocated opencode config dir follows automatically.
+  # stays the static default registry. OpenCode has no skills entry (it reads
+  # ~/.agents/skills natively — a mirrored symlink would scan the tree twice),
+  # but its AGENTS.md entry is re-derived from `opencodeConfigDir` so a
+  # relocated opencode config dir still gets the shared AGENTS.md.
   harnesses = (import ./harnesses.nix) // {
-    skills = (import ./harnesses.nix).skills // {
-      opencode = "${cfg.opencodeConfigDir}/skills";
-    };
     agentsMd = (import ./harnesses.nix).agentsMd // {
       opencode = "${cfg.opencodeConfigDir}/AGENTS.md";
     };
