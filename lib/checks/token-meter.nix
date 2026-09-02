@@ -22,6 +22,10 @@ in
       # Restated rather than imported on purpose: this is the drift detector,
       # so it must fail when the module's Caddyfile changes without the change
       # being made here too. The global block is part of that — dropping
+      # Mirrors the module: the site address is the certificate/SNI name, the
+      # bind directive is the interface list. They differ whenever the bind is
+      # a wildcard.
+      siteHost = if cfg.siteHostName != "" then cfg.siteHostName else cfg.bindAddress;
       # `auto_https disable_redirects` makes Caddy open a port-80 listener it
       # cannot bind as a user agent, which takes the whole gate down.
       expected = pkgs.writeText "token-meter-Caddyfile" ''
@@ -29,13 +33,13 @@ in
         	auto_https disable_redirects
         }
 
-        ${cfg.bindAddress}:${toString cfg.gatePort} {
+        ${siteHost}:${toString cfg.gatePort} {
         	bind ${cfg.bindAddress}
         	tls internal
         	reverse_proxy 127.0.0.1:${toString cfg.dashboardPort}
         }
       '';
-      route = "${cfg.bindAddress}:${toString cfg.gatePort} -> 127.0.0.1:${toString cfg.dashboardPort}";
+      route = "${siteHost}:${toString cfg.gatePort} -> 127.0.0.1:${toString cfg.dashboardPort}";
     in
     assert
       builtins.elem "run" args
