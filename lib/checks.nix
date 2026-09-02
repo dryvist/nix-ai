@@ -140,6 +140,7 @@ in
     ;
 })
 // (import ./checks/litellm-local-negative.nix { inherit pkgs mkHmConfig; })
+// (import ./checks/litellm-local-scripts.nix { inherit pkgs src; })
 // (import ./checks/fabric.nix {
   inherit
     pkgs

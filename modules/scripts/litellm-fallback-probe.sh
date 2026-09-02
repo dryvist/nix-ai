@@ -10,6 +10,15 @@
 # Exit 0 only if EVERY member answers. A partial chain is still serving
 # traffic, which is exactly why it goes unnoticed until the last rung fails
 # too — so a dead member is an error here, not a warning.
+#
+# EVERY REQUEST DISABLES FALLBACKS. Without that, the proxy's own chain answers
+# for the rung under test: a request addressed to a dead member is served by
+# the NEXT member and still returns 200, so the probe reported the chain
+# healthy while a rung was gone — the exact blindness it exists to remove.
+# `disable_fallbacks` is LiteLLM's documented per-request control
+# (https://docs.litellm.ai/docs/proxy/reliability, "Disable Fallbacks per
+# Request"); `num_retries` still applies, so a transient blip is retried rather
+# than mistaken for a dead rung.
 set -euo pipefail
 
 BASE="${LITELLM_LOCAL_URL:-http://127.0.0.1:4100}"
@@ -37,7 +46,7 @@ failed=0
 for model in "$@"; do
   printf '%-24s ' "$model"
 
-  body=$(printf '{"model":%s,"max_tokens":%s,"messages":[{"role":"user","content":"Reply with exactly: OK"}]}' \
+  body=$(printf '{"model":%s,"max_tokens":%s,"disable_fallbacks":true,"messages":[{"role":"user","content":"Reply with exactly: OK"}]}' \
     "$(printf '%s' "$model" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')" \
     "$MAX_TOKENS")
 
