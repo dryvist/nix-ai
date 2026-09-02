@@ -76,7 +76,7 @@ in
         )
       );
       callSites = {
-        "modules/claude-config.nix" = "claude";
+        "modules/claude/mcp-render.nix" = "claude";
         "modules/codex/settings.nix" = "codex";
         "modules/qwen-code/settings.nix" = "qwen-code";
         "modules/opencode/default.nix" = "opencode";
