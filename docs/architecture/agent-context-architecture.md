@@ -18,14 +18,27 @@ user settings), read from the first `usage` block of each transcript.
 | `--setting-sources user` (drop project + local) | 113,889 |
 | `--setting-sources ''` (no settings at all) | **64,068** |
 
+> **The 64,068 row is withdrawn.** `--setting-sources ''` drops settings layers
+> but does **not** detach MCP servers, so it was measured with MCP attached and
+> is not a floor. **The floor is 32,914**, measured from an empty directory
+> outside `$HOME` with no MCP and no settings.
+>
+> Every conclusion drawn from the 64k figure was wrong, in particular "a
+> subagent cannot go below ~64k". A subagent measuring 80,746 is 41% floor, so
+> **a sub-60k subagent is a lever problem, not a harness limitation**.
+
 Read it as two blocks:
 
-- **Floor ≈ 64k** — Claude Code's own system prompt plus its built-in tool
-  schemas. Not addressable from this repo. **A subagent cannot go below it**,
-  so any subagent target under ~64k is unreachable by construction.
-- **Addressable ≈ 65k** — everything settings bring in: the plugin set and the
-  skill and agent listings it generates, MCP configuration, and the instruction
-  chain.
+- **Floor 32,914** — Claude Code's own system prompt plus its built-in tool
+  schemas. Not addressable from this repo.
+- **Addressable ~56k** — everything above it: the plugin set and the skill and
+  agent listings it generates, MCP configuration, and the instruction chain.
+  Roughly 3,900 of what the old figure called immovable is instruction content,
+  which is the most user-controllable material in the session.
+
+Full nested decomposition, instrument properties, refuted hypotheses and the
+manual-invoke precondition:
+[`agent-context-measurement.md`](agent-context-measurement.md).
 
 Two things that are *not* the problem, tested rather than assumed:
 
@@ -146,7 +159,9 @@ Per-harness native equivalents, no new code:
 | OpenCode | `opencode debug skill`, `opencode stats` |
 | qwen / agy | tree parity against `~/.agents/skills` |
 
-Targets: **main session < 90k**; **subagent within ~10k of the 64k floor**.
+Targets: **main session < 90k**; **subagent < 60k** — reachable: it needs
+~20,700 cut from ~47,800 of configurable content, and the skill listing alone
+is 12,543.
 
 ## Measured: MCP is the largest block, not skills
 
