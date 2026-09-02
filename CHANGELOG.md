@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.3.0](https://github.com/dryvist/nix-ai/compare/v5.2.0...v5.3.0) (2026-09-02)
+
+
+### Features
+
+* **agent-skills:** link skill trees at their own store paths ([#2022](https://github.com/dryvist/nix-ai/issues/2022)) ([4fc7708](https://github.com/dryvist/nix-ai/commit/4fc7708ed55466dc4bf1f3eee2a218f82f6b504b))
+
 ## [5.2.0](https://github.com/dryvist/nix-ai/compare/v5.1.0...v5.2.0) (2026-09-02)
 
 
