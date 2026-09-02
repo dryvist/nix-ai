@@ -68,6 +68,7 @@ in
 // (import ./checks/ai-stack-endpoint.nix { inherit pkgs; })
 // (import ./checks/claude.nix { inherit pkgs hmConfig; })
 // (import ./checks/telemetry.nix { inherit pkgs mkHmConfigWith; })
+// (import ./checks/agent-skills-repo-link.nix { inherit pkgs; })
 // (import ./checks/agent-skills.nix {
   inherit
     pkgs
