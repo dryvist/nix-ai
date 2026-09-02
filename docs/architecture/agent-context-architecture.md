@@ -1,0 +1,149 @@
+# Agent Context Architecture
+
+What every agent session loads at startup, across every harness, and the tiers
+that decide it. Supersedes [`plugin-scoping.md`](plugin-scoping.md), which
+covers Claude Code only.
+
+## The budget, measured
+
+Every number here comes from fresh headless sessions in this repo on
+2026-09-02, using `--settings` / `--setting-sources` overrides (which outrank
+user settings), read from the first `usage` block of each transcript.
+
+| Configuration | First request |
+| --- | ---: |
+| Default | 128,949 |
+| Agent teams off | 127,975 |
+| `ENABLE_TOOL_SEARCH=false` ("load everything") | 127,749 |
+| `--setting-sources user` (drop project + local) | 113,889 |
+| `--setting-sources ''` (no settings at all) | **64,068** |
+
+Read it as two blocks:
+
+- **Floor ≈ 64k** — Claude Code's own system prompt plus its built-in tool
+  schemas. Not addressable from this repo. **A subagent cannot go below it**,
+  so any subagent target under ~64k is unreachable by construction.
+- **Addressable ≈ 65k** — everything settings bring in: the plugin set and the
+  skill and agent listings it generates, MCP configuration, and the instruction
+  chain.
+
+Two things that are *not* the problem, tested rather than assumed:
+
+- **MCP tool schemas.** The startup injection is a names-only index (94 names,
+  3,324 bytes). Setting `ENABLE_TOOL_SEARCH` to its documented maximally-eager
+  value costs ~1,200 tokens. Tool search is not a lever here.
+- **Agent listings.** The current enabled set computes to ~1,600 bytes.
+
+## Which tree each harness reads
+
+The single most important table here: a cut only helps a harness that reads the
+tree being cut.
+
+| Harness | Reads | Entries today |
+| --- | --- | ---: |
+| Claude Code | `~/.claude/skills` + enabled plugin skills + `<repo>/.claude/skills` | 6 + plugins |
+| Codex | `~/.agents/skills` natively (`~/.codex/skills` holds only `.system`) | 72 |
+| Cursor | `~/.agents/skills` and `<repo>/.agents/skills` natively | 72 |
+| OpenCode | `~/.agents/skills` natively | 72 |
+| qwen | `~/.qwen/skills` → symlink to the shared tree | 72 |
+| agy / Antigravity | `~/.gemini/antigravity{,-cli}/skills`, `~/.gemini/config/skills` → same tree | 72 |
+| Hermes | Runs off-box; no local skill tree on the workstation | — |
+
+**Claude Code does not read `~/.agents/skills`.** Verified: `microsoft-foundry`
+lives in that tree, is shipped by no enabled plugin, and does not appear in a
+Claude session's skill listing. Every shared-tree name that *does* appear is
+there under its plugin prefix (`github-workflows:merge-pr`), not as the flat
+name the shared tree uses.
+
+The consequence is the thing to remember: **`programs.agentSkills.activeGroups`
+scopes six harnesses and does nothing for Claude.** Claude's levers are its
+plugin set, `~/.claude/skills`, and `<repo>/.claude/skills`.
+
+## The three tiers
+
+Every skill sits in exactly one tier. The default is the cheapest one.
+
+| Tier | Cost at startup | Reached by | Use for |
+| --- | --- | --- | --- |
+| **always-listed** | Full name + description, every session | Model picks it unprompted | A small core that applies to any task in any repo |
+| **group-listed** | Name + description, only in repos declaring the group | Model picks it unprompted, in that repo | Domain skills — nix, homelab, cribl, docs |
+| **manual-invoke** | **Nothing** until called | `/name`, typed | Everything else. This is the default. |
+
+`manual-invoke` is `disable-model-invocation: true` in the skill's frontmatter.
+Claude Code documents such skills as staying "completely out of context until
+you invoke them with `/name`" — full reachability at zero listing cost.
+
+### Harness support for tier 3 is not uniform
+
+`disable-model-invocation` is a Claude Code frontmatter key. Whether Codex,
+Cursor, OpenCode, qwen and agy honour it is an Agent Skills spec question that
+is **not yet verified**. Until it is, assume those harnesses have two tiers —
+present in the tree, or not — and scope them with group membership rather than
+with the manual-invoke marker. Do not promise a third tier a harness cannot
+deliver.
+
+## One declaration, many renderers
+
+A repository declares its groups once:
+
+```yaml
+# AGENTS.md frontmatter
+skill-groups: [core, homelab]
+```
+
+Everything else is generated from that declaration plus the group→skill map
+nix-ai publishes at `~/.agents/skills/GROUPS.json`:
+
+| Output | Consumed by |
+| --- | --- |
+| `<repo>/.agents/skills/` symlinks | Codex, Cursor, OpenCode, qwen, agy |
+| `<repo>/.claude/skills/` symlinks | Claude Code |
+| `<repo>/.claude/settings.json` `enabledPlugins` | Claude Code |
+| `.mcp.json`, `.codex/config.toml`, `opencode.json` | the matching harness |
+
+Renderer: `agent-skill-groups link`, invoked from
+`~/.config/direnv/lib/agent-skill-groups.sh`, which direnv sources before every
+`.envrc`. It manages only `/nix/store` symlinks and writes `.git/info/exclude`.
+
+**Never hand-write a per-harness file.** A second loading path beside the
+native one is what produced the 2026-09-02 regression: the shared tree was
+trimmed to 72 for the five harnesses that read it, while the linker
+simultaneously wrote 80 skills into `<repo>/.claude/skills` — the one tree
+Claude does read — taking `tofu-proxmox` from 82k to 133k–183k.
+
+The rule that follows: **the linker must emit each skill at its declared tier**,
+so a group-listed skill is linked and listed, and a manual-invoke skill is
+linked and marked. Linking everything at tier 1 is what costs.
+
+## Rules
+
+1. **Default to manual-invoke.** A skill earns a listing by being useful in
+   repos that have not declared its group.
+2. **Cut the tree the harness actually reads**, per the table above. A cut
+   aimed at the wrong tree measures as zero.
+3. **Measure both directions before believing a lever.** Both `auto` and
+   `false` were tested for `ENABLE_TOOL_SEARCH`; the difference was ~1k, which
+   is how it was ruled out as a lever.
+4. **Nothing may become unreachable.** Moving a skill down a tier is only valid
+   if it can still be invoked — by `/name`, or by declaring its group in the
+   repo that needs it.
+5. **Only new sessions see a cut.** Listings are injected at startup; a running
+   session keeps whatever it began with.
+
+## Measuring
+
+```sh
+# first request of every recent session, per repo
+agent-context-baseline            # see modules/scripts/agent-context-baseline.sh
+```
+
+Per-harness native equivalents, no new code:
+
+| Harness | Command |
+| --- | --- |
+| Claude | first `usage` block of a fresh transcript; `/context` for the split |
+| Codex | `codex debug prompt-input \| wc -c` |
+| OpenCode | `opencode debug skill`, `opencode stats` |
+| qwen / agy | tree parity against `~/.agents/skills` |
+
+Targets: **main session < 90k**; **subagent within ~10k of the 64k floor**.
