@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Links the skill groups a repository declares into its own skill trees.
 #
 #   agent-skill-groups link [repo-root]    create/prune links (quiet, exit 0)
@@ -20,7 +21,7 @@ trees=(.agents/skills .claude/skills)
   echo "agent-skill-groups: no $groups_file" >&2
   exit 0
 }
-cd "$root"
+cd "$root" || exit 0
 
 # Frontmatter value of skill-groups, one name per line.
 declared="$(awk '
