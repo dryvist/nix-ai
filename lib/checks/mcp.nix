@@ -3,15 +3,22 @@
 let
   helpers = import ./helpers.nix { inherit pkgs; };
   cfg = hmConfig.config.programs.aiMcp;
-  # zammad and apple-events deliberately left out: they are on-demand
-  # (programs.aiMcp.onDemandServers) because together they cost ~29k tokens of
-  # every session's context. shared-mcp-on-demand-reachable below proves they
-  # are still attachable, which is the guarantee that made the move safe.
-  expectedGlobalServers = [
-    "codex"
-    "fabric"
-    "time"
-  ];
+  # The nix-managed always-on profile is deliberately EMPTY. zammad and
+  # apple-events left first (~29k tokens between them); codex, fabric, grep and
+  # time followed on measured usage — 149/124/117/54 calls across 1,651 local
+  # transcripts, costing 5,474 tokens of every session between them. A session
+  # calling none of them, which is most sessions, paid that for nothing.
+  #
+  # Asserted as an EXACT SET, not a floor. An empty floor would be vacuously
+  # true and would prove nothing; equality fails in both directions, so a
+  # server silently re-added to the always-on profile fails the build just as a
+  # missing one would. shared-mcp-on-demand-reachable proves everything moved
+  # out is still attachable, which is what makes each move a scoping change
+  # rather than a capability loss.
+  expectedGlobalServers = [ ];
+  unexpectedGlobalServers = builtins.filter (
+    name: !(builtins.elem name expectedGlobalServers)
+  ) cfg.enabledServerNames;
   missingGlobalServers = builtins.filter (
     name: !(builtins.elem name cfg.enabledServerNames)
   ) expectedGlobalServers;
@@ -79,7 +86,10 @@ in
     assert
       missingGlobalServers == [ ]
       || throw "Shared MCP profile missing global servers: ${builtins.toJSON missingGlobalServers}; actual=${builtins.toJSON cfg.enabledServerNames}";
-    helpers.mkMarker "check-shared-mcp-global-profile" "Shared MCP profile includes ${toString (builtins.length expectedGlobalServers)} expected global servers";
+    assert
+      unexpectedGlobalServers == [ ]
+      || throw "Shared MCP profile gained unexpected always-on servers: ${builtins.toJSON unexpectedGlobalServers}. Every server costs tokens in EVERY session; add it to programs.aiMcp.onDemandServers unless it is called in nearly all of them.";
+    helpers.mkMarker "check-shared-mcp-global-profile" "Shared MCP profile is exactly the ${toString (builtins.length expectedGlobalServers)} expected always-on servers";
 
   shared-mcp-on-demand-reachable =
     assert
