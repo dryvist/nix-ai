@@ -1,5 +1,17 @@
 # Changelog
 
+## [4.77.0](https://github.com/dryvist/nix-ai/compare/v4.76.0...v4.77.0) (2026-09-02)
+
+
+### Features
+
+* **agent-skills:** categorise every skill and link declared groups per repository ([#1984](https://github.com/dryvist/nix-ai/issues/1984)) ([89b2d74](https://github.com/dryvist/nix-ai/commit/89b2d742530cce7f2f75d656eceae1a5eedce915))
+
+
+### Bug Fixes
+
+* **ci:** tag draft releases at creation and attach the template to the run's own release ([0de96f2](https://github.com/dryvist/nix-ai/commit/0de96f231ab73bae385e488402c8cf32a33066eb))
+
 ## [4.76.0](https://github.com/dryvist/nix-ai/compare/v4.75.0...v4.76.0) (2026-09-02)
 
 
