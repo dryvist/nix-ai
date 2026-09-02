@@ -3,16 +3,28 @@
 let
   helpers = import ./helpers.nix { inherit pkgs; };
   cfg = hmConfig.config.programs.aiMcp;
+  # zammad and apple-events deliberately left out: they are on-demand
+  # (programs.aiMcp.onDemandServers) because together they cost ~29k tokens of
+  # every session's context. shared-mcp-on-demand-reachable below proves they
+  # are still attachable, which is the guarantee that made the move safe.
   expectedGlobalServers = [
     "codex"
     "fabric"
     "time"
-    "zammad"
-  ]
-  ++ pkgs.lib.optional pkgs.stdenv.isDarwin "apple-events";
+  ];
   missingGlobalServers = builtins.filter (
     name: !(builtins.elem name cfg.enabledServerNames)
   ) expectedGlobalServers;
+
+  onDemandNames = cfg.onDemandServers;
+  # An on-demand server must be absent from the always-on profile AND rendered
+  # to a ready-to-attach file. Absent from both would be a silent capability
+  # loss, which is the failure this check exists to prevent.
+  onDemandLeaked = builtins.filter (name: builtins.elem name cfg.enabledServerNames) onDemandNames;
+  onDemandRenderable = builtins.filter (name: cfg.servers ? ${name}) onDemandNames;
+  onDemandUnreachable = builtins.filter (
+    name: !(hmConfig.config.home.file ? ".claude/mcp-available/${name}.json")
+  ) (builtins.filter (name: cfg.onDemandEnabledServers ? ${name}) onDemandRenderable);
   rendererNames = {
     claude = builtins.attrNames hmConfig.config.programs.claude.mcpServers;
     codex = hmConfig.config.programs.codex.mcpServerNames;
@@ -68,6 +80,18 @@ in
       missingGlobalServers == [ ]
       || throw "Shared MCP profile missing global servers: ${builtins.toJSON missingGlobalServers}; actual=${builtins.toJSON cfg.enabledServerNames}";
     helpers.mkMarker "check-shared-mcp-global-profile" "Shared MCP profile includes ${toString (builtins.length expectedGlobalServers)} expected global servers";
+
+  shared-mcp-on-demand-reachable =
+    assert
+      onDemandLeaked == [ ]
+      || throw "On-demand MCP servers leaked into the always-on profile: ${builtins.toJSON onDemandLeaked}";
+    assert
+      onDemandRenderable == onDemandNames
+      || throw "On-demand MCP servers absent from the catalog entirely: ${builtins.toJSON onDemandNames} vs catalog ${builtins.toJSON onDemandRenderable}";
+    assert
+      onDemandUnreachable == [ ]
+      || throw "On-demand MCP servers unreachable — no ~/.claude/mcp-available file: ${builtins.toJSON onDemandUnreachable}";
+    helpers.mkMarker "check-shared-mcp-on-demand-reachable" "On-demand MCP servers are out of the always-on profile and still attachable via ~/.claude/mcp-available";
 
   shared-mcp-renderer-parity =
     assert
