@@ -1,11 +1,9 @@
 # Per-repo file-size config for JacobPEvans/.github/_file-size.yml.
 #
-# All files currently fit under the upstream defaults (warn: 6KB, error: 12KB),
-# so no extended-limit overrides are declared. Files that drift toward the
+# No overrides are declared: the org defaults in dryvist/.github
+# (configs/file-size-defaults.yml) apply as-is, and a repo config must not
+# restate them. Files that drift toward the
 # warn threshold (e.g. claude-config.nix, ai-tools.nix, gemini/options.nix)
 # should be split rather than re-added to an extended.files list. See the
 # split history of modules/claude/options and modules/mlx/options for the
 # pattern.
-defaults:
-  warn: 6144
-  error: 12288

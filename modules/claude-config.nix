@@ -72,37 +72,12 @@ let
       source = "${sourcePath}/${name}.md";
     }) names;
 
+  # Also used below for mkClientOptions; the rendering itself lives in
+  # claude/mcp-render.nix to keep this file under the org file-size limit.
   mcpClient = import ./mcp/client.nix { inherit lib; };
 
-  # Claude Code's own key allowlist. Every client keeps its own normalizer
-  # because the target schemas genuinely differ (Codex takes env_vars and
-  # timeouts, opencode fuses command+args, qwen splits url/httpUrl); only the
-  # filter/exclude step is shared, via mcpClient.renderServers below.
-  normalizeClaudeMcpServer =
-    server:
-    lib.filterAttrs (
-      name: value:
-      lib.elem name [
-        "type"
-        "command"
-        "args"
-        "env"
-        "url"
-        "headers"
-        "disabled"
-      ]
-      && value != null
-      && value != [ ]
-      && value != { }
-      && !(name == "disabled" && !value)
-    ) server;
-
-  mcpServers = mcpClient.renderServers {
-    inherit (config.programs.aiMcp) enabledServers;
-    excluded = config.programs.claude.excludedMcpServers;
-    normalize = normalizeClaudeMcpServer;
-    client = "claude";
-  };
+  claudeMcp = import ./claude/mcp-render.nix { inherit lib config; };
+  inherit (claudeMcp) mcpServers onDemandMcpFiles;
 
 in
 {
@@ -289,5 +264,7 @@ in
         refreshMarketplaces = true;
       };
     };
+
+    home.file = onDemandMcpFiles;
   };
 }
