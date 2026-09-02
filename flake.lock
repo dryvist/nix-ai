@@ -774,15 +774,14 @@
         "openai-codex": "openai-codex",
         "superpowers-marketplace": "superpowers-marketplace",
         "vct-cribl-pack-validator-skills": "vct-cribl-pack-validator-skills",
-        "visual-explainer-marketplace": "visual-explainer-marketplace",
-        "wakatime": "wakatime"
+        "visual-explainer-marketplace": "visual-explainer-marketplace"
       },
       "locked": {
-        "lastModified": 1788294873,
-        "narHash": "sha256-OoxmtGD+0bS2Jx0l2n3H9O8W4Ak/qDwTn2ygAiUo+dA=",
+        "lastModified": 1788350874,
+        "narHash": "sha256-UIat94QDe0YJ/fejOUTUCSO2cfFbG/y0IGpqtpFbKF4=",
         "owner": "dryvist",
         "repo": "nix-claude-code",
-        "rev": "e7e825e164608b0910f87a2182df9089b18e2102",
+        "rev": "2076ffea5099436f71e34dd2510541fc46fd67a7",
         "type": "github"
       },
       "original": {
@@ -1076,22 +1075,6 @@
       "original": {
         "owner": "nicobailon",
         "repo": "visual-explainer",
-        "type": "github"
-      }
-    },
-    "wakatime": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1778860224,
-        "narHash": "sha256-zZGx6rYgVXtyhoLy7w4tDFVGioEUqpWcXVIzFN4NfAE=",
-        "owner": "wakatime",
-        "repo": "claude-code-wakatime",
-        "rev": "3915f4ec19d4fedf2a1a2a644f1138cd72e956da",
-        "type": "github"
-      },
-      "original": {
-        "owner": "wakatime",
-        "repo": "claude-code-wakatime",
         "type": "github"
       }
     }
