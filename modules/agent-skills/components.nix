@@ -1,7 +1,12 @@
 # Agent Skills Components
 #
 # Manages shared skill deployment to one Codex-visible canonical root.
-{ config, lib, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 let
   cfg = config.programs.agentSkills;
@@ -217,9 +222,14 @@ in
         $DRY_RUN_CMD rmdir "$inactive_root" 2>/dev/null || true
       '';
 
+      # Repo-level layer: links a repository's declared groups into its own
+      # skill trees on every direnv load (see repo-link/).
+      packages = [ (pkgs.callPackage ./repo-link/package.nix { }) ];
+
       file = {
         "${skillRoot}/INDEX.md".text = skillIndex;
         "${skillRoot}/GROUPS.json".text = groupsJson;
+        ".config/direnv/lib/agent-skill-groups.sh".source = ./repo-link/direnv-lib.sh;
       }
       // harnessSymlinks
       // harnessAgentsMdSymlinks
