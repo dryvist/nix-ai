@@ -230,9 +230,36 @@ in
           # has no local equivalent configured, so denying it would be a
           # capability loss rather than a scoping change. That is a decision
           # for the operator, not a default.
+          #
+          # The same mechanism applies to built-in tools, and their schemas are
+          # not small. Counted by tool-call pattern across 1,651 local
+          # transcripts (a naive name grep overcounts by ~100x, because every
+          # session's own schema dump contains every tool name):
+          #
+          #   DesignSync              0 invocations
+          #   LSP                     0
+          #   NotebookEdit            0
+          #   ReadMcpResourceDirTool  0
+          #   ReadMcpResourceTool     1
+          #   ListMcpResourcesTool    7
+          #
+          # Denying those six measures −5,625 tokens of every session.
+          #
+          # Workflow (5) and ReportFindings (4) would add a further 2,800 and
+          # are deliberately NOT denied: they have been used, so removing them
+          # trades capability for tokens rather than scoping. Artifact and
+          # TaskOutput are already deferred through ToolSearch and denying them
+          # is worth only ~550 between them. EndConversation stays for the same
+          # reason it exists.
           deny = formatters.claude.formatDenied permissions ++ [
             "mcp__claude_ai_Hugging_Face__*"
             "mcp__claude_ai_Context7__*"
+            "DesignSync"
+            "LSP"
+            "NotebookEdit"
+            "ReadMcpResourceDirTool"
+            "ReadMcpResourceTool"
+            "ListMcpResourcesTool"
           ];
           ask = formatters.claude.formatAsk permissions;
         };
