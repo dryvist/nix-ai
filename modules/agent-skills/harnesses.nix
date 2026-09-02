@@ -8,7 +8,7 @@
 #
 # Claude Code is intentionally absent: it consumes skills through its
 # plugin/marketplace system, not through ~/.agents/skills.
-# Codex is absent from both registries: it discovers ~/.codex/skills and
+# Codex and OpenCode are absent from the skills registry: both discover
 # ~/.agents/skills natively, and programs.codex.context already bakes AGENTS.md
 # inline to ~/.codex/AGENTS.md. Creating a Codex symlink would make it scan the
 # selected skill tree twice.
@@ -20,7 +20,6 @@ rec {
     antigravity = ".gemini/antigravity/skills";
     antigravity-cli = ".gemini/antigravity-cli/skills";
     gemini = ".gemini/config/skills";
-    opencode = ".config/opencode/skills";
   };
 
   # AGENTS.md fan-out — each entry is a file path (relative to $HOME) that

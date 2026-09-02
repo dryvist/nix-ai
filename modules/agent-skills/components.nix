@@ -89,6 +89,17 @@ let
       lib.optionalString (uncategorized != [ ]) (renderSection "Uncategorized" uncategorized)
     }'';
 
+  # Machine-readable view of the gate for repo-level tooling: group -> name ->
+  # deployed skill directory, deployed skills only.
+  skillSources =
+    builtins.listToAttrs (map (c: lib.nameValuePair c.name (skillDir c.source)) deployedFlakeInputs)
+    // lib.mapAttrs (_: skillDir) deployedLocal;
+  groupsJson = builtins.toJSON (
+    lib.mapAttrs (
+      _: names: lib.genAttrs (lib.intersectLists names allSkillNames) (n: toString skillSources.${n})
+    ) cfg.groups
+  );
+
   mkSkillFiles =
     components:
     builtins.listToAttrs (
@@ -178,6 +189,8 @@ in
         cleanup_skill_tree "${homeDir}/${skillRoot}"
         # Legacy pre-registry location (module once deployed here directly).
         cleanup_skill_tree "${homeDir}/.antigravity-cli/skills"
+        # OpenCode reads ~/.agents/skills itself; the managed alias is retired.
+        cleanup_legacy_root_link "${homeDir}/.config/opencode/skills"
         ${lib.concatMapStrings (dir: ''
           cleanup_skill_tree "${homeDir}/${dir}"
         '') harnessSkillDirs}
@@ -206,6 +219,7 @@ in
 
       file = {
         "${skillRoot}/INDEX.md".text = skillIndex;
+        "${skillRoot}/GROUPS.json".text = groupsJson;
       }
       // harnessSymlinks
       // harnessAgentsMdSymlinks
