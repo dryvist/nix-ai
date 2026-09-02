@@ -26,19 +26,21 @@ home="$2"
 
 created=0
 unchanged=0
+pruned=0
 
 # Roots we manage, collected so stale entries can be pruned without touching
 # anything a user or another tool put there.
 roots_file="$(mktemp)"
-trap 'rm -f "$roots_file" "$roots_file.managed"' EXIT
-: >"$roots_file.managed"
+managed_file="$roots_file.managed"
+trap 'rm -f "$roots_file" "$managed_file"' EXIT
+: >"$managed_file"
 
 while IFS=$'\t' read -r rel target; do
   [ -n "${rel:-}" ] || continue
   [ -n "${target:-}" ] || continue
   dest="$home/$rel"
   dirname "$dest" >>"$roots_file"
-  echo "$dest" >>"$roots_file.managed"
+  echo "$dest" >>"$managed_file"
 
   if [ "$(readlink "$dest" 2>/dev/null)" = "$target" ]; then
     unchanged=$((unchanged + 1))
@@ -50,25 +52,40 @@ while IFS=$'\t' read -r rel target; do
   # copies, or a CLI that re-cloned the tree in place). Replace it.
   rm -rf "$dest"
   ln -s "$target" "$dest"
+  echo "stable-links: linked $rel -> $target" >&2
   created=$((created + 1))
 done <"$manifest"
 
-# Prune links we used to manage and no longer do. Only ever remove a symlink
-# that points into the nix store: never a real file, and never something
-# pointing outside it.
-pruned=0
-sort -u "$roots_file" | while IFS= read -r root; do
+# Prune links we used to manage and no longer do.
+#
+# Three things are deliberately never pruned:
+#   * real files and directories — only symlinks are considered;
+#   * symlinks pointing outside the nix store — a user's own link, or an
+#     out-of-store symlink another module placed here on purpose;
+#   * symlinks into home-manager's own aggregate. Those belong to
+#     home-manager, which removes them itself when a generation drops them.
+#     Sibling entries such as INDEX.md and GROUPS.json are still delivered
+#     that way and live in the same directory as ours.
+#
+# The loop runs in this shell, not a pipeline subshell, so `pruned` survives
+# and every removal is logged.
+while IFS= read -r root; do
   [ -d "$root" ] || continue
   for link in "$root"/*; do
     [ -L "$link" ] || continue
-    grep -qxF "$link" "$roots_file.managed" && continue
-    case "$(readlink "$link")" in
+    grep -qxF "$link" "$managed_file" && continue
+    target="$(readlink "$link")"
+    case "$target" in
+      *-home-manager-files/*) continue ;;
+    esac
+    case "$target" in
       /nix/store/*)
         rm -f "$link"
+        echo "stable-links: pruned $link -> $target" >&2
         pruned=$((pruned + 1))
         ;;
     esac
   done
-done
+done < <(sort -u "$roots_file")
 
-echo "stable-links: linked=$created unchanged=$unchanged" >&2
+echo "stable-links: linked=$created unchanged=$unchanged pruned=$pruned" >&2
