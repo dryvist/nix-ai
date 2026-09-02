@@ -69,12 +69,12 @@ in
 // (import ./checks/claude.nix { inherit pkgs hmConfig; })
 // (import ./checks/telemetry.nix { inherit pkgs mkHmConfigWith; })
 // (import ./checks/agent-skills-repo-link.nix { inherit pkgs; })
+// (import ./checks/agent-skills-groups.nix { inherit pkgs mkHmConfig; })
 // (import ./checks/agent-skills.nix {
   inherit
     pkgs
     hmConfig
     hmConfigAgentSkillsShared
-    mkHmConfig
     ;
 })
 // (import ./checks/codex.nix { inherit pkgs hmConfig; })

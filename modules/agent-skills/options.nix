@@ -46,6 +46,18 @@ in
     # which groups are active. A skill may belong to several groups. Group
     # members that match no deployed skill are ignored — same forward-tolerant
     # rule as `categories` — so a group can name a skill before its input lands.
+    deployedSkillPaths = lib.mkOption {
+      type = lib.types.attrsOf lib.types.path;
+      default = { };
+      internal = true;
+      description = ''
+        Map of home-relative skill directory -> its own store path, as actually
+        deployed. These are linked directly rather than through home.file, so
+        this is the source of truth for what a session will find on disk;
+        home.file no longer carries skill entries.
+      '';
+    };
+
     groups = lib.mkOption {
       type = lib.types.attrsOf (lib.types.listOf lib.types.str);
       default = { };

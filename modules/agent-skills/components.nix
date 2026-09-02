@@ -107,29 +107,30 @@ let
     ) cfg.groups
   );
 
-  mkSkillFiles =
-    components:
+  stableLinks = import ../lib/stable-links.nix { inherit lib pkgs; };
+
+  # Skill directories link straight to their own store paths rather than going
+  # through home.file. home.file routes everything through the aggregate
+  # home-manager-files derivation, whose hash changes on ANY home-config change,
+  # so every skill's target moved on every rebuild even when the skill itself
+  # was untouched. Every CLI that reads this tree — Codex, Cursor, OpenCode,
+  # qwen, Antigravity — caches against those paths, and a running session breaks
+  # when they move.
+  stableSkillLinks =
     builtins.listToAttrs (
       map (c: {
         name = "${skillRoot}/${c.name}";
-        value = {
-          source = skillDir c.source;
-          force = true;
-        };
-      }) components
-    );
-
-  mkLocalSkills =
-    locals:
-    lib.concatMapAttrs (name: path: {
-      "${skillRoot}/${name}" = {
-        source = skillDir path;
-        force = true;
-      };
-    }) locals;
+        value = skillDir c.source;
+      }) deployedFlakeInputs
+    )
+    // lib.mapAttrs' (
+      name: path: lib.nameValuePair "${skillRoot}/${name}" (skillDir path)
+    ) deployedLocal;
 in
 {
   config = lib.mkIf cfg.enable {
+    programs.agentSkills.deployedSkillPaths = stableSkillLinks;
+
     assertions = [
       {
         assertion = cfg.activeGroups == null || builtins.all (g: cfg.groups ? ${g}) cfg.activeGroups;
@@ -146,83 +147,87 @@ in
     ];
 
     home = {
-      activation.cleanupLegacySkillCopies = lib.hm.dag.entryBefore [ "checkLinkTargets" ] ''
-        cleanup_legacy_root_link() {
-          root="$1"
+      activation = {
+        cleanupLegacySkillCopies = lib.hm.dag.entryBefore [ "checkLinkTargets" ] ''
+          cleanup_legacy_root_link() {
+            root="$1"
 
-          [ -L "$root" ] || return 0
-          target=$(readlink "$root")
-          case "$target" in
-            /nix/store/*)
-              $DRY_RUN_CMD rm -f "$root"
-              ;;
-          esac
-        }
-
-        cleanup_skill_tree() {
-          root="$1"
-
-          [ -d "$root" ] && [ ! -L "$root" ] || return 0
-
-          find "$root" -mindepth 1 -maxdepth 1 -type d -print0 | while IFS= read -r -d $'\0' skill_dir; do
-            skill_file="$skill_dir/SKILL.md"
-            if [ -L "$skill_file" ] && [ "$(find "$skill_dir" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')" = "1" ]; then
-              target=$(readlink "$skill_file")
-              case "$target" in
-                /nix/store/*)
-                  $DRY_RUN_CMD rm -rf "$skill_dir"
-                  ;;
-              esac
-            fi
-          done
-
-          # Prune per-skill symlinks whose store target no longer exists. A skill
-          # removed from the flake input set between generations leaves a dangling
-          # link here: it is a symlink (not a -type d), so the legacy sweep above
-          # skips it, and home-manager's generation diff does not remove it either.
-          find "$root" -mindepth 1 -maxdepth 1 -type l -print0 | while IFS= read -r -d $'\0' link; do
-            [ -e "$link" ] || $DRY_RUN_CMD rm -f "$link"
-          done
-
-          $DRY_RUN_CMD rmdir "$root" 2>/dev/null || true
-        }
-
-        # Older generations linked ~/.codex/skills to ~/.agents/skills. Codex
-        # discovers both roots itself, so remove that managed alias before
-        # deploying the one root selected by programs.agentSkills.root.
-        cleanup_legacy_root_link "${homeDir}/.codex/skills"
-        cleanup_legacy_root_link "${homeDir}/.agents/skills"
-
-        cleanup_skill_tree "${homeDir}/${skillRoot}"
-        # Legacy pre-registry location (module once deployed here directly).
-        cleanup_skill_tree "${homeDir}/.antigravity-cli/skills"
-        # OpenCode reads ~/.agents/skills itself; the managed alias is retired.
-        cleanup_legacy_root_link "${homeDir}/.config/opencode/skills"
-        ${lib.concatMapStrings (dir: ''
-          cleanup_skill_tree "${homeDir}/${dir}"
-        '') harnessSkillDirs}
-      '';
-
-      activation.cleanupInactiveSkillRoot = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
-        inactive_root="${homeDir}/${inactiveSkillRoot}"
-
-        # A real directory in the alternate root (notably Codex's .system)
-        # prevents Home Manager from removing stale links from its previous
-        # generation. Remove only links owned by that generation; preserve
-        # native and user-managed content.
-        if [ -d "$inactive_root" ] && [ ! -L "$inactive_root" ]; then
-          find "$inactive_root" -mindepth 1 -maxdepth 1 -type l -print0 | while IFS= read -r -d $'\0' link; do
-            target=$(readlink "$link")
+            [ -L "$root" ] || return 0
+            target=$(readlink "$root")
             case "$target" in
-              /nix/store/*-home-manager-files/${inactiveSkillRoot}/*)
-                $DRY_RUN_CMD rm -f "$link"
+              /nix/store/*)
+                $DRY_RUN_CMD rm -f "$root"
                 ;;
             esac
-          done
-        fi
+          }
 
-        $DRY_RUN_CMD rmdir "$inactive_root" 2>/dev/null || true
-      '';
+          cleanup_skill_tree() {
+            root="$1"
+
+            [ -d "$root" ] && [ ! -L "$root" ] || return 0
+
+            find "$root" -mindepth 1 -maxdepth 1 -type d -print0 | while IFS= read -r -d $'\0' skill_dir; do
+              skill_file="$skill_dir/SKILL.md"
+              if [ -L "$skill_file" ] && [ "$(find "$skill_dir" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')" = "1" ]; then
+                target=$(readlink "$skill_file")
+                case "$target" in
+                  /nix/store/*)
+                    $DRY_RUN_CMD rm -rf "$skill_dir"
+                    ;;
+                esac
+              fi
+            done
+
+            # Prune per-skill symlinks whose store target no longer exists. A skill
+            # removed from the flake input set between generations leaves a dangling
+            # link here: it is a symlink (not a -type d), so the legacy sweep above
+            # skips it, and home-manager's generation diff does not remove it either.
+            find "$root" -mindepth 1 -maxdepth 1 -type l -print0 | while IFS= read -r -d $'\0' link; do
+              [ -e "$link" ] || $DRY_RUN_CMD rm -f "$link"
+            done
+
+            $DRY_RUN_CMD rmdir "$root" 2>/dev/null || true
+          }
+
+          # Older generations linked ~/.codex/skills to ~/.agents/skills. Codex
+          # discovers both roots itself, so remove that managed alias before
+          # deploying the one root selected by programs.agentSkills.root.
+          cleanup_legacy_root_link "${homeDir}/.codex/skills"
+          cleanup_legacy_root_link "${homeDir}/.agents/skills"
+
+          cleanup_skill_tree "${homeDir}/${skillRoot}"
+          # Legacy pre-registry location (module once deployed here directly).
+          cleanup_skill_tree "${homeDir}/.antigravity-cli/skills"
+          # OpenCode reads ~/.agents/skills itself; the managed alias is retired.
+          cleanup_legacy_root_link "${homeDir}/.config/opencode/skills"
+          ${lib.concatMapStrings (dir: ''
+            cleanup_skill_tree "${homeDir}/${dir}"
+          '') harnessSkillDirs}
+        '';
+
+        cleanupInactiveSkillRoot = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
+          inactive_root="${homeDir}/${inactiveSkillRoot}"
+
+          # A real directory in the alternate root (notably Codex's .system)
+          # prevents Home Manager from removing stale links from its previous
+          # generation. Remove only links owned by that generation; preserve
+          # native and user-managed content.
+          if [ -d "$inactive_root" ] && [ ! -L "$inactive_root" ]; then
+            find "$inactive_root" -mindepth 1 -maxdepth 1 -type l -print0 | while IFS= read -r -d $'\0' link; do
+              target=$(readlink "$link")
+              case "$target" in
+                /nix/store/*-home-manager-files/${inactiveSkillRoot}/*)
+                  $DRY_RUN_CMD rm -f "$link"
+                  ;;
+              esac
+            done
+          fi
+
+          $DRY_RUN_CMD rmdir "$inactive_root" 2>/dev/null || true
+        '';
+
+        agentSkillStableLinks = stableLinks.mkStableLinks "agent-skills" stableSkillLinks;
+      };
 
       # Repo-level layer: links a repository's declared groups into its own
       # skill trees on every direnv load (see repo-link/).
@@ -234,9 +239,7 @@ in
         ".config/direnv/lib/agent-skill-groups.sh".source = ./repo-link/direnv-lib.sh;
       }
       // harnessSymlinks
-      // harnessAgentsMdSymlinks
-      // mkSkillFiles deployedFlakeInputs
-      // mkLocalSkills deployedLocal;
+      // harnessAgentsMdSymlinks;
     };
   };
 }
