@@ -38,7 +38,11 @@ let
     root: n:
     builtins.match "^${pkgs.lib.escapeRegex root}/[^/]+$" n != null
     && !(builtins.elem n (map (m: "${root}/${m}") manifests));
-  managedSkillEntries = builtins.filter (isSkillEntry ".codex/skills") homeFileNames;
+  # Skills are linked directly at their own store paths, not via home.file —
+  # see modules/lib/stable-links.nix for why. deployedSkillPaths is the delivery
+  # map itself, so this asserts what a session actually finds on disk.
+  deployedSkillNames = builtins.attrNames hmConfig.config.programs.agentSkills.deployedSkillPaths;
+  managedSkillEntries = builtins.filter (isSkillEntry ".codex/skills") deployedSkillNames;
   legacySkillFileEntries = builtins.filter (
     n: builtins.match "^\\.codex/skills/.+/SKILL\\.md$" n != null
   ) homeFileNames;
@@ -112,18 +116,18 @@ in
       missingAgentsMdLinks = builtins.filter (
         n: !(builtins.hasAttr n hmConfig.config.home.file)
       ) sharedAgentsMdLinks;
-      # home.file entries are submodules, so the `source` attribute is always
-      # present — hasAttr is a no-op. An entry with no real source throws on
-      # access ("option used but not defined"), so probe with tryEval instead.
+      # Skills are linked directly at their own store paths (see
+      # modules/lib/stable-links.nix), so the delivery map carries the target
+      # rather than a home.file submodule. An entry with no resolvable target
+      # would leave a dangling link, so probe with tryEval.
+      deployedPaths = hmConfig.config.programs.agentSkills.deployedSkillPaths;
       missingSkillSources = builtins.filter (
-        n: !(builtins.tryEval hmConfig.config.home.file.${n}.source).success
+        n: !(builtins.tryEval deployedPaths.${n}).success
       ) managedSkillEntries;
+      # A skill entry must be a directory, never the SKILL.md file itself —
+      # linking the file would give every harness a path with no siblings.
       skillFileSources = builtins.filter (
-        n:
-        let
-          entry = hmConfig.config.home.file.${n};
-        in
-        entry ? source && pkgs.lib.hasSuffix "/SKILL.md" (toString entry.source)
+        n: pkgs.lib.hasSuffix "/SKILL.md" (toString deployedPaths.${n})
       ) managedSkillEntries;
       # `groups` is derived from `categories`, so a deployed skill named in no
       # category is invisible to every host that sets `activeGroups`. Fail
@@ -190,7 +194,11 @@ in
   agent-skills-shared-root =
     let
       sharedHomeFiles = hmConfigAgentSkillsShared.config.home.file;
-      sharedHomeFileNames = builtins.attrNames sharedHomeFiles;
+      # Skill dirs come from the delivery map, not home.file — see
+      # modules/lib/stable-links.nix. INDEX.md/GROUPS.json stay in home.file.
+      sharedHomeFileNames = builtins.attrNames (
+        sharedHomeFiles // hmConfigAgentSkillsShared.config.programs.agentSkills.deployedSkillPaths
+      );
       inactiveRootCleanup =
         hmConfigAgentSkillsShared.config.home.activation.cleanupInactiveSkillRoot.data;
     in
@@ -218,8 +226,12 @@ in
   agent-skills-groups =
     let
       groupedFiles = hmConfigAgentSkillsGrouped.config.home.file;
-      groupedNames = builtins.attrNames groupedFiles;
-      groupedSkillEntries = builtins.filter (n: isSkillEntry ".agents/skills" n) groupedNames;
+      # Skill directories are linked directly at their store paths, not via
+      # home.file (modules/lib/stable-links.nix), so the delivery map is the
+      # source of truth for what gets deployed.
+      groupedSkillEntries = builtins.filter (n: isSkillEntry ".agents/skills" n) (
+        builtins.attrNames hmConfigAgentSkillsGrouped.config.programs.agentSkills.deployedSkillPaths
+      );
       groupedIndex = groupedFiles.".agents/skills/INDEX.md".text;
       groupedGroups = builtins.fromJSON (
         builtins.unsafeDiscardStringContext groupedFiles.".agents/skills/GROUPS.json".text

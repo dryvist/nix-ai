@@ -127,9 +127,31 @@ let
         force = true;
       };
     }) locals;
+
+  stableLinks = import ../lib/stable-links.nix { inherit lib pkgs; };
+
+  # Skill directories link straight to their own store paths rather than going
+  # through home.file. home.file routes everything through the aggregate
+  # home-manager-files derivation, whose hash changes on ANY home-config change,
+  # so every skill's target moved on every rebuild even when the skill itself
+  # was untouched. Every CLI that reads this tree — Codex, Cursor, OpenCode,
+  # qwen, Antigravity — caches against those paths, and a running session breaks
+  # when they move.
+  stableSkillLinks =
+    builtins.listToAttrs (
+      map (c: {
+        name = "${skillRoot}/${c.name}";
+        value = skillDir c.source;
+      }) deployedFlakeInputs
+    )
+    // lib.mapAttrs' (
+      name: path: lib.nameValuePair "${skillRoot}/${name}" (skillDir path)
+    ) deployedLocal;
 in
 {
   config = lib.mkIf cfg.enable {
+    programs.agentSkills.deployedSkillPaths = stableSkillLinks;
+
     assertions = [
       {
         assertion = cfg.activeGroups == null || builtins.all (g: cfg.groups ? ${g}) cfg.activeGroups;
@@ -228,15 +250,15 @@ in
       # skill trees on every direnv load (see repo-link/).
       packages = [ (pkgs.callPackage ./repo-link/package.nix { }) ];
 
+      activation.agentSkillStableLinks = stableLinks.mkStableLinks "agent-skills" stableSkillLinks;
+
       file = {
         "${skillRoot}/INDEX.md".text = skillIndex;
         "${skillRoot}/GROUPS.json".text = groupsJson;
         ".config/direnv/lib/agent-skill-groups.sh".source = ./repo-link/direnv-lib.sh;
       }
       // harnessSymlinks
-      // harnessAgentsMdSymlinks
-      // mkSkillFiles deployedFlakeInputs
-      // mkLocalSkills deployedLocal;
+      // harnessAgentsMdSymlinks;
     };
   };
 }
