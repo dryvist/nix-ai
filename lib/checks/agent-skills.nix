@@ -27,10 +27,16 @@ let
   cfg = hmConfig.config.programs.agentSkills;
   sharedCfg = hmConfigAgentSkillsShared.config.programs.agentSkills;
   homeFileNames = builtins.attrNames hmConfig.config.home.file;
-  # INDEX.md is the generated manifest, not a skill directory — exclude it.
-  managedSkillEntries = builtins.filter (
-    n: builtins.match "^\\.codex/skills/[^/]+$" n != null && n != ".codex/skills/INDEX.md"
-  ) homeFileNames;
+  # INDEX.md and GROUPS.json are generated manifests, not skill directories.
+  manifests = [
+    "INDEX.md"
+    "GROUPS.json"
+  ];
+  isSkillEntry =
+    root: n:
+    builtins.match "^${pkgs.lib.escapeRegex root}/[^/]+$" n != null
+    && !(builtins.elem n (map (m: "${root}/${m}") manifests));
+  managedSkillEntries = builtins.filter (isSkillEntry ".codex/skills") homeFileNames;
   legacySkillFileEntries = builtins.filter (
     n: builtins.match "^\\.codex/skills/.+/SKILL\\.md$" n != null
   ) homeFileNames;
@@ -117,8 +123,23 @@ in
         in
         entry ? source && pkgs.lib.hasSuffix "/SKILL.md" (toString entry.source)
       ) managedSkillEntries;
+      # `groups` is derived from `categories`, so a deployed skill named in no
+      # category is invisible to every host that sets `activeGroups`. Fail
+      # here rather than let it drop out of every harness silently.
+      categorised = pkgs.lib.unique (builtins.concatLists (builtins.attrValues cfg.categories));
+      uncategorised = builtins.filter (n: !(builtins.elem n categorised)) (
+        map (n: pkgs.lib.removePrefix ".codex/skills/" n) managedSkillEntries
+      );
     in
+    assert
+      uncategorised == [ ]
+      || throw "Agent Skills deployed without a category (add to modules/agent-skills/categories.nix): ${builtins.toJSON uncategorised}";
     assert skillIndex != "" || throw "Agent Skills .codex/skills/INDEX.md is empty (module not loaded)";
+    assert
+      (builtins.fromJSON (
+        builtins.unsafeDiscardStringContext hmConfig.config.home.file.".codex/skills/GROUPS.json".text
+      )).core or { } != { }
+      || throw "Agent Skills GROUPS.json has no deployed core skills";
     assert builtins.length managedSkillEntries > 0 || throw "No managed .codex skill entries found";
     assert
       !(builtins.hasAttr ".agents/skills/INDEX.md" hmConfig.config.home.file)
@@ -196,9 +217,7 @@ in
     let
       groupedFiles = hmConfigAgentSkillsGrouped.config.home.file;
       groupedNames = builtins.attrNames groupedFiles;
-      groupedSkillEntries = builtins.filter (
-        n: builtins.match "^\\.agents/skills/[^/]+$" n != null && n != ".agents/skills/INDEX.md"
-      ) groupedNames;
+      groupedSkillEntries = builtins.filter (n: isSkillEntry ".agents/skills" n) groupedNames;
       groupedIndex = groupedFiles.".agents/skills/INDEX.md".text;
     in
     assert

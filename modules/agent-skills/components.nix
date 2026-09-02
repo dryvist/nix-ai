@@ -1,7 +1,12 @@
 # Agent Skills Components
 #
 # Manages shared skill deployment to one Codex-visible canonical root.
-{ config, lib, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 let
   cfg = config.programs.agentSkills;
@@ -88,6 +93,17 @@ let
     ${lib.concatStrings (lib.mapAttrsToList renderSection categorized)}${
       lib.optionalString (uncategorized != [ ]) (renderSection "Uncategorized" uncategorized)
     }'';
+
+  # Machine-readable view of the gate for repo-level tooling: group -> name ->
+  # deployed skill directory, deployed skills only.
+  skillSources =
+    builtins.listToAttrs (map (c: lib.nameValuePair c.name (skillDir c.source)) deployedFlakeInputs)
+    // lib.mapAttrs (_: skillDir) deployedLocal;
+  groupsJson = builtins.toJSON (
+    lib.mapAttrs (
+      _: names: lib.genAttrs (lib.intersectLists names allSkillNames) (n: toString skillSources.${n})
+    ) cfg.groups
+  );
 
   mkSkillFiles =
     components:
@@ -178,6 +194,8 @@ in
         cleanup_skill_tree "${homeDir}/${skillRoot}"
         # Legacy pre-registry location (module once deployed here directly).
         cleanup_skill_tree "${homeDir}/.antigravity-cli/skills"
+        # OpenCode reads ~/.agents/skills itself; the managed alias is retired.
+        cleanup_legacy_root_link "${homeDir}/.config/opencode/skills"
         ${lib.concatMapStrings (dir: ''
           cleanup_skill_tree "${homeDir}/${dir}"
         '') harnessSkillDirs}
@@ -204,8 +222,14 @@ in
         $DRY_RUN_CMD rmdir "$inactive_root" 2>/dev/null || true
       '';
 
+      # Repo-level layer: links a repository's declared groups into its own
+      # skill trees on every direnv load (see repo-link/).
+      packages = [ (pkgs.callPackage ./repo-link/package.nix { }) ];
+
       file = {
         "${skillRoot}/INDEX.md".text = skillIndex;
+        "${skillRoot}/GROUPS.json".text = groupsJson;
+        ".config/direnv/lib/agent-skill-groups.sh".source = ./repo-link/direnv-lib.sh;
       }
       // harnessSymlinks
       // harnessAgentsMdSymlinks
