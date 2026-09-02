@@ -219,17 +219,10 @@ in
           # Only these two are denied, because only these two are REDUNDANT: a
           # local `huggingface` MCP server and a Context7 plugin (209 recorded
           # calls, against 14 through the hosted copy) already provide them.
-          # Nothing becomes unreachable, which is what separates this from
-          # denying Slack.
+          # Nothing becomes unreachable.
           #
           # The 8 unauthenticated stubs cost exactly nothing and are left
           # alone — denying them would be churn with no measured benefit.
-          #
-          # Slack is deliberately NOT here. It costs 20,111 tokens, 18% of
-          # every session, but it is genuinely used (336 recorded calls) and
-          # has no local equivalent configured, so denying it would be a
-          # capability loss rather than a scoping change. That is a decision
-          # for the operator, not a default.
           #
           # The same mechanism applies to built-in tools, and their schemas are
           # not small. Counted by tool-call pattern across 1,651 local
