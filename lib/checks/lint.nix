@@ -140,4 +140,10 @@
     echo "no hardcoded mlx-community/* model ids outside the registry/SSOT"
     touch $out
   '';
+
+  # Regression for the OpenBao AppRole shell-init secret-export removal —
+  # see scripts/no-ambient-secret-export.sh for the rationale.
+  no-ambient-secret-export = pkgs.runCommand "check-no-ambient-secret-export" { SRC = src; } ''
+    ${pkgs.bash}/bin/bash ${./scripts/no-ambient-secret-export.sh}
+  '';
 }
