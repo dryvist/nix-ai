@@ -81,10 +81,20 @@ fi
 # --- plugin cache health --------------------------------------------------
 # A missing installPath means the skill, its hooks and its agents are gone
 # from every session that resolved them at startup.
+#
+# The sample is labelled with whether a Claude session was live when it was
+# taken. verify-cache-integrity.sh exits before purging, and before updating
+# its hash file, whenever `pgrep -qx claude` matches — so a sample taken during
+# activation on a machine with a live session can show a DEFERRED state that
+# looks identical to a steady one. Without the label an alert fires on what is
+# really a deferral that the next solo rebuild resolves.
+if pgrep -qx claude 2>/dev/null; then SESSION_LIVE=1; else SESSION_LIVE=0; fi
+emit session_live "$SESSION_LIVE"
+
 if [ -r "$HOME/.claude/plugins/installed_plugins.json" ]; then
-  python3 - "$TS" "$HOSTNAME_S" <<'PY'
+  python3 - "$TS" "$HOSTNAME_S" "$SESSION_LIVE" <<'PY'
 import json, os, sys
-ts, host = sys.argv[1], sys.argv[2]
+ts, host, live = sys.argv[1], sys.argv[2], sys.argv[3]
 try:
     d = json.load(open(os.path.expanduser('~/.claude/plugins/installed_plugins.json')))
 except Exception:
@@ -96,7 +106,7 @@ for _, entries in d.get('plugins', {}).items():
         if not os.path.exists(e.get('installPath', '')):
             missing += 1
 for metric, value in (('plugins_installed', total), ('plugins_missing', missing)):
-    print(f'{{"time":"{ts}","host":"{host}","metric":"{metric}","value":{value}}}')
+    print(f'{{"time":"{ts}","host":"{host}","metric":"{metric}","value":{value},"session_live":{live}}}')
 PY
 fi
 
