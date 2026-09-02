@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.3.1](https://github.com/dryvist/nix-ai/compare/v5.3.0...v5.3.1) (2026-09-02)
+
+
+### Bug Fixes
+
+* **shell:** stop exporting AppRole and API credentials into every login shell ([#2030](https://github.com/dryvist/nix-ai/issues/2030)) ([b037ec4](https://github.com/dryvist/nix-ai/commit/b037ec44562f390d9c090b09abee55d3ad8e7692))
+
 ## [5.3.0](https://github.com/dryvist/nix-ai/compare/v5.2.0...v5.3.0) (2026-09-02)
 
 
