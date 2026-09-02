@@ -94,14 +94,17 @@ let
       lib.optionalString (uncategorized != [ ]) (renderSection "Uncategorized" uncategorized)
     }'';
 
-  # Machine-readable view of the gate for repo-level tooling: group -> name ->
-  # deployed skill directory, deployed skills only.
+  # Machine-readable map for repo-level tooling: group -> name -> skill
+  # directory, for EVERY known skill, not only the deployed ones. A host that
+  # gates to one group still needs the others' paths so a repository can link
+  # them; the store paths exist whether or not the host deploys them.
   skillSources =
-    builtins.listToAttrs (map (c: lib.nameValuePair c.name (skillDir c.source)) deployedFlakeInputs)
-    // lib.mapAttrs (_: skillDir) deployedLocal;
+    builtins.listToAttrs (map (c: lib.nameValuePair c.name (skillDir c.source)) cfg.fromFlakeInputs)
+    // lib.mapAttrs (_: skillDir) cfg.local;
   groupsJson = builtins.toJSON (
     lib.mapAttrs (
-      _: names: lib.genAttrs (lib.intersectLists names allSkillNames) (n: toString skillSources.${n})
+      _: names:
+      lib.genAttrs (builtins.filter (n: skillSources ? ${n}) names) (n: toString skillSources.${n})
     ) cfg.groups
   );
 
