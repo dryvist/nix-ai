@@ -21,7 +21,7 @@ let
           "not-a-real-skill"
         ];
         # Not active: must still appear in GROUPS.json for repo-level linking.
-        groups.other = [ "brainstorming" ];
+        groups.other = [ "ponytail" ];
         activeGroups = [ "core" ];
       };
     }
@@ -241,7 +241,7 @@ in
       builtins.match ".*writing-clearly-and-concisely.*" groupedIndex == null
       || throw "INDEX.md lists a skill the group gate excluded (writing-clearly-and-concisely)";
     assert
-      (groupedGroups.other or { }) ? brainstorming
+      (groupedGroups.other or { }) ? ponytail
       || throw "GROUPS.json must list inactive groups' skills so a repository can link them";
     assert
       !((groupedGroups.core or { }) ? not-a-real-skill)
