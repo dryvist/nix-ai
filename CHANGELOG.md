@@ -1,5 +1,17 @@
 # Changelog
 
+## [5.1.0](https://github.com/dryvist/nix-ai/compare/v5.0.0...v5.1.0) (2026-09-02)
+
+
+### Features
+
+* **mcp:** hold the heaviest MCP servers out of every session ([#2011](https://github.com/dryvist/nix-ai/issues/2011)) ([e7863c7](https://github.com/dryvist/nix-ai/commit/e7863c71cd8edf7e61b685091cf1587267159508))
+
+
+### Bug Fixes
+
+* **claude:** split MCP rendering out of claude-config.nix ([#2012](https://github.com/dryvist/nix-ai/issues/2012)) ([dbbeb1c](https://github.com/dryvist/nix-ai/commit/dbbeb1ce67d1000e83975acaa4ed3952cd0a3859))
+
 ## [5.0.0](https://github.com/dryvist/nix-ai/compare/v4.77.2...v5.0.0) (2026-09-02)
 
 
