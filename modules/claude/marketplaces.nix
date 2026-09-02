@@ -42,27 +42,6 @@ let
     fabricMarketplace
     ;
 
-  # Manual-invoke tier — docs/architecture/agent-context-architecture.md.
-  #
-  # Every marketplace skill outside always-listed-skills.nix gains
-  # `disable-model-invocation: true`, leaving the session's skill listing while
-  # staying callable by /name. Measured in nix-ai: a listed skill costs 518
-  # tokens of every session start; the same skill manual-invoke costs 10.
-  keepListed = import ./always-listed-skills.nix;
-
-  withManualInvoke =
-    name: src:
-    if src == null then
-      null
-    else
-      pkgs.runCommand "manual-invoke-${name}"
-        {
-          KEEP_LISTED = lib.concatStringsSep " " keepListed;
-        }
-        ''
-          ${./scripts/mark-manual-invoke.sh} ${src} "$out"
-        '';
-
   # Overlay each nix-claude-code catalog entry with the resolved flakeInput
   # (synthetic for the four wrapper derivations; raw marketplace input otherwise).
   base = lib.mapAttrs (
@@ -72,80 +51,74 @@ let
       flakeInput = marketplaceInputs.${name} or null;
     }
   ) (marketplaceCatalog.marketplaces or marketplaceCatalog);
-  registry = base // {
-    "browser-use-skills" = (base."browser-use-skills" or { }) // {
-      flakeInput = browserUseMarketplace;
-    };
-    "vct-cribl-pack-validator-skills" = (base."vct-cribl-pack-validator-skills" or { }) // {
-      flakeInput = criblPackValidatorMarketplace;
-    };
-    # jacobpevans-cc-plugins isn't in nix-claude-code's catalog yet;
-    # register it directly with the synthetic wrapper derivation.
-    "jacobpevans-cc-plugins" = {
-      source = {
-        type = "github";
-        url = "JacobPEvans/claude-code-plugins";
-      };
-      flakeInput = jacobpevansMarketplace;
-    };
-    # Inherit the catalog source (nix-claude-code marks fabric-patterns
-    # source.type = "local" → a Claude `directory` source, so Claude reads the
-    # synthetic marketplace in place instead of re-cloning raw upstream and
-    # clobbering it). Only override flakeInput, matching browser-use/cribl above.
-    "fabric-patterns" = (base."fabric-patterns" or { }) // {
-      flakeInput = fabricMarketplace;
-    };
-    # karpathy-skills lives in nix-ai (input + tier file).
-    # nix-claude-code's catalog doesn't include it.
-    "karpathy-skills" = {
-      source = {
-        type = "github";
-        url = "forrestchang/andrej-karpathy-skills";
-      };
-      flakeInput = marketplaceInputs.karpathy-skills;
-    };
-    # ponytail lives in nix-ai (input + tier file), same as karpathy-skills.
-    "ponytail" = {
-      source = {
-        type = "github";
-        url = "DietrichGebert/ponytail";
-      };
-      flakeInput = marketplaceInputs.ponytail;
-    };
-    # autoresearch lives in nix-ai (input + tier entry), same as ponytail.
-    # Ships a native .claude-plugin/marketplace.json; content is pinned via the
-    # flake input — the GitHub source here is registry identity metadata only.
-    "autoresearch" = {
-      source = {
-        type = "github";
-        url = "uditgoenka/autoresearch";
-      };
-      flakeInput = marketplaceInputs.autoresearch;
-    };
-    # context-engineering-kit lives in nix-ai (input + tier entry). Ships a
-    # native .claude-plugin/marketplace.json; only the `kaizen` plugin is
-    # enabled, and it carries both the `kaizen` and `why` skills.
-    "context-engineering-kit" = {
-      source = {
-        type = "github";
-        url = "NeoLabHQ/context-engineering-kit";
-      };
-      flakeInput = marketplaceInputs.context-engineering-kit;
-    };
-    # managing-dependencies is a single-plugin marketplace rooted at ./.
-    "managing-dependencies" = {
-      source = {
-        type = "github";
-        url = "andrew/managing-dependencies";
-      };
-      flakeInput = marketplaceInputs.managing-dependencies;
-    };
-  };
 in
-lib.mapAttrs (
-  name: marketplace:
-  marketplace
-  // {
-    flakeInput = withManualInvoke name (marketplace.flakeInput or null);
-  }
-) registry
+base
+// {
+  "browser-use-skills" = (base."browser-use-skills" or { }) // {
+    flakeInput = browserUseMarketplace;
+  };
+  "vct-cribl-pack-validator-skills" = (base."vct-cribl-pack-validator-skills" or { }) // {
+    flakeInput = criblPackValidatorMarketplace;
+  };
+  # jacobpevans-cc-plugins isn't in nix-claude-code's catalog yet;
+  # register it directly with the synthetic wrapper derivation.
+  "jacobpevans-cc-plugins" = {
+    source = {
+      type = "github";
+      url = "JacobPEvans/claude-code-plugins";
+    };
+    flakeInput = jacobpevansMarketplace;
+  };
+  # Inherit the catalog source (nix-claude-code marks fabric-patterns
+  # source.type = "local" → a Claude `directory` source, so Claude reads the
+  # synthetic marketplace in place instead of re-cloning raw upstream and
+  # clobbering it). Only override flakeInput, matching browser-use/cribl above.
+  "fabric-patterns" = (base."fabric-patterns" or { }) // {
+    flakeInput = fabricMarketplace;
+  };
+  # karpathy-skills lives in nix-ai (input + tier file).
+  # nix-claude-code's catalog doesn't include it.
+  "karpathy-skills" = {
+    source = {
+      type = "github";
+      url = "forrestchang/andrej-karpathy-skills";
+    };
+    flakeInput = marketplaceInputs.karpathy-skills;
+  };
+  # ponytail lives in nix-ai (input + tier file), same as karpathy-skills.
+  "ponytail" = {
+    source = {
+      type = "github";
+      url = "DietrichGebert/ponytail";
+    };
+    flakeInput = marketplaceInputs.ponytail;
+  };
+  # autoresearch lives in nix-ai (input + tier entry), same as ponytail.
+  # Ships a native .claude-plugin/marketplace.json; content is pinned via the
+  # flake input — the GitHub source here is registry identity metadata only.
+  "autoresearch" = {
+    source = {
+      type = "github";
+      url = "uditgoenka/autoresearch";
+    };
+    flakeInput = marketplaceInputs.autoresearch;
+  };
+  # context-engineering-kit lives in nix-ai (input + tier entry). Ships a
+  # native .claude-plugin/marketplace.json; only the `kaizen` plugin is
+  # enabled, and it carries both the `kaizen` and `why` skills.
+  "context-engineering-kit" = {
+    source = {
+      type = "github";
+      url = "NeoLabHQ/context-engineering-kit";
+    };
+    flakeInput = marketplaceInputs.context-engineering-kit;
+  };
+  # managing-dependencies is a single-plugin marketplace rooted at ./.
+  "managing-dependencies" = {
+    source = {
+      type = "github";
+      url = "andrew/managing-dependencies";
+    };
+    flakeInput = marketplaceInputs.managing-dependencies;
+  };
+}
