@@ -38,7 +38,17 @@ mkdir -p "$STATE_DIR"
 STREAK_FILE="$STATE_DIR/fallback-probe-failures"
 PAGED_FILE="$STATE_DIR/fallback-probe-last-page"
 
-read_int() { [ -r "$1" ] && tr -cd '0-9' < "$1" | head -c 12 || true; }
+# Always prints ONE decimal integer, defaulting to 0. It previously printed an
+# empty string with exit 0 for a missing, empty, or non-numeric file, and that
+# empty string then flowed straight into the streak arithmetic and the `-gt`
+# comparisons below. `10#` forces base 10, so a state file holding `08` reads
+# as 8 rather than aborting the whole watcher with an invalid-octal error —
+# which left the streak frozen and the watcher unable to ever page.
+read_int() {
+  local digits=""
+  [ -r "$1" ] && digits=$(tr -cd '0-9' < "$1" | head -c 12)
+  printf '%s\n' "$((10#${digits:-0}))"
+}
 
 alert() {
   local msg="$1"
@@ -57,7 +67,7 @@ output=$("$PROBE" 2>&1) && rc=0 || rc=$?
 
 if [ "$rc" -eq 0 ]; then
   streak=$(read_int "$STREAK_FILE")
-  if [ -n "${streak:-}" ] && [ "${streak:-0}" -gt 0 ] 2>/dev/null; then
+  if [ "$streak" -gt 0 ]; then
     echo "$(ts) litellm-fallback-watch: chain healthy again after ${streak} failed check(s) -> clearing"
   else
     echo "$(ts) litellm-fallback-watch: every rung served a completion -> ok, nothing to do"
@@ -66,7 +76,7 @@ if [ "$rc" -eq 0 ]; then
   exit 0
 fi
 
-streak=$(( $(read_int "$STREAK_FILE" || echo 0) + 1 ))
+streak=$(( $(read_int "$STREAK_FILE") + 1 ))
 printf '%s\n' "$streak" > "$STREAK_FILE"
 
 if [ "$streak" -lt "$CONSECUTIVE" ]; then
@@ -76,8 +86,7 @@ if [ "$streak" -lt "$CONSECUTIVE" ]; then
 fi
 
 now=$(date -u +%s)
-last=$(read_int "$PAGED_FILE" || echo 0)
-last=${last:-0}
+last=$(read_int "$PAGED_FILE")
 if [ "$last" -gt 0 ] && [ $(( now - last )) -lt "$REPAGE_SECONDS" ]; then
   echo "$(ts) litellm-fallback-watch: still failing (streak ${streak}), last page $(( (now - last) / 60 ))m ago -> holding until ${REPAGE_SECONDS}s"
   exit 0
