@@ -19,7 +19,13 @@
 #
 # $1 = manifest: TAB-separated `relative-path<TAB>store-target` lines.
 # $2 = home directory.
+#
+# Optional: STABLE_LINKS_STORE_PREFIX overrides the store prefix that gates
+# pruning, so the regression test can exercise the destructive path inside a
+# tmpdir. Matches the HM_FILES_STORE_GLOB convention in the cleanup scripts.
 set -euo pipefail
+
+store_prefix="${STABLE_LINKS_STORE_PREFIX:-/nix/store/}"
 
 manifest="$1"
 home="$2"
@@ -76,14 +82,14 @@ while IFS= read -r root; do
     grep -qxF "$link" "$managed_file" && continue
     target="$(readlink "$link")"
     case "$target" in
-      *-home-manager-files/*) continue ;;
+    *-home-manager-files/*) continue ;;
     esac
     case "$target" in
-      /nix/store/*)
-        rm -f "$link"
-        echo "stable-links: pruned $link -> $target" >&2
-        pruned=$((pruned + 1))
-        ;;
+    "$store_prefix"*)
+      rm -f "$link"
+      echo "stable-links: pruned $link -> $target" >&2
+      pruned=$((pruned + 1))
+      ;;
     esac
   done
 done < <(sort -u "$roots_file")
