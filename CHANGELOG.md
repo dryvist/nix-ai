@@ -1,5 +1,16 @@
 # Changelog
 
+## [5.0.0](https://github.com/dryvist/nix-ai/compare/v4.77.2...v5.0.0) (2026-09-02)
+
+
+### ⚠ BREAKING CHANGES
+
+* **agent-skills:** a host with activeGroups = ["core"] deploys 11 skills instead of 67. Repositories that want the git or session families must declare them in their AGENTS.md skill-groups list.
+
+### Features
+
+* **agent-skills:** split core into five groups, 67 skills down to 11 ([#2007](https://github.com/dryvist/nix-ai/issues/2007)) ([b812f3b](https://github.com/dryvist/nix-ai/commit/b812f3b49c4fb07324fa468e115b5d983c29cacf))
+
 ## [4.77.2](https://github.com/dryvist/nix-ai/compare/v4.77.1...v4.77.2) (2026-09-02)
 
 
