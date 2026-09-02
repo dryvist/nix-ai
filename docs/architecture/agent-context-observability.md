@@ -40,9 +40,58 @@ Claude is excluded from the first alert because it does not read
 `~/.agents/skills` at all — it reads `~/.claude/skills`, its enabled plugins,
 and `<repo>/.claude/skills`. Its reachability is covered by `plugins_missing`.
 
+## What is already native — do not rebuild it
+
+Claude Code exports OpenTelemetry natively, and this estate already has it on:
+`CLAUDE_CODE_ENABLE_TELEMETRY=1` with OTLP metrics going to VictoriaMetrics,
+plus `CLAUDE_CODE_ENHANCED_TELEMETRY_BETA=1`.
+
+Native metrics cover **usage and cost**: tokens, sessions, active coding time,
+lines of code, commits, PRs, tool decisions, cache hit ratio, per-model and
+per-session breakdowns. Community dashboards consume them directly:
+
+| Dashboard | Covers |
+| --- | --- |
+| [Grafana #25255 — Claude Code Metrics (Prometheus)](https://grafana.com/grafana/dashboards/25255-claude-code-metrics-prometheus/) | cost, tokens, sessions, active time, LOC, commits, PRs, tool decisions, cache hit ratio, leaderboards. Works against Prometheus, VictoriaMetrics, Mimir, Thanos. |
+| [Grafana #25052 — Claude Code](https://grafana.com/grafana/dashboards/25052-claude-code/) | cost, API requests, tool usage, code-edit acceptance rate, per-user breakdown, error detail |
+
+Source for #25255: <https://github.com/rockdarko/claude-code-metrics-prometheus>
+
+**`session_tokens` in this collector duplicates native telemetry and should be
+treated as a fallback**, for a host where OTEL is off or a one-off comparison.
+Prefer the native metric.
+
+**What native telemetry does NOT measure is configuration health.** No native
+metric and no community dashboard would have shown `skills_reachable`
+collapsing from 132 to 11, `plugins_missing` reaching 113 of 115, or links
+churning through the aggregate on every rebuild. Those are precisely the
+failures this collector exists for, and they are invisible to every dashboard
+above. That is the whole justification for it — anything native already covers
+belongs in the native pipeline instead.
+
 ## Shipping it
 
-The output is already a valid Splunk HEC `event` payload per line:
+Send it to the **same** backend the native metrics already reach, so one
+dashboard shows usage and health together. VictoriaMetrics accepts Prometheus
+line protocol directly:
+
+```sh
+agent-context-metrics.sh |
+  python3 -c '
+import json,sys
+for line in sys.stdin:
+    d=json.loads(line)
+    labels=",".join(f"{k}=\"{v}\"" for k,v in d.items()
+                    if k not in ("time","metric","value"))
+    print(f"agent_context_{d[\"metric\"]}{{{labels}}} {d[\"value\"]}")
+' |
+  curl -s --data-binary @- \
+    "http://$VM_HOST:8428/api/v1/import/prometheus"
+```
+
+If a Splunk copy is wanted as well, each line is already a valid HEC `event`
+payload body; the token comes from the runtime secret store at call time, never
+from a file and never from `.envrc`.
 
 ```sh
 agent-context-metrics.sh |
