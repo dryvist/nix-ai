@@ -204,4 +204,22 @@ in
         builtins.toJSON (map (tc: tc.bannedFlag) undetected)
       }";
     helpers.mkMarker "check-mlx-launchd-negative" "MLX LaunchAgent negative: ${toString (builtins.length testCases)} banned flag patterns verified detectable";
+
+  # python-overlay.nix's cpTag already carries the "cp" prefix ("3.14" ->
+  # "cp314"), so prefixing it again renders "cpcp314" — a tag no wheel has. It
+  # only surfaced inside a throw, on the unhappy path a version bump lands on,
+  # pointing whoever hit it at a PyPI filename that does not exist.
+  #
+  # This reads the source rather than the rendered message because Nix cannot
+  # catch a throw's text: builtins.tryEval reports only success/failure. The
+  # literal is what the bug looks like, so matching it is the cheapest thing
+  # that fails if the double prefix comes back.
+  mlx-overlay-wheel-tag =
+    let
+      overlay = builtins.readFile ../../modules/mlx/python-overlay.nix;
+    in
+    assert
+      !(pkgs.lib.hasInfix "cp\${cpTag}" overlay)
+      || throw "mlx: modules/mlx/python-overlay.nix prefixes \"cp\" to cpTag, which already begins with it — the message renders cpcp314 instead of cp314. Interpolate cpTag alone.";
+    helpers.mkMarker "check-mlx-overlay-wheel-tag" "MLX overlay: the wheel interpreter tag is interpolated once, never double-prefixed";
 }
