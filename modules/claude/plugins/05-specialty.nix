@@ -24,7 +24,6 @@
 #   - visual-explainer-marketplace (nicobailon/..., 7816★)
 #   - browser-use-skills (browser-use/browser-use, 91681★ upstream, synthetic)
 #   - vct-cribl-pack-validator-skills (private source, 0★, synthetic)
-#   - wakatime (wakatime/claude-code-wakatime, 73★)         — telemetry
 
 _:
 
@@ -142,11 +141,5 @@ _:
     # cc-stream-*) via per-repo .claude/settings.json overrides.
     "cribl-pack-validator@vct-cribl-pack-validator-skills" = false;
 
-    # ========================================================================
-    # wakatime — wakatime/claude-code-wakatime (time tracking)
-    # ========================================================================
-    # Marketplace key is `wakatime` (org name), not `claude-code-wakatime`.
-    # Plugin reference: claude-code-wakatime@wakatime.
-    "claude-code-wakatime@wakatime" = true;
   };
 }

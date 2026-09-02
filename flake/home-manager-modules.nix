@@ -44,7 +44,6 @@ let
       axton-obsidian-visual-skills
       superpowers-marketplace
       visual-explainer-marketplace
-      wakatime
       ;
     inherit browser-use-skills;
     inherit jacobpevans-cc-plugins;
