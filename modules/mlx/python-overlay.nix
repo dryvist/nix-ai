@@ -121,7 +121,7 @@ let
   # needs its own hashes says which target to prefetch for.
   hashes =
     wheelHashes.${versions.mlx}
-      or (throw "python-overlay.nix: no wheel hashes for mlx ${versions.mlx}. Add them to wheelHashes (nix-prefetch-url the cp${cpTag}/${wheelPlatform} wheels from PyPI).");
+      or (throw "python-overlay.nix: no wheel hashes for mlx ${versions.mlx}. Add them to wheelHashes (nix-prefetch-url the ${cpTag}/${wheelPlatform} wheels from PyPI).");
   # Apple publishes mlx wheels for aarch64-darwin only, so the override below
   # cannot build anywhere else. CI evaluates and BUILDS the home-manager config
   # on x86_64-linux, which reached this package through the serving wrapper and
