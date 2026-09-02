@@ -1,5 +1,15 @@
 # Changelog
 
+## [4.77.2](https://github.com/dryvist/nix-ai/compare/v4.77.1...v4.77.2) (2026-09-02)
+
+
+### Bug Fixes
+
+* **agent-skills:** actually retire the OpenCode shared-skills symlink ([#1997](https://github.com/dryvist/nix-ai/issues/1997)) ([dff7393](https://github.com/dryvist/nix-ai/commit/dff73935f58808567248c286fcd7c4f30316168f))
+* **litellm-local:** probe fails when the proxy falls through to another rung ([#1992](https://github.com/dryvist/nix-ai/issues/1992)) ([0273d32](https://github.com/dryvist/nix-ai/commit/0273d321e5236bca822f3617551c2b59d7c8d95b))
+* **mlx:** render the wheel tag once in the overlay error message ([#1989](https://github.com/dryvist/nix-ai/issues/1989)) ([1f44f65](https://github.com/dryvist/nix-ai/commit/1f44f65fdd49ca37ec8c449ef1a1e467ec9a9ac3))
+* **mlx:** spell the vllm-mlx draft block flag the way the CLI accepts it ([#1987](https://github.com/dryvist/nix-ai/issues/1987)) ([df67028](https://github.com/dryvist/nix-ai/commit/df6702889cdc5ff028ce1253216e3e074abd0d9c))
+
 ## [4.77.1](https://github.com/dryvist/nix-ai/compare/v4.77.0...v4.77.1) (2026-09-02)
 
 
