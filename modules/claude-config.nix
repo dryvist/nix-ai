@@ -205,7 +205,35 @@ in
 
         permissions = {
           allow = formatters.claude.formatAllowed permissions;
-          deny = formatters.claude.formatDenied permissions;
+          # A denied tool's schema is not loaded, so `deny` is the only lever
+          # that reaches the claude.ai hosted connectors: they are `claude.ai
+          # config` scope, and `claude mcp remove` accepts only local, user and
+          # project scopes.
+          #
+          # Measured in one window against a 114,072 control in this repo:
+          #
+          #   deny all 11 hosted connectors        88,564   -25,508
+          #   deny Hugging Face + Context7        108,675    -5,397
+          #   deny the 8 unauthenticated stubs    114,078         0
+          #
+          # Only these two are denied, because only these two are REDUNDANT: a
+          # local `huggingface` MCP server and a Context7 plugin (209 recorded
+          # calls, against 14 through the hosted copy) already provide them.
+          # Nothing becomes unreachable, which is what separates this from
+          # denying Slack.
+          #
+          # The 8 unauthenticated stubs cost exactly nothing and are left
+          # alone — denying them would be churn with no measured benefit.
+          #
+          # Slack is deliberately NOT here. It costs 20,111 tokens, 18% of
+          # every session, but it is genuinely used (336 recorded calls) and
+          # has no local equivalent configured, so denying it would be a
+          # capability loss rather than a scoping change. That is a decision
+          # for the operator, not a default.
+          deny = formatters.claude.formatDenied permissions ++ [
+            "mcp__claude_ai_Hugging_Face__*"
+            "mcp__claude_ai_Context7__*"
+          ];
           ask = formatters.claude.formatAsk permissions;
         };
 
