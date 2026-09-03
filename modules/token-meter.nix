@@ -26,12 +26,22 @@ let
   #
   # Body indented with tabs because that is what `caddy fmt` emits; spaces make
   # Caddy log an "input is not formatted" warning on every start.
+  # The site address decides which SNI the certificate covers; the bind
+  # directive decides which interfaces are listened on. They are NOT the same
+  # value, and conflating them is why an all-interfaces bind broke the gate:
+  # a site address of 0.0.0.0 is a name no certificate can cover and no client
+  # ever sends as SNI, so every request failed the handshake.
+  #
+  # Defaults to bindAddress so a host that pins one address behaves exactly as
+  # before. Set siteHostName to serve on all interfaces under a real name.
+  siteHost = if cfg.siteHostName != "" then cfg.siteHostName else cfg.bindAddress;
+
   caddyfile = pkgs.writeText "token-meter-Caddyfile" ''
     {
     	auto_https disable_redirects
     }
 
-    ${cfg.bindAddress}:${toString cfg.gatePort} {
+    ${siteHost}:${toString cfg.gatePort} {
     	bind ${cfg.bindAddress}
     	tls internal
     	reverse_proxy 127.0.0.1:${toString cfg.dashboardPort}
@@ -81,6 +91,17 @@ in
         this, so changing it only makes sense alongside a patched install —
         it exists so the gate and its check derive the value instead of each
         restating it.
+      '';
+    };
+
+    siteHostName = lib.mkOption {
+      type = lib.types.str;
+      default = "";
+      example = "host.example.com";
+      description = ''
+        Hostname the gate's certificate covers and clients address it by.
+        Empty means reuse bindAddress, which is correct only when that is a
+        real routable address. Set this whenever bindAddress is a wildcard.
       '';
     };
 
