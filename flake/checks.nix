@@ -52,6 +52,12 @@ in
       # (x86_64-linux) like every other check so a single linux runner covers it.
       fabric-ai-build = self.packages.${system}.fabric-ai;
 
+      # cursor-cli build check: forces the x86_64-linux build (checksum
+      # verification + layout) to run on the Linux runner. The darwin build is
+      # verified locally via `nix build '.#cursor-cli'`. The drvPath equality
+      # with the package is asserted in the plan's acceptance criteria.
+      cursor-cli-build = self.packages.${system}.cursor-cli;
+
       # The only check that evaluates the NixOS half. Without it `nix flake
       # check` proves `nixosModules.herdr` is an attrset and nothing more,
       # which is how an unfree default (cursor-cli) shipped green through this

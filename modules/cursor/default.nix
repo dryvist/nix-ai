@@ -4,23 +4,16 @@
 # `cursor-agent`). The IDE stays installed via nix-darwin
 # (home.packages = [ code-cursor ]) — this module only manages the CLI.
 #
-# The `code-cursor` IDE wrapper (`cursor agent`) requires the standalone CLI
-# at ~/.local/bin/cursor-agent. The two symlinks here make the wrapper exec
-# the nixpkgs binary instead of curl-installing its own copy, and put the
-# official `agent` command name on PATH (curl installer contract: both names).
-#
-# Config files:
-# - ~/.cursor/cli-config.json — deep-merge activation. The CLI rewrites this
-#   file at runtime (self-repairing schema, permission list updates), so a
-#   store symlink would break; merge-json-settings.sh overlays Nix-managed
-#   keys onto existing runtime state (same pattern as codex config.toml).
-# - ~/.cursor/mcp.json — declarative home.file. Cursor auto-detects this file
-#   and never rewrites it at runtime (same rationale as opencode.json).
-#
-# Skills: Cursor natively reads ~/.agents/skills/ (plus ~/.claude/skills/ and
-# ~/.codex/skills/), so an agent-skills registry symlink would double-scan the
-# shared tree — same exclusion rationale as the Codex entry in
-# modules/agent-skills/harnesses.nix.
+# Ownership contract ("Nix wins"):
+# - Nix owns the CLI binary after every rebuild via home.packages.
+# - The profile install puts the binary on PATH.
+# - The `~/.local/bin` links exist because the `code-cursor` IDE wrapper
+#   and the upstream installer contract both require `agent` and
+#   `cursor-agent` at that exact location.
+# - `cursorAgentReclaim` re-asserts ownership on every activation because
+#   the self-updater rewrites these names at runtime between activations.
+# - Config ownership is unchanged: mcp.json via home.file + cli-config
+#   deep-merge activation.
 {
   config,
   lib,
@@ -81,6 +74,10 @@ let
   cliConfigJson = pkgs.writeText "cursor-cli-config.json" (
     builtins.toJSON (lib.recursiveUpdate cliConfig cfg.extraSettings)
   );
+
+  # Local cursor-cli derivation (lab channel, two-platform) — replaces the
+  # frozen nixpkgs-26.05 package. Version pin lives in lib/versions.nix.
+  cursorCliPkg = pkgs.callPackage ./package.nix { };
 in
 {
   imports = [ ./options.nix ];
@@ -100,11 +97,9 @@ in
     }
     (lib.mkIf cfg.enable {
       home = {
-        packages = [ pkgs.cursor-cli ];
+        packages = [ cursorCliPkg ];
 
         file = {
-          ".local/bin/cursor-agent".source = "${pkgs.cursor-cli}/bin/cursor-agent";
-          ".local/bin/agent".source = "${pkgs.cursor-cli}/bin/cursor-agent";
           ".cursor/mcp.json".text = builtins.toJSON { inherit mcpServers; };
         };
 
@@ -113,6 +108,12 @@ in
           $DRY_RUN_CMD ${../scripts/merge-json-settings.sh} \
             "${cliConfigJson}" \
             "${homeDir}/.cursor/cli-config.json"
+        '';
+
+        activation.cursorAgentReclaim = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
+          $DRY_RUN_CMD ${../scripts/cursor-reclaim-links.sh} \
+            "${cursorCliPkg}/bin/cursor-agent" \
+            "${homeDir}/.local/bin"
         '';
       };
     })

@@ -37,6 +37,16 @@
   # mcpSdkBound above.
   omoSenpi = "5.0.0-0.beta.17";
 
+  # Cursor CLI lab channel (date+short-hash scheme, e.g. 2026.09.02-c22c1a3).
+  # No datasource exists for the lab channel — the installer page is the only
+  # discovery mechanism. Bump manually: discover the latest lab version with
+  # `curl -s https://cursor.com/install | grep -oE 'lab/[^/]+' | head -1`,
+  # update this pin, then fetch the two pinned checksums with
+  # `nix store prefetch-file --json <tarball-url>` (both platforms) and put
+  # them in modules/cursor/package.nix. Deliberately carries no `renovate:`
+  # annotation — same rationale as omoSenpi.
+  cursorCli = "2026.09.02-c22c1a3";
+
   # MCP servers (npm)
   # renovate: datasource=npm depName=@upstash/context7-mcp
   context7Mcp = "3.2.3";
