@@ -117,6 +117,46 @@ in
     assert builtins.deepSeq (lib.mapAttrsToList (_: f: "${f.source}") ours) true;
     helpers.mkMarker "check-herdr-rendered-files-regression" "herdr renders ${toString (lib.length (lib.attrNames ours))} file(s) under ${cfg.configDir}.";
 
+  # The TUI is a client, so a module that installs the binary and renders
+  # config.toml without declaring a service yields no running herd at all —
+  # invisible in the rendered config and raising no error anywhere.
+  herdr-launchd-regression =
+    let
+      agents = hmConfig.config.launchd.agents;
+      absent = throw "herdr: no launchd agent is declared, so the server never runs and the herd stays empty; see modules/herdr/launchd.nix";
+      agent = (agents.herdr or absent).config;
+      args = agent.ProgramArguments;
+      env = agent.EnvironmentVariables or { };
+      expectedSocket = "${hmConfig.config.home.homeDirectory}/${cfg.configDir}/herdr.sock";
+      profileBin = "/etc/profiles/per-user/${hmConfig.config.home.username}/bin";
+      pathEntries = lib.splitString ":" (env.PATH or "");
+
+      # Collected rather than asserted one at a time, so a broken agent reports
+      # every fault in one pass. The last two are the silent ones: a mismatched
+      # socket leaves the client hunting a socket nothing created, and a PATH
+      # without the Nix profile makes every pane look like a bare shell.
+      problems =
+        lib.optional (
+          !(lib.elem "server" args)
+        ) "must run the headless server (`herdr server`), got: ${builtins.concatStringsSep " " args}"
+        ++ lib.optional (!(agent.KeepAlive or false)) "must set KeepAlive = true"
+        ++ lib.optional (!(agent.RunAtLoad or false)) "must set RunAtLoad = true"
+        ++ lib.optional ((agent.ProcessType or "") != "Background") ''must set ProcessType = "Background"''
+        ++
+          lib.optional ((env.HERDR_SOCKET_PATH or null) != expectedSocket)
+            "must pin HERDR_SOCKET_PATH to ${expectedSocket}, keeping the server's socket and the client's identical"
+        ++ lib.optional (
+          !(lib.elem profileBin pathEntries)
+        ) "PATH must include ${profileBin}, leaving panes able to run claude/codex";
+    in
+    assert lib.assertMsg (problems == [ ]) ''
+      herdr LaunchAgent is misdeclared:
+      ${lib.concatMapStringsSep "\n" (p: "  - ${p}") problems}
+    '';
+    # Force the whole agent, not just the attributes read above.
+    assert builtins.deepSeq agents true;
+    helpers.mkMarker "check-herdr-launchd-regression" "herdr LaunchAgent runs the headless server with a pinned socket and a Nix-profile PATH.";
+
   herdr-agent-coverage-regression =
     assert
       uncovered == [ ]

@@ -37,6 +37,7 @@ in
   imports = [
     ./options.nix
     ./settings.nix
+    ./launchd.nix
   ];
 
   config = lib.mkIf cfg.enable {

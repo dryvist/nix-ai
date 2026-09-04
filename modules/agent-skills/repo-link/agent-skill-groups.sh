@@ -71,11 +71,50 @@ if [ "$cmd" = status ]; then
   exit 0
 fi
 
+# Skills an enabled Claude plugin already lists. Linking those into
+# .claude/skills lists them a SECOND time in the same session for no gain —
+# Claude reads its enabled plugins as well as this tree. Measured in
+# tofu-proxmox: 23 of 24 links were such duplicates and cost 2,988 tokens of
+# every session in that repository.
+#
+# The other five harnesses have no plugin system to fall back on, so this
+# applies to .claude/skills ONLY. Dropping a name from .agents/skills would
+# make it unreachable for Codex, Cursor, OpenCode, qwen and Antigravity.
+#
+# Derived from live state rather than baked in, so it cannot drift out of step
+# with which plugins are actually enabled. Any failure here leaves the list
+# empty, which links everything — the pre-existing behaviour.
+claude_provided=""
+if [ -r "$HOME/.claude/settings.json" ] && command -v python3 >/dev/null 2>&1; then
+  claude_provided="$(python3 - <<'EOPY' 2>/dev/null || true
+import json, os, glob
+home = os.path.expanduser("~")
+try:
+    enabled = {k.split("@")[-1] for k, v in json.load(
+        open(f"{home}/.claude/settings.json")).get("enabledPlugins", {}).items() if v}
+except Exception:
+    raise SystemExit(0)
+names = set()
+for market in glob.glob(f"{home}/.claude/plugins/marketplaces/*"):
+    if os.path.basename(market) not in enabled:
+        continue
+    for skill in glob.glob(f"{market}/*/skills/*"):
+        if os.path.isfile(os.path.join(skill, "SKILL.md")):
+            names.add(os.path.basename(skill))
+print("\n".join(sorted(names)))
+EOPY
+  )"
+fi
+
 tracked="$(git ls-files -- "${trees[@]}" 2>/dev/null || true)"
 for t in "${trees[@]}"; do
   wanted=""
   while IFS=$'\t' read -r name dir; do
     [ -n "$name" ] || continue
+    if [ "$t" = .claude/skills ] && [ -n "$claude_provided" ] &&
+      printf '%s\n' "$claude_provided" | grep -qxF "$name"; then
+      continue
+    fi
     wanted+="$name"$'\n'
     if [ -e "$t/$name" ] && ! is_store_link "$t/$name"; then
       echo "agent-skill-groups: $t/$name is not a managed link, left alone" >&2
