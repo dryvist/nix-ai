@@ -94,8 +94,10 @@ in
       reclaimData = hmConfig.config.home.activation.cursorAgentReclaim.data or "";
       isCursorCli = p: builtins.hasAttr "pname" p && p.pname == "cursor-cli";
       ownerPkg = builtins.head (builtins.filter isCursorCli hmConfig.config.home.packages);
-      expectedStorePath = "${ownerPkg}/bin/cursor-agent";
-      hasStorePath = pkgs.lib.hasInfix expectedStorePath reclaimData;
+      # Match the store path pattern: /nix/store/<hash>-cursor-cli-<version>/bin/cursor-agent
+      # Avoid interpolating the derivation directly (Nix forbids store path refs in asserts)
+      storePathPattern = "/nix/store/[a-z0-9]+-cursor-cli-[^/]+/bin/cursor-agent";
+      hasStorePath = builtins.match storePathPattern reclaimData != null;
       homeFileNames = builtins.attrNames hmConfig.config.home.file;
       hasAgentLink = builtins.elem ".local/bin/agent" homeFileNames;
       hasCursorAgentLink = builtins.elem ".local/bin/cursor-agent" homeFileNames;
