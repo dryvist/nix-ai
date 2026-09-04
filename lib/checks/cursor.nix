@@ -54,7 +54,10 @@ in
     label = "Cursor ownership";
     checkName = "check-cursor-ownership-regression";
     checks = let
-      cursorPkgs = builtins.filter (p: p.pname == "cursor-cli") hmConfig.config.home.packages;
+      # Derivations in home.packages have 'name' (full) and 'pname' (package name)
+      # Use hasAttr to safely check for pname
+      isCursorCli = p: builtins.hasAttr "pname" p && p.pname == "cursor-cli";
+      cursorPkgs = builtins.filter isCursorCli hmConfig.config.home.packages;
       cursorPkg = builtins.head cursorPkgs;
       pinShape = "^2026\\.[0-9]{2}\\.[0-9]{2}-[a-f0-9]+$";
     in [
@@ -89,7 +92,8 @@ in
     checkName = "check-cursor-reclaim-data";
     checks = let
       reclaimData = hmConfig.config.home.activation.cursorAgentReclaim.data or "";
-      ownerPkg = builtins.head (builtins.filter (p: p.pname == "cursor-cli") hmConfig.config.home.packages);
+      isCursorCli = p: builtins.hasAttr "pname" p && p.pname == "cursor-cli";
+      ownerPkg = builtins.head (builtins.filter isCursorCli hmConfig.config.home.packages);
       expectedStorePath = "${ownerPkg}/bin/cursor-agent";
       hasStorePath = pkgs.lib.hasInfix expectedStorePath reclaimData;
       homeFileNames = builtins.attrNames hmConfig.config.home.file;
