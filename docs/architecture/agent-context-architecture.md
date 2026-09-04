@@ -91,12 +91,26 @@ you invoke them with `/name`" — full reachability at zero listing cost.
 
 ### Harness support for tier 3 is not uniform
 
-`disable-model-invocation` is a Claude Code frontmatter key. Whether Codex,
-Cursor, OpenCode, qwen and agy honour it is an Agent Skills spec question that
-is **not yet verified**. Until it is, assume those harnesses have two tiers —
-present in the tree, or not — and scope them with group membership rather than
-with the manual-invoke marker. Do not promise a third tier a harness cannot
-deliver.
+`disable-model-invocation` is a Claude Code frontmatter key. It is **not** in
+the canonical spec at agentskills.io — only an open proposal there. Support
+elsewhere, per a peer session's check against each harness's own source and
+docs (not independently re-verified here):
+
+| Harness | Tier 3 support | Evidence |
+| --- | --- | --- |
+| Claude Code | native | documented |
+| Cursor | native | documented |
+| qwen-code | native | `packages/core/src/skills/skill-load.ts` |
+| Codex | equivalent, different key | `agents/openai.yaml`, `policy.allow_implicit_invocation: false` |
+| OpenCode | not supported | the open request was closed; the shipped fix is coarser than per-skill |
+| Gemini CLI / Antigravity | not supported | zero hits in the shared skill loader |
+
+Codex, Cursor, OpenCode and current qwen-code read `~/.agents/skills` natively.
+Claude Code does not read it at all (see above). Gemini CLI and Antigravity
+need the explicit symlinks this repo emits into their own tree.
+
+Where a harness has no tier 3, scope its skills with group membership instead
+— present in the tree, or not. Do not promise a third tier it cannot deliver.
 
 ## One declaration, many renderers
 
