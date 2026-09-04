@@ -1,5 +1,19 @@
 # Changelog
 
+## [5.4.0](https://github.com/dryvist/nix-ai/compare/v5.3.2...v5.4.0) (2026-09-04)
+
+
+### Features
+
+* **claude:** add the manual-invoke tier, keep-list derived from usage ([2b28cb1](https://github.com/dryvist/nix-ai/commit/2b28cb132bb851c391a8665aa9cd73f199f09140))
+* **herdr:** declare the headless server as a LaunchAgent ([#2041](https://github.com/dryvist/nix-ai/issues/2041)) ([a5706e9](https://github.com/dryvist/nix-ai/commit/a5706e999940a5df80d1cedf706f744daa2e0510))
+* **repo-link:** stop double-listing skills an enabled plugin already provides ([c7f80d8](https://github.com/dryvist/nix-ai/commit/c7f80d81e6e8e74fa3525a5670dae2dbd64cbea7))
+
+
+### Bug Fixes
+
+* **ci:** publish the release with an App token so consumers get dispatched ([#2040](https://github.com/dryvist/nix-ai/issues/2040)) ([2b2c6cf](https://github.com/dryvist/nix-ai/commit/2b2c6cfc343679bf2ecd1bae2e26bd6edf00b089))
+
 ## [5.3.2](https://github.com/dryvist/nix-ai/compare/v5.3.1...v5.3.2) (2026-09-04)
 
 
