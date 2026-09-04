@@ -25,8 +25,12 @@ in
       default = ".config/herdr";
       description = ''
         Directory (relative to $HOME) holding `config.toml` and the
-        `agent-detection/` manifest overrides. Upstream default; changing it
-        also requires HERDR_CONFIG_DIR in the environment.
+        `agent-detection/` manifest overrides. Upstream default.
+
+        Changing it does not relocate herdr on its own. `HERDR_SOCKET_PATH` is
+        the only variable that moves the control socket; `launchd.nix` derives
+        the server's from this value, and an interactive client needs the same
+        variable to follow a non-default directory.
       '';
     };
 
