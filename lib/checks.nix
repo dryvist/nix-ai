@@ -20,6 +20,7 @@
   home-manager,
   aiModule,
   renderAutonomous,
+  cursorCliPkg,
 }:
 let
   inherit (import ./checks-fixtures.nix { inherit pkgs home-manager aiModule; })
@@ -78,7 +79,7 @@ in
     ;
 })
 // (import ./checks/codex.nix { inherit pkgs hmConfig; })
-// (import ./checks/cursor.nix { inherit pkgs hmConfig; })
+// (import ./checks/cursor.nix { inherit pkgs hmConfig cursorCliPkg; })
 // (import ./checks/herdr.nix { inherit pkgs hmConfig; })
 // (import ./checks/qwen-code.nix { inherit pkgs hmConfig; })
 // (import ./checks/antigravity-cli.nix { inherit pkgs hmConfig; })
@@ -107,7 +108,6 @@ in
 // (import ./checks/mlx-model-extra-args.nix { inherit pkgs; })
 // (import ./checks/mlx-catalog.nix { inherit pkgs hmConfigCatalog; })
 // (import ./checks/mlx-backend-selection.nix { inherit pkgs hmConfigCatalog; })
-// (import ./checks/mlx-worker-flag-surface.nix { inherit pkgs hmConfigCatalog; })
 // (import ./checks/mlx-proxy-logging.nix { inherit pkgs hmConfigCatalog; })
 // (import ./checks/mlx-default-model.nix { inherit pkgs hmConfigDefaultModel; })
 // (import ./checks/mlx-catalog-roles.nix {
@@ -123,14 +123,13 @@ in
 // (import ./checks/mlx-cluster-watcher-env.nix { inherit pkgs hmConfigCluster; })
 // (import ./checks/mlx-cluster-peer-env.nix { inherit pkgs hmConfigCluster src; })
 // (import ./checks/mlx-cluster-pd-env.nix { inherit pkgs hmConfigCluster src; })
-// (import ./checks/mlx-cluster-pd-callsites.nix { inherit pkgs src; })
+// (import ./checks/mlx-cluster-pd-settle-billing.nix { inherit pkgs src; })
 // (import ./checks/mlx-cluster-mem-headroom.nix { inherit pkgs src; })
 // (import ./checks/mlx-cluster-health-gate.nix { inherit pkgs src; })
-// (import ./checks/mlx-cluster-scripts.nix { inherit pkgs hmConfigCluster src; })
-// (import ./checks/mlx-cluster-pd-settle-billing.nix { inherit pkgs src; })
-// (import ./checks/mlx-cluster-peer-armed.nix { inherit pkgs hmConfigCluster src; })
-// (import ./checks/mlx-cluster-soak.nix { inherit pkgs src; })
 // (import ./checks/mlx-cluster-selfheal.nix { inherit pkgs src; })
+// (import ./checks/mlx-cluster-recovery.nix { inherit pkgs src; })
+// (import ./checks/mlx-cluster-peer-armed.nix { inherit pkgs hmConfigCluster; })
+// (import ./checks/mlx-cluster-soak.nix { inherit pkgs src; })
 // (import ./checks/mlx-cluster-recovery.nix { inherit pkgs src; })
 // (import ./checks/litellm-local.nix {
   inherit

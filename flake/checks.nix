@@ -22,6 +22,8 @@ let
     inherit system;
     config.allowUnfree = true;
   };
+  # cursor-cli package for the sandbox check (needs the actual derivation, not the frozen nixpkgs one)
+  cursorCliPkg = self.packages.${system}.cursor-cli;
   orchestratorPromptNames = [
     "nix-ai-code-explain-example"
     "nix-ai-code-review-analysis-example"
@@ -39,6 +41,7 @@ in
         pkgs
         home-manager
         src
+        cursorCliPkg
         ;
       aiModule = self.homeManagerModules.default;
       inherit (nixAiLib) renderAutonomous;

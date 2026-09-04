@@ -1,5 +1,5 @@
 # Cursor CLI module regression tests
-{ pkgs, hmConfig }:
+{ pkgs, hmConfig, cursorCliPkg }:
 let
   helpers = import ./helpers.nix { inherit pkgs; };
   cfg = hmConfig.config.programs.cursor;
