@@ -138,69 +138,73 @@ in
         ];
       }
       ''
-        set -euo pipefail
+            set -euo pipefail
 
+            # Invoked via `bash` rather than executed directly: the script carries a
+        # `#!/usr/bin/env bash` shebang and there is no /usr/bin/env in the Nix
+        # build sandbox, so direct execution exits 126. The shebang is correct for
+        # the activation path, where the script runs on a real machine.
         RECLAIM_SCRIPT="${../../modules/scripts/cursor-reclaim-links.sh}"
-        NIX_BINARY="${pkgs.cursor-cli}/bin/cursor-agent"
+            NIX_BINARY="${pkgs.cursor-cli}/bin/cursor-agent"
 
-        # Create a temporary home directory
-        TMP_HOME=$(mktemp -d)
-        TARGET_DIR="$TMP_HOME/.local/bin"
-        mkdir -p "$TARGET_DIR"
+            # Create a temporary home directory
+            TMP_HOME=$(mktemp -d)
+            TARGET_DIR="$TMP_HOME/.local/bin"
+            mkdir -p "$TARGET_DIR"
 
-        echo "[SANDBOX] Testing reclaim script against $TARGET_DIR"
+            echo "[SANDBOX] Testing reclaim script against $TARGET_DIR"
 
-        # Case 1: Absent -> symlink created
-        "$RECLAIM_SCRIPT" "$NIX_BINARY" "$TARGET_DIR"
-        if [[ ! -L "$TARGET_DIR/cursor-agent" ]] || [[ ! -L "$TARGET_DIR/agent" ]]; then
-          echo "[FAIL] Case 1 (absent): symlinks not created" >&2
-          exit 1
-        fi
-        echo "[PASS] Case 1 (absent): symlinks created"
+            # Case 1: Absent -> symlink created
+            bash "$RECLAIM_SCRIPT" "$NIX_BINARY" "$TARGET_DIR"
+            if [[ ! -L "$TARGET_DIR/cursor-agent" ]] || [[ ! -L "$TARGET_DIR/agent" ]]; then
+              echo "[FAIL] Case 1 (absent): symlinks not created" >&2
+              exit 1
+            fi
+            echo "[PASS] Case 1 (absent): symlinks created"
 
-        # Case 2: Regular file -> replaced with symlink
-        rm -f "$TARGET_DIR/cursor-agent"
-        echo "fake-file" > "$TARGET_DIR/cursor-agent"
-        "$RECLAIM_SCRIPT" "$NIX_BINARY" "$TARGET_DIR"
-        if [[ ! -L "$TARGET_DIR/cursor-agent" ]]; then
-          echo "[FAIL] Case 2 (regular file): not replaced with symlink" >&2
-          exit 1
-        fi
-        echo "[PASS] Case 2 (regular file): replaced with symlink"
+            # Case 2: Regular file -> replaced with symlink
+            rm -f "$TARGET_DIR/cursor-agent"
+            echo "fake-file" > "$TARGET_DIR/cursor-agent"
+            bash "$RECLAIM_SCRIPT" "$NIX_BINARY" "$TARGET_DIR"
+            if [[ ! -L "$TARGET_DIR/cursor-agent" ]]; then
+              echo "[FAIL] Case 2 (regular file): not replaced with symlink" >&2
+              exit 1
+            fi
+            echo "[PASS] Case 2 (regular file): replaced with symlink"
 
-        # Case 3: Symlink -> replaced (idempotent)
-        "$RECLAIM_SCRIPT" "$NIX_BINARY" "$TARGET_DIR"
-        if [[ ! -L "$TARGET_DIR/cursor-agent" ]]; then
-          echo "[FAIL] Case 3 (symlink): not idempotent" >&2
-          exit 1
-        fi
-        echo "[PASS] Case 3 (symlink): idempotent rerun"
+            # Case 3: Symlink -> replaced (idempotent)
+            bash "$RECLAIM_SCRIPT" "$NIX_BINARY" "$TARGET_DIR"
+            if [[ ! -L "$TARGET_DIR/cursor-agent" ]]; then
+              echo "[FAIL] Case 3 (symlink): not idempotent" >&2
+              exit 1
+            fi
+            echo "[PASS] Case 3 (symlink): idempotent rerun"
 
-        # Case 4: Real directory -> rejection (non-zero exit, directory preserved)
-        rm -rf "$TARGET_DIR/cursor-agent"
-        mkdir -p "$TARGET_DIR/cursor-agent"
-        if "$RECLAIM_SCRIPT" "$NIX_BINARY" "$TARGET_DIR"; then
-          echo "[FAIL] Case 4 (real directory): should have exited with error" >&2
-          exit 1
-        fi
-        if [[ ! -d "$TARGET_DIR/cursor-agent" ]]; then
-          echo "[FAIL] Case 4 (real directory): directory not preserved" >&2
-          exit 1
-        fi
-        echo "[PASS] Case 4 (real directory): rejected, directory preserved"
+            # Case 4: Real directory -> rejection (non-zero exit, directory preserved)
+            rm -rf "$TARGET_DIR/cursor-agent"
+            mkdir -p "$TARGET_DIR/cursor-agent"
+            if bash "$RECLAIM_SCRIPT" "$NIX_BINARY" "$TARGET_DIR"; then
+              echo "[FAIL] Case 4 (real directory): should have exited with error" >&2
+              exit 1
+            fi
+            if [[ ! -d "$TARGET_DIR/cursor-agent" ]]; then
+              echo "[FAIL] Case 4 (real directory): directory not preserved" >&2
+              exit 1
+            fi
+            echo "[PASS] Case 4 (real directory): rejected, directory preserved"
 
-        # Case 5: Wrong arity -> usage message + non-zero exit
-        if "$RECLAIM_SCRIPT" "$NIX_BINARY"; then
-          echo "[FAIL] Case 5 (wrong arity): should have exited with error" >&2
-          exit 1
-        fi
-        echo "[PASS] Case 5 (wrong arity): rejected with usage message"
+            # Case 5: Wrong arity -> usage message + non-zero exit
+            if bash "$RECLAIM_SCRIPT" "$NIX_BINARY"; then
+              echo "[FAIL] Case 5 (wrong arity): should have exited with error" >&2
+              exit 1
+            fi
+            echo "[PASS] Case 5 (wrong arity): rejected with usage message"
 
-        # Cleanup
-        rm -rf "$TMP_HOME"
+            # Cleanup
+            rm -rf "$TMP_HOME"
 
-        echo "[SANDBOX] All five cases passed"
-        touch $out
+            echo "[SANDBOX] All five cases passed"
+            touch $out
       '';
 
   cursor-activation-regression = helpers.mkDefaultsRegression {
