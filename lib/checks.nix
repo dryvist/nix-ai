@@ -20,7 +20,6 @@
   home-manager,
   aiModule,
   renderAutonomous,
-  cursorCliPkg,
 }:
 let
   inherit (import ./checks-fixtures.nix { inherit pkgs home-manager aiModule; })
@@ -79,7 +78,7 @@ in
     ;
 })
 // (import ./checks/codex.nix { inherit pkgs hmConfig; })
-// (import ./checks/cursor.nix { inherit pkgs hmConfig cursorCliPkg; })
+// (import ./checks/cursor.nix { inherit pkgs hmConfig; })
 // (import ./checks/herdr.nix { inherit pkgs hmConfig; })
 // (import ./checks/qwen-code.nix { inherit pkgs hmConfig; })
 // (import ./checks/antigravity-cli.nix { inherit pkgs hmConfig; })

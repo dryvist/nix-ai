@@ -21,15 +21,6 @@ forAllSystems (
         vct-splunk-cli
         ;
     };
-    # cursor-cli is unfree; expose it via a narrowly-scoped instantiation so
-    # the package evaluates without a global allowUnfree. The predicate matches
-    # only the cursor-cli pname, keeping the unfree surface minimal.
-    cursorCliPkg = let
-      pkgsWithCursor = import nixpkgs {
-        inherit system;
-        config.allowUnfreePredicate = pkg: (pkg.pname or "") == "cursor-cli";
-      };
-    in pkgsWithCursor.callPackage ../modules/cursor/package.nix { };
   in
   {
     fabric-ai = pkgs.callPackage ../modules/fabric/package.nix { inherit fabric-src; };
@@ -44,7 +35,6 @@ forAllSystems (
     cecli = cecliPkg;
     inherit (cecliPkg.passthru) mcp;
     inherit (vctCliPkgs) vct-cribl-cli vct-splunk-cli;
-    cursor-cli = cursorCliPkg;
   }
   // nixpkgs.lib.optionalAttrs (system == "x86_64-linux") {
     # The vztmpl tofu-proxmox downloads onto every commissioned node

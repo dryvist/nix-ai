@@ -74,10 +74,6 @@ let
   cliConfigJson = pkgs.writeText "cursor-cli-config.json" (
     builtins.toJSON (lib.recursiveUpdate cliConfig cfg.extraSettings)
   );
-
-  # Local cursor-cli derivation (lab channel, two-platform) — replaces the
-  # frozen nixpkgs-26.05 package. Version pin lives in lib/versions.nix.
-  cursorCliPkg = pkgs.callPackage ./package.nix { };
 in
 {
   imports = [ ./options.nix ];
@@ -97,7 +93,7 @@ in
     }
     (lib.mkIf cfg.enable {
       home = {
-        packages = [ cursorCliPkg ];
+        packages = [ pkgs.cursor-cli ];
 
         file = {
           ".cursor/mcp.json".text = builtins.toJSON { inherit mcpServers; };
@@ -112,7 +108,7 @@ in
 
         activation.cursorAgentReclaim = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
           $DRY_RUN_CMD ${../scripts/cursor-reclaim-links.sh} \
-            "${cursorCliPkg}/bin/cursor-agent" \
+            "${pkgs.cursor-cli}/bin/cursor-agent" \
             "${homeDir}/.local/bin"
         '';
       };
