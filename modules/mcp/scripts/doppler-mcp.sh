@@ -18,6 +18,16 @@
 # See modules/mcp/README.md → Troubleshooting for the full story.
 #
 # doppler is on PATH via runtimeInputs (writeShellApplication)
+#
+# Fallback: macOS login-keychain lookup by service name only (no account or
+# custom keychain-file scoping — those would be environment-specific identity
+# and don't belong in a public repo). Login-shell ambient export of these vars
+# was removed 2026-09-02 (see modules/ai-aliases.zsh's with-ai-readonly) for a
+# real security reason, so this process must be able to fetch its own copy.
+if command -v security >/dev/null 2>&1; then
+  [ -n "${AI_DOPPLER_PROJECT:-}" ] || AI_DOPPLER_PROJECT="$(security find-generic-password -s AI_DOPPLER_PROJECT -w 2>/dev/null || true)"
+  [ -n "${AI_DOPPLER_CONFIG:-}" ] || AI_DOPPLER_CONFIG="$(security find-generic-password -s AI_DOPPLER_CONFIG -w 2>/dev/null || true)"
+fi
 if [ "$#" -lt 1 ] || [ -z "${AI_DOPPLER_PROJECT:-}" ]; then
   echo "Usage: doppler-mcp <command> [args...]" >&2
   echo "Wraps a command with: doppler run -p \$AI_DOPPLER_PROJECT -c \${AI_DOPPLER_CONFIG:-prd} -- <command> [args...]" >&2
