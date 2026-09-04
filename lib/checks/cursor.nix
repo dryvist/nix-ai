@@ -95,8 +95,11 @@ in
       isCursorCli = p: builtins.hasAttr "pname" p && p.pname == "cursor-cli";
       ownerPkg = builtins.head (builtins.filter isCursorCli hmConfig.config.home.packages);
       # Match the store path pattern: /nix/store/<hash>-cursor-cli-<version>/bin/cursor-agent
-      # Avoid interpolating the derivation directly (Nix forbids store path refs in asserts)
-      storePathPattern = "/nix/store/[a-z0-9]+-cursor-cli-[^/]+/bin/cursor-agent";
+      # Avoid interpolating the derivation directly (Nix forbids store path refs in asserts).
+      # builtins.match anchors to the WHOLE string, and the activation data is a
+      # multi-line script, so the pattern must be wrapped to match a substring.
+      # `(.|\n)*` rather than `.*` because `.` does not match a newline here.
+      storePathPattern = "(.|\n)*/nix/store/[a-z0-9]+-cursor-cli-[^/]+/bin/cursor-agent(.|\n)*";
       hasStorePath = builtins.match storePathPattern reclaimData != null;
       homeFileNames = builtins.attrNames hmConfig.config.home.file;
       hasAgentLink = builtins.elem ".local/bin/agent" homeFileNames;
