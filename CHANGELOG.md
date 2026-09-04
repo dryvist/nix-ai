@@ -1,5 +1,14 @@
 # Changelog
 
+## [5.3.2](https://github.com/dryvist/nix-ai/compare/v5.3.1...v5.3.2) (2026-09-04)
+
+
+### Bug Fixes
+
+* **mcp:** let doppler-mcp recover AI_DOPPLER_PROJECT from the login keychain ([8abf7f6](https://github.com/dryvist/nix-ai/commit/8abf7f649e4b3343065af2b2147b99b89bc02035))
+* **mcp:** let doppler-mcp recover AI_DOPPLER_PROJECT from the login keychain ([fba2284](https://github.com/dryvist/nix-ai/commit/fba2284eda6cca5a4ebc47ee265ff156ed70f4a7))
+* **token-meter:** separate the gate's certificate name from its bind address ([1cae31d](https://github.com/dryvist/nix-ai/commit/1cae31dede4843138ef9fda8af33deeddaee292f))
+
 ## [5.3.1](https://github.com/dryvist/nix-ai/compare/v5.3.0...v5.3.1) (2026-09-02)
 
 

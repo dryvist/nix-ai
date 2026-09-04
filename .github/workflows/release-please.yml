@@ -26,6 +26,8 @@ jobs:
     timeout-minutes: 45
     permissions:
       contents: write
+    outputs:
+      tag: ${{ steps.upload.outputs.tag }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -40,6 +42,7 @@ jobs:
       # locate the file and fail loudly on zero or several rather than
       # uploading whatever `find` happened to print first.
       - name: Upload to the release
+        id: upload
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -61,4 +64,19 @@ jobs:
           cp "${found[0]}" nixos-herdr-lxc.tar.xz
           sha256sum nixos-herdr-lxc.tar.xz
           gh release upload "$tag" nixos-herdr-lxc.tar.xz --clobber
-          gh release edit "$tag" --draft=false
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+  # Publishing the draft is a separate job because it must NOT use GITHUB_TOKEN.
+  # A release published by a run's own token emits no `release: published`
+  # event, so dispatch-to-nix-darwin.yml never fires and consumers silently
+  # stop receiving lock updates — measured across v5.0.0 through v5.3.2.
+  # Uploading the asset above is unaffected: an upload emits no event.
+  publish-release:
+    name: Publish the release
+    needs: [release-please, publish-lxc-template]
+    uses: dryvist/.github/.github/workflows/_publish-draft-release.yml@main
+    with:
+      tag: ${{ needs.publish-lxc-template.outputs.tag }}
+      latest: true
+    secrets:
+      GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
