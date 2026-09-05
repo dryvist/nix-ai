@@ -27,8 +27,8 @@ the stack could not leave one machine.
 | CLI | Source |
 | --- | --- |
 | Claude Code, Codex | `llm-agents.nix` on Linux, Homebrew cask on darwin |
-| `agy`, Copilot CLI, OpenCode, qwen-code, herdr | `llm-agents.nix` |
-| Cursor | nixpkgs 26.05 |
+| `agy`, Copilot CLI, OpenCode, herdr | `llm-agents.nix` |
+| qwen-code, Cursor | nixpkgs 26.05 |
 | Claude Desktop, Codex app, ChatGPT, Antigravity, Antigravity IDE | homebrew |
 
 Claude Code and Codex are the one split in that table. Both ship several
