@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.8.1](https://github.com/dryvist/nix-ai/compare/v5.8.0...v5.8.1) (2026-09-05)
+
+
+### Bug Fixes
+
+* **qwen-code:** default back to nixpkgs, keep llm-agents selectable ([#2080](https://github.com/dryvist/nix-ai/issues/2080)) ([39803f3](https://github.com/dryvist/nix-ai/commit/39803f3a91de5be0da3c2865d2aa524967f52d93))
+* **qwen-code:** default installVia back to nixpkgs ([af9c121](https://github.com/dryvist/nix-ai/commit/af9c121e88d90e8a11655a07b7ff6805ab51c11f))
+
 ## [5.8.0](https://github.com/dryvist/nix-ai/compare/v5.7.0...v5.8.0) (2026-09-05)
 
 
