@@ -14,17 +14,24 @@ let
     in
     (claudePerms.builtin or [ ]) ++ webfetchPerms ++ (claudePerms.read or [ ]);
 
-  # Claude-specific helper: Get tool-specific deny permissions
-  getClaudeDenyPermissions =
-    permissions:
-    let
-      # Deny patterns from ai-assistant-instructions (file patterns for the Read tool)
-      denyPatterns = permissions.denyPatterns or [ ];
-      # Convert patterns to Read(...) format for Claude's deny list.
-      # Note: patterns are used as provided; any tilde (~) expansion must be done upstream.
-      denyReadPatterns = map (p: "Read(${p})") denyPatterns;
-    in
-    denyReadPatterns;
+  # Claude-specific helper: Get tool-specific deny permissions.
+  #
+  # Deliberately empty: the shared `denyPatterns` are NOT rendered as
+  # `Read(<glob>)` rules for Claude Code. Once any `Read()` deny rule exists,
+  # Claude Code must statically prove that every shell command cannot reach a
+  # denied path before auto-approving it. A command whose working directory is
+  # not resolvable at parse time (`cd DIR && grep -r x sub/`) cannot be proven
+  # safe, so it falls through to an approval prompt. The leading-`**/` patterns
+  # match at any depth from anywhere, which makes that unprovable for most
+  # read-only exploration and turns plan mode into a prompt on nearly every
+  # command. Measured on Claude Code 2.1.261: removing these rules eliminates
+  # the prompt; re-adding a single leading-`**/` pattern restores it.
+  #
+  # Claude Code's own gate is `permissions.defaultMode = "auto"` plus the
+  # auto-mode classifier, not this list. Every other harness formatter
+  # (cursor, gemini, opencode, qwen) still consumes `denyPatterns` from the
+  # shared data, so the patterns remain in force for those CLIs.
+  getClaudeDenyPermissions = _permissions: [ ];
 
 in
 rec {
