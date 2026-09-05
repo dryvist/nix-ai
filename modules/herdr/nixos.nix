@@ -90,7 +90,7 @@ in
         agents.copilot-cli
         agents.codex
         agents.opencode
-        pkgs.qwen-code
+        agents.qwen-code
       ];
       defaultText = lib.literalExpression "the AI CLIs this flake manages that evaluate without allowUnfree";
       description = ''

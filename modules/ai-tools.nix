@@ -24,10 +24,10 @@
 # ============================================================================
 #
 # NIXPKGS: github-mcp-server, terraform-mcp-server, whisper-cpp,
-#   openai-whisper, entire, yt-dlp, qwen-code, cursor-cli
+#   openai-whisper, entire, yt-dlp, cursor-cli
 #
 # LLM-AGENTS.NIX: claude-code, antigravity-cli (`agy`), copilot-cli, herdr,
-#   codex, opencode
+#   codex, opencode, qwen-code
 #
 # HOMEBREW (lib/homebrew.nix): block-goose-cli, langgraph-cli, the desktop
 #   apps (claude, codex-app, chatgpt, antigravity, antigravity-ide), plus the
