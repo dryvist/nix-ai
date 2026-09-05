@@ -203,11 +203,10 @@ in
           inherit (config.services) aiStack;
         };
 
-        permissions = {
-          allow = formatters.claude.formatAllowed permissions;
-          deny = formatters.claude.formatDenied permissions;
-          ask = formatters.claude.formatAsk permissions;
-        };
+        # allow/ask from the shared formatter, plus the deny overlay that trims
+        # redundant hosted-connector and unused built-in tool schemas. Body in
+        # ./claude/permissions.nix to keep this file under the file-size limit.
+        permissions = import ./claude/permissions.nix { inherit formatters permissions; };
 
         skillOverrides =
           let

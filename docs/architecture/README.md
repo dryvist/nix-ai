@@ -81,6 +81,16 @@ endpoint options carry no default.
 observed at all, or checking whether "no telemetry" means unsupported or
 merely unconfigured.
 
+### [agent-context-measurement.md](agent-context-measurement.md)
+
+How to measure what a session loads and what the number decomposes into: the nested
+ablation whose rows sum to the total, the properties of the instrument that make a
+comparison valid, six refuted hypotheses about session cost, and the plugin-cache
+precondition the manual-invoke tier has already failed once.
+
+**Read when**: Measuring a session, doubting a token figure, or implementing the
+manual-invoke tier.
+
 ### [plugin-scoping.md](plugin-scoping.md)
 
 The two-layer model partitioning Claude Code plugins between user-level (every session)

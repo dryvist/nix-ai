@@ -15,7 +15,10 @@
   home.packages = [
     (pkgs.writeShellApplication {
       name = "agent-context-baseline";
-      runtimeInputs = [ pkgs.python3 ];
+      runtimeInputs = [
+        pkgs.jq
+        pkgs.python3
+      ];
       text = ''
         exec ${./scripts/agent-context-baseline.sh} "$@"
       '';

@@ -14,8 +14,9 @@
 #   1. Do not run `herdr integration install <agent>`. It writes lifecycle
 #      hooks into each agent's own config — for Claude Code that means editing
 #      ~/.claude/settings.json, which nix-claude-code renders read-only from the
-#      Nix store. The write fails, or is reverted on the next switch. Express
-#      those hooks as programs.claude.hooks in modules/claude-config.nix.
+#      Nix store. The write fails, or is reverted on the next switch. Name the
+#      agent in programs.herdr.integrations instead; modules/herdr/integrations.nix
+#      declares the same payloads from the package's own share/ directory.
 #
 #   2. Be aware herdr fetches agent-manifest updates from herdr.dev at runtime
 #      and applies them without a restart. Local manifests take precedence, so
@@ -38,6 +39,7 @@ in
     ./options.nix
     ./settings.nix
     ./launchd.nix
+    ./integrations.nix
   ];
 
   config = lib.mkIf cfg.enable {

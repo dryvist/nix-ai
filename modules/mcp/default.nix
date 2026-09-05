@@ -147,6 +147,15 @@ in
       default = [
         "apple-events"
         "zammad"
+        # Added on measured usage across 1,651 local transcripts: vikunja is
+        # called 2,296 times, an order of magnitude more than any of these
+        # four (codex 149, fabric 124, grep 117, time 54). They cost 5,474
+        # tokens of every session between them, so a session that calls none
+        # of them — most sessions — pays 5,474 for nothing.
+        "codex"
+        "fabric"
+        "grep"
+        "time"
       ];
       description = ''
         MCP servers kept out of every session's always-on profile and attached
@@ -158,6 +167,17 @@ in
         accounts for 22,139 of that and apple-events for 6,746 — together
         roughly 26% of a session's entire context, in repositories that never
         call either one.
+
+        The MCP block is the largest addressable cost in a session and it is
+        repo-independent: 32,622 in nix-ai, 35,210 in tofu-proxmox, 33,045 in
+        docs-starlight. All three repos measure UNDER the 90k budget with no
+        MCP and OVER it with. For comparison the entire skill listing is
+        12–15k, so MCP is more than double the block this stack spent most of
+        its optimisation effort on.
+
+        Membership here is decided by recorded usage, never by judgment about
+        what a session "might" want — the same rule the skill keep-list
+        follows, and for the same reason.
 
         Nothing becomes unreachable. Every server listed here is still rendered
         to `~/.claude/mcp-available/<name>.json`, ready to attach:
