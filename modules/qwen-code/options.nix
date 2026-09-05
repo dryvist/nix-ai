@@ -25,15 +25,20 @@ in
         "nixpkgs"
         "brew"
       ];
-      default = "llm-agents";
+      default = "nixpkgs";
       description = ''
-        Install source. llm-agents.nix is the default because it tracks
-        upstream closely, while nixpkgs 26.05 is frozen several minor
-        versions back. Both cover every supported system, so neither ties
-        this module to one platform — a brew formula did, which is what used
-        to keep it macOS-only. "nixpkgs" pins the release-channel build;
-        "brew" installs nothing here and relies on nix-darwin's
-        homebrew.brews.
+        Install source. nixpkgs is the default because it is the only one of
+        the three with a cache hit on every consumer. llm-agents.nix carries a
+        much newer qwen-code (0.23.0 against 26.05's 0.16.0) and is selectable
+        for a host that wants it, but it is NOT the default: nix-darwin has no
+        numtide substituter, so choosing it there builds qwen-code from source,
+        and that build exhausts the JS heap on a CI runner (`tsc --build`,
+        "Ineffective mark-compacts near heap limit"). qwen-code does not need
+        to track upstream closely enough to justify that.
+
+        Neither Nix source ties this module to one platform — a brew formula
+        did, which is what used to keep it macOS-only. "brew" installs nothing
+        here and relies on nix-darwin's homebrew.brews.
       '';
     };
 
