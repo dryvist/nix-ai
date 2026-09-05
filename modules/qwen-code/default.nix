@@ -11,11 +11,12 @@
 # Dashscope / OpenRouter / OpenAI access is opt-in via the `d-qwen`
 # Doppler-wrapped shell alias.
 #
-# Why llm-agents.nix (not nixpkgs / brew / uvx): it tracks upstream closely,
-# while nixpkgs 26.05 is frozen several minor versions back. Both package
-# qwen-code for every supported system; a Homebrew formula did not, which is
-# one of the reasons this stack could not leave the Mac. `installVia` still
-# selects "nixpkgs" or "brew" for a host that wants either.
+# Why nixpkgs (not llm-agents / brew / uvx): it is the only source with a cache
+# hit on every consumer. llm-agents.nix has a far newer qwen-code and stays
+# selectable via `installVia`, but defaulting to it made nix-darwin build the
+# package from source — it has no numtide substituter — and that build OOMs a
+# CI runner. A Homebrew formula, the original source, had no Linux path at all,
+# which is one of the reasons this stack could not leave the Mac.
 #
 {
   config,
