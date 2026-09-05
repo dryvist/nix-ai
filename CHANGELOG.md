@@ -1,5 +1,14 @@
 # Changelog
 
+## [5.8.0](https://github.com/dryvist/nix-ai/compare/v5.7.0...v5.8.0) (2026-09-05)
+
+
+### Features
+
+* **ai-tools:** give every AI CLI exactly one owner per platform ([#2075](https://github.com/dryvist/nix-ai/issues/2075)) ([49adabc](https://github.com/dryvist/nix-ai/commit/49adabceef3a9483ce46a4440605b0e3c332179d))
+* one owner per AI CLI, and qwen-code from llm-agents ([996c894](https://github.com/dryvist/nix-ai/commit/996c894d26a04d0f1c025b7017791f9e9163cad6))
+* **qwen-code:** source the binary from llm-agents.nix ([#2076](https://github.com/dryvist/nix-ai/issues/2076)) ([b25c9ff](https://github.com/dryvist/nix-ai/commit/b25c9ff4f223505800e408b044df984ad8c7bb94))
+
 ## [5.7.0](https://github.com/dryvist/nix-ai/compare/v5.6.0...v5.7.0) (2026-09-05)
 
 
