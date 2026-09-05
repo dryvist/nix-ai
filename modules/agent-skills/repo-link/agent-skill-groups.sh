@@ -9,9 +9,8 @@
 # Targets: .agents/skills/<name> (Codex, Cursor, OpenCode, Antigravity, qwen)
 # and .claude/skills/<name> (Claude Code). Only symlinks into the Nix store are
 # ever created or removed; a repository's own skills are never touched.
-# A second key, `mcp-servers: [zammad]`, selects on-demand MCP servers for
-# Claude Code: their ~/.claude/mcp-available/<name>.json attach files are
-# merged into .mcp.json (project scope). Nothing is committed: the trees and
+# `mcp-servers: [zammad]` merges ~/.claude/mcp-available/<name>.json into
+# .mcp.json (Claude Code project scope). Nothing is committed: the trees and
 # .mcp.json go into .git/info/exclude.
 
 cmd="${1:-link}"
@@ -46,9 +45,7 @@ frontmatter_list() {
 }
 declared="$(frontmatter_list skill-groups)"
 
-# `mcp-servers: [zammad]` -> .mcp.json (Claude Code project scope), merged
-# from the attach files the on-demand tier already renders. Overwritten on
-# every run and kept out of git; a tracked .mcp.json is never touched.
+# .mcp.json is rewritten on every run; a tracked one is never touched.
 mcp_avail="${AGENT_MCP_CLAUDE_DIR:-$HOME/.claude/mcp-available}"
 mcp_frags=()
 for s in $(frontmatter_list mcp-servers); do
