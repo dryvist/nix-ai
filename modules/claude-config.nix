@@ -95,27 +95,16 @@ in
       # workstation stack opts into its manual switch and parallel-session CLI.
       swap.disabled = false;
 
-      # One owner per host. Claude Code ships most days, faster than a
-      # relock-and-rebuild cycle can follow.
-      #
-      #   darwin: null — the `claude-code@latest` Homebrew cask owns the
-      #     baseline binary, declared in lib/homebrew.nix and upgraded by
-      #     `brew upgrade` with no Nix round trip.
-      #   Linux: llm-agents.nix, which has no Homebrew and packages claude-code
-      #     for x86_64-linux. Keeping this arm is why the stack can leave the
-      #     Mac at all.
+      # One owner per host: the `claude-code@latest` cask on darwin,
+      # llm-agents.nix on Linux. Rationale and the full source table live in
+      # modules/herdr/README.md ("Where CLI binaries come from").
       #
       # `enable` stays true either way — only the binary is skipped, so every
       # settings file, permission set and MCP server below is still rendered.
       #
-      # Unchanged on both: Claude's native updater (programs.claude.latest,
-      # enabled in modules/default.nix) still overlays a newer build at
-      # ~/.local/bin/claude on top of whichever baseline applies.
-      #
-      # mkDefault makes this host-overridable, and the value is a definition
-      # rather than the option's default on purpose: drop this line and
-      # nix-claude-code falls back to `pkgs.claude-code`, silently reinstalling
-      # a second, months-old claude next to the cask.
+      # This must stay a definition, not the option's default. Drop the line
+      # and nix-claude-code falls back to `pkgs.claude-code`, silently
+      # reinstalling a second, months-old claude beside the cask.
       package = lib.mkDefault (
         if pkgs.stdenv.hostPlatform.isDarwin then
           null
