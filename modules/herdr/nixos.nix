@@ -88,8 +88,8 @@ in
         agents.claude-code
         agents.antigravity-cli
         agents.copilot-cli
-        pkgs.codex
-        pkgs.opencode
+        agents.codex
+        agents.opencode
         pkgs.qwen-code
       ];
       defaultText = lib.literalExpression "the AI CLIs this flake manages that evaluate without allowUnfree";

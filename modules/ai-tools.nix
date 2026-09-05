@@ -7,35 +7,43 @@
 # PACKAGE HIERARCHY (STRICT - NO EXCEPTIONS)
 # ============================================================================
 #
-# nixpkgs -> llm-agents.nix -> homebrew (GUI only) -> bunx wrapper -> uvx.
+# nixpkgs -> llm-agents.nix -> homebrew (GUI + 2 CLIs) -> bunx wrapper -> uvx.
 #
-# The full decision matrix, and why each rung exists, lives in
-# modules/herdr/README.md. The short version: check `nix search nixpkgs <pkg>`
-# first; reach for github:numtide/llm-agents.nix for an agent CLI nixpkgs does
-# not carry; homebrew is GUI applications ONLY (a cask cannot run on the
-# fleet's Linux guests, which is what used to pin this stack to one MacBook —
-# do not add a CLI cask back); bunx for npm packages, always version-pinned;
-# uvx for Python CLI tools.
+# The full decision matrix lives in modules/herdr/README.md. The short
+# version: check `nix search nixpkgs <pkg>` first; reach for
+# github:numtide/llm-agents.nix for an agent CLI nixpkgs does not carry;
+# homebrew is GUI applications, plus exactly two CLI casks
+# (claude-code@latest, codex) that must track upstream faster than a
+# relock-and-rebuild cycle — darwin-only, config still in Nix, Linux
+# unaffected. A cask cannot run on Linux guests, which used to pin this
+# stack to one machine, so a third needs the same justification. bunx for
+# npm packages, always version-pinned; uvx for Python CLI tools.
 #
 # ============================================================================
 # CURRENT STATUS
 # ============================================================================
 #
 # NIXPKGS: github-mcp-server, terraform-mcp-server, whisper-cpp,
-#   openai-whisper, entire, yt-dlp, codex, opencode, qwen-code, cursor-cli
+#   openai-whisper, entire, yt-dlp, qwen-code, cursor-cli
 #
-# LLM-AGENTS.NIX: claude-code, antigravity-cli (`agy`), copilot-cli, herdr
+# LLM-AGENTS.NIX: claude-code, antigravity-cli (`agy`), copilot-cli, herdr,
+#   codex, opencode
 #
-# HOMEBREW (lib/homebrew.nix): block-goose-cli, langgraph-cli, and the desktop
-#   apps (claude, codex-app, chatgpt, antigravity, antigravity-ide)
+# HOMEBREW (lib/homebrew.nix): block-goose-cli, langgraph-cli, the desktop
+#   apps (claude, codex-app, chatgpt, antigravity, antigravity-ide), plus the
+#   claude-code@latest and codex CLI casks (darwin only)
+#
+# ONE OWNER PER CLI. claude-code and codex come from Homebrew on darwin
+#   (`package = null`; nix-ai still renders their config) and llm-agents.nix
+#   on Linux. Never both. See modules/herdr/README.md.
 #
 # BUNX WRAPPER PACKAGES (npm packages not in nixpkgs/homebrew):
-#   cclint: @felixgeelhaar/cclint (CLAUDE.md linter)
+#   cclint: @felixgeelhaar/cclint (CLAUDE.md lint)
 #   gh-copilot: @githubnext/github-copilot-cli (pinned version)
 #   chatgpt: chatgpt-cli (ChatGPT terminal client)
 #   claude-flow: claude-flow (multi-agent orchestration)
-#   gws: @googleworkspace/cli (pinned version)
-#   openwhispr: @openwhispr/cli (voice notes / transcriptions CLI)
+#   gws: @googleworkspace/cli (pinned)
+#   openwhispr: @openwhispr/cli (voice notes / transcription)
 #   langfuse: langfuse-cli (Langfuse API CLI — traces, prompts, datasets)
 #   omo-senpi: omo-ai (oh-my-openagent Senpi edition — standalone agent, beta)
 #
@@ -48,7 +56,9 @@
 #   qwen-code  — Qwen agent CLI; see modules/qwen-code/ (programs.qwen-code)
 #
 # NOTE: These are home-manager packages, not system packages.
-# Imported in hosts/macbook-m4/home.nix via home.packages.
+# modules/default.nix imports this file unconditionally, for every host. It is
+# not opt-in and not macOS-specific; per-platform differences belong in the
+# package expressions below, never in whether this file is imported.
 #
 # ============================================================================
 # ADDING NEW NIXPKGS PACKAGES
@@ -74,7 +84,7 @@ let
 in
 {
   # AI-specific development tools
-  # Install via: home.packages = [ ... ] ++ (import ./ai-tools.nix { inherit pkgs; }).packages;
+  # Consumed by modules/default.nix via `inherit (import ./ai-tools.nix ...) packages`.
   #
   # See CURRENT STATUS section at the top of this file for package details.
   packages = with pkgs; [

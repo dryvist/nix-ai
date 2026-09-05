@@ -1,0 +1,11 @@
+# herdr module README — subdirectory design notes, not a top-level project
+# README. It documents the constraints of consuming the herdr flake input, so
+# it has no install or usage section of its own.
+required_sections:
+  - Where CLI binaries come from
+optional_sections:
+  - Two conflicts with declarative config
+  - Agent detection
+  - Detection state is fetched, not pinned
+  - Unfree packages stay out of the defaults
+  - The socket path is a contract

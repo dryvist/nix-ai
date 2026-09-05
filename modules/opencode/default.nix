@@ -12,11 +12,13 @@
   config,
   lib,
   nix-claude-code,
+  llm-agents,
   ...
 }:
 
 let
   cfg = config.programs.opencode;
+  llmAgents = llm-agents.packages.${pkgs.stdenv.hostPlatform.system};
   inherit (cfg) configDir;
   inherit (config.programs) litellmLocal;
 
@@ -138,10 +140,14 @@ in
       programs.opencode.mcpServerNames = lib.attrNames mcpServers;
     }
     (lib.mkIf cfg.enable {
-      # nixpkgs packages opencode for both supported systems, so the binary is
-      # no longer "installed out-of-band" — that gap is why a Linux host got
-      # config with nothing to run it.
-      programs.opencode.package = lib.mkDefault pkgs.opencode;
+      # llm-agents.nix packages opencode for both supported systems, so the
+      # binary is no longer "installed out-of-band" — that gap is why a Linux
+      # host got config with nothing to run it.
+      #
+      # Sourced from llm-agents rather than nixpkgs because it tracks upstream
+      # far more closely (1.18.29 against 26.05's 1.15.10). Unlike codex there
+      # is no Homebrew cask involved: one owner on every platform.
+      programs.opencode.package = lib.mkDefault llmAgents.opencode;
 
       home = {
         packages = lib.optional (cfg.package != null) cfg.package;

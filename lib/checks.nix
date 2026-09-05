@@ -80,6 +80,7 @@ in
     ;
 })
 // (import ./checks/codex.nix { inherit pkgs hmConfig; })
+// (import ./checks/cli-ownership.nix { inherit pkgs hmConfig; })
 // (import ./checks/cursor.nix { inherit pkgs hmConfig; })
 // (import ./checks/herdr.nix { inherit pkgs hmConfig; })
 // (import ./checks/qwen-code.nix { inherit pkgs hmConfig; })

@@ -95,12 +95,22 @@ in
       # workstation stack opts into its manual switch and parallel-session CLI.
       swap.disabled = false;
 
-      # Binary comes from llm-agents.nix, which packages claude-code for
-      # aarch64-darwin AND x86_64-linux. It used to be the claude-code@latest
-      # Homebrew cask, which is why nothing but the Mac could run this stack.
-      # Claude's native updater (programs.claude.latest) still overlays a newer
-      # build at ~/.local/bin/claude on top of this baseline.
-      package = llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.claude-code;
+      # One owner per host: the `claude-code@latest` cask on darwin,
+      # llm-agents.nix on Linux. Rationale and the full source table live in
+      # modules/herdr/README.md ("Where CLI binaries come from").
+      #
+      # `enable` stays true either way — only the binary is skipped, so every
+      # settings file, permission set and MCP server below is still rendered.
+      #
+      # This must stay a definition, not the option's default. Drop the line
+      # and nix-claude-code falls back to `pkgs.claude-code`, silently
+      # reinstalling a second, months-old claude beside the cask.
+      package = lib.mkDefault (
+        if pkgs.stdenv.hostPlatform.isDarwin then
+          null
+        else
+          llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.claude-code
+      );
 
       # API Key Helper for headless authentication (cron jobs, CI/CD)
       # Uses Bitwarden Secrets Manager to securely fetch OAuth token
