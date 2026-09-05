@@ -3,7 +3,19 @@
 let
   helpers = import ./helpers.nix { inherit pkgs; };
   cfg = hmConfig.config.programs.cursor;
-  nixpkgsCursorCli = pkgs.cursor-cli;
+
+  # The release channel's build. Referenced only to assert the module is NOT
+  # using it — see cursor-ownership-regression.
+  releaseChannelCursorCli = pkgs.cursor-cli;
+
+  # The cursor-cli the module actually installs. Taken from the evaluated
+  # config rather than recomputed, so the link assertions below prove the
+  # links point at the installed derivation whatever channel supplies it.
+  installedCursorCli = builtins.head (
+    builtins.filter (
+      p: builtins.hasAttr "pname" p && p.pname == "cursor-cli"
+    ) hmConfig.config.home.packages
+  );
 in
 {
   # Verify all expected Cursor option paths exist.
@@ -44,11 +56,21 @@ in
     ];
   };
 
-  # Assert exactly one cursor-cli derivation in home.packages, and that it is
-  # the nixpkgs package rather than a vendored copy. A second cursor-cli in the
-  # profile is the dual-install bug this module exists to prevent; a vendored
-  # derivation was tried and reverted, because nixpkgs already ships this
-  # package with its own updateScript.
+  # Assert exactly one cursor-cli derivation in home.packages, and that it comes
+  # from nixpkgs-unstable rather than the pinned release channel. A second
+  # cursor-cli in the profile is the dual-install bug this module exists to
+  # prevent; a vendored derivation was tried and reverted, because nixpkgs
+  # already ships this package with its own updateScript.
+  #
+  # The channel assertion exists because the failure is silent: 26.05-darwin
+  # froze cursor-cli at 2026.05.16 and kept evaluating green, so the profile
+  # shipped a months-old agent CLI with nothing to indicate it. Comparing
+  # against `pkgs.cursor-cli` — the release-channel build — makes a silent
+  # fall-back to the frozen version a red check.
+  #
+  # This proves the SOURCE, not the freshness. Nix evaluation is pure and has no
+  # clock, so "is this build recent" cannot be asserted here; that is the
+  # weekly relock's job (deps-flake-lock.yml moves both channels together).
   cursor-ownership-regression = helpers.mkDefaultsRegression {
     label = "Cursor ownership";
     checkName = "check-cursor-ownership-regression";
@@ -58,7 +80,6 @@ in
         # Use hasAttr to safely check for pname
         isCursorCli = p: builtins.hasAttr "pname" p && p.pname == "cursor-cli";
         cursorPkgs = builtins.filter isCursorCli hmConfig.config.home.packages;
-        cursorPkg = builtins.head cursorPkgs;
       in
       [
         {
@@ -67,9 +88,9 @@ in
           expected = 1;
         }
         {
-          name = "cursor-cli is the nixpkgs package, not a vendored copy";
-          actual = cursorPkg.drvPath == nixpkgsCursorCli.drvPath;
-          expected = true;
+          name = "cursor-cli is not the frozen release-channel build";
+          actual = installedCursorCli.drvPath == releaseChannelCursorCli.drvPath;
+          expected = false;
         }
       ];
   };
@@ -86,7 +107,7 @@ in
       let
         files = hmConfig.config.home.file;
         homeFileNames = builtins.attrNames files;
-        agentBin = "${nixpkgsCursorCli}/bin/cursor-agent";
+        agentBin = "${installedCursorCli}/bin/cursor-agent";
       in
       [
         {

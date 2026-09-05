@@ -24,12 +24,29 @@
   lib,
   pkgs,
   nix-claude-code,
+  nixpkgs-unstable,
   ...
 }:
 
 let
   cfg = config.programs.cursor;
   homeDir = config.home.homeDirectory;
+
+  # Sourced from nixpkgs-unstable, not the 26.05 channel: the release channel
+  # froze cursor-cli at 2026.05.16 while upstream ships continuously, and a
+  # months-stale agent CLI is not usable. Same reason llama-swap is pulled from
+  # unstable in modules/mlx.
+  #
+  # Imported rather than read off `legacyPackages` because cursor-cli is
+  # unfree, and `legacyPackages` carries the stock policy. The consumer's own
+  # nixpkgs config is inherited verbatim, so this reuses whatever unfree
+  # allowance the consumer already granted for `pkgs.cursor-cli` instead of
+  # widening the policy here.
+  cursorCli =
+    (import nixpkgs-unstable {
+      inherit (pkgs.stdenv.hostPlatform) system;
+      inherit (pkgs) config;
+    }).cursor-cli;
 
   aiCommon = import ../common { inherit lib config nix-claude-code; };
   inherit (aiCommon) permissions formatters;
@@ -98,15 +115,15 @@ in
     }
     (lib.mkIf cfg.enable {
       home = {
-        packages = [ pkgs.cursor-cli ];
+        packages = [ cursorCli ];
 
         file = {
           ".local/bin/cursor-agent" = {
-            source = "${pkgs.cursor-cli}/bin/cursor-agent";
+            source = "${cursorCli}/bin/cursor-agent";
             force = true;
           };
           ".local/bin/agent" = {
-            source = "${pkgs.cursor-cli}/bin/cursor-agent";
+            source = "${cursorCli}/bin/cursor-agent";
             force = true;
           };
           ".cursor/mcp.json".text = builtins.toJSON { inherit mcpServers; };
