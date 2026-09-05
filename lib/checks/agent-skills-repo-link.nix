@@ -12,6 +12,7 @@
         nativeBuildInputs = [
           linker
           pkgs.git
+          pkgs.jq
         ];
       }
       ''
@@ -46,6 +47,27 @@
         grep -q "unknown group 'nope'" err.txt
         [ ! -d .agents/skills ]
         agent-skill-groups status | grep -q '^groups: nope'
+        # mcp-servers: merged from the attach files; absent files are skipped;
+        # dropping the key leaves the file alone, an empty list removes it.
+        mkdir -p "$HOME/avail"
+        printf '{"mcpServers":{"vik":{"command":"doppler-mcp"}}}' > "$HOME/avail/vik.json"
+        printf '{"mcpServers":{"zam":{"command":"doppler-mcp"}}}' > "$HOME/avail/zam.json"
+        export AGENT_MCP_CLAUDE_DIR="$HOME/avail"
+        printf -- '---\nskill-groups: [core]\nmcp-servers: [vik, zam, nope]\n---\n' > AGENTS.md
+        agent-skill-groups link
+        [ "$(jq -r '.mcpServers | keys | join(",")' .mcp.json)" = "vik,zam" ]
+        grep -qx '/.mcp.json' .git/info/exclude
+        printf -- '---\nskill-groups: [core]\n---\n' > AGENTS.md
+        agent-skill-groups link
+        [ -f .mcp.json ]
+        printf -- '---\nskill-groups: [core]\nmcp-servers: []\n---\n' > AGENTS.md
+        agent-skill-groups link
+        [ ! -e .mcp.json ]
+        printf '{"mcpServers":{"mine":{}}}' > .mcp.json
+        git add -f .mcp.json
+        printf -- '---\nskill-groups: [core]\nmcp-servers: [vik]\n---\n' > AGENTS.md
+        agent-skill-groups link
+        [ "$(jq -r '.mcpServers | keys | join(",")' .mcp.json)" = "mine" ]
         touch "$out"
       '';
 }
