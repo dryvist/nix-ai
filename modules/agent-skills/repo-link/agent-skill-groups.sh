@@ -8,8 +8,11 @@
 # block list). Source: $HOME/.agents/skills/GROUPS.json, group -> name -> dir.
 # Targets: .agents/skills/<name> (Codex, Cursor, OpenCode, Antigravity, qwen)
 # and .claude/skills/<name> (Claude Code). Only symlinks into the Nix store are
-# ever created or removed; a repository's own skills are never touched. Nothing
-# is committed: the two directories go into .git/info/exclude.
+# ever created or removed; a repository's own skills are never touched.
+# A second key, `mcp-servers: [zammad]`, selects on-demand MCP servers for
+# Claude Code: their ~/.claude/mcp-available/<name>.json attach files are
+# merged into .mcp.json (project scope). Nothing is committed: the trees and
+# .mcp.json go into .git/info/exclude.
 
 cmd="${1:-link}"
 root="${2:-$(git rev-parse --show-toplevel 2>/dev/null || true)}"
@@ -23,12 +26,13 @@ trees=(.agents/skills .claude/skills)
 }
 cd "$root" || exit 0
 
-# Frontmatter value of skill-groups, one name per line.
-declared="$(awk '
+# Frontmatter list value of one key, one name per line.
+frontmatter_list() {
+  awk -v key="$1" '
   NR==1 && $0!="---" { exit }
   NR>1 && $0=="---" { exit }
-  /^skill-groups:/ {
-    v=$0; sub(/^skill-groups:[ \t]*/, "", v)
+  index($0, key ":")==1 {
+    v=$0; sub("^" key ":[ \t]*", "", v)
     if (v ~ /^\[/) {
       gsub(/[\[\]]/, "", v); n=split(v, a, /[ \t]*,[ \t]*/)
       for (i=1;i<=n;i++) if (a[i]!="") print a[i]
@@ -38,7 +42,18 @@ declared="$(awk '
   }
   inlist && /^[ \t]*-[ \t]+/ { s=$0; sub(/^[ \t]*-[ \t]+/, "", s); print s; next }
   inlist { exit }
-' AGENTS.md | tr -d "\"'")"
+' AGENTS.md | tr -d "\"'"
+}
+declared="$(frontmatter_list skill-groups)"
+
+# `mcp-servers: [zammad]` -> .mcp.json (Claude Code project scope), merged
+# from the attach files the on-demand tier already renders. Overwritten on
+# every run and kept out of git; a tracked .mcp.json is never touched.
+mcp_avail="${AGENT_MCP_CLAUDE_DIR:-$HOME/.claude/mcp-available}"
+mcp_frags=()
+for s in $(frontmatter_list mcp-servers); do
+  [ -f "$mcp_avail/$s.json" ] && mcp_frags+=("$mcp_avail/$s.json")
+done
 
 # Selected skills as "name<TAB>dir"; an unknown group is reported and skipped.
 selected=""
@@ -134,12 +149,20 @@ for t in "${trees[@]}"; do
   fi
 done
 
-# Keep the managed trees out of `git status` without editing tracked files.
+if grep -q '^mcp-servers:' AGENTS.md && ! git ls-files --error-unmatch -- .mcp.json >/dev/null 2>&1; then
+  if [ "${#mcp_frags[@]}" -gt 0 ]; then
+    jq -s 'reduce .[] as $f ({}; . * $f)' "${mcp_frags[@]}" >.mcp.json
+  else
+    rm -f .mcp.json
+  fi
+fi
+
+# Keep the managed trees and file out of `git status` without editing tracked files.
 exclude="$(git rev-parse --git-path info/exclude 2>/dev/null || true)"
-if [ -n "$exclude" ] && [ -z "$tracked" ] && [ -n "$selected" ]; then
+if [ -n "$exclude" ] && [ -z "$tracked" ] && { [ -n "$selected" ] || [ -f .mcp.json ]; }; then
   mkdir -p "$(dirname "$exclude")"
   touch "$exclude"
-  for t in "${trees[@]}"; do
-    grep -qx "$t/" "$exclude" || echo "$t/" >>"$exclude"
+  for t in "${trees[@]/%//}" /.mcp.json; do
+    grep -qx "$t" "$exclude" || echo "$t" >>"$exclude"
   done
 fi
