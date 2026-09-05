@@ -14,23 +14,26 @@ in
       type = lib.types.nullOr lib.types.package;
       default = null;
       description = ''
-        Qwen Code package. Defaults to pkgs.qwen-code (nixpkgs).
+        Qwen Code package. Set from installVia; llm-agents.nix by default.
         Null skips installation, for a host that supplies the binary itself.
       '';
     };
 
     installVia = lib.mkOption {
       type = lib.types.enum [
+        "llm-agents"
         "nixpkgs"
         "brew"
       ];
-      default = "nixpkgs";
+      default = "llm-agents";
       description = ''
-        Install source. nixpkgs ships qwen-code as of 26.05, so the brew
-        formula is no longer needed and no longer the default — that
-        dependency is what kept this module macOS-only. "brew" is retained
-        for a host that deliberately wants the bottled build; it installs
-        nothing here, relying on nix-darwin's homebrew.brews.
+        Install source. llm-agents.nix is the default because it tracks
+        upstream closely, while nixpkgs 26.05 is frozen several minor
+        versions back. Both cover every supported system, so neither ties
+        this module to one platform — a brew formula did, which is what used
+        to keep it macOS-only. "nixpkgs" pins the release-channel build;
+        "brew" installs nothing here and relies on nix-darwin's
+        homebrew.brews.
       '';
     };
 
