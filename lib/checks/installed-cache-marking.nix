@@ -25,6 +25,13 @@
     printf -- '---\nname: plain\n---\n\nb\n' > $root/mkt/plug/1.0.0/skills/plain/SKILL.md
     printf -- '---\nname: keepme\n---\n\nb\n' > $root/mkt/plug/1.0.0/skills/keepme/SKILL.md
 
+    # A skill marked on disk and LATER promoted into the keep-list must be
+    # unmarked again. Without this the promotion applies in config and does
+    # nothing on disk, and which behaviour you get depends on run order.
+    mkdir -p $root/mkt/plug/1.0.0/skills/promoted
+    printf -- '---\nname: promoted\ndisable-model-invocation: true\n---\n\nb\n' \
+      > $root/mkt/plug/1.0.0/skills/promoted/SKILL.md
+
     # A store-style symlink must never be written through.
     mkdir -p store/skills/fromstore
     printf -- '---\nname: fromstore\n---\n\nb\n' > store/skills/fromstore/SKILL.md
@@ -34,7 +41,7 @@
       $root/mkt/plug/1.0.0/skills/fromstore/SKILL.md
 
     run() {
-      KEEP_LISTED="keepme" ${pkgs.bash}/bin/bash \
+      KEEP_LISTED="keepme promoted" ${pkgs.bash}/bin/bash \
         ${src}/modules/claude/scripts/mark-installed-cache.sh "$root" 2>&1
     }
     first=$(run)
@@ -54,6 +61,7 @@
     check already-marked 1    # no double-add
     check plain 1             # ordinary case
     check keepme 0            # keep-listed stays listed
+    check promoted 0          # promoted into the keep-list: unmarked again
 
     # The symlink target must be untouched.
     if ${pkgs.gnugrep}/bin/grep -q disable-model-invocation \
