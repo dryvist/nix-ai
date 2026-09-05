@@ -5,13 +5,13 @@
       "locked": {
         "lastModified": 1788557440,
         "narHash": "sha256-C6tfxWJRPatCvvh5xEoIlB9vKnQRbaKMQ3+8bDnm1Fg=",
-        "owner": "JacobPEvans",
+        "owner": "dryvist",
         "repo": "ai-assistant-instructions",
         "rev": "cdc4d8a9a0944909afe24ae7f41ad130159d11e0",
         "type": "github"
       },
       "original": {
-        "owner": "JacobPEvans",
+        "owner": "dryvist",
         "repo": "ai-assistant-instructions",
         "type": "github"
       }

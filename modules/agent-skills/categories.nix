@@ -12,6 +12,7 @@
     "handoff"
     "native-first"
     "ponytail"
+    "premium-agent-orchestration"
     "resume"
     "session-status"
     "skills-registry"
@@ -86,7 +87,6 @@
     "ponytail-gain"
     "ponytail-help"
     "ponytail-review"
-    "premium-agent-orchestration"
     "review-standards"
   ];
   nix = [
