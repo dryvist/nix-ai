@@ -1,5 +1,18 @@
 # Changelog
 
+## [5.5.0](https://github.com/dryvist/nix-ai/compare/v5.4.1...v5.5.0) (2026-09-05)
+
+
+### Features
+
+* **claude:** cut session context to a measured budget, main and subagent ([#2051](https://github.com/dryvist/nix-ai/issues/2051)) ([7d33a7b](https://github.com/dryvist/nix-ai/commit/7d33a7b0ea28bb9c9e862efee75695d3564607b0))
+* **herdr:** declare agent lifecycle integrations for claude, codex and opencode ([#2050](https://github.com/dryvist/nix-ai/issues/2050)) ([7eb8823](https://github.com/dryvist/nix-ai/commit/7eb88231b742bdd5e7fd0ccfbabfb9d66d3135c8))
+
+
+### Bug Fixes
+
+* **claude:** extract permissions block to restore the file-size limit ([#2054](https://github.com/dryvist/nix-ai/issues/2054)) ([dc3e444](https://github.com/dryvist/nix-ai/commit/dc3e4444650a5bd3210e58d9957f71acdbdbab9f))
+
 ## [5.4.1](https://github.com/dryvist/nix-ai/compare/v5.4.0...v5.4.1) (2026-09-05)
 
 
