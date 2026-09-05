@@ -124,14 +124,14 @@ in
 // (import ./checks/mlx-cluster-peer-env.nix { inherit pkgs hmConfigCluster src; })
 // (import ./checks/mlx-cluster-pd-env.nix { inherit pkgs hmConfigCluster src; })
 // (import ./checks/mlx-cluster-pd-callsites.nix { inherit pkgs src; })
+// (import ./checks/mlx-cluster-pd-settle-billing.nix { inherit pkgs src; })
 // (import ./checks/mlx-cluster-mem-headroom.nix { inherit pkgs src; })
 // (import ./checks/mlx-cluster-health-gate.nix { inherit pkgs src; })
 // (import ./checks/mlx-cluster-scripts.nix { inherit pkgs hmConfigCluster src; })
-// (import ./checks/mlx-cluster-pd-settle-billing.nix { inherit pkgs src; })
-// (import ./checks/mlx-cluster-peer-armed.nix { inherit pkgs hmConfigCluster src; })
-// (import ./checks/mlx-cluster-soak.nix { inherit pkgs src; })
 // (import ./checks/mlx-cluster-selfheal.nix { inherit pkgs src; })
 // (import ./checks/mlx-cluster-recovery.nix { inherit pkgs src; })
+// (import ./checks/mlx-cluster-peer-armed.nix { inherit pkgs hmConfigCluster src; })
+// (import ./checks/mlx-cluster-soak.nix { inherit pkgs src; })
 // (import ./checks/litellm-local.nix {
   inherit
     pkgs
