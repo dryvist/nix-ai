@@ -20,12 +20,15 @@ let
   helpers = import ./helpers.nix { inherit pkgs; };
 
   # The release channel's builds. Referenced only to assert the modules are NOT
-  # using them. nixpkgs 26.05 freezes codex at 0.146.0, opencode at 1.15.10 and
-  # qwen-code at 0.16.0, all well behind upstream, and a fall-back is silent:
-  # evaluation stays green and the profile just ships an old agent CLI.
+  # using them. nixpkgs 26.05 freezes codex at 0.146.0 and opencode at 1.15.10,
+  # both months behind upstream, and a fall-back to them is silent: evaluation
+  # stays green and the profile just ships an old agent CLI.
+  #
+  # qwen-code is deliberately NOT asserted here. It stays on nixpkgs because
+  # llm-agents has no cache hit in nix-darwin, where it would build from
+  # source and OOM the runner. See modules/qwen-code/options.nix.
   releaseChannelCodex = pkgs.codex;
   releaseChannelOpencode = pkgs.opencode;
-  releaseChannelQwenCode = pkgs.qwen-code;
 
   packageOf =
     pname:
@@ -38,7 +41,6 @@ let
 
   installedCodex = packageOf "codex";
   installedOpencode = packageOf "opencode";
-  installedQwenCode = packageOf "qwen-code";
 in
 {
   # Codex and opencode must come from llm-agents.nix on Linux, not from the
@@ -66,16 +68,6 @@ in
       {
         name = "opencode is not the frozen release-channel build";
         actual = installedOpencode.drvPath == releaseChannelOpencode.drvPath;
-        expected = false;
-      }
-      {
-        name = "qwen-code is installed";
-        actual = installedQwenCode != null;
-        expected = true;
-      }
-      {
-        name = "qwen-code is not the frozen release-channel build";
-        actual = installedQwenCode.drvPath == releaseChannelQwenCode.drvPath;
         expected = false;
       }
     ];
