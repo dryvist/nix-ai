@@ -47,9 +47,14 @@ in
         expected = "never";
       }
       {
+        # `hooks` is on because programs.herdr.integrations names codex: Codex
+        # reads ~/.codex/hooks.json only behind this flag, so herdr's lifecycle
+        # hook is inert without it.
         name = "codex.features";
         actual = cfg.features;
-        expected = { };
+        expected = {
+          hooks = true;
+        };
       }
       {
         name = "codex.model";

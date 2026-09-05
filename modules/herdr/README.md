@@ -57,8 +57,15 @@ Both are things herdr's own quick-start walks straight into.
 **Do not run `herdr integration install <agent>`.** It writes lifecycle hooks
 into each agent's own config. For Claude Code that means editing
 `~/.claude/settings.json`, which `nix-claude-code` renders read-only from the
-Nix store — the write fails, or the next `switch` reverts it. Express those
-hooks as `programs.claude.hooks` in `modules/claude-config.nix` instead.
+Nix store — the write fails, or the next `switch` reverts it. Name the agent in
+`programs.herdr.integrations` instead: `modules/herdr/integrations.nix` declares
+the same payloads, referenced from the package's own
+`share/herdr/integrations/`, so they move with the pinned version.
+
+A hook is what makes an agent report its own session and working/blocked/idle
+transitions. Without one herdr is left inferring state from the terminal, which
+is why `integrations` and `agentManifests` solve different halves of the same
+problem — the hook is authoritative, the manifest is the fallback.
 
 **herdr fetches agent-manifest updates from `herdr.dev` at runtime** and applies
 them without a restart: undeclared mutable state reaching the internet on an
