@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.6.0](https://github.com/dryvist/nix-ai/compare/v5.5.0...v5.6.0) (2026-09-05)
+
+
+### Features
+
+* **agent-skills:** select per-repository MCP servers from AGENTS.md ([#2055](https://github.com/dryvist/nix-ai/issues/2055)) ([23ffdf8](https://github.com/dryvist/nix-ai/commit/23ffdf88d57b437f872fd9d91b810257de7efd06))
+
 ## [5.5.0](https://github.com/dryvist/nix-ai/compare/v5.4.1...v5.5.0) (2026-09-05)
 
 
