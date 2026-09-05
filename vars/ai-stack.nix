@@ -82,6 +82,14 @@
     cribl_edge_ui = 30910;
   };
 
+  # Doppler project/config that supplies secrets to the AI tooling. Names
+  # only — non-secret selectors, never a secret value. Single source for the
+  # MCP catalog's `doppler run` launches and the d-* shell aliases.
+  doppler = {
+    project = "ai-ci-automation";
+    config = "prd";
+  };
+
   # CLI tool version pins. Renovate updates each entry via the comment
   # hint immediately above it. Used as Renovate-tracked sources of truth
   # for non-nix-managed tools (currently: brew formulae) and as

@@ -57,17 +57,13 @@ let
         "SPLUNK_MCP_OPENBAO_PATH"
       ];
     };
+    # Doppler-backed servers fetch their own secrets via `doppler run` at
+    # launch, so they declare no pass-through environment variables.
     vikunja = {
-      env_vars = [
-        "AI_DOPPLER_PROJECT"
-        "AI_DOPPLER_CONFIG"
-      ];
+      env_vars = [ ];
     };
     zammad = {
-      env_vars = [
-        "AI_DOPPLER_PROJECT"
-        "AI_DOPPLER_CONFIG"
-      ];
+      env_vars = [ ];
     };
   };
   codexLaunchContractMismatches = builtins.filter (

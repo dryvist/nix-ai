@@ -25,7 +25,7 @@ identically, every time.
 | **Cursor CLI** | Terminal agent (`agent`/`cursor-agent`) with shared MCP servers and permission allowlist |
 | **Qwen Code & Cecli** | Settings for the Alibaba and Aider-fork CLIs |
 | **MCP Servers** | One [catalog](modules/mcp/README.md) (GitHub, Terraform, Context7, filesystem, memory, …) fanned out to every agent |
-| **AI Dev Tools** | cclint, doppler-mcp, claude-flow, and more |
+| **AI Dev Tools** | cclint, claude-flow, and more |
 | **MLX** *(macOS)* | Local Apple Silicon inference via vllm-mlx with launchd integration |
 
 ## Prerequisites

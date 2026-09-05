@@ -28,10 +28,26 @@ let
       startup_timeout_sec = 300;
       tool_timeout_sec = 300;
     };
-  dopplerEnv = [
-    "AI_DOPPLER_PROJECT"
-    "AI_DOPPLER_CONFIG"
-  ];
+  # Doppler-backed launch: prefix a server's command with `doppler run` for
+  # the project/config named in vars/ai-stack.nix. Secrets are fetched by the
+  # child process at launch; only the non-secret selectors are in the store.
+  dopplerRun =
+    server:
+    server
+    // {
+      command = "${pkgs.doppler}/bin/doppler";
+      args = [
+        "run"
+        "-p"
+        dopplerSelectors.project
+        "-c"
+        dopplerSelectors.config
+        "--"
+        server.command
+      ]
+      ++ (server.args or [ ]);
+    };
+  dopplerSelectors = (import ../../vars/ai-stack.nix).doppler;
 
   # Version pins live in lib/versions.nix, where the org-wide Renovate
   # customManager regex tracks the annotations; refer to them directly.
@@ -165,7 +181,7 @@ in
   inherit
     bunx
     codexMcp
-    dopplerEnv
+    dopplerRun
     versions
     homeDirectory
     ;
