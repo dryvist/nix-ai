@@ -17,18 +17,26 @@ server runs the same build as a pane on the Mac.
 
 ## Where CLI binaries come from
 
-**nixpkgs → llm-agents.nix → homebrew (GUI only) → bunx → uvx.**
+**nixpkgs → llm-agents.nix → homebrew (GUI + 2 CLIs) → bunx → uvx.**
 
-Claude Code, Codex, Antigravity CLI (`agy`) and qwen-code used to come from
+Claude Code, Codex, Antigravity CLI (`agy`) and qwen-code all used to come from
 **Homebrew casks and brews**. A cask has no Linux path, so a host evaluating
 this flake on `x86_64-linux` got config files and no binaries — concretely why
-the stack could not leave the MacBook.
+the stack could not leave one machine.
 
 | CLI | Source |
 | --- | --- |
-| Claude Code, `agy`, Copilot CLI, herdr | `llm-agents.nix` |
-| Codex, OpenCode, qwen-code, Cursor | nixpkgs 26.05 |
+| Claude Code, Codex | `llm-agents.nix` on Linux, Homebrew cask on darwin |
+| `agy`, Copilot CLI, OpenCode, herdr | `llm-agents.nix` |
+| qwen-code, Cursor | nixpkgs 26.05 |
 | Claude Desktop, Codex app, ChatGPT, Antigravity, Antigravity IDE | homebrew |
+
+Claude Code and Codex are the one split in that table. Both ship several
+releases a week, which a relock-and-rebuild cycle cannot keep up with, so on
+darwin Homebrew owns the binary and `brew upgrade` keeps it current. Nix still
+owns all of their configuration on both platforms — the modules set
+`package = null` on darwin and render every settings file regardless. Linux is
+untouched by that exception and has no Homebrew at all.
 
 [`numtide/llm-agents.nix`](https://github.com/numtide/llm-agents.nix) carries
 150+ agent CLIs for `x86_64-linux`, `aarch64-linux` and `aarch64-darwin` — an
@@ -40,15 +48,26 @@ Two rules that will bite otherwise:
 - **It deliberately does not `follows` nixpkgs**, unlike every other input.
   It pins its own `nixpkgs-unstable` and the numtide cache is keyed to that
   pin; forcing 26.05 breaks builds *and* loses every cache hit.
-- **`lib/homebrew.nix` is GUI-only.** Do not add a CLI cask back.
+- **`lib/homebrew.nix` is GUI apps plus a closed two-entry CLI exception**
+  (`claude-code@latest`, `codex`). Both are darwin-only, both keep their
+  configuration in Nix with `package = null`, and Linux still takes both from
+  llm-agents.nix. The exception exists because those two must track upstream
+  within days, which a relock-and-rebuild cycle cannot deliver. Do not add a
+  third CLI cask without that same justification written at the entry.
 
 ### Known cost: macOS TCC
 
-`modules/codex/default.nix` used to note that Codex was a cask specifically for
-*stable TCC paths*. A Nix store path changes on every version bump, so macOS
-may re-prompt for permissions after an upgrade. That is the accepted tradeoff
-for having a Linux path at all. If it proves disruptive, fix it for darwin
-specifically rather than reverting the Linux path.
+A Nix store path changes on every version bump, so macOS may re-prompt for
+permissions after an upgrade. `modules/codex/default.nix` used to note that
+Codex was a cask specifically to avoid that.
+
+This is the one place the guidance has been acted on rather than merely
+recorded: the fix was to make it **darwin-specific**, not to revert the Linux
+path. Claude Code and Codex now take a stable Homebrew path on darwin and keep
+llm-agents.nix on Linux, so the re-prompt is gone for the two CLIs that bump
+most often, and every Linux guest is exactly as it was. Every other CLI here
+still pays the store-path cost, which remains the accepted tradeoff for having
+a Linux path at all — narrow it the same way rather than reverting.
 
 ## Two conflicts with declarative config
 

@@ -95,12 +95,33 @@ in
       # workstation stack opts into its manual switch and parallel-session CLI.
       swap.disabled = false;
 
-      # Binary comes from llm-agents.nix, which packages claude-code for
-      # aarch64-darwin AND x86_64-linux. It used to be the claude-code@latest
-      # Homebrew cask, which is why nothing but the Mac could run this stack.
-      # Claude's native updater (programs.claude.latest) still overlays a newer
-      # build at ~/.local/bin/claude on top of this baseline.
-      package = llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.claude-code;
+      # One owner per host. Claude Code ships most days, faster than a
+      # relock-and-rebuild cycle can follow.
+      #
+      #   darwin: null — the `claude-code@latest` Homebrew cask owns the
+      #     baseline binary, declared in lib/homebrew.nix and upgraded by
+      #     `brew upgrade` with no Nix round trip.
+      #   Linux: llm-agents.nix, which has no Homebrew and packages claude-code
+      #     for x86_64-linux. Keeping this arm is why the stack can leave the
+      #     Mac at all.
+      #
+      # `enable` stays true either way — only the binary is skipped, so every
+      # settings file, permission set and MCP server below is still rendered.
+      #
+      # Unchanged on both: Claude's native updater (programs.claude.latest,
+      # enabled in modules/default.nix) still overlays a newer build at
+      # ~/.local/bin/claude on top of whichever baseline applies.
+      #
+      # mkDefault makes this host-overridable, and the value is a definition
+      # rather than the option's default on purpose: drop this line and
+      # nix-claude-code falls back to `pkgs.claude-code`, silently reinstalling
+      # a second, months-old claude next to the cask.
+      package = lib.mkDefault (
+        if pkgs.stdenv.hostPlatform.isDarwin then
+          null
+        else
+          llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.claude-code
+      );
 
       # API Key Helper for headless authentication (cron jobs, CI/CD)
       # Uses Bitwarden Secrets Manager to securely fetch OAuth token

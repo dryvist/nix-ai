@@ -7,27 +7,37 @@
 # PACKAGE HIERARCHY (STRICT - NO EXCEPTIONS)
 # ============================================================================
 #
-# nixpkgs -> llm-agents.nix -> homebrew (GUI only) -> bunx wrapper -> uvx.
+# nixpkgs -> llm-agents.nix -> homebrew (GUI + 2 CLIs) -> bunx wrapper -> uvx.
 #
 # The full decision matrix, and why each rung exists, lives in
 # modules/herdr/README.md. The short version: check `nix search nixpkgs <pkg>`
 # first; reach for github:numtide/llm-agents.nix for an agent CLI nixpkgs does
-# not carry; homebrew is GUI applications ONLY (a cask cannot run on the
-# fleet's Linux guests, which is what used to pin this stack to one MacBook —
-# do not add a CLI cask back); bunx for npm packages, always version-pinned;
-# uvx for Python CLI tools.
+# not carry; homebrew is GUI applications, plus exactly two CLI casks
+# (claude-code@latest, codex) that must track upstream faster than a
+# relock-and-rebuild cycle — darwin-only, configuration still in Nix, Linux
+# unaffected. A cask cannot run on the fleet's Linux guests, which is what used
+# to pin this stack to one machine, so a third CLI cask needs that same
+# justification. bunx for npm packages, always version-pinned; uvx for Python
+# CLI tools.
 #
 # ============================================================================
 # CURRENT STATUS
 # ============================================================================
 #
 # NIXPKGS: github-mcp-server, terraform-mcp-server, whisper-cpp,
-#   openai-whisper, entire, yt-dlp, codex, opencode, qwen-code, cursor-cli
+#   openai-whisper, entire, yt-dlp, qwen-code, cursor-cli
 #
-# LLM-AGENTS.NIX: claude-code, antigravity-cli (`agy`), copilot-cli, herdr
+# LLM-AGENTS.NIX: claude-code, antigravity-cli (`agy`), copilot-cli, herdr,
+#   codex, opencode
 #
-# HOMEBREW (lib/homebrew.nix): block-goose-cli, langgraph-cli, and the desktop
-#   apps (claude, codex-app, chatgpt, antigravity, antigravity-ide)
+# HOMEBREW (lib/homebrew.nix): block-goose-cli, langgraph-cli, the desktop
+#   apps (claude, codex-app, chatgpt, antigravity, antigravity-ide), and — on
+#   darwin only — the claude-code@latest and codex CLI casks
+#
+# ONE OWNER PER CLI. claude-code and codex are the two CLIs with two possible
+#   sources. On darwin Homebrew owns the binary (`package = null`, so nix-ai
+#   still renders every config file); on Linux llm-agents.nix owns it and
+#   Homebrew does not exist. Neither host installs both.
 #
 # BUNX WRAPPER PACKAGES (npm packages not in nixpkgs/homebrew):
 #   cclint: @felixgeelhaar/cclint (CLAUDE.md linter)
@@ -48,7 +58,10 @@
 #   qwen-code  — Qwen agent CLI; see modules/qwen-code/ (programs.qwen-code)
 #
 # NOTE: These are home-manager packages, not system packages.
-# Imported in hosts/macbook-m4/home.nix via home.packages.
+# modules/default.nix imports this file unconditionally, for every host --
+# see the `inherit ... packages` line in its `config.home` block. It is not
+# opt-in and not macOS-specific; per-platform differences belong in the
+# package expressions below, never in whether this file is imported.
 #
 # ============================================================================
 # ADDING NEW NIXPKGS PACKAGES
@@ -74,7 +87,7 @@ let
 in
 {
   # AI-specific development tools
-  # Install via: home.packages = [ ... ] ++ (import ./ai-tools.nix { inherit pkgs; }).packages;
+  # Consumed by modules/default.nix via `inherit (import ./ai-tools.nix ...) packages`.
   #
   # See CURRENT STATUS section at the top of this file for package details.
   packages = with pkgs; [
