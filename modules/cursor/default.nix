@@ -4,23 +4,21 @@
 # `cursor-agent`). The IDE stays installed via nix-darwin
 # (home.packages = [ code-cursor ]) — this module only manages the CLI.
 #
-# The `code-cursor` IDE wrapper (`cursor agent`) requires the standalone CLI
-# at ~/.local/bin/cursor-agent. The two symlinks here make the wrapper exec
-# the nixpkgs binary instead of curl-installing its own copy, and put the
-# official `agent` command name on PATH (curl installer contract: both names).
-#
-# Config files:
-# - ~/.cursor/cli-config.json — deep-merge activation. The CLI rewrites this
-#   file at runtime (self-repairing schema, permission list updates), so a
-#   store symlink would break; merge-json-settings.sh overlays Nix-managed
-#   keys onto existing runtime state (same pattern as codex config.toml).
-# - ~/.cursor/mcp.json — declarative home.file. Cursor auto-detects this file
-#   and never rewrites it at runtime (same rationale as opencode.json).
-#
-# Skills: Cursor natively reads ~/.agents/skills/ (plus ~/.claude/skills/ and
-# ~/.codex/skills/), so an agent-skills registry symlink would double-scan the
-# shared tree — same exclusion rationale as the Codex entry in
-# modules/agent-skills/harnesses.nix.
+# Ownership contract ("Nix wins"):
+# - Nix owns the CLI binary after every rebuild via home.packages.
+# - The profile install puts the binary on PATH.
+# - The `~/.local/bin` links exist because the `code-cursor` IDE wrapper
+#   and the upstream installer contract both require `agent` and
+#   `cursor-agent` at that exact location.
+# - Those two links carry `force = true`. The self-updater replaces them with
+#   its own real files between activations, and without `force` home-manager
+#   refuses to clobber a path it does not own, so activation fails instead of
+#   reclaiming the name. `force` makes the linker place them with `ln -Tsf`,
+#   which replaces a file or a symlink; `-T` refuses to descend into a
+#   directory, so a directory at that path still aborts activation loudly
+#   rather than being linked inside.
+# - Config ownership is unchanged: mcp.json via home.file + cli-config
+#   deep-merge activation.
 {
   config,
   lib,
@@ -103,8 +101,14 @@ in
         packages = [ pkgs.cursor-cli ];
 
         file = {
-          ".local/bin/cursor-agent".source = "${pkgs.cursor-cli}/bin/cursor-agent";
-          ".local/bin/agent".source = "${pkgs.cursor-cli}/bin/cursor-agent";
+          ".local/bin/cursor-agent" = {
+            source = "${pkgs.cursor-cli}/bin/cursor-agent";
+            force = true;
+          };
+          ".local/bin/agent" = {
+            source = "${pkgs.cursor-cli}/bin/cursor-agent";
+            force = true;
+          };
           ".cursor/mcp.json".text = builtins.toJSON { inherit mcpServers; };
         };
 
