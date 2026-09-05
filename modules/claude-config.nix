@@ -197,6 +197,11 @@ in
         # this Nix default.
         alwaysThinkingEnabled = true;
         cleanupPeriodDays = 180;
+        # A repository's `.mcp.json` written by `agent-skill-groups link` only
+        # ever names catalog servers from the on-demand tier, so approve
+        # exactly those without the per-project prompt. Anything else in a
+        # `.mcp.json` still prompts, by name.
+        enabledMcpjsonServers = config.programs.aiMcp.onDemandServers;
         env = import ./claude/settings-env.nix {
           inherit lib userConfig;
           inherit (config.programs) litellmLocal;
