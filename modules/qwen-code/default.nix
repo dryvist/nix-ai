@@ -11,20 +11,23 @@
 # Dashscope / OpenRouter / OpenAI access is opt-in via the `d-qwen`
 # Doppler-wrapped shell alias.
 #
-# Why nixpkgs (not brew / uvx): nixpkgs packages qwen-code as of 26.05.
-# It used to come from a Homebrew formula, which had no Linux path and so was
-# one of the reasons this stack could not leave the Mac. `installVia = "brew"`
-# is still selectable for a host that wants the bottled build.
+# Why llm-agents.nix (not nixpkgs / brew / uvx): it tracks upstream closely,
+# while nixpkgs 26.05 is frozen several minor versions back. Both package
+# qwen-code for every supported system; a Homebrew formula did not, which is
+# one of the reasons this stack could not leave the Mac. `installVia` still
+# selects "nixpkgs" or "brew" for a host that wants either.
 #
 {
   config,
   lib,
   pkgs,
+  llm-agents,
   ...
 }:
 
 let
   cfg = config.programs.qwen-code;
+  llmAgents = llm-agents.packages.${pkgs.stdenv.hostPlatform.system};
 in
 {
   imports = [
@@ -33,7 +36,10 @@ in
   ];
 
   config = lib.mkIf cfg.enable {
-    programs.qwen-code.package = lib.mkIf (cfg.installVia == "nixpkgs") (lib.mkDefault pkgs.qwen-code);
+    programs.qwen-code.package = lib.mkMerge [
+      (lib.mkIf (cfg.installVia == "llm-agents") (lib.mkDefault llmAgents.qwen-code))
+      (lib.mkIf (cfg.installVia == "nixpkgs") (lib.mkDefault pkgs.qwen-code))
+    ];
 
     home = {
       packages = lib.optional (cfg.package != null) cfg.package;
