@@ -21,7 +21,7 @@
       lib.mcpServers = import ./default.nix;
 
       # Home-manager module that owns all MCP runtime infrastructure
-      # (doppler-mcp wrapper, splunk-mcp-connect). Importing it alone gives a
+      # (splunk-mcp-connect). Importing it alone gives a
       # consumer a working MCP runtime with no cross-tool runtime dependencies
       # on Claude or Codex.
       homeManagerModules.default = ./module.nix;

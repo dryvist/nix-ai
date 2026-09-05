@@ -32,6 +32,9 @@ in
         ".gemini"
         ".antigravity"
         ".qwen"
+        # OpenCode keeps sessions in its data dir (sqlite + storage/), not
+        # under ~/.config/opencode, which is Nix-owned config only.
+        ".local/share/opencode"
       ];
       description = ''
         Home-relative directories to push. Each is synced into the same path on

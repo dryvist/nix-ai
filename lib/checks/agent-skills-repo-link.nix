@@ -50,8 +50,8 @@
         # mcp-servers: merged from the attach files; absent files are skipped;
         # dropping the key leaves the file alone, an empty list removes it.
         mkdir -p "$HOME/avail"
-        printf '{"mcpServers":{"vik":{"command":"doppler-mcp"}}}' > "$HOME/avail/vik.json"
-        printf '{"mcpServers":{"zam":{"command":"doppler-mcp"}}}' > "$HOME/avail/zam.json"
+        printf '{"mcpServers":{"vik":{"command":"doppler"}}}' > "$HOME/avail/vik.json"
+        printf '{"mcpServers":{"zam":{"command":"doppler"}}}' > "$HOME/avail/zam.json"
         export AGENT_MCP_CLAUDE_DIR="$HOME/avail"
         printf -- '---\nskill-groups: [core]\nmcp-servers: [vik, zam, nope]\n---\n' > AGENTS.md
         agent-skill-groups link

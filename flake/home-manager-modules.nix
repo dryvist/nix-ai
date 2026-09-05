@@ -96,7 +96,7 @@ in
       # args — don't re-set them here or home-manager errors on "defined
       # multiple times".
       nix-claude-code.homeModules.claude
-      # MCP runtime (doppler-mcp, splunk-mcp-connect) is sourced from the MCP
+      # MCP runtime (splunk-mcp-connect) is sourced from the MCP
       # sub-flake module so it's available even when Claude is the only
       # homeManagerModule a consumer imports.
       ../modules/mcp/module.nix

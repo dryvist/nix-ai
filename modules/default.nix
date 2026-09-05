@@ -141,6 +141,24 @@ in
           done
         '';
 
+        # Close the manual-invoke gap the marketplace derivation cannot reach.
+        #
+        # withManualInvoke marks a marketplace's flake input tree. An *index*
+        # marketplace contains no skills at all — its marketplace.json points at
+        # separate plugin repos that Claude clones itself at install time — so
+        # those SKILL.md files never pass through the derivation and stay in
+        # every session's listing. Measured: 29 such skills, ~2,600 tokens of
+        # every main session.
+        #
+        # This marks them where they actually exist. It only touches regular
+        # writable files, so store-provided content stays the derivation's and
+        # this never fights it. Idempotent: re-running marks nothing.
+        markInstalledPluginCache = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+          KEEP_LISTED="${lib.concatStringsSep " " (import ./claude/always-listed-skills.nix)}" \
+            $DRY_RUN_CMD ${pkgs.bash}/bin/bash ${./claude/scripts/mark-installed-cache.sh} \
+              "${config.home.homeDirectory}/.claude/plugins/cache" || true
+        '';
+
         # Browser Use's official CLI is not currently packaged by nixpkgs.
         # Keep its version under Renovate in lib/versions.nix and replace stale
         # installations rather than merely checking that an executable exists.

@@ -7,7 +7,7 @@
 {
   bunx,
   codexMcp,
-  dopplerEnv,
+  dopplerRun,
   versions,
   homeDirectory,
 }:
@@ -35,10 +35,9 @@
   # Source: https://github.com/taylorwilsdon/google_workspace_mcp
   # DISABLED but kept defined — "available in case we ever need it". Was leaking
   # enabled (no flag) despite 0 use; this restores the intended off state.
-  google-workspace = {
-    command = "doppler-mcp";
+  google-workspace = dopplerRun {
+    command = "uvx";
     args = [
-      "uvx"
       "--from"
       "google-workspace-mcp==${versions.gwsMcp}"
       "workspace-mcp"
@@ -70,19 +69,15 @@
   # forks: most contributors/stars by far and the widest tool surface (task/
   # project/label CRUD, batch import, webhooks) with rate limiting + circuit
   # breakers — built for autonomous agents. Requires VIKUNJA_URL (instance API
-  # base, ends in /api/v1) and VIKUNJA_API_TOKEN — injected at launch by
-  # doppler-mcp from the shared AI project.
+  # base, ends in /api/v1) and VIKUNJA_API_TOKEN — fetched at launch by the
+  # server's own `doppler run` from the shared AI project.
   # Ships disabled — a consumer enables it deliberately once the Doppler
   # secrets exist for that machine.
-  vikunja = codexMcp {
-    command = "doppler-mcp";
-    args = [
-      "bunx"
-      "@democratize-technology/vikunja-mcp@${versions.vikunjaMcp}"
-    ];
-    env_vars = dopplerEnv;
+  vikunja = codexMcp (dopplerRun {
+    command = "bunx";
+    args = [ "@democratize-technology/vikunja-mcp@${versions.vikunjaMcp}" ];
     disabled = true;
-  };
+  });
 
   # ================================================================
   # Zammad - self-hosted help desk / ticketing (Zammad MCP, task #12)
@@ -92,20 +87,20 @@
   # ticket/user/organization/attachment tools plus queue resources — the
   # surface the Hermes zammad-incidents loop drives. Requires ZAMMAD_URL
   # (instance API base, ends in /api/v1) and ZAMMAD_HTTP_TOKEN (a Zammad API
-  # token) — injected at launch by doppler-mcp from ai-ci-automation/prd, same
-  # pattern as vikunja/google-workspace. `uvx` must not inherit the Nix shell's
+  # token) — fetched at launch by the server's own
+  # `doppler run` from the shared AI project, same pattern as vikunja and
+  # google-workspace. `uvx` must not inherit the Nix shell's
   # PYTHONPATH: the pinned server creates a Python 3.14 environment, while the
   # inherited 3.13 package path makes its native rpds extension fail at import.
-  # Enabled in the shared profile. Its Doppler wrapper receives only the
-  # project/config selectors; Zammad credentials stay in Doppler.
-  zammad = codexMcp {
+  # Enabled in the shared profile. Only the non-secret project/config
+  # selectors are in the Nix store; Zammad credentials stay in Doppler.
+  zammad = codexMcp (dopplerRun {
     command = "env";
     args = [
       "-u"
       "PYTHONPATH"
       "-u"
       "PYTHONHOME"
-      "doppler-mcp"
       "uvx"
       "--from"
       "git+https://github.com/basher83/zammad-mcp.git@v${versions.zammadMcp}"
@@ -113,8 +108,7 @@
       versions.mcpSdkBound
       "mcp-zammad"
     ];
-    env_vars = dopplerEnv;
-  };
+  });
 
   # ================================================================
   # UniFi Network - local UniFi gateway/controller management

@@ -8,8 +8,7 @@ own configuration formats during every `darwin-rebuild switch`.
 
 Standalone consumers should import `modules/mcp/module.nix`, not
 `modules/mcp/default.nix`; the runtime module includes the shared option catalog
-and installs helper binaries such as `doppler-mcp` and the OpenBao-backed
-`splunk-mcp-connect`.
+and installs the OpenBao-backed `splunk-mcp-connect` helper binary.
 
 **Nix is the sole manager of user-scoped MCP servers.** Any entries added manually
 through client CLIs may be overwritten on the next rebuild.
@@ -103,14 +102,13 @@ Servers that need API keys read them from environment variables at runtime.
 **Inject secrets directly into each run — never write them to disk.** Use your
 secrets manager per command:
 
-- Doppler-backed servers (such as Google Workspace) use the `doppler-mcp` wrapper,
-  which runs `doppler run -p "$AI_DOPPLER_PROJECT" -c "${AI_DOPPLER_CONFIG:-prd}" -- <cmd>`
-  at launch (see [Adding New Servers](#adding-new-servers)). `AI_DOPPLER_PROJECT`
-  arrives ambiently (see `modules/ai-aliases.zsh`); no project name is committed
-  to this repo. Non-secret config (log levels, flags) belongs in the Nix-managed
-  `env` attribute, not Doppler. Codex forwards stdio-server environment
-  variables only when the catalog declares them in `env_vars`; keep that list
-  limited to the wrapper's bootstrap selectors. Package-backed active servers
+- Doppler-backed servers (such as Google Workspace) are wrapped by the
+  catalog's `dopplerRun` helper, which prefixes the server command with
+  `doppler run -p <project> -c <config> --` at launch (see
+  [Adding New Servers](#adding-new-servers)). The project and config names are
+  non-secret selectors and live in `vars/ai-stack.nix`; no secret value reaches
+  the Nix store. Non-secret config (log levels, flags) belongs in the
+  Nix-managed `env` attribute, not Doppler. Package-backed active servers
   use a 300-second startup and tool timeout so first-run `uvx`/`bunx` installs
   can complete before the MCP handshake deadline.
 - Splunk uses `splunk-mcp-connect`. At each launch it takes `BAO_ADDR`, an AppRole
@@ -208,7 +206,7 @@ Both tools are `uvx` wrappers defined in `ai-tools.nix` — no separate installa
 
 1. Choose the transport:
    - Local stdio process → inline attribute set with `command` (and optionally `args`)
-   - Local stdio with Doppler secrets → set `command = "doppler-mcp"`, shift original command to `args[0]`
+   - Local stdio with Doppler secrets → wrap the attribute set in `dopplerRun`
    - Local stdio env var from Keychain → set env var in nix-darwin shell init, server inherits it
    - Remote SSE/HTTP endpoint → inline attribute set with `type` and `url`
    - Plugin-managed → do NOT add here; let the plugin manage it
@@ -259,12 +257,12 @@ break-glass fallback), verify the AppRole can read that KV path, then launch
 the harness again. It does not cache OpenBao tokens or publish credentials
 into the login environment.
 
-### doppler-mcp server shows "Failed to connect"
+### A Doppler-backed server shows "Failed to connect"
 
-Claude Code launches MCP servers in parallel at startup. `doppler-mcp` runs
-`exec doppler run ... -- "$@"` with no preflight — auth failures exit non-zero from
-`doppler run` itself. If a server still fails: verify `doppler me`, test
-`doppler-mcp <server-command>` manually, check `~/.local/state/doppler-mcp.log`,
-re-auth with `doppler login` if needed, then restart Claude Code. Mid-session:
+Claude Code launches MCP servers in parallel at startup. A `dopplerRun` server
+execs `doppler run ... -- <command>` with no preflight — auth failures exit
+non-zero from `doppler run` itself. If a server still fails: verify `doppler
+me`, run the server's full command line by hand, re-auth with `doppler login`
+if needed, then restart Claude Code. Mid-session:
 `claude mcp remove <server> -s user && claude mcp add <server> -s user -- <command>`
 (restart for full ToolSearch availability).
