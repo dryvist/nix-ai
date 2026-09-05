@@ -64,7 +64,7 @@
         agent-skill-groups link
         [ ! -e .mcp.json ]
         printf '{"mcpServers":{"mine":{}}}' > .mcp.json
-        git add -f .mcp.json && git -c commit.gpgsign=false commit -qm t
+        git add -f .mcp.json
         printf -- '---\nskill-groups: [core]\nmcp-servers: [vik]\n---\n' > AGENTS.md
         agent-skill-groups link
         [ "$(jq -r '.mcpServers | keys | join(",")' .mcp.json)" = "mine" ]
