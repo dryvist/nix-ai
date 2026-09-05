@@ -31,8 +31,14 @@ while IFS= read -r -d '' f; do
   esac
   # Only touch files that actually open with YAML frontmatter, and never
   # double-add the key.
+  #
+  # Both checks are scoped to the frontmatter block, never the whole file. A
+  # skill whose *body* documents the key — a skill about authoring skills, say
+  # — would otherwise match a whole-file grep and be silently left listed.
+  # Two shipped skills hit exactly that and stayed in every session's listing.
   [ "$(head -n 1 "$f")" = "---" ] || continue
-  grep -q '^disable-model-invocation:' "$f" && continue
+  awk 'NR>1 && /^---$/ { exit } NR>1 && /^disable-model-invocation:/ { found=1 }
+       END { exit !found }' "$f" && continue
   awk 'NR==1 { print; print "disable-model-invocation: true"; next } { print }' \
     "$f" >"$f.mi" && mv "$f.mi" "$f"
   marked=$((marked + 1))
