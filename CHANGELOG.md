@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.4.1](https://github.com/dryvist/nix-ai/compare/v5.4.0...v5.4.1) (2026-09-05)
+
+
+### Bug Fixes
+
+* **cursor:** reclaim ~/.local/bin from the self-updater; restore dropped MLX checks ([#2043](https://github.com/dryvist/nix-ai/issues/2043)) ([9ac7682](https://github.com/dryvist/nix-ai/commit/9ac768290ce83ca279a6b9b64871a3981ba2bb94))
+
 ## [5.4.0](https://github.com/dryvist/nix-ai/compare/v5.3.2...v5.4.0) (2026-09-04)
 
 
