@@ -2,10 +2,11 @@
 # Managed by nix-ai's programs.zsh.initContent via modules/ai-shell.nix.
 # Single source of truth for Claude/Doppler AI-tool wrapper aliases.
 
-# Secret-zero for OpenBao-backed MCP servers (splunk-mcp-connect) plus the
-# Doppler project/config used by the d-* aliases and doppler-mcp. Per the
+# Secret-zero for OpenBao-backed MCP servers (splunk-mcp-connect). Per the
 # ai-agent-access-openbao runbook these live in the automation Keychain —
-# no literal endpoint, AppRole, or project name is committed to this repo.
+# no literal endpoint or AppRole is committed to this repo. The Doppler
+# project/config selectors are not secrets; modules/ai-shell.nix exports them
+# from vars/ai-stack.nix, the single source shared with the MCP catalog.
 #
 # `with-ai-readonly <cmd> [args...]` fetches them at call time and exports
 # them ONLY into that one child process, not into the login shell (and not
@@ -17,7 +18,7 @@ if [[ "$OSTYPE" == darwin* ]]; then
     [[ "$#" -ge 1 ]] || { print -u2 "usage: with-ai-readonly <cmd> [args...]"; return 1; }
     local -a _ai_ro_env
     local _ai_ro_var _ai_ro_val
-    for _ai_ro_var in BAO_ADDR AI_READONLY_ROLE_ID AI_READONLY_SECRET_ID SPLUNK_MCP_OPENBAO_PATH AI_DOPPLER_PROJECT AI_DOPPLER_CONFIG; do
+    for _ai_ro_var in BAO_ADDR AI_READONLY_ROLE_ID AI_READONLY_SECRET_ID SPLUNK_MCP_OPENBAO_PATH; do
       if [[ -n "${(P)_ai_ro_var}" ]]; then
         _ai_ro_env+=("$_ai_ro_var=${(P)_ai_ro_var}")
       else

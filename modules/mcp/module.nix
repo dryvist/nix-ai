@@ -3,7 +3,6 @@
 # Owns all runtime infrastructure required to make the MCP server definitions
 # in `./default.nix` actually executable on a user's machine:
 #
-#   - doppler-mcp wrapper (Doppler secret injection for remaining MCP servers)
 #   - OpenBao-backed splunk-mcp-connect helper
 #
 # This module is the load-bearing piece for the MCP sub-flake's
@@ -31,24 +30,14 @@ in
       type = lib.types.bool;
       default = true;
       description = ''
-        Whether to install MCP runtime infrastructure (doppler-mcp,
-        splunk-mcp-connect). Disable to opt out entirely.
+        Whether to install MCP runtime infrastructure
+        (splunk-mcp-connect). Disable to opt out entirely.
       '';
     };
   };
 
   config = lib.mkIf cfg.enable {
     home.packages = [
-      # doppler-mcp — wraps any MCP server command with Doppler secret
-      # injection. Used by mcp/default.nix `withDoppler` callers.
-      # No synchronous preflight (caused 100% MCP startup failures with
-      # ~17 parallel servers). See modules/mcp/README.md → Troubleshooting.
-      (pkgs.writeShellApplication {
-        name = "doppler-mcp";
-        runtimeInputs = [ pkgs.doppler ];
-        text = builtins.readFile ./scripts/doppler-mcp.sh;
-      })
-
       # splunk-mcp-connect — fetches the canonical Splunk connection from
       # OpenBao using an ambient-env AppRole, then starts the Splunk MCP App
       # stdio proxy via mcp-remote.
