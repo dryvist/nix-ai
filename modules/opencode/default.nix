@@ -82,6 +82,16 @@ let
       });
     };
     small_model = "litellm/cheap";
+    # One subagent per router role, so the delegation skills that address a
+    # tier by role name (`@subagent`, `@judge`, `@cheap`; `lead` for a
+    # deliberate hand-off) work here as they do elsewhere. Each is pinned to
+    # its own `litellm/<role>` model rather than inheriting the caller's, which
+    # is the whole point of a tier. Permissions stay the global defaults.
+    agent = lib.genAttrs litellmRoles (role: {
+      description = "Delegate to the router's `${role}` tier (resolved upstream, never a physical model)";
+      mode = "subagent";
+      model = "litellm/${role}";
+    });
   };
 
   # Pretty-printed via jq (same convention as copilot.nix / antigravity-cli):
