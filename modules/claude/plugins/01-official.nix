@@ -100,9 +100,15 @@ _:
     # Keeper: document-skills (most generic name, clearest mental
     # model for the bundle). Re-evaluate if upstream ever honors the
     # manifest split.
+    #
+    # It is nonetheless disabled at user level below. Measured at 980 tokens of
+    # every session, for office-document authoring that matters only in
+    # repositories which actually produce such documents. A plugin earns a
+    # user-level enable only when it is useful in nearly every repository;
+    # everything else is repo-scoped, as skill groups already are.
     # ========================================================================
 
-    "document-skills@anthropic-agent-skills" = true;
+    "document-skills@anthropic-agent-skills" = false;
 
     # DISABLED — duplicates document-skills (identical 17 skills on
     # disk). The skill set previously credited to this plugin is now

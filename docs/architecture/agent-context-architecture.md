@@ -18,14 +18,30 @@ user settings), read from the first `usage` block of each transcript.
 | `--setting-sources user` (drop project + local) | 113,889 |
 | `--setting-sources ''` (no settings at all) | **64,068** |
 
+> **The 64,068 row is withdrawn.** `--setting-sources ''` drops settings layers
+> but does **not** detach MCP servers, so it was measured with MCP attached and
+> is not a floor. **The floor is 32,914**, measured from an empty directory
+> outside `$HOME` with no MCP and no settings.
+>
+> Every conclusion drawn from the 64k figure was wrong, in particular "a
+> subagent cannot go below ~64k". A subagent measuring 80,746 is 41% floor, so
+> **a sub-60k subagent is a lever problem, not a harness limitation**.
+
 Read it as two blocks:
 
-- **Floor ≈ 64k** — Claude Code's own system prompt plus its built-in tool
-  schemas. Not addressable from this repo. **A subagent cannot go below it**,
-  so any subagent target under ~64k is unreachable by construction.
-- **Addressable ≈ 65k** — everything settings bring in: the plugin set and the
-  skill and agent listings it generates, MCP configuration, and the instruction
-  chain.
+- **Floor 32,914 — for a session that loads every built-in tool.** Claude
+  Code's own system prompt plus its built-in tool schemas. It is *not* an
+  absolute floor: an agent definition declaring `tools: Read` measures
+  **22,680**, because `tools:` gates which schemas load, not merely which may
+  execute. See the measurement companion.
+- **Addressable ~56k** — everything above it: the plugin set and the skill and
+  agent listings it generates, MCP configuration, and the instruction chain.
+  Roughly 3,900 of what the old figure called immovable is instruction content,
+  which is the most user-controllable material in the session.
+
+Full nested decomposition, instrument properties, refuted hypotheses and the
+manual-invoke precondition:
+[`agent-context-measurement.md`](agent-context-measurement.md).
 
 Two things that are *not* the problem, tested rather than assumed:
 
@@ -75,12 +91,26 @@ you invoke them with `/name`" — full reachability at zero listing cost.
 
 ### Harness support for tier 3 is not uniform
 
-`disable-model-invocation` is a Claude Code frontmatter key. Whether Codex,
-Cursor, OpenCode, qwen and agy honour it is an Agent Skills spec question that
-is **not yet verified**. Until it is, assume those harnesses have two tiers —
-present in the tree, or not — and scope them with group membership rather than
-with the manual-invoke marker. Do not promise a third tier a harness cannot
-deliver.
+`disable-model-invocation` is a Claude Code frontmatter key. It is **not** in
+the canonical spec at agentskills.io — only an open proposal there. Support
+elsewhere, per a peer session's check against each harness's own source and
+docs (not independently re-verified here):
+
+| Harness | Tier 3 support | Evidence |
+| --- | --- | --- |
+| Claude Code | native | documented |
+| Cursor | native | documented |
+| qwen-code | native | `packages/core/src/skills/skill-load.ts` |
+| Codex | equivalent, different key | `agents/openai.yaml`, `policy.allow_implicit_invocation: false` |
+| OpenCode | not supported | the open request was closed; the shipped fix is coarser than per-skill |
+| Gemini CLI / Antigravity | not supported | zero hits in the shared skill loader |
+
+Codex, Cursor, OpenCode and current qwen-code read `~/.agents/skills` natively.
+Claude Code does not read it at all (see above). Gemini CLI and Antigravity
+need the explicit symlinks this repo emits into their own tree.
+
+Where a harness has no tier 3, scope its skills with group membership instead
+— present in the tree, or not. Do not promise a third tier it cannot deliver.
 
 ## One declaration, many renderers
 
@@ -146,7 +176,9 @@ Per-harness native equivalents, no new code:
 | OpenCode | `opencode debug skill`, `opencode stats` |
 | qwen / agy | tree parity against `~/.agents/skills` |
 
-Targets: **main session < 90k**; **subagent within ~10k of the 64k floor**.
+Targets: **main session < 90k**; **subagent < 60k** — reachable: it needs
+~20,700 cut from ~47,800 of configurable content, and the skill listing alone
+is 12,543.
 
 ## Measured: MCP is the largest block, not skills
 
