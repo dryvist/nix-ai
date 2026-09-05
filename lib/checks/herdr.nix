@@ -13,6 +13,8 @@ let
   inherit (pkgs) lib;
   cfg = hmConfig.config.programs.herdr;
   programs = hmConfig.config.programs;
+  opencodeDir = programs.opencode.configDir or ".config/opencode";
+  claudeTypedSessionStart = (programs.claude.hooks.sessionStart or null) != null;
 
   # Which of this flake's CLIs herdr is expected to recognise, keyed by THIS
   # flake's option name. Translation to herdr's own manifest name happens in
@@ -63,6 +65,7 @@ in
       "configDir"
       "defaultRemote"
       "enable"
+      "integrations"
       "knownUnsupportedAgents"
       "knownUpstreamAgents"
       "package"
@@ -156,6 +159,57 @@ in
     # Force the whole agent, not just the attributes read above.
     assert builtins.deepSeq agents true;
     helpers.mkMarker "check-herdr-launchd-regression" "herdr LaunchAgent runs the headless server with a pinned socket and a Nix-profile PATH.";
+
+  # The failure this guards is silent in both directions: a declared hook whose
+  # payload never renders leaves herdr on terminal heuristics, and a Claude
+  # SessionStart entry that lands without the typed hooks nix-claude-code
+  # renders would drop marketplace refresh from every session.
+  herdr-integrations-regression =
+    let
+      files = hmConfig.config.home.file;
+      claudeHooks = hmConfig.config.programs.claude.settings.hooks or { };
+      sessionStart = claudeHooks.SessionStart or [ ];
+      commands = lib.concatMap (entry: map (h: h.command or "") (entry.hooks or [ ])) sessionStart;
+      declaresHerdr = lib.any (c: lib.hasInfix "herdr-agent-state.sh" c) commands;
+      declaresTyped = lib.any (c: lib.hasInfix "session-start.sh" c) commands;
+
+      expectedFiles = {
+        claude = [ ".claude/hooks/herdr-agent-state.sh" ];
+        codex = [
+          ".codex/herdr-agent-state.sh"
+          ".codex/hooks.json"
+        ];
+        opencode = [
+          "${opencodeDir}/plugins/herdr-agent-state.js"
+          "${opencodeDir}/herdr-tui-session.js"
+          "${opencodeDir}/tui.jsonc"
+        ];
+      };
+
+      missing = lib.concatMap (
+        target: lib.filter (f: !(lib.hasAttr f files)) (expectedFiles.${target} or [ ])
+      ) cfg.integrations;
+
+      problems =
+        lib.optional (missing != [ ])
+          "declares integrations ${lib.concatStringsSep ", " cfg.integrations} but does not render: ${lib.concatStringsSep ", " missing}"
+        ++ lib.optional (
+          lib.elem "claude" cfg.integrations && !declaresHerdr
+        ) "claude integration renders its hook but never registers it in settings.hooks.SessionStart"
+        ++
+          lib.optional (lib.elem "claude" cfg.integrations && claudeTypedSessionStart && !declaresTyped)
+            "settings.hooks.SessionStart replaced the typed hook nix-claude-code renders instead of appending to it";
+    in
+    assert lib.assertMsg (problems == [ ]) ''
+      herdr integrations are misdeclared:
+      ${lib.concatMapStringsSep "\n" (p: "  - ${p}") problems}
+    '';
+    assert builtins.deepSeq (map (f: "${files.${f}.source}") (
+      lib.concatMap (t: expectedFiles.${t} or [ ]) cfg.integrations
+    )) true;
+    helpers.mkMarker "check-herdr-integrations-regression" "herdr lifecycle hooks render and register for ${
+      if cfg.integrations == [ ] then "no agents" else lib.concatStringsSep ", " cfg.integrations
+    }.";
 
   herdr-agent-coverage-regression =
     assert

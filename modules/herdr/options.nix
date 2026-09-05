@@ -70,6 +70,31 @@ in
       description = "Name from `remotes` to use when `--remote` is given no argument.";
     };
 
+    integrations = lib.mkOption {
+      type = lib.types.listOf (
+        lib.types.enum [
+          "claude"
+          "codex"
+          "opencode"
+        ]
+      );
+      default = [ ];
+      example = [
+        "claude"
+        "codex"
+      ];
+      description = ''
+        Agent CLIs whose herdr lifecycle hooks are declared. Each hook lets the
+        agent report its own session id and working/blocked/idle transitions;
+        without one herdr falls back to terminal heuristics.
+
+        Payloads are referenced from the package's own
+        `share/herdr/integrations/`, so they track the pinned herdr version.
+        Never run `herdr integration install` — it writes into config
+        directories home-manager renders read-only.
+      '';
+    };
+
     agentManifests = lib.mkOption {
       type = lib.types.attrsOf tomlFormat.type;
       default = { };

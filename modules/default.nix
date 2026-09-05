@@ -228,7 +228,18 @@ in
       # workstation this is the client half; `herdr --remote <name>` attaches
       # to a server-hosted herd using the same config.toml the server renders
       # from this flake.
-      herdr.enable = true;
+      herdr = {
+        enable = true;
+
+        # Lifecycle hooks for the agent CLIs this profile installs. Without
+        # them pane state is inferred from the terminal; with them each CLI
+        # reports its own session and working/blocked/idle transitions.
+        integrations = [
+          "claude"
+          "codex"
+          "opencode"
+        ];
+      };
     };
   };
 }
