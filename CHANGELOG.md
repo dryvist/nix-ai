@@ -1,5 +1,24 @@
 # Changelog
 
+## [5.7.0](https://github.com/dryvist/nix-ai/compare/v5.6.0...v5.7.0) (2026-09-05)
+
+
+### Features
+
+* **agent-skills:** list premium-agent-orchestration in the core group ([#2065](https://github.com/dryvist/nix-ai/issues/2065)) ([e88040b](https://github.com/dryvist/nix-ai/commit/e88040b6dada8043f4b513e111f10d4670ec4043))
+* **claude:** approve on-demand catalog servers from a project .mcp.json ([#2063](https://github.com/dryvist/nix-ai/issues/2063)) ([2ed97dc](https://github.com/dryvist/nix-ai/commit/2ed97dcd75a77997e60f3e95a7ba0836b13c574b))
+* **claude:** mark manual-invoke in the installed plugin cache ([#2068](https://github.com/dryvist/nix-ai/issues/2068)) ([e37d4ad](https://github.com/dryvist/nix-ai/commit/e37d4ad28175194d5619a4ec9f77951ce3778c6e))
+* **opencode:** declare one subagent per router role ([#2061](https://github.com/dryvist/nix-ai/issues/2061)) ([6de80e3](https://github.com/dryvist/nix-ai/commit/6de80e3d3b3d5f0d00ee2bb66dbb9c66daa4b037))
+* **session-sync:** push OpenCode sessions too ([#2062](https://github.com/dryvist/nix-ai/issues/2062)) ([0517ea1](https://github.com/dryvist/nix-ai/commit/0517ea10c7831135681adc4d470b4f2b33baf6ec))
+
+
+### Bug Fixes
+
+* **claude:** converge cache marking in both directions ([#2070](https://github.com/dryvist/nix-ai/issues/2070)) ([6929798](https://github.com/dryvist/nix-ai/commit/6929798d828694626520bdd050b555ddabc3f835))
+* **claude:** scope the manual-invoke guard to the frontmatter block ([#2066](https://github.com/dryvist/nix-ai/issues/2066)) ([e16c687](https://github.com/dryvist/nix-ai/commit/e16c6875f28ae74ef7bca23c7fc18a95924d1ba0))
+* **cursor:** source cursor-cli from nixpkgs-unstable, not the release channel ([531fcaf](https://github.com/dryvist/nix-ai/commit/531fcafcaae498a85e8a9b38ac42dc1ae0a650af))
+* **cursor:** source cursor-cli from nixpkgs-unstable, not the release channel ([fd218c0](https://github.com/dryvist/nix-ai/commit/fd218c0e61850ecc842e9f90b2d8825bedb513b7))
+
 ## [5.6.0](https://github.com/dryvist/nix-ai/compare/v5.5.0...v5.6.0) (2026-09-05)
 
 
