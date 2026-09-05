@@ -74,138 +74,68 @@ in
       ];
   };
 
-  # Assert the reclaim activation data references the store binary, the
-  # obsolete home.file symlinks are gone, and mcp.json + cursorConfigMerge
-  # are conserved.
+  # Assert the two ~/.local/bin names are declared with force = true, and
+  # that mcp.json + cursorConfigMerge are conserved. force is the whole
+  # mechanism: without it home-manager refuses to replace the real files the
+  # self-updater leaves behind, and activation fails instead of reclaiming
+  # the names.
   cursor-reclaim-data = helpers.mkDefaultsRegression {
     label = "Cursor reclaim data";
     checkName = "check-cursor-reclaim-data";
     checks =
       let
-        reclaimData = hmConfig.config.home.activation.cursorAgentReclaim.data or "";
-        # Match the store path pattern: /nix/store/<hash>-cursor-cli-<version>/bin/cursor-agent
-        # Avoid interpolating the derivation directly (Nix forbids store path refs in asserts).
-        # builtins.match anchors to the WHOLE string, and the activation data is a
-        # multi-line script, so the pattern must be wrapped to match a substring.
-        # `(.|\n)*` rather than `.*` because `.` does not match a newline here.
-        storePathPattern = "(.|\n)*/nix/store/[a-z0-9]+-cursor-cli-[^/]+/bin/cursor-agent(.|\n)*";
-        hasStorePath = builtins.match storePathPattern reclaimData != null;
-        homeFileNames = builtins.attrNames hmConfig.config.home.file;
-        hasAgentLink = builtins.elem ".local/bin/agent" homeFileNames;
-        hasCursorAgentLink = builtins.elem ".local/bin/cursor-agent" homeFileNames;
-        hasMcpJson = builtins.elem ".cursor/mcp.json" homeFileNames;
-        hasConfigMerge = hmConfig.config.home.activation ? cursorConfigMerge;
+        files = hmConfig.config.home.file;
+        homeFileNames = builtins.attrNames files;
+        agentBin = "${nixpkgsCursorCli}/bin/cursor-agent";
       in
       [
         {
-          name = "reclaim activation data references store binary";
-          actual = hasStorePath;
+          name = "home.file declares .local/bin/agent";
+          actual = builtins.elem ".local/bin/agent" homeFileNames;
           expected = true;
         }
         {
-          name = "home.file no longer declares .local/bin/agent";
-          actual = hasAgentLink;
-          expected = false;
+          name = "home.file declares .local/bin/cursor-agent";
+          actual = builtins.elem ".local/bin/cursor-agent" homeFileNames;
+          expected = true;
         }
         {
-          name = "home.file no longer declares .local/bin/cursor-agent";
-          actual = hasCursorAgentLink;
+          name = ".local/bin/agent is forced";
+          actual = files.".local/bin/agent".force;
+          expected = true;
+        }
+        {
+          name = ".local/bin/cursor-agent is forced";
+          actual = files.".local/bin/cursor-agent".force;
+          expected = true;
+        }
+        {
+          name = ".local/bin/agent points at the cursor-cli binary";
+          actual = toString files.".local/bin/agent".source;
+          expected = agentBin;
+        }
+        {
+          name = ".local/bin/cursor-agent points at the cursor-cli binary";
+          actual = toString files.".local/bin/cursor-agent".source;
+          expected = agentBin;
+        }
+        {
+          name = "no bespoke reclaim activation script remains";
+          actual = hmConfig.config.home.activation ? cursorAgentReclaim;
           expected = false;
         }
         {
           name = "home.file still declares .cursor/mcp.json (conservation)";
-          actual = hasMcpJson;
+          actual = builtins.elem ".cursor/mcp.json" homeFileNames;
           expected = true;
         }
         {
           name = "cursorConfigMerge activation still exists (conservation)";
-          actual = hasConfigMerge;
+          actual = hmConfig.config.home.activation ? cursorConfigMerge;
           expected = true;
         }
       ];
   };
-
-  # Behavioral sandbox check: drives the reclaim script against a temporary
-  # home for the five filesystem cases (absent, regular file, symlink,
-  # idempotent rerun, real-directory rejection). Must actually execute and
-  # pass on the Linux runner.
-  cursor-reclaim-sandbox =
-    pkgs.runCommand "check-cursor-reclaim-sandbox"
-      {
-        nativeBuildInputs = [
-          pkgs.coreutils
-          pkgs.bash
-        ];
-      }
-      ''
-            set -euo pipefail
-
-            # Invoked via `bash` rather than executed directly: the script carries a
-        # `#!/usr/bin/env bash` shebang and there is no /usr/bin/env in the Nix
-        # build sandbox, so direct execution exits 126. The shebang is correct for
-        # the activation path, where the script runs on a real machine.
-        RECLAIM_SCRIPT="${../../modules/scripts/cursor-reclaim-links.sh}"
-            NIX_BINARY="${pkgs.cursor-cli}/bin/cursor-agent"
-
-            # Create a temporary home directory
-            TMP_HOME=$(mktemp -d)
-            TARGET_DIR="$TMP_HOME/.local/bin"
-            mkdir -p "$TARGET_DIR"
-
-            echo "[SANDBOX] Testing reclaim script against $TARGET_DIR"
-
-            # Case 1: Absent -> symlink created
-            bash "$RECLAIM_SCRIPT" "$NIX_BINARY" "$TARGET_DIR"
-            if [[ ! -L "$TARGET_DIR/cursor-agent" ]] || [[ ! -L "$TARGET_DIR/agent" ]]; then
-              echo "[FAIL] Case 1 (absent): symlinks not created" >&2
-              exit 1
-            fi
-            echo "[PASS] Case 1 (absent): symlinks created"
-
-            # Case 2: Regular file -> replaced with symlink
-            rm -f "$TARGET_DIR/cursor-agent"
-            echo "fake-file" > "$TARGET_DIR/cursor-agent"
-            bash "$RECLAIM_SCRIPT" "$NIX_BINARY" "$TARGET_DIR"
-            if [[ ! -L "$TARGET_DIR/cursor-agent" ]]; then
-              echo "[FAIL] Case 2 (regular file): not replaced with symlink" >&2
-              exit 1
-            fi
-            echo "[PASS] Case 2 (regular file): replaced with symlink"
-
-            # Case 3: Symlink -> replaced (idempotent)
-            bash "$RECLAIM_SCRIPT" "$NIX_BINARY" "$TARGET_DIR"
-            if [[ ! -L "$TARGET_DIR/cursor-agent" ]]; then
-              echo "[FAIL] Case 3 (symlink): not idempotent" >&2
-              exit 1
-            fi
-            echo "[PASS] Case 3 (symlink): idempotent rerun"
-
-            # Case 4: Real directory -> rejection (non-zero exit, directory preserved)
-            rm -rf "$TARGET_DIR/cursor-agent"
-            mkdir -p "$TARGET_DIR/cursor-agent"
-            if bash "$RECLAIM_SCRIPT" "$NIX_BINARY" "$TARGET_DIR"; then
-              echo "[FAIL] Case 4 (real directory): should have exited with error" >&2
-              exit 1
-            fi
-            if [[ ! -d "$TARGET_DIR/cursor-agent" ]]; then
-              echo "[FAIL] Case 4 (real directory): directory not preserved" >&2
-              exit 1
-            fi
-            echo "[PASS] Case 4 (real directory): rejected, directory preserved"
-
-            # Case 5: Wrong arity -> usage message + non-zero exit
-            if bash "$RECLAIM_SCRIPT" "$NIX_BINARY"; then
-              echo "[FAIL] Case 5 (wrong arity): should have exited with error" >&2
-              exit 1
-            fi
-            echo "[PASS] Case 5 (wrong arity): rejected with usage message"
-
-            # Cleanup
-            rm -rf "$TMP_HOME"
-
-            echo "[SANDBOX] All five cases passed"
-            touch $out
-      '';
 
   cursor-activation-regression = helpers.mkDefaultsRegression {
     label = "Cursor activation";
@@ -214,11 +144,6 @@ in
       {
         name = "cursor.configMerge activation present";
         actual = hmConfig.config.home.activation ? cursorConfigMerge;
-        expected = true;
-      }
-      {
-        name = "cursorAgentReclaim activation present";
-        actual = hmConfig.config.home.activation ? cursorAgentReclaim;
         expected = true;
       }
     ];

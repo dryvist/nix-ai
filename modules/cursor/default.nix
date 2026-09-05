@@ -10,8 +10,13 @@
 # - The `~/.local/bin` links exist because the `code-cursor` IDE wrapper
 #   and the upstream installer contract both require `agent` and
 #   `cursor-agent` at that exact location.
-# - `cursorAgentReclaim` re-asserts ownership on every activation because
-#   the self-updater rewrites these names at runtime between activations.
+# - Those two links carry `force = true`. The self-updater replaces them with
+#   its own real files between activations, and without `force` home-manager
+#   refuses to clobber a path it does not own, so activation fails instead of
+#   reclaiming the name. `force` makes the linker place them with `ln -Tsf`,
+#   which replaces a file or a symlink; `-T` refuses to descend into a
+#   directory, so a directory at that path still aborts activation loudly
+#   rather than being linked inside.
 # - Config ownership is unchanged: mcp.json via home.file + cli-config
 #   deep-merge activation.
 {
@@ -96,6 +101,14 @@ in
         packages = [ pkgs.cursor-cli ];
 
         file = {
+          ".local/bin/cursor-agent" = {
+            source = "${pkgs.cursor-cli}/bin/cursor-agent";
+            force = true;
+          };
+          ".local/bin/agent" = {
+            source = "${pkgs.cursor-cli}/bin/cursor-agent";
+            force = true;
+          };
           ".cursor/mcp.json".text = builtins.toJSON { inherit mcpServers; };
         };
 
@@ -104,12 +117,6 @@ in
           $DRY_RUN_CMD ${../scripts/merge-json-settings.sh} \
             "${cliConfigJson}" \
             "${homeDir}/.cursor/cli-config.json"
-        '';
-
-        activation.cursorAgentReclaim = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
-          $DRY_RUN_CMD ${../scripts/cursor-reclaim-links.sh} \
-            "${pkgs.cursor-cli}/bin/cursor-agent" \
-            "${homeDir}/.local/bin"
         '';
       };
     })
