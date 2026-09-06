@@ -1,5 +1,19 @@
 # Changelog
 
+## [5.9.0](https://github.com/dryvist/nix-ai/compare/v5.8.1...v5.9.0) (2026-09-06)
+
+
+### Features
+
+* **claude:** list the delegation skill so a session can actually reach it ([#2085](https://github.com/dryvist/nix-ai/issues/2085)) ([08bbb8d](https://github.com/dryvist/nix-ai/commit/08bbb8dca077c6b5ff2874aacd059346ae23c4ba))
+* **mlx:** define the coder-next candidate, selected by no host ([#2087](https://github.com/dryvist/nix-ai/issues/2087)) ([a2f71d4](https://github.com/dryvist/nix-ai/commit/a2f71d49ea3882a56684d1ca4a27b332bf828422))
+
+
+### Bug Fixes
+
+* **herdr:** build the LXC template from cacheable packages ([f87e3a6](https://github.com/dryvist/nix-ai/commit/f87e3a6f7ab95101ca8fa56d56348263b0f7f2de))
+* **herdr:** build the LXC template from cacheable packages ([4b32bcf](https://github.com/dryvist/nix-ai/commit/4b32bcf85e971ad08c3b5b409eac9ce9cc770f0d))
+
 ## [5.8.1](https://github.com/dryvist/nix-ai/compare/v5.8.0...v5.8.1) (2026-09-05)
 
 
