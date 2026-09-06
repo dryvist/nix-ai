@@ -9,6 +9,10 @@
     "commit-commands-commit"
     "delegate-to-ai"
     "goal"
+    # Delegation mechanics are universal: every repository's session has bulk
+    # reads to hand off, and a skill only this session can reach is a skill
+    # nothing delegates through.
+    "local-subagents"
     "handoff"
     "native-first"
     "ponytail"
@@ -80,6 +84,11 @@
   # Code review, delegation tiers, and the ponytail helpers.
   review = [
     "code-review-code-review"
+    # Superseded upstream by `local-subagents` in `core`. It stays listed
+    # until the marketplace pin advances past that release: this map must
+    # name every DEPLOYED skill (lib/checks/agent-skills.nix), and the pinned
+    # marketplace still ships this one. Naming a skill that is not deployed
+    # is tolerated; the reverse is a check failure.
     "delegate-to-router"
     "feature-dev-feature-dev"
     "ponytail-audit"
