@@ -33,6 +33,17 @@
 #
 # Cost of being listed, measured in nix-ai: ~518 tokens of every session for a
 # skill with a long description, ~98 on average, against ~10 for manual-invoke.
+#
+# ONE EXCEPTION, and it is a policy entry rather than a measured one:
+# `local-subagents`. The measured rule cannot ever admit it — a manual-invoke
+# skill is not offered to the model, so it is not invoked, so it never reaches
+# two invocations, so it stays manual-invoke. That trapdoor is harmless for a
+# skill the session can do without and load-bearing for this one: it is what
+# tells a session to hand bulk reading, summarizing and extraction to a local
+# model instead of spending premium context on it. Listing costs ~100 tokens a
+# session; not listing it costs every delegation that never happens. If a
+# future entry needs the same override, put it here with its own reason —
+# never by loosening the measured rule above.
 [
   "ai-observability-goal"
   "brainstorming"
@@ -52,6 +63,7 @@
   "homelab-runbooks"
   "infrastructure-standards"
   "llm-router-ops"
+  "local-subagents"
   "merge-pr"
   "native-first"
   "openbao-secrets"

@@ -84,12 +84,28 @@ in
 
     agentPackages = lib.mkOption {
       type = lib.types.listOf lib.types.package;
+      # This list is BUILT IN CI. `.#herdr-lxc-template` is realised by the
+      # release workflow on a GitHub-hosted runner with a 45 minute timeout and
+      # no numtide substituter, so every package here must either substitute
+      # from cache.nixos.org or unpack quickly.
+      #
+      # llm-agents is fine for the three below: claude-code, antigravity-cli
+      # and copilot-cli are prebuilt-binary derivations that just fetch and
+      # unpack. codex and opencode are not — they compile from source (Rust and
+      # TypeScript), and taking them from llm-agents here pushed the template
+      # build to 45m17s and timed it out, which left v5.8.0 and v5.8.1 as
+      # unpublished drafts. They come from nixpkgs instead, like qwen-code.
+      #
+      # This is the LXC guest only. The home-manager path is not built in CI,
+      # so programs.codex and programs.opencode keep their llm-agents source
+      # and stay current. If cache.numtide.com is ever trusted, these two can
+      # move back and match.
       default = [
         agents.claude-code
         agents.antigravity-cli
         agents.copilot-cli
-        agents.codex
-        agents.opencode
+        pkgs.codex
+        pkgs.opencode
         pkgs.qwen-code
       ];
       defaultText = lib.literalExpression "the AI CLIs this flake manages that evaluate without allowUnfree";

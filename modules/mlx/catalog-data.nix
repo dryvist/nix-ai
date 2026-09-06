@@ -3,8 +3,8 @@
 # (parser stacks, timeout, paged-block sizes, swap tier) are documented in
 # catalog-lib.nix; this file is split out to keep each under the 12KB gate.
 # See catalog-lib.nix for the #1334 KV-quant/MTP flag-availability note.
-# qwen3-next-80b-instruct, qwen38-27b, and the qwen35-9b pair live in their
-# own files, merged below, for the same size-gate reason. Each carries long
+# qwen3-next-80b-instruct, qwen3-coder-next, qwen38-27b, and the qwen35-9b
+# pair live in their own files, merged below, for the same size-gate reason. Each carries long
 # measurement notes, which is exactly what pushed this file over the gate —
 # split the entry, never trim the evidence.
 let
@@ -16,6 +16,7 @@ let
     ;
 in
 (import ./catalog-data-80b-instruct.nix)
+// (import ./catalog-data-coder-next.nix)
 // (import ./catalog-data-qwen38-27b.nix)
 // (import ./catalog-data-qwen35-9b.nix)
 // {
