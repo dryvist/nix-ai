@@ -28,9 +28,9 @@ let
   # the prompt; re-adding a single leading-`**/` pattern restores it.
   #
   # Claude Code's own gate is `permissions.defaultMode = "auto"` plus the
-  # auto-mode classifier, not this list. Every other harness formatter
-  # (cursor, gemini, opencode, qwen) still consumes `denyPatterns` from the
-  # shared data, so the patterns remain in force for those CLIs.
+  # auto-mode classifier, not this list. Formatters with filesystem-policy
+  # support consume `denyPatterns` from the shared data; Claude intentionally
+  # does not.
   getClaudeDenyPermissions = _permissions: [ ];
 
 in
