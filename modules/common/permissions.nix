@@ -79,8 +79,9 @@ in
   # WebFetch domains
   webfetchDomains = sourcePermissions.domains.webfetch;
 
-  # File patterns to deny (for Claude Read tool)
-  # These come from the deny data's "patterns" field (legacy dangerous.json)
+  # File patterns denied by formatters that support filesystem policies.
+  # These come from the shared permission data and are intentionally not
+  # rendered as Claude Code Read-deny rules.
   denyPatterns = sourcePermissions.deny.patterns or [ ];
 
   # Trusted directories (local config)
@@ -126,11 +127,6 @@ in
     ];
 
     # Claude built-in tools (non-shell)
-    # NOTE: Deny rules (denyRead) take precedence over allow rules (builtin)
-    # as enforced by Claude Code at runtime when it evaluates these patterns,
-    # not by this Nix configuration itself. Even though Read allows reading
-    # any file, the denyRead patterns will block sensitive files (.env, SSH keys,
-    # etc.) when Claude Code processes the permission lists.
     claude = {
       # Core built-in tools (unconditional approval)
       # Pattern format per Claude Code schema: Tool names without wildcards
@@ -155,9 +151,6 @@ in
         "Read(/nix/store/**)"
       ];
 
-      # Deny patterns for sensitive files (Claude-specific Read tool)
-      # Populated from nix-claude-code deny data's patterns field
-      # This will be transformed by formatters.nix to Read(...) format
     };
   };
 }
