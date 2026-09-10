@@ -36,6 +36,9 @@ let
     hmConfigDupRole
     hmConfigCluster
     hmConfigTokenMeter
+    hmConfigTokenMeterLegacy
+    hmConfigTokenMeterLegacyDisabled
+    hmConfigTokenMeterNoMenu
     hmConfigSessionSync
     hmConfigSessionArchive
     hmConfigLitellmLocal
@@ -48,6 +51,9 @@ in
     src
     hmConfig
     hmConfigTokenMeter
+    hmConfigTokenMeterLegacy
+    hmConfigTokenMeterLegacyDisabled
+    hmConfigTokenMeterNoMenu
     ;
 })
 // (import ./checks/session-sync.nix {

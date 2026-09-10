@@ -935,6 +935,7 @@
         "nixpkgs": "nixpkgs_2",
         "nixpkgs-unstable": "nixpkgs-unstable",
         "ponytail": "ponytail",
+        "token-meter-src": "token-meter-src",
         "vct-cribl-cli": "vct-cribl-cli",
         "vct-splunk-cli": "vct-splunk-cli"
       }
@@ -967,6 +968,23 @@
       "original": {
         "owner": "nix-systems",
         "repo": "default",
+        "type": "github"
+      }
+    },
+    "token-meter-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1789044303,
+        "narHash": "sha256-xS7Du20vPdSLtPhkJ07UJxDFMyXF8fciz0BnQabsfes=",
+        "owner": "splunk",
+        "repo": "token-meter",
+        "rev": "1a1b35acf1984552f1959a82edee98137fe0b608",
+        "type": "github"
+      },
+      "original": {
+        "owner": "splunk",
+        "ref": "main",
+        "repo": "token-meter",
         "type": "github"
       }
     },

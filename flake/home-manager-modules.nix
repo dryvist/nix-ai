@@ -16,6 +16,7 @@
   awesome-claude-skills,
   vct-cribl-cli,
   vct-splunk-cli,
+  token-meter-src,
 }:
 let
   # Marketplace flake inputs now live inside nix-claude-code. Surface the
@@ -84,6 +85,7 @@ in
         llm-agents
         vct-cribl-cli
         vct-splunk-cli
+        token-meter-src
         ;
     };
   };

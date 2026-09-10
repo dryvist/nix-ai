@@ -191,15 +191,26 @@ rec {
       };
     }
   ];
-  # Fifth evaluation exercising the token-meter HTTPS gate (lib/checks/
-  # token-meter.nix): the module is off by default, so the agent only exists here.
+  # Token Meter evaluations cover the canonical disabled option, independent
+  # menu-bar/gate switches, and the legacy enable compatibility mapping.
   hmConfigTokenMeter = mkHmConfig [
     {
       programs.token-meter = {
-        enable = true;
+        disabled = false;
+        menuBar = true;
+        httpsGate = true;
         bindAddress = "127.0.0.1";
       };
     }
+  ];
+  hmConfigTokenMeterNoMenu = mkHmConfig [
+    { programs.token-meter.disabled = false; }
+  ];
+  hmConfigTokenMeterLegacy = mkHmConfig [
+    { programs.token-meter.enable = true; }
+  ];
+  hmConfigTokenMeterLegacyDisabled = mkHmConfig [
+    { programs.token-meter.enable = false; }
   ];
   # Sixth evaluation exercising the session-sync agent (lib/checks/
   # session-sync.nix): also off by default, so the agent only exists here.

@@ -48,6 +48,13 @@
       flake = false;
     };
 
+    # Token Meter has no flake. Its source is staged and wrapped by the
+    # Home Manager module; the weekly lock workflow advances this main pin.
+    token-meter-src = {
+      url = "github:splunk/token-meter/main";
+      flake = false;
+    };
+
     # herdr-remote's relay (the web/phone dashboard half of herdr). Upstream
     # ships no flake and no nixpkgs entry, so this is a source pin that
     # modules/herdr-remote/package.nix builds. Pinned by REV, never a branch:
@@ -229,6 +236,7 @@
       vct-splunk-cli,
       herdr-remote-src,
       herdr-hail-src,
+      token-meter-src,
       ...
     }:
     let
@@ -272,6 +280,7 @@
           awesome-claude-skills
           vct-cribl-cli
           vct-splunk-cli
+          token-meter-src
           ;
       };
 
