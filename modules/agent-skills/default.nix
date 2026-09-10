@@ -285,11 +285,14 @@ in
       enable = lib.mkDefault true;
       fromFlakeInputs = lib.mkDefault sharedSkills;
 
-      # file-organizer sits outside every walkAllPatterns layout: its upstream
-      # publishes each skill as a top-level <repo>/<skill>/SKILL.md directory.
-      # Naming the one path here is smaller than a sixth discovery pattern that
-      # would then scan every input's root for skill-shaped directories.
-      local.file-organizer = "${awesome-claude-skills}/file-organizer/SKILL.md";
+      # Sources discovery cannot supply: file-organizer matches no
+      # walkAllPatterns case; the design pair's marketplace has no enabled
+      # plugin, so `isMarketplaceEnabled` skips it.
+      local = {
+        file-organizer = "${awesome-claude-skills}/file-organizer/SKILL.md";
+        frontend-design = "${marketplaceInputs.anthropic-agent-skills}/skills/frontend-design/SKILL.md";
+        canvas-design = "${marketplaceInputs.anthropic-agent-skills}/skills/canvas-design/SKILL.md";
+      };
 
       # Category map for the generated INDEX.md and, through `groups` below,
       # the deployment groups `activeGroups` gates. Every deployed skill is
