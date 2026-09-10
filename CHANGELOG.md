@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.10.0](https://github.com/dryvist/nix-ai/compare/v5.9.1...v5.10.0) (2026-09-10)
+
+
+### Features
+
+* **agent-skills:** deliver frontend-design and canvas-design to every harness ([#2101](https://github.com/dryvist/nix-ai/issues/2101)) ([d232732](https://github.com/dryvist/nix-ai/commit/d232732798d6199cd9f13b53a62ddc3ef5ea3725))
+
 ## [5.9.1](https://github.com/dryvist/nix-ai/compare/v5.9.0...v5.9.1) (2026-09-10)
 
 
