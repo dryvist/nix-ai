@@ -170,6 +170,25 @@ rec {
     }
   ];
 
+  # A role pinned to a model id the catalog does not define. One fixture, one
+  # variable: everything else matches hmConfigSmallRole above, which serves as
+  # the positive control, so a failing role-resolution assertion here can only
+  # be the unknown model.
+  #
+  # This is the case that matters most in practice and was the one with no
+  # test. A role whose model does not compile into a llama-swap backend must
+  # be refused while the config is being evaluated. If it is not, the host
+  # converges happily and the failure surfaces later as a request answered by
+  # whatever the serving layer decided the name meant — which is how one
+  # model's numbers were once published under another model's name.
+  hmConfigUnknownRoleModel = mkHmConfig [
+    judgeModelStub
+    {
+      programs.mlx.catalog.qwen38-27b.class = "resident";
+      services.aiStack.roleOverrides.coding = "vendor/model-the-catalog-does-not-define";
+    }
+  ];
+
   # Fourth evaluation exercising programs.mlx.clusterMode as the coordinator
   # (lib/checks/mlx-cluster.nix): rank env contract, watcher wiring, prefetch.
   # judgeModelStub rides along because lib/checks/mlx-cluster-sharding.nix reads

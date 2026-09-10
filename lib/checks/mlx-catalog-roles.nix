@@ -11,6 +11,7 @@
   pkgs,
   hmConfigSmallRole,
   hmConfigDupRole,
+  hmConfigUnknownRoleModel,
 }:
 let
   helpers = import ./helpers.nix { inherit pkgs; };
@@ -71,5 +72,18 @@ in
     assert
       !(builtins.tryEval (uniquenessOf hmConfigDupRole)).success
       || throw "role registry: two enabled catalog entries claiming the same role must still fail the one-entry-per-role assertion — adding a registry name must not weaken it";
+    # A role pinned to a model the catalog does not define must be refused at
+    # EVALUATION time. The assertion exists in modules/mlx/assertions.nix and
+    # nothing proved it fires, which is the same state the drift checker was in:
+    # present, plausible, unexercised.
+    #
+    # This reads `false` rather than throwing, because the assertion looks the
+    # backend up with `or null` and then compares — so the guard's own value is
+    # observable. The positive control is `rolesCompileOf hmConfigSmallRole`
+    # asserted true a few lines above: without it, a check that always returned
+    # false would pass this line and prove nothing.
+    assert
+      !(rolesCompileOf hmConfigUnknownRoleModel)
+      || throw "role registry: a role pinned to a model id the catalog does not define must fail at eval time — otherwise the host converges and the name is resolved later by whatever the serving layer decides it meant";
     helpers.mkMarker "check-mlx-catalog-roles" "role registry: `small` exists, resolves through the catalog, compiles to a llama-swap alias, and stays uniqueness-checked";
 }
