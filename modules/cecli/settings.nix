@@ -115,14 +115,30 @@ let
   metadataJson = pkgs.writeText "cecli-model-metadata.json" (builtins.toJSON modelMetadata);
 
   # Per-model edit format and streaming overrides — one entry per role alias.
-  codeRoles = [
-    "default"
-    "coding"
-    "tool-calling"
-    "most-capable"
-    "large-context"
-    "oss"
+  #
+  # Roles that are NOT about writing code. This module owns this list, because
+  # "does this role write code" is a cecli decision; it does not own the role
+  # vocabulary, which is vars/ai-stack.nix's.
+  nonCodeRoles = [
+    # Both are size/latency classes rather than capability classes — see the
+    # note on `small` in vars/ai-stack.nix, which warns that `quickest` is a
+    # separate axis and may well be a large MoE.
+    "quickest"
+    "small"
   ];
+
+  # Derived, never restated. The previous version listed the six code roles
+  # literally, which is a second copy of a vocabulary defined in
+  # vars/ai-stack.nix: rename a role there and this list keeps the dead name
+  # silently, add one and it is silently omitted — and the only symptom either
+  # way is the wrong edit format, which looks like a model being bad at editing
+  # rather than like config drift.
+  #
+  # Derived from `models` and NOT from `allRoles`, so proxy-only roles continue
+  # to take the weak format exactly as they do today. A role newly added to the
+  # registry becomes a code role unless it is named above, which is the safer
+  # default for an edit-format picker and forces the decision to be explicit.
+  codeRoles = lib.subtractLists nonCodeRoles (builtins.attrNames models);
 
   makeSettingsEntry =
     name: role:

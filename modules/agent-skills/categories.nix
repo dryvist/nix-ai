@@ -5,9 +5,14 @@
   # Universal: applies to any task in any repository. Keep this small —
   # every member is listed in every session on every harness.
   core = [
+    # frontend-design and canvas-design: any repository can produce a
+    # diagram, a slide, a page or a chart, so these are tier 1 by
+    # directive rather than by measured invocation count.
+    "canvas-design"
     "code-quality-standards"
     "commit-commands-commit"
     "delegate-to-ai"
+    "frontend-design"
     "goal"
     # Delegation mechanics are universal: every repository's session has bulk
     # reads to hand off, and a skill only this session can reach is a skill
@@ -165,10 +170,8 @@
   ];
   workspace = [
     "algorithmic-art"
-    "canvas-design"
     "docx"
     "file-organizer"
-    "frontend-design"
     "pdf"
     "pptx"
     "slack-gif-creator"
