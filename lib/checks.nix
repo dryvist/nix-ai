@@ -66,6 +66,7 @@ in
 })
 // (import ./checks/ai-stack.nix { inherit pkgs testLocalModelId; })
 // (import ./checks/ai-stack-endpoint.nix { inherit pkgs; })
+// (import ./checks/ai-stack-drift-check.nix { inherit pkgs src; })
 // (import ./checks/claude.nix { inherit pkgs hmConfig; })
 // (import ./checks/telemetry.nix { inherit pkgs mkHmConfigWith; })
 // (import ./checks/agent-skills-repo-link.nix { inherit pkgs; })
