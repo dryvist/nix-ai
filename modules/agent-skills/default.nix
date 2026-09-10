@@ -285,33 +285,14 @@ in
       enable = lib.mkDefault true;
       fromFlakeInputs = lib.mkDefault sharedSkills;
 
-      # file-organizer sits outside every walkAllPatterns layout: its upstream
-      # publishes each skill as a top-level <repo>/<skill>/SKILL.md directory.
-      # Naming the one path here is smaller than a sixth discovery pattern that
-      # would then scan every input's root for skill-shaped directories.
-      local.file-organizer = "${awesome-claude-skills}/file-organizer/SKILL.md";
-
-      # frontend-design and canvas-design are required in every repository on
-      # every harness, by directive. Discovery cannot supply them:
-      # `isMarketplaceEnabled` gates the flat-layout walk on a marketplace
-      # having at least one enabled Claude plugin, and all three
-      # anthropic-agent-skills plugins are off in ../claude/plugins/01-official.nix
-      # — each ships the same 17 skills for ~980 tokens of every session, which
-      # is the wrong trade for two of them. Naming these two here takes the same
-      # escape hatch as file-organizer above: `local` feeds skillSources and
-      # stableSkillLinks directly, without passing the marketplace gate.
-      #
-      # The store path is the already-pinned input, not a new one.
-      local.frontend-design = "${marketplaceInputs.anthropic-agent-skills}/skills/frontend-design/SKILL.md";
-      local.canvas-design = "${marketplaceInputs.anthropic-agent-skills}/skills/canvas-design/SKILL.md";
-
-      # The two above are the only skills that must be everywhere AND reach
-      # Claude by no other route — no enabled plugin ships them, so without
-      # this Claude alone would be the harness that cannot see them.
-      claudeAlwaysListed = lib.mkDefault [
-        "canvas-design"
-        "frontend-design"
-      ];
+      # Sources discovery cannot supply: file-organizer matches no
+      # walkAllPatterns case; the design pair's marketplace has no enabled
+      # plugin, so `isMarketplaceEnabled` skips it.
+      local = {
+        file-organizer = "${awesome-claude-skills}/file-organizer/SKILL.md";
+        frontend-design = "${marketplaceInputs.anthropic-agent-skills}/skills/frontend-design/SKILL.md";
+        canvas-design = "${marketplaceInputs.anthropic-agent-skills}/skills/canvas-design/SKILL.md";
+      };
 
       # Category map for the generated INDEX.md and, through `groups` below,
       # the deployment groups `activeGroups` gates. Every deployed skill is
