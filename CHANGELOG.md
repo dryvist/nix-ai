@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.11.0](https://github.com/dryvist/nix-ai/compare/v5.10.0...v5.11.0) (2026-09-10)
+
+
+### Features
+
+* **token-meter:** manage runtime declaratively ([#2106](https://github.com/dryvist/nix-ai/issues/2106)) ([dbd8fcf](https://github.com/dryvist/nix-ai/commit/dbd8fcfd587b7dcd7cfde0af3a35e4b1fa5c0d56))
+
 ## [5.10.0](https://github.com/dryvist/nix-ai/compare/v5.9.1...v5.10.0) (2026-09-10)
 
 
