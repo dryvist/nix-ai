@@ -1,41 +1,29 @@
-# splunk/token-meter — local Claude Code / Codex token usage dashboard.
-#
-# Upstream installs entirely user-space via its own ./scripts/install, which
-# writes and owns two LaunchAgents (server + menu bar). This module only
-# clones/updates the checkout, runs that installer, and optionally fronts the
-# loopback dashboard with a Caddy HTTPS gate for LAN access.
 {
   config,
   lib,
   pkgs,
+  token-meter-src,
   ...
 }:
 
 let
   cfg = config.programs.token-meter;
-  supportDir = "${config.home.homeDirectory}/Library/Application Support/Token Meter";
-  logDir = "${config.home.homeDirectory}/Library/Logs/token-meter";
-  gateStateDir = "${config.home.homeDirectory}/.local/share/token-meter-gate";
-
-  # `auto_https disable_redirects` is load-bearing, not tidiness: by default
-  # Caddy also opens a redirect listener on port 80 to send http:// callers to
-  # https://. This runs as a user LaunchAgent, which cannot bind a privileged
-  # port, and Caddy treats the failed bind as fatal — so the entire config
-  # fails to load and the gate serves nothing at all. The redirect buys nothing
-  # here anyway; the only advertised URL is the https one on gatePort.
-  #
-  # Body indented with tabs because that is what `caddy fmt` emits; spaces make
-  # Caddy log an "input is not formatted" warning on every start.
-  # The site address decides which SNI the certificate covers; the bind
-  # directive decides which interfaces are listened on. They are NOT the same
-  # value, and conflating them is why an all-interfaces bind broke the gate:
-  # a site address of 0.0.0.0 is a name no certificate can cover and no client
-  # ever sends as SNI, so every request failed the handshake.
-  #
-  # Defaults to bindAddress so a host that pins one address behaves exactly as
-  # before. Set siteHostName to serve on all interfaces under a real name.
+  homeDir = config.home.homeDirectory;
+  logDir = "${homeDir}/Library/Logs/token-meter";
+  gateStateDir = "${homeDir}/.local/share/token-meter-gate";
+  packages = import ./token-meter/package.nix {
+    inherit lib pkgs token-meter-src;
+  };
+  runtimeRoot = "${packages.runtime}/share/token-meter";
+  settingsJson = pkgs.writeText "token-meter-settings.json" (
+    builtins.toJSON {
+      updates = {
+        enabled = false;
+        auto_install = false;
+      };
+    }
+  );
   siteHost = if cfg.siteHostName != "" then cfg.siteHostName else cfg.bindAddress;
-
   caddyfile = pkgs.writeText "token-meter-Caddyfile" ''
     {
     	auto_https disable_redirects
@@ -49,138 +37,167 @@ let
   '';
 in
 {
+  imports = [
+    (lib.mkChangedOptionModule
+      [
+        "programs"
+        "token-meter"
+        "enable"
+      ]
+      [
+        "programs"
+        "token-meter"
+        "disabled"
+      ]
+      (legacyConfig: !legacyConfig.programs.token-meter.enable)
+    )
+    (lib.mkRemovedOptionModule [ "programs" "token-meter" "repo" ] ''
+      Token Meter source is now pinned by the token-meter-src flake input.
+    '')
+    (lib.mkRemovedOptionModule [ "programs" "token-meter" "installDir" ] ''
+      Token Meter runtime files are now immutable Nix store paths. Application
+      settings and databases remain writable under ~/.token-meter.
+    '')
+  ];
+
   options.programs.token-meter = {
-    enable = lib.mkEnableOption "splunk/token-meter usage dashboard";
-
-    repo = lib.mkOption {
-      type = lib.types.str;
-      default = "https://github.com/splunk/token-meter.git";
-      description = "Upstream repository; tracks its default branch (no pinned rev).";
-    };
-
-    installDir = lib.mkOption {
-      type = lib.types.str;
-      default = "${supportDir}/source";
-      description = ''
-        Git checkout the installer runs from. The default matches upstream's own
-        MANAGED_SOURCE_ROOT, so its self-updater and this module share one
-        checkout instead of upstream cloning a second one alongside.
-      '';
+    disabled = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Whether to disable the splunk/token-meter usage dashboard.";
     };
 
     menuBar = lib.mkOption {
       type = lib.types.bool;
-      default = true;
-      description = ''
-        Keep the menu bar agent. Upstream's installer has no flag to skip it and
-        aborts if it fails to register, so `false` boots it out afterwards.
-      '';
+      default = false;
+      description = "Whether to run Token Meter's macOS menu-bar companion.";
     };
 
     httpsGate = lib.mkOption {
       type = lib.types.bool;
-      default = true;
-      description = "Front the loopback dashboard with a self-signed HTTPS reverse proxy.";
+      default = false;
+      description = "Whether to front the loopback dashboard with a self-signed HTTPS reverse proxy.";
     };
 
     dashboardPort = lib.mkOption {
       type = lib.types.port;
       default = 8722;
-      description = ''
-        Loopback port token-meter's own server listens on. Upstream hardcodes
-        this, so changing it only makes sense alongside a patched install —
-        it exists so the gate and its check derive the value instead of each
-        restating it.
-      '';
+      description = "Loopback port used by Token Meter's server.";
     };
 
     siteHostName = lib.mkOption {
       type = lib.types.str;
       default = "";
       example = "host.example.com";
-      description = ''
-        Hostname the gate's certificate covers and clients address it by.
-        Empty means reuse bindAddress, which is correct only when that is a
-        real routable address. Set this whenever bindAddress is a wildcard.
-      '';
+      description = "Hostname covered by the HTTPS gate certificate; empty reuses bindAddress.";
     };
 
     gatePort = lib.mkOption {
       type = lib.types.port;
       default = 8723;
-      description = "Port for the HTTPS gate. Must differ from dashboardPort.";
+      description = "Port for the HTTPS gate.";
     };
 
     bindAddress = lib.mkOption {
       type = lib.types.str;
       default = "";
-      description = "LAN address the HTTPS gate binds to. Required when the gate is enabled.";
+      description = "LAN address for the optional HTTPS gate.";
     };
   };
 
   config = lib.mkMerge [
-    (lib.mkIf cfg.enable {
+    (lib.mkIf cfg.disabled {
+      home.activation.cleanupLegacyTokenMeter = lib.hm.dag.entryBefore [ "setupLaunchAgents" ] ''
+        $DRY_RUN_CMD ${lib.getExe pkgs.bash} ${./scripts/cleanup-token-meter-launch-agents.sh} ${lib.escapeShellArg homeDir}
+      '';
+    })
+
+    (lib.mkIf (!cfg.disabled) {
       assertions = [
         {
           assertion = !cfg.httpsGate || cfg.bindAddress != "";
-          message = "programs.token-meter.bindAddress must be set when httpsGate is true — an empty value would expose the dashboard on every interface.";
+          message = "programs.token-meter.bindAddress must be set when httpsGate is true.";
         }
         {
           assertion = !cfg.httpsGate || cfg.gatePort != cfg.dashboardPort;
-          message = "programs.token-meter.gatePort must differ from dashboardPort — equal ports make the gate proxy to itself.";
+          message = "programs.token-meter.gatePort must differ from dashboardPort.";
         }
       ];
 
-      home.activation.tokenMeter = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-        PATH="${lib.makeBinPath [ pkgs.git ]}:/usr/bin:/bin:$PATH" $DRY_RUN_CMD ${./scripts/token-meter-install.sh} \
-          ${
-            lib.escapeShellArgs [
-              cfg.repo
-              cfg.installDir
-              "${supportDir}/.nix-install-stamp"
-              logDir
-            ]
-          } ${if cfg.menuBar then "1" else "0"}
+      home.activation.tokenMeterSettings = lib.hm.dag.entryBefore [ "setupLaunchAgents" ] ''
+        $DRY_RUN_CMD mkdir -p ${lib.escapeShellArg logDir}
+        export PATH="${pkgs.jq}/bin:$PATH"
+        $DRY_RUN_CMD ${./scripts/merge-json-settings.sh} \
+          ${settingsJson} \
+          ${lib.escapeShellArg "${homeDir}/.token-meter/settings.json"}
       '';
 
-      launchd.agents.token-meter-gate = lib.mkIf cfg.httpsGate {
-        enable = true;
-        config = {
-          Label = "dev.token-meter.gate";
-          ProgramArguments = [
-            (lib.getExe pkgs.caddy)
-            "run"
-            "--config"
-            "${caddyfile}"
-            "--adapter"
-            "caddyfile"
-          ];
-          RunAtLoad = true;
-          KeepAlive = true;
-          ThrottleInterval = 30;
-          ProcessType = "Background";
-          EnvironmentVariables = {
-            HOME = config.home.homeDirectory;
-            # Give this Caddy its own storage. A host running the gate is a host
-            # already running the llm-gate Caddy, and on the default paths both
-            # would share one data directory — including its local CA, its
-            # instance id, and its lock files. llm-gate isolates itself the same
-            # way, so matching it keeps the two from contending over state that
-            # is not designed to have two owners.
-            XDG_CONFIG_HOME = "${gateStateDir}/config";
-            XDG_DATA_HOME = "${gateStateDir}/data";
+      launchd.agents = {
+        token-meter-server = {
+          enable = true;
+          config = {
+            Label = "com.token-meter.server";
+            ProgramArguments = [ "${packages.runtime}/bin/token-meter-server" ];
+            WorkingDirectory = runtimeRoot;
+            RunAtLoad = true;
+            KeepAlive = true;
+            ThrottleInterval = 5;
+            ProcessType = "Background";
+            EnvironmentVariables.HOME = homeDir;
+            StandardOutPath = "${logDir}/meter.log";
+            StandardErrorPath = "${logDir}/meter.err.log";
           };
-          StandardOutPath = "${logDir}/gate.log";
-          StandardErrorPath = "${logDir}/gate.error.log";
+        };
+
+        token-meter-menubar = lib.mkIf cfg.menuBar {
+          enable = true;
+          config = {
+            Label = "com.token-meter.menubar";
+            ProgramArguments = [
+              "${packages.menuBar}/Applications/Token Meter Menu Bar.app/Contents/MacOS/token-meter-menubar"
+            ];
+            WorkingDirectory = runtimeRoot;
+            RunAtLoad = true;
+            KeepAlive.SuccessfulExit = false;
+            ThrottleInterval = 5;
+            EnvironmentVariables.HOME = homeDir;
+            StandardOutPath = "${logDir}/menubar.log";
+            StandardErrorPath = "${logDir}/menubar.err.log";
+          };
+        };
+
+        token-meter-gate = lib.mkIf cfg.httpsGate {
+          enable = true;
+          config = {
+            Label = "dev.token-meter.gate";
+            ProgramArguments = [
+              (lib.getExe pkgs.caddy)
+              "run"
+              "--config"
+              "${caddyfile}"
+              "--adapter"
+              "caddyfile"
+            ];
+            RunAtLoad = true;
+            KeepAlive = true;
+            ThrottleInterval = 30;
+            ProcessType = "Background";
+            EnvironmentVariables = {
+              HOME = homeDir;
+              XDG_CONFIG_HOME = "${gateStateDir}/config";
+              XDG_DATA_HOME = "${gateStateDir}/data";
+            };
+            StandardOutPath = "${logDir}/gate.log";
+            StandardErrorPath = "${logDir}/gate.error.log";
+          };
         };
       };
 
-      # The catalog ships this entry disabled because it needs the local install
-      # that only this module performs — so the module enabling itself is exactly
-      # the condition that makes it usable. Without this, `enable = true` installs
-      # the dashboard but every agent's MCP config silently omits the server,
-      # since enabledServers filters `disabled` entries out.
-      programs.aiMcp.servers.token-meter.disabled = lib.mkForce false;
+      programs.aiMcp.servers.token-meter = {
+        command = "${packages.runtime}/bin/token-meter-mcp";
+        clientNameEnv = "TOKEN_METER_CALLER";
+        disabled = false;
+      };
     })
   ];
 }
