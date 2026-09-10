@@ -1,5 +1,5 @@
 {
-  description = "AI CLI ecosystem for Claude, Gemini, Copilot, and Codex (Nix flake)";
+  description = "AI CLI ecosystem for Claude, Gemini, Copilot, and Codex";
 
   # Binary cache for the llm-agents.nix input below. Without it every agent CLI
   # is a from-source build; with it they are all substituted.
