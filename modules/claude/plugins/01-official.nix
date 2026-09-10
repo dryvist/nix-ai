@@ -60,11 +60,13 @@ _:
     "claude-code-setup@claude-plugins-official" = true;
     "claude-md-management@claude-plugins-official" = false;
 
-    # Frontend Design — standalone single-skill plugin. The bundled
-    # variant inside anthropic-agent-skills now ships under the kept
-    # document-skills plugin only (example-skills disabled below). This
-    # standalone is off: no recorded use, and the bundled variant covers
-    # the same ground. Re-enable here, never in user settings.
+    # Frontend Design — standalone single-skill plugin, and it STAYS off.
+    # The skill itself is required everywhere, but it is delivered through
+    # programs.agentSkills.claudeAlwaysListed (~/.claude/skills), which reaches
+    # every repository rather than only those with the plugin enabled.
+    # Enabling this as well would list the same skill twice in one session.
+    # Two worktrees carry a local `true` here; do not let it ride along on a
+    # merge. Re-enable here, never in user settings.
     "frontend-design@claude-plugins-official" = false;
 
     # Code transformation skills — refactoring + simplification for docs
@@ -108,6 +110,11 @@ _:
     # everything else is repo-scoped, as skill groups already are.
     # ========================================================================
 
+    # Two of this marketplace's skills — frontend-design and canvas-design —
+    # are nonetheless required on every harness. They are wired by path in
+    # ../../agent-skills/default.nix (`local.*`), which bypasses the discovery
+    # gate this disable would otherwise close, so keeping all three plugins off
+    # costs nothing but the other 15 skills.
     "document-skills@anthropic-agent-skills" = false;
 
     # DISABLED — duplicates document-skills (identical 17 skills on
