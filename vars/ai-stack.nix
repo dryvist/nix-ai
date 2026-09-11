@@ -53,10 +53,6 @@
     oss = null;
   };
 
-  # Shared model catalog (cloud, SaaS subscription, local MLX quants, rolling aliases)
-  # defined once in vars/models.nix for cross-repo and cross-module consumers.
-  sharedModels = import ./models.nix;
-
   # Well-known LLM endpoints. Each value is a complete OpenAI-compatible
   # `/v1` base URL, read verbatim (no path munging) by whichever entry
   # `services.aiStack.llmEndpoint` selects — see modules/ai-stack/default.nix.
