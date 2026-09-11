@@ -98,6 +98,23 @@ in
       description = "Local skill files (name -> path to SKILL.md; the containing skill directory is deployed)";
     };
 
+    # Claude Code does not read the shared skill root, and the per-repo tree
+    # the direnv linker writes requires an AGENTS.md declaration a repository
+    # may not have. ~/.claude/skills is the only tree Claude reads in every
+    # repository unconditionally, so a skill that must always be reachable
+    # there is named here. Keep the list very short: each entry is listed in
+    # every Claude session, and a skill an enabled plugin already ships would
+    # be listed twice.
+    claudeAlwaysListed = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [
+        "canvas-design"
+        "frontend-design"
+      ];
+      example = [ "canvas-design" ];
+      description = "Skill names to link into ~/.claude/skills, which Claude Code reads in every repository.";
+    };
+
     # Categories group the generated INDEX.md so a reader can find a skill by
     # domain instead of scanning one flat list. Expressed as category -> skill
     # names rather than a per-skill field because nearly every skill is

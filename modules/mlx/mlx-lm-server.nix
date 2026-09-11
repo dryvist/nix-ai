@@ -35,6 +35,12 @@ let
   # mlx (Metal wheel) + harmony-patched mlx-lm + transformers, one atomic set.
   pythonEnv = (import ./python-overlay.nix { inherit pkgs versions; }).withPackages (ps: [
     ps.mlx-lm
+    # Required by the remote code of models whose tokenizer is not a plain
+    # transformers one — `kimi_linear` imports tiktoken at load time, so without
+    # it the server starts, answers /v1/models with 200, and then throws
+    # ImportError on the first generation. A model that lists but cannot
+    # generate is the failure this line prevents.
+    ps.tiktoken
   ]);
 
   launcher = ./scripts/mlx-lm-launch.py;

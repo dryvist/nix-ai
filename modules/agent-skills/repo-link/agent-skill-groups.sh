@@ -83,11 +83,15 @@ if [ "$cmd" = status ]; then
   exit 0
 fi
 
-# Skills an enabled Claude plugin already lists. Linking those into
+# Skills Claude already lists without this tree. Linking those into
 # .claude/skills lists them a SECOND time in the same session for no gain —
-# Claude reads its enabled plugins as well as this tree. Measured in
-# tofu-proxmox: 23 of 24 links were such duplicates and cost 2,988 tokens of
-# every session in that repository.
+# Claude reads its enabled plugins and ~/.claude/skills as well as this tree.
+# Measured in tofu-proxmox: 23 of 24 links were such duplicates and cost 2,988
+# tokens of every session in that repository.
+#
+# Two sources, same consequence: a skill from an enabled plugin, and a skill
+# linked into ~/.claude/skills (which Claude reads in EVERY repository, so a
+# per-repo link of the same name is always redundant).
 #
 # The other five harnesses have no plugin system to fall back on, so this
 # applies to .claude/skills ONLY. Dropping a name from .agents/skills would
@@ -116,6 +120,15 @@ for market in glob.glob(f"{home}/.claude/plugins/marketplaces/*"):
 print("\n".join(sorted(names)))
 EOPY
   )"
+fi
+
+# Anything in the user-global tree Claude always reads. Names only; a real
+# directory there counts exactly as much as a symlink, since Claude lists both.
+if [ -d "$HOME/.claude/skills" ]; then
+  for s in "$HOME/.claude/skills"/*; do
+    [ -e "$s/SKILL.md" ] || continue
+    claude_provided="${claude_provided:+$claude_provided$'\n'}$(basename "$s")"
+  done
 fi
 
 tracked="$(git ls-files -- "${trees[@]}" 2>/dev/null || true)"

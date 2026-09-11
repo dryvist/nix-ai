@@ -1,5 +1,27 @@
 # Changelog
 
+## [5.11.0](https://github.com/dryvist/nix-ai/compare/v5.10.0...v5.11.0) (2026-09-10)
+
+
+### Features
+
+* **token-meter:** manage runtime declaratively ([#2106](https://github.com/dryvist/nix-ai/issues/2106)) ([dbd8fcf](https://github.com/dryvist/nix-ai/commit/dbd8fcfd587b7dcd7cfde0af3a35e4b1fa5c0d56))
+
+## [5.10.0](https://github.com/dryvist/nix-ai/compare/v5.9.1...v5.10.0) (2026-09-10)
+
+
+### Features
+
+* **agent-skills:** deliver frontend-design and canvas-design to every harness ([#2101](https://github.com/dryvist/nix-ai/issues/2101)) ([d232732](https://github.com/dryvist/nix-ai/commit/d232732798d6199cd9f13b53a62ddc3ef5ea3725))
+
+## [5.9.1](https://github.com/dryvist/nix-ai/compare/v5.9.0...v5.9.1) (2026-09-10)
+
+
+### Bug Fixes
+
+* **ai-stack:** check role-name resolution and wire the drift check to run ([#2095](https://github.com/dryvist/nix-ai/issues/2095)) ([12cadb8](https://github.com/dryvist/nix-ai/commit/12cadb81be532bc4d894968e4054ff31e4cd3509))
+* **mlx:** declare tiktoken so remote-code tokenizers can load ([#2094](https://github.com/dryvist/nix-ai/issues/2094)) ([a3ecde0](https://github.com/dryvist/nix-ai/commit/a3ecde09c070e02b77488e9a9dfb2ea000fb96b5))
+
 ## [5.9.0](https://github.com/dryvist/nix-ai/compare/v5.8.1...v5.9.0) (2026-09-06)
 
 

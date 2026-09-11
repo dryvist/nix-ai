@@ -31,6 +31,12 @@
 # `skills-registry` is kept unconditionally: without it the tier is a trapdoor,
 # because nothing in the session would name the skills it has hidden.
 #
+# TWO LISTS. `measured` is what the pipeline above regenerates, wholesale.
+# `directed` is what a person required to stay listed regardless of how often
+# it has been invoked; it is separate precisely because the regeneration
+# rewrites `measured` end to end and would otherwise delete it. Regenerating
+# means replacing `measured` only.
+#
 # Cost of being listed, measured in nix-ai: ~518 tokens of every session for a
 # skill with a long description, ~98 on average, against ~10 for manual-invoke.
 #
@@ -42,56 +48,66 @@
 # tells a session to hand bulk reading, summarizing and extraction to a local
 # model instead of spending premium context on it. Listing costs ~100 tokens a
 # session; not listing it costs every delegation that never happens. If a
-# future entry needs the same override, put it here with its own reason —
-# never by loosening the measured rule above.
-[
-  "ai-observability-goal"
-  "brainstorming"
-  "claude-api"
-  "claude-skill-authoring"
-  "delegate-to-ai"
-  "dispatching-parallel-agents"
-  "extracting-session-data"
-  "finalize-pr"
-  "gemini"
-  "gh-cli-patterns"
-  "git-flow-next"
-  "github-code-search"
-  "github-workflow-security-patterns"
-  "goal"
-  "handoff"
-  "homelab-runbooks"
-  "infrastructure-standards"
-  "llm-router-ops"
-  "local-subagents"
-  "merge-pr"
-  "native-first"
-  "openbao-secrets"
-  "pdf"
-  "ponytail"
-  "pr-sweep"
-  "pre-commit-architecture"
-  "premium-agent-orchestration"
-  "promote-release"
-  "prune-branches"
-  "receiving-code-review"
-  "refresh-repo"
-  "replan"
-  "resolve-pr-threads"
-  "retrospecting"
-  "screenpipe"
-  "session-status"
-  "shared-workflow-org-refs"
-  "ship"
-  "skills-registry"
-  "splunk-homelab"
-  "sync-inventory"
-  "sync-main"
-  "systematic-debugging"
-  "toggl-pdf-to-csv"
-  "token-breakdown"
-  "track-followups"
-  "using-git-worktrees"
-  "wrap-up"
-  "writing-clearly-and-concisely"
-]
+# future entry needs the same override, add it to `directed` with its own
+# reason — never by loosening the measured rule above.
+let
+  measured = [
+    "ai-observability-goal"
+    "brainstorming"
+    "claude-api"
+    "claude-skill-authoring"
+    "delegate-to-ai"
+    "dispatching-parallel-agents"
+    "extracting-session-data"
+    "finalize-pr"
+    "gemini"
+    "gh-cli-patterns"
+    "git-flow-next"
+    "github-code-search"
+    "github-workflow-security-patterns"
+    "goal"
+    "handoff"
+    "homelab-runbooks"
+    "infrastructure-standards"
+    "llm-router-ops"
+    "merge-pr"
+    "native-first"
+    "openbao-secrets"
+    "pdf"
+    "ponytail"
+    "pr-sweep"
+    "pre-commit-architecture"
+    "premium-agent-orchestration"
+    "promote-release"
+    "prune-branches"
+    "receiving-code-review"
+    "refresh-repo"
+    "replan"
+    "resolve-pr-threads"
+    "retrospecting"
+    "screenpipe"
+    "session-status"
+    "shared-workflow-org-refs"
+    "ship"
+    "skills-registry"
+    "splunk-homelab"
+    "sync-inventory"
+    "sync-main"
+    "systematic-debugging"
+    "toggl-pdf-to-csv"
+    "token-breakdown"
+    "track-followups"
+    "using-git-worktrees"
+    "wrap-up"
+    "writing-clearly-and-concisely"
+  ];
+
+  # Listed by directive, not by invocation count. Each entry carries its
+  # reason in the header above.
+  directed = [
+    "canvas-design"
+    "frontend-design"
+    "local-subagents"
+  ];
+in
+measured ++ directed
