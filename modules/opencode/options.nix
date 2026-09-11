@@ -40,11 +40,15 @@ in
 
     extraModels = lib.mkOption {
       type = lib.types.listOf lib.types.str;
-      default = (import ../../vars/models.nix).allExtraModels;
+      default = [ ];
       description = ''
-        Physical model IDs and rolling aliases exposed alongside role aliases
-        under the LiteLLM provider in OpenCode. Sourced from the committed
-        root-level variable file vars/models.nix.
+        Physical model IDs or router aliases exposed alongside the router
+        role aliases (`lead`, `subagent`, `judge`, `cheap`) under the LiteLLM
+        provider in OpenCode. Empty by default: the role aliases already
+        cover every selectable tier. A committed list here would duplicate
+        the router's own registry and drift from it — read the live menu
+        (`GET /v1/models` on the router) for a physical id instead of
+        hardcoding one.
       '';
     };
   }
