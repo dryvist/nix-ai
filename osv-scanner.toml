@@ -82,3 +82,20 @@ nltk 3.9.4 (CVSS 7.5) — local file load (alias of GHSA-p4gq-832x-fm9v).
 Local AV. Already on latest published version; no upstream fix exists.
 Tracked in JacobPEvans/nix-ai#812.
 """
+
+# ============================================================================
+# nltk 3.10.3 — pathsec model-path sandbox bypass (unpatched)
+# ============================================================================
+# Lockfile: orchestrator/uv.lock
+# Local AV — model import/export APIs use raw open() instead of pathsec helpers.
+# Affected published versions include 3.9.4 and 3.10.x; no patched release yet.
+# Tracked in: https://github.com/JacobPEvans/nix-ai/issues/812
+
+[[IgnoredVulns]]
+id = "PYSEC-2026-3740"
+ignoreUntil = 2026-12-11
+reason = """
+nltk 3.10.3 — PYSEC-2026-3740 pathsec model-path sandbox bypass.
+Local AV (TransitionParser / AveragedPerceptron / related save/load APIs).
+No patched upstream version as of 2026-09-11. Tracked in JacobPEvans/nix-ai#812.
+"""

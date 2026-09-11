@@ -63,6 +63,8 @@ let
     "cheap"
   ];
 
+  allLitellmModels = lib.unique (litellmRoles ++ cfg.extraModels);
+
   settings = {
     "$schema" = "https://opencode.ai/config.json";
     inherit permission;
@@ -70,7 +72,7 @@ let
   }
   # The primary agent's model is deliberately NOT set: it stays whatever the
   # user has chosen. Only the cheap background tier is repointed, plus the
-  # provider itself so `litellm/<role>` is selectable per agent.
+  # provider itself so `litellm/<role>` or `litellm/<model>` is selectable.
   // lib.optionalAttrs litellmLocal.enable {
     provider.litellm = {
       npm = "@ai-sdk/openai-compatible";
@@ -79,8 +81,8 @@ let
         baseURL = litellmLocal.baseUrl;
         apiKey = "{env:LITELLM_LOCAL_KEY}";
       };
-      models = lib.genAttrs litellmRoles (role: {
-        name = role;
+      models = lib.genAttrs allLitellmModels (name: {
+        inherit name;
       });
     };
     small_model = "litellm/cheap";
