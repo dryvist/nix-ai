@@ -187,11 +187,11 @@
   # `mcp__grep__searchGitHub` (query, language[], repo, path, useRegexp,
   # matchCase, matchWholeWords).
   #
-  # Enabled everywhere on purpose: finding how a problem was already solved is
-  # the first rung of the native-first ladder, and a search tool that is only
-  # present in some harnesses is one nobody learns to reach for. There is no
-  # credential to scope and nothing to rotate; the only egress is the query
-  # string, which the `github-code-search` skill governs.
+  # Tier: on-demand. Rendered to ~/.claude/mcp-available/grep.json and attached
+  # on demand with `claude --mcp-config ~/.claude/mcp-available/grep.json` to avoid
+  # the token cost (5,474 tokens per session) on measured usage (117 calls across
+  # 1,651 transcripts). The only egress is the query string, governed by the
+  # `github-code-search` skill.
   grep = {
     type = "http";
     url = "https://mcp.grep.app";
