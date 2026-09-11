@@ -37,6 +37,16 @@ in
       default = { };
       description = "Attrs merged into the opencode config (~/.config/opencode/opencode.json; wins over module defaults).";
     };
+
+    extraModels = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = (import ../../vars/models.nix).allExtraModels;
+      description = ''
+        Physical model IDs and rolling aliases exposed alongside role aliases
+        under the LiteLLM provider in OpenCode. Sourced from the committed
+        root-level variable file vars/models.nix.
+      '';
+    };
   }
   // mcpClient.mkClientOptions "OpenCode";
 }

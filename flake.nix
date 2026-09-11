@@ -1,5 +1,5 @@
 {
-  description = "AI CLI ecosystem for Claude, Gemini, Copilot, and Codex (Nix flake)";
+  description = "AI CLI ecosystem for Claude, Gemini, Copilot, and Codex";
 
   # Binary cache for the llm-agents.nix input below. Without it every agent CLI
   # is a from-source build; with it they are all substituted.
@@ -45,6 +45,13 @@
     # directly for cookbook command/agent discovery.
     claude-code-plugins = {
       url = "github:anthropics/claude-code";
+      flake = false;
+    };
+
+    # Token Meter has no flake. Its source is staged and wrapped by the
+    # Home Manager module; the weekly lock workflow advances this main pin.
+    token-meter-src = {
+      url = "github:splunk/token-meter/main";
       flake = false;
     };
 
@@ -229,6 +236,7 @@
       vct-splunk-cli,
       herdr-remote-src,
       herdr-hail-src,
+      token-meter-src,
       ...
     }:
     let
@@ -272,6 +280,7 @@
           awesome-claude-skills
           vct-cribl-cli
           vct-splunk-cli
+          token-meter-src
           ;
       };
 
