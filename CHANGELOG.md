@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.12.0](https://github.com/dryvist/nix-ai/compare/v5.11.0...v5.12.0) (2026-09-11)
+
+
+### Features
+
+* **opencode:** declaratively expose real LiteLLM models and rolling aliases ([#2110](https://github.com/dryvist/nix-ai/issues/2110)) ([6a182cd](https://github.com/dryvist/nix-ai/commit/6a182cdb95fdbda45368bb291196f130bd6e9786))
+
 ## [5.11.0](https://github.com/dryvist/nix-ai/compare/v5.10.0...v5.11.0) (2026-09-10)
 
 
