@@ -90,6 +90,7 @@ Tracked in JacobPEvans/nix-ai#812.
 # Local AV — model import/export APIs use raw open() instead of pathsec helpers.
 # Affected published versions include 3.9.4 and 3.10.x; no patched release yet.
 # Tracked in: https://github.com/JacobPEvans/nix-ai/issues/812
+# Dependabot: https://github.com/dryvist/nix-ai/security/dependabot/25
 
 [[IgnoredVulns]]
 id = "PYSEC-2026-3740"
@@ -98,4 +99,5 @@ reason = """
 nltk 3.10.3 — PYSEC-2026-3740 pathsec model-path sandbox bypass.
 Local AV (TransitionParser / AveragedPerceptron / related save/load APIs).
 No patched upstream version as of 2026-09-11. Tracked in JacobPEvans/nix-ai#812.
+Dependabot alert: https://github.com/dryvist/nix-ai/security/dependabot/25
 """
