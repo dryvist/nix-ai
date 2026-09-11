@@ -40,18 +40,11 @@ in
 
     extraModels = lib.mkOption {
       type = lib.types.listOf lib.types.str;
-      default = [
-        "deepseek/deepseek-v4.1-flash"
-        "deepseek-flash"
-        "qwen/qwen-max"
-        "qwen-max"
-        "qwen3.8-max"
-        "z-ai/glm-5.3-flash"
-        "minimax/minimax-m3"
-      ];
+      default = (import ../../vars/models.nix).allExtraModels;
       description = ''
         Physical model IDs and rolling aliases exposed alongside role aliases
-        under the LiteLLM provider in OpenCode.
+        under the LiteLLM provider in OpenCode. Sourced from the committed
+        root-level variable file vars/models.nix.
       '';
     };
   }
