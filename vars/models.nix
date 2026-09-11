@@ -1,7 +1,10 @@
 # Central Model Catalog — Pure Data
 #
-# Committed root-level variable file defining external, cloud, and local models
+# Committed root-level variable file defining external, cloud, and router models
 # shared across agent modules and tooling (OpenCode, LiteLLM local, etc.).
+#
+# Note: Physical local MLX models are managed exclusively by modules/mlx/catalog-data*.nix
+# and referenced via ai-stack capability roles to comply with the no-hardcoded-model-id lint gate.
 #
 # Edit this file to add, remove, or update models across all tooling.
 {
@@ -16,14 +19,7 @@
     "minimax/minimax-m3"
   ];
 
-  # MLX local community models
-  mlxModels = [
-    "mlx-community/Qwen3.8-27B-4bit"
-    "mlx-community/Qwen3.6-35B-A3B-4bit"
-    "mlx-community/Qwen3.5-9B-MLX-4bit"
-  ];
-
-  # Combined models exposed in interactive coding tools (e.g. OpenCode)
+  # Combined extra models to expose in interactive coding tools (e.g. OpenCode)
   allExtraModels = [
     "deepseek/deepseek-v4.1-flash"
     "deepseek-flash"
@@ -32,8 +28,5 @@
     "qwen3.8-max"
     "z-ai/glm-5.3-flash"
     "minimax/minimax-m3"
-    "mlx-community/Qwen3.8-27B-4bit"
-    "mlx-community/Qwen3.6-35B-A3B-4bit"
-    "mlx-community/Qwen3.5-9B-MLX-4bit"
   ];
 }
