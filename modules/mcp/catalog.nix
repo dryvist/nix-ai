@@ -183,6 +183,5 @@ in
     codexMcp
     dopplerRun
     versions
-    homeDirectory
     ;
 }

@@ -109,6 +109,32 @@ let
 
   stableLinks = import ../lib/stable-links.nix { inherit lib pkgs; };
 
+  # Claude Code does not read the shared root. Verified in
+  # docs/architecture/agent-context-architecture.md: a skill present only in
+  # ~/.agents/skills never appears in a Claude session's listing. Claude's three
+  # trees are its enabled plugins, <repo>/.claude/skills, and ~/.claude/skills.
+  #
+  # The per-repo tree cannot carry a skill that must be present everywhere: the
+  # direnv linker (repo-link/agent-skill-groups.sh) exits unless the repository
+  # has an AGENTS.md, and links only the groups that file declares. Many
+  # repositories declare none. ~/.claude/skills is the only tree Claude reads in
+  # every repository with no declaration and no plugin, so a skill required
+  # everywhere is linked there.
+  #
+  # Only skills that BOTH must be everywhere and reach Claude no other way.
+  # Not the whole `core` group: most of core already ships from an enabled
+  # plugin, and linking those here would list each one twice in the same
+  # session — the 2,988-token duplication the repo linker exists to avoid.
+  #
+  # skillSources (not deployedFlakeInputs) is the lookup, so a host that gates
+  # activeGroups away resolves a real store path rather than a dangling link;
+  # the filter drops a name whose source is genuinely absent.
+  claudeAlwaysLinks = lib.listToAttrs (
+    map (n: lib.nameValuePair ".claude/skills/${n}" skillSources.${n}) (
+      builtins.filter (n: skillSources ? ${n}) cfg.claudeAlwaysListed
+    )
+  );
+
   # Skill directories link straight to their own store paths rather than going
   # through home.file. home.file routes everything through the aggregate
   # home-manager-files derivation, whose hash changes on ANY home-config change,
@@ -129,7 +155,11 @@ let
 in
 {
   config = lib.mkIf cfg.enable {
-    programs.agentSkills.deployedSkillPaths = stableSkillLinks;
+    # The delivery map is every link this module actually places, which is what
+    # the regression checks assert against. The Claude entries belong here for
+    # the same reason: a claudeAlwaysListed name whose source went missing
+    # would otherwise drop out silently instead of failing a check.
+    programs.agentSkills.deployedSkillPaths = stableSkillLinks // claudeAlwaysLinks;
 
     assertions = [
       {
@@ -226,7 +256,7 @@ in
           $DRY_RUN_CMD rmdir "$inactive_root" 2>/dev/null || true
         '';
 
-        agentSkillStableLinks = stableLinks.mkStableLinks "agent-skills" stableSkillLinks;
+        agentSkillStableLinks = stableLinks.mkStableLinks "agent-skills" cfg.deployedSkillPaths;
       };
 
       # Repo-level layer: links a repository's declared groups into its own

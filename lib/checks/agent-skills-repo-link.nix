@@ -68,6 +68,19 @@
         printf -- '---\nskill-groups: [core]\nmcp-servers: [vik]\n---\n' > AGENTS.md
         agent-skill-groups link
         [ "$(jq -r '.mcpServers | keys | join(",")' .mcp.json)" = "mine" ]
+
+        # A skill in ~/.claude/skills is already listed in EVERY Claude session,
+        # so linking it per-repo lists it twice for no gain. It must still be
+        # linked into .agents/skills, which Claude does not read and the other
+        # five harnesses do.
+        rm -rf .agents/skills .claude/skills
+        mkdir -p "$HOME/.claude/skills/b"
+        touch "$HOME/.claude/skills/b/SKILL.md"
+        printf -- '---\nskill-groups: [core]\n---\n' > AGENTS.md
+        agent-skill-groups link
+        [ ! -e .claude/skills/b ] && [ ! -L .claude/skills/b ]
+        [ "$(readlink .claude/skills/a)" = "$store/a" ]
+        [ "$(readlink .agents/skills/b)" = "$store/b" ]
         touch "$out"
       '';
 }

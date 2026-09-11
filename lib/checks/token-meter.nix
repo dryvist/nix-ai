@@ -7,6 +7,9 @@
   src,
   hmConfig,
   hmConfigTokenMeter,
+  hmConfigTokenMeterLegacy,
+  hmConfigTokenMeterLegacyDisabled,
+  hmConfigTokenMeterNoMenu,
 }:
 let
   helpers = import ./helpers.nix { inherit pkgs; };
@@ -56,11 +59,82 @@ in
       || throw "token-meter gate must set XDG_DATA_HOME and XDG_CONFIG_HOME so its Caddy storage stays separate from llm-gate's";
     helpers.mkMarker "check-token-meter-gate" "token-meter gate: ${route} verified";
 
-  token-meter-gate-negative =
+  token-meter-disabled =
     assert
       !(hmConfig.config.launchd.agents ? token-meter-gate)
-      || throw "token-meter gate must NOT be defined when programs.token-meter.enable = false (default)";
-    helpers.mkMarker "check-token-meter-gate-negative" "token-meter disabled: gate absent";
+      && !(hmConfig.config.launchd.agents ? token-meter-server)
+      && !(hmConfig.config.launchd.agents ? token-meter-menubar)
+      || throw "token-meter must define no agents when programs.token-meter.disabled = true (default)";
+    assert
+      !(hmConfig.config.programs.aiMcp.servers ? token-meter)
+      || hmConfig.config.programs.aiMcp.servers.token-meter.disabled
+      || throw "token-meter MCP must stay disabled when programs.token-meter.disabled = true";
+    helpers.mkMarker "check-token-meter-disabled" "token-meter disabled: all agents and MCP absent";
+
+  token-meter-runtime =
+    let
+      cfg = hmConfigTokenMeter.config;
+      server = cfg.launchd.agents.token-meter-server.config;
+      menubar = cfg.launchd.agents.token-meter-menubar.config;
+      mcp = cfg.programs.aiMcp.servers.token-meter;
+      serverCommand = builtins.elemAt server.ProgramArguments 0;
+      menuCommand = builtins.elemAt menubar.ProgramArguments 0;
+      expectedSettings = pkgs.writeText "token-meter-settings.json" (
+        builtins.toJSON {
+          updates = {
+            enabled = false;
+            auto_install = false;
+          };
+        }
+      );
+    in
+    assert cfg.programs.token-meter.disabled == false || throw "token-meter fixture must be enabled";
+    assert
+      server.Label == "com.token-meter.server"
+      || throw "token-meter server must replace the upstream label";
+    assert
+      menubar.Label == "com.token-meter.menubar"
+      || throw "token-meter menu bar must replace the upstream label";
+    assert
+      pkgs.lib.hasPrefix "/nix/store/" serverCommand
+      || throw "token-meter server must run from the Nix store";
+    assert
+      pkgs.lib.hasPrefix "/nix/store/" menuCommand
+      || throw "token-meter menu bar must run from the Nix store";
+    assert
+      pkgs.lib.hasPrefix "/nix/store/" mcp.command || throw "token-meter MCP must run from the Nix store";
+    assert mcp.disabled == false || throw "token-meter MCP must be enabled with the dashboard";
+    assert
+      pkgs.lib.hasInfix "merge-json-settings.sh" cfg.home.activation.tokenMeterSettings.data
+      || throw "token-meter settings must use the shared writable JSON merge helper";
+    assert
+      pkgs.lib.hasInfix (builtins.unsafeDiscardStringContext "${expectedSettings}") (
+        builtins.unsafeDiscardStringContext cfg.home.activation.tokenMeterSettings.data
+      )
+      || throw "token-meter settings must disable upstream checks and automatic installation";
+    helpers.mkMarker "check-token-meter-runtime" "token-meter runtime: ${serverCommand}; Nix-owned menu bar, MCP, and writable settings merge verified";
+
+  token-meter-switches =
+    let
+      cfg = hmConfigTokenMeterNoMenu.config;
+    in
+    assert
+      cfg.launchd.agents ? token-meter-server || throw "enabled token-meter must define its server";
+    assert
+      !(cfg.launchd.agents ? token-meter-menubar)
+      || throw "menuBar = false must omit only the menu bar agent";
+    assert
+      !(cfg.launchd.agents ? token-meter-gate) || throw "httpsGate = false must omit only the gate agent";
+    helpers.mkMarker "check-token-meter-switches" "token-meter switches: server present with menu bar and gate omitted";
+
+  token-meter-enable-compat =
+    assert
+      hmConfigTokenMeterLegacy.config.programs.token-meter.disabled == false
+      || throw "legacy enable = true must map to disabled = false";
+    assert
+      hmConfigTokenMeterLegacyDisabled.config.programs.token-meter.disabled == true
+      || throw "legacy enable = false must map to disabled = true";
+    helpers.mkMarker "check-token-meter-enable-compat" "token-meter compatibility: legacy enable maps by inversion";
 
   # token-meter labels every answer with the runtime that asked, so each client
   # must render its own name — the one value the shared catalog cannot hold.

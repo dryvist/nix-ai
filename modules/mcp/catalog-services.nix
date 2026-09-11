@@ -9,7 +9,6 @@
   codexMcp,
   dopplerRun,
   versions,
-  homeDirectory,
 }:
 
 {
@@ -206,12 +205,4 @@
     url = "http://localhost:30030/mcp";
   };
 
-  # splunk/token-meter; programs.token-meter clears this once it installs.
-  # It labels each answer with the agent runtime that asked, so every client
-  # sends its own name rather than a value shared across the catalog.
-  token-meter = {
-    command = "${homeDirectory}/Library/Application Support/Token Meter/runtime/scripts/run-token-meter-mcp";
-    clientNameEnv = "TOKEN_METER_CALLER";
-    disabled = true;
-  };
 }

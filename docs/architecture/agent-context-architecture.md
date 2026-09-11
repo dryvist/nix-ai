@@ -75,6 +75,21 @@ The consequence is the thing to remember: **`programs.agentSkills.activeGroups`
 scopes six harnesses and does nothing for Claude.** Claude's levers are its
 plugin set, `~/.claude/skills`, and `<repo>/.claude/skills`.
 
+### `~/.claude/skills` is the only unconditional Claude tree
+
+Two of Claude's three trees are conditional. A plugin skill is present only where
+that plugin is enabled, and enabling one for a single skill buys its whole bundle.
+`<repo>/.claude/skills` is written by the direnv linker, which exits unless the
+repository has an `AGENTS.md` and links only the groups it declares; many declare
+none.
+
+So a skill that must reach Claude in *every* repository is linked into
+`~/.claude/skills` — `programs.agentSkills.claudeAlwaysListed`. Keep the list very
+short: each entry is listed in every session and every subagent, and a name an
+enabled plugin already ships would be listed twice. The repo linker excludes both
+sources from `<repo>/.claude/skills` for that reason. The other six harnesses need
+nothing extra; they read the shared root unconditionally.
+
 ## The three tiers
 
 Every skill sits in exactly one tier. The default is the cheapest one.

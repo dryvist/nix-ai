@@ -42,6 +42,7 @@ in
       "root"
       "groups"
       "activeGroups"
+      "claudeAlwaysListed"
     ];
   };
 
@@ -72,6 +73,33 @@ in
       {
         name = "agentSkills.categories.populated";
         actual = cfg.categories != { };
+        expected = true;
+      }
+      # frontend-design and canvas-design must reach every harness. Nothing
+      # else delivers them: their marketplace has no enabled Claude plugin, so
+      # discovery skips it, and Claude reads neither the shared root nor a
+      # per-repo tree in a repository with no AGENTS.md. Losing either half —
+      # the local source or the ~/.claude/skills listing — silently removes the
+      # skill from a harness rather than failing, so both are pinned.
+      {
+        name = "agentSkills.local.design-skills";
+        actual = cfg.local ? frontend-design && cfg.local ? canvas-design;
+        expected = true;
+      }
+      {
+        name = "agentSkills.claudeAlwaysListed";
+        actual = builtins.sort builtins.lessThan cfg.claudeAlwaysListed;
+        expected = [
+          "canvas-design"
+          "frontend-design"
+        ];
+      }
+      # The names above resolving to nothing is the silent failure: the option
+      # still reads correctly while ~/.claude/skills stays empty and Claude
+      # alone loses the skills. Assert the delivered links, not the intent.
+      {
+        name = "agentSkills.deployedSkillPaths.claude";
+        actual = builtins.all (n: cfg.deployedSkillPaths ? ".claude/skills/${n}") cfg.claudeAlwaysListed;
         expected = true;
       }
       {
