@@ -48,6 +48,23 @@ let
     endpoints = effectiveEndpoints;
   };
   registryJson = pkgs.writeText "ai-stack-registry.json" (builtins.toJSON populatedRegistry);
+
+  # The runtime wrapper and its scheduled launchd agent — split out for the
+  # same reason modules/litellm-local splits commands.nix/launchd.nix out of
+  # its own default.nix: keeps this file under the .file-size.yml ceiling,
+  # and groups by responsibility (registry data here, runnable executable
+  # there) rather than by size.
+  commands = import ./commands.nix {
+    inherit pkgs lib;
+    aiStack = cfg;
+  };
+
+  # Defined here rather than inside launchd.nix because the activation below
+  # must create it and the agent must write into it. launchd does not create
+  # the parent of StandardOutPath and a job whose log directory is missing
+  # fails to spawn silently — which would leave this check wired but never
+  # running, the very silence it exists to end. One definition, two uses.
+  driftLogDir = "${config.home.homeDirectory}/Library/Logs/ai-stack-drift-check";
 in
 {
   imports = [ ./endpoint.nix ];
@@ -118,9 +135,27 @@ in
     };
   };
 
-  config.home.activation.writeAiStackRegistry = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    target="$HOME/.config/ai-stack/registry.json"
-    $DRY_RUN_CMD mkdir -p "$(dirname "$target")"
-    $DRY_RUN_CMD install -m 0644 ${registryJson} "$target"
-  '';
+  config = {
+    home = {
+      activation.writeAiStackRegistry = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        target="$HOME/.config/ai-stack/registry.json"
+        $DRY_RUN_CMD mkdir -p "$(dirname "$target")"
+        $DRY_RUN_CMD install -m 0644 ${registryJson} "$target"
+        $DRY_RUN_CMD mkdir -p ${lib.escapeShellArg driftLogDir}
+      '';
+
+      # The drift check was, until this change, the only file in
+      # modules/scripts with no reference anywhere in the repo: nothing built
+      # it, nothing scheduled it, no flake check ran it. Shipping the wrapper
+      # unconditionally (this module has no enable flag to gate it on) and
+      # scheduling it below is what gives an orphaned checker an owner.
+      packages = [ commands.ai-stack-drift-check ];
+    };
+
+    launchd.agents = import ./launchd.nix {
+      inherit config;
+      driftCheck = commands.ai-stack-drift-check;
+      logDir = driftLogDir;
+    };
+  };
 }
