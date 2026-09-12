@@ -67,10 +67,6 @@ let
     }
   ];
 
-  codexHooksJson = pkgs.writers.writeJSON "herdr-codex-hooks.json" {
-    hooks.SessionStart = [ { hooks = [ (hookEntry codexHookPath) ]; } ];
-  };
-
   opencodeTuiConfig = pkgs.writers.writeJSON "herdr-opencode-tui.jsonc" {
     plugin = [ "./herdr-tui-session.js" ];
   };
@@ -91,7 +87,6 @@ in
               source = "${payloads}/codex/herdr-agent-state.sh";
               executable = true;
             };
-            ".codex/hooks.json".source = codexHooksJson;
           })
           (lib.mkIf (wanted "opencode") {
             "${opencodeDir}/plugins/herdr-agent-state.js".source = "${payloads}/opencode/herdr-agent-state.js";
@@ -113,9 +108,12 @@ in
         ];
       })
 
-      # Codex reads hooks.json only when this feature flag is on.
+      # Contributed through programs.codex.hooks.events rather than writing
+      # ~/.codex/hooks.json directly: modules/codex/settings.nix is the one
+      # renderer for that file (see its option, modules/codex/options.nix),
+      # and it also flips features.hooks on for us once events is non-empty.
       (lib.mkIf (wanted "codex") {
-        programs.codex.features.hooks = true;
+        programs.codex.hooks.events.SessionStart = [ { hooks = [ (hookEntry codexHookPath) ]; } ];
       })
     ]
   );
