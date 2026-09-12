@@ -49,6 +49,15 @@ expect_deny "relative sibling via .." \
 expect_deny "git -C with unrelated target" \
   '{"tool_name":"Bash","tool_input":{"command":"git -C /repo worktree add /tmp/x"},"cwd":"/other"}'
 
+expect_deny "chained: earlier command, denied worktree add" \
+  '{"tool_name":"Bash","tool_input":{"command":"git status && git worktree add /tmp/x"},"cwd":"/repo"}'
+
+expect_allow "chained: earlier command, allowed worktree add" \
+  '{"tool_name":"Bash","tool_input":{"command":"git fetch origin && git worktree add .worktrees/y origin/develop"},"cwd":"/repo"}'
+
+expect_deny "escape via .. after the allowed dir" \
+  '{"tool_name":"Bash","tool_input":{"command":"git worktree add .worktrees/../../elsewhere"},"cwd":"/repo"}'
+
 expect_allow "relative under .claude/worktrees" \
   '{"tool_name":"Bash","tool_input":{"command":"git worktree add .claude/worktrees/x"},"cwd":"/repo"}'
 

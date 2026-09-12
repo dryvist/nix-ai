@@ -14,9 +14,16 @@ let
 
   guard = pkgs.writeShellApplication {
     name = "worktree-add-guard";
+    # gnused/gnugrep: the script's `sed -E 's/…/\n/g'` needs a GNU sed (BSD
+    # sed inserts a literal `n`, not a newline) and its `\b` word boundaries
+    # need GNU grep. Codex's own PATH when it invokes this hook is
+    # unverified, so every tool the script calls must ship with it rather
+    # than be assumed present.
     runtimeInputs = [
       pkgs.jq
       pkgs.git
+      pkgs.gnused
+      pkgs.gnugrep
     ];
     text = builtins.readFile ./worktree-add-guard.sh;
   };
