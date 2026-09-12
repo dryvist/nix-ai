@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.17.0](https://github.com/dryvist/nix-ai/compare/v5.16.0...v5.17.0) (2026-09-12)
+
+
+### Features
+
+* **hooks:** deny git worktree add outside .worktrees for Claude Code and Codex ([#2143](https://github.com/dryvist/nix-ai/issues/2143)) ([41c84e4](https://github.com/dryvist/nix-ai/commit/41c84e4acf3e1f386999e34824b49f98203d754f))
+* **telemetry:** stamp enduser.id on every OTEL record from the home-manager username ([#2144](https://github.com/dryvist/nix-ai/issues/2144)) ([d1981e3](https://github.com/dryvist/nix-ai/commit/d1981e32303e4cf128ddcc3734a97e83dd8bd932))
+
 ## [5.16.0](https://github.com/dryvist/nix-ai/compare/v5.15.0...v5.16.0) (2026-09-12)
 
 
