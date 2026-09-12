@@ -177,21 +177,32 @@ let
     };
   };
 
-  # The `ox` profile is a FILE, not a table in the config above. Codex dropped
+  # A Codex profile is a FILE, not a table in the config above. Codex dropped
   # the legacy `[profiles.<name>]` table (and the top-level `profile =`
   # selector) in 0.134.0: a config still carrying one is refused outright, so
-  # `--profile ox` failed to start rather than falling back. Each profile now
-  # lives in its own `~/.codex/<name>.config.toml` with its keys at the TOP
-  # level, selected the same way on the command line.
-  oxProfileAttrs = {
-    model = "subagent";
-    model_provider = "litellm";
-  };
+  # `--profile <name>` failed to start rather than falling back. Each profile
+  # now lives in its own `~/.codex/<name>.config.toml` with its keys at the
+  # TOP level, selected the same way on the command line: `codex --profile
+  # judge`. One profile per router capability alias
+  # (modules/litellm-local/aliases.nix) — the committed contract every
+  # nix-ai consumer renders from — replacing the single hardcoded `ox`
+  # profile this used to be.
+  litellmRoles = import ../litellm-local/aliases.nix;
 
-  oxProfileJson = pkgs.writeText "codex-ox-profile.json" (builtins.toJSON oxProfileAttrs);
-  oxProfileToml = pkgs.runCommand "codex-ox.config.toml" { nativeBuildInputs = [ pkgs.yj ]; } ''
-    yj -jt < ${oxProfileJson} > $out
-  '';
+  litellmProfileAttrs = lib.genAttrs litellmRoles (role: {
+    model = role;
+    model_provider = "litellm";
+  });
+
+  litellmProfileTomls = lib.mapAttrs (
+    role: attrs:
+    let
+      json = pkgs.writeText "codex-${role}-profile.json" (builtins.toJSON attrs);
+    in
+    pkgs.runCommand "codex-${role}.config.toml" { nativeBuildInputs = [ pkgs.yj ]; } ''
+      yj -jt < ${json} > $out
+    ''
+  ) litellmProfileAttrs;
 
   configJson = pkgs.writeText "codex-config.json" (builtins.toJSON configAttrs);
   configToml = pkgs.runCommand "codex-config.toml" { nativeBuildInputs = [ pkgs.yj ]; } ''
@@ -206,6 +217,7 @@ in
       programs.codex = {
         projectDocFallbackFilenames = configAttrs.project_doc_fallback_filenames;
         mcpServerNames = lib.attrNames mcpServers;
+        litellmProfileNames = lib.attrNames litellmProfileTomls;
         otelExporterKinds = {
           trace = if tracesEndpoint == null then "none" else "otlp-http";
           metrics = if metricsEndpoint == null then "none" else "otlp-http";
@@ -240,9 +252,11 @@ in
         file = {
           "${configDir}/rules/default.rules".text = formatters.codex.formatRulesFile permissions;
         }
-        // lib.optionalAttrs litellmLocal.enable {
-          "${configDir}/ox.config.toml".source = oxProfileToml;
-        }
+        // lib.optionalAttrs litellmLocal.enable (
+          lib.mapAttrs' (
+            role: toml: lib.nameValuePair "${configDir}/${role}.config.toml" { source = toml; }
+          ) litellmProfileTomls
+        )
         // lib.optionalAttrs (cfg.hooks.events != { }) {
           ".codex/hooks.json".source = pkgs.writers.writeJSON "codex-hooks.json" {
             hooks = cfg.hooks.events;

@@ -43,13 +43,20 @@ in
       default = [ ];
       description = ''
         Physical model IDs or router aliases exposed alongside the router
-        role aliases (`lead`, `subagent`, `judge`, `cheap`) under the LiteLLM
-        provider in OpenCode. Empty by default: the role aliases already
-        cover every selectable tier. A committed list here would duplicate
-        the router's own registry and drift from it — read the live menu
-        (`GET /v1/models` on the router) for a physical id instead of
-        hardcoding one.
+        capability aliases (`modules/litellm-local/aliases.nix`) under the
+        LiteLLM provider in OpenCode. Empty by default: the alias list
+        already covers every selectable tier. A committed list here would
+        duplicate the router's own registry and drift from it — read the
+        live menu (`GET /v1/models` on the router) for a physical id instead
+        of hardcoding one.
       '';
+    };
+
+    litellmRoles = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      readOnly = true;
+      internal = true;
+      description = "Router capability aliases rendered into OpenCode's provider.litellm and agent tiers; read-only, sourced from modules/litellm-local/aliases.nix.";
     };
   }
   // mcpClient.mkClientOptions "OpenCode";
