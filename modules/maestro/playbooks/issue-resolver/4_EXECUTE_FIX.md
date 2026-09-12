@@ -17,10 +17,9 @@ Target repository: $MAESTRO_CURRENT_REPO
 - [ ] Read issue details from `selected-issue.json`
 - [ ] Extract issue number: `ISSUE_NUMBER=$(jq -r '.number' selected-issue.json)`
 - [ ] Create an isolated worktree: run `/refresh-repo`, then use the AI tool's
-      native worktree mechanism (Claude's `EnterWorktree` → `.claude/worktrees/`).
-      If creating one manually, place it **outside** the repo working tree (a
-      sibling of the clone), never as a child — `git worktree add` into the
-      checkout pollutes the main branch's working directory.
+      native worktree mechanism (Claude's `EnterWorktree`). Every worktree
+      lives at `<repo>/.worktrees/<name>/`; a manual one goes there too, via
+      an absolute path to `git worktree add`.
 - [ ] Analyze issue requirements thoroughly
 - [ ] Implement the fix following repository conventions
 - [ ] Add or update tests as appropriate
