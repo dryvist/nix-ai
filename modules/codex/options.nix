@@ -120,6 +120,13 @@ in
       description = "Project doc fallback filenames emitted to Codex config.toml; read-only.";
     };
 
+    litellmProfileNames = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      readOnly = true;
+      internal = true;
+      description = "Router capability aliases (modules/litellm-local/aliases.nix) rendered as Codex --profile <alias> files; read-only.";
+    };
+
     # Approval policy
     approvalPolicy = lib.mkOption {
       type = lib.types.enum [

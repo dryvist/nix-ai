@@ -36,7 +36,7 @@ graph TD
     MAE -->|claude subprocess| CC
 
     CC -->|Anthropic API| LL["Local LiteLLM proxy\n:4100 (loopback)"]
-    CDX -->|ox profile only| LL
+    CDX -->|per-alias profile only| LL
     LL -->|"claude-* (client's own credentials)"| ANTH["Anthropic API"]
     LL -->|"every other model name"| ROUTER["Shared LLM router"]
 

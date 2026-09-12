@@ -132,6 +132,7 @@ let
   inherit (commands)
     fallbackProbe
     fallbackWatch
+    aliasSubsetCheck
     proxyScript
     ;
 
@@ -144,6 +145,10 @@ in
     # assert on the forwarding scope) without enabling the launchd agent —
     # the same introspection pattern as programs.codex.mcpServerNames.
     { programs.litellmLocal.renderedConfig = proxyConfig; }
+
+    # Not gated on cfg.enable: it tests the shared router directly, so a host
+    # with the local proxy disabled still gets the tool.
+    { home.packages = [ aliasSubsetCheck ]; }
 
     (lib.mkIf cfg.enable {
       assertions = [
