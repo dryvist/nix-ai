@@ -7,8 +7,8 @@ Codex, Antigravity, and Qwen consume that one option and render it into their
 own configuration formats during every `darwin-rebuild switch`.
 
 Standalone consumers should import `modules/mcp/module.nix`, not
-`modules/mcp/default.nix`; the runtime module includes the shared option catalog
-and installs the OpenBao-backed `splunk-mcp-connect` helper binary.
+`modules/mcp/default.nix`; the runtime module includes the shared option
+catalog plus any local wrapper a catalog entry needs.
 
 **Nix is the sole manager of user-scoped MCP servers.** Any entries added manually
 through client CLIs may be overwritten on the next rebuild.
@@ -55,6 +55,18 @@ my-server = {
   headers = { Authorization = "Bearer \${TOKEN}"; };
 };
 ```
+
+### Shared agentgateway routes
+
+`context7`, `splunk`, `docs`, and `memory` are `gatewayRoute` entries in
+`catalog.nix` — one governed URL per capability on the shared agentgateway MCP
+layer, instead of a local process per harness. They ship **disabled** because
+the gateway's base URL is private homelab topology and carries no default in
+this public repo; a consumer sets `programs.aiMcp.gatewayBaseUrl` (e.g. via
+`lib.mkForce` in a private host module) to turn them on for every renderer at
+once. `splunk` additionally needs `SPLUNK_MCP_TOKEN` in the environment (a
+Splunk-minted `mcp_token`, not an OpenBao credential) — the gateway passes the
+caller's `Authorization` header straight through to the Splunk backend.
 
 ## Global Profile / Per-Agent Exclusions
 
@@ -111,13 +123,10 @@ secrets manager per command:
   Nix-managed `env` attribute, not Doppler. Package-backed active servers
   use a 300-second startup and tool timeout so first-run `uvx`/`bunx` installs
   can complete before the MCP handshake deadline.
-- Splunk uses `splunk-mcp-connect`. At each launch it takes `BAO_ADDR`, an AppRole
-  secret-zero (`AI_READONLY_ROLE_ID`, `AI_READONLY_SECRET_ID`), and the KV path
-  (`SPLUNK_MCP_OPENBAO_PATH`) from the ambient environment — delivered by shell
-  init or `doppler run`, per the `ai-agent-access-openbao` runbook on the docs
-  site — authenticates to OpenBao, and reads that path. Codex receives exactly
-  those four bootstrap variables for this launcher. The resulting
-  `SPLUNK_MCP_URL` and `SPLUNK_MCP_TOKEN` exist only in the MCP child process.
+- Splunk is a gateway route (see [Shared agentgateway
+  routes](#shared-agentgateway-routes)): the client sends `SPLUNK_MCP_TOKEN`
+  (a Splunk-minted `mcp_token`) as a bearer header, and the gateway passes it
+  straight through to the Splunk backend. No OpenBao credential is involved.
 - Env-var-backed servers (HF_TOKEN, GitHub PAT, UniFi, …) read from the process
   environment, injected directly (e.g. an inline Keychain read or `doppler run`).
 
@@ -129,9 +138,12 @@ direct-injection commands and which manager holds what) is `AGENTS.local.md`
 
 ### Plugin-managed servers (context7)
 
-Some servers are provided by Claude Code plugins and manage their own MCP server lifecycle.
-Do **not** define these in `mcp/catalog.nix` — doing so creates a duplicate that causes
-conflicts on startup.
+Some servers are also provided by Claude Code plugins, which manage their own
+MCP server lifecycle under a different name. The catalog's `context7` gateway
+route and the plugin's own MCP coexist without conflict because they render as
+distinct server names to Claude (`context7` vs
+`mcp__plugin_context7_context7`); Cursor, OpenCode, and Codex have no plugin
+and get `context7` only from the catalog route.
 
 | Plugin | Server |
 |--------|--------|
@@ -246,16 +258,12 @@ The server definition is still deployed — it will connect when the server is a
 Verify the binary is in PATH. For nixpkgs packages, ensure it's installed in your profile
 or system packages. For bunx/uvx, ensure bun/uv is installed.
 
-### splunk-mcp-connect fails
+### A gateway route (splunk/docs/memory/context7) doesn't appear
 
-The wrapper fails closed and identifies the failing boundary: missing ambient
-secret-zero, AppRole login, denied/missing KV data, invalid URL, or MCP
-connection. Ensure `BAO_ADDR`, `AI_READONLY_ROLE_ID`, `AI_READONLY_SECRET_ID`,
-and `SPLUNK_MCP_OPENBAO_PATH` are present in the harness's environment (the
-`ai-agent-access-openbao` runbook covers delivery and the human-gated
-break-glass fallback), verify the AppRole can read that KV path, then launch
-the harness again. It does not cache OpenBao tokens or publish credentials
-into the login environment.
+Check `programs.aiMcp.gatewayBaseUrl` is set — the catalog entries ship
+disabled without it. For `splunk` specifically, also confirm `SPLUNK_MCP_TOKEN`
+is present in the harness's environment; an expired or missing token surfaces
+as a connection failure from the gateway, not from this repo's Nix config.
 
 ### A Doppler-backed server shows "Failed to connect"
 
