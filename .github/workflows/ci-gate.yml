@@ -1,25 +1,14 @@
-# CI Gate - Conditional Required Checks
+# CI Gate — thin wrapper over the org reusable gate.
 #
-# FRAMEWORK: Merge Gatekeeper Pattern
-# ====================================
-# Solves: "Required checks that only run when relevant files change"
+# `shared-gate` runs nix flake check (skipped for dependency-only bot PRs
+# unless flake.lock moved), markdown lint, file size, token limits, pip-audit
+# and the OSV differential scan from dryvist/.github. The local `gate` job
+# keeps the bare `Merge Gate` context this repo's ruleset requires.
 #
-# Problem: GitHub branch protection only supports "always required" or "not required"
-#          Path-filtered workflows that don't run = pending forever = blocks merge
-#
-# Solution: Single workflow that:
-# 1. Always triggers on ALL PRs (no path filters at workflow level)
-# 2. Detects which file categories changed
-# 3. Calls reusable workflows conditionally (skipped = success)
-# 4. Final "Merge Gate" job aggregates all results
-#
-# Branch Protection: Set ONLY "Merge Gate" as required check
-#
-# Adding New Checks:
-# 1. Create reusable workflow: _your-check.yml with `on: workflow_call`
-# 2. Add filter pattern under `changes.steps.filter.with.filters`
-# 3. Add job that calls the reusable workflow with appropriate `if:` condition
-# 4. Add job name to `gate.needs` array and `allowed-skips`
+# Fork-PR security guard: nix-ai is a PUBLIC repository. The org gate routes
+# every job through `runner_label` only for same-repo PRs and falls back to
+# `ubuntu-latest` for fork PRs, so fork-author-controlled code never runs on
+# the self-hosted RunsOn runners.
 
 name: CI Gate
 
@@ -36,147 +25,64 @@ permissions:
   pull-requests: read
 
 jobs:
-  # ==========================================================================
-  # CHANGE DETECTION
-  # ==========================================================================
-  # Fork-PR security guard:
-  # nix-ai is a PUBLIC repository, so `pull_request` from fork branches
-  # would otherwise execute fork-author-controlled code on our self-hosted
-  # RunsOn runners (and the underlying AWS account). The `runs-on:` expression
-  # routes same-repo PRs to RunsOn and falls back to `ubuntu-latest`
-  # (github-hosted, ephemeral, sandboxed) for fork PRs. Reusable workflow
-  # calls below carry the same expression through `runner_label`.
-  # Pattern reference: runs-on.com/configuration/job-labels (Fork PRs).
-  changes:
-    name: Detect Changes
-    runs-on: ${{ github.event.pull_request.head.repo.full_name == github.repository && format('runs-on={0}/runner=2cpu-linux-x64', github.run_id) || 'ubuntu-latest' }}
+  shared-gate:
     permissions:
       contents: read
       pull-requests: read
-    outputs:
-      nix: ${{ steps.filter.outputs.nix }}
-      markdown: ${{ steps.filter.outputs.markdown }}
-      python: ${{ steps.filter.outputs.python }}
-      is-deps-only: ${{ steps.detect-deps.outputs.is-deps-only }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
-        id: filter
-        with:
-          filters: |
-            nix:
-              - '**.nix'
-              - 'flake.lock'
-              - 'lib/**'
-              - 'modules/**'
-              - 'scripts/**'
-            markdown:
-              - '**.md'
-              - '.markdownlint*'
-            python:
-              - 'mlx-server/**'
-              - 'orchestrator/**'
-
-      - name: Detect Dependency-Only Commits
-        id: detect-deps
-        env:
-          AUTHOR: ${{ github.event.pull_request.user.login }}
-          COMMIT_MSG: ${{ github.event.pull_request.title }}
-        run: |
-          # Skip nix-validate for dependency-only PRs:
-          # - Renovate: author starts with jacobpevans-github-actions + title starts with chore(deps)
-          #   (dual check because Renovate can be configured for non-dep tasks)
-          # - Dependabot: author check alone (it exclusively creates dependency PRs)
-          if [[ ("$AUTHOR" == "jacobpevans-github-actions"* && "$COMMIT_MSG" == chore\(deps\)*) || \
-                "$AUTHOR" == "dependabot[bot]" ]]; then
-            echo "is-deps-only=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "is-deps-only=false" >> "$GITHUB_OUTPUT"
-          fi
-
-  # ==========================================================================
-  # CONDITIONAL CHECKS (call reusable workflows)
-  # Performance: Jobs run in parallel when conditions are met
-  # Only dependency is 'changes' job, allowing max parallelization
-  # ==========================================================================
-  nix-validate:
-    name: Nix Validate
-    needs: changes
-    if: needs.changes.outputs.nix == 'true' && needs.changes.outputs.is-deps-only != 'true'
-    uses: dryvist/.github/.github/workflows/_nix-validate.yml@main
+      # The org gate's queue watchdog cancels stuck sibling jobs via the
+      # Actions API; a called workflow can never exceed the caller's grant, so
+      # actions: write must be granted here or the run fails at graph
+      # validation (startup_failure).
+      actions: write
+    uses: dryvist/.github/.github/workflows/_ci-gate.yml@main
     with:
-      # `nix flake check --all-systems` needs disk/RAM for darwin source
-      # substitution; m7+c7 family with s3-cache fits.
-      # Fork PRs fall back to ubuntu-latest (see header comment on `changes`).
-      runner_label: ${{ github.event.pull_request.head.repo.full_name == github.repository && format('runs-on={0}/cpu=4/ram=16/family=m7+c7/extras=s3-cache', github.run_id) || 'ubuntu-latest' }}
-
-  markdown-lint:
-    name: Markdown Lint
-    needs: changes
-    if: needs.changes.outputs.markdown == 'true'
-    uses: dryvist/.github/.github/workflows/_markdown-lint.yml@main
-    with:
-      runner_label: ${{ github.event.pull_request.head.repo.full_name == github.repository && format('runs-on={0}/runner=2cpu-linux-x64', github.run_id) || 'ubuntu-latest' }}
-
-  file-size:
-    name: File Size
-    needs: changes
-    if: needs.changes.outputs.nix == 'true' || needs.changes.outputs.markdown == 'true'
-    uses: dryvist/.github/.github/workflows/_file-size.yml@main
-    with:
-      runner_label: ${{ github.event.pull_request.head.repo.full_name == github.repository && format('runs-on={0}/runner=2cpu-linux-x64', github.run_id) || 'ubuntu-latest' }}
-
-  # Token-budgets AI-read prose via the shared tiktoken counter. Config lives in
-  # .token-limits.yaml; pairs with file-size (the byte gate skips token-gated files).
-  token-limits:
-    name: Token Limits
-    needs: changes
-    if: needs.changes.outputs.markdown == 'true'
-    uses: dryvist/.github/.github/workflows/_token-limits.yml@main
-    with:
-      runner_label: ${{ github.event.pull_request.head.repo.full_name == github.repository && format('runs-on={0}/runner=2cpu-linux-x64', github.run_id) || 'ubuntu-latest' }}
-
-  python-security:
-    name: Python Security
-    needs: changes
-    if: needs.changes.outputs.python == 'true'
-    uses: dryvist/.github/.github/workflows/_python-security.yml@main
-    with:
-      python-dirs: 'mlx-server orchestrator'
+      runner_label: runs-on=${{ github.run_id }}/runner=2cpu-linux-x64
+      nix_validate: true
+      # `nix flake check` evaluates the whole tree; give it the larger runner.
+      nix_validate_runner_label: runs-on=${{ github.run_id }}/cpu=4/ram=16/family=m7+c7/extras=s3-cache
+      nix_skip_deps_only: true
+      token_limits: true
+      python_security: true
+      python_security_dirs: mlx-server orchestrator
       # MUST mirror osv-scanner.toml `[[IgnoredVulns]]`. Each ID is documented
       # there (rationale, tracking issue #812, `ignoreUntil` review date).
       # New advisories must be added to BOTH files in lockstep.
       #   PYSEC-2026-139, CVE-2025-3000, GHSA-rrmf-rvhw-rf47 — torch 2.10.0 chain.
       #   GHSA-p4gq-832x-fm9v, PYSEC-2026-597 — nltk 3.9.4 local file load.
       #   PYSEC-2026-3740 — nltk 3.10.3 pathsec model-path sandbox bypass (unpatched).
-      ignore-vulns: >-
+      python_security_ignore_vulns: >-
         PYSEC-2026-139 CVE-2025-3000 GHSA-rrmf-rvhw-rf47 GHSA-p4gq-832x-fm9v PYSEC-2026-597 PYSEC-2026-3740
-      runner_label: ${{ github.event.pull_request.head.repo.full_name == github.repository && format('runs-on={0}/runner=2cpu-linux-x64', github.run_id) || 'ubuntu-latest' }}
-
-  osv-scan:
-    name: OSV Scan
-    needs: changes
-    if: always()
-    uses: dryvist/.github/.github/workflows/_osv-scan.yml@main
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
-    with:
-      config_file: osv-scanner.toml
-      runner_label: ${{ github.event.pull_request.head.repo.full_name == github.repository && format('runs-on={0}/runner=2cpu-linux-x64', github.run_id) || 'ubuntu-latest' }}
+      osv_scan: true
+      osv_config_file: osv-scanner.toml
+      # Staged: the first zizmor run over this repo reported findings in
+      # ai-ci.yml (trigger), fix-renovate-hashes.yml (App token use) and
+      # issue-auto-resolve.yml (permissions). Those are tracked separately;
+      # flip this on once they are resolved.
+      zizmor: false
+      filters: |
+        nix:
+          - '**.nix'
+          - 'flake.lock'
+          - 'lib/**'
+          - 'modules/**'
+          - 'scripts/**'
+        markdown:
+          - '**.md'
+          - '.markdownlint*'
+        python:
+          - 'mlx-server/**'
+          - 'orchestrator/**'
 
   # ==========================================================================
   # MERGE GATE - The ONLY required check in branch protection
   # ==========================================================================
   gate:
     name: Merge Gate
-    needs: [changes, nix-validate, markdown-lint, file-size, token-limits, python-security, osv-scan]
+    needs: [shared-gate]
     if: ${{ !cancelled() }}
-    runs-on: ${{ github.event.pull_request.head.repo.full_name == github.repository && format('runs-on={0}/runner=2cpu-linux-x64', github.run_id) || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     steps:
       - name: Check all results
         uses: re-actors/alls-green@b5b5b37504aa4183270bd3d855c52a67f212be35 # release/v1
         with:
-          allowed-skips: nix-validate, markdown-lint, file-size, token-limits, python-security
           jobs: ${{ toJSON(needs) }}
