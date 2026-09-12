@@ -78,6 +78,7 @@ in
     ./ai-shell.nix
     ./ai-stack
     ./agent-context-baseline.nix
+    ./agent-hooks
     ./agent-skills
     ./cecli
     # User-facing claude values (model, marketplaces, hooks, settings.*).
