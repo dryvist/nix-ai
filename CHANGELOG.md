@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.13.0](https://github.com/dryvist/nix-ai/compare/v5.12.0...v5.13.0) (2026-09-12)
+
+
+### Features
+
+* **claude:** place every worktree under &lt;repo&gt;/.worktrees/ ([#2121](https://github.com/dryvist/nix-ai/issues/2121)) ([795fb71](https://github.com/dryvist/nix-ai/commit/795fb7186700f5c2799acd714fc93d8fefc90449))
+
 ## [5.12.0](https://github.com/dryvist/nix-ai/compare/v5.11.0...v5.12.0) (2026-09-11)
 
 
