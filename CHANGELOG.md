@@ -1,5 +1,14 @@
 # Changelog
 
+## [5.18.0](https://github.com/dryvist/nix-ai/compare/v5.17.0...v5.18.0) (2026-09-12)
+
+
+### Features
+
+* **codex:** export token-usage metrics to the metrics store with enduser.id and host.name ([#2149](https://github.com/dryvist/nix-ai/issues/2149)) ([e478ff4](https://github.com/dryvist/nix-ai/commit/e478ff43208447d4cdffd2937a229c27bb09da51))
+* **mcp:** convert context7/splunk to shared gateway routes, add docs/memory ([#2150](https://github.com/dryvist/nix-ai/issues/2150)) ([928c832](https://github.com/dryvist/nix-ai/commit/928c8327fdb3fd909cddd2d1eafbc67005cdaf2c))
+* **mlx:** accept bearer-token monitor lines in the watchdog ping file ([#2148](https://github.com/dryvist/nix-ai/issues/2148)) ([7ddafeb](https://github.com/dryvist/nix-ai/commit/7ddafebafb60b5fa1f2978c85c0732683357ce92))
+
 ## [5.17.0](https://github.com/dryvist/nix-ai/compare/v5.16.0...v5.17.0) (2026-09-12)
 
 
