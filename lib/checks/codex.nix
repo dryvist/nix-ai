@@ -22,6 +22,7 @@ in
       "modelReasoningEffort"
       "modelVerbosity"
       "mcpServerNames"
+      "otelExporterKinds"
       "planModeReasoningEffort"
       "projectDocFallbackFilenames"
       "reviewModel"
@@ -115,6 +116,17 @@ in
         name = "codex.hooks.notification";
         actual = cfg.hooks.notification;
         expected = null;
+      }
+      {
+        # Both exporters pinned off by default (no telemetry configured in the
+        # base test fixture) — never left unset, since Codex's own unset
+        # default is Statsig, not "nothing".
+        name = "codex.otelExporterKinds (telemetry unconfigured)";
+        actual = cfg.otelExporterKinds;
+        expected = {
+          trace = "none";
+          metrics = "none";
+        };
       }
     ];
   };

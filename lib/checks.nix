@@ -1,5 +1,5 @@
 # Nix quality checks - thin aggregator
-# Individual check groups live in lib/checks/{lint,claude,agent-skills,codex,antigravity-cli,mcp,mlx,fabric}.nix
+# Individual check groups live in lib/checks/{lint,claude,agent-skills,codex,codex-otel,antigravity-cli,mcp,mlx,fabric}.nix
 #
 # THESE CHECKS ONLY EXIST FOR x86_64-linux (see flake.nix `checks`). On a Mac,
 # `nix flake check` therefore passes them VACUOUSLY — it never evaluates them,
@@ -75,6 +75,7 @@ in
 // (import ./checks/ai-stack-drift-check.nix { inherit pkgs src; })
 // (import ./checks/claude.nix { inherit pkgs hmConfig; })
 // (import ./checks/telemetry.nix { inherit pkgs mkHmConfigWith; })
+// (import ./checks/codex-otel.nix { inherit pkgs mkHmConfigWith; })
 // (import ./checks/agent-skills-repo-link.nix { inherit pkgs; })
 // (import ./checks/agent-skills-groups.nix { inherit pkgs mkHmConfig; })
 // (import ./checks/manual-invoke-marking.nix { inherit pkgs src; })
