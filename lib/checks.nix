@@ -110,6 +110,7 @@ in
 // (import ./checks/mlx-single-model.nix { inherit pkgs src; })
 // (import ./checks/mlx-bash32.nix { inherit pkgs hmConfig src; })
 // (import ./checks/mlx-watchdog.nix { inherit pkgs src; })
+// (import ./checks/mlx-watchdog-ping.nix { inherit pkgs src; })
 // (import ./checks/mlx-wedge-detect.nix { inherit pkgs src; })
 // (import ./checks/mlx-wedge-metricsfree.nix { inherit pkgs src; })
 // (import ./checks/mlx-worker-reap.nix { inherit pkgs hmConfig src; })
