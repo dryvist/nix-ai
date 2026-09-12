@@ -1,5 +1,18 @@
 # Changelog
 
+## [5.14.0](https://github.com/dryvist/nix-ai/compare/v5.13.0...v5.14.0) (2026-09-12)
+
+
+### Features
+
+* **mlx:** ping every deadman monitor listed in the healthcheck file ([#2129](https://github.com/dryvist/nix-ai/issues/2129)) ([4d8569e](https://github.com/dryvist/nix-ai/commit/4d8569e4d80a294724531729e5ca44dea08e4aa9))
+
+
+### Bug Fixes
+
+* **claude:** drop deny entries the settings schema rejects ([#2127](https://github.com/dryvist/nix-ai/issues/2127)) ([b20a2dd](https://github.com/dryvist/nix-ai/commit/b20a2dda97e4894ee3da726a010581f12f660a87))
+* **homebrew:** write the trust store as a user-owned file ([#2128](https://github.com/dryvist/nix-ai/issues/2128)) ([502eead](https://github.com/dryvist/nix-ai/commit/502eead1504cd8c7708dd1bc4cbb5bab489d835f))
+
 ## [5.13.0](https://github.com/dryvist/nix-ai/compare/v5.12.0...v5.13.0) (2026-09-12)
 
 
