@@ -273,9 +273,11 @@ in
       # captureSessionOutput wires postToolUse to the vendored capture script.
       # refreshMarketplaces wires sessionStart to the vendored refresh helper.
       # Both scripts live in nix-claude-code (modules/scripts/) post-PR2.
+      # worktreesUnderRepo places every worktree at `<repo>/.worktrees/<name>/`.
       hooks = {
         captureSessionOutput = true;
         refreshMarketplaces = true;
+        worktreesUnderRepo = true;
       };
     };
 
