@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.15.0](https://github.com/dryvist/nix-ai/compare/v5.14.0...v5.15.0) (2026-09-12)
+
+
+### Features
+
+* **agent-skills:** add gh-stack skill and categorize pr-stacks ([04a3e53](https://github.com/dryvist/nix-ai/commit/04a3e53d76d0b23212db9b9a4d335f857ea96c8b))
+* **agent-skills:** add gh-stack skill and categorize pr-stacks ([5e9594b](https://github.com/dryvist/nix-ai/commit/5e9594ba59891bb2b1c1d827e1b8537e3a82f0e6))
+
 ## [5.14.0](https://github.com/dryvist/nix-ai/compare/v5.13.0...v5.14.0) (2026-09-12)
 
 
