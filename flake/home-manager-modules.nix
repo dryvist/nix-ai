@@ -16,6 +16,7 @@
   awesome-claude-skills,
   vct-cribl-cli,
   vct-splunk-cli,
+  gh-stack,
   token-meter-src,
 }:
 let
@@ -56,6 +57,7 @@ let
     inherit context-engineering-kit;
     inherit managing-dependencies;
     inherit langfuse-skills;
+    inherit gh-stack;
   };
 in
 {
