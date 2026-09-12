@@ -1,5 +1,17 @@
 # Changelog
 
+## [5.16.0](https://github.com/dryvist/nix-ai/compare/v5.15.0...v5.16.0) (2026-09-12)
+
+
+### Features
+
+* **ai-tools:** package rulesync as a pinned bunx wrapper ([#2134](https://github.com/dryvist/nix-ai/issues/2134)) ([aab647c](https://github.com/dryvist/nix-ai/commit/aab647c9f3326a7929688fc2a34970506919f782))
+
+
+### Bug Fixes
+
+* **claude:** stop rendering shell allow rules the classifier ignores ([#2139](https://github.com/dryvist/nix-ai/issues/2139)) ([5038b51](https://github.com/dryvist/nix-ai/commit/5038b51c0defa12576ae50550b9aeba4d5f781de))
+
 ## [5.15.0](https://github.com/dryvist/nix-ai/compare/v5.14.0...v5.15.0) (2026-09-12)
 
 
