@@ -44,7 +44,7 @@ in
       [ -s "${alertUrlFile}" ] \
         || echo "warning: mlx: ${alertUrlFile} is missing or empty — the PD-guard halt and the serving watchdog will page NOBODY. Seed a Slack incoming-webhook url (chmod 600)." 1>&2
       [ -s "${healthcheckUrlFile}" ] \
-        || echo "warning: mlx: ${healthcheckUrlFile} is missing or empty — the external deadmen get no pings, so this host going silent goes unnoticed. One ping url per line, chmod 600. Separate file: seeding the alert url does NOT cover this one." 1>&2
+        || echo "warning: mlx: ${healthcheckUrlFile} is missing or empty — the external deadmen get no pings, so this host going silent goes unnoticed. One monitor per line (`<url>` or `<url> <token>`), chmod 600. Separate file: seeding the alert url does NOT cover this one." 1>&2
     '';
 
     # Serving watchdog: KeepAlive=true only restarts the proxy on process
