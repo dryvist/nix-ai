@@ -8,8 +8,23 @@
 # Servers requiring API keys read them from environment variables. Use your
 # secrets manager (Doppler, Keychain, etc.) to inject env vars.
 
-{ homeDirectory, pkgs }:
+{
+  homeDirectory,
+  pkgs,
+  gatewayBaseUrl ? null,
+}:
 let
+  # Remote route on the shared agentgateway MCP layer. Disabled until a
+  # consumer sets programs.aiMcp.gatewayBaseUrl — the base URL names private
+  # topology and is never a literal here (see modules/mcp/default.nix).
+  gatewayRoute =
+    path: extra:
+    {
+      type = "http";
+      url = if gatewayBaseUrl == null then null else "${gatewayBaseUrl}${path}";
+      disabled = gatewayBaseUrl == null;
+    }
+    // extra;
   # Python MCP servers built as Nix derivations rather than launched through
   # uvx. A live uvx process holds a shared lock on the uv cache for its whole
   # lifetime, which is what stopped `uv cache prune` from ever succeeding —
@@ -63,11 +78,11 @@ in
   fetch = bunx [ "@modelcontextprotocol/server-fetch" ]; # archived
   filesystem = bunx [ "@modelcontextprotocol/server-filesystem@${versions.mcpFilesystem}" ];
   git = bunx [ "@modelcontextprotocol/server-git" ]; # archived
-  # memory: DISABLED — the file-based MEMORY.md system is the real memory store;
-  # this knowledge-graph server is redundant (11 calls all-time per Splunk).
-  memory = bunx [ "@modelcontextprotocol/server-memory@${versions.mcpMemory}" ] // {
-    disabled = true;
-  };
+  # memory: cross-agent vector memory via the gateway's mcp-server-qdrant
+  # sidecar. Replaces the local knowledge-graph server (11 calls all-time per
+  # Splunk, and duplicated the file-based MEMORY.md system) with the same
+  # capability every harness already gets when a host sets gatewayBaseUrl.
+  memory = gatewayRoute "/memory" { };
   time = codexMcp {
     command = "${mcpPkgs.mcp-server-time}/bin/mcp-server-time";
     args = [ ];
@@ -106,12 +121,16 @@ in
   # Third-party npm packages
   # ================================================================
 
-  # Context7 - real-time documentation retrieval MCP server
-  # DISABLED — duplicates the context7 *plugin*'s MCP (569x vs 48x per Splunk).
-  # Keep the plugin (mcp__plugin_context7_context7); drop this catalog server.
-  context7 = bunx [ "@upstash/context7-mcp@${versions.context7Mcp}" ] // {
-    disabled = true;
-  };
+  # Context7 - real-time documentation retrieval, via the gateway route
+  # instead of a per-harness bunx process (fixes duplicate local MCP spawns).
+  # Claude additionally has the context7 *plugin* (mcp__plugin_context7_context7,
+  # 569x vs 48x per Splunk for this entry); the two coexist under different
+  # names. Cursor/OpenCode/Codex, which have no plugin, get context7 only
+  # from this route.
+  context7 = gatewayRoute "/context7" { };
+
+  # Docs-RAG search over the homelab documentation index, via the gateway.
+  docs = gatewayRoute "/docs" { };
 
   # ================================================================
   # HuggingFace MCP - Model/dataset/paper search and documentation
@@ -136,22 +155,14 @@ in
     ];
   };
 
-  # Splunk MCP via OpenBao. The helper authenticates with an ambient-env
-  # AppRole and injects the canonical connection only into its MCP child
-  # process.
-  splunk = codexMcp {
-    command = "splunk-mcp-connect";
-    # Off until the launcher receives its secret-zero and the endpoint answers
-    # (tracked in the task tracker); today it fails to connect on every start.
-    disabled = true;
-    # Codex forwards stdio-server environment variables only when they are
-    # explicitly declared. Keep the OpenBao bootstrap scoped to this launcher.
-    env_vars = [
-      "BAO_ADDR"
-      "AI_READONLY_ROLE_ID"
-      "AI_READONLY_SECRET_ID"
-      "SPLUNK_MCP_OPENBAO_PATH"
-    ];
+  # Splunk MCP via the gateway. The gateway passes the caller's Authorization
+  # header straight through to the Splunk backend (auth: passthrough), so the
+  # bearer token here is a Splunk-minted mcp_token (GET /services/mcp_token),
+  # not an OpenBao credential — replaces the local splunk-mcp-connect
+  # stdio launcher, which never got a working secret-zero wired up.
+  splunk = gatewayRoute "/splunk" {
+    headers.Authorization = "Bearer \${SPLUNK_MCP_TOKEN}";
+    bearer_token_env_var = "SPLUNK_MCP_TOKEN";
   };
 
   # ================================================================

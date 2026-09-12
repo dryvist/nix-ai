@@ -57,14 +57,9 @@
         OTEL_LOG_TOOL_DETAILS = "1";
       }
       // {
-        # `enduser.id` first so a consumer-supplied one in resourceAttributes
-        # overrides it (later `//` wins). mapAttrsToList sorts by key, so
-        # rendering stays deterministic across rebuilds.
-        OTEL_RESOURCE_ATTRIBUTES = lib.concatStringsSep "," (
-          lib.mapAttrsToList (k: v: "${k}=${v}") (
-            { "enduser.id" = username; } // (userConfig.telemetry.resourceAttributes or { })
-          )
-        );
+        OTEL_RESOURCE_ATTRIBUTES = import ../../lib/telemetry-resource-attributes.nix {
+          inherit lib userConfig username;
+        };
       }
     )
 

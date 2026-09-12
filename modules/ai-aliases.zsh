@@ -2,7 +2,7 @@
 # Managed by nix-ai's programs.zsh.initContent via modules/ai-shell.nix.
 # Single source of truth for Claude/Doppler AI-tool wrapper aliases.
 
-# Secret-zero for OpenBao-backed MCP servers (splunk-mcp-connect). Per the
+# Secret-zero for OpenBao-backed commands (the ai-readonly AppRole). Per the
 # ai-agent-access-openbao runbook these live in the automation Keychain —
 # no literal endpoint or AppRole is committed to this repo. The Doppler
 # project/config selectors are not secrets; modules/ai-shell.nix exports them

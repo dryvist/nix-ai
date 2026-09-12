@@ -124,6 +124,20 @@ in
       '';
     };
 
+    gatewayBaseUrl = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = ''
+        Base URL of the shared agentgateway MCP layer (one governed route per
+        capability, e.g. `<baseUrl>/context7`). The real value names private
+        homelab topology, so it carries no default here — a host sets it via
+        an override (`lib.mkForce`/`programs.aiMcp.gatewayBaseUrl = "..."`) in
+        its own (possibly private) configuration. Gateway-routed catalog
+        entries (context7, splunk, docs, memory) stay disabled until a
+        consumer sets this.
+      '';
+    };
+
     excludedServers = lib.mkOption {
       type = lib.types.listOf lib.types.str;
       default = [
@@ -217,6 +231,7 @@ in
     servers = import ./catalog.nix {
       inherit (config.home) homeDirectory;
       inherit pkgs;
+      inherit (config.programs.aiMcp) gatewayBaseUrl;
     };
     enabledServers = lib.filterAttrs (
       name: server:

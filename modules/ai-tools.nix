@@ -216,7 +216,7 @@ in
     # ==========================================================================
     # MCP Runtime Wrappers — moved to modules/mcp/module.nix (sub-flake)
     # ==========================================================================
-    # The splunk-mcp-connect wrapper is now provided by the
+    # Any local MCP runtime wrapper a catalog entry needs is provided by the
     # MCP sub-flake's home-manager module (modules/mcp/module.nix). This keeps
     # all MCP runtime infrastructure self-contained inside the sub-flake so it
     # can be consumed cross-flake without a hidden dependency on this file.

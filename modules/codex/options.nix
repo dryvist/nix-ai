@@ -127,6 +127,16 @@ in
       description = "Router capability aliases (modules/litellm-local/aliases.nix) rendered as Codex --profile <alias> files; read-only.";
     };
 
+    otelExporterKinds = lib.mkOption {
+      type = lib.types.attrsOf lib.types.str;
+      readOnly = true;
+      internal = true;
+      description = ''
+        Resolved `otel.trace_exporter`/`otel.metrics_exporter` kind ("none" or
+        "otlp-http") as rendered to config.toml; read-only, for regression tests.
+      '';
+    };
+
     # Approval policy
     approvalPolicy = lib.mkOption {
       type = lib.types.enum [
