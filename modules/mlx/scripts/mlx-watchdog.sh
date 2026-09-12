@@ -218,16 +218,22 @@ alert() {
 # file exists. When these pings stop — this host down/asleep, launchd wedged, or
 # the brain not serving — each external check pages on its own. It is the only
 # signal that survives this whole host going silent, which no on-host alert can
-# emit. One url per line; blank lines and #-comments are skipped. Missing file
-# = no-op; one unreachable monitor never stops the others from being pinged.
+# emit. One monitor per line, either `<url>` (GET, healthchecks-style) or
+# `<url> <token>` (POST with a bearer token and `success=true`, Gatus
+# external-endpoint style). Blank lines and #-comments are skipped. Missing
+# file = no-op; one unreachable monitor never stops the others being pinged.
 hc_ping() {
   [[ -f "$healthcheck_url_file" ]] || return 0
-  local url
-  while IFS= read -r url || [[ -n "$url" ]]; do
-    url="${url%%#*}"
-    url="${url//[[:space:]]/}"
-    [[ -n "$url" ]] || continue
-    curl -fsS -m 8 "$url" >/dev/null 2>&1 || true
+  local line url token
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line="${line%%#*}"
+    read -r url token <<<"$line"
+    [[ -n "${url:-}" ]] || continue
+    if [[ -n "${token:-}" ]]; then
+      curl -fsS -m 8 -X POST -H "Authorization: Bearer $token" "$url?success=true" >/dev/null 2>&1 || true
+    else
+      curl -fsS -m 8 "$url" >/dev/null 2>&1 || true
+    fi
   done <"$healthcheck_url_file"
 }
 

@@ -1,7 +1,8 @@
 # shellcheck shell=bash
 # hc_ping() deadman contract test.
 #
-# The watchdog pings every url in the healthcheck file, one per line, so a
+# The watchdog pings every monitor in the healthcheck file, one per line
+# (`<url>` is GET; `<url> <token>` is a bearer POST with success=true), so a
 # second monitor added to the file is reached without a code change. Blank
 # lines and #-comments are skipped, a missing file is a no-op, and one
 # unreachable monitor does not stop the rest from being pinged.
@@ -39,10 +40,11 @@ declare -F hc_ping > /dev/null || fail "hc_ping not extracted from $WATCHDOG"
 hc_ping
 [[ ! -s "$FAKE_PING_LOG" ]] || fail "missing url file produced pings"
 
-# Two monitors, a comment, a blank line, trailing whitespace, one unreachable.
-printf '# first monitor\nhttps://one.example/ping/a  \n\nhttps://down.example/ping/b\nhttps://two.example/ping/c\n' > "$healthcheck_url_file"
+# Three monitors, a comment, a blank line, trailing whitespace, one unreachable,
+# one with a bearer token (posted with success=true).
+printf '# first monitor\nhttps://one.example/ping/a  \n\nhttps://down.example/ping/b\nhttps://two.example/api/v1/endpoints/deadman_x/external tok123\n' > "$healthcheck_url_file"
 hc_ping
-expected=$'https://one.example/ping/a\nhttps://down.example/ping/b\nhttps://two.example/ping/c'
+expected=$'https://one.example/ping/a\nhttps://down.example/ping/b\nhttps://two.example/api/v1/endpoints/deadman_x/external?success=true'
 [[ "$(<"$FAKE_PING_LOG")" == "$expected" ]] || fail "pinged: $(<"$FAKE_PING_LOG")"
 
 # A single url without a trailing newline is still pinged.
