@@ -127,13 +127,25 @@ graph LR
 | `fabric` | stdio (uvx) | Fabric CLI setup | Pattern execution |
 | `huggingface` | stdio (uvx) | `HF_TOKEN` from Keychain | Hub/model/dataset search |
 | `time` | stdio (uvx) | None | Official maintained Python server |
-| `splunk` | stdio (splunk-mcp-connect + mcp-remote) | OpenBao via ambient-env AppRole (see [docs site](https://docs.jacobpevans.com/security/overview)) | Shared Splunk MCP Server app connection |
+
+### Shared Agentgateway Routes
+
+Ships disabled until a host sets `programs.aiMcp.gatewayBaseUrl` — see
+`modules/mcp/README.md#shared-agentgateway-routes`. One gateway process per
+capability replaces a local process per harness.
+
+| Server | Transport | Auth | Notes |
+|--------|-----------|------|-------|
+| `context7` | http (gateway route) | None | Library docs; coexists with the Claude plugin below |
+| `docs` | http (gateway route) | None | Docs-RAG search over the homelab documentation index |
+| `memory` | http (gateway route) | None | Cross-agent vector memory |
+| `splunk` | http (gateway route) | `SPLUNK_MCP_TOKEN` bearer, passthrough to backend | Shared Splunk MCP Server app connection |
 
 ### Plugin-Managed MCP Servers
 
 | Server | Transport | Notes |
 |--------|-----------|-------|
-| `context7` | plugin-managed | Lifecycle owned by `context7` plugin |
+| `context7` | plugin-managed | Lifecycle owned by `context7` plugin; coexists with the gateway route above under a different rendered name |
 
 ### Disabled Or Excluded Catalog Servers
 
