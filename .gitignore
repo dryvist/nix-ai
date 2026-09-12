@@ -19,3 +19,9 @@ AGENTS.local.md
 # the clone), never loose in the repo root. See modules/claude/automode.nix.
 .claude/worktrees/
 .claude-wt/
+
+# Local agent working-note directories. Untracked scratch/tooling state from
+# agent sessions; never intended to be committed. See workspace-conventions.
+.ansible/
+.omo/
+.worktrees/
