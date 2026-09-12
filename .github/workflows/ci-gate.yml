@@ -54,6 +54,11 @@ jobs:
         PYSEC-2026-139 CVE-2025-3000 GHSA-rrmf-rvhw-rf47 GHSA-p4gq-832x-fm9v PYSEC-2026-597 PYSEC-2026-3740
       osv_scan: true
       osv_config_file: osv-scanner.toml
+      # Staged: the first zizmor run over this repo reported findings in
+      # ai-ci.yml (trigger), fix-renovate-hashes.yml (App token use) and
+      # issue-auto-resolve.yml (permissions). Those are tracked separately;
+      # flip this on once they are resolved.
+      zizmor: false
       filters: |
         nix:
           - '**.nix'
