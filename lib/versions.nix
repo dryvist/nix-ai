@@ -29,6 +29,10 @@
   openwhisprCli = "0.1.2";
   # renovate: datasource=npm depName=langfuse-cli
   langfuseCli = "0.0.12";
+  # Agent-config synchronizer. The npm package is dyoshikawa/rulesync; at least
+  # six unrelated projects share the name, so pin and verify against that repo.
+  # renovate: datasource=npm depName=rulesync
+  rulesync = "16.29.0";
   # oh-my-openagent Senpi edition (standalone `omo` command). Beta-channel
   # only: every published version is a prerelease and the `latest` dist-tag
   # points at a placeholder (0.0.0-beta.0), so a Renovate npm pin would track
