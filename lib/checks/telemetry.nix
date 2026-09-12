@@ -37,6 +37,9 @@ let
     };
   };
   noEndpoint = envOf { telemetry.enable = true; };
+  # Telemetry off entirely — the negative case for enduser.id: nothing about
+  # the OS user should leak into the environment when telemetry never turns on.
+  disabled = envOf { };
   # Traces wired, metrics/logs deliberately not — the shape used against a
   # collector whose pipeline extracts spans only.
   tracesOnly = envOf {
@@ -197,9 +200,15 @@ in
         expected = "claude-code";
       }
       {
-        name = "resource attributes rendered";
+        # Sorted by key: mapAttrsToList iterates in attrset key order.
+        name = "resource attributes rendered with enduser.id from home.username";
         actual = tracesOnly.OTEL_RESOURCE_ATTRIBUTES;
-        expected = "host.name=test-host";
+        expected = "enduser.id=test-user,host.name=test-host";
+      }
+      {
+        name = "no OTEL_RESOURCE_ATTRIBUTES when telemetry disabled";
+        actual = has disabled "OTEL_RESOURCE_ATTRIBUTES";
+        expected = false;
       }
       {
         name = "prompt content off unless explicitly enabled";

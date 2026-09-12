@@ -218,6 +218,7 @@ in
           inherit lib userConfig;
           inherit (config.programs) litellmLocal;
           inherit (config.services) aiStack;
+          inherit (config.home) username;
         };
 
         # allow/ask from the shared formatter, plus the deny overlay that trims
