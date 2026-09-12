@@ -194,6 +194,13 @@ in
         mcpServerNames = lib.attrNames mcpServers;
       };
     }
+    # Codex reads hooks.json only behind this flag. A non-empty hooks.events
+    # implies it, so every contributor (herdr, the worktree-add guard, …)
+    # doesn't also have to remember to flip it on; mkDefault so an explicit
+    # `programs.codex.features.hooks = false;` still wins.
+    (lib.mkIf (cfg.enable && cfg.hooks.events != { }) {
+      programs.codex.features.hooks = lib.mkDefault true;
+    })
     (lib.mkIf cfg.enable {
       home = {
         activation.codexConfigMerge = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
@@ -208,6 +215,11 @@ in
         }
         // lib.optionalAttrs litellmLocal.enable {
           "${configDir}/ox.config.toml".source = oxProfileToml;
+        }
+        // lib.optionalAttrs (cfg.hooks.events != { }) {
+          ".codex/hooks.json".source = pkgs.writers.writeJSON "codex-hooks.json" {
+            hooks = cfg.hooks.events;
+          };
         };
       };
     })
