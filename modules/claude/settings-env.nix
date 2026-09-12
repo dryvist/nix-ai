@@ -11,6 +11,7 @@
   userConfig,
   litellmLocal,
   aiStack,
+  username,
 }:
 {
   # Model is intentionally left unset (see claude-config.nix), so Claude Code
@@ -157,4 +158,4 @@
 
 # OpenTelemetry — opt-in via userConfig.telemetry. Split into its own file to
 # keep this one inside the repo's file-size gate.
-// import ./settings-env-telemetry.nix { inherit lib userConfig; }
+// import ./settings-env-telemetry.nix { inherit lib userConfig username; }
