@@ -30,6 +30,15 @@ in
         "oauth_creds.json"
         "antigravity-oauth-token"
       ];
+      # Rendered as regular files by home-manager (activation merges, not
+      # store symlinks), so --no-links does not protect them: whichever host
+      # rebuilt most recently would otherwise overwrite the peer's copy.
+      renderedConfig = [
+        "/settings.json"
+        "/settings.local.json"
+        "/config.toml"
+        "/antigravity-cli/settings.json"
+      ];
     in
     assert
       builtins.elem cfg.remote args || throw "session-sync agent must pass the remote to the script";
@@ -50,7 +59,13 @@ in
     assert
       builtins.all (c: builtins.elem c cfg.excludes) creds
       || throw "session-sync must exclude every credential file; syncing history must not place secrets on a second host";
-    helpers.mkMarker "check-session-sync-agent" "session-sync: update-only, non-deleting, credentials excluded";
+    assert
+      builtins.all (c: builtins.elem c cfg.excludes) renderedConfig
+      || throw "session-sync must exclude every per-machine rendered config file; --no-links does not protect a regular file, so the peer's config would be overwritten by whichever host rebuilt most recently";
+    assert
+      builtins.all (c: builtins.elem c args) renderedConfig
+      || throw "session-sync agent must pass every per-machine rendered config exclude to the script";
+    helpers.mkMarker "check-session-sync-agent" "session-sync: update-only, non-deleting, credentials and rendered config excluded";
 
   session-sync-negative =
     assert
