@@ -158,6 +158,19 @@ in
         expected = true;
       }
       {
+        name = "latest.enable";
+        actual = cfg.latest.enable;
+        expected = true;
+      }
+      {
+        # Installs the bleeding-edge build during home-manager activation so
+        # every user profile that imports this module gets the binary
+        # without a manual step.
+        name = "latest.installOnActivation";
+        actual = cfg.latest.installOnActivation;
+        expected = true;
+      }
+      {
         name = "swap.disabled";
         actual = cfg.swap.disabled;
         expected = false;
