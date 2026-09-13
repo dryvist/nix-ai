@@ -208,9 +208,16 @@ in
   };
 
   opencode = {
+    # agent-skills nests options under programs.antigravity-cli.skills, which
+    # conflicts with upstream home-manager's antigravity-cli module; the full
+    # `default` composition disables it via nix-ai's antigravity-cli module,
+    # so standalone consumers of these exports must disable it themselves.
+    disabledModules = [ "programs/antigravity-cli.nix" ];
     imports = [
       ../modules/mcp/module.nix
       ../modules/agent-skills
+      ../modules/litellm-local
+      ../modules/ai-stack
       ../modules/opencode
       ../modules/maintainer-profile.nix
     ];
@@ -218,6 +225,7 @@ in
       inherit
         nix-claude-code
         marketplaceInputs
+        llm-agents
         ;
     };
   };

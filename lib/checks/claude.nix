@@ -144,6 +144,22 @@ in
         expected = true;
       }
       {
+        # Language-server plugin for TS: on since typescript-language-server
+        # went onto global PATH (modules/ai-tools.nix); the plugin only
+        # spawns binaries already present.
+        name = "plugins.enabled typescript-lsp";
+        actual = cfg.plugins.enabled."typescript-lsp@claude-plugins-official";
+        expected = true;
+      }
+      {
+        # Auto-discovered from the claude-code-plugins flake input: tier 3
+        # (modules/claude/plugins/03-personal.nix) enables every discovered
+        # plugin unless explicitly overridden. Nix/Terraform/YAML servers.
+        name = "plugins.enabled estate-lsp";
+        actual = cfg.plugins.enabled."estate-lsp@jacobpevans-cc-plugins";
+        expected = true;
+      }
+      {
         # null, not true: Remote Control cannot start while ANTHROPIC_BASE_URL
         # points at the local proxy, so declaring it true wrote an inert `true`
         # into settings.json. Opt in per session with `claude-rc`. See

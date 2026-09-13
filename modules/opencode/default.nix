@@ -66,6 +66,12 @@ let
     "$schema" = "https://opencode.ai/config.json";
     inherit permission;
     mcp = mcpServers;
+    # LSP integration is off by default upstream; this enables every built-in
+    # server. A server only activates when its binary is on PATH, so the set
+    # in use is whatever nix-home ships globally (see its core.nix "Language
+    # Servers" section). OPENCODE_DISABLE_LSP_DOWNLOAD below keeps OpenCode
+    # from fetching any missing server from GitHub releases out-of-band.
+    lsp = true;
   }
   # The primary agent's model is deliberately NOT set: it stays whatever the
   # user has chosen. Only the cheap background tier is repointed, plus the
@@ -136,8 +142,11 @@ in
     # (and the shared MCP renderer-parity check) succeeds even when
     # programs.opencode.enable = false.
     {
-      programs.opencode.mcpServerNames = lib.attrNames mcpServers;
-      programs.opencode.litellmRoles = litellmRoles;
+      programs.opencode = {
+        mcpServerNames = lib.attrNames mcpServers;
+        inherit litellmRoles;
+        lspEnabled = settings.lsp or false;
+      };
     }
     (lib.mkIf cfg.enable {
       # llm-agents.nix packages opencode for both supported systems, so the
@@ -151,6 +160,14 @@ in
 
       home = {
         packages = lib.optional (cfg.package != null) cfg.package;
+
+        # Every language server OpenCode should use is Nix-provided on PATH
+        # (modules/ai-tools.nix + per-repo devShells). Its built-ins
+        # auto-download from GitHub releases when a binary is missing — the
+        # download prompt was declined twice (lsp-install-decisions.json), so
+        # keep Nix the only source and let a missing server fail loudly
+        # instead.
+        sessionVariables.OPENCODE_DISABLE_LSP_DOWNLOAD = "true";
 
         file = {
           "${configDir}/opencode.json".source = settingsJson;
