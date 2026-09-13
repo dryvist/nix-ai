@@ -48,5 +48,8 @@ in
     # "<plugin-name>@jacobpevans-cc-plugins" = false;
     # Both of its skills are marked deprecated; permissions live in nix-claude-code.
     "config-management@jacobpevans-cc-plugins" = false;
+    # SessionStart hook only checks a Doppler log for the PAL MCP server,
+    # which was removed (#974); the log it greps for is permanently stale.
+    "pal-health@jacobpevans-cc-plugins" = false;
   };
 }
