@@ -192,4 +192,73 @@ in
         echo "Codex permissions: rules file non-empty, prefix_rule entries present, deny-before-allow ordering verified"
         touch $out
       '';
+
+  codex-zai-profile =
+    let
+      profile = hmConfig.config.home.file.".codex/zai.config.toml".source;
+      catalog = hmConfig.config.home.file.".codex/zai-models.json".text;
+    in
+    pkgs.runCommand "check-codex-zai-profile"
+      {
+        nativeBuildInputs = [ pkgs.jq ];
+        passAsFile = [ "catalog" ];
+        inherit catalog;
+      }
+      ''
+        jq -e '
+          .models == [{
+            slug: "glm-5.3",
+            display_name: "glm-5.3",
+            description: "Z.ai flagship coding model",
+            default_reasoning_level: "max",
+            supported_reasoning_levels: [
+              { effort: "low", description: "Light reasoning" },
+              { effort: "high", description: "Enhanced reasoning" },
+              { effort: "max", description: "Deep reasoning" }
+            ],
+            shell_type: "shell_command",
+            visibility: "list",
+            supported_in_api: true,
+            priority: 0,
+            base_instructions: "",
+            supports_reasoning_summaries: true,
+            default_reasoning_summary: "none",
+            support_verbosity: false,
+            apply_patch_tool_type: "freeform",
+            truncation_policy: { mode: "bytes", limit: 10000 },
+            context_window: 1048576,
+            max_context_window: 1048576,
+            effective_context_window_percent: 50,
+            supports_parallel_tool_calls: true,
+            experimental_supported_tools: [],
+            input_modalities: ["text"]
+          }]
+        ' "$catalogPath" >/dev/null
+
+        grep -Fq 'model = "glm-5.3"' ${profile}
+        grep -Fq 'model_provider = "ZAI"' ${profile}
+        grep -Fq 'model_reasoning_effort = "max"' ${profile}
+        grep -Fq 'model_catalog_json = "/home/test-user/.codex/zai-models.json"' ${profile}
+        grep -Fq 'base_url = "https://api.z.ai/api/v1"' ${profile}
+        grep -Fq 'env_key = "ZAI_SUBSCRIPTION_KEY"' ${profile}
+        grep -Fq 'wire_api = "responses"' ${profile}
+        if grep -Fq 'experimental_bearer_token' ${profile}; then
+          echo "FAIL: Z.ai credential must be read from env_key, never rendered into TOML" >&2
+          exit 1
+        fi
+        touch $out
+      '';
+
+  zai-launchers =
+    pkgs.runCommand "check-zai-launchers"
+      {
+        nativeBuildInputs = [
+          pkgs.coreutils
+          pkgs.zsh
+        ];
+      }
+      ''
+        ${pkgs.bash}/bin/bash ${./scripts/zai-launchers-test.sh} ${../../modules/ai-aliases.zsh}
+        touch $out
+      '';
 }
