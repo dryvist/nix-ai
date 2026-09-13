@@ -6,10 +6,14 @@
 # removes d-claude from that file, but mkAfter keeps us safe
 # during the transitional window.
 
-{ config, lib, ... }:
+{
+  config,
+  lib,
+  ...
+}:
 
 let
-  inherit (import ../vars/ai-stack.nix) doppler;
+  inherit (import ../vars/ai-stack.nix) doppler zai;
   cfg = config.programs.aiRouterKeys;
 in
 {
@@ -61,6 +65,13 @@ in
       export AI_DOPPLER_CONFIG=${lib.escapeShellArg doppler.config}
       export AI_ROUTER_KEY_OPENBAO_PATH_PREFIX=${lib.escapeShellArg cfg.openbaoPathPrefix}
       export AI_ROUTER_KEY_OPENBAO_FIELD_SUFFIX=${lib.escapeShellArg cfg.openbaoFieldSuffix}
+      export ZAI_DOPPLER_PROJECT=${lib.escapeShellArg zai.doppler.project}
+      export ZAI_DOPPLER_CONFIG=${lib.escapeShellArg zai.doppler.config}
+      export ZAI_DOPPLER_KEY_ENV=${lib.escapeShellArg zai.doppler.keyEnv}
+      export ZAI_CLAUDE_BASE_URL=${lib.escapeShellArg zai.claude.baseUrl}
+      export ZAI_CLAUDE_PRIMARY_MODEL=${lib.escapeShellArg zai.claude.primaryModel}
+      export ZAI_CLAUDE_FAST_MODEL=${lib.escapeShellArg zai.claude.fastModel}
+      export ZAI_CLAUDE_AUTO_COMPACT_WINDOW=${lib.escapeShellArg zai.claude.autoCompactWindow}
       source ${./ai-aliases.zsh}
     '';
   };

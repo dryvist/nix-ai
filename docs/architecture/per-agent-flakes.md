@@ -79,6 +79,7 @@ actually implemented — to surface bugs at eval time.
 
 All agents read from the same source of truth: `vars/ai-stack.nix`.
 That file holds `models` (capability-class registry), `endpoints`,
+the non-secret Z.ai provider, model, and Doppler selectors under `zai`,
 `nodeports`, and `cliVersions`. nix-side consumers `import` it; non-nix
 consumers read `~/.config/ai-stack/registry.json` (written every
 rebuild from the same data).

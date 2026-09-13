@@ -16,6 +16,7 @@ let
   cfg = config.programs.codex;
   inherit (config.programs) litellmLocal;
   homeDir = config.home.homeDirectory;
+  inherit (import ../../vars/ai-stack.nix) zai;
 
   aiCommon = import ../common {
     inherit lib config nix-claude-code;
@@ -204,6 +205,69 @@ let
     ''
   ) litellmProfileAttrs;
 
+  zaiModelCatalog = {
+    models = [
+      {
+        slug = zai.codex.model;
+        display_name = zai.codex.model;
+        description = "Z.ai flagship coding model";
+        default_reasoning_level = "max";
+        supported_reasoning_levels = [
+          {
+            effort = "low";
+            description = "Light reasoning";
+          }
+          {
+            effort = "high";
+            description = "Enhanced reasoning";
+          }
+          {
+            effort = "max";
+            description = "Deep reasoning";
+          }
+        ];
+        shell_type = "shell_command";
+        visibility = "list";
+        supported_in_api = true;
+        priority = 0;
+        base_instructions = "";
+        supports_reasoning_summaries = true;
+        default_reasoning_summary = "none";
+        support_verbosity = false;
+        apply_patch_tool_type = "freeform";
+        truncation_policy = {
+          mode = "bytes";
+          limit = 10000;
+        };
+        context_window = 1048576;
+        max_context_window = 1048576;
+        effective_context_window_percent = zai.codex.effectiveContextWindowPercent;
+        supports_parallel_tool_calls = true;
+        experimental_supported_tools = [ ];
+        input_modalities = [ "text" ];
+      }
+    ];
+  };
+
+  zaiModelCatalogPath = "${homeDir}/${configDir}/zai-models.json";
+  zaiProfileAttrs = {
+    model = zai.codex.model;
+    model_provider = "ZAI";
+    model_reasoning_effort = "max";
+    model_catalog_json = zaiModelCatalogPath;
+    model_providers.ZAI = {
+      name = "ZAI";
+      base_url = zai.codex.baseUrl;
+      env_key = zai.doppler.keyEnv;
+      wire_api = "responses";
+    };
+  };
+
+  zaiProfileJson = pkgs.writeText "codex-zai-profile.json" (builtins.toJSON zaiProfileAttrs);
+  zaiProfileToml = pkgs.runCommand "codex-zai.config.toml" { nativeBuildInputs = [ pkgs.yj ]; } ''
+    yj -jt < ${zaiProfileJson} > $out
+  '';
+
   configJson = pkgs.writeText "codex-config.json" (builtins.toJSON configAttrs);
   configToml = pkgs.runCommand "codex-config.toml" { nativeBuildInputs = [ pkgs.yj ]; } ''
     yj -jt < ${configJson} > $out
@@ -251,6 +315,8 @@ in
 
         file = {
           "${configDir}/rules/default.rules".text = formatters.codex.formatRulesFile permissions;
+          "${configDir}/zai-models.json".text = builtins.toJSON zaiModelCatalog;
+          "${configDir}/zai.config.toml".source = zaiProfileToml;
         }
         // lib.optionalAttrs litellmLocal.enable (
           lib.mapAttrs' (
