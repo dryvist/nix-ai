@@ -7,15 +7,16 @@
 # assertion itself only exists inside the module system's evalModules pass.
 #
 # Two configs:
-#   ladderGood -- a per-model override that stays under both ladder rungs.
-#                 The ordering assertion must hold, and the option must
-#                 carry the override value for that one model while the
-#                 global default is unaffected.
+#   ladderGood -- a per-model override that stays under the router's own
+#                 timeout, the binding upper constraint. The ordering
+#                 assertion must hold, and the option must carry the
+#                 override value for that one model while the global
+#                 default is unaffected.
 #   ladderBad  -- a per-model override at 2400s, equal to the router's own
 #                 timeout. The ordering assertion must FAIL: an override at
-#                 or above either rung defeats that rung's own bound, and a
-#                 check that only ever evaluates a passing config can't tell
-#                 a live assertion from one that always reports true.
+#                 or above that bound defeats it, and a check that only ever
+#                 evaluates a passing config can't tell a live assertion
+#                 from one that always reports true.
 {
   pkgs,
   mkHmConfig,

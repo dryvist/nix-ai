@@ -65,19 +65,22 @@ in
       };
       responseHeaderTimeout = lib.mkOption {
         type = lib.types.ints.unsigned;
-        # Derived from the slowest steady-state prefill rate measured in
-        # mlx-benchmarks (667 tok/s, 35B-A3B model, M4 Max, 2509-token
-        # prompt -- the only prefill data available at this repo state;
-        # no measurement exists yet for the largest configured model
-        # (qwen38-27b, dense, 131072-token context) or the Mac Studio it
-        # runs on, so this extrapolates across both model and chip) against
-        # the largest configured context window (131072 tokens):
-        # 131072 / 667 = 196s worst-case first byte, x2 safety = 393s.
-        # Must stay under both rungs of the timeout ladder this sits below:
-        # the router's own per-request timeout (2400s, ai_router_request_timeout_seconds
-        # in ansible-proxmox-ai's llm_router role) and the MLX watchdog's
-        # wedge-classification window (3600s) -- asserted in assertions.nix.
-        default = 393;
+        # No direct measurement exists yet for the target model
+        # (qwen38-27b, dense, 131072-token context) on the Mac Studio it
+        # runs on. Until one does, scale the only prefill datapoint this
+        # repo has -- 667 tok/s, mlx-benchmarks
+        # main:_bench-json/serve-c1-optiq35b-nothink.json row 9
+        # (Qwen3.6-35B-A3B-OptiQ-4bit, M4 Max, 2509-token prompt) -- by the
+        # active-parameter ratio between that MoE (3B active) and the
+        # target dense model (27B active), since prefill is compute-bound
+        # in active parameters: 667 x 3/27 = 74 tok/s. Against the largest
+        # configured context window (131072 tokens): 131072 / 74 = 1771s
+        # worst-case first byte, x1.2 margin = 2125s. Must stay under the
+        # router's own per-request timeout (2400s,
+        # ai_router_request_timeout_seconds in ansible-proxmox-ai's
+        # llm_router role), the binding upper constraint -- asserted in
+        # assertions.nix.
+        default = 2125;
         description = "Seconds llama-swap waits for a worker's first response byte before treating the request as failed (per-model timeouts.responseHeader). Upstream defaults this to zero, meaning never; this module previously left the timeouts key unset entirely, so every model inherited that unbounded wait. A worker that accepts a request and then stalls before writing anything back (a hung generation loop, not a crash, so the connection stays open) never returns from the reverse proxy call, so its admission slot never releases. Set to zero to restore the unbounded upstream default. Per-model override: programs.mlx.modelResponseHeaderTimeouts.";
       };
       idleTtl = lib.mkOption {

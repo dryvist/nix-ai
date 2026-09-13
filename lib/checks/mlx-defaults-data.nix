@@ -76,7 +76,7 @@
   {
     name = "mlx.proxy.responseHeaderTimeout";
     actual = mlxCfg.proxy.responseHeaderTimeout;
-    expected = 393;
+    expected = 2125;
   }
   {
     name = "mlx.modelResponseHeaderTimeouts-empty-by-default";
