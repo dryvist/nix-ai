@@ -218,6 +218,7 @@ in
       inherit
         nix-claude-code
         marketplaceInputs
+        llm-agents
         ;
     };
   };
