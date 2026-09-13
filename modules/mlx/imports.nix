@@ -14,6 +14,7 @@
 [
   ./options-renamed.nix
   ./options-proxy.nix
+  ./options-proxy-response-header-timeout.nix
   ./options-server.nix
   ./options-cache.nix
   # How every shell-script launchd agent here is launched. One option, because
