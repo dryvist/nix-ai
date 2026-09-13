@@ -142,9 +142,11 @@ in
     # (and the shared MCP renderer-parity check) succeeds even when
     # programs.opencode.enable = false.
     {
-      programs.opencode.mcpServerNames = lib.attrNames mcpServers;
-      programs.opencode.litellmRoles = litellmRoles;
-      programs.opencode.lspEnabled = settings.lsp or false;
+      programs.opencode = {
+        mcpServerNames = lib.attrNames mcpServers;
+        inherit litellmRoles;
+        lspEnabled = settings.lsp or false;
+      };
     }
     (lib.mkIf cfg.enable {
       # llm-agents.nix packages opencode for both supported systems, so the
