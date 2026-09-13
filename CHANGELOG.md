@@ -1,5 +1,23 @@
 # Changelog
 
+## [5.19.0](https://github.com/dryvist/nix-ai/compare/v5.18.0...v5.19.0) (2026-09-13)
+
+
+### Features
+
+* **ai-shell:** migrate aikey from macOS keychain to OpenBao ([#2156](https://github.com/dryvist/nix-ai/issues/2156)) ([79b6764](https://github.com/dryvist/nix-ai/commit/79b6764fbf046197e8c05503ecb181090ab2ab9c))
+* **claude:** install Claude Code during activation for every user profile ([#2160](https://github.com/dryvist/nix-ai/issues/2160)) ([6c8f3b4](https://github.com/dryvist/nix-ai/commit/6c8f3b4ff2ce55db1ec31a1b22d7f0355dc4fddb))
+* **litellm:** hoist router capability aliases into one committed file ([#2151](https://github.com/dryvist/nix-ai/issues/2151)) ([d615129](https://github.com/dryvist/nix-ai/commit/d61512914d0a206f41a238d0769e4680677c5f15))
+* **mlx:** bound llama-swap's wait for a worker's first response byte ([ff1ddf8](https://github.com/dryvist/nix-ai/commit/ff1ddf8eef0e64ea01291fd8b1db50991524283b))
+* **mlx:** bound llama-swap's wait for a worker's first response byte ([81eacb1](https://github.com/dryvist/nix-ai/commit/81eacb19ed8bf61d8020ca577ede9fbb55435b17))
+
+
+### Bug Fixes
+
+* **mlx:** derive responseHeaderTimeout from measured prefill, add ladder assertion ([#2158](https://github.com/dryvist/nix-ai/issues/2158)) ([9369757](https://github.com/dryvist/nix-ai/commit/936975767875d6a35c00d2c5a7778292a0546ac8))
+* remove tracker citations from the committed option description ([8faafd7](https://github.com/dryvist/nix-ai/commit/8faafd7e39e36e5f8edef27a703adb90a9c1ef7d))
+* **session-sync:** exclude per-machine rendered config from the peer push ([#2157](https://github.com/dryvist/nix-ai/issues/2157)) ([1152828](https://github.com/dryvist/nix-ai/commit/115282860f8e770c498310199029161578960b87))
+
 ## [5.18.0](https://github.com/dryvist/nix-ai/compare/v5.17.0...v5.18.0) (2026-09-12)
 
 
