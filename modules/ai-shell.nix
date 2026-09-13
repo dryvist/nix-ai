@@ -16,13 +16,17 @@ in
   options.programs.aiRouterKeys = {
     openbaoPathPrefix = lib.mkOption {
       type = lib.types.str;
-      default = "secret/apps";
+      default = "secret/data/apps";
       description = ''
-        OpenBao KV path prefix `aikey <harness>` (modules/ai-aliases.zsh)
+        OpenBao KV v2 path prefix `aikey <harness>` (modules/ai-aliases.zsh)
         reads a harness's router key from: `<openbaoPathPrefix>/<harness>`.
-        Same per-consumer layout as `programs.raycastAi.openbaoKeyPath` in
-        nix-home (`secret/apps/raycast`) — `aikey opencode` reads
-        `secret/apps/opencode` by default.
+        The `data` segment is KV v2's explicit path element (matching
+        `modules/scripts/session-archive.sh`'s `secret/data/apps/...` read),
+        distinct from the `.data.data` field nesting inside the JSON
+        response body. `aikey opencode` reads `secret/data/apps/opencode`
+        by default — reading it requires the `ai-public` AppRole policy to
+        grant `secret/data/apps/<harness>` for that harness (see the
+        `openbaoFieldSuffix` note below on the apps-side grant rollout).
       '';
     };
 
@@ -30,10 +34,20 @@ in
       type = lib.types.str;
       default = "_llm_router_key";
       description = ''
-        Field-name suffix `aikey <harness>` reads within its OpenBao secret:
-        `<harness><openbaoFieldSuffix>`. Defaults to `_llm_router_key`, the
-        name settled by the apps-side grant PR and the router A4 PR — e.g.
-        `aikey opencode` reads field `opencode_llm_router_key`.
+        Field-name suffix `aikey <harness>` reads within its OpenBao secret.
+        The harness name has every hyphen turned into an underscore before
+        the suffix is appended (`hermes-splunk-admin` -> field
+        `hermes_splunk_admin_llm_router_key`), byte-identical to the
+        `replace('-', '_')` convention in ansible-proxmox-ai's
+        `hermes-env-profile.j2`/`profiles.yml`. Defaults to
+        `_llm_router_key`, the name settled by the apps-side grant PR and
+        the router A4 PR — e.g. `aikey opencode` reads field
+        `opencode_llm_router_key`. Reading any of these fields requires the
+        `ai-public` AppRole policy to grant read on `secret/data/apps/*`
+        for the harnesses in use; today it grants only
+        `secret/data/ai/public/*`, and the apps-side grant PR that adds
+        `opencode`/`raycast`/`codex`/`cursor` has not converged yet — until
+        it does, `aikey` fails closed with a permission-denied reason.
       '';
     };
   };

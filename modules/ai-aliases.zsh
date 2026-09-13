@@ -34,27 +34,28 @@ fi
 # Router API-key shortcut: `aikey <harness>` prints that harness's LiteLLM
 # router virtual key, read from OpenBao at call time via the same
 # AppRole-login-then-KV-read shape as nix-home's raycast-ai-providers.nix
-# merge script — secret-zero from the ambient AI_READONLY_* vars (see
-# with-ai-readonly above), fail closed, never an empty key printed. The
-# value lives only in the caller's shell (e.g. `export
-# OPENCODE_API_KEY="$(aikey opencode)"`) — nothing is written to disk.
-#   aikey opencode  ->  GET secret/apps/opencode, field opencode_llm_router_key
+# merge script — secret-zero from the ambient AI_READONLY_* vars (run it
+# through `with-ai-readonly` above if those aren't already in your shell,
+# e.g. `with-ai-readonly zsh -c 'aikey opencode'`), fail closed, never an
+# empty key printed. The value lives only in the caller's shell (e.g.
+# `export OPENCODE_API_KEY="$(aikey opencode)"`) — nothing is written to disk.
+#   aikey opencode  ->  GET secret/data/apps/opencode, field opencode_llm_router_key
+_aikey_skip() { print -u2 "aikey: skipped: no router credential ($1)"; }
+
 aikey() {
   local harness="${1:l}"
   [[ -n "$harness" ]] || { print -u2 "usage: aikey <harness>"; return 1; }
 
-  skip() { print -u2 "aikey: skipped: no router credential ($1)"; }
-
-  local path_prefix="${AI_ROUTER_KEY_OPENBAO_PATH_PREFIX:-secret/apps}"
+  local path_prefix="${AI_ROUTER_KEY_OPENBAO_PATH_PREFIX:-secret/data/apps}"
   local field_suffix="${AI_ROUTER_KEY_OPENBAO_FIELD_SUFFIX:-_llm_router_key}"
   local openbao_path="${path_prefix%/}/${harness}"
-  local key_field="${harness}${field_suffix}"
+  local key_field="${harness//-/_}${field_suffix}"
 
   local bao_addr="${BAO_ADDR:-}"
   local role_id="${AI_READONLY_ROLE_ID:-}"
   local secret_id="${AI_READONLY_SECRET_ID:-}"
   [[ -n "$bao_addr" && -n "$role_id" && -n "$secret_id" ]] \
-    || { skip "OpenBao AppRole secret-zero absent from the environment"; return 1; }
+    || { _aikey_skip "OpenBao AppRole secret-zero absent from the environment"; return 1; }
   bao_addr="${bao_addr%/}"
 
   local login_response
@@ -62,19 +63,19 @@ aikey() {
       '{role_id: $role_id, secret_id: $secret_id}' \
     | curl -fsS --max-time 10 -H "Content-Type: application/json" --data @- \
         "$bao_addr/v1/auth/approle/login" 2>/dev/null)" \
-    || { skip "OpenBao AppRole login failed"; return 1; }
+    || { _aikey_skip "OpenBao AppRole login failed"; return 1; }
   local bao_token
   bao_token="$(print -r -- "$login_response" | jq -er '.auth.client_token // empty' 2>/dev/null)" \
-    || { skip "OpenBao AppRole login response had no client_token"; return 1; }
+    || { _aikey_skip "OpenBao AppRole login response had no client_token"; return 1; }
 
   local secret_response
   secret_response="$(print -r -- "X-Vault-Token: $bao_token" \
     | curl -fsS --max-time 10 -H @- "$bao_addr/v1/$openbao_path" 2>/dev/null)" \
-    || { skip "OpenBao denied or failed to read $openbao_path"; return 1; }
+    || { _aikey_skip "OpenBao denied or failed to read $openbao_path"; return 1; }
   local api_key
   api_key="$(print -r -- "$secret_response" | jq -er --arg f "$key_field" '.data.data[$f] // empty' 2>/dev/null)" \
-    || { skip "OpenBao secret at $openbao_path has no $key_field field"; return 1; }
-  [[ -n "$api_key" ]] || { skip "$key_field field is empty"; return 1; }
+    || { _aikey_skip "OpenBao secret at $openbao_path has no $key_field field"; return 1; }
+  [[ -n "$api_key" ]] || { _aikey_skip "$key_field field is empty"; return 1; }
 
   print -r -- "$api_key"
 }
