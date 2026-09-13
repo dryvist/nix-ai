@@ -37,9 +37,9 @@ in
         Field-name suffix `aikey <harness>` reads within its OpenBao secret.
         The harness name has every hyphen turned into an underscore before
         the suffix is appended (`hermes-splunk-admin` -> field
-        `hermes_splunk_admin_llm_router_key`), byte-identical to the
-        `replace('-', '_')` convention in ansible-proxmox-ai's
-        `hermes-env-profile.j2`/`profiles.yml`. Defaults to
+        `hermes_splunk_admin_llm_router_key`), matching the field-naming
+        scheme ansible-proxmox-ai's `roles/llm_router/defaults/main/56-virtual-keys.yml`
+        defines for `bao_apps_secrets`. Defaults to
         `_llm_router_key`, the name settled by the apps-side grant PR and
         the router A4 PR — e.g. `aikey opencode` reads field
         `opencode_llm_router_key`. Reading any of these fields requires the

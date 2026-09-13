@@ -36,7 +36,9 @@ fi
 # AppRole-login-then-KV-read shape as nix-home's raycast-ai-providers.nix
 # merge script — secret-zero from the ambient AI_READONLY_* vars (run it
 # through `with-ai-readonly` above if those aren't already in your shell,
-# e.g. `with-ai-readonly zsh -c 'aikey opencode'`), fail closed, never an
+# e.g. `with-ai-readonly zsh -i -c 'aikey opencode'` — `-i` is required so the
+# interactive-shell function definitions load; a plain `zsh -c` never reads
+# them, and the wrapped command still ends in `env`), fail closed, never an
 # empty key printed. The value lives only in the caller's shell (e.g.
 # `export OPENCODE_API_KEY="$(aikey opencode)"`) — nothing is written to disk.
 #   aikey opencode  ->  GET secret/data/apps/opencode, field opencode_llm_router_key
