@@ -63,11 +63,8 @@ in
         default = 180;
         description = "Seconds to wait for a backend to become healthy. 70GB models take 20-60s to load; 180s covers the worst case.";
       };
-      responseHeaderTimeout = lib.mkOption {
-        type = lib.types.ints.unsigned;
-        default = 300;
-        description = "Seconds llama-swap waits for a worker's first response byte before treating the request as failed (per-model timeouts.responseHeader). Upstream defaults this to zero, meaning never; this module previously left the timeouts key unset entirely, so every model inherited that unbounded wait. A worker that accepts a request and then stalls before writing anything back (a hung generation loop, not a crash, so the connection stays open) never returns from the reverse proxy call, so its admission slot never releases. 300 seconds is generous relative to healthCheckTimeout while still bounding what used to be an infinite wait. Set to zero to restore the unbounded upstream default.";
-      };
+      # responseHeaderTimeout moved to options-proxy-response-header-timeout.nix
+      # (12KB file-size gate; see that file for the derivation).
       idleTtl = lib.mkOption {
         type = lib.types.ints.unsigned;
         default = 900;

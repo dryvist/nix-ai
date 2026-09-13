@@ -145,5 +145,32 @@ in
         '';
       }
     )
+    (
+      let
+        # llama-swap's own first-byte wait sits below the router's
+        # per-request timeout -- the binding upper constraint. A later value
+        # here that reaches or exceeds it would let this proxy wait longer
+        # than the layer above it is willing to, defeating that layer's own
+        # bound.
+        routerRequestTimeoutSeconds = 2400;
+        effectiveTimeouts = [
+          cfg.proxy.responseHeaderTimeout
+        ]
+        ++ lib.attrValues cfg.modelResponseHeaderTimeouts;
+        tooHigh = lib.filter (t: t != 0 && t >= routerRequestTimeoutSeconds) effectiveTimeouts;
+      in
+      {
+        assertion = tooHigh == [ ];
+        message = ''
+          programs.mlx.proxy.responseHeaderTimeout (or a
+          modelResponseHeaderTimeouts override) is ${toString tooHigh}, which
+          is not below the router's own request timeout
+          (${toString routerRequestTimeoutSeconds}s). A value at or above it
+          lets this layer wait longer than the layer above it is willing to,
+          which defeats that layer's own bound. 0 (unbounded) is exempt from
+          this check by definition.
+        '';
+      }
+    )
   ];
 }

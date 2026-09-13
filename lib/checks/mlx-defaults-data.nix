@@ -76,7 +76,12 @@
   {
     name = "mlx.proxy.responseHeaderTimeout";
     actual = mlxCfg.proxy.responseHeaderTimeout;
-    expected = 300;
+    expected = 2125;
+  }
+  {
+    name = "mlx.modelResponseHeaderTimeouts-empty-by-default";
+    actual = mlxCfg.modelResponseHeaderTimeouts;
+    expected = { };
   }
   {
     name = "mlx.prefillBatchSize";
