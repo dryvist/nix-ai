@@ -197,56 +197,85 @@ in
     let
       profile = hmConfig.config.home.file.".codex/zai.config.toml".source;
       catalog = hmConfig.config.home.file.".codex/zai-models.json".text;
+      # Derive the rendered catalog path the way settings.nix does, instead of
+      # hardcoding the test user's home directory here.
+      expectedCatalogPath = "${hmConfig.config.home.homeDirectory}/.codex/zai-models.json";
     in
     pkgs.runCommand "check-codex-zai-profile"
       {
-        nativeBuildInputs = [ pkgs.jq ];
+        nativeBuildInputs = [
+          pkgs.jq
+          pkgs.python3
+        ];
         passAsFile = [ "catalog" ];
-        inherit catalog;
+        inherit catalog expectedCatalogPath;
       }
       ''
-        jq -e '
-          .models == [{
-            slug: "glm-5.3",
-            display_name: "glm-5.3",
-            description: "Z.ai flagship coding model",
-            default_reasoning_level: "max",
-            supported_reasoning_levels: [
-              { effort: "low", description: "Light reasoning" },
-              { effort: "high", description: "Enhanced reasoning" },
-              { effort: "max", description: "Deep reasoning" }
-            ],
-            shell_type: "shell_command",
-            visibility: "list",
-            supported_in_api: true,
-            priority: 0,
-            base_instructions: "",
-            supports_reasoning_summaries: true,
-            default_reasoning_summary: "none",
-            support_verbosity: false,
-            apply_patch_tool_type: "freeform",
-            truncation_policy: { mode: "bytes", limit: 10000 },
-            context_window: 1048576,
-            max_context_window: 1048576,
-            effective_context_window_percent: 50,
-            supports_parallel_tool_calls: true,
-            experimental_supported_tools: [],
-            input_modalities: ["text"]
-          }]
-        ' "$catalogPath" >/dev/null
+                jq -e '
+                  .models == [{
+                    slug: "glm-5.3",
+                    display_name: "glm-5.3",
+                    description: "Z.ai flagship coding model",
+                    default_reasoning_level: "max",
+                    supported_reasoning_levels: [
+                      { effort: "low", description: "Light reasoning" },
+                      { effort: "high", description: "Enhanced reasoning" },
+                      { effort: "max", description: "Deep reasoning" }
+                    ],
+                    shell_type: "shell_command",
+                    visibility: "list",
+                    supported_in_api: true,
+                    priority: 0,
+                    base_instructions: "",
+                    supports_reasoning_summaries: true,
+                    default_reasoning_summary: "none",
+                    support_verbosity: false,
+                    apply_patch_tool_type: "freeform",
+                    truncation_policy: { mode: "bytes", limit: 10000 },
+                    context_window: 1048576,
+                    max_context_window: 1048576,
+                    effective_context_window_percent: 50,
+                    supports_parallel_tool_calls: true,
+                    experimental_supported_tools: [],
+                    input_modalities: ["text"]
+                  }]
+                ' "$catalogPath" >/dev/null
 
-        grep -Fq 'model = "glm-5.3"' ${profile}
-        grep -Fq 'model_provider = "ZAI"' ${profile}
-        grep -Fq 'model_reasoning_effort = "max"' ${profile}
-        grep -Fq 'model_catalog_json = "/home/test-user/.codex/zai-models.json"' ${profile}
-        grep -Fq 'base_url = "https://api.z.ai/api/v1"' ${profile}
-        grep -Fq 'env_key = "ZAI_SUBSCRIPTION_KEY"' ${profile}
-        grep -Fq 'wire_api = "responses"' ${profile}
-        if grep -Fq 'experimental_bearer_token' ${profile}; then
-          echo "FAIL: Z.ai credential must be read from env_key, never rendered into TOML" >&2
-          exit 1
-        fi
-        touch $out
+                grep -Fq 'model = "glm-5.3"' ${profile}
+                grep -Fq 'model_provider = "ZAI"' ${profile}
+                grep -Fq 'model_reasoning_effort = "max"' ${profile}
+                grep -Fq 'model_catalog_json = "'"$expectedCatalogPath"'"' ${profile}
+                grep -Fq 'base_url = "https://api.z.ai/api/v1"' ${profile}
+                grep -Fq 'env_key = "ZAI_SUBSCRIPTION_KEY"' ${profile}
+                grep -Fq 'wire_api = "responses"' ${profile}
+                if grep -Fq 'experimental_bearer_token' ${profile}; then
+                  echo "FAIL: Z.ai credential must be read from env_key, never rendered into TOML" >&2
+                  exit 1
+                fi
+                # Structural validation: the greps above check flat lines only, so also
+                # parse the TOML and assert the provider table Codex will actually read.
+                python3 - "$expectedCatalogPath" "${profile}" <<'PYEOF'
+        import sys, tomllib
+
+        expected_catalog, profile_path = sys.argv[1], sys.argv[2]
+        with open(profile_path, "rb") as f:
+            cfg = tomllib.load(f)
+
+        assert cfg["model"] == "glm-5.3", cfg.get("model")
+        assert cfg["model_provider"] == "ZAI", cfg.get("model_provider")
+        assert cfg["model_reasoning_effort"] == "max", cfg.get("model_reasoning_effort")
+        assert cfg["model_catalog_json"] == expected_catalog, cfg.get("model_catalog_json")
+
+        provider = cfg["model_providers"]["ZAI"]
+        assert provider["name"] == "ZAI", provider
+        assert provider["base_url"] == "https://api.z.ai/api/v1", provider
+        assert provider["env_key"] == "ZAI_SUBSCRIPTION_KEY", provider
+        assert provider["wire_api"] == "responses", provider
+        assert "experimental_bearer_token" not in provider, provider
+
+        print("codex-zai-profile: TOML structure and ZAI provider table verified")
+        PYEOF
+                touch $out
       '';
 
   zai-launchers =
