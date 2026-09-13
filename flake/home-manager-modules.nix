@@ -211,6 +211,8 @@ in
     imports = [
       ../modules/mcp/module.nix
       ../modules/agent-skills
+      ../modules/litellm-local
+      ../modules/ai-stack
       ../modules/opencode
       ../modules/maintainer-profile.nix
     ];
