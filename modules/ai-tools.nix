@@ -24,9 +24,7 @@
 # ============================================================================
 #
 # NIXPKGS: github-mcp-server, terraform-mcp-server, whisper-cpp,
-#   openai-whisper, entire, yt-dlp, qwen-code, cursor-cli, plus the AI agent
-#   language servers (nixd, typescript-language-server, bash-language-server,
-#   pyright, terraform-ls, yaml-language-server)
+#   openai-whisper, entire, yt-dlp, qwen-code, cursor-cli
 #
 # LLM-AGENTS.NIX: claude-code, antigravity-cli (`agy`), copilot-cli, herdr,
 #   codex, opencode
@@ -123,25 +121,6 @@ in
     # Terraform MCP Server - Terraform/OpenTofu integration
     # Source: https://github.com/hashicorp/terraform-mcp-server
     terraform-mcp-server
-
-    # ==========================================================================
-    # Language Servers (AI agent diagnostics)
-    # ==========================================================================
-    # Consumed by the AI CLIs' LSP integrations: Claude Code "code
-    # intelligence" plugins, OpenCode's built-in servers, and OmO's LSP
-    # runtime on Codex. Each harness spawns the binary from PATH and injects
-    # post-edit diagnostics; none installs the binary itself. Only servers a
-    # session can hit in any repo live here — per-language servers belong in
-    # that repo's devShell (nix-devenv).
-    # NOTE: pyright's single owner is this list. nix-home's python-env.nix
-    # deliberately does not carry it (it needs no interpreter on PATH).
-
-    nixd # Nix
-    typescript-language-server # TS/JS
-    bash-language-server # shell scripts
-    pyright # Python
-    terraform-ls # Terraform and OpenTofu (.tf and .tofu)
-    yaml-language-server # YAML (playbooks, workflows, pipelines)
 
     # ==========================================================================
     # yt-dlp — YouTube/multimedia content extraction

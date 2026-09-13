@@ -108,8 +108,12 @@ in
 
   config = {
     home = {
-      # AI development tools (MCP servers, linters, CLI wrappers)
-      inherit (import ./ai-tools.nix { inherit pkgs llm-agents; }) packages;
+      # AI development tools (MCP servers, linters, CLI wrappers). The agent
+      # language servers are spliced in from their own file: ai-tools.nix sits
+      # at its file-size ceiling.
+      packages =
+        (import ./ai-tools.nix { inherit pkgs llm-agents; }).packages
+        ++ import ./ai-tools/lsp-servers.nix { inherit pkgs; };
 
       file = copilotFiles // agentsMdSymlinks;
 
