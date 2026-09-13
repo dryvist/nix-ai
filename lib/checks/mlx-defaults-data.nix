@@ -74,6 +74,11 @@
     expected = 1;
   }
   {
+    name = "mlx.proxy.responseHeaderTimeout";
+    actual = mlxCfg.proxy.responseHeaderTimeout;
+    expected = 300;
+  }
+  {
     name = "mlx.prefillBatchSize";
     actual = mlxCfg.prefillBatchSize;
     expected = null;
