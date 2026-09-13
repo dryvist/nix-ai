@@ -133,9 +133,6 @@ in
   };
 
   codex = {
-    # See the opencode export: agent-skills needs the upstream
-    # antigravity-cli module disabled in standalone compositions.
-    disabledModules = [ "programs/antigravity-cli.nix" ];
     imports = [
       ../modules/mcp/module.nix
       ../modules/agent-skills
@@ -194,9 +191,6 @@ in
   };
 
   qwen-code = {
-    # See the opencode export: agent-skills needs the upstream
-    # antigravity-cli module disabled in standalone compositions.
-    disabledModules = [ "programs/antigravity-cli.nix" ];
     imports = [
       ../modules/ai-stack
       ../modules/mcp/module.nix
