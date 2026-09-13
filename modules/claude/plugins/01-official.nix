@@ -83,7 +83,10 @@ _:
 
     # Language Servers & Developer Tools
     "pyright-lsp@claude-plugins-official" = true;
-    "typescript-lsp@claude-plugins-official" = false; # Minimal TS usage
+    # Flipped on 2026-09-13 when typescript-language-server went onto global
+    # PATH (modules/ai-tools.nix) — the plugin only spawns a binary already
+    # present, so enabling it costs nothing where TS is unused.
+    "typescript-lsp@claude-plugins-official" = true;
 
     # Explicit denies — marketplace auto-installs, we lock them off.
     # ralph-loop: 0 invocations in 3 months of session history.
