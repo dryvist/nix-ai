@@ -65,8 +65,20 @@ in
       };
       responseHeaderTimeout = lib.mkOption {
         type = lib.types.ints.unsigned;
-        default = 300;
-        description = "Seconds llama-swap waits for a worker's first response byte before treating the request as failed (per-model timeouts.responseHeader). Upstream defaults this to zero, meaning never; this module previously left the timeouts key unset entirely, so every model inherited that unbounded wait. A worker that accepts a request and then stalls before writing anything back (a hung generation loop, not a crash, so the connection stays open) never returns from the reverse proxy call, so its admission slot never releases. 300 seconds is generous relative to healthCheckTimeout while still bounding what used to be an infinite wait. Set to zero to restore the unbounded upstream default.";
+        # Derived from the slowest steady-state prefill rate measured in
+        # mlx-benchmarks (667 tok/s, 35B-A3B model, M4 Max, 2509-token
+        # prompt -- the only prefill data available at this repo state;
+        # no measurement exists yet for the largest configured model
+        # (qwen38-27b, dense, 131072-token context) or the Mac Studio it
+        # runs on, so this extrapolates across both model and chip) against
+        # the largest configured context window (131072 tokens):
+        # 131072 / 667 = 196s worst-case first byte, x2 safety = 393s.
+        # Must stay under both rungs of the timeout ladder this sits below:
+        # the router's own per-request timeout (2400s, ai_router_request_timeout_seconds
+        # in ansible-proxmox-ai's llm_router role) and the MLX watchdog's
+        # wedge-classification window (3600s) -- asserted in assertions.nix.
+        default = 393;
+        description = "Seconds llama-swap waits for a worker's first response byte before treating the request as failed (per-model timeouts.responseHeader). Upstream defaults this to zero, meaning never; this module previously left the timeouts key unset entirely, so every model inherited that unbounded wait. A worker that accepts a request and then stalls before writing anything back (a hung generation loop, not a crash, so the connection stays open) never returns from the reverse proxy call, so its admission slot never releases. Set to zero to restore the unbounded upstream default. Per-model override: programs.mlx.modelResponseHeaderTimeouts.";
       };
       idleTtl = lib.mkOption {
         type = lib.types.ints.unsigned;
@@ -167,6 +179,22 @@ in
           documented concurrency (mlx-benchmarks RUNBOOK).
         '';
       };
+    };
+
+    # See proxy.responseHeaderTimeout's own comment for the derivation and
+    # the timeout-ladder ordering this must not cross (asserted in
+    # assertions.nix). Top-level sibling of proxy, matching
+    # modelConcurrencyLimits' placement (options-runtime.nix) as the
+    # per-model override for a global proxy.* default.
+    modelResponseHeaderTimeouts = lib.mkOption {
+      type = lib.types.attrsOf lib.types.ints.unsigned;
+      default = { };
+      example = lib.literalExpression ''
+        {
+          "mlx-community/<large-context-model>" = 600;
+        }
+      '';
+      description = "Per-physical-model override of programs.mlx.proxy.responseHeaderTimeout, for a model whose own context window or measured prefill rate needs a different first-byte bound than the global default -- a small model wedged should not wait as long as a large model's legitimate cold prefill. Keyed by physical model id; absent id falls back to proxy.responseHeaderTimeout.";
     };
   };
 }

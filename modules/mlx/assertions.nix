@@ -145,5 +145,36 @@ in
         '';
       }
     )
+    (
+      let
+        # The full timeout ladder: llama-swap's own first-byte wait sits
+        # below the router's per-request timeout, which sits below the MLX
+        # watchdog's wedge-classification window. A later value here that
+        # exceeds either rung would let this proxy wait longer than the
+        # layers above it are willing to, defeating their own bounds.
+        routerRequestTimeoutSeconds = 2400;
+        mlxWatchdogWedgeWindowSeconds = 3600;
+        effectiveTimeouts = [
+          cfg.proxy.responseHeaderTimeout
+        ]
+        ++ lib.attrValues cfg.modelResponseHeaderTimeouts;
+        tooHigh = lib.filter (
+          t: t != 0 && (t >= routerRequestTimeoutSeconds || t >= mlxWatchdogWedgeWindowSeconds)
+        ) effectiveTimeouts;
+      in
+      {
+        assertion = tooHigh == [ ];
+        message = ''
+          programs.mlx.proxy.responseHeaderTimeout (or a
+          modelResponseHeaderTimeouts override) is ${toString tooHigh}, which
+          is not below both the router's own request timeout
+          (${toString routerRequestTimeoutSeconds}s) and the MLX watchdog's
+          wedge-classification window (${toString mlxWatchdogWedgeWindowSeconds}s).
+          A value at or above either rung lets this layer wait longer than
+          the layer above it is willing to, which defeats that layer's own
+          bound. 0 (unbounded) is exempt from this check by definition.
+        '';
+      }
+    )
   ];
 }
