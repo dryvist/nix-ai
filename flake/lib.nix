@@ -103,6 +103,13 @@
   # truth: modules/claude/plugins/packs.nix. See docs/architecture/plugin-scoping.md.
   skillPacks = import ../modules/claude/plugins/packs.nix;
 
+  # Router capability aliases (best/default/fast/cheap/embed/judge/long).
+  # Exported as a plain list, no module system, so a non-home-manager
+  # cross-flake consumer (e.g. nix-home's Raycast provider renderer) can read
+  # the one committed contract instead of hand-maintaining its own copy.
+  # Single source of truth: modules/litellm-local/aliases.nix.
+  litellmAliases = import ../modules/litellm-local/aliases.nix;
+
   # Role-name → physical mlx-community/* model ID registry.
   # Exported as a plain attrset so foreign consumers (e.g. a homelab
   # gateway config) can consume it without importing the

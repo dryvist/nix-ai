@@ -21,6 +21,8 @@
   otelPackages,
 }:
 let
+  aliases = import ./aliases.nix;
+
   # The proxy runs from a uvx environment pinned to the Renovate-tracked release
   # in lib/versions.nix, the same way the MLX stack does, rather than from
   # nixpkgs' litellm: nixpkgs lags the upstream release train by months, and
@@ -65,6 +67,23 @@ let
     '';
   };
 
+  # CI-time / operator tool: proves the shared router actually serves every
+  # alias in the committed contract (modules/litellm-local/aliases.nix). Not
+  # gated on litellmLocal.enable — it tests the upstream router directly, and
+  # a host with the local proxy disabled still wants to be able to run it.
+  aliasSubsetCheck = pkgs.writeShellApplication {
+    name = "litellm-alias-subset-check";
+    runtimeInputs = [
+      pkgs.curl
+      pkgs.python3
+      pkgs.gnugrep
+    ];
+    text = ''
+      LITELLM_ALIASES=${lib.escapeShellArg (lib.concatStringsSep " " aliases)} \
+        exec ${./../scripts/litellm-alias-subset-check.sh} "$@"
+    '';
+  };
+
   proxyScript = pkgs.writeShellScript "litellm-local-start" ''
     set -euo pipefail
     OPENAI_API_KEY="$(cat ${lib.escapeShellArg (toString aiStack.llmEndpointTokenFile)})"
@@ -85,6 +104,7 @@ in
   inherit
     fallbackProbe
     fallbackWatch
+    aliasSubsetCheck
     proxyScript
     ;
 }

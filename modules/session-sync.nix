@@ -64,6 +64,22 @@ in
         "security/"
         ".tmp/"
         ".DS_Store"
+        # Per-machine rendered configuration. home-manager writes these as
+        # regular files (an activation merge, not a store symlink), so
+        # `--no-links` does not protect them: with `--update`, whichever host
+        # rebuilt most recently overwrites the peer's copy, handing it this
+        # host's OTEL host.name and other machine-specific settings.
+        #
+        # rsync runs once per top-level path (each of `paths` is its own
+        # transfer root), and this list is shared across every one of those
+        # runs, so a leading "/" anchors the pattern to the root of whichever
+        # path is currently being synced rather than to `$HOME`. That is why
+        # ".claude/settings.json" would be wrong here: `.claude` is already
+        # the transfer root, so the pattern must start from what is inside it.
+        "/settings.json" # ~/.claude/settings.json, ~/.qwen/settings.json
+        "/settings.local.json" # ~/.claude/settings.local.json
+        "/config.toml" # ~/.codex/config.toml
+        "/antigravity-cli/settings.json" # ~/.gemini/antigravity-cli/settings.json
       ];
       description = "rsync exclude patterns, applied to every path.";
     };

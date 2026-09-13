@@ -63,6 +63,8 @@ in
         default = 180;
         description = "Seconds to wait for a backend to become healthy. 70GB models take 20-60s to load; 180s covers the worst case.";
       };
+      # responseHeaderTimeout moved to options-proxy-response-header-timeout.nix
+      # (12KB file-size gate; see that file for the derivation).
       idleTtl = lib.mkOption {
         type = lib.types.ints.unsigned;
         default = 900;

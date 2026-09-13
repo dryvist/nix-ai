@@ -53,15 +53,12 @@ let
     client = "opencode";
   };
 
-  # Role aliases the local proxy serves. Each is a stable name; which physical
-  # model it resolves to is an upstream setting, so this list does not change
-  # when the mapping does.
-  litellmRoles = [
-    "lead"
-    "subagent"
-    "judge"
-    "cheap"
-  ];
+  # Router capability aliases the local proxy serves. Each is a stable name;
+  # which physical model it resolves to is an upstream setting, so this list
+  # does not change when the mapping does. Sourced from the one committed
+  # contract every consumer renders from — see
+  # modules/litellm-local/aliases.nix.
+  litellmRoles = import ../litellm-local/aliases.nix;
 
   allLitellmModels = lib.unique (litellmRoles ++ cfg.extraModels);
 
@@ -86,11 +83,11 @@ let
       });
     };
     small_model = "litellm/cheap";
-    # One subagent per router role, so the delegation skills that address a
-    # tier by role name (`@subagent`, `@judge`, `@cheap`; `lead` for a
-    # deliberate hand-off) work here as they do elsewhere. Each is pinned to
-    # its own `litellm/<role>` model rather than inheriting the caller's, which
-    # is the whole point of a tier. Permissions stay the global defaults.
+    # One subagent per router capability alias, so a delegation skill that
+    # addresses a tier by alias name (`@judge`, `@cheap`, ...) works here as it
+    # does elsewhere. Each is pinned to its own `litellm/<role>` model rather
+    # than inheriting the caller's, which is the whole point of a tier.
+    # Permissions stay the global defaults.
     agent = lib.genAttrs litellmRoles (role: {
       description = "Delegate to the router's `${role}` tier (resolved upstream, never a physical model)";
       mode = "subagent";
@@ -140,6 +137,7 @@ in
     # programs.opencode.enable = false.
     {
       programs.opencode.mcpServerNames = lib.attrNames mcpServers;
+      programs.opencode.litellmRoles = litellmRoles;
     }
     (lib.mkIf cfg.enable {
       # llm-agents.nix packages opencode for both supported systems, so the

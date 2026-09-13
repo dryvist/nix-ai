@@ -29,6 +29,8 @@
       aliases = cfg.judge.aliases;
       useModelName = cfg.judge.model;
       concurrencyLimit = effectiveConcurrency cfg.judge.model;
+      timeouts.responseHeader =
+        cfg.modelResponseHeaderTimeouts.${cfg.judge.model} or cfg.proxy.responseHeaderTimeout;
     }
     // lib.optionalAttrs (defaultFilters != { }) { filters = defaultFilters; };
   };
