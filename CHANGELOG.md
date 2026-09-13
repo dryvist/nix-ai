@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.21.0](https://github.com/dryvist/nix-ai/compare/v5.20.0...v5.21.0) (2026-09-13)
+
+
+### Features
+
+* language servers for AI agents (ai-tools, OpenCode LSP, TS plugin) ([#2173](https://github.com/dryvist/nix-ai/issues/2173)) ([16281bc](https://github.com/dryvist/nix-ai/commit/16281bc617b607360accff8c2f845531e1336c42))
+
 ## [5.20.0](https://github.com/dryvist/nix-ai/compare/v5.19.0...v5.20.0) (2026-09-13)
 
 
