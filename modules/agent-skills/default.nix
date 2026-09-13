@@ -240,6 +240,17 @@ let
     ++ lib.concatLists (lib.mapAttrsToList discoverRootSkill marketplaceInputs);
 in
 {
+  # This module nests options under programs.<agent>.skills for every harness
+  # it fans out to (antigravity-cli among them). Upstream home-manager's own
+  # programs/antigravity-cli.nix declares that option with a non-nested type,
+  # so any composition that imports agent-skills WITHOUT nix-ai's
+  # antigravity-cli module (e.g. a standalone per-agent export consumed by
+  # another flake) hits a "does not support nested options" conflict. Disable
+  # the upstream module wherever agent-skills is imported; nix-ai's own
+  # antigravity-cli module re-declares the full surface and disables the same
+  # file itself.
+  disabledModules = [ "programs/antigravity-cli.nix" ];
+
   imports = [
     ./options.nix
     ./components.nix
