@@ -794,11 +794,11 @@
         "visual-explainer-marketplace": "visual-explainer-marketplace"
       },
       "locked": {
-        "lastModified": 1789280105,
-        "narHash": "sha256-8iQXSSybwgetsQTmC8GqlHL1ySwIrrGpq+hoqjN2WR4=",
+        "lastModified": 1789288020,
+        "narHash": "sha256-ppCC3BEiH/WWREkfYc3znSQRBwNVi89EAwDlTcVFh6k=",
         "owner": "dryvist",
         "repo": "nix-claude-code",
-        "rev": "81436d684a7b141ee43e4076785cfe990377acdc",
+        "rev": "d03e86f9e3465ef31c22f6eeab5c2404cc2eb150",
         "type": "github"
       },
       "original": {
