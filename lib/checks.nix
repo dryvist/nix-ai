@@ -34,6 +34,7 @@ let
     hmConfigDefaultModel
     hmConfigSmallRole
     hmConfigDupRole
+    hmConfigUnknownRoleModel
     hmConfigCluster
     hmConfigTokenMeter
     hmConfigTokenMeterLegacy
@@ -127,6 +128,7 @@ in
     pkgs
     hmConfigSmallRole
     hmConfigDupRole
+    hmConfigUnknownRoleModel
     ;
 })
 // (import ./checks/mlx-harmony.nix { inherit pkgs hmConfigCatalog; })
