@@ -133,6 +133,9 @@ in
   };
 
   codex = {
+    # See the opencode export: agent-skills needs the upstream
+    # antigravity-cli module disabled in standalone compositions.
+    disabledModules = [ "programs/antigravity-cli.nix" ];
     imports = [
       ../modules/mcp/module.nix
       ../modules/agent-skills
@@ -191,6 +194,9 @@ in
   };
 
   qwen-code = {
+    # See the opencode export: agent-skills needs the upstream
+    # antigravity-cli module disabled in standalone compositions.
+    disabledModules = [ "programs/antigravity-cli.nix" ];
     imports = [
       ../modules/ai-stack
       ../modules/mcp/module.nix
@@ -208,6 +214,11 @@ in
   };
 
   opencode = {
+    # agent-skills nests options under programs.antigravity-cli.skills, which
+    # conflicts with upstream home-manager's antigravity-cli module; the full
+    # `default` composition disables it via nix-ai's antigravity-cli module,
+    # so standalone consumers of these exports must disable it themselves.
+    disabledModules = [ "programs/antigravity-cli.nix" ];
     imports = [
       ../modules/mcp/module.nix
       ../modules/agent-skills

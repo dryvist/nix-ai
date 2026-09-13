@@ -240,13 +240,6 @@ let
     ++ lib.concatLists (lib.mapAttrsToList discoverRootSkill marketplaceInputs);
 in
 {
-  # Nests options under programs.<agent>.skills; upstream home-manager's
-  # antigravity-cli module declares that option non-nested, so standalone
-  # per-agent exports (which skip nix-ai's antigravity-cli module, the usual
-  # disabler) would hit a nested-options conflict. nix-ai's antigravity-cli
-  # module disables the same file.
-  disabledModules = [ "programs/antigravity-cli.nix" ];
-
   imports = [
     ./options.nix
     ./components.nix
