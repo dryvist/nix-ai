@@ -90,6 +90,27 @@
     config = "prd";
   };
 
+  # Z.ai subscription launchers. Everything here is non-secret configuration;
+  # the API key remains in Doppler and reaches only the selected child process.
+  zai = {
+    doppler = {
+      project = "gh-workflow-tokens";
+      config = "dryvist";
+      keyEnv = "ZAI_SUBSCRIPTION_KEY";
+    };
+    claude = {
+      baseUrl = "https://api.z.ai/api/anthropic";
+      primaryModel = "glm-5.3[1m]";
+      fastModel = "glm-5.3-flash[1m]";
+      autoCompactWindow = "500000";
+    };
+    codex = {
+      baseUrl = "https://api.z.ai/api/v1";
+      model = "glm-5.3";
+      effectiveContextWindowPercent = 50;
+    };
+  };
+
   # CLI tool version pins. Renovate updates each entry via the comment
   # hint immediately above it. Used as Renovate-tracked sources of truth
   # for non-nix-managed tools (currently: brew formulae) and as
