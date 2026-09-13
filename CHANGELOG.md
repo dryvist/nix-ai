@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.20.0](https://github.com/dryvist/nix-ai/compare/v5.19.0...v5.20.0) (2026-09-13)
+
+
+### Features
+
+* **ai-shell:** add opt-in Z.ai launchers ([#2169](https://github.com/dryvist/nix-ai/issues/2169)) ([4cc9604](https://github.com/dryvist/nix-ai/commit/4cc9604db3aee580a43c93f0da803aaab9ce20ad))
+
 ## [5.19.0](https://github.com/dryvist/nix-ai/compare/v5.18.0...v5.19.0) (2026-09-13)
 
 
