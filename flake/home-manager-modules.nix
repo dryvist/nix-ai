@@ -16,6 +16,7 @@
   awesome-claude-skills,
   vct-cribl-cli,
   vct-splunk-cli,
+  gh-stack,
   token-meter-src,
 }:
 let
@@ -56,6 +57,7 @@ let
     inherit context-engineering-kit;
     inherit managing-dependencies;
     inherit langfuse-skills;
+    inherit gh-stack;
   };
 in
 {
@@ -98,9 +100,9 @@ in
       # args — don't re-set them here or home-manager errors on "defined
       # multiple times".
       nix-claude-code.homeModules.claude
-      # MCP runtime (splunk-mcp-connect) is sourced from the MCP
-      # sub-flake module so it's available even when Claude is the only
-      # homeManagerModule a consumer imports.
+      # MCP runtime is sourced from the MCP sub-flake module so it's
+      # available even when Claude is the only homeManagerModule a
+      # consumer imports.
       ../modules/mcp/module.nix
       # User-facing values (model, marketplaces, hooks, settings.*) live in
       # this module — nix-claude-code only declares the option schema.

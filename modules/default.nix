@@ -58,13 +58,13 @@ let
   # ~/.homebrew/trust.json — macOS only. Homebrew 5.2.0/6.0.0 enforces
   # HOMEBREW_REQUIRE_TAP_TRUST; pre-trust the AI-tool taps declared in
   # lib/homebrew.nix so brew bundle keeps working when the default flips.
-  # Read-only Nix store symlink is intentional — add new taps in
+  # Installed as a user-owned regular file on activation rather than a
+  # home.file symlink: Homebrew refuses to write a trust store whose real
+  # path is not owned by the invoking user. Add new taps in
   # lib/homebrew.nix; never run brew trust directly.
-  brewTrustFiles = lib.optionalAttrs pkgs.stdenv.isDarwin {
-    ".homebrew/trust.json".text = builtins.toJSON {
-      trustedtaps = config.programs.ai-homebrew.trustedTaps;
-    };
-  };
+  brewTrustJson = pkgs.writeText "trust.json" (
+    builtins.toJSON { trustedtaps = config.programs.ai-homebrew.trustedTaps; }
+  );
 in
 {
   options.programs.ai-homebrew.trustedTaps = lib.mkOption {
@@ -78,6 +78,7 @@ in
     ./ai-shell.nix
     ./ai-stack
     ./agent-context-baseline.nix
+    ./agent-hooks
     ./agent-skills
     ./cecli
     # User-facing claude values (model, marketplaces, hooks, settings.*).
@@ -110,9 +111,20 @@ in
       # AI development tools (MCP servers, linters, CLI wrappers)
       inherit (import ./ai-tools.nix { inherit pkgs llm-agents; }) packages;
 
-      file = copilotFiles // agentsMdSymlinks // brewTrustFiles;
+      file = copilotFiles // agentsMdSymlinks;
 
       activation = {
+        brewTrustStore = lib.mkIf pkgs.stdenv.isDarwin (
+          lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+            target="$HOME/.homebrew/trust.json"
+            $DRY_RUN_CMD mkdir -p "$HOME/.homebrew"
+            if [ -L "$target" ] || ! cmp -s ${brewTrustJson} "$target" 2>/dev/null; then
+              $DRY_RUN_CMD rm -f "$target"
+              $DRY_RUN_CMD install -m 600 ${brewTrustJson} "$target"
+            fi
+          ''
+        );
+
         cleanupLegacyAntigravityMd = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
           antigravity_cli_md="${config.home.homeDirectory}/GEMINI.md"
           if [ -L "$antigravity_cli_md" ]; then

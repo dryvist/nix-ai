@@ -1,5 +1,62 @@
 # Changelog
 
+## [5.18.0](https://github.com/dryvist/nix-ai/compare/v5.17.0...v5.18.0) (2026-09-12)
+
+
+### Features
+
+* **codex:** export token-usage metrics to the metrics store with enduser.id and host.name ([#2149](https://github.com/dryvist/nix-ai/issues/2149)) ([e478ff4](https://github.com/dryvist/nix-ai/commit/e478ff43208447d4cdffd2937a229c27bb09da51))
+* **mcp:** convert context7/splunk to shared gateway routes, add docs/memory ([#2150](https://github.com/dryvist/nix-ai/issues/2150)) ([928c832](https://github.com/dryvist/nix-ai/commit/928c8327fdb3fd909cddd2d1eafbc67005cdaf2c))
+* **mlx:** accept bearer-token monitor lines in the watchdog ping file ([#2148](https://github.com/dryvist/nix-ai/issues/2148)) ([7ddafeb](https://github.com/dryvist/nix-ai/commit/7ddafebafb60b5fa1f2978c85c0732683357ce92))
+
+## [5.17.0](https://github.com/dryvist/nix-ai/compare/v5.16.0...v5.17.0) (2026-09-12)
+
+
+### Features
+
+* **hooks:** deny git worktree add outside .worktrees for Claude Code and Codex ([#2143](https://github.com/dryvist/nix-ai/issues/2143)) ([41c84e4](https://github.com/dryvist/nix-ai/commit/41c84e4acf3e1f386999e34824b49f98203d754f))
+* **telemetry:** stamp enduser.id on every OTEL record from the home-manager username ([#2144](https://github.com/dryvist/nix-ai/issues/2144)) ([d1981e3](https://github.com/dryvist/nix-ai/commit/d1981e32303e4cf128ddcc3734a97e83dd8bd932))
+
+## [5.16.0](https://github.com/dryvist/nix-ai/compare/v5.15.0...v5.16.0) (2026-09-12)
+
+
+### Features
+
+* **ai-tools:** package rulesync as a pinned bunx wrapper ([#2134](https://github.com/dryvist/nix-ai/issues/2134)) ([aab647c](https://github.com/dryvist/nix-ai/commit/aab647c9f3326a7929688fc2a34970506919f782))
+
+
+### Bug Fixes
+
+* **claude:** stop rendering shell allow rules the classifier ignores ([#2139](https://github.com/dryvist/nix-ai/issues/2139)) ([5038b51](https://github.com/dryvist/nix-ai/commit/5038b51c0defa12576ae50550b9aeba4d5f781de))
+
+## [5.15.0](https://github.com/dryvist/nix-ai/compare/v5.14.0...v5.15.0) (2026-09-12)
+
+
+### Features
+
+* **agent-skills:** add gh-stack skill and categorize pr-stacks ([04a3e53](https://github.com/dryvist/nix-ai/commit/04a3e53d76d0b23212db9b9a4d335f857ea96c8b))
+* **agent-skills:** add gh-stack skill and categorize pr-stacks ([5e9594b](https://github.com/dryvist/nix-ai/commit/5e9594ba59891bb2b1c1d827e1b8537e3a82f0e6))
+
+## [5.14.0](https://github.com/dryvist/nix-ai/compare/v5.13.0...v5.14.0) (2026-09-12)
+
+
+### Features
+
+* **mlx:** ping every deadman monitor listed in the healthcheck file ([#2129](https://github.com/dryvist/nix-ai/issues/2129)) ([4d8569e](https://github.com/dryvist/nix-ai/commit/4d8569e4d80a294724531729e5ca44dea08e4aa9))
+
+
+### Bug Fixes
+
+* **claude:** drop deny entries the settings schema rejects ([#2127](https://github.com/dryvist/nix-ai/issues/2127)) ([b20a2dd](https://github.com/dryvist/nix-ai/commit/b20a2dda97e4894ee3da726a010581f12f660a87))
+* **homebrew:** write the trust store as a user-owned file ([#2128](https://github.com/dryvist/nix-ai/issues/2128)) ([502eead](https://github.com/dryvist/nix-ai/commit/502eead1504cd8c7708dd1bc4cbb5bab489d835f))
+
+## [5.13.0](https://github.com/dryvist/nix-ai/compare/v5.12.0...v5.13.0) (2026-09-12)
+
+
+### Features
+
+* **claude:** place every worktree under &lt;repo&gt;/.worktrees/ ([#2121](https://github.com/dryvist/nix-ai/issues/2121)) ([795fb71](https://github.com/dryvist/nix-ai/commit/795fb7186700f5c2799acd714fc93d8fefc90449))
+
 ## [5.12.0](https://github.com/dryvist/nix-ai/compare/v5.11.0...v5.12.0) (2026-09-11)
 
 

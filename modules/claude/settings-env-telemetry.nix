@@ -1,8 +1,14 @@
 # Claude Code — OpenTelemetry environment, split out of settings-env.nix.
 #
-# A function of { lib, userConfig } returning only the OTEL key/value pairs.
-# Lives in its own file because settings-env.nix sits against the repo's
-# file-size gate, and this block is the largest cohesive piece in it.
+# A function of { lib, userConfig, username } returning only the OTEL
+# key/value pairs. Lives in its own file because settings-env.nix sits against
+# the repo's file-size gate, and this block is the largest cohesive piece in it.
+#
+# `username` is `config.home.username` from the caller — it stamps the
+# semantic-convention `enduser.id` resource attribute on every exported signal
+# so a shared collector can attribute telemetry to the OS user that produced
+# it, the same way `resourceAttributes."host.name"` attributes it to a
+# machine. A consumer-supplied `enduser.id` in resourceAttributes wins.
 #
 # Opt-in via userConfig.telemetry (maintainer profile). Off by default so a
 # fresh consumer emits no telemetry.
@@ -20,7 +26,11 @@
 # acknowledge all three while its pipeline extracts only one, so pointing a
 # signal at a collector that discards it reproduces the same silent loss one
 # layer further away.
-{ lib, userConfig }:
+{
+  lib,
+  userConfig,
+  username,
+}:
 { }
 # Master switch: on when telemetry is enabled AND at least one signal has
 # somewhere to go. Without it Claude Code emits nothing, whatever the exporters
@@ -46,10 +56,10 @@
       // lib.optionalAttrs (userConfig.telemetry.logToolDetails or false) {
         OTEL_LOG_TOOL_DETAILS = "1";
       }
-      // lib.optionalAttrs ((userConfig.telemetry.resourceAttributes or { }) != { }) {
-        OTEL_RESOURCE_ATTRIBUTES = lib.concatStringsSep "," (
-          lib.mapAttrsToList (k: v: "${k}=${v}") userConfig.telemetry.resourceAttributes
-        );
+      // {
+        OTEL_RESOURCE_ATTRIBUTES = import ../../lib/telemetry-resource-attributes.nix {
+          inherit lib userConfig username;
+        };
       }
     )
 

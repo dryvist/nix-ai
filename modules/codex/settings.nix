@@ -94,26 +94,40 @@ let
   #
   #  - Codex posts to the configured endpoint VERBATIM. Pointed at
   #    `http://host:port` it POSTs to `/`, appending no signal path — so this
-  #    takes the full `/v1/traces` URL, the opposite of the generic
-  #    OTEL_EXPORTER_OTLP_ENDPOINT that Claude Code uses as a base.
+  #    takes the full `/v1/traces` (or `/v1/metrics`) URL, the opposite of the
+  #    generic OTEL_EXPORTER_OTLP_ENDPOINT that Claude Code uses as a base.
   #  - `protocol = "binary"` is OTLP/HTTP protobuf. The collector answers 501
   #    to JSON, so the encoding is load-bearing rather than cosmetic.
   #
-  # metrics_exporter is pinned off: the collector's pipeline extracts spans
-  # only, and Codex embeds an OTel SDK whose unset default is a conventional
-  # loopback address — leaving it unset would export into nothing.
+  # Both exporters must always be pinned explicitly, never left unset: Codex
+  # defaults an unset metrics_exporter to its own built-in Statsig exporter,
+  # not "nothing" (codex-rs/config/src/types.rs:
+  # OtelConfig::default().metrics_exporter is OtelExporterKind::Statsig), and
+  # an unset trace_exporter falls back to an OTel SDK convention that is a
+  # loopback address nothing here serves. Each signal gets "otlp-http" to its
+  # own endpoint when set, else "none" — independently, so setting one
+  # doesn't drag the other's config along or silently no-op.
+  tracesEndpoint = userConfig.telemetry.tracesEndpoint or null;
+  metricsEndpoint = userConfig.telemetry.metricsEndpoint or null;
   telemetryEnabled =
-    (userConfig.telemetry.enable or false) && (userConfig.telemetry.tracesEndpoint or null) != null;
+    (userConfig.telemetry.enable or false) && (tracesEndpoint != null || metricsEndpoint != null);
+
+  otelExporter =
+    endpoint:
+    if endpoint == null then
+      "none"
+    else
+      {
+        otlp-http.endpoint = endpoint;
+        otlp-http.protocol = "binary";
+      };
 
   otelAttrs = lib.optionalAttrs telemetryEnabled {
     otel = {
       environment = "homelab";
       log_user_prompt = userConfig.telemetry.logUserPrompts or false;
-      metrics_exporter = "none";
-      trace_exporter.otlp-http = {
-        endpoint = userConfig.telemetry.tracesEndpoint;
-        protocol = "binary";
-      };
+      metrics_exporter = otelExporter metricsEndpoint;
+      trace_exporter = otelExporter tracesEndpoint;
     };
   };
 
@@ -163,21 +177,32 @@ let
     };
   };
 
-  # The `ox` profile is a FILE, not a table in the config above. Codex dropped
+  # A Codex profile is a FILE, not a table in the config above. Codex dropped
   # the legacy `[profiles.<name>]` table (and the top-level `profile =`
   # selector) in 0.134.0: a config still carrying one is refused outright, so
-  # `--profile ox` failed to start rather than falling back. Each profile now
-  # lives in its own `~/.codex/<name>.config.toml` with its keys at the TOP
-  # level, selected the same way on the command line.
-  oxProfileAttrs = {
-    model = "subagent";
-    model_provider = "litellm";
-  };
+  # `--profile <name>` failed to start rather than falling back. Each profile
+  # now lives in its own `~/.codex/<name>.config.toml` with its keys at the
+  # TOP level, selected the same way on the command line: `codex --profile
+  # judge`. One profile per router capability alias
+  # (modules/litellm-local/aliases.nix) — the committed contract every
+  # nix-ai consumer renders from — replacing the single hardcoded `ox`
+  # profile this used to be.
+  litellmRoles = import ../litellm-local/aliases.nix;
 
-  oxProfileJson = pkgs.writeText "codex-ox-profile.json" (builtins.toJSON oxProfileAttrs);
-  oxProfileToml = pkgs.runCommand "codex-ox.config.toml" { nativeBuildInputs = [ pkgs.yj ]; } ''
-    yj -jt < ${oxProfileJson} > $out
-  '';
+  litellmProfileAttrs = lib.genAttrs litellmRoles (role: {
+    model = role;
+    model_provider = "litellm";
+  });
+
+  litellmProfileTomls = lib.mapAttrs (
+    role: attrs:
+    let
+      json = pkgs.writeText "codex-${role}-profile.json" (builtins.toJSON attrs);
+    in
+    pkgs.runCommand "codex-${role}.config.toml" { nativeBuildInputs = [ pkgs.yj ]; } ''
+      yj -jt < ${json} > $out
+    ''
+  ) litellmProfileAttrs;
 
   configJson = pkgs.writeText "codex-config.json" (builtins.toJSON configAttrs);
   configToml = pkgs.runCommand "codex-config.toml" { nativeBuildInputs = [ pkgs.yj ]; } ''
@@ -192,10 +217,31 @@ in
       programs.codex = {
         projectDocFallbackFilenames = configAttrs.project_doc_fallback_filenames;
         mcpServerNames = lib.attrNames mcpServers;
+        litellmProfileNames = lib.attrNames litellmProfileTomls;
+        otelExporterKinds = {
+          trace = if tracesEndpoint == null then "none" else "otlp-http";
+          metrics = if metricsEndpoint == null then "none" else "otlp-http";
+        };
       };
     }
+    # Codex reads hooks.json only behind this flag. A non-empty hooks.events
+    # implies it, so every contributor (herdr, the worktree-add guard, …)
+    # doesn't also have to remember to flip it on; mkDefault so an explicit
+    # `programs.codex.features.hooks = false;` still wins.
+    (lib.mkIf (cfg.enable && cfg.hooks.events != { }) {
+      programs.codex.features.hooks = lib.mkDefault true;
+    })
     (lib.mkIf cfg.enable {
       home = {
+        # Same string Claude Code exports (modules/claude/settings-env-telemetry.nix):
+        # every OTel-aware process a user runs reports the same host/user pair.
+        sessionVariables = lib.optionalAttrs telemetryEnabled {
+          OTEL_RESOURCE_ATTRIBUTES = import ../../lib/telemetry-resource-attributes.nix {
+            inherit lib userConfig;
+            username = config.home.username;
+          };
+        };
+
         activation.codexConfigMerge = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
           export PATH="${pkgs.jq}/bin:${pkgs.yj}/bin:$PATH"
           $DRY_RUN_CMD ${../scripts/merge-toml-settings.sh} \
@@ -206,8 +252,15 @@ in
         file = {
           "${configDir}/rules/default.rules".text = formatters.codex.formatRulesFile permissions;
         }
-        // lib.optionalAttrs litellmLocal.enable {
-          "${configDir}/ox.config.toml".source = oxProfileToml;
+        // lib.optionalAttrs litellmLocal.enable (
+          lib.mapAttrs' (
+            role: toml: lib.nameValuePair "${configDir}/${role}.config.toml" { source = toml; }
+          ) litellmProfileTomls
+        )
+        // lib.optionalAttrs (cfg.hooks.events != { }) {
+          ".codex/hooks.json".source = pkgs.writers.writeJSON "codex-hooks.json" {
+            hooks = cfg.hooks.events;
+          };
         };
       };
     })

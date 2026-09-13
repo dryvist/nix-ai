@@ -197,7 +197,7 @@ in
       || throw "settings.json must carry LLM_ROUTER_TOKEN_FILE as the bearer file's PATH, never its contents";
     assert
       codexDefaultUntouched
-      || throw "enabling the proxy must not change Codex's default model provider; the `ox` profile is the opt-in";
+      || throw "enabling the proxy must not change Codex's default model provider; a per-alias litellm profile file (--profile <alias>) is the opt-in";
     assert fabricBase || throw "fabric must read the proxy through OPENAI_API_BASE_URL";
     assert fabricRole || throw "fabric's default model must be the `cheap` role via DEFAULT_MODEL";
     assert

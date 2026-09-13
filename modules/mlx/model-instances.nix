@@ -80,6 +80,7 @@ let
       aliases = roles;
       useModelName = physical;
       concurrencyLimit = effectiveConcurrency physical;
+      timeouts.responseHeader = cfg.proxy.responseHeaderTimeout;
     }
     // lib.optionalAttrs (defaultFilters != { }) {
       filters = defaultFilters;
@@ -106,6 +107,7 @@ let
       checkEndpoint = "/v1/models";
       proxy = proxyUrl;
       concurrencyLimit = effectiveConcurrency name;
+      timeouts.responseHeader = cfg.proxy.responseHeaderTimeout;
     }
     // lib.optionalAttrs (modelCfg.aliases != [ ]) {
       inherit (modelCfg) aliases;

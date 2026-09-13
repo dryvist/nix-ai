@@ -146,4 +146,12 @@
   no-ambient-secret-export = pkgs.runCommand "check-no-ambient-secret-export" { SRC = src; } ''
     ${pkgs.bash}/bin/bash ${./scripts/no-ambient-secret-export.sh}
   '';
+
+  # Runs modules/agent-hooks/worktree-add-guard.sh directly against the
+  # allow/deny cases in scripts/worktree-add-guard-test.sh, so a bug in the
+  # path parsing is caught here rather than by a live PreToolUse denial.
+  worktree-add-guard = pkgs.runCommand "check-worktree-add-guard" {
+    SRC = src;
+    nativeBuildInputs = [ pkgs.jq ];
+  } "${pkgs.bash}/bin/bash ${./scripts/worktree-add-guard-test.sh}";
 }

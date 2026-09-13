@@ -35,6 +35,20 @@ in
         default = null;
         description = "Codex notification hook (path or inline script)";
       };
+
+      # General vessel for Codex lifecycle hooks (SessionStart, PreToolUse,
+      # …), keyed by Codex event name, each value the list of matcher/hooks
+      # entries hooks.json expects for that event. Rendered to
+      # ~/.codex/hooks.json by settings.nix as `{ hooks = <events>; }` and
+      # merged across every contributor (herdr's SessionStart entry, this
+      # module's own PreToolUse guard, …) rather than each one writing the
+      # file itself — two `home.file` writers of the same path is a Nix
+      # eval error, and this option is what lets them coexist.
+      events = lib.mkOption {
+        type = lib.types.attrsOf (lib.types.listOf lib.types.attrs);
+        default = { };
+        description = "Codex lifecycle hook entries, keyed by Codex event name, rendered into hooks.json's `hooks` table.";
+      };
     };
 
     # Feature flags (maps to [features] table in config.toml)
@@ -104,6 +118,23 @@ in
       readOnly = true;
       internal = true;
       description = "Project doc fallback filenames emitted to Codex config.toml; read-only.";
+    };
+
+    litellmProfileNames = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      readOnly = true;
+      internal = true;
+      description = "Router capability aliases (modules/litellm-local/aliases.nix) rendered as Codex --profile <alias> files; read-only.";
+    };
+
+    otelExporterKinds = lib.mkOption {
+      type = lib.types.attrsOf lib.types.str;
+      readOnly = true;
+      internal = true;
+      description = ''
+        Resolved `otel.trace_exporter`/`otel.metrics_exporter` kind ("none" or
+        "otlp-http") as rendered to config.toml; read-only, for regression tests.
+      '';
     };
 
     # Approval policy

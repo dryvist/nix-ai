@@ -189,9 +189,6 @@
       flake = false;
     };
 
-    # Only `file-organizer` is taken; its <repo>/<skill>/SKILL.md layout
-    # matches no discovery pattern, so it is wired by path through
-    # programs.agentSkills.local. Unlicensed upstream — never copied.
     awesome-claude-skills = {
       url = "github:ComposioHQ/awesome-claude-skills";
       flake = false;
@@ -203,6 +200,10 @@
     };
     vct-splunk-cli = {
       url = "github:VisiCore/vct-splunk-cli/main";
+      flake = false;
+    };
+    gh-stack = {
+      url = "github:github/gh-stack";
       flake = false;
     };
 
@@ -234,6 +235,7 @@
       awesome-claude-skills,
       vct-cribl-cli,
       vct-splunk-cli,
+      gh-stack,
       herdr-remote-src,
       herdr-hail-src,
       token-meter-src,
@@ -280,6 +282,7 @@
           awesome-claude-skills
           vct-cribl-cli
           vct-splunk-cli
+          gh-stack
           token-meter-src
           ;
       };

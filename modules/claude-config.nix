@@ -77,6 +77,8 @@ let
   mcpClient = import ./mcp/client.nix { inherit lib; };
 
   claudeMcp = import ./claude/mcp-render.nix { inherit lib config; };
+
+  claudeSession = import ./claude/session.nix;
   inherit (claudeMcp) mcpServers onDemandMcpFiles;
 
 in
@@ -216,6 +218,7 @@ in
           inherit lib userConfig;
           inherit (config.programs) litellmLocal;
           inherit (config.services) aiStack;
+          inherit (config.home) username;
         };
 
         # allow/ask from the shared formatter, plus the deny overlay that trims
@@ -261,22 +264,9 @@ in
       inherit mcpServers;
       mcpServerNames = lib.attrNames mcpServers;
 
-      statusline = {
-        enable = true;
-        # ccstatusline (sirmalloc/ccstatusline) — the statusline that was active
-        # in nix-ai before the nix-claude-code migration. Pinned explicitly so it
-        # does not fall back to nix-claude-code's powerline default.
-        theme = "ccstatusline";
-      };
-
-      # Hooks: Event-driven automation for Claude Code.
-      # captureSessionOutput wires postToolUse to the vendored capture script.
-      # refreshMarketplaces wires sessionStart to the vendored refresh helper.
-      # Both scripts live in nix-claude-code (modules/scripts/) post-PR2.
-      hooks = {
-        captureSessionOutput = true;
-        refreshMarketplaces = true;
-      };
+      # Statusline and event hooks live in ./claude/session.nix (extracted to
+      # keep this file under its file-size cap).
+      inherit (claudeSession) statusline hooks;
     };
 
     home.file = onDemandMcpFiles;
