@@ -253,6 +253,10 @@ in
       # Bleeding-edge Claude Code at ~/.local/bin/claude via the upstream
       # opt-in module (nix-claude-code owns programs.claude.latest).
       claude.latest.enable = true;
+      # Runs the installer during home-manager activation, so every user
+      # profile that imports this module gets the binary without a manual
+      # step (idempotent once installed; the first activation needs network).
+      claude.latest.installOnActivation = true;
 
       # herdr — the multiplexer the agent CLIs above run inside. On the
       # workstation this is the client half; `herdr --remote <name>` attaches
