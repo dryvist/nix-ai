@@ -58,6 +58,13 @@ in
       internal = true;
       description = "Router capability aliases rendered into OpenCode's provider.litellm and agent tiers; read-only, sourced from modules/litellm-local/aliases.nix.";
     };
+
+    lspEnabled = lib.mkOption {
+      type = lib.types.bool;
+      readOnly = true;
+      internal = true;
+      description = "Whether LSP integration is enabled in the rendered opencode.json; introspection for the regression checks, mirroring mcpServerNames.";
+    };
   }
   // mcpClient.mkClientOptions "OpenCode";
 }

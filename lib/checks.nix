@@ -92,6 +92,7 @@ in
 // (import ./checks/cursor.nix { inherit pkgs hmConfig; })
 // (import ./checks/herdr.nix { inherit pkgs hmConfig; })
 // (import ./checks/qwen-code.nix { inherit pkgs hmConfig; })
+// (import ./checks/opencode.nix { inherit pkgs hmConfig; })
 // (import ./checks/antigravity-cli.nix { inherit pkgs hmConfig; })
 // (import ./checks/vct-cli.nix {
   inherit
