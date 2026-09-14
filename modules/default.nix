@@ -171,6 +171,7 @@ in
         # this never fights it. Idempotent: re-running marks nothing.
         markInstalledPluginCache = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
           KEEP_LISTED="${lib.concatStringsSep " " (import ./claude/always-listed-skills.nix)}" \
+            PATH="${pkgs.gawk}/bin:$PATH" \
             $DRY_RUN_CMD ${pkgs.bash}/bin/bash ${./claude/scripts/mark-installed-cache.sh} \
               "${config.home.homeDirectory}/.claude/plugins/cache" || true
         '';
