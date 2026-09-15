@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.21.1](https://github.com/dryvist/nix-ai/compare/v5.21.0...v5.21.1) (2026-09-15)
+
+
+### Bug Fixes
+
+* **claude:** put gawk on PATH for mark-installed-cache activation ([#2179](https://github.com/dryvist/nix-ai/issues/2179)) ([98c1c4f](https://github.com/dryvist/nix-ai/commit/98c1c4fb5a891f2908e5c3dc4c79358be5d16564))
+
 ## [5.21.0](https://github.com/dryvist/nix-ai/compare/v5.20.0...v5.21.0) (2026-09-13)
 
 
