@@ -82,6 +82,38 @@ in
       ) (lib.attrNames config.services.aiStack.models);
       message = "Every AI-stack logical role must resolve to a non-empty physical model and compile into that llama-swap backend's aliases.";
     }
+    (
+      let
+        catalogData = import ./catalog-data.nix;
+        declared =
+          lib.mapAttrsToList (_: entry: entry.model) (lib.filterAttrs (_: entry: entry ? model) catalogData)
+          ++ lib.attrNames cfg.models;
+        bad = lib.filter (id: id != "" && !(lib.elem id declared)) (
+          lib.attrValues config.services.aiStack.roleOverrides
+        );
+      in
+      {
+        # A role pinned to a model nothing declares must fail at evaluation.
+        # The assertion above cannot catch it: it looks a role's model up in
+        # llama-swap's model set, which is generated from the role map itself,
+        # so a role's own id is always present. That check is a tautology.
+        #
+        # Scoped to roleOverrides deliberately. Unpinned roles follow
+        # defaultLocalModelId, empty by design on a host with no local
+        # inference; asserting over the resolved role set rejects that inert
+        # state and breaks evaluation there. Measured on this estate: the
+        # workstation's default is "", and all eight override values are
+        # catalog entries — exactly the set worth checking.
+        assertion = bad == [ ];
+        message = ''
+          services.aiStack.roleOverrides pins ${lib.concatStringsSep ", " bad},
+          an id the MLX catalog and programs.mlx.models never declare. Such a
+          pin evaluates cleanly, converges, and is resolved by the serving
+          layer at request time — the silent substitution this registry exists
+          to prevent.
+        '';
+      }
+    )
     {
       # A request naming a model must be served by that model's weights or
       # must error. An alias is legitimate only when it is a ROLE name bound
