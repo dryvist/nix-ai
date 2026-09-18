@@ -18,6 +18,10 @@
     # reads to hand off, and a skill only this session can reach is a skill
     # nothing delegates through.
     "local-subagents"
+    # The one-command helper for the fast-subagent tier: the same universal
+    # delegation habit as local-subagents, and the skill every session is
+    # meant to keep re-using for routine steps.
+    "fast-subagent"
     "handoff"
     "native-first"
     "ponytail"
