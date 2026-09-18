@@ -1,4 +1,5 @@
 {
+  lib,
   ai-assistant-instructions,
   browser-use-skills,
   jacobpevans-cc-plugins,
@@ -59,6 +60,13 @@ let
     inherit langfuse-skills;
     inherit gh-stack;
   };
+  # Args a PARTIAL export sets at default priority, so any combination of
+  # exports — and a partial one composed with `default` — merges instead of
+  # failing "defined multiple times". A consumer that imports
+  # `default` alongside a third-party module that itself imports one of the
+  # partial exports (nix-ai-open-harness imports `opencode`) hit exactly
+  # that on `nix-claude-code`. `default` keeps normal priority and wins.
+  partialArgs = builtins.mapAttrs (_: lib.mkDefault);
 in
 {
   default = {
@@ -112,7 +120,7 @@ in
       # option as homeManagerModules.default.
       ../modules/maintainer-profile.nix
     ];
-    _module.args = {
+    _module.args = partialArgs {
       inherit
         nix-claude-code
         marketplaceInputs
@@ -123,7 +131,7 @@ in
 
   agent-skills = {
     imports = [ ../modules/agent-skills ];
-    _module.args = {
+    _module.args = partialArgs {
       inherit marketplaceInputs;
     };
   };
@@ -139,7 +147,7 @@ in
       ../modules/codex
       ../modules/maintainer-profile.nix
     ];
-    _module.args = {
+    _module.args = partialArgs {
       inherit
         ai-assistant-instructions
         nix-claude-code
@@ -155,7 +163,7 @@ in
       ../modules/antigravity-cli
       ../modules/maintainer-profile.nix
     ];
-    _module.args = {
+    _module.args = partialArgs {
       inherit
         ai-assistant-instructions
         nix-claude-code
@@ -172,7 +180,7 @@ in
       ../modules/antigravity-ide
       ../modules/maintainer-profile.nix
     ];
-    _module.args = {
+    _module.args = partialArgs {
       inherit
         nix-claude-code
         marketplaceInputs
@@ -185,7 +193,7 @@ in
       ../modules/ai-stack
       ../modules/cecli
     ];
-    _module.args = {
+    _module.args = partialArgs {
       inherit ai-assistant-instructions;
     };
   };
@@ -198,7 +206,7 @@ in
       ../modules/qwen-code
       ../modules/maintainer-profile.nix
     ];
-    _module.args = {
+    _module.args = partialArgs {
       inherit
         ai-assistant-instructions
         nix-claude-code
@@ -221,7 +229,7 @@ in
       ../modules/opencode
       ../modules/maintainer-profile.nix
     ];
-    _module.args = {
+    _module.args = partialArgs {
       inherit
         nix-claude-code
         marketplaceInputs
@@ -235,14 +243,14 @@ in
       ../modules/mcp/module.nix
       ../modules/cursor
     ];
-    _module.args = {
+    _module.args = partialArgs {
       inherit nix-claude-code;
     };
   };
 
   herdr = {
     imports = [ ../modules/herdr ];
-    _module.args = {
+    _module.args = partialArgs {
       inherit llm-agents;
     };
   };
