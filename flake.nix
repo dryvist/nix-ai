@@ -264,6 +264,7 @@
     in
     {
       homeManagerModules = import ./flake/home-manager-modules.nix {
+        lib = nixpkgs.lib;
         inherit
           ai-assistant-instructions
           jacobpevans-cc-plugins
