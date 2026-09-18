@@ -65,6 +65,18 @@ in
       internal = true;
       description = "Whether LSP integration is enabled in the rendered opencode.json; introspection for the regression checks, mirroring mcpServerNames.";
     };
+
+    otelPluginEntries = lib.mkOption {
+      type = lib.types.listOf lib.types.unspecified;
+      readOnly = true;
+      internal = true;
+      description = ''
+        Raw @devtheops/opencode-plugin-otel `plugin` tuple entries rendered
+        from `userConfig.telemetry` (see otel-plugin.nix); empty when
+        telemetry is off or has no usable endpoint. Introspection for the
+        regression checks, mirroring codex's otelExporterKinds.
+      '';
+    };
   }
   // mcpClient.mkClientOptions "OpenCode";
 }

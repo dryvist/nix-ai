@@ -19,6 +19,7 @@ in
       "extraSettings"
       "lspEnabled"
       "mcpServerNames"
+      "otelPluginEntries"
       "package"
     ];
   };
