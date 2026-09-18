@@ -91,8 +91,22 @@ in
               description = "Group name clients address. The FIRST entry must be `subagent` — consumers name that string forever.";
             };
             id = lib.mkOption {
-              type = lib.types.str;
-              description = "Model id as this host's own server serves it.";
+              type = lib.types.nullOr lib.types.str;
+              default = null;
+              description = "Model id as this host's own server serves it. Exactly one of `id` and `router` is set.";
+            };
+            router = lib.mkOption {
+              type = lib.types.nullOr lib.types.str;
+              default = null;
+              example = "fast-gpu";
+              description = ''
+                A GROUP the shared router serves, used as this rung instead of a
+                model this host serves itself. This is how a router tier sits
+                AHEAD of this host's own model (the single-GPU fast-subagent
+                group first, the laptop second). A group name only — never a
+                provider, model id, or price; what the group resolves to is
+                edited in the router's admin UI, not here.
+              '';
             };
             contextWindow = lib.mkOption {
               type = lib.types.nullOr lib.types.ints.positive;
@@ -130,6 +144,18 @@ in
         Never name a cloud provider here. The router already owns a
         credentialed, budgeted, ordered cloud chain; naming one here puts the
         decision in two places, and `fallback-tier.nix` asserts against it.
+      '';
+    };
+
+    headAliases = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ "fast" ];
+      description = ''
+        Additional group names served by the SAME chain as the head (`subagent`).
+        `fast` is the router's own name for this tier, so a client that asks
+        for it must traverse this host's chain rather than fall through the
+        `*` wildcard straight to the router and skip this host's own rung.
+        Empty disables the aliases.
       '';
     };
 

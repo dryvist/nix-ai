@@ -82,7 +82,38 @@ let
     if hit == null then null else hit.model_info.max_input_tokens or null;
   derivedWindowLanded = derivedWindow == 32768;
 
+  # The head rung is served by the ROUTER (fixture: `router = "test-gpu-group"`),
+  # so it must forward that group name to the router endpoint and advertise
+  # no local window; its overflow escape is the router's, not this host's.
+  headEntry = lib.findFirst (d: d.model_name == "subagent") { } renderedList;
+  headIsRouterRung =
+    (headEntry.litellm_params.model or null) == "openai/test-gpu-group"
+    && (headEntry.litellm_params.api_base or null) == "os.environ/LLM_ROUTER_URL"
+    && !(headEntry ? model_info);
+  headNotInContextFallbacks = !(lib.any (e: e ? subagent) (settings.context_window_fallbacks or [ ]));
+
+  # `fast` is the router's own name for this tier: it must be an explicit
+  # group on this proxy with the head's params and the head's whole chain
+  # behind it, or a client asking for `fast` skips this host's own rung via `*`.
+  fastEntry = lib.findFirst (d: d.model_name == "fast") null renderedList;
+  headChain = lib.concatLists (map (e: e.subagent or [ ]) fallbackEntries);
+  fastChain = lib.concatLists (map (e: e.fast or [ ]) fallbackEntries);
+  fastAliasMirrorsHead =
+    fastEntry != null && fastEntry.litellm_params == headEntry.litellm_params && fastChain == headChain;
+
   fallbackTierChecks = [
+    {
+      ok = headIsRouterRung;
+      msg = "the head rung declared with `router = <group>` must render as `openai/<group>` against LLM_ROUTER_URL with no local model_info; got: ${builtins.toJSON headEntry}";
+    }
+    {
+      ok = headNotInContextFallbacks;
+      msg = "a router-served rung must not declare a context-window escape: its window is the router's to advertise";
+    }
+    {
+      ok = fastAliasMirrorsHead;
+      msg = "`fast` must be an explicit group mirroring the head's params and chain; got entry ${builtins.toJSON fastEntry}, chain ${builtins.toJSON fastChain} vs ${builtins.toJSON headChain}";
+    }
     {
       ok = fallbackEntries != [ ];
       msg = "the proxy must configure litellm_settings.fallbacks: without a chain, one dead upstream model takes every subagent with it (see modules/litellm-local/fallback-tier.nix)";
