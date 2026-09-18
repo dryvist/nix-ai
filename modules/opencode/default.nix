@@ -13,6 +13,7 @@
   lib,
   nix-claude-code,
   llm-agents,
+  userConfig,
   ...
 }:
 
@@ -21,6 +22,11 @@ let
   llmAgents = llm-agents.packages.${pkgs.stdenv.hostPlatform.system};
   inherit (cfg) configDir;
   inherit (config.programs) litellmLocal;
+
+  otelPlugins = import ./otel-plugin.nix {
+    inherit lib userConfig;
+    username = config.home.username;
+  };
 
   aiCommon = import ../common { inherit lib config nix-claude-code; };
   permission = aiCommon.formatters.opencode.formatPermission aiCommon.permissions;
@@ -73,6 +79,7 @@ let
     # from fetching any missing server from GitHub releases out-of-band.
     lsp = true;
   }
+  // lib.optionalAttrs (otelPlugins != [ ]) { plugin = otelPlugins; }
   # The primary agent's model is deliberately NOT set: it stays whatever the
   # user has chosen. Only the cheap background tier is repointed, plus the
   # provider itself so `litellm/<role>` or `litellm/<model>` is selectable.
@@ -146,6 +153,7 @@ in
         mcpServerNames = lib.attrNames mcpServers;
         inherit litellmRoles;
         lspEnabled = settings.lsp or false;
+        otelPluginEntries = otelPlugins;
       };
     }
     (lib.mkIf cfg.enable {
