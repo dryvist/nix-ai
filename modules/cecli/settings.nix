@@ -100,10 +100,11 @@ let
     output_cost_per_token = 0;
   };
 
-  # See the qwen-code module for why these two live here and not in the
+  # See the qwen-code module for why these live here and not in the
   # shared registry: they resolve upstream, not on this host.
   proxyOnlyRoles = lib.optionalAttrs litellmLocal.enable {
     subagent = null;
+    fast = null;
     cheap = null;
   };
   allRoles = models // proxyOnlyRoles;

@@ -251,7 +251,15 @@ rec {
           # shape a real host uses, not against an empty chain.
           localModels = [
             {
+              # A ROUTER rung at the head: the estate's shape puts the shared
+              # router's single-GPU group ahead of this host's own model.
+              # Declared here so the fallback-tier check proves a router rung
+              # renders against LLM_ROUTER_URL and carries no local window.
               name = "subagent";
+              router = "test-gpu-group";
+            }
+            {
+              name = "subagent-local";
               id = "test-local/small-4bit";
               contextWindow = 131072;
             }
