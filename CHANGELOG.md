@@ -1,5 +1,14 @@
 # Changelog
 
+## [5.22.0](https://github.com/dryvist/nix-ai/compare/v5.21.1...v5.22.0) (2026-09-18)
+
+
+### Features
+
+* **agent-skills:** ship fast-subagent in core; bump the plugins input ([#2191](https://github.com/dryvist/nix-ai/issues/2191)) ([e9b2843](https://github.com/dryvist/nix-ai/commit/e9b2843b35134c889bf30c70c727e765d1e60c9e))
+* **litellm-local:** router-served rungs and a `fast` alias for the subagent chain ([#2187](https://github.com/dryvist/nix-ai/issues/2187)) ([20669b0](https://github.com/dryvist/nix-ai/commit/20669b03be8785c01f849b4917e9687c95cddb81))
+* **opencode:** OpenTelemetry via @devtheops/opencode-plugin-otel ([#2186](https://github.com/dryvist/nix-ai/issues/2186)) ([cbd2ac1](https://github.com/dryvist/nix-ai/commit/cbd2ac17faa87d3eb8912fae76b33e20346b415f))
+
 ## [5.21.1](https://github.com/dryvist/nix-ai/compare/v5.21.0...v5.21.1) (2026-09-15)
 
 
