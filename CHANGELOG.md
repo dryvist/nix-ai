@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.22.1](https://github.com/dryvist/nix-ai/compare/v5.22.0...v5.22.1) (2026-09-18)
+
+
+### Bug Fixes
+
+* **flake:** partial home-manager exports set module args at default priority ([#2194](https://github.com/dryvist/nix-ai/issues/2194)) ([6087b35](https://github.com/dryvist/nix-ai/commit/6087b3504fcedb46be16a43030c361cceec24fd5))
+
 ## [5.22.0](https://github.com/dryvist/nix-ai/compare/v5.21.1...v5.22.0) (2026-09-18)
 
 
