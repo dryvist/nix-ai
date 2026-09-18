@@ -10,6 +10,7 @@ When to use which tool for AI-assisted tasks in the nix-ai ecosystem.
 | YouTube video processing | `fabric -y URL --pattern summarize` | Built-in yt-dlp + Jina extraction |
 | Want Claude Code to auto-invoke a pattern | Fabric skills (synthetic marketplace) | Curated patterns auto-loaded by description match |
 | Want to explicitly call a pattern from Claude Code | Fabric MCP server | Pattern appears as a callable MCP tool |
+| Routine, checkable step inside an agent session (summarize, extract, classify, reduce output) — every time one appears | `/fast-subagent` (role `fast`) | One command; the router picks the cheapest local rung that answers and the fallback order is edited in its UI, never here |
 | Single local model call | llama-swap (`127.0.0.1:11434`) | OpenAI-compatible, direct to local MLX |
 | Second opinion / adversarial review from another model | `/delegate-to-ai` (Codex / native subagent) | No local gateway needed |
 | Long-running agent session that must survive a client disconnect, or be driven by another agent | herdr | The server owns the PTY; panes carry working/blocked/idle state over a socket API |

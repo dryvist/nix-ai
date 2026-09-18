@@ -57,11 +57,12 @@ let
   # llama-swap routes capability-class aliases (default, coding, ...). The
   # qwen-code model schema only accepts `name` and `description` — routing
   # is implicit in the provider's baseUrl, not a per-model field.
-  # The proxy serves two role aliases that the local llama-swap registry has
+  # The proxy serves role aliases that the local llama-swap registry has
   # no equivalent for, so enumerate them alongside it rather than adding them
   # to the shared registry (they resolve upstream, not on this host).
   proxyOnlyRoles = lib.optionalAttrs litellmLocal.enable {
     subagent = null;
+    fast = null;
     cheap = null;
   };
 

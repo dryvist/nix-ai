@@ -75,14 +75,24 @@ let
   # model this host does not serve is a build error, not a runtime 404.
   mlxWindows = config.programs.mlx.modelContextWindows or { };
   resolvedLocalModels = map (m: {
-    inherit (m) name id;
-    contextWindow = if m.contextWindow != null then m.contextWindow else mlxWindows.${m.id} or null;
+    inherit (m)
+      name
+      id
+      router
+      ;
+    contextWindow =
+      if m.contextWindow != null then
+        m.contextWindow
+      else if m.id != null then
+        mlxWindows.${m.id} or null
+      else
+        null;
   }) cfg.localModels;
 
   fallbackTier = import ./fallback-tier.nix {
     inherit lib;
     localModels = resolvedLocalModels;
-    inherit (cfg) routerEntryModel;
+    inherit (cfg) routerEntryModel headAliases;
   };
 
   # Reuses the maintainer profile's single traces endpoint rather than adding a
