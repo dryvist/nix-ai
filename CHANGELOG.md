@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.22.2](https://github.com/dryvist/nix-ai/compare/v5.22.1...v5.22.2) (2026-09-19)
+
+
+### Bug Fixes
+
+* **ci:** forward the router secrets to ai-pr-care with secrets: inherit ([0957093](https://github.com/dryvist/nix-ai/commit/09570937e9dcaf82924557be25e58a85ccd01d65))
+* **ci:** forward the router secrets to ai-pr-care with secrets: inherit ([e236e3d](https://github.com/dryvist/nix-ai/commit/e236e3d85c95cf4c613e34495740507e6f4e9449))
+
 ## [5.22.1](https://github.com/dryvist/nix-ai/compare/v5.22.0...v5.22.1) (2026-09-18)
 
 
