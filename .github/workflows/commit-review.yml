@@ -25,3 +25,5 @@ jobs:
     secrets:
       LLM_ROUTER_BASE_URL: ${{ secrets.LLM_ROUTER_BASE_URL }}
       LLM_ROUTER_API_KEY: ${{ secrets.LLM_ROUTER_API_KEY }}
+      LLM_PUBLIC_REVIEW_BASE_URL: ${{ secrets.LLM_PUBLIC_REVIEW_BASE_URL }}
+      LLM_PUBLIC_REVIEW_API_KEY: ${{ secrets.LLM_PUBLIC_REVIEW_API_KEY }}
