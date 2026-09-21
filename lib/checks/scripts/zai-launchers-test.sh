@@ -2,6 +2,7 @@
 set -euo pipefail
 
 aliases_source=$1
+claude_zai_bin=$2
 test_root=$(mktemp -d)
 mkdir -p "$test_root/bin"
 
@@ -52,7 +53,7 @@ export CODEX_ARGS_LOG="$test_root/codex-args.log"
 export CODEX_ENV_LOG="$test_root/codex-env.log"
 
 set +e
-zsh -c 'source "$1"; claude-zai "two words" --flag' zsh "$aliases_source"
+"$claude_zai_bin" "two words" --flag
 claude_rc=$?
 set -e
 [ "$claude_rc" -eq 23 ]
