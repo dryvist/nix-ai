@@ -279,6 +279,10 @@ in
       '';
 
   zai-launchers =
+    let
+      inherit (import ../../vars/ai-stack.nix) zai;
+      claudeZaiPkg = pkgs.callPackage ../../modules/claude-zai-pkg.nix { inherit zai; };
+    in
     pkgs.runCommand "check-zai-launchers"
       {
         nativeBuildInputs = [
@@ -287,7 +291,9 @@ in
         ];
       }
       ''
-        ${pkgs.bash}/bin/bash ${./scripts/zai-launchers-test.sh} ${../../modules/ai-aliases.zsh}
+        ${pkgs.bash}/bin/bash ${./scripts/zai-launchers-test.sh} \
+          ${../../modules/ai-aliases.zsh} \
+          ${claudeZaiPkg}/bin/claude-zai
         touch $out
       '';
 }

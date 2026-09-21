@@ -2,6 +2,7 @@
 set -euo pipefail
 
 aliases_source=$1
+claude_zai_bin=$2
 test_root=$(mktemp -d)
 mkdir -p "$test_root/bin"
 
@@ -52,11 +53,11 @@ export CODEX_ARGS_LOG="$test_root/codex-args.log"
 export CODEX_ENV_LOG="$test_root/codex-env.log"
 
 set +e
-zsh -c 'source "$1"; claude-zai "two words" --flag' zsh "$aliases_source"
+"$claude_zai_bin" "two words" --flag
 claude_rc=$?
 set -e
 [ "$claude_rc" -eq 23 ]
-diff -u <(printf '%s\n' run -p gh-workflow-tokens -c dryvist --no-fallback --only-secrets ZAI_SUBSCRIPTION_KEY -- zsh -c) <(head -n 11 "$DOPPLER_LOG")
+diff -u <(printf '%s\n' run -p gh-workflow-tokens -c dryvist --no-fallback --only-secrets ZAI_SUBSCRIPTION_KEY -- "$claude_zai_bin" 'two words' --flag) "$DOPPLER_LOG"
 diff -u <(printf '%s\n' 'two words' --flag) "$CLAUDE_ARGS_LOG"
 grep -Fxq 'ANTHROPIC_API_KEY=' "$CLAUDE_ENV_LOG"
 grep -Fxq 'ANTHROPIC_AUTH_TOKEN=test-secret' "$CLAUDE_ENV_LOG"
