@@ -1,5 +1,17 @@
 # Changelog
 
+## [5.23.0](https://github.com/dryvist/nix-ai/compare/v5.22.2...v5.23.0) (2026-09-21)
+
+
+### Features
+
+* **mcp:** OpenBao-first, Doppler-fallback launch for vikunja/zammad ([#2213](https://github.com/dryvist/nix-ai/issues/2213)) ([6ad9790](https://github.com/dryvist/nix-ai/commit/6ad9790e65c5ca2cbdb47772ba16e003a7ccd736))
+
+
+### Bug Fixes
+
+* **ai:** make claude-zai a real command, not a zsh function ([#2214](https://github.com/dryvist/nix-ai/issues/2214)) ([0e2c57c](https://github.com/dryvist/nix-ai/commit/0e2c57cb3ff93d2192006db968f0140a10532ba6))
+
 ## [5.22.2](https://github.com/dryvist/nix-ai/compare/v5.22.1...v5.22.2) (2026-09-19)
 
 
