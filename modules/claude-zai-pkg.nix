@@ -35,6 +35,7 @@ pkgs.writeShellApplication {
       CLAUDE_CODE_AUTO_COMPACT_WINDOW=${pkgs.lib.escapeShellArg zai.claude.autoCompactWindow} \
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
       API_TIMEOUT_MS=3000000 \
+      PATH="$HOME/.local/bin:$PATH" \
       claude "$@"
   '';
 }
