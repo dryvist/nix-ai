@@ -8,6 +8,7 @@
   bunx,
   codexMcp,
   dopplerRun,
+  secretsRun,
   versions,
 }:
 
@@ -68,11 +69,13 @@
   # forks: most contributors/stars by far and the widest tool surface (task/
   # project/label CRUD, batch import, webhooks) with rate limiting + circuit
   # breakers — built for autonomous agents. Requires VIKUNJA_URL (instance API
-  # base, ends in /api/v1) and VIKUNJA_API_TOKEN — fetched at launch by the
-  # server's own `doppler run` from the shared AI project.
-  # Ships disabled — a consumer enables it deliberately once the Doppler
-  # secrets exist for that machine.
-  vikunja = codexMcp (dopplerRun {
+  # base, ends in /api/v1) and VIKUNJA_API_TOKEN — fetched at launch, from
+  # OpenBao (secret/apps/<domain>) when the account has that secret-zero
+  # file, else Doppler from the shared AI project. See `secretsRun` in
+  # catalog.nix.
+  # Ships disabled — a consumer enables it deliberately once secrets exist
+  # for that machine.
+  vikunja = codexMcp (secretsRun {
     command = "bunx";
     args = [ "@democratize-technology/vikunja-mcp@${versions.vikunjaMcp}" ];
     disabled = true;
@@ -86,14 +89,15 @@
   # ticket/user/organization/attachment tools plus queue resources — the
   # surface the Hermes zammad-incidents loop drives. Requires ZAMMAD_URL
   # (instance API base, ends in /api/v1) and ZAMMAD_HTTP_TOKEN (a Zammad API
-  # token) — fetched at launch by the server's own
-  # `doppler run` from the shared AI project, same pattern as vikunja and
-  # google-workspace. `uvx` must not inherit the Nix shell's
+  # token) — fetched at launch, from
+  # OpenBao when available else Doppler (see `secretsRun` in catalog.nix),
+  # same pattern as vikunja; google-workspace stays Doppler-only.
+  # `uvx` must not inherit the Nix shell's
   # PYTHONPATH: the pinned server creates a Python 3.14 environment, while the
   # inherited 3.13 package path makes its native rpds extension fail at import.
   # Enabled in the shared profile. Only the non-secret project/config
-  # selectors are in the Nix store; Zammad credentials stay in Doppler.
-  zammad = codexMcp (dopplerRun {
+  # selectors are in the Nix store; Zammad credentials stay in OpenBao/Doppler.
+  zammad = codexMcp (secretsRun {
     command = "env";
     args = [
       "-u"

@@ -9,6 +9,7 @@
 {
   config,
   lib,
+  pkgs,
   ...
 }:
 
@@ -74,5 +75,13 @@ in
       export ZAI_CLAUDE_AUTO_COMPACT_WINDOW=${lib.escapeShellArg zai.claude.autoCompactWindow}
       source ${./ai-aliases.zsh}
     '';
+
+    # A real PATH command, not a zsh function: a zsh-function claude-zai is
+    # invisible to any non-interactive invocation (a login shell with no
+    # tty aborts zsh's interactive init before the function is even
+    # defined) — exactly the failure mode the open-llm identity hit.
+    # Factored into claude-zai-pkg.nix so lib/checks/scripts/zai-launchers-test.sh
+    # builds and tests this exact derivation, not a hand-kept copy of it.
+    home.packages = [ (pkgs.callPackage ./claude-zai-pkg.nix { inherit zai; }) ];
   };
 }
