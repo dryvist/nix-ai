@@ -57,7 +57,7 @@ set +e
 claude_rc=$?
 set -e
 [ "$claude_rc" -eq 23 ]
-diff -u <(printf '%s\n' run -p gh-workflow-tokens -c dryvist --no-fallback --only-secrets ZAI_SUBSCRIPTION_KEY -- zsh -c) <(head -n 11 "$DOPPLER_LOG")
+diff -u <(printf '%s\n' run -p gh-workflow-tokens -c dryvist --no-fallback --only-secrets ZAI_SUBSCRIPTION_KEY -- "$claude_zai_bin" 'two words' --flag) "$DOPPLER_LOG"
 diff -u <(printf '%s\n' 'two words' --flag) "$CLAUDE_ARGS_LOG"
 grep -Fxq 'ANTHROPIC_API_KEY=' "$CLAUDE_ENV_LOG"
 grep -Fxq 'ANTHROPIC_AUTH_TOKEN=test-secret' "$CLAUDE_ENV_LOG"
