@@ -108,39 +108,57 @@ alias d-cecli='with-ai-readonly zsh -c '\''doppler run -p "$AI_DOPPLER_PROJECT" 
 alias d-qwen='with-ai-readonly zsh -c '\''doppler run -p "$AI_DOPPLER_PROJECT" -c "${AI_DOPPLER_CONFIG:-prd}" -- qwen "$@"'\'' _'
 
 # Z.ai subscription launchers. The ordinary `claude` and `codex` commands keep
-# their first-party subscriptions; these functions opt one child process into
-# Z.ai and request only its subscription key from Doppler.
+# their first-party subscriptions; these opt one child process into Z.ai.
+#
+# ONE SOURCE PER FACT: the ANTHROPIC_*/model env block lives only in
+# _claude_zai_launch. claude-zai calls it with the subscription key from
+# Doppler (its normal path); an already-set $ZAI_DOPPLER_KEY_ENV in the
+# environment is used as-is instead, with no Doppler call at all -- the path
+# an identity with no Doppler token (e.g. open-llm, via openbao-run) takes.
+_claude_zai_launch() {
+  local key_value="$1"
+  shift
+  [[ -n "$key_value" ]] || {
+    print -u2 "claude-zai: no $ZAI_DOPPLER_KEY_ENV in the environment or Doppler"
+    return 1
+  }
+  ANTHROPIC_API_KEY= \
+  ANTHROPIC_AUTH_TOKEN="$key_value" \
+  ANTHROPIC_BASE_URL="$ZAI_CLAUDE_BASE_URL" \
+  ANTHROPIC_CUSTOM_HEADERS= \
+  CLAUDE_CODE_OAUTH_TOKEN= \
+  CLAUDE_CODE_USE_BEDROCK= \
+  CLAUDE_CODE_USE_VERTEX= \
+  OPENAI_API_KEY= \
+  ANTHROPIC_DEFAULT_FABLE_MODEL="$ZAI_CLAUDE_PRIMARY_MODEL" \
+  ANTHROPIC_DEFAULT_OPUS_MODEL="$ZAI_CLAUDE_PRIMARY_MODEL" \
+  ANTHROPIC_DEFAULT_SONNET_MODEL="$ZAI_CLAUDE_FAST_MODEL" \
+  ANTHROPIC_DEFAULT_HAIKU_MODEL="$ZAI_CLAUDE_FAST_MODEL" \
+  CLAUDE_CODE_SUBAGENT_MODEL="$ZAI_CLAUDE_FAST_MODEL" \
+  CLAUDE_CODE_AUTO_COMPACT_WINDOW="$ZAI_CLAUDE_AUTO_COMPACT_WINDOW" \
+  CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
+  API_TIMEOUT_MS=3000000 \
+    exec claude "$@"
+}
+
 claude-zai() {
-  doppler run \
-    -p "$ZAI_DOPPLER_PROJECT" \
-    -c "$ZAI_DOPPLER_CONFIG" \
-    --no-fallback \
-    --only-secrets "$ZAI_DOPPLER_KEY_ENV" -- \
-    zsh -c '
-      local key_name="$ZAI_DOPPLER_KEY_ENV"
-      local key_value="${(P)key_name}"
-      [[ -n "$key_value" ]] || {
-        print -u2 "claude-zai: Doppler returned an empty $key_name"
-        exit 1
-      }
-      ANTHROPIC_API_KEY= \
-      ANTHROPIC_AUTH_TOKEN="$key_value" \
-      ANTHROPIC_BASE_URL="$ZAI_CLAUDE_BASE_URL" \
-      ANTHROPIC_CUSTOM_HEADERS= \
-      CLAUDE_CODE_OAUTH_TOKEN= \
-      CLAUDE_CODE_USE_BEDROCK= \
-      CLAUDE_CODE_USE_VERTEX= \
-      OPENAI_API_KEY= \
-      ANTHROPIC_DEFAULT_FABLE_MODEL="$ZAI_CLAUDE_PRIMARY_MODEL" \
-      ANTHROPIC_DEFAULT_OPUS_MODEL="$ZAI_CLAUDE_PRIMARY_MODEL" \
-      ANTHROPIC_DEFAULT_SONNET_MODEL="$ZAI_CLAUDE_FAST_MODEL" \
-      ANTHROPIC_DEFAULT_HAIKU_MODEL="$ZAI_CLAUDE_FAST_MODEL" \
-      CLAUDE_CODE_SUBAGENT_MODEL="$ZAI_CLAUDE_FAST_MODEL" \
-      CLAUDE_CODE_AUTO_COMPACT_WINDOW="$ZAI_CLAUDE_AUTO_COMPACT_WINDOW" \
-      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
-      API_TIMEOUT_MS=3000000 \
-        exec claude "$@"
-    ' zsh "$@"
+  local key_name="$ZAI_DOPPLER_KEY_ENV"
+  local key_value="${(P)key_name}"
+  if [[ -n "$key_value" ]]; then
+    _claude_zai_launch "$key_value" "$@"
+  else
+    # zsh functions aren't inherited by an exec'd child (unlike bash's
+    # `export -f`), so splice this shell's own definition of
+    # _claude_zai_launch into the doppler-launched subshell's script text via
+    # `functions` -- one definition, reused, never copy-pasted into the child.
+    doppler run \
+      -p "$ZAI_DOPPLER_PROJECT" \
+      -c "$ZAI_DOPPLER_CONFIG" \
+      --no-fallback \
+      --only-secrets "$ZAI_DOPPLER_KEY_ENV" -- \
+      zsh -c "$(functions _claude_zai_launch)"'
+        _claude_zai_launch "${(P)ZAI_DOPPLER_KEY_ENV}" "$@"' zsh "$@"
+  fi
 }
 
 codex-zai() {
