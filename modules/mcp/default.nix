@@ -138,6 +138,30 @@ in
       '';
     };
 
+    vikunjaUrl = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = ''
+        Vikunja instance API base URL (ends in /api/v1), fed to the vikunja
+        MCP server as VIKUNJA_URL alongside its OpenBao/Doppler-sourced
+        token. Not secret, but names homelab topology, so it carries no
+        default here — a host sets it via an override in its own
+        (possibly private) configuration.
+      '';
+    };
+
+    zammadUrl = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = ''
+        Zammad instance API base URL (ends in /api/v1), fed to the zammad
+        MCP server as ZAMMAD_URL alongside its OpenBao/Doppler-sourced
+        token. Not secret, but names homelab topology, so it carries no
+        default here — a host sets it via an override in its own
+        (possibly private) configuration.
+      '';
+    };
+
     excludedServers = lib.mkOption {
       type = lib.types.listOf lib.types.str;
       default = [
@@ -231,7 +255,7 @@ in
     servers = import ./catalog.nix {
       inherit (config.home) homeDirectory;
       inherit pkgs;
-      inherit (config.programs.aiMcp) gatewayBaseUrl;
+      inherit (config.programs.aiMcp) gatewayBaseUrl vikunjaUrl zammadUrl;
     };
     enabledServers = lib.filterAttrs (
       name: server:

@@ -12,6 +12,8 @@
   homeDirectory,
   pkgs,
   gatewayBaseUrl ? null,
+  vikunjaUrl ? null,
+  zammadUrl ? null,
 }:
 let
   # Remote route on the shared agentgateway MCP layer. Disabled until a
@@ -226,5 +228,7 @@ in
     dopplerRun
     secretsRun
     versions
+    vikunjaUrl
+    zammadUrl
     ;
 }

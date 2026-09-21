@@ -10,6 +10,8 @@
   dopplerRun,
   secretsRun,
   versions,
+  vikunjaUrl ? null,
+  zammadUrl ? null,
 }:
 
 {
@@ -75,11 +77,16 @@
   # catalog.nix.
   # Ships disabled — a consumer enables it deliberately once secrets exist
   # for that machine.
-  vikunja = codexMcp (secretsRun {
-    command = "bunx";
-    args = [ "@democratize-technology/vikunja-mcp@${versions.vikunjaMcp}" ];
-    disabled = true;
-  });
+  vikunja = codexMcp (
+    secretsRun (
+      {
+        command = "bunx";
+        args = [ "@democratize-technology/vikunja-mcp@${versions.vikunjaMcp}" ];
+        disabled = true;
+      }
+      // (if vikunjaUrl == null then { } else { env.VIKUNJA_URL = vikunjaUrl; })
+    )
+  );
 
   # ================================================================
   # Zammad - self-hosted help desk / ticketing (Zammad MCP, task #12)
@@ -97,21 +104,26 @@
   # inherited 3.13 package path makes its native rpds extension fail at import.
   # Enabled in the shared profile. Only the non-secret project/config
   # selectors are in the Nix store; Zammad credentials stay in OpenBao/Doppler.
-  zammad = codexMcp (secretsRun {
-    command = "env";
-    args = [
-      "-u"
-      "PYTHONPATH"
-      "-u"
-      "PYTHONHOME"
-      "uvx"
-      "--from"
-      "git+https://github.com/basher83/zammad-mcp.git@v${versions.zammadMcp}"
-      "--with"
-      versions.mcpSdkBound
-      "mcp-zammad"
-    ];
-  });
+  zammad = codexMcp (
+    secretsRun (
+      {
+        command = "env";
+        args = [
+          "-u"
+          "PYTHONPATH"
+          "-u"
+          "PYTHONHOME"
+          "uvx"
+          "--from"
+          "git+https://github.com/basher83/zammad-mcp.git@v${versions.zammadMcp}"
+          "--with"
+          versions.mcpSdkBound
+          "mcp-zammad"
+        ];
+      }
+      // (if zammadUrl == null then { } else { env.ZAMMAD_URL = zammadUrl; })
+    )
+  );
 
   # ================================================================
   # UniFi Network - local UniFi gateway/controller management
