@@ -64,6 +64,37 @@ let
     };
   dopplerSelectors = (import ../../vars/ai-stack.nix).doppler;
 
+  # OpenBao-first, Doppler-fallback launch for accounts (e.g. open-llm) that
+  # have no Doppler token by design (see hosts/common/home-open-llm.nix in
+  # nix-darwin) but do have an OpenBao AppRole secret-zero file, same shape as
+  # `openbao-run` in nix-darwin's zcode launcher. The choice is made at
+  # RUNTIME by secrets-run.sh (the env-file check), not at eval time, so one
+  # definition serves every account: an account with the env file uses
+  # OpenBao, an account without it (e.g. claude) keeps using Doppler exactly
+  # as before. Domain/KV path is the account's own home directory basename
+  # (e.g. "open-llm"), matching the existing `$HOME/.openbao/<domain>.env` /
+  # `secret/apps/<domain>` convention.
+  secretsRunScript = pkgs.writeShellApplication {
+    name = "mcp-secrets-run";
+    runtimeInputs = [ pkgs.doppler ];
+    text = builtins.readFile ./scripts/secrets-run.sh;
+  };
+  secretsRun =
+    server:
+    server
+    // {
+      command = "${secretsRunScript}/bin/mcp-secrets-run";
+      args = [
+        (builtins.baseNameOf homeDirectory)
+        server.command
+      ]
+      ++ (server.args or [ ]);
+      env = (server.env or { }) // {
+        DOPPLER_PROJECT = dopplerSelectors.project;
+        DOPPLER_CONFIG = dopplerSelectors.config;
+      };
+    };
+
   # Version pins live in lib/versions.nix, where the org-wide Renovate
   # customManager regex tracks the annotations; refer to them directly.
   versions = import ../../lib/versions.nix;
@@ -193,6 +224,7 @@ in
     bunx
     codexMcp
     dopplerRun
+    secretsRun
     versions
     ;
 }
