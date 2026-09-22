@@ -76,7 +76,9 @@ let
         hooksRelPath = "hooks/claude-codex-hooks.json";
         hooks = lib.importJSON "${src}/${hooksRelPath}";
         trimmedHooks = hooks // {
-          hooks = assert hooks.hooks ? SubagentStart; removeAttrs hooks.hooks [ "SubagentStart" ];
+          hooks =
+            assert hooks.hooks ? SubagentStart;
+            removeAttrs hooks.hooks [ "SubagentStart" ];
         };
         trimmedHooksFile = pkgs.writeText "ponytail-hooks-trimmed.json" (builtins.toJSON trimmedHooks);
       in
