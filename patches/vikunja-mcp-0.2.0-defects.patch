@@ -33,28 +33,141 @@ diff --color -ruN a/dist/tools/projects.js b/dist/tools/projects.js
                              content: [
 diff --color -ruN a/dist/tools/tasks/bulk-operations.js b/dist/tools/tasks/bulk-operations.js
 --- a/dist/tools/tasks/bulk-operations.js	2026-09-22 16:38:13
-+++ b/dist/tools/tasks/bulk-operations.js	2026-09-22 16:38:40
-@@ -152,9 +152,16 @@
-                 };
-                 bulkOperation.value = modeMap[args.value] ?? args.value;
-             }
++++ b/dist/tools/tasks/bulk-operations.js	2026-09-22 16:42:47
+@@ -137,124 +137,14 @@
+         const client = await (0, client_1.getVikunjaClient)();
+         // Use the proper bulk update API endpoint
+         try {
+-            // Build the bulk update operation using TaskBulkOperation interface
+-            const bulkOperation = {
+-                task_ids: taskIds,
+-                field: args.field,
+-                value: args.value,
+-            };
+-            // Special handling for repeat_mode conversion
+-            if (args.field === 'repeat_mode' && typeof args.value === 'string') {
+-                const modeMap = {
+-                    default: 0,
+-                    month: 1,
+-                    from_current: 2,
+-                };
+-                bulkOperation.value = modeMap[args.value] ?? args.value;
+-            }
 -            // Call the proper bulk update API
 -            logger_1.logger.debug('Calling bulkUpdateTasks API', { bulkOperation });
 -            const bulkUpdateResult = await client.tasks.bulkUpdateTasks(bulkOperation);
+-            // Handle inconsistent return types from the bulk update API
+-            // Sometimes it returns Message object, sometimes Task[] array
+-            let updatedTasks = [];
+-            let bulkUpdateSuccessful = false;
+-            if (Array.isArray(bulkUpdateResult)) {
+-                // API returned Task[] array - verify the updates were actually applied
+-                if (bulkUpdateResult.length > 0) {
+-                    bulkUpdateSuccessful = true;
+-                    // Check if the returned tasks have the expected values
+-                    for (const task of bulkUpdateResult) {
+-                        switch (args.field) {
+-                            case 'priority':
+-                                if (task.priority !== args.value) {
+-                                    logger_1.logger.warn('Bulk update API returned task with unchanged priority', {
+-                                        taskId: task.id,
+-                                        expectedPriority: args.value,
+-                                        actualPriority: task.priority,
+-                                    });
+-                                    bulkUpdateSuccessful = false;
+-                                }
+-                                break;
+-                            case 'done':
+-                                if (task.done !== args.value) {
+-                                    logger_1.logger.warn('Bulk update API returned task with unchanged done status', {
+-                                        taskId: task.id,
+-                                        expectedDone: args.value,
+-                                        actualDone: task.done,
+-                                    });
+-                                    bulkUpdateSuccessful = false;
+-                                }
+-                                break;
+-                            case 'due_date':
+-                                if (task.due_date !== args.value) {
+-                                    logger_1.logger.warn('Bulk update API returned task with unchanged due date', {
+-                                        taskId: task.id,
+-                                        expectedDueDate: args.value,
+-                                        actualDueDate: task.due_date,
+-                                    });
+-                                    bulkUpdateSuccessful = false;
+-                                }
+-                                break;
+-                            case 'project_id':
+-                                if (task.project_id !== args.value) {
+-                                    logger_1.logger.warn('Bulk update API returned task with unchanged project ID', {
+-                                        taskId: task.id,
+-                                        expectedProjectId: args.value,
+-                                        actualProjectId: task.project_id,
+-                                    });
+-                                    bulkUpdateSuccessful = false;
+-                                }
+-                                break;
+-                        }
+-                        if (!bulkUpdateSuccessful)
+-                            break;
+-                    }
+-                    if (bulkUpdateSuccessful) {
+-                        updatedTasks = bulkUpdateResult;
+-                    }
+-                }
+-            }
+-            else if (bulkUpdateResult &&
+-                typeof bulkUpdateResult === 'object' &&
+-                'message' in bulkUpdateResult) {
+-                // API returned Message object - treat as success but need to fetch updated tasks
+-                logger_1.logger.debug('Bulk update API returned message object', { result: bulkUpdateResult });
+-                bulkUpdateSuccessful = true;
+-            }
+-            if (!bulkUpdateSuccessful) {
+-                // Bulk update didn't actually update the values, throw an error to trigger fallback
+-                throw new Error('Bulk update API reported success but did not update task values');
+-            }
+-            // If we don't have the updated tasks yet (Message response), fetch them
+-            if (updatedTasks.length === 0) {
+-                const fetchResults = await processBatches(taskIds, constants_1.BULK_OPERATION_BATCH_SIZE, async (batch) => {
+-                    const results = await Promise.allSettled(batch.map((id) => client.tasks.getTask(id)));
+-                    return results;
+-                });
+-                updatedTasks = fetchResults
+-                    .filter((result) => result.status === 'fulfilled')
+-                    .map((result) => result.value);
+-            }
+-            const response = {
+-                success: true,
+-                operation: 'update',
+-                message: `Successfully updated ${taskIds.length} tasks`,
+-                tasks: updatedTasks,
+-                metadata: {
+-                    timestamp: new Date().toISOString(),
+-                    count: taskIds.length,
+-                    affectedFields: [args.field],
+-                },
+-            };
+-            return {
+-                content: [
+-                    {
+-                        type: 'text',
+-                        text: JSON.stringify(response, null, 2),
+-                    },
+-                ],
+-            };
 +            // Task 3413 defect #6: Vikunja's server-side bulk endpoint does a
 +            // full-object overwrite per task rather than a partial patch, so a
 +            // `bulk-update field=X` request clobbered every other field to its
 +            // zero value (description "", priority 0) while still reporting
-+            // success. Never trust it — go straight to the GET-merge-PUT
++            // success. Never trust it -- always take the GET-merge-PUT
 +            // fallback below, which updates one field on the task's own
-+            // current state and is already what this function falls back to
-+            // on any other failure.
-+            logger_1.logger.debug('Bypassing bulkUpdateTasks API (server clobbers other fields); using per-task GET-merge-PUT', { bulkOperation });
++            // current state.
 +            throw new Error('vikunja-mcp: bulk endpoint bypassed, using per-task GET-merge-PUT (task 3413 defect #6)');
-             // Handle inconsistent return types from the bulk update API
-             // Sometimes it returns Message object, sometimes Task[] array
-             let updatedTasks = [];
-@@ -563,7 +570,15 @@
+         }
+         catch (bulkError) {
+             // If bulk update fails, fall back to individual updates
+@@ -563,7 +453,15 @@
          // Create tasks in batches
          const projectId = args.projectId; // TypeScript knows this is defined due to earlier check
          const creationResults = await processBatches(args.tasks, constants_1.BULK_OPERATION_BATCH_SIZE, async (batch) => {
@@ -71,7 +184,7 @@ diff --color -ruN a/dist/tools/tasks/bulk-operations.js b/dist/tools/tasks/bulk-
                  // Create the base task
                  const newTask = {
                      title: taskData.title,
-@@ -636,7 +651,13 @@
+@@ -636,7 +534,13 @@
                      }
                  }
                  return createdTask;
@@ -88,7 +201,7 @@ diff --color -ruN a/dist/tools/tasks/bulk-operations.js b/dist/tools/tasks/bulk-
          // Process results
 diff --color -ruN a/dist/tools/tasks/crud.js b/dist/tools/tasks/crud.js
 --- a/dist/tools/tasks/crud.js	2026-09-22 16:38:13
-+++ b/dist/tools/tasks/crud.js	2026-09-22 16:41:01
++++ b/dist/tools/tasks/crud.js	2026-09-22 16:42:21
 @@ -200,6 +200,13 @@
          if (!args.id) {
              throw new index_1.MCPError(index_1.ErrorCode.VALIDATION_ERROR, 'Task id is required for update operation');
@@ -103,20 +216,7 @@ diff --color -ruN a/dist/tools/tasks/crud.js b/dist/tools/tasks/crud.js
          (0, validation_1.validateId)(args.id, 'id');
          // Validate date if provided
          if (args.dueDate) {
-@@ -227,7 +234,11 @@
-             affectedFields.push('dueDate');
-         if (args.priority !== undefined && args.priority !== currentTask.priority)
-             affectedFields.push('priority');
--        if (args.done !== undefined && args.done !== currentTask.done)
-+        // Was gated on `args.done !== currentTask.done`: task 3413 defect #5 —
-+        // `update done=true` returned success with an empty affectedFields and
-+        // done stayed false. Report it as affected whenever the caller set it
-+        // explicitly, regardless of the (possibly stale) currentTask read.
-+        if (args.done !== undefined)
-             affectedFields.push('done');
-         if (args.repeatAfter !== undefined && args.repeatAfter !== currentTask.repeat_after)
-             affectedFields.push('repeatAfter');
-@@ -237,16 +248,26 @@
+@@ -237,11 +244,16 @@
              affectedFields.push('labels');
          if (args.assignees !== undefined)
              affectedFields.push('assignees');
@@ -133,17 +233,6 @@ diff --color -ruN a/dist/tools/tasks/crud.js b/dist/tools/tasks/crud.js
              ...(args.title !== undefined && { title: args.title }),
              ...(args.description !== undefined && { description: args.description }),
              ...(args.dueDate !== undefined && { due_date: args.dueDate }),
-             ...(args.priority !== undefined && { priority: args.priority }),
--            ...(args.done !== undefined && { done: args.done }),
-+            // Vikunja derives completion from done_at, not the done flag alone;
-+            // set/clear it alongside done so the transition actually persists.
-+            ...(args.done !== undefined && {
-+                done: args.done,
-+                done_at: args.done ? new Date().toISOString() : null,
-+            }),
-             // Handle repeat configuration for updates
-             ...(args.repeatAfter !== undefined || args.repeatMode !== undefined
-                 ? (() => {
 diff --color -ruN a/dist/tools/tasks/index.js b/dist/tools/tasks/index.js
 --- a/dist/tools/tasks/index.js	2026-09-22 16:38:13
 +++ b/dist/tools/tasks/index.js	2026-09-22 16:38:13
