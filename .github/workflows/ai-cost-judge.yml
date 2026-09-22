@@ -1,0 +1,25 @@
+# Cost-Review Judge — thin wrapper over the dryvist org reusable workflow
+# (plan section J2). Advisory only. Runs on the shared self-hosted pool
+# against the org model router.
+
+name: AI Cost Judge
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: ai-cost-judge-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  judge:
+    permissions:
+      contents: read
+      pull-requests: write
+    uses: dryvist/.github/.github/workflows/_ai-cost-judge.yml@main
+    secrets: inherit

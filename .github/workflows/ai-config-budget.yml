@@ -1,0 +1,21 @@
+# AI Config Budget Gate — thin wrapper over the dryvist org reusable
+# workflow (plan section J1). Deterministic, no model call, no secrets.
+
+name: AI Config Budget
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: ai-config-budget-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    permissions:
+      contents: read
+    uses: dryvist/.github/.github/workflows/_ai-config-budget.yml@main
