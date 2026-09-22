@@ -14,12 +14,31 @@ let
       pkgs.python3
     ];
 
+    # Upstream PR not yet open (splunk/token-meter, no write access from this
+    # identity yet); tracked in Vikunja 3416. Fixes the `stats` MCP query
+    # scanning full session history regardless of the requested start/end
+    # window, which timed out even on narrow (e.g. 2-day) queries.
+    patches = [ ./patches/token-meter-stats-prefilter.patch ];
+
     dontBuild = true;
+
+    doCheck = true;
+    checkPhase = ''
+      runHook preCheck
+      # $PWD is the patched, unpacked source tree (patchPhase already ran).
+      # Run the module this patch touches, not the full upstream suite:
+      # tests/test_meter.py::test_docs_explain_pi_evidence_and_privacy_boundaries
+      # fails on unpatched upstream main too (README/test doc drift,
+      # unrelated to this change) and isn't something to silently paper
+      # over here.
+      python3 -m unittest tests.test_mcp_queries
+      runHook postCheck
+    '';
 
     installPhase = ''
       runHook preInstall
 
-      ${pkgs.bash}/bin/bash ${../scripts/package-token-meter.sh} "$src" "$out/share/token-meter"
+      ${pkgs.bash}/bin/bash ${../scripts/package-token-meter.sh} "$PWD" "$out/share/token-meter"
 
       mkdir -p "$out/bin"
       makeWrapper ${lib.getExe pkgs.python3} "$out/bin/token-meter-server" \
