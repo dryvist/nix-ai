@@ -10,6 +10,7 @@
   dopplerRun,
   secretsRun,
   versions,
+  mcpNpmPkgs,
 }:
 
 {
@@ -73,11 +74,16 @@
   # OpenBao (secret/apps/<domain>) when the account has that secret-zero
   # file, else Doppler from the shared AI project. See `secretsRun` in
   # catalog.nix.
+  #
+  # Packaged from a store derivation (modules/mcp/packages-npm.nix), not a
+  # live `bunx` pull, because it carries a local patch for Vikunja task
+  # 3413's defects (racy bulk-create, allProjects 500, silent projectId
+  # no-op, unbounded list response) — see
+  # patches/vikunja-mcp-0.2.0-defects.patch.
   # Ships disabled — a consumer enables it deliberately once secrets exist
   # for that machine.
   vikunja = codexMcp (secretsRun {
-    command = "bunx";
-    args = [ "@democratize-technology/vikunja-mcp@${versions.vikunjaMcp}" ];
+    command = "${mcpNpmPkgs.vikunja-mcp}/bin/vikunja-mcp";
     disabled = true;
   });
 

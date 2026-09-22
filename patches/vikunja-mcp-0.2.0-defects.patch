@@ -1,0 +1,101 @@
+--- a/dist/tools/tasks/bulk-operations.js	2026-09-22 16:09:44
++++ b/dist/tools/tasks/bulk-operations.js	2026-09-22 16:10:02
+@@ -563,7 +563,15 @@
+         // Create tasks in batches
+         const projectId = args.projectId; // TypeScript knows this is defined due to earlier check
+         const creationResults = await processBatches(args.tasks, constants_1.BULK_OPERATION_BATCH_SIZE, async (batch) => {
+-            const results = await Promise.allSettled(batch.map(async (taskData) => {
++            // Sequential, not Promise.allSettled(batch.map(...)): concurrent creates race
++            // Vikunja's server-side per-project task index, so parallel batch members can
++            // collide on the same identifier (e.g. "#443" assigned to 10 of 12 tasks).
++            // Result shape (status/value/reason) is kept identical to allSettled's so the
++            // downstream filter/map code below is unchanged.
++            const results = [];
++            for (const taskData of batch) {
++                try {
++                    const value = await (async (taskData) => {
+                 // Create the base task
+                 const newTask = {
+                     title: taskData.title,
+@@ -636,7 +644,13 @@
+                     }
+                 }
+                 return createdTask;
+-            }));
++                    })(taskData);
++                    results.push({ status: 'fulfilled', value });
++                }
++                catch (reason) {
++                    results.push({ status: 'rejected', reason });
++                }
++            }
+             return results;
+         });
+         // Process results
+--- a/dist/tools/tasks/index.js	2026-09-22 16:09:44
++++ b/dist/tools/tasks/index.js	2026-09-22 16:10:08
+@@ -72,8 +72,11 @@
+             tasks = await client.tasks.getProjectTasks(args.projectId, params);
+         }
+         else {
+-            // Get all tasks across all projects
+-            tasks = await client.tasks.getAllTasks(params);
++            // GET /tasks/all returns 500 on this server. Fetch per project and merge
++            // client-side instead of relying on the server's cross-project endpoint.
++            const projects = await client.projects.getProjects({});
++            const perProjectResults = await Promise.all(projects.map((project) => client.tasks.getProjectTasks(project.id, params)));
++            tasks = perProjectResults.flat();
+         }
+         // Apply client-side filtering if we have a filter expression
+         if (filterExpression) {
+--- a/dist/tools/tasks/crud.js	2026-09-22 16:09:44
++++ b/dist/tools/tasks/crud.js	2026-09-22 16:10:15
+@@ -237,11 +237,16 @@
+             affectedFields.push('labels');
+         if (args.assignees !== undefined)
+             affectedFields.push('assignees');
++        if (args.projectId !== undefined && args.projectId !== currentTask.project_id)
++            affectedFields.push('projectId');
+         // Build update object by merging current task data with updates
+         // This prevents the API from clearing fields that aren't explicitly updated
+         const updateData = {
+             ...currentTask,
+             // Override with any provided updates
++            // projectId was previously accepted by the schema but silently dropped here,
++            // so `update projectId=<n>` never moved the task.
++            ...(args.projectId !== undefined && { project_id: args.projectId }),
+             ...(args.title !== undefined && { title: args.title }),
+             ...(args.description !== undefined && { description: args.description }),
+             ...(args.dueDate !== undefined && { due_date: args.dueDate }),
+--- a/dist/tools/projects.js	2026-09-22 16:09:44
++++ b/dist/tools/projects.js	2026-09-22 16:10:22
+@@ -106,6 +106,7 @@
+         page: zod_1.z.number().optional(),
+         perPage: zod_1.z.number().optional(),
+         search: zod_1.z.string().optional(),
++        fields: zod_1.z.array(zod_1.z.string()).optional(),
+         // Share fields
+         shareId: zod_1.z.number().optional(),
+         shareHash: zod_1.z.string().optional(),
+@@ -134,7 +135,20 @@
+                             params.s = args.search;
+                         if (args.isArchived !== undefined)
+                             params.is_archived = args.isArchived;
+-                        const projects = await client.projects.getProjects(params);
++                        let projects = await client.projects.getProjects(params);
++                        // Cut response size: return only the requested fields instead of
++                        // the full project object (list responses were reported as "huge").
++                        if (args.fields && args.fields.length > 0) {
++                            const fields = args.fields;
++                            projects = projects.map((project) => {
++                                const picked = {};
++                                for (const field of fields) {
++                                    if (field in project)
++                                        picked[field] = project[field];
++                                }
++                                return picked;
++                            });
++                        }
+                         const response = (0, index_1.createStandardResponse)('list-projects', `Retrieved ${projects.length} project${projects.length !== 1 ? 's' : ''}`, { projects }, { count: projects.length, params });
+                         return {
+                             content: [
