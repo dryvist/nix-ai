@@ -4,6 +4,8 @@
 // test-update-field-value-rejected.mjs). Kept as a guard against
 // regressing the working path while that fix touched the same function.
 import { createRequire } from 'module';
+import test from 'node:test';
+import assert from 'node:assert/strict';
 const require = createRequire(import.meta.url);
 
 const PKG = process.env.VIKUNJA_MCP_DIST || '/tmp/vikunja-patched/dist';
@@ -27,20 +29,12 @@ require.cache[require.resolve(`${PKG}/client.js`)] = {
   exports: { getVikunjaClient: async () => mockClient },
 };
 
-let failed = false;
-const { updateTask } = require(`${PKG}/tools/tasks/crud.js`);
-mockClient.tasks._lastUpdate = null;
-const result = await updateTask({ id: 7, done: true });
-const parsed = JSON.parse(result.content[0].text);
+test('update done=true (typed param) still sends done:true and reports "done" as affected', async () => {
+  const { updateTask } = require(`${PKG}/tools/tasks/crud.js`);
+  mockClient.tasks._lastUpdate = null;
+  const result = await updateTask({ id: 7, done: true });
+  const parsed = JSON.parse(result.content[0].text);
 
-if (mockClient.tasks._lastUpdate?.done !== true) {
-  console.error('FAIL: updateTask did not send done: true to the API, got', mockClient.tasks._lastUpdate);
-  failed = true;
-} else if (!parsed.metadata.affectedFields.includes('done')) {
-  console.error('FAIL: response affectedFields missing "done", got', parsed.metadata.affectedFields);
-  failed = true;
-} else {
-  console.log('PASS: update done=true (typed param) still sends done:true and reports "done" as affected');
-}
-
-process.exit(failed ? 1 : 0);
+  assert.equal(mockClient.tasks._lastUpdate?.done, true, 'updateTask did not send done: true to the API');
+  assert.ok(parsed.metadata.affectedFields.includes('done'), 'response affectedFields missing "done"');
+});

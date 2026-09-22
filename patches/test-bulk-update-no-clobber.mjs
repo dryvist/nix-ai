@@ -4,6 +4,8 @@
 // GET-merge-PUT path is what actually runs, and that untouched fields
 // survive.
 import { createRequire } from 'module';
+import test from 'node:test';
+import assert from 'node:assert/strict';
 const require = createRequire(import.meta.url);
 
 const PKG = process.env.VIKUNJA_MCP_DIST || '/tmp/vikunja-patched/dist';
@@ -40,33 +42,20 @@ require.cache[require.resolve(`${PKG}/client.js`)] = {
   exports: { getVikunjaClient: async () => mockClient },
 };
 
-let failed = false;
-const { bulkUpdateTasks } = require(`${PKG}/tools/tasks/bulk-operations.js`);
+test('bulk-update field=priority updates only priority; description survives (was clobbered to "")', async () => {
+  const { bulkUpdateTasks } = require(`${PKG}/tools/tasks/bulk-operations.js`);
 
-const result = await bulkUpdateTasks({ taskIds: [1, 2], field: 'priority', value: 5 });
-const parsed = JSON.parse(result.content[0].text);
+  const result = await bulkUpdateTasks({ taskIds: [1, 2], field: 'priority', value: 5 });
+  const parsed = JSON.parse(result.content[0].text);
 
-if (updateCalls.length !== 2) {
-  console.error('FAIL: expected 2 per-task updateTask calls, got', updateCalls.length);
-  failed = true;
-}
-for (const { id, data } of updateCalls) {
-  if (data.priority !== 5) {
-    console.error(`FAIL: task ${id} priority not updated, got`, data.priority);
-    failed = true;
+  assert.equal(updateCalls.length, 2, 'expected 2 per-task updateTask calls');
+  for (const { id, data } of updateCalls) {
+    assert.equal(data.priority, 5, `task ${id} priority not updated`);
+    assert.equal(
+      data.description,
+      id === 1 ? 'keep me' : 'keep me too',
+      `task ${id} description was clobbered`,
+    );
   }
-  if (data.description !== (id === 1 ? 'keep me' : 'keep me too')) {
-    console.error(`FAIL: task ${id} description was clobbered, got`, JSON.stringify(data.description));
-    failed = true;
-  }
-}
-if (!parsed.success) {
-  console.error('FAIL: bulkUpdateTasks reported failure', parsed);
-  failed = true;
-}
-
-if (!failed) {
-  console.log('PASS: bulk-update field=priority updates only priority; description survives (was clobbered to "")');
-}
-
-process.exit(failed ? 1 : 0);
+  assert.ok(parsed.success, 'bulkUpdateTasks reported failure');
+});

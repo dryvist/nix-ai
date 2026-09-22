@@ -3,65 +3,63 @@
 # rationale as packages.nix, but for a server whose upstream needs a fix
 # nix-ai carries locally.
 #
-# vikunja-mcp ships no package-lock.json in its npm tarball, so npmDepsHash
-# has no lock to hash against. node_modules is instead built as its own
-# fixed-output derivation (`vikunjaMcpNodeModules`): `npm install` runs
-# inside the FOD sandbox, which nix's own network-sandboxed build isolation
-# (not the workstation's ambient "no interactive package installs" policy)
-# already governs, and the result is pinned by `outputHash`. Bump
-# `outputHash` to `pkgs.lib.fakeHash` and rebuild to get the real one after
-# any version bump.
+# vikunja-mcp ships no package-lock.json in its npm tarball, so
+# patches/vikunja-mcp-0.2.0-package-lock.json is a checked-in lock generated
+# once (npm install --package-lock-only --ignore-scripts against the
+# unpatched tarball; the defect patch below only touches compiled dist/
+# files, never package.json, so the lock stays valid post-patch). It's
+# copied into place in postPatch so buildNpmPackage's own npmConfigHook can
+# validate it against fetchNpmDeps's fixed-output cache — the standard
+# nixpkgs way to do a network install inside Nix's sandbox, replacing the
+# hand-rolled FOD + npm-install scripts this module used to carry. Bump
+# npmDepsHash to lib.fakeHash and rebuild to get the real one after any
+# version or lockfile change.
 { pkgs }:
 let
   lib = pkgs.lib;
   versions = import ../../lib/versions.nix;
   version = versions.vikunjaMcp;
-
-  src = pkgs.fetchurl {
-    url = "https://registry.npmjs.org/@democratize-technology/vikunja-mcp/-/vikunja-mcp-${version}.tgz";
-    hash = "sha256-xhl4lSKT+bXZj76JqP218WLSS6Com8zWSAHa+9i53LQ=";
-  };
-
-  # Defect patch from Vikunja task 3413: sequential bulk-create (avoids
-  # server-side task-index races), allProjects fan-out (avoids /tasks/all's
-  # 500), update projectId (was a silent no-op), and an optional `fields`
-  # filter on `list` (the raw project list was reported as huge).
-  patchedSrc = pkgs.runCommand "vikunja-mcp-${version}-patched" { } ''
-    bash ${./scripts/vikunja-mcp-patch.sh} \
-      ${src} \
-      ${../../patches/vikunja-mcp-0.2.0-defects.patch} \
-      "$out"
-  '';
-
-  vikunjaMcpNodeModules = pkgs.stdenvNoCC.mkDerivation {
-    pname = "vikunja-mcp-node-modules";
-    inherit version;
-    src = patchedSrc;
-    nativeBuildInputs = [
-      pkgs.nodejs
-      pkgs.cacert
-    ];
-    dontInstall = true;
-    buildPhase = builtins.readFile ./scripts/vikunja-mcp-node-modules.sh;
-    outputHashMode = "recursive";
-    outputHashAlgo = "sha256";
-    # Placeholder — `nix build .#vikunja-mcp` prints the real hash on
-    # mismatch; paste it in on the first build after any version bump.
-    outputHash = "sha256-Mb78boPMxf9q1aouJMhXqC+ijdu1OgDxWJlveeCGcFU=";
-  };
 in
 {
-  vikunja-mcp = pkgs.stdenvNoCC.mkDerivation {
+  vikunja-mcp = pkgs.buildNpmPackage {
     pname = "vikunja-mcp";
     inherit version;
-    src = patchedSrc;
-    nativeBuildInputs = [ pkgs.makeWrapper ];
-    dontBuild = true;
-    NODE_BIN = "${pkgs.nodejs}/bin/node";
-    installPhase = ''
-      set -- "${vikunjaMcpNodeModules}" "$out"
-      source ${./scripts/vikunja-mcp-install.sh}
+
+    src = pkgs.fetchurl {
+      url = "https://registry.npmjs.org/@democratize-technology/vikunja-mcp/-/vikunja-mcp-${version}.tgz";
+      hash = "sha256-xhl4lSKT+bXZj76JqP218WLSS6Com8zWSAHa+9i53LQ=";
+    };
+
+    # Defect patch from Vikunja task 3413: sequential bulk-create (avoids
+    # server-side task-index races), allProjects fan-out (avoids /tasks/all's
+    # 500), update projectId (was a silent no-op), and an optional `fields`
+    # filter on `list` (the raw project list was reported as huge).
+    patches = [ ../../patches/vikunja-mcp-0.2.0-defects.patch ];
+
+    postPatch = ''
+      cp ${../../patches/vikunja-mcp-0.2.0-package-lock.json} package-lock.json
     '';
+
+    npmDepsHash = "sha256-ta7VCb0k+1hB3VesAVYRsa2V/2UzWVBvaywE5vOPHOo=";
+
+    # dist/ ships prebuilt in the npm tarball (patched above); there is no
+    # source or build script to run. `npm pack` (used by the install hook to
+    # list files) still fires "prepack"/"prepare" by default, which would
+    # try to run the missing tsc build -- skip it.
+    dontNpmBuild = true;
+    npmPackFlags = [ "--ignore-scripts" ];
+
+    nativeCheckInputs = [ pkgs.nodejs ];
+    doCheck = true;
+    checkPhase = ''
+      runHook preCheck
+      VIKUNJA_MCP_DIST="$PWD/dist" node --test \
+        ${../../patches/test-bulk-update-no-clobber.mjs} \
+        ${../../patches/test-update-done.mjs} \
+        ${../../patches/test-update-field-value-rejected.mjs}
+      runHook postCheck
+    '';
+
     meta = {
       description = "Vikunja MCP server, patched for task 3413's defects";
       homepage = "https://github.com/democratize-technology/vikunja-mcp";
