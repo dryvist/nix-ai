@@ -1,74 +1,6 @@
---- a/dist/tools/tasks/bulk-operations.js	2026-09-22 16:09:44
-+++ b/dist/tools/tasks/bulk-operations.js	2026-09-22 16:10:02
-@@ -563,7 +563,15 @@
-         // Create tasks in batches
-         const projectId = args.projectId; // TypeScript knows this is defined due to earlier check
-         const creationResults = await processBatches(args.tasks, constants_1.BULK_OPERATION_BATCH_SIZE, async (batch) => {
--            const results = await Promise.allSettled(batch.map(async (taskData) => {
-+            // Sequential, not Promise.allSettled(batch.map(...)): concurrent creates race
-+            // Vikunja's server-side per-project task index, so parallel batch members can
-+            // collide on the same identifier (e.g. "#443" assigned to 10 of 12 tasks).
-+            // Result shape (status/value/reason) is kept identical to allSettled's so the
-+            // downstream filter/map code below is unchanged.
-+            const results = [];
-+            for (const taskData of batch) {
-+                try {
-+                    const value = await (async (taskData) => {
-                 // Create the base task
-                 const newTask = {
-                     title: taskData.title,
-@@ -636,7 +644,13 @@
-                     }
-                 }
-                 return createdTask;
--            }));
-+                    })(taskData);
-+                    results.push({ status: 'fulfilled', value });
-+                }
-+                catch (reason) {
-+                    results.push({ status: 'rejected', reason });
-+                }
-+            }
-             return results;
-         });
-         // Process results
---- a/dist/tools/tasks/index.js	2026-09-22 16:09:44
-+++ b/dist/tools/tasks/index.js	2026-09-22 16:10:08
-@@ -72,8 +72,11 @@
-             tasks = await client.tasks.getProjectTasks(args.projectId, params);
-         }
-         else {
--            // Get all tasks across all projects
--            tasks = await client.tasks.getAllTasks(params);
-+            // GET /tasks/all returns 500 on this server. Fetch per project and merge
-+            // client-side instead of relying on the server's cross-project endpoint.
-+            const projects = await client.projects.getProjects({});
-+            const perProjectResults = await Promise.all(projects.map((project) => client.tasks.getProjectTasks(project.id, params)));
-+            tasks = perProjectResults.flat();
-         }
-         // Apply client-side filtering if we have a filter expression
-         if (filterExpression) {
---- a/dist/tools/tasks/crud.js	2026-09-22 16:09:44
-+++ b/dist/tools/tasks/crud.js	2026-09-22 16:10:15
-@@ -237,11 +237,16 @@
-             affectedFields.push('labels');
-         if (args.assignees !== undefined)
-             affectedFields.push('assignees');
-+        if (args.projectId !== undefined && args.projectId !== currentTask.project_id)
-+            affectedFields.push('projectId');
-         // Build update object by merging current task data with updates
-         // This prevents the API from clearing fields that aren't explicitly updated
-         const updateData = {
-             ...currentTask,
-             // Override with any provided updates
-+            // projectId was previously accepted by the schema but silently dropped here,
-+            // so `update projectId=<n>` never moved the task.
-+            ...(args.projectId !== undefined && { project_id: args.projectId }),
-             ...(args.title !== undefined && { title: args.title }),
-             ...(args.description !== undefined && { description: args.description }),
-             ...(args.dueDate !== undefined && { due_date: args.dueDate }),
---- a/dist/tools/projects.js	2026-09-22 16:09:44
-+++ b/dist/tools/projects.js	2026-09-22 16:10:22
+diff --color -ruN a/dist/tools/projects.js b/dist/tools/projects.js
+--- a/dist/tools/projects.js	2026-09-22 16:38:13
++++ b/dist/tools/projects.js	2026-09-22 16:38:13
 @@ -106,6 +106,7 @@
          page: zod_1.z.number().optional(),
          perPage: zod_1.z.number().optional(),
@@ -99,3 +31,119 @@
                          const response = (0, index_1.createStandardResponse)('list-projects', `Retrieved ${projects.length} project${projects.length !== 1 ? 's' : ''}`, { projects }, { count: projects.length, params });
                          return {
                              content: [
+diff --color -ruN a/dist/tools/tasks/bulk-operations.js b/dist/tools/tasks/bulk-operations.js
+--- a/dist/tools/tasks/bulk-operations.js	2026-09-22 16:38:13
++++ b/dist/tools/tasks/bulk-operations.js	2026-09-22 16:38:40
+@@ -152,9 +152,16 @@
+                 };
+                 bulkOperation.value = modeMap[args.value] ?? args.value;
+             }
+-            // Call the proper bulk update API
+-            logger_1.logger.debug('Calling bulkUpdateTasks API', { bulkOperation });
+-            const bulkUpdateResult = await client.tasks.bulkUpdateTasks(bulkOperation);
++            // Task 3413 defect #6: Vikunja's server-side bulk endpoint does a
++            // full-object overwrite per task rather than a partial patch, so a
++            // `bulk-update field=X` request clobbered every other field to its
++            // zero value (description "", priority 0) while still reporting
++            // success. Never trust it — go straight to the GET-merge-PUT
++            // fallback below, which updates one field on the task's own
++            // current state and is already what this function falls back to
++            // on any other failure.
++            logger_1.logger.debug('Bypassing bulkUpdateTasks API (server clobbers other fields); using per-task GET-merge-PUT', { bulkOperation });
++            throw new Error('vikunja-mcp: bulk endpoint bypassed, using per-task GET-merge-PUT (task 3413 defect #6)');
+             // Handle inconsistent return types from the bulk update API
+             // Sometimes it returns Message object, sometimes Task[] array
+             let updatedTasks = [];
+@@ -563,7 +570,15 @@
+         // Create tasks in batches
+         const projectId = args.projectId; // TypeScript knows this is defined due to earlier check
+         const creationResults = await processBatches(args.tasks, constants_1.BULK_OPERATION_BATCH_SIZE, async (batch) => {
+-            const results = await Promise.allSettled(batch.map(async (taskData) => {
++            // Sequential, not Promise.allSettled(batch.map(...)): concurrent creates race
++            // Vikunja's server-side per-project task index, so parallel batch members can
++            // collide on the same identifier (e.g. "#443" assigned to 10 of 12 tasks).
++            // Result shape (status/value/reason) is kept identical to allSettled's so the
++            // downstream filter/map code below is unchanged.
++            const results = [];
++            for (const taskData of batch) {
++                try {
++                    const value = await (async (taskData) => {
+                 // Create the base task
+                 const newTask = {
+                     title: taskData.title,
+@@ -636,7 +651,13 @@
+                     }
+                 }
+                 return createdTask;
+-            }));
++                    })(taskData);
++                    results.push({ status: 'fulfilled', value });
++                }
++                catch (reason) {
++                    results.push({ status: 'rejected', reason });
++                }
++            }
+             return results;
+         });
+         // Process results
+diff --color -ruN a/dist/tools/tasks/crud.js b/dist/tools/tasks/crud.js
+--- a/dist/tools/tasks/crud.js	2026-09-22 16:38:13
++++ b/dist/tools/tasks/crud.js	2026-09-22 16:38:28
+@@ -227,7 +227,11 @@
+             affectedFields.push('dueDate');
+         if (args.priority !== undefined && args.priority !== currentTask.priority)
+             affectedFields.push('priority');
+-        if (args.done !== undefined && args.done !== currentTask.done)
++        // Was gated on `args.done !== currentTask.done`: task 3413 defect #5 —
++        // `update done=true` returned success with an empty affectedFields and
++        // done stayed false. Report it as affected whenever the caller set it
++        // explicitly, regardless of the (possibly stale) currentTask read.
++        if (args.done !== undefined)
+             affectedFields.push('done');
+         if (args.repeatAfter !== undefined && args.repeatAfter !== currentTask.repeat_after)
+             affectedFields.push('repeatAfter');
+@@ -237,16 +241,26 @@
+             affectedFields.push('labels');
+         if (args.assignees !== undefined)
+             affectedFields.push('assignees');
++        if (args.projectId !== undefined && args.projectId !== currentTask.project_id)
++            affectedFields.push('projectId');
+         // Build update object by merging current task data with updates
+         // This prevents the API from clearing fields that aren't explicitly updated
+         const updateData = {
+             ...currentTask,
+             // Override with any provided updates
++            // projectId was previously accepted by the schema but silently dropped here,
++            // so `update projectId=<n>` never moved the task.
++            ...(args.projectId !== undefined && { project_id: args.projectId }),
+             ...(args.title !== undefined && { title: args.title }),
+             ...(args.description !== undefined && { description: args.description }),
+             ...(args.dueDate !== undefined && { due_date: args.dueDate }),
+             ...(args.priority !== undefined && { priority: args.priority }),
+-            ...(args.done !== undefined && { done: args.done }),
++            // Vikunja derives completion from done_at, not the done flag alone;
++            // set/clear it alongside done so the transition actually persists.
++            ...(args.done !== undefined && {
++                done: args.done,
++                done_at: args.done ? new Date().toISOString() : null,
++            }),
+             // Handle repeat configuration for updates
+             ...(args.repeatAfter !== undefined || args.repeatMode !== undefined
+                 ? (() => {
+diff --color -ruN a/dist/tools/tasks/index.js b/dist/tools/tasks/index.js
+--- a/dist/tools/tasks/index.js	2026-09-22 16:38:13
++++ b/dist/tools/tasks/index.js	2026-09-22 16:38:13
+@@ -72,8 +72,11 @@
+             tasks = await client.tasks.getProjectTasks(args.projectId, params);
+         }
+         else {
+-            // Get all tasks across all projects
+-            tasks = await client.tasks.getAllTasks(params);
++            // GET /tasks/all returns 500 on this server. Fetch per project and merge
++            // client-side instead of relying on the server's cross-project endpoint.
++            const projects = await client.projects.getProjects({});
++            const perProjectResults = await Promise.all(projects.map((project) => client.tasks.getProjectTasks(project.id, params)));
++            tasks = perProjectResults.flat();
+         }
+         // Apply client-side filtering if we have a filter expression
+         if (filterExpression) {
