@@ -23,9 +23,16 @@
 # Optional: STABLE_LINKS_STORE_PREFIX overrides the store prefix that gates
 # pruning, so the regression test can exercise the destructive path inside a
 # tmpdir. Matches the HM_FILES_STORE_GLOB convention in the cleanup scripts.
+#
+# Optional: STABLE_LINKS_VERBOSE=1 prints a line per link created/pruned.
+# Every rebuild otherwise relinks the whole agent-skills tree (its hash covers
+# unrelated changes too), so the unconditional per-file echo drowned
+# `darwin-rebuild switch` output in hundreds of lines carrying no new
+# information beyond the final counts.
 set -euo pipefail
 
 store_prefix="${STABLE_LINKS_STORE_PREFIX:-/nix/store/}"
+verbose="${STABLE_LINKS_VERBOSE:-0}"
 
 manifest="$1"
 home="$2"
@@ -58,7 +65,7 @@ while IFS=$'\t' read -r rel target; do
   # copies, or a CLI that re-cloned the tree in place). Replace it.
   rm -rf "$dest"
   ln -s "$target" "$dest"
-  echo "stable-links: linked $rel -> $target" >&2
+  [ "$verbose" = 1 ] && echo "stable-links: linked $rel -> $target" >&2
   created=$((created + 1))
 done <"$manifest"
 
@@ -87,7 +94,7 @@ while IFS= read -r root; do
     case "$target" in
     "$store_prefix"*)
       rm -f "$link"
-      echo "stable-links: pruned $link -> $target" >&2
+      [ "$verbose" = 1 ] && echo "stable-links: pruned $link -> $target" >&2
       pruned=$((pruned + 1))
       ;;
     esac
