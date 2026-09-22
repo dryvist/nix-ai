@@ -24,7 +24,13 @@ _:
     # (plan, debug, fix, security, ship, evals, …) + 9 safety hooks. Enabling
     # this also flips agent-skills discovery, fanning the autoresearch skill
     # out to every harness in modules/agent-skills/harnesses.nix.
-    "autoresearch@autoresearch" = true;
+    #
+    # DISABLED globally: 3 prompt hooks plus 1 SubagentStart hook fire on
+    # most prompts across every session whether or not autoresearch is
+    # actually in use. Re-enable per project via that project's own
+    # .claude/settings.json (same pattern as obsidian@obsidian-skills in
+    # 05-specialty.nix).
+    "autoresearch@autoresearch" = false;
 
     # ========================================================================
     # claude-code-workflows — wshobson/agents (34640★)

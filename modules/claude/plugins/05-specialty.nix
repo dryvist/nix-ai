@@ -61,8 +61,12 @@ _:
     # DISABLED — superseded by Tier 2 codex@openai-codex (official OpenAI plugin).
     "codex@cc-dev-tools" = false;
 
-    # KEEP — no Google-official Claude plugin exists for Gemini delegation.
-    "gemini@cc-dev-tools" = true;
+    # DISABLED globally per the cost/intelligence alignment pass — was
+    # documented "KEEP, no Google-official Claude plugin exists for Gemini
+    # delegation"; that reasoning still holds, this is a cost decision, not
+    # a "not needed" one. Re-enable per project via that project's own
+    # .claude/settings.json (same pattern as obsidian@obsidian-skills below).
+    "gemini@cc-dev-tools" = false;
 
     # Already disabled — requires TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID env vars
     # which aren't configured.
@@ -81,9 +85,12 @@ _:
     # ========================================================================
     # huggingface-skills — huggingface/skills
     # ========================================================================
-    # Kept for hf CLI Hub operations (download/upload models, manage repos) —
-    # user actively does HF model ops in nix-ai (MLX work).
-    "hf-cli@huggingface-skills" = true;
+    # DISABLED globally per the cost/intelligence alignment pass — was
+    # documented "user actively does HF model ops in nix-ai (MLX work)";
+    # that use is real, so re-enable per project (nix-ai itself included)
+    # via that project's own .claude/settings.json rather than paying the
+    # description-token cost in every other repo.
+    "hf-cli@huggingface-skills" = false;
     # DISABLED explicitly — hf-cli (above) already covers Hub operations, and
     # the Hugging Face MCP server is wired separately in modules/mcp, so a
     # standalone MCP-usage guidance skill is redundant. Flip to `true` to
@@ -114,15 +121,16 @@ _:
     # ========================================================================
     # obsidian-skills + axton-obsidian-visual-skills + visual-explainer
     # ========================================================================
-    # axton-obsidian-visual-skills enabled per user request — makes the
-    # mermaid/excalidraw/canvas skills available in Claude. The repo uses a
-    # non-standard `<root>/<skill>/SKILL.md` layout that the current
-    # `modules/agent-skills/default.nix` discovery doesn't yet match, so
-    # Codex/Gemini won't pick them up until that module is extended (tracked
-    # separately). obsidian@obsidian-skills stays disabled globally; re-enable
-    # in Obsidian-vault repos via per-repo .claude/settings.json.
+    # axton-obsidian-visual-skills makes the mermaid/excalidraw/canvas skills
+    # available in Claude. The repo uses a non-standard `<root>/<skill>/SKILL.md`
+    # layout that the current `modules/agent-skills/default.nix` discovery
+    # doesn't yet match, so Codex/Gemini won't pick them up until that module
+    # is extended (tracked separately). Was enabled globally per user request;
+    # now DISABLED globally per the cost/intelligence alignment pass, same as
+    # obsidian@obsidian-skills below — re-enable in Obsidian-vault repos via
+    # per-repo .claude/settings.json.
     "obsidian@obsidian-skills" = false;
-    "obsidian-visual-skills@axton-obsidian-visual-skills" = true;
+    "obsidian-visual-skills@axton-obsidian-visual-skills" = false;
     "visual-explainer@visual-explainer-marketplace" = false;
 
     # ========================================================================
