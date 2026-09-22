@@ -72,8 +72,18 @@ let
     if src == null then
       null
     else
-      pkgs.runCommand "ponytail-trimmed" { nativeBuildInputs = [ pkgs.jq ]; } ''
-        ${./scripts/strip-subagent-hook.sh} ${src} "$out"
+      let
+        hooksRelPath = "hooks/claude-codex-hooks.json";
+        hooks = lib.importJSON "${src}/${hooksRelPath}";
+        trimmedHooks = hooks // {
+          hooks = assert hooks.hooks ? SubagentStart; removeAttrs hooks.hooks [ "SubagentStart" ];
+        };
+        trimmedHooksFile = pkgs.writeText "ponytail-hooks-trimmed.json" (builtins.toJSON trimmedHooks);
+      in
+      pkgs.runCommand "ponytail-trimmed" { } ''
+        cp -RL ${src} "$out"
+        chmod -R u+w "$out"
+        cp ${trimmedHooksFile} "$out/${hooksRelPath}"
       '';
 
   # Overlay each nix-claude-code catalog entry with the resolved flakeInput
