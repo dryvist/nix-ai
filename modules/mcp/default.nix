@@ -106,6 +106,13 @@ let
       };
     };
   };
+
+  # Union of the curated on-demand list and extraOnDemandMcpServers' own
+  # names: an extra entry is on-demand automatically, without also needing
+  # to be listed in onDemandServers.
+  onDemandNames =
+    config.programs.aiMcp.onDemandServers
+    ++ (lib.attrNames config.programs.aiMcp.extraOnDemandMcpServers);
 in
 {
   options.programs.aiMcp = {
@@ -203,6 +210,31 @@ in
       '';
     };
 
+    extraOnDemandMcpServers = lib.mkOption {
+      type = lib.types.attrsOf mcpServerModule;
+      default = { };
+      description = ''
+        Private extra MCP server definitions, merged into the shared catalog
+        as on-demand servers for every harness this module renders
+        (Claude, Codex, Gemini/agy, OpenCode — wherever mcp-render.nix
+        attaches per-client output).
+
+        Exists so a private, non-public flake (a host's own nix-darwin
+        configuration, say) can register an MCP server that must never be
+        named in this public repo — its source, comments, tests, commit
+        messages, or PR text — without editing nix-ai itself. Each entry
+        here is automatically on-demand (never added to the always-on
+        profile): it lands in `onDemandEnabledServers` alongside the
+        catalog's own `onDemandServers`, and is rendered to
+        `~/.claude/mcp-available/<name>.json` (and the other harnesses'
+        equivalents) exactly like a catalog entry, ready to attach.
+
+        Empty by default. Set from the consuming (private) flake, e.g.
+        `programs.aiMcp.extraOnDemandMcpServers.<name> = { ... };` — never
+        from this repo.
+      '';
+    };
+
     onDemandEnabledServers = lib.mkOption {
       type = lib.types.attrsOf mcpServerModule;
       readOnly = true;
@@ -228,23 +260,25 @@ in
   config.programs.aiMcp = {
     # Plain (priority-100) assignment so per-server host overrides merge — see
     # the `servers` option description above.
-    servers = import ./catalog.nix {
-      inherit (config.home) homeDirectory;
-      inherit pkgs;
-      inherit (config.programs.aiMcp) gatewayBaseUrl;
-    };
+    servers =
+      (import ./catalog.nix {
+        inherit (config.home) homeDirectory;
+        inherit pkgs;
+        inherit (config.programs.aiMcp) gatewayBaseUrl;
+      })
+      // config.programs.aiMcp.extraOnDemandMcpServers;
     enabledServers = lib.filterAttrs (
       name: server:
       !(server.disabled or false)
       && !(lib.elem name config.programs.aiMcp.excludedServers)
-      && !(lib.elem name config.programs.aiMcp.onDemandServers)
+      && !(lib.elem name onDemandNames)
       && !(name == "apple-events" && !pkgs.stdenv.isDarwin)
     ) config.programs.aiMcp.servers;
     onDemandEnabledServers = lib.filterAttrs (
       name: server:
       !(server.disabled or false)
       && !(lib.elem name config.programs.aiMcp.excludedServers)
-      && lib.elem name config.programs.aiMcp.onDemandServers
+      && lib.elem name onDemandNames
       && !(name == "apple-events" && !pkgs.stdenv.isDarwin)
     ) config.programs.aiMcp.servers;
     enabledServerNames = lib.attrNames config.programs.aiMcp.enabledServers;
