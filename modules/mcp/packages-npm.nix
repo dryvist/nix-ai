@@ -16,7 +16,7 @@
 # version or lockfile change.
 { pkgs }:
 let
-  lib = pkgs.lib;
+  inherit (pkgs) lib;
   versions = import ../../lib/versions.nix;
   version = versions.vikunjaMcp;
 in
