@@ -30,6 +30,7 @@ let
   # lifetime, which is what stopped `uv cache prune` from ever succeeding —
   # see modules/mcp/packages.nix.
   mcpPkgs = import ./packages.nix { inherit pkgs; };
+  mcpNpmPkgs = import ./packages-npm.nix { inherit pkgs; };
   # bunx helper: command-only args for MCP server definitions.
   bunx = args: {
     command = "bunx";
@@ -227,4 +228,5 @@ in
     secretsRun
     versions
     ;
+  inherit mcpNpmPkgs;
 }
