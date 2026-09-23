@@ -52,7 +52,10 @@ let
     # Doppler-backed servers fetch their own secrets via `doppler run` at
     # launch, so they declare no pass-through environment variables.
     vikunja = {
-      env_vars = [ ];
+      env_vars = [
+        "VIKUNJA_API_TOKEN"
+        "VIKUNJA_URL"
+      ];
     };
     zammad = {
       env_vars = [ ];
