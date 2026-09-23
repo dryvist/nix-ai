@@ -17,7 +17,7 @@ let
       programs.agentSkills = {
         root = "agents";
         groups.core = [
-          "autoresearch"
+          "hf-cli"
           "premium-agent-orchestration"
           "not-a-real-skill"
         ];
@@ -37,11 +37,11 @@ let
 in
 {
   # Group gating: activeGroups deploys exactly the union of the named groups.
-  # The grouped fixture activates only `core` = [ autoresearch kaizen
-  # not-a-real-skill ]; the phantom member must be ignored, every other
-  # discovered skill (e.g. `why` from the same input as kaizen) must NOT
-  # deploy, and the INDEX manifest must shrink to match — the manifest is what
-  # loader-less harnesses read, so a stale entry there is a silent lie.
+  # The grouped fixture activates only `core` = [ hf-cli
+  # premium-agent-orchestration not-a-real-skill ]; the phantom member must be
+  # ignored, every other discovered skill must NOT deploy, and the INDEX
+  # manifest must shrink to match — the manifest is what loader-less
+  # harnesses read, so a stale entry there is a silent lie.
   agent-skills-groups =
     let
       groupedFiles = hmConfigAgentSkillsGrouped.config.home.file;
@@ -57,8 +57,8 @@ in
       );
     in
     assert
-      builtins.elem ".agents/skills/autoresearch" groupedSkillEntries
-      || throw "group gating dropped a core-group skill (autoresearch)";
+      builtins.elem ".agents/skills/hf-cli" groupedSkillEntries
+      || throw "group gating dropped a core-group skill (hf-cli)";
     assert
       builtins.elem ".agents/skills/premium-agent-orchestration" groupedSkillEntries
       || throw "group gating dropped a core-group skill (premium-agent-orchestration)";

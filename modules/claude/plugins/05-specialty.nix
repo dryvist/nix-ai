@@ -62,6 +62,8 @@ _:
     "codex@cc-dev-tools" = false;
 
     # KEEP — no Google-official Claude plugin exists for Gemini delegation.
+    # Re-evaluated during the cost/intelligence alignment pass; this
+    # documented decision stands.
     "gemini@cc-dev-tools" = true;
 
     # Already disabled — requires TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID env vars
@@ -82,7 +84,9 @@ _:
     # huggingface-skills — huggingface/skills
     # ========================================================================
     # Kept for hf CLI Hub operations (download/upload models, manage repos) —
-    # user actively does HF model ops in nix-ai (MLX work).
+    # user actively does HF model ops in nix-ai (MLX work). Re-evaluated
+    # during the cost/intelligence alignment pass; this documented decision
+    # stands.
     "hf-cli@huggingface-skills" = true;
     # DISABLED explicitly — hf-cli (above) already covers Hub operations, and
     # the Hugging Face MCP server is wired separately in modules/mcp, so a
@@ -119,8 +123,10 @@ _:
     # non-standard `<root>/<skill>/SKILL.md` layout that the current
     # `modules/agent-skills/default.nix` discovery doesn't yet match, so
     # Codex/Gemini won't pick them up until that module is extended (tracked
-    # separately). obsidian@obsidian-skills stays disabled globally; re-enable
-    # in Obsidian-vault repos via per-repo .claude/settings.json.
+    # separately). Re-evaluated during the cost/intelligence alignment pass;
+    # this documented decision stands. obsidian@obsidian-skills stays
+    # disabled globally; re-enable in Obsidian-vault repos via per-repo
+    # .claude/settings.json.
     "obsidian@obsidian-skills" = false;
     "obsidian-visual-skills@axton-obsidian-visual-skills" = true;
     "visual-explainer@visual-explainer-marketplace" = false;
