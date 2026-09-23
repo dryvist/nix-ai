@@ -229,4 +229,5 @@ in
     versions
     ;
   inherit mcpNpmPkgs;
+  account = builtins.baseNameOf homeDirectory;
 }

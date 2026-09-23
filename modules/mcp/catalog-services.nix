@@ -11,6 +11,7 @@
   secretsRun,
   versions,
   mcpNpmPkgs,
+  account,
 }:
 
 {
@@ -70,10 +71,11 @@
   # forks: most contributors/stars by far and the widest tool surface (task/
   # project/label CRUD, batch import, webhooks) with rate limiting + circuit
   # breakers — built for autonomous agents. Requires VIKUNJA_URL (instance API
-  # base, ends in /api/v1) and VIKUNJA_API_TOKEN — fetched at launch, from
-  # OpenBao (secret/apps/<domain>) when the account has that secret-zero
-  # file, else Doppler from the shared AI project. See `secretsRun` in
-  # catalog.nix.
+  # base, ends in /api/v1) and VIKUNJA_API_TOKEN — fetched at launch from
+  # OpenBao. open-llm reads its own secret/apps/open-llm bucket through
+  # `secretsRun`; every other account runs `openbao-run` as the vikunja-mcp
+  # AppRole (read-only on secret/ai/mcp/vikunja), its secret-zero supplied
+  # by `doppler run` from the shared AI project.
   #
   # Packaged from a store derivation (modules/mcp/packages-npm.nix), not a
   # live `bunx` pull, because it carries a local patch for Vikunja task
@@ -82,10 +84,28 @@
   # patches/vikunja-mcp-0.2.0-defects.patch.
   # Ships disabled — a consumer enables it deliberately once secrets exist
   # for that machine.
-  vikunja = codexMcp (secretsRun {
-    command = "${mcpNpmPkgs.vikunja-mcp}/bin/vikunja-mcp";
-    disabled = true;
-  });
+  vikunja = codexMcp (
+    if account == "open-llm" then
+      secretsRun {
+        command = "${mcpNpmPkgs.vikunja-mcp}/bin/vikunja-mcp";
+        disabled = true;
+      }
+    else
+      dopplerRun {
+        command = "openbao-run";
+        args = [
+          "--domain"
+          "vikunja-mcp"
+          "--secret"
+          "VIKUNJA_API_TOKEN=ai/mcp/vikunja#VIKUNJA_MCP_TOKEN_RW"
+          "--secret"
+          "VIKUNJA_URL=ai/mcp/vikunja#VIKUNJA_MCP_URL"
+          "--"
+          "${mcpNpmPkgs.vikunja-mcp}/bin/vikunja-mcp"
+        ];
+        disabled = true;
+      }
+  );
 
   # ================================================================
   # Zammad - self-hosted help desk / ticketing (Zammad MCP, task #12)

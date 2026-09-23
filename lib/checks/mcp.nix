@@ -49,8 +49,8 @@ let
     huggingface = { };
     fabric = { };
     apple-events = { };
-    # Doppler-backed servers fetch their own secrets via `doppler run` at
-    # launch, so they declare no pass-through environment variables.
+    # Doppler/OpenBao-backed servers fetch their own secrets at launch, so
+    # they declare no pass-through environment variables.
     vikunja = {
       env_vars = [ ];
     };
