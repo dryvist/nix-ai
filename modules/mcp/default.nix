@@ -36,6 +36,13 @@ let
         type = lib.types.listOf lib.types.str;
         default = [ ];
       };
+      # argv prepended to `command` at render time, e.g. a wrapper that
+      # supplies `env_vars`. Where the values come from is the consumer's
+      # concern; this module only splices the list in.
+      launchPrefix = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [ ];
+      };
       # Servers that report which agent runtime invoked them need a different
       # value per client, which `env` (one attrset shared by every renderer)
       # cannot express. Naming the variable here lets modules/mcp/client.nix
@@ -106,6 +113,20 @@ let
       };
     };
   };
+
+  # A stdio server with a launchPrefix launches as
+  #   <launchPrefix...> <command> <args>
+  withLaunchPrefix = lib.mapAttrs (
+    _: server:
+    if server.type != "stdio" || server.launchPrefix == [ ] then
+      server
+    else
+      server
+      // {
+        command = builtins.head server.launchPrefix;
+        args = builtins.tail server.launchPrefix ++ [ server.command ] ++ server.args;
+      }
+  );
 
   # Union of the curated on-demand list and extraOnDemandMcpServers' own
   # names: an extra entry is on-demand automatically, without also needing
@@ -267,20 +288,24 @@ in
         inherit (config.programs.aiMcp) gatewayBaseUrl;
       })
       // config.programs.aiMcp.extraOnDemandMcpServers;
-    enabledServers = lib.filterAttrs (
-      name: server:
-      !(server.disabled or false)
-      && !(lib.elem name config.programs.aiMcp.excludedServers)
-      && !(lib.elem name onDemandNames)
-      && !(name == "apple-events" && !pkgs.stdenv.isDarwin)
-    ) config.programs.aiMcp.servers;
-    onDemandEnabledServers = lib.filterAttrs (
-      name: server:
-      !(server.disabled or false)
-      && !(lib.elem name config.programs.aiMcp.excludedServers)
-      && lib.elem name onDemandNames
-      && !(name == "apple-events" && !pkgs.stdenv.isDarwin)
-    ) config.programs.aiMcp.servers;
+    enabledServers = withLaunchPrefix (
+      lib.filterAttrs (
+        name: server:
+        !(server.disabled or false)
+        && !(lib.elem name config.programs.aiMcp.excludedServers)
+        && !(lib.elem name onDemandNames)
+        && !(name == "apple-events" && !pkgs.stdenv.isDarwin)
+      ) config.programs.aiMcp.servers
+    );
+    onDemandEnabledServers = withLaunchPrefix (
+      lib.filterAttrs (
+        name: server:
+        !(server.disabled or false)
+        && !(lib.elem name config.programs.aiMcp.excludedServers)
+        && lib.elem name onDemandNames
+        && !(name == "apple-events" && !pkgs.stdenv.isDarwin)
+      ) config.programs.aiMcp.servers
+    );
     enabledServerNames = lib.attrNames config.programs.aiMcp.enabledServers;
   };
 }

@@ -1,5 +1,9 @@
 # Shared MCP profile regression tests
-{ pkgs, hmConfig }:
+{
+  pkgs,
+  hmConfig,
+  hmConfigMcpLaunchPrefix,
+}:
 let
   helpers = import ./helpers.nix { inherit pkgs; };
   cfg = hmConfig.config.programs.aiMcp;
@@ -49,8 +53,6 @@ let
     huggingface = { };
     fabric = { };
     apple-events = { };
-    # Doppler-backed servers fetch their own secrets via `doppler run` at
-    # launch, so they declare no pass-through environment variables.
     vikunja = {
       env_vars = [
         "VIKUNJA_API_TOKEN"
@@ -58,9 +60,15 @@ let
       ];
     };
     zammad = {
-      env_vars = [ ];
+      env_vars = [
+        "ZAMMAD_HTTP_TOKEN"
+        "ZAMMAD_URL"
+      ];
     };
   };
+  # zammad has a launchPrefix, so it launches through it; time has none.
+  launched = hmConfigMcpLaunchPrefix.config.programs.aiMcp.onDemandEnabledServers;
+  catalogZammad = hmConfigMcpLaunchPrefix.config.programs.aiMcp.servers.zammad;
   codexLaunchContractMismatches = builtins.filter (
     name:
     let
@@ -105,6 +113,22 @@ in
       cfg.servers.splunk.type == "http" && cfg.servers.splunk.bearer_token_env_var == "SPLUNK_MCP_TOKEN"
       || throw "Splunk MCP must be an http gateway route authenticated by SPLUNK_MCP_TOKEN: ${builtins.toJSON cfg.servers.splunk}";
     helpers.mkMarker "check-splunk-mcp-gateway-route" "Splunk MCP is a gateway route, not a local stdio launcher";
+
+  mcp-launch-prefix =
+    assert
+      launched.zammad.command == "/test/wrapper"
+      &&
+        launched.zammad.args == [
+          "--flag"
+          "--"
+          catalogZammad.command
+        ]
+        ++ catalogZammad.args
+      || throw "launchPrefix did not wrap zammad: ${builtins.toJSON launched.zammad}";
+    assert
+      launched.time.command == cfg.servers.time.command
+      || throw "a server with no launchPrefix was wrapped: ${builtins.toJSON launched.time}";
+    helpers.mkMarker "check-mcp-launch-prefix" "A server's launchPrefix is prepended to its command; servers without one launch directly";
 
   codex-mcp-launch-contract =
     assert
