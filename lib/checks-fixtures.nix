@@ -60,6 +60,17 @@ rec {
     }
   ];
 
+  # A per-server launchPrefix set (lib/checks/mcp.nix mcp-launch-prefix).
+  hmConfigMcpLaunchPrefix = mkHmConfig [
+    {
+      programs.aiMcp.servers.zammad.launchPrefix = [
+        "/test/wrapper"
+        "--flag"
+        "--"
+      ];
+    }
+  ];
+
   hmConfigVctCli = mkHmConfig [
     {
       programs.vctCli.enable = true;

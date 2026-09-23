@@ -7,8 +7,6 @@
 {
   bunx,
   codexMcp,
-  dopplerRun,
-  secretsRun,
   versions,
   mcpNpmPkgs,
 }:
@@ -36,7 +34,7 @@
   # Source: https://github.com/taylorwilsdon/google_workspace_mcp
   # DISABLED but kept defined — "available in case we ever need it". Was leaking
   # enabled (no flag) despite 0 use; this restores the intended off state.
-  google-workspace = dopplerRun {
+  google-workspace = {
     command = "uvx";
     args = [
       "--from"
@@ -46,6 +44,10 @@
       "gmail"
       "drive"
       "calendar"
+    ];
+    env_vars = [
+      "GOOGLE_OAUTH_CLIENT_ID"
+      "GOOGLE_OAUTH_CLIENT_SECRET"
     ];
     disabled = true;
   };
@@ -70,10 +72,8 @@
   # forks: most contributors/stars by far and the widest tool surface (task/
   # project/label CRUD, batch import, webhooks) with rate limiting + circuit
   # breakers — built for autonomous agents. Requires VIKUNJA_URL (instance API
-  # base, ends in /api/v1) and VIKUNJA_API_TOKEN — fetched at launch, from
-  # OpenBao (secret/apps/<domain>) when the account has that secret-zero
-  # file, else Doppler from the shared AI project. See `secretsRun` in
-  # catalog.nix.
+  # base, ends in /api/v1) and VIKUNJA_API_TOKEN, supplied by the consumer's
+  # launchPrefix (modules/mcp/default.nix).
   #
   # Packaged from a store derivation (modules/mcp/packages-npm.nix), not a
   # live `bunx` pull, because it carries a local patch for Vikunja task
@@ -82,10 +82,14 @@
   # patches/vikunja-mcp-0.2.0-defects.patch.
   # Ships disabled — a consumer enables it deliberately once secrets exist
   # for that machine.
-  vikunja = codexMcp (secretsRun {
+  vikunja = codexMcp {
     command = "${mcpNpmPkgs.vikunja-mcp}/bin/vikunja-mcp";
+    env_vars = [
+      "VIKUNJA_API_TOKEN"
+      "VIKUNJA_URL"
+    ];
     disabled = true;
-  });
+  };
 
   # ================================================================
   # Zammad - self-hosted help desk / ticketing (Zammad MCP, task #12)
@@ -95,15 +99,11 @@
   # ticket/user/organization/attachment tools plus queue resources — the
   # surface the Hermes zammad-incidents loop drives. Requires ZAMMAD_URL
   # (instance API base, ends in /api/v1) and ZAMMAD_HTTP_TOKEN (a Zammad API
-  # token) — fetched at launch, from
-  # OpenBao when available else Doppler (see `secretsRun` in catalog.nix),
-  # same pattern as vikunja; google-workspace stays Doppler-only.
+  # token), supplied by the consumer's launchPrefix, same as vikunja.
   # `uvx` must not inherit the Nix shell's
   # PYTHONPATH: the pinned server creates a Python 3.14 environment, while the
   # inherited 3.13 package path makes its native rpds extension fail at import.
-  # Enabled in the shared profile. Only the non-secret project/config
-  # selectors are in the Nix store; Zammad credentials stay in OpenBao/Doppler.
-  zammad = codexMcp (secretsRun {
+  zammad = codexMcp {
     command = "env";
     args = [
       "-u"
@@ -117,7 +117,11 @@
       versions.mcpSdkBound
       "mcp-zammad"
     ];
-  });
+    env_vars = [
+      "ZAMMAD_HTTP_TOKEN"
+      "ZAMMAD_URL"
+    ];
+  };
 
   # ================================================================
   # UniFi Network - local UniFi gateway/controller management
