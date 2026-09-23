@@ -63,6 +63,31 @@ let
           ${./scripts/mark-manual-invoke.sh} ${src} "$out"
         '';
 
+  # ponytail carries a SubagentStart entry that fires on every subagent spawn.
+  # ponytail has no synthetic wrapper (native .claude-plugin/), so its content
+  # is nix-materialized here and this one entry can be trimmed at build time
+  # instead of forking the plugin. See scripts/strip-subagent-hook.sh.
+  ponytailTrimmed =
+    src:
+    if src == null then
+      null
+    else
+      let
+        hooksRelPath = "hooks/claude-codex-hooks.json";
+        hooks = lib.importJSON "${src}/${hooksRelPath}";
+        trimmedHooks = hooks // {
+          hooks =
+            assert hooks.hooks ? SubagentStart;
+            removeAttrs hooks.hooks [ "SubagentStart" ];
+        };
+        trimmedHooksFile = pkgs.writeText "ponytail-hooks-trimmed.json" (builtins.toJSON trimmedHooks);
+      in
+      pkgs.runCommand "ponytail-trimmed" { } ''
+        cp -RL ${src} "$out"
+        chmod -R u+w "$out"
+        cp ${trimmedHooksFile} "$out/${hooksRelPath}"
+      '';
+
   # Overlay each nix-claude-code catalog entry with the resolved flakeInput
   # (synthetic for the four wrapper derivations; raw marketplace input otherwise).
   base = lib.mapAttrs (
@@ -110,7 +135,7 @@ let
         type = "github";
         url = "DietrichGebert/ponytail";
       };
-      flakeInput = marketplaceInputs.ponytail;
+      flakeInput = ponytailTrimmed marketplaceInputs.ponytail;
     };
     # autoresearch lives in nix-ai (input + tier entry), same as ponytail.
     # Ships a native .claude-plugin/marketplace.json; content is pinned via the
