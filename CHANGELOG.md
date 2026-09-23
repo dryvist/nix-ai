@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.25.0](https://github.com/dryvist/nix-ai/compare/v5.24.0...v5.25.0) (2026-09-23)
+
+
+### Features
+
+* **mcp:** launch vikunja via openbao-run as the vikunja-mcp AppRole ([6f9eac0](https://github.com/dryvist/nix-ai/commit/6f9eac0d3e25d8e9f5f812ec4ab1f32277d44ecb))
+* **mcp:** per-server launchPrefix for credentialed servers ([#2238](https://github.com/dryvist/nix-ai/issues/2238)) ([b84d497](https://github.com/dryvist/nix-ai/commit/b84d497619dbf728ab176790d17af3fb24f97613))
+
 ## [5.24.0](https://github.com/dryvist/nix-ai/compare/v5.23.0...v5.24.0) (2026-09-23)
 
 
