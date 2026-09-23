@@ -116,15 +116,28 @@ let
 
   # A stdio server with a launchPrefix launches as
   #   <launchPrefix...> <command> <args>
+  # A server's own launchPrefix wins; otherwise a stdio server with env_vars
+  # takes `launchPrefixFor env_vars` when the consumer sets it.
+  prefixOf =
+    server:
+    if server.launchPrefix != [ ] then
+      server.launchPrefix
+    else if config.programs.aiMcp.launchPrefixFor != null && server.env_vars != [ ] then
+      config.programs.aiMcp.launchPrefixFor server.env_vars
+    else
+      [ ];
   withLaunchPrefix = lib.mapAttrs (
     _: server:
-    if server.type != "stdio" || server.launchPrefix == [ ] then
+    let
+      prefix = prefixOf server;
+    in
+    if server.type != "stdio" || prefix == [ ] then
       server
     else
       server
       // {
-        command = builtins.head server.launchPrefix;
-        args = builtins.tail server.launchPrefix ++ [ server.command ] ++ server.args;
+        command = builtins.head prefix;
+        args = builtins.tail prefix ++ [ server.command ] ++ server.args;
       }
   );
 
@@ -149,6 +162,16 @@ in
         otherwise discard the whole catalog and keep only that one entry. As a
         config-level assignment the catalog merges per-server, so hosts can
         override an individual server with `lib.mkForce`.
+      '';
+    };
+
+    launchPrefixFor = lib.mkOption {
+      type = lib.types.nullOr (lib.types.functionTo (lib.types.listOf lib.types.str));
+      default = null;
+      description = ''
+        Maps a server's `env_vars` to the argv prefix that supplies them. Set
+        once by the consumer; applied to every stdio server with `env_vars`
+        and no `launchPrefix` of its own.
       '';
     };
 

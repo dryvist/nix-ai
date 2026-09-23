@@ -60,15 +60,30 @@ rec {
     }
   ];
 
-  # A per-server launchPrefix set (lib/checks/mcp.nix mcp-launch-prefix).
+  # A per-server launchPrefix plus a launchPrefixFor hook
+  # (lib/checks/mcp.nix mcp-launch-prefix).
   hmConfigMcpLaunchPrefix = mkHmConfig [
-    {
-      programs.aiMcp.servers.zammad.launchPrefix = [
-        "/test/wrapper"
-        "--flag"
-        "--"
-      ];
-    }
+    (
+      { lib, ... }:
+      {
+        programs.aiMcp = {
+          launchPrefixFor = vars: [ "/test/injector" ] ++ vars ++ [ "--" ];
+          servers = {
+            zammad.launchPrefix = [
+              "/test/wrapper"
+              "--flag"
+              "--"
+            ];
+            vikunja.disabled = lib.mkForce false;
+          };
+          extraOnDemandMcpServers.http-test = {
+            type = "http";
+            url = "https://example.invalid/mcp";
+            env_vars = [ "TEST_TOKEN" ];
+          };
+        };
+      }
+    )
   ];
 
   hmConfigVctCli = mkHmConfig [
