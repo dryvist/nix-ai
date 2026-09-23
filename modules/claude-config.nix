@@ -129,13 +129,8 @@ in
       # See: https://code.claude.com/docs/en/output-styles
       outputStyle = "concise";
 
-      # Default reasoning effort. Opus 5.5's own account-tier upstream
-      # default is `high`, which costs roughly 2x `medium` for about 2
-      # points of measured accuracy on coding tasks — a cost premium
-      # `alwaysThinkingEnabled` used to compound further (see below).
-      # `medium` is the default that pays for itself on routine work;
-      # escalate to `high` per session via /effort when a fix stalls at
-      # one layer, and to a stronger model after `high` has failed twice.
+      # Upstream `high` costs ~2x `medium` for ~2 accuracy points; escalate
+      # via /effort as needed.
       effortLevel = "medium";
 
       # Deliberately unset, not true. Remote Control refuses to start while
@@ -212,21 +207,14 @@ in
         # per session with `claude config set advisorModel fable` — a
         # runtime write, preserved until the next darwin-rebuild reasserts
         # this Nix default.
-        # Was forced `true`; nix-claude-code's own upstream-facing default is
-        # also `true` (not nullable), so leaving this unset does not turn it
-        # off — it has to be set explicitly. Thinking is effort's job: forcing
-        # it removed `low`/`medium` as real options for mechanical sessions,
-        # and toggling it mid-session invalidates the prompt cache. Let
-        # effortLevel above control it instead.
+        # Was forced `true`; upstream default is also `true` (not nullable),
+        # so it must be set explicitly to turn off. Thinking is effort's job
+        # now; forcing it removed low/medium as real options.
         alwaysThinkingEnabled = false;
 
-        # Percent of the context window at which auto-compaction fires.
-        # nix-claude-code's own default (60) suits a 200k window; this
-        # estate's default model carries a 1M window, where compacting at
-        # 45% still leaves ~450K tokens of working space and keeps cost
-        # per turn from scaling with a context nobody needed anymore. Do
-        # not also set env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE — that silently
-        # overrides this option (see modules/claude/settings-env.nix).
+        # % of context window at which auto-compaction fires. Upstream (60)
+        # suits a 200k window; 1M-window default model still has ~450K left
+        # at 45%. Don't also set env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE.
         autoCompactThresholdPercent = 45;
         cleanupPeriodDays = 180;
         # A repository's `.mcp.json` written by `agent-skill-groups link` only
