@@ -5,8 +5,8 @@
 #
 # Official MCP Servers: https://github.com/modelcontextprotocol/servers
 #
-# Servers requiring API keys read them from environment variables. Use your
-# secrets manager (Doppler, Keychain, etc.) to inject env vars.
+# Servers requiring API keys declare them in `env_vars`; the consumer's
+# `programs.aiMcp.envLauncher` supplies them (modules/mcp/default.nix).
 
 {
   homeDirectory,
@@ -44,58 +44,6 @@ let
       startup_timeout_sec = 300;
       tool_timeout_sec = 300;
     };
-  # Doppler-backed launch: prefix a server's command with `doppler run` for
-  # the project/config named in vars/ai-stack.nix. Secrets are fetched by the
-  # child process at launch; only the non-secret selectors are in the store.
-  dopplerRun =
-    server:
-    server
-    // {
-      command = "${pkgs.doppler}/bin/doppler";
-      args = [
-        "run"
-        "-p"
-        dopplerSelectors.project
-        "-c"
-        dopplerSelectors.config
-        "--"
-        server.command
-      ]
-      ++ (server.args or [ ]);
-    };
-  dopplerSelectors = (import ../../vars/ai-stack.nix).doppler;
-
-  # OpenBao-first, Doppler-fallback launch for accounts (e.g. open-llm) that
-  # have no Doppler token by design (see hosts/common/home-open-llm.nix in
-  # nix-darwin) but do have an OpenBao AppRole secret-zero file, same shape as
-  # `openbao-run` in nix-darwin's zcode launcher. The choice is made at
-  # RUNTIME by secrets-run.sh (the env-file check), not at eval time, so one
-  # definition serves every account: an account with the env file uses
-  # OpenBao, an account without it (e.g. claude) keeps using Doppler exactly
-  # as before. Domain/KV path is the account's own home directory basename
-  # (e.g. "open-llm"), matching the existing `$HOME/.openbao/<domain>.env` /
-  # `secret/apps/<domain>` convention.
-  secretsRunScript = pkgs.writeShellApplication {
-    name = "mcp-secrets-run";
-    runtimeInputs = [ pkgs.doppler ];
-    text = builtins.readFile ./scripts/secrets-run.sh;
-  };
-  secretsRun =
-    server:
-    server
-    // {
-      command = "${secretsRunScript}/bin/mcp-secrets-run";
-      args = [
-        (builtins.baseNameOf homeDirectory)
-        server.command
-      ]
-      ++ (server.args or [ ]);
-      env = (server.env or { }) // {
-        DOPPLER_PROJECT = dopplerSelectors.project;
-        DOPPLER_CONFIG = dopplerSelectors.config;
-      };
-    };
-
   # Version pins live in lib/versions.nix, where the org-wide Renovate
   # customManager regex tracks the annotations; refer to them directly.
   versions = import ../../lib/versions.nix;
@@ -224,8 +172,6 @@ in
   inherit
     bunx
     codexMcp
-    dopplerRun
-    secretsRun
     versions
     ;
   inherit mcpNpmPkgs;

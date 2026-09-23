@@ -107,6 +107,28 @@ let
     };
   };
 
+  # Servers that declare `env_vars` launch through the consumer's launcher,
+  # which resolves those variables for the running account and execs the rest:
+  #   <envLauncher> <server> -- <command> <args>
+  withEnvLauncher =
+    launcher:
+    lib.mapAttrs (
+      name: server:
+      if launcher == null || server.type != "stdio" || server.env_vars == [ ] then
+        server
+      else
+        server
+        // {
+          command = launcher;
+          args = [
+            name
+            "--"
+            server.command
+          ]
+          ++ server.args;
+        }
+    );
+
   # Union of the curated on-demand list and extraOnDemandMcpServers' own
   # names: an extra entry is on-demand automatically, without also needing
   # to be listed in onDemandServers.
@@ -142,6 +164,17 @@ in
         its own (possibly private) configuration. Gateway-routed catalog
         entries (context7, splunk, docs, memory) stay disabled until a
         consumer sets this.
+      '';
+    };
+
+    envLauncher = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = ''
+        Command that supplies a server's `env_vars` and execs the server,
+        called as `<envLauncher> <server name> -- <command> <args>`. Where the
+        values come from is the consumer's concern. Null launches servers
+        directly, reading `env_vars` from the agent's own environment.
       '';
     };
 
@@ -267,20 +300,24 @@ in
         inherit (config.programs.aiMcp) gatewayBaseUrl;
       })
       // config.programs.aiMcp.extraOnDemandMcpServers;
-    enabledServers = lib.filterAttrs (
-      name: server:
-      !(server.disabled or false)
-      && !(lib.elem name config.programs.aiMcp.excludedServers)
-      && !(lib.elem name onDemandNames)
-      && !(name == "apple-events" && !pkgs.stdenv.isDarwin)
-    ) config.programs.aiMcp.servers;
-    onDemandEnabledServers = lib.filterAttrs (
-      name: server:
-      !(server.disabled or false)
-      && !(lib.elem name config.programs.aiMcp.excludedServers)
-      && lib.elem name onDemandNames
-      && !(name == "apple-events" && !pkgs.stdenv.isDarwin)
-    ) config.programs.aiMcp.servers;
+    enabledServers = withEnvLauncher config.programs.aiMcp.envLauncher (
+      lib.filterAttrs (
+        name: server:
+        !(server.disabled or false)
+        && !(lib.elem name config.programs.aiMcp.excludedServers)
+        && !(lib.elem name onDemandNames)
+        && !(name == "apple-events" && !pkgs.stdenv.isDarwin)
+      ) config.programs.aiMcp.servers
+    );
+    onDemandEnabledServers = withEnvLauncher config.programs.aiMcp.envLauncher (
+      lib.filterAttrs (
+        name: server:
+        !(server.disabled or false)
+        && !(lib.elem name config.programs.aiMcp.excludedServers)
+        && lib.elem name onDemandNames
+        && !(name == "apple-events" && !pkgs.stdenv.isDarwin)
+      ) config.programs.aiMcp.servers
+    );
     enabledServerNames = lib.attrNames config.programs.aiMcp.enabledServers;
   };
 }

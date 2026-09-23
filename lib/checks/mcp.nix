@@ -1,5 +1,9 @@
 # Shared MCP profile regression tests
-{ pkgs, hmConfig }:
+{
+  pkgs,
+  hmConfig,
+  hmConfigMcpEnvLauncher,
+}:
 let
   helpers = import ./helpers.nix { inherit pkgs; };
   cfg = hmConfig.config.programs.aiMcp;
@@ -49,8 +53,6 @@ let
     huggingface = { };
     fabric = { };
     apple-events = { };
-    # Doppler-backed servers fetch their own secrets via `doppler run` at
-    # launch, so they declare no pass-through environment variables.
     vikunja = {
       env_vars = [
         "VIKUNJA_API_TOKEN"
@@ -58,9 +60,16 @@ let
       ];
     };
     zammad = {
-      env_vars = [ ];
+      env_vars = [
+        "ZAMMAD_HTTP_TOKEN"
+        "ZAMMAD_URL"
+      ];
     };
   };
+  # zammad declares env_vars, so it launches through the launcher; time
+  # declares none, so it launches directly.
+  launched = hmConfigMcpEnvLauncher.config.programs.aiMcp.onDemandEnabledServers;
+  catalogZammad = hmConfigMcpEnvLauncher.config.programs.aiMcp.servers.zammad;
   codexLaunchContractMismatches = builtins.filter (
     name:
     let
@@ -105,6 +114,22 @@ in
       cfg.servers.splunk.type == "http" && cfg.servers.splunk.bearer_token_env_var == "SPLUNK_MCP_TOKEN"
       || throw "Splunk MCP must be an http gateway route authenticated by SPLUNK_MCP_TOKEN: ${builtins.toJSON cfg.servers.splunk}";
     helpers.mkMarker "check-splunk-mcp-gateway-route" "Splunk MCP is a gateway route, not a local stdio launcher";
+
+  mcp-env-launcher =
+    assert
+      launched.zammad.command == "/test/env-launcher"
+      &&
+        launched.zammad.args == [
+          "zammad"
+          "--"
+          catalogZammad.command
+        ]
+        ++ catalogZammad.args
+      || throw "envLauncher did not wrap zammad: ${builtins.toJSON launched.zammad}";
+    assert
+      launched.time.command == cfg.servers.time.command
+      || throw "envLauncher wrapped a server with no env_vars: ${builtins.toJSON launched.time}";
+    helpers.mkMarker "check-mcp-env-launcher" "Servers with env_vars launch through programs.aiMcp.envLauncher; others launch directly";
 
   codex-mcp-launch-contract =
     assert

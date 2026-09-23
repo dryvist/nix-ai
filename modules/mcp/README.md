@@ -111,24 +111,24 @@ programs.aiMcp.servers.postgresql.disabled = lib.mkForce false;
 The MCP config stores **no secrets** — it only references commands and URLs.
 Servers that need API keys read them from environment variables at runtime.
 
-**Inject secrets directly into each run — never write them to disk.** Use your
-secrets manager per command:
+**Inject secrets directly into each run — never write them to disk.**
 
-- Doppler-backed servers (such as Google Workspace) are wrapped by the
-  catalog's `dopplerRun` helper, which prefixes the server command with
-  `doppler run -p <project> -c <config> --` at launch (see
-  [Adding New Servers](#adding-new-servers)). The project and config names are
-  non-secret selectors and live in `vars/ai-stack.nix`; no secret value reaches
-  the Nix store. Non-secret config (log levels, flags) belongs in the
-  Nix-managed `env` attribute, not Doppler. Package-backed active servers
-  use a 300-second startup and tool timeout so first-run `uvx`/`bunx` installs
-  can complete before the MCP handshake deadline.
+- A server that needs credentials names them in `env_vars`. When the consumer
+  sets `programs.aiMcp.envLauncher`, every such stdio server launches as
+  `<envLauncher> <server name> -- <command> <args>`: the launcher supplies the
+  variables for the running account and execs the server. This repo holds no
+  secret-manager code; the launcher lives with the consumer. With no launcher,
+  the server reads `env_vars` from the agent's own environment.
+- Non-secret config (log levels, flags) belongs in the Nix-managed `env`
+  attribute. Package-backed active servers use a 300-second startup and tool
+  timeout so first-run `uvx`/`bunx` installs can complete before the MCP
+  handshake deadline.
 - Splunk is a gateway route (see [Shared agentgateway
   routes](#shared-agentgateway-routes)): the client sends `SPLUNK_MCP_TOKEN`
   (a Splunk-minted `mcp_token`) as a bearer header, and the gateway passes it
   straight through to the Splunk backend. No OpenBao credential is involved.
 - Env-var-backed servers (HF_TOKEN, GitHub PAT, UniFi, …) read from the process
-  environment, injected directly (e.g. an inline Keychain read or `doppler run`).
+  environment, injected directly or through `envLauncher`.
 
 The full variable catalog — required vs optional, purpose, and source manager —
 is [`.env.example`](../../.env.example). The local injection runbook (the
@@ -185,7 +185,7 @@ Streamable-HTTP endpoint at `https://api.monarch.com/mcp`
 
 Authentication is **browser OAuth handled by the MCP client** on first connect: the
 client opens Monarch in the browser to authorize access. No token, password, or header
-is stored in the Nix config — there is nothing to put in Doppler or Keychain.
+is stored in the Nix config — there is nothing to put in a secret store.
 
 ## OpenWhispr MCP and CLI
 
@@ -218,8 +218,7 @@ Both tools are `uvx` wrappers defined in `ai-tools.nix` — no separate installa
 
 1. Choose the transport:
    - Local stdio process → inline attribute set with `command` (and optionally `args`)
-   - Local stdio with Doppler secrets → wrap the attribute set in `dopplerRun`
-   - Local stdio env var from Keychain → set env var in nix-darwin shell init, server inherits it
+   - Local stdio with credentials → list them in `env_vars`; the consumer's `envLauncher` supplies them
    - Remote SSE/HTTP endpoint → inline attribute set with `type` and `url`
    - Plugin-managed → do NOT add here; let the plugin manage it
 
@@ -265,12 +264,11 @@ disabled without it. For `splunk` specifically, also confirm `SPLUNK_MCP_TOKEN`
 is present in the harness's environment; an expired or missing token surfaces
 as a connection failure from the gateway, not from this repo's Nix config.
 
-### A Doppler-backed server shows "Failed to connect"
+### A credentialed server shows "Failed to connect"
 
-Claude Code launches MCP servers in parallel at startup. A `dopplerRun` server
-execs `doppler run ... -- <command>` with no preflight — auth failures exit
-non-zero from `doppler run` itself. If a server still fails: verify `doppler
-me`, run the server's full command line by hand, re-auth with `doppler login`
-if needed, then restart Claude Code. Mid-session:
+Claude Code launches MCP servers in parallel at startup. A server behind
+`envLauncher` fails when the launcher cannot supply its `env_vars`. Run the
+rendered command line by hand (`<envLauncher> <server> -- <command>`) to see
+the launcher's own error, then restart Claude Code. Mid-session:
 `claude mcp remove <server> -s user && claude mcp add <server> -s user -- <command>`
 (restart for full ToolSearch availability).

@@ -60,6 +60,9 @@ rec {
     }
   ];
 
+  # programs.aiMcp.envLauncher set (lib/checks/mcp.nix mcp-env-launcher).
+  hmConfigMcpEnvLauncher = mkHmConfig [ { programs.aiMcp.envLauncher = "/test/env-launcher"; } ];
+
   hmConfigVctCli = mkHmConfig [
     {
       programs.vctCli.enable = true;
