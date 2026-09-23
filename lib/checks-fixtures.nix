@@ -60,8 +60,16 @@ rec {
     }
   ];
 
-  # programs.aiMcp.envLauncher set (lib/checks/mcp.nix mcp-env-launcher).
-  hmConfigMcpEnvLauncher = mkHmConfig [ { programs.aiMcp.envLauncher = "/test/env-launcher"; } ];
+  # A per-server launchPrefix set (lib/checks/mcp.nix mcp-launch-prefix).
+  hmConfigMcpLaunchPrefix = mkHmConfig [
+    {
+      programs.aiMcp.servers.zammad.launchPrefix = [
+        "/test/wrapper"
+        "--flag"
+        "--"
+      ];
+    }
+  ];
 
   hmConfigVctCli = mkHmConfig [
     {

@@ -42,7 +42,7 @@ let
     hmConfigSessionSync
     hmConfigSessionArchive
     hmConfigLitellmLocal
-    hmConfigMcpEnvLauncher
+    hmConfigMcpLaunchPrefix
     ;
 in
 (import ./checks/lint.nix { inherit pkgs src; })
@@ -103,7 +103,7 @@ in
     hmConfigVctCli
     ;
 })
-// (import ./checks/mcp.nix { inherit pkgs hmConfig hmConfigMcpEnvLauncher; })
+// (import ./checks/mcp.nix { inherit pkgs hmConfig hmConfigMcpLaunchPrefix; })
 // (import ./checks/autonomous-profile.nix {
   inherit pkgs;
   render = renderAutonomous;

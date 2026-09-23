@@ -36,6 +36,13 @@ let
         type = lib.types.listOf lib.types.str;
         default = [ ];
       };
+      # argv prepended to `command` at render time, e.g. a wrapper that
+      # supplies `env_vars`. Where the values come from is the consumer's
+      # concern; this module only splices the list in.
+      launchPrefix = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [ ];
+      };
       # Servers that report which agent runtime invoked them need a different
       # value per client, which `env` (one attrset shared by every renderer)
       # cannot express. Naming the variable here lets modules/mcp/client.nix
@@ -107,27 +114,19 @@ let
     };
   };
 
-  # Servers that declare `env_vars` launch through the consumer's launcher,
-  # which resolves those variables for the running account and execs the rest:
-  #   <envLauncher> <server> -- <command> <args>
-  withEnvLauncher =
-    launcher:
-    lib.mapAttrs (
-      name: server:
-      if launcher == null || server.type != "stdio" || server.env_vars == [ ] then
-        server
-      else
-        server
-        // {
-          command = launcher;
-          args = [
-            name
-            "--"
-            server.command
-          ]
-          ++ server.args;
-        }
-    );
+  # A stdio server with a launchPrefix launches as
+  #   <launchPrefix...> <command> <args>
+  withLaunchPrefix = lib.mapAttrs (
+    _: server:
+    if server.type != "stdio" || server.launchPrefix == [ ] then
+      server
+    else
+      server
+      // {
+        command = builtins.head server.launchPrefix;
+        args = builtins.tail server.launchPrefix ++ [ server.command ] ++ server.args;
+      }
+  );
 
   # Union of the curated on-demand list and extraOnDemandMcpServers' own
   # names: an extra entry is on-demand automatically, without also needing
@@ -164,17 +163,6 @@ in
         its own (possibly private) configuration. Gateway-routed catalog
         entries (context7, splunk, docs, memory) stay disabled until a
         consumer sets this.
-      '';
-    };
-
-    envLauncher = lib.mkOption {
-      type = lib.types.nullOr lib.types.str;
-      default = null;
-      description = ''
-        Command that supplies a server's `env_vars` and execs the server,
-        called as `<envLauncher> <server name> -- <command> <args>`. Where the
-        values come from is the consumer's concern. Null launches servers
-        directly, reading `env_vars` from the agent's own environment.
       '';
     };
 
@@ -300,7 +288,7 @@ in
         inherit (config.programs.aiMcp) gatewayBaseUrl;
       })
       // config.programs.aiMcp.extraOnDemandMcpServers;
-    enabledServers = withEnvLauncher config.programs.aiMcp.envLauncher (
+    enabledServers = withLaunchPrefix (
       lib.filterAttrs (
         name: server:
         !(server.disabled or false)
@@ -309,7 +297,7 @@ in
         && !(name == "apple-events" && !pkgs.stdenv.isDarwin)
       ) config.programs.aiMcp.servers
     );
-    onDemandEnabledServers = withEnvLauncher config.programs.aiMcp.envLauncher (
+    onDemandEnabledServers = withLaunchPrefix (
       lib.filterAttrs (
         name: server:
         !(server.disabled or false)

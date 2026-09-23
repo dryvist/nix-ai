@@ -113,12 +113,11 @@ Servers that need API keys read them from environment variables at runtime.
 
 **Inject secrets directly into each run — never write them to disk.**
 
-- A server that needs credentials names them in `env_vars`. When the consumer
-  sets `programs.aiMcp.envLauncher`, every such stdio server launches as
-  `<envLauncher> <server name> -- <command> <args>`: the launcher supplies the
-  variables for the running account and execs the server. This repo holds no
-  secret-manager code; the launcher lives with the consumer. With no launcher,
-  the server reads `env_vars` from the agent's own environment.
+- A server that needs credentials names them in `env_vars`. The consumer may
+  set `programs.aiMcp.servers.<name>.launchPrefix`, an argv list prepended to
+  the server's command (`<launchPrefix...> <command> <args>`), to supply them.
+  This repo holds no secret-manager code; the prefix lives with the consumer.
+  With no prefix, the server reads `env_vars` from the agent's own environment.
 - Non-secret config (log levels, flags) belongs in the Nix-managed `env`
   attribute. Package-backed active servers use a 300-second startup and tool
   timeout so first-run `uvx`/`bunx` installs can complete before the MCP
@@ -128,7 +127,7 @@ Servers that need API keys read them from environment variables at runtime.
   (a Splunk-minted `mcp_token`) as a bearer header, and the gateway passes it
   straight through to the Splunk backend. No OpenBao credential is involved.
 - Env-var-backed servers (HF_TOKEN, GitHub PAT, UniFi, …) read from the process
-  environment, injected directly or through `envLauncher`.
+  environment, injected directly or through a `launchPrefix`.
 
 The full variable catalog — required vs optional, purpose, and source manager —
 is [`.env.example`](../../.env.example). The local injection runbook (the
@@ -218,7 +217,7 @@ Both tools are `uvx` wrappers defined in `ai-tools.nix` — no separate installa
 
 1. Choose the transport:
    - Local stdio process → inline attribute set with `command` (and optionally `args`)
-   - Local stdio with credentials → list them in `env_vars`; the consumer's `envLauncher` supplies them
+   - Local stdio with credentials → list them in `env_vars`; the consumer's `launchPrefix` supplies them
    - Remote SSE/HTTP endpoint → inline attribute set with `type` and `url`
    - Plugin-managed → do NOT add here; let the plugin manage it
 
@@ -267,8 +266,8 @@ as a connection failure from the gateway, not from this repo's Nix config.
 ### A credentialed server shows "Failed to connect"
 
 Claude Code launches MCP servers in parallel at startup. A server behind
-`envLauncher` fails when the launcher cannot supply its `env_vars`. Run the
-rendered command line by hand (`<envLauncher> <server> -- <command>`) to see
-the launcher's own error, then restart Claude Code. Mid-session:
+`launchPrefix` fails when the prefix cannot supply its `env_vars`. Run the
+rendered command line by hand (`<launchPrefix...> <command>`) to see the
+prefix's own error, then restart Claude Code. Mid-session:
 `claude mcp remove <server> -s user && claude mcp add <server> -s user -- <command>`
 (restart for full ToolSearch availability).

@@ -6,7 +6,7 @@
 # Official MCP Servers: https://github.com/modelcontextprotocol/servers
 #
 # Servers requiring API keys declare them in `env_vars`; the consumer's
-# `programs.aiMcp.envLauncher` supplies them (modules/mcp/default.nix).
+# per-server `launchPrefix` supplies them (modules/mcp/default.nix).
 
 {
   homeDirectory,

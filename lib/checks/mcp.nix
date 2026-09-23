@@ -2,7 +2,7 @@
 {
   pkgs,
   hmConfig,
-  hmConfigMcpEnvLauncher,
+  hmConfigMcpLaunchPrefix,
 }:
 let
   helpers = import ./helpers.nix { inherit pkgs; };
@@ -66,10 +66,9 @@ let
       ];
     };
   };
-  # zammad declares env_vars, so it launches through the launcher; time
-  # declares none, so it launches directly.
-  launched = hmConfigMcpEnvLauncher.config.programs.aiMcp.onDemandEnabledServers;
-  catalogZammad = hmConfigMcpEnvLauncher.config.programs.aiMcp.servers.zammad;
+  # zammad has a launchPrefix, so it launches through it; time has none.
+  launched = hmConfigMcpLaunchPrefix.config.programs.aiMcp.onDemandEnabledServers;
+  catalogZammad = hmConfigMcpLaunchPrefix.config.programs.aiMcp.servers.zammad;
   codexLaunchContractMismatches = builtins.filter (
     name:
     let
@@ -115,21 +114,21 @@ in
       || throw "Splunk MCP must be an http gateway route authenticated by SPLUNK_MCP_TOKEN: ${builtins.toJSON cfg.servers.splunk}";
     helpers.mkMarker "check-splunk-mcp-gateway-route" "Splunk MCP is a gateway route, not a local stdio launcher";
 
-  mcp-env-launcher =
+  mcp-launch-prefix =
     assert
-      launched.zammad.command == "/test/env-launcher"
+      launched.zammad.command == "/test/wrapper"
       &&
         launched.zammad.args == [
-          "zammad"
+          "--flag"
           "--"
           catalogZammad.command
         ]
         ++ catalogZammad.args
-      || throw "envLauncher did not wrap zammad: ${builtins.toJSON launched.zammad}";
+      || throw "launchPrefix did not wrap zammad: ${builtins.toJSON launched.zammad}";
     assert
       launched.time.command == cfg.servers.time.command
-      || throw "envLauncher wrapped a server with no env_vars: ${builtins.toJSON launched.time}";
-    helpers.mkMarker "check-mcp-env-launcher" "Servers with env_vars launch through programs.aiMcp.envLauncher; others launch directly";
+      || throw "a server with no launchPrefix was wrapped: ${builtins.toJSON launched.time}";
+    helpers.mkMarker "check-mcp-launch-prefix" "A server's launchPrefix is prepended to its command; servers without one launch directly";
 
   codex-mcp-launch-contract =
     assert

@@ -73,7 +73,7 @@
   # project/label CRUD, batch import, webhooks) with rate limiting + circuit
   # breakers — built for autonomous agents. Requires VIKUNJA_URL (instance API
   # base, ends in /api/v1) and VIKUNJA_API_TOKEN, supplied by the consumer's
-  # envLauncher (modules/mcp/default.nix).
+  # launchPrefix (modules/mcp/default.nix).
   #
   # Packaged from a store derivation (modules/mcp/packages-npm.nix), not a
   # live `bunx` pull, because it carries a local patch for Vikunja task
@@ -99,7 +99,7 @@
   # ticket/user/organization/attachment tools plus queue resources — the
   # surface the Hermes zammad-incidents loop drives. Requires ZAMMAD_URL
   # (instance API base, ends in /api/v1) and ZAMMAD_HTTP_TOKEN (a Zammad API
-  # token), supplied by the consumer's envLauncher, same as vikunja.
+  # token), supplied by the consumer's launchPrefix, same as vikunja.
   # `uvx` must not inherit the Nix shell's
   # PYTHONPATH: the pinned server creates a Python 3.14 environment, while the
   # inherited 3.13 package path makes its native rpds extension fail at import.
