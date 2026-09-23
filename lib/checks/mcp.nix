@@ -66,9 +66,13 @@ let
       ];
     };
   };
-  # zammad has a launchPrefix, so it launches through it; time has none.
-  launched = hmConfigMcpLaunchPrefix.config.programs.aiMcp.onDemandEnabledServers;
-  catalogZammad = hmConfigMcpLaunchPrefix.config.programs.aiMcp.servers.zammad;
+  # zammad's own launchPrefix wins over launchPrefixFor; vikunja (stdio,
+  # env_vars) takes the hook; time (no env_vars) and http-test (not stdio)
+  # launch unchanged.
+  launchCfg = hmConfigMcpLaunchPrefix.config.programs.aiMcp;
+  launched = launchCfg.onDemandEnabledServers // launchCfg.enabledServers;
+  catalogZammad = launchCfg.servers.zammad;
+  catalogVikunja = launchCfg.servers.vikunja;
   codexLaunchContractMismatches = builtins.filter (
     name:
     let
@@ -128,7 +132,14 @@ in
     assert
       launched.time.command == cfg.servers.time.command
       || throw "a server with no launchPrefix was wrapped: ${builtins.toJSON launched.time}";
-    helpers.mkMarker "check-mcp-launch-prefix" "A server's launchPrefix is prepended to its command; servers without one launch directly";
+    assert
+      launched.vikunja.command == "/test/injector"
+      && launched.vikunja.args == catalogVikunja.env_vars ++ [ "--" ] ++ [ catalogVikunja.command ]
+      || throw "launchPrefixFor did not wrap vikunja: ${builtins.toJSON launched.vikunja}";
+    assert
+      launched.http-test.command == null
+      || throw "launchPrefixFor wrapped a non-stdio server: ${builtins.toJSON launched.http-test}";
+    helpers.mkMarker "check-mcp-launch-prefix" "launchPrefix wins, launchPrefixFor wraps stdio servers with env_vars, others launch directly";
 
   codex-mcp-launch-contract =
     assert
