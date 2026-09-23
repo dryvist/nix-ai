@@ -1,0 +1,78 @@
+From 5ab5d5b2f01c952d15dcc8e4f58184ff43d2784b Mon Sep 17 00:00:00 2001
+From: JacobPEvans <20714140+JacobPEvans-personal@users.noreply.github.com>
+Date: Tue, 22 Sep 2026 16:02:11 -0400
+Subject: [PATCH] fix(mcp): skip full detail load for sessions outside stats
+ start window
+
+The stats() query loaded every session's full detail (a per-session JSONL
+reparse) before applying the start/end time filters, even though the
+cheaper sessions() query already pre-filters on last_activity_at. On
+installs with a long session history this made stats() scan the entire
+history regardless of the requested window, causing multi-minute
+timeouts on queries as narrow as a two-day range.
+
+Skip the full detail load when a session's last_activity_at (which never
+postdates any of its records, since records are append-only) falls
+before the requested start.
+
+Assisted-by: Claude:claude-sonnet-5
+Claude-Session: https://claude.ai/code/session_01CaZtxKWkgukysSGrCq8Tmz
+---
+ tests/test_mcp_queries.py  | 20 ++++++++++++++++++++
+ token_meter/mcp/service.py |  9 +++++++++
+ 2 files changed, 29 insertions(+)
+
+diff --git a/tests/test_mcp_queries.py b/tests/test_mcp_queries.py
+index ea238c6..cd38a62 100644
+--- a/tests/test_mcp_queries.py
++++ b/tests/test_mcp_queries.py
+@@ -432,6 +432,26 @@ class MCPQueryServiceTests(unittest.TestCase):
+         )
+         self.assertIsNotNone(result["page"]["next_cursor"])
+ 
++    def test_stats_skips_full_detail_load_for_sessions_outside_start_window(self):
++        service = synthetic_query_service()
++        calls = []
++        real_state = service._state
++        service._state = lambda source: (
++            calls.append(source["id"]) or real_state(source)
++        )
++
++        service.stats(
++            metrics=("session_count",),
++            start="2026-08-20T19:28:15+00:00",
++        )
++
++        # session-2's last_activity_at (mtime=1_787_254_090.0) is before the
++        # window start, so it must be excluded without ever loading its full
++        # detail (the expensive per-session JSONL reparse). Regression test
++        # for the full-history scan that made `stats` time out on a 2-day
++        # window even with a narrow date range.
++        self.assertEqual(calls, ["session-1"])
++
+     def test_unavailable_session_cost_is_not_projected_as_measured_zero(self):
+         service = synthetic_query_service()
+         for state in service.states.values():
+diff --git a/token_meter/mcp/service.py b/token_meter/mcp/service.py
+index 856ba52..8869f62 100644
+--- a/token_meter/mcp/service.py
++++ b/token_meter/mcp/service.py
+@@ -559,6 +559,15 @@ class MCPQueryService:
+             listed = session_projection(source, summary, self._now())
+             if filters["state"] and listed.get("state") != filters["state"]:
+                 continue
++            activity = listed.get("last_activity_at")
++            if filters["start"] is not None and (
++                activity is None or activity < filters["start"]
++            ):
++                # Records are append-only and never postdate last_activity_at,
++                # so a session that ended before the window start cannot
++                # contribute records to it. Skip before the expensive full
++                # detail load instead of after.
++                continue
+             detailed = self._state(source)
+             if detailed:
+                 source_records, _projection = (
+-- 
+2.54.0
+
