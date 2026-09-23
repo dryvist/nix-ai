@@ -116,7 +116,10 @@ Servers that need API keys read them from environment variables at runtime.
 - A server that needs credentials names them in `env_vars`. The consumer may
   set `programs.aiMcp.servers.<name>.launchPrefix`, an argv list prepended to
   the server's command (`<launchPrefix...> <command> <args>`), to supply them.
-  This repo holds no secret-manager code; the prefix lives with the consumer.
+  `programs.aiMcp.launchPrefixFor`, a function from `env_vars` to that argv,
+  sets it once for every stdio server with `env_vars`; a server's own
+  `launchPrefix` still wins. This repo holds no secret-manager code; the
+  prefix lives with the consumer.
   With no prefix, the server reads `env_vars` from the agent's own environment.
 - Non-secret config (log levels, flags) belongs in the Nix-managed `env`
   attribute. Package-backed active servers use a 300-second startup and tool
