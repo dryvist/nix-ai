@@ -103,9 +103,11 @@ in
         expected = true;
       }
       {
+        # Off by default: thinking follows effortLevel, not a forced flag.
+        # See modules/claude-config.nix for the full rationale.
         name = "alwaysThinkingEnabled";
         actual = cfg.settings.alwaysThinkingEnabled;
-        expected = true;
+        expected = false;
       }
       {
         name = "cleanupPeriodDays";
@@ -123,10 +125,12 @@ in
         expected = "concise";
       }
       {
-        # Intentionally unset → null → Claude Code uses the upstream default.
+        # Default to medium: the account-tier upstream default (high on this
+        # estate's Opus/Max tier) costs ~2x for ~2 points of accuracy on
+        # routine work. See modules/claude-config.nix for the full rationale.
         name = "effortLevel";
         actual = cfg.effortLevel;
-        expected = null;
+        expected = "medium";
       }
       {
         name = "validateSettings.enable";
