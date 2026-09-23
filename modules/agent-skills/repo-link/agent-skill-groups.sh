@@ -5,11 +5,9 @@
 #   agent-skill-groups status [repo-root]  print declared groups and links
 #
 # Declaration: AGENTS.md frontmatter `skill-groups: [core, homelab]` (flow or
-# block list), UNIONED with groups implied by the repo's GitHub topics (see
-# topic_groups() below — e.g. topic `terraform` implies group `iac`). Source:
-# $HOME/.agents/skills/GROUPS.json, group -> name -> dir. Targets:
-# .agents/skills/<name> (Codex, Cursor, OpenCode, Antigravity, qwen) and
-# .claude/skills/<name> (Claude Code). Only symlinks into the Nix store are
+# block list). Source: $HOME/.agents/skills/GROUPS.json, group -> name -> dir.
+# Targets: .agents/skills/<name> (Codex, Cursor, OpenCode, Antigravity, qwen)
+# and .claude/skills/<name> (Claude Code). Only symlinks into the Nix store are
 # ever created or removed; a repository's own skills are never touched.
 # `mcp-servers: [zammad]` merges ~/.claude/mcp-available/<name>.json into
 # .mcp.json (Claude Code project scope). Nothing is committed: the trees and
@@ -46,37 +44,6 @@ frontmatter_list() {
 ' AGENTS.md | tr -d "\"'"
 }
 declared="$(frontmatter_list skill-groups)"
-
-# Topics -> groups (B6 "topic-scoped skill groups"). Source, in order:
-# 1. a committed `.github-topics` file (one topic per line) — cheapest, no
-#    network, works offline; a repo opts in by committing this file.
-# 2. a 24h-cached `gh repo view` lookup under .git/ (untracked, never
-#    committed) — avoids a live API call on every `cd`. Silent no-op if `gh`
-#    is unavailable or unauthenticated; this never blocks the environment.
-topic_cache="$(git rev-parse --git-dir 2>/dev/null)/agent-skill-groups-topics-cache"
-topics=""
-if [ -f .github-topics ]; then
-  topics="$(tr -d "\"'" <.github-topics)"
-elif [ -n "$topic_cache" ]; then
-  if [ -f "$topic_cache" ] && [ "$(( $(date +%s) - $(stat -f%m "$topic_cache" 2>/dev/null || stat -c%Y "$topic_cache" 2>/dev/null || echo 0) ))" -lt 86400 ]; then
-    topics="$(cat "$topic_cache")"
-  elif command -v gh >/dev/null 2>&1; then
-    fetched="$(gh repo view --json repositoryTopics -q '.repositoryTopics[].name' 2>/dev/null || true)"
-    if [ -n "$fetched" ]; then
-      printf '%s\n' "$fetched" >"$topic_cache"
-      topics="$fetched"
-    fi
-  fi
-fi
-topic_groups=""
-for t in $topics; do
-  case "$t" in
-  terraform | opentofu | iac | infrastructure-as-code) topic_groups+=$'iac\n' ;;
-  ansible) topic_groups+=$'iac\n' ;;
-  codeql) topic_groups+=$'security\n' ;;
-  esac
-done
-declared="$(printf '%s\n%s\n' "$declared" "$topic_groups" | sed '/^$/d' | sort -u)"
 
 # .mcp.json is rewritten on every run; a tracked one is never touched.
 mcp_avail="${AGENT_MCP_CLAUDE_DIR:-$HOME/.claude/mcp-available}"
