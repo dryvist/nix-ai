@@ -35,9 +35,13 @@
   # See: https://code.claude.com/docs/en/mcp (Scale with MCP Tool Search)
   ENABLE_TOOL_SEARCH = "auto:10";
 
-  # Experimental: Agent teams - coordinate multiple Claude Code instances
+  # Experimental: Agent teams - coordinate multiple Claude Code instances.
+  # Off by default: an orchestrator only pays off when work spans more than
+  # one context window or has a routine long tail, and loses on a single
+  # dependent chain. Enable per project (repo-local env override) for
+  # sweep-type repos.
   # See: https://code.claude.com/docs/en/agent-teams
-  CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = "1";
+  # CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = "1";
 
   # Disable the autoresearch plugin's PreToolUse block hooks (dangerous-cmd-block,
   # scout-block, privacy-block). Those hooks raw-substring-match the command/path
@@ -68,24 +72,12 @@
   # Effort level via env var (alternative to settings.json key)
   # CLAUDE_CODE_EFFORT_LEVEL = "medium";
 
-  # Auto-compact threshold.
-  #
-  # NOT the upstream default, despite what this comment used to claim:
-  # nix-claude-code's `autoCompactThresholdPercent` defaults to 60, and that
-  # default reaches every session whether or not anything is set here. The
-  # stale comment mattered — it told a reader the value was upstream's ~95%
-  # when the effective value was 60.
-  #
-  # 60 is the right number for a 1M-token window, which is the case its author
-  # reasoned about: 60% of 1M still leaves ~600k of working space. It is the
-  # wrong number for a 200k window, where it compacts at 120k and spends the
-  # session summarizing. Set explicitly to the value that suits the window this
-  # host's default model actually has.
-  #
-  # Raise toward upstream's ~95 only with the summarization pass in mind: the
-  # compaction itself needs headroom, so a threshold close to the ceiling can
-  # leave too little room to summarize.
-  CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = "80";
+  # Auto-compact threshold is set via
+  # `programs.claude.settings.autoCompactThresholdPercent` in
+  # claude-config.nix, not here — CLAUDE_AUTOCOMPACT_PCT_OVERRIDE in this
+  # `env` block would silently win over that option (nix-claude-code emits
+  # the option into this same env var), and a hardcoded value here is
+  # invisible to whoever is reading the option's own default. Set it there.
 
 }
 # Local LiteLLM proxy — route Claude Code through it so subagent-tier work

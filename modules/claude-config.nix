@@ -129,9 +129,9 @@ in
       # See: https://code.claude.com/docs/en/output-styles
       outputStyle = "concise";
 
-      # Effort intentionally left unset: nix-claude-code defaults `effortLevel`
-      # to null, which Claude Code reads as the upstream default. Override
-      # per-session via /effort.
+      # Upstream `high` costs ~2x `medium` for ~2 accuracy points; escalate
+      # via /effort as needed.
+      effortLevel = "medium";
 
       # Deliberately unset, not true. Remote Control refuses to start while
       # ANTHROPIC_BASE_URL points anywhere but api.anthropic.com, and
@@ -207,7 +207,15 @@ in
         # per session with `claude config set advisorModel fable` — a
         # runtime write, preserved until the next darwin-rebuild reasserts
         # this Nix default.
-        alwaysThinkingEnabled = true;
+        # Was forced `true`; upstream default is also `true` (not nullable),
+        # so it must be set explicitly to turn off. Thinking is effort's job
+        # now; forcing it removed low/medium as real options.
+        alwaysThinkingEnabled = false;
+
+        # % of context window at which auto-compaction fires. Upstream (60)
+        # suits a 200k window; 1M-window default model still has ~450K left
+        # at 45%. Don't also set env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE.
+        autoCompactThresholdPercent = 45;
         cleanupPeriodDays = 180;
         # A repository's `.mcp.json` written by `agent-skill-groups link` only
         # ever names catalog servers from the on-demand tier, so approve

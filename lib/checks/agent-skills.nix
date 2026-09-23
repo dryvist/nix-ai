@@ -174,9 +174,12 @@ in
     assert
       missingAgentsMdLinks == [ ]
       || throw "Agent Skills AGENTS.md harness links missing: ${builtins.toJSON missingAgentsMdLinks}";
+    # autoresearch is opt-in (disabled globally, see modules/claude/plugins/
+    # 04-community.nix), so hf-cli proves this marketplace-flag-gated flake
+    # input discovery path instead.
     assert
-      builtins.elem ".codex/skills/autoresearch" managedSkillEntries
-      || throw "autoresearch skill not discovered from its flake input";
+      builtins.elem ".codex/skills/hf-cli" managedSkillEntries
+      || throw "hf-cli skill not discovered from its flake input";
     assert
       builtins.elem ".codex/skills/premium-agent-orchestration" managedSkillEntries
       || throw "premium-agent-orchestration skill not discovered from the direct plugin input";
@@ -218,9 +221,11 @@ in
     assert
       !(builtins.hasAttr ".codex/skills/INDEX.md" sharedHomeFiles)
       || throw "Agent Skills agents root must not also deploy ~/.codex/skills";
+    # autoresearch is opt-in (disabled globally); hf-cli stays enabled and
+    # proves the same flake-input skill lands under the agents root.
     assert
-      builtins.elem ".agents/skills/autoresearch" sharedHomeFileNames
-      || throw "Agent Skills agents root is missing autoresearch";
+      builtins.elem ".agents/skills/hf-cli" sharedHomeFileNames
+      || throw "Agent Skills agents root is missing hf-cli";
     assert
       pkgs.lib.hasInfix "/nix/store/*-home-manager-files/.codex/skills/*" inactiveRootCleanup
       || throw "Agent Skills agents root must clean stale Home Manager links from the inactive Codex root";

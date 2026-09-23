@@ -1,7 +1,11 @@
 # Skill category map — one group per deployed skill. Read by default.nix,
 # which also derives the deployment groups `activeGroups` gates from it.
 # Group meanings are documented beside the import.
-{
+#
+# `rec` so `iac` can alias `homelab` below instead of repeating its list —
+# same skills, a second name that matches the topic-driven group vocabulary
+# (default.nix's activeGroups, repo-link's per-repo AGENTS.md declarations).
+rec {
   # Universal: applies to any task in any repository. Keep this small —
   # every member is listed in every session on every harness.
   core = [
@@ -35,7 +39,6 @@
   # Branching, PRs, releases, CI troubleshooting.
   git = [
     "analyzing-git-sessions"
-    "codeql-permission-classification"
     "commit-commands-clean_gone"
     "commit-commands-commit-push-pr"
     "finalize-pr"
@@ -44,7 +47,6 @@
     "git-flow-next"
     "git-workflow-standards"
     "github-actions-silent-failures"
-    "github-workflow-security-patterns"
     "issue-sweep"
     "merge-pr"
     "pr-standards"
@@ -130,6 +132,17 @@
     "test-e2e"
     "workstation-offbox-backup"
     "zfs-resumable-transfers"
+  ];
+  # Topic-vocabulary alias for `homelab` (repo-link/agent-skill-groups.sh maps
+  # GitHub topics terraform/opentofu/iac/infrastructure-as-code/ansible to this
+  # name) — B6 "topic-scoped skill groups": infra-standards, infra-orchestration,
+  # homelab-ops and openbao, opt-in per repo instead of always installed.
+  iac = homelab;
+  # Topic-vocabulary group for the codeql-resolver skills (repo-link maps the
+  # `codeql` GitHub topic here) — opt-in per repo instead of bundled into `git`.
+  security = [
+    "codeql-permission-classification"
+    "github-workflow-security-patterns"
   ];
   ai = [
     "autoresearch"
