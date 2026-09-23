@@ -1,5 +1,27 @@
 # Changelog
 
+## [5.24.0](https://github.com/dryvist/nix-ai/compare/v5.23.0...v5.24.0) (2026-09-23)
+
+
+### Features
+
+* **agent-skills:** topic-scoped iac/security skill groups ([#2226](https://github.com/dryvist/nix-ai/issues/2226)) ([0b8ab02](https://github.com/dryvist/nix-ai/commit/0b8ab02f4451fae658490c4c238be0df29ca6a2e))
+* **mcp:** add extraOnDemandMcpServers for private on-demand MCP servers ([#2230](https://github.com/dryvist/nix-ai/issues/2230)) ([beb94b6](https://github.com/dryvist/nix-ai/commit/beb94b67276b12c0004580b24919f055015f7723))
+* **mcp:** package patched vikunja-mcp 0.2.0 as a nix derivation ([#2227](https://github.com/dryvist/nix-ai/issues/2227)) ([e5a3711](https://github.com/dryvist/nix-ai/commit/e5a371123d67c3feb23a7609f749e2d725bd2700))
+
+
+### Bug Fixes
+
+* **ai:** claude-zai resolves claude from ~/.local/bin, not raw PATH ([#2220](https://github.com/dryvist/nix-ai/issues/2220)) ([f9df819](https://github.com/dryvist/nix-ai/commit/f9df819272b6465009be3182b51193dd726d35cf))
+* **claude-plugins:** move autoresearch to per-project opt-in ([#2228](https://github.com/dryvist/nix-ai/issues/2228)) ([ef682df](https://github.com/dryvist/nix-ai/commit/ef682df0a46954a0eb70d64b7fca21f5bb6a3301))
+* **claude:** default effort to medium, drop forced thinking and 80% autocompact ([e12f61f](https://github.com/dryvist/nix-ai/commit/e12f61f29bd77f8b539931e722aa18050d1e0e7b))
+* **claude:** default effort to medium, stop forcing thinking, fix autocompact threshold ([a7c7a6a](https://github.com/dryvist/nix-ai/commit/a7c7a6ab91da3d720bb6ebfcce22d672453ea9e5))
+* **claude:** strip ponytail's SubagentStart hook at build time ([#2229](https://github.com/dryvist/nix-ai/issues/2229)) ([068006e](https://github.com/dryvist/nix-ai/commit/068006e7d53a371f24910091f67980fd4aa65aac))
+* **claude:** trim claude-config.nix comments under the 12KB file-size cap ([860717d](https://github.com/dryvist/nix-ai/commit/860717d7bbb061211ae1d2884100fa840a2fee0a))
+* **stable-links:** gate per-link logging behind STABLE_LINKS_VERBOSE ([8e0955f](https://github.com/dryvist/nix-ai/commit/8e0955f6c283302b3b39d192627e06f8684762e1))
+* **stable-links:** gate per-link logging behind STABLE_LINKS_VERBOSE ([77dcd2d](https://github.com/dryvist/nix-ai/commit/77dcd2d48eaf062621b7ff26bab43265114ec386))
+* **token-meter:** patch stats() full-history scan, run tests in build ([#2223](https://github.com/dryvist/nix-ai/issues/2223)) ([eb2fd4c](https://github.com/dryvist/nix-ai/commit/eb2fd4cde6e5dff987928d1c0b7ac7e7c4fa1f69))
+
 ## [5.23.0](https://github.com/dryvist/nix-ai/compare/v5.22.2...v5.23.0) (2026-09-21)
 
 
