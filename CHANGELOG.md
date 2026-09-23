@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.26.0](https://github.com/dryvist/nix-ai/compare/v5.25.0...v5.26.0) (2026-09-23)
+
+
+### Features
+
+* **mcp:** add programs.aiMcp.launchPrefixFor ([#2242](https://github.com/dryvist/nix-ai/issues/2242)) ([2bebac1](https://github.com/dryvist/nix-ai/commit/2bebac12c4ddd62fde6c052e065b2ceadf46c754))
+
 ## [5.25.0](https://github.com/dryvist/nix-ai/compare/v5.24.0...v5.25.0) (2026-09-23)
 
 
