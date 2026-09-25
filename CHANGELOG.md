@@ -1,5 +1,20 @@
 # Changelog
 
+## [5.27.0](https://github.com/dryvist/nix-ai/compare/v5.26.0...v5.27.0) (2026-09-25)
+
+
+### Features
+
+* **fluidaudio:** add opt-in activation-time install for FluidAudio CLI ([#2249](https://github.com/dryvist/nix-ai/issues/2249)) ([79ee909](https://github.com/dryvist/nix-ai/commit/79ee909b11de192c4a2da2cb300725f3667057c2))
+
+
+### Bug Fixes
+
+* **claude:** delete the retrospective report-location rule ([55063db](https://github.com/dryvist/nix-ai/commit/55063dba2159f2a289190258806bee4e006c76d7))
+* **claude:** drop the session-output capture hook and the retrospective rule ([4a57a0a](https://github.com/dryvist/nix-ai/commit/4a57a0aca3524d177f0a2c47acb289c67ed26596))
+* **claude:** stop enabling the session-output capture hook ([04a8ee8](https://github.com/dryvist/nix-ai/commit/04a8ee87ee02e4291458ae46690927b1f24d61f3))
+* **mcp:** bump apple-events MCP to 1.5.0 ([#2248](https://github.com/dryvist/nix-ai/issues/2248)) ([e97143b](https://github.com/dryvist/nix-ai/commit/e97143b21059a179d273ee33344dece310c5881b))
+
 ## [5.26.0](https://github.com/dryvist/nix-ai/compare/v5.25.0...v5.26.0) (2026-09-23)
 
 
