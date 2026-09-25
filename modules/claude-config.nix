@@ -196,10 +196,6 @@ in
       # purpose — it is read by path, never delivered. Do not make discovery recurse.
       rules.fromFlakeInputs = mkSourceEntries "${ai-assistant-instructions}/agentsmd/rules" aiRules;
 
-      rules.local = {
-        "retrospective-report-location" = ./claude/rules/retrospective-report-location.md;
-      };
-
       settings = {
         # advisorModel intentionally left unset: nix-claude-code defaults it
         # to null, which disables the advisor tool (expensive — forwards the
