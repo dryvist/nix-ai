@@ -3,11 +3,11 @@
     "ai-assistant-instructions": {
       "flake": false,
       "locked": {
-        "lastModified": 1790119007,
-        "narHash": "sha256-VOMjf54ky67aHkDRU/LSwtnlr2ng3UFJ1FOuJwWoLc4=",
+        "lastModified": 1790255574,
+        "narHash": "sha256-MBzSMUxt2HhK+ydTvBSOsw/7bZIUCBAkeH5T3ZCI7XA=",
         "owner": "dryvist",
         "repo": "ai-assistant-instructions",
-        "rev": "5a3e9114f329a8ce86fd5b856eb87cdc129577a3",
+        "rev": "8a8844529bb86ac392252c4966835288e82ba1bd",
         "type": "github"
       },
       "original": {
@@ -218,11 +218,11 @@
     "claude-code-plugins": {
       "flake": false,
       "locked": {
-        "lastModified": 1790095073,
-        "narHash": "sha256-LXVNQNpw4Sgvc50eKJTZ/1zMNrQEVKfZ8oYNTCJ6G18=",
+        "lastModified": 1790275276,
+        "narHash": "sha256-ttQJerkIb+C9TTssvEdYWwW9CoFHDMlu3imeQ9s93PA=",
         "owner": "anthropics",
         "repo": "claude-code",
-        "rev": "56f36532530f88b572854538d685fcf781141e8c",
+        "rev": "684ffc4da0eaaddcafa61842dc719c6a8febc5c2",
         "type": "github"
       },
       "original": {
@@ -578,11 +578,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1789267039,
-        "narHash": "sha256-LWiBv9yAYFi2LPbUhDGHPGKYskJQjj2fw12OlyO1uQo=",
+        "lastModified": 1790215976,
+        "narHash": "sha256-VkR1rMGyjU9jtw8ISFx5uqR9e+LEaOlhHwrseFkiIVk=",
         "owner": "nix-community",
         "repo": "home-manager",
-        "rev": "ec172013fa62135f58fb58dd17ae9651e8f39727",
+        "rev": "a6631107a83ceab5872f298a2ea710859c80c4cb",
         "type": "github"
       },
       "original": {
@@ -697,11 +697,11 @@
         "treefmt-nix": "treefmt-nix"
       },
       "locked": {
-        "lastModified": 1790136910,
-        "narHash": "sha256-Ho5xXKbluCp1lmvUkVwrN76fUW1NC3RARdNaFMGpEcY=",
+        "lastModified": 1790284584,
+        "narHash": "sha256-NYr7EQSiU1pgKx7OncBvwp1j3Leqkc3jbPIsYO+pukU=",
         "owner": "numtide",
         "repo": "llm-agents.nix",
-        "rev": "3a78485c5ec8c10ec53915410c724a4492cea4bb",
+        "rev": "5fd5db15997cc879c41cd4a04bd40c261659ea54",
         "type": "github"
       },
       "original": {
@@ -848,11 +848,11 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1790055231,
-        "narHash": "sha256-QpXotokGh5eeMG1Njiuh27oP0rK6t5+cMp7ymXSs7mc=",
+        "lastModified": 1790178388,
+        "narHash": "sha256-kK3t7gwoz4Nx8RF46cs1Xz/skKNcK7y3KYP+gGqX6W8=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "b6c98e9e6633ee64753b594ff4a5febf0367fc00",
+        "rev": "00455b0a3690d3f5dc61e9aef4277dc86235b73f",
         "type": "github"
       },
       "original": {
@@ -864,11 +864,11 @@
     },
     "nixpkgs-unstable": {
       "locked": {
-        "lastModified": 1790055231,
-        "narHash": "sha256-QpXotokGh5eeMG1Njiuh27oP0rK6t5+cMp7ymXSs7mc=",
+        "lastModified": 1790238896,
+        "narHash": "sha256-ym4BG18Pu2awiJIehla1Lo9xiB2QYRcCzW3SB74gEBY=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "b6c98e9e6633ee64753b594ff4a5febf0367fc00",
+        "rev": "34ca302a9572963c02e385c056be37c85ff51b77",
         "type": "github"
       },
       "original": {
@@ -880,11 +880,11 @@
     },
     "nixpkgs_2": {
       "locked": {
-        "lastModified": 1790071232,
-        "narHash": "sha256-S27lKsLB2rrtg/OfNIRsFTJJWXv1FLAhapm/P8HM2V8=",
+        "lastModified": 1790117938,
+        "narHash": "sha256-KgxFEzwzcmyNe4mqlYtsZjzy40mLcNVKtaeoCf5tCGg=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "e9b6aa075c9364c5d152b7657c41349998391daf",
+        "rev": "bd495b825e5c4365131f9b744cce923d42c06158",
         "type": "github"
       },
       "original": {
@@ -1008,11 +1008,11 @@
     "token-meter-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1790078747,
-        "narHash": "sha256-WiWHpeTZ2ym6QmlDPXPb/vWNdcrAE8XEcTdM3TB5Hrw=",
+        "lastModified": 1790246493,
+        "narHash": "sha256-msAMpQWanT75S85JPGKSFHqrYpTySFOwlrpuWZP9Wnw=",
         "owner": "splunk",
         "repo": "token-meter",
-        "rev": "68fc047f774f2d2edeace90025057334390931e7",
+        "rev": "d58d3851ee680aba51c132b89afce068771411c4",
         "type": "github"
       },
       "original": {

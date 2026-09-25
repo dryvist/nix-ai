@@ -93,6 +93,7 @@ in
     ./antigravity-ide
     ./antigravity-cli
     ./fabric
+    ./fluidaudio.nix
     ./herdr
     ./litellm-local
     ./maestro
