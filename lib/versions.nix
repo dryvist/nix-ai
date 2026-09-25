@@ -63,7 +63,7 @@
   # renovate: datasource=npm depName=@modelcontextprotocol/server-slack
   mcpSlack = "2025.4.25";
   # renovate: datasource=npm depName=mcp-server-apple-events
-  mcpAppleEvents = "1.4.0";
+  mcpAppleEvents = "1.5.0";
   # renovate: datasource=npm depName=@democratize-technology/vikunja-mcp
   vikunjaMcp = "0.2.0";
 
