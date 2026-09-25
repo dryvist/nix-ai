@@ -157,4 +157,9 @@
   # lib/checks/fabric.nix compares the two and fails on drift.
   # renovate: datasource=github-releases depName=danielmiessler/fabric
   fabric = "1.4.470";
+
+  # FluidAudio CLI (github-releases). Built from source at home-manager
+  # activation time, not a sandboxed Nix derivation — see modules/fluidaudio.nix.
+  # renovate: datasource=github-releases depName=FluidInference/FluidAudio
+  fluidAudio = "0.17.4";
 }
