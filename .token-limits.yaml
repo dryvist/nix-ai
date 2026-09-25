@@ -11,7 +11,6 @@ limits:
 
   # Rule files an agent loads as background context.
   .claude/rules/*.md: 2000
-  modules/claude/rules/*.md: 2000
 
   # Module and architecture documentation.
   modules/*/README.md: 3000

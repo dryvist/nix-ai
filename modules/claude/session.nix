@@ -13,13 +13,11 @@
   };
 
   # Event-driven automation for Claude Code.
-  #   captureSessionOutput  postToolUse runs the vendored capture script.
   #   refreshMarketplaces   sessionStart runs the vendored refresh helper.
   #   worktreesUnderRepo    worktreeCreate/worktreeRemove place every worktree
   #                         at `<repo>/.worktrees/<name>/`.
-  # All three are implemented in nix-claude-code (modules/hooks.nix).
+  # Both are implemented in nix-claude-code (modules/hooks.nix).
   hooks = {
-    captureSessionOutput = true;
     refreshMarketplaces = true;
     worktreesUnderRepo = true;
   };
