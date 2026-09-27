@@ -154,6 +154,16 @@ in
 rec {
   inherit localModels effectiveTerminalName;
 
+  # `local-only`: this host's first own rung under a name that appears in no
+  # fallback or context-window chain, so a request either answers on this
+  # machine or fails. For callers whose data must never leave the host.
+  localOnlyEntries = lib.optional (hostRungs != [ ]) (
+    (lib.findFirst (d: d.model_name == (builtins.head hostRungs).name) null localList)
+    // {
+      model_name = "local-only";
+    }
+  );
+
   headEntry = builtins.head modelList0;
   modelList0 = localList ++ [ terminal ];
   aliasEntries = map (a: headEntry // { model_name = a; }) headAliases;

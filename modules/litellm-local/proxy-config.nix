@@ -53,6 +53,7 @@
   # model_name always wins over `*`, so ordering here is documentation, not
   # routing. Naming them at all is the point — `*` would resolve
   # `subagent-free` upstream, where the alias may not exist.
+  ++ fallbackTier.localOnlyEntries
   ++ fallbackTier.modelList;
 
   litellm_settings = {
@@ -113,5 +114,10 @@
   # no endpoint falls back to a conventional loopback address and exports
   # into a black hole, which is exactly the failure this repo already fixed
   # once for Claude Code. No endpoint, no callback.
-  // lib.optionalAttrs (telemetryTracesEndpoint != null) { callbacks = [ "otel" ]; };
+  # Traces keep timing, token counts and model names, never prompt or
+  # response text: callers send private context through this proxy.
+  // lib.optionalAttrs (telemetryTracesEndpoint != null) {
+    callbacks = [ "otel" ];
+    turn_off_message_logging = true;
+  };
 }
