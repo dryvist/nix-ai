@@ -101,7 +101,25 @@ let
   fastAliasMirrorsHead =
     fastEntry != null && fastEntry.litellm_params == headEntry.litellm_params && fastChain == headChain;
 
+  # `local-only` must be served on the host's loopback endpoint and must not
+  # appear in any chain, or its one guarantee (never leaves the host) is gone.
+  localOnlyEntry = lib.findFirst (d: d.model_name == "local-only") null renderedList;
+  chainGroups = lib.unique (
+    fallbackGroups
+    ++ fallbackTargets
+    ++ lib.concatMap builtins.attrNames (settings.context_window_fallbacks or [ ])
+    ++ contextFallbackTargets
+  );
+  localOnlyIsIsolated =
+    localOnlyEntry != null
+    && (localOnlyEntry.litellm_params.api_base or null) != "os.environ/LLM_ROUTER_URL"
+    && !(lib.elem "local-only" chainGroups);
+
   fallbackTierChecks = [
+    {
+      ok = localOnlyIsIsolated;
+      msg = "`local-only` must be a loopback-served group outside every fallback and context-window chain; got entry ${builtins.toJSON localOnlyEntry}";
+    }
     {
       ok = headIsRouterRung;
       msg = "the head rung declared with `router = <group>` must render as `openai/<group>` against LLM_ROUTER_URL with no local model_info; got: ${builtins.toJSON headEntry}";
