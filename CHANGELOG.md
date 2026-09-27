@@ -1,5 +1,17 @@
 # Changelog
 
+## [5.29.0](https://github.com/dryvist/nix-ai/compare/v5.28.0...v5.29.0) (2026-09-27)
+
+
+### Features
+
+* **litellm-local:** accept the router bearer from a launch prefix ([#2256](https://github.com/dryvist/nix-ai/issues/2256)) ([5ec57af](https://github.com/dryvist/nix-ai/commit/5ec57af931522213e10376854b05d788d8482df2))
+
+
+### Bug Fixes
+
+* **token-meter:** source Token Meter from the dryvist fork branch ([#2258](https://github.com/dryvist/nix-ai/issues/2258)) ([645a629](https://github.com/dryvist/nix-ai/commit/645a629aa45339699cad35592da99c8aeab15930))
+
 ## [5.28.0](https://github.com/dryvist/nix-ai/compare/v5.27.0...v5.28.0) (2026-09-27)
 
 
