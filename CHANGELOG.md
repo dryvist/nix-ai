@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.28.0](https://github.com/dryvist/nix-ai/compare/v5.27.0...v5.28.0) (2026-09-27)
+
+
+### Features
+
+* **litellm-local:** add a local-only group and stop logging message content ([#2255](https://github.com/dryvist/nix-ai/issues/2255)) ([7416c2f](https://github.com/dryvist/nix-ai/commit/7416c2f61514fd330dcee21461b4ac0a6536d9f6))
+
 ## [5.27.0](https://github.com/dryvist/nix-ai/compare/v5.26.0...v5.27.0) (2026-09-25)
 
 
