@@ -167,8 +167,10 @@ in
           message = "programs.litellmLocal.enable requires services.aiStack.llmEndpoint = \"router\": the proxy's non-Anthropic model group forwards to services.aiStack.llmRouterEndpoint, which only the router endpoint provides.";
         }
         {
-          assertion = aiStack.llmEndpointTokenFile != null && aiStack.llmEndpointTokenFile != "";
-          message = "programs.litellmLocal.enable requires services.aiStack.llmEndpointTokenFile: the proxy runs as a launchd agent, which has no shell init, so services.aiStack.llmEndpointBearerFromEnv cannot reach it. Point llmEndpointTokenFile at the file holding the router bearer.";
+          assertion =
+            (aiStack.llmEndpointTokenFile != null && aiStack.llmEndpointTokenFile != "")
+            || (aiStack.llmEndpointBearerFromEnv && cfg.launchPrefix != [ ]);
+          message = "programs.litellmLocal.enable needs the router bearer: set services.aiStack.llmEndpointTokenFile, or set services.aiStack.llmEndpointBearerFromEnv together with programs.litellmLocal.launchPrefix. The proxy runs as a launchd agent with no shell init, so a shell-exported bearer cannot reach it.";
         }
       ]
       ++ fallbackTier.assertions;

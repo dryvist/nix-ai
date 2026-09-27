@@ -49,9 +49,9 @@
     };
 
     # Token Meter has no flake. Its source is staged and wrapped by the
-    # Home Manager module; the weekly lock workflow advances this main pin.
+    # Home Manager module; the weekly lock workflow advances this branch pin.
     token-meter-src = {
-      url = "github:splunk/token-meter/main";
+      url = "github:dryvist/token-meter/fix/claude-discovery-and-oauth";
       flake = false;
     };
 

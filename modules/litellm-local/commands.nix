@@ -86,7 +86,14 @@ let
 
   proxyScript = pkgs.writeShellScript "litellm-local-start" ''
     set -euo pipefail
-    OPENAI_API_KEY="$(cat ${lib.escapeShellArg (toString aiStack.llmEndpointTokenFile)})"
+    ${
+      if aiStack.llmEndpointTokenFile != null then
+        ''OPENAI_API_KEY="$(cat ${lib.escapeShellArg (toString aiStack.llmEndpointTokenFile)})"''
+      else
+        # llmEndpointBearerFromEnv: the launch prefix (programs.litellmLocal
+        # .launchPrefix) resolved the bearer and exec'd this script with it.
+        ''OPENAI_API_KEY="''${OPENAI_API_KEY:?litellm-local: OPENAI_API_KEY unset; launchPrefix must provide the router bearer}"''
+    }
     export OPENAI_API_KEY
     exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} \
       --from "litellm[proxy]==${versions.litellm}" \

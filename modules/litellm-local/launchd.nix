@@ -10,8 +10,9 @@
 # was serving fine.
 #
 # Neither agent may carry a credential in `EnvironmentVariables`: launchd
-# agents get no shell init, so each reads the router bearer from its file at
-# exec time instead. `lib/checks/litellm-local.nix` asserts the proxy agent
+# agents get no shell init, so the proxy reads the router bearer from its file
+# at exec time, or receives it from `launchPrefix` (a secret-store wrapper that
+# resolves it and execs the proxy). `lib/checks/litellm-local.nix` asserts the proxy agent
 # carries no `OPENAI_API_KEY`.
 {
   config,
@@ -34,7 +35,7 @@ in
     enable = true;
     config = {
       Label = "dev.litellm-local";
-      ProgramArguments = [ "${proxyScript}" ];
+      ProgramArguments = cfg.launchPrefix ++ [ "${proxyScript}" ];
       RunAtLoad = true;
       KeepAlive = true;
       # Throttle restarts so a bad config or an unreadable secret file fails

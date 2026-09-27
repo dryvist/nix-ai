@@ -181,6 +181,31 @@ in
       '';
     };
 
+    launchPrefix = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      example = [
+        "openbao-run"
+        "--domain"
+        "apps"
+        "--env-file"
+        "/path/to/secret-zero.env"
+        "--secret"
+        "OPENAI_API_KEY=apps/example#example_llm_router_key"
+        "--"
+      ];
+      description = ''
+        Arguments prepended to the proxy agent's ProgramArguments: a wrapper
+        that resolves the router bearer from a secret store at launch and
+        execs the proxy with it in `OPENAI_API_KEY`.
+
+        Used with `services.aiStack.llmEndpointBearerFromEnv`, in place of
+        `services.aiStack.llmEndpointTokenFile`, so the bearer never sits in a
+        file on disk. Only names go here (a wrapper, a path, a field); the
+        secret itself stays in the store.
+      '';
+    };
+
     localEndpoint = lib.mkOption {
       type = lib.types.str;
       default = "http://127.0.0.1:11434/v1";

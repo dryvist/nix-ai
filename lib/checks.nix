@@ -156,6 +156,7 @@ in
     ;
 })
 // (import ./checks/litellm-local-negative.nix { inherit pkgs mkHmConfig; })
+// (import ./checks/litellm-local-launch-prefix.nix { inherit pkgs mkHmConfig; })
 // (import ./checks/litellm-local-scripts.nix { inherit pkgs src; })
 // (import ./checks/litellm-local-aliases.nix { inherit pkgs hmConfig; })
 // (import ./checks/fabric.nix {
