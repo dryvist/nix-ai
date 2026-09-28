@@ -217,7 +217,7 @@ in
         # ever names catalog servers from the on-demand tier, so approve
         # exactly those without the per-project prompt. Anything else in a
         # `.mcp.json` still prompts, by name.
-        enabledMcpjsonServers = config.programs.aiMcp.onDemandServers;
+        enabledMcpjsonServers = builtins.attrNames config.programs.aiMcp.onDemandEnabledServers;
         env = import ./claude/settings-env.nix {
           inherit lib userConfig;
           inherit (config.programs) litellmLocal;

@@ -150,6 +150,9 @@ in
     assert
       lost == [ ]
       || throw "A consumer onDemandServers definition replaced the curated list; lost ${builtins.toJSON lost}";
+    assert
+      builtins.elem "http-test" hmConfigMcpLaunchPrefix.config.programs.claude.settings.enabledMcpjsonServers
+      || throw "An extraOnDemandMcpServers entry is not approved in enabledMcpjsonServers";
     helpers.mkMarker "check-mcp-on-demand-merge" "A consumer's onDemandServers entries merge with the curated list";
 
   codex-mcp-launch-contract =
