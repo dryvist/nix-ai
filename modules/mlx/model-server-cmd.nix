@@ -174,11 +174,12 @@ rec {
           (toString (effectiveConcurrency modelId))
           "--prompt-concurrency"
           (toString (effectiveConcurrency modelId))
-          # 4 slots, not 1: multiple clients interleaving turns evict each
-          # other's cache at size 1 (measured 0.22s warm vs 8.34s cold after
-          # one intervening conversation — a 38x penalty at 7k tokens).
+          # 16 slots: the fleet has roughly 8 Hermes profiles plus
+          # Hindsight and interactive clients interleaving turns on the
+          # 27B model, and a 4-slot cache measured hits at 4.7s versus
+          # 98-154s misses re-prefilling roughly 20k tokens.
           "--prompt-cache-size"
-          "4"
+          "16"
         ]
         ++
           # Reuse the backend-neutral cache budget. Official mlx_lm calls this

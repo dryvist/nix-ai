@@ -29,7 +29,7 @@ index ea238c6..cd38a62 100644
 @@ -432,6 +432,26 @@ class MCPQueryServiceTests(unittest.TestCase):
          )
          self.assertIsNotNone(result["page"]["next_cursor"])
- 
+
 +    def test_stats_skips_full_detail_load_for_sessions_outside_start_window(self):
 +        service = synthetic_query_service()
 +        calls = []
@@ -73,6 +73,5 @@ index 856ba52..8869f62 100644
              detailed = self._state(source)
              if detailed:
                  source_records, _projection = (
--- 
+--
 2.54.0
-
