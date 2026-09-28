@@ -1,5 +1,14 @@
 # Changelog
 
+## [5.30.1](https://github.com/dryvist/nix-ai/compare/v5.30.0...v5.30.1) (2026-09-28)
+
+
+### Bug Fixes
+
+* **mlx:** serve sixteen prompt-cache slots on the mlx-lm tier ([262d0cd](https://github.com/dryvist/nix-ai/commit/262d0cd469c1428e98623c0394e260e4ff41e0ea))
+* **mlx:** serve sixteen prompt-cache slots on the mlx-lm tier ([827bdc0](https://github.com/dryvist/nix-ai/commit/827bdc0cd73870744c0f71fad915d4173c7ec7b3))
+* resolve pre-existing pre-commit warnings ([9da0d7c](https://github.com/dryvist/nix-ai/commit/9da0d7c198e70cd119df849d5d0b79d2ccc9fb2b))
+
 ## [5.30.0](https://github.com/dryvist/nix-ai/compare/v5.29.0...v5.30.0) (2026-09-28)
 
 
