@@ -24,7 +24,9 @@ jobs:
       id-token: write
       pull-requests: write
     uses: dryvist/ai-workflows/.github/workflows/cc-dep-review.yml@main
-    secrets: inherit
+    secrets:
+      LLM_ROUTER_BASE_URL: ${{ secrets.LLM_ROUTER_BASE_URL }}
+      LLM_ROUTER_API_KEY: ${{ secrets.LLM_ROUTER_API_KEY }}
 
   release-notes:
     permissions:
@@ -32,4 +34,6 @@ jobs:
       id-token: write
       pull-requests: write
     uses: dryvist/ai-workflows/.github/workflows/cc-release-notes.yml@main
-    secrets: inherit
+    secrets:
+      LLM_ROUTER_BASE_URL: ${{ secrets.LLM_ROUTER_BASE_URL }}
+      LLM_ROUTER_API_KEY: ${{ secrets.LLM_ROUTER_API_KEY }}
