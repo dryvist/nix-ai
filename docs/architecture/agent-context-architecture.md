@@ -137,14 +137,18 @@ skill-groups: [core, homelab]
 ```
 
 Everything else is generated from that declaration plus the group→skill map
-nix-ai publishes at `~/.agents/skills/GROUPS.json`:
+nix-ai publishes at `~/.agents/skills/GROUPS.json` and the group→MCP-server map
+at `~/.agents/skills/GROUP-MCP.json` (`programs.agentSkills.groupMcpServers`):
 
 | Output | Consumed by |
 | --- | --- |
 | `<repo>/.agents/skills/` symlinks | Codex, Cursor, OpenCode, qwen, agy |
 | `<repo>/.claude/skills/` symlinks | Claude Code |
-| `<repo>/.claude/settings.json` `enabledPlugins` | Claude Code |
-| `.mcp.json`, `.codex/config.toml`, `opencode.json` | the matching harness |
+| `<repo>/.mcp.json` (untracked) | Claude Code |
+
+Plugin scoping is a separate, committed mechanism (`ai-pack`, see
+[plugin-scoping.md](plugin-scoping.md)); the linker does not write
+`.claude/settings.json`, `.codex/config.toml` or `opencode.json`.
 
 Renderer: `agent-skill-groups link`, invoked from
 `~/.config/direnv/lib/agent-skill-groups.sh`, which direnv sources before every
@@ -232,6 +236,18 @@ one attaches it explicitly:
 claude --mcp-config ~/.claude/mcp-available/zammad.json
 ```
 
+A repository attaches on-demand servers through its skill groups: the linker
+unions `GROUP-MCP.json` entries for the declared groups (default `homelab` →
+zammad; `ai` → fabric, grep, time, token-meter) with any AGENTS.md
+`mcp-servers:` list, and rebuilds the managed part of `.mcp.json` from
+`~/.claude/mcp-available/`. Servers it does not manage stay in the file.
+`enabledMcpjsonServers` lists every on-demand name, so no approval prompt fires.
+
+The curated list is a config-level definition, so a host appending a name keeps
+it (`lib/checks/mcp.nix` -> `mcp-on-demand-merge`); as an option default it was
+replaced by any consumer definition and silently returned every server to the
+always-on profile.
+
 `lib/checks/mcp.nix` -> `shared-mcp-on-demand-reachable` asserts both halves:
 an on-demand server must be absent from the always-on profile **and** present as
 an attachable file. Absent from both is a silent capability loss, which is the
@@ -244,3 +260,5 @@ an earlier measurement had used and which does not reach the startup decision:
 `auto:10` 108,176 / `auto` 113,580 / unset 111,311 / `false` 111,311. The
 documented "load everything" value equals the default exactly. The knob is inert
 on this stack; the saving has to come from not attaching a server at all.
+nix-claude-code now sets `true`, the documented default, so the value is pinned
+rather than threshold-gated.
