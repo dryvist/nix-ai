@@ -42,12 +42,29 @@
   # capability for tokens rather than scoping. Artifact and TaskOutput are
   # already deferred through ToolSearch and denying them is worth only ~550
   # between them. EndConversation stays for the same reason it exists.
-  deny = formatters.claude.formatDenied permissions ++ [
-    "mcp__claude_ai_Hugging_Face__*"
-    "mcp__claude_ai_Context7__*"
-    "LSP"
-    "NotebookEdit"
-  ];
+  deny =
+    formatters.claude.formatDenied permissions
+    ++ [
+      "mcp__claude_ai_Hugging_Face__*"
+      "mcp__claude_ai_Context7__*"
+      "LSP"
+      "NotebookEdit"
+    ]
+    # Zammad's tools average ~1.1k tokens each. Only ticket search, get,
+    # create and update, articles, tags and the state/priority/group lookups
+    # are used; these ten are denied so they never load where zammad attaches.
+    ++ map (t: "mcp__zammad__zammad_${t}") [
+      "create_user"
+      "delete_attachment"
+      "download_attachment"
+      "get_article_attachments"
+      "get_current_user"
+      "get_organization"
+      "get_ticket_stats"
+      "get_user"
+      "search_organizations"
+      "search_users"
+    ];
 
   ask = formatters.claude.formatAsk permissions;
 }
