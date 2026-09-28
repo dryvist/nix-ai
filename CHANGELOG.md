@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.30.0](https://github.com/dryvist/nix-ai/compare/v5.29.0...v5.30.0) (2026-09-28)
+
+
+### Features
+
+* **mcp:** attach on-demand MCP servers through skill groups ([#2264](https://github.com/dryvist/nix-ai/issues/2264)) ([9ed9058](https://github.com/dryvist/nix-ai/commit/9ed9058dbea3101ca0999dccae340119bf207d8f))
+
 ## [5.29.0](https://github.com/dryvist/nix-ai/compare/v5.28.0...v5.29.0) (2026-09-27)
 
 
