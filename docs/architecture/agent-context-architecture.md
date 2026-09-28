@@ -227,31 +227,9 @@ Per server, over the four-server baseline: **zammad 22,139**, apple-events
 6,746, vikunja 3,140. A single incident-tracking server that a typical session
 never calls is one fifth of that session's entire context.
 
-Hence the third tier applies to MCP servers exactly as it does to skills:
-`programs.aiMcp.onDemandServers` holds servers out of the always-on profile and
-renders each to `~/.claude/mcp-available/<name>.json`, so a session that needs
-one attaches it explicitly:
-
-```sh
-claude --mcp-config ~/.claude/mcp-available/zammad.json
-```
-
-A repository attaches on-demand servers through its skill groups: the linker
-unions `GROUP-MCP.json` entries for the declared groups (default `homelab` →
-zammad; `ai` → fabric, grep, time, token-meter) with any AGENTS.md
-`mcp-servers:` list, and rebuilds the managed part of `.mcp.json` from
-`~/.claude/mcp-available/`. Servers it does not manage stay in the file.
-`enabledMcpjsonServers` lists every on-demand name, so no approval prompt fires.
-
-The curated list is a config-level definition, so a host appending a name keeps
-it (`lib/checks/mcp.nix` -> `mcp-on-demand-merge`); as an option default it was
-replaced by any consumer definition and silently returned every server to the
-always-on profile.
-
-`lib/checks/mcp.nix` -> `shared-mcp-on-demand-reachable` asserts both halves:
-an on-demand server must be absent from the always-on profile **and** present as
-an attachable file. Absent from both is a silent capability loss, which is the
-failure mode this tier is most likely to produce.
+Hence the third tier applies to MCP servers exactly as it does to skills; how
+servers are held out and attached per repository is in
+[mcp-on-demand.md](mcp-on-demand.md).
 
 ### `ENABLE_TOOL_SEARCH` does not help — settled
 
@@ -260,5 +238,3 @@ an earlier measurement had used and which does not reach the startup decision:
 `auto:10` 108,176 / `auto` 113,580 / unset 111,311 / `false` 111,311. The
 documented "load everything" value equals the default exactly. The knob is inert
 on this stack; the saving has to come from not attaching a server at all.
-nix-claude-code now sets `true`, the documented default, so the value is pinned
-rather than threshold-gated.
