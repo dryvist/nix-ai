@@ -214,10 +214,7 @@ in
         "zammad"
         # Added on measured usage across 1,651 local transcripts: vikunja is
         # called 2,296 times, an order of magnitude more than any of these
-        # four (codex 149, fabric 124, grep 117, time 54). They cost 5,474
-        # tokens of every session between them, so a session that calls none
-        # of them — most sessions — pays 5,474 for nothing.
-        "codex"
+        # three (fabric 124, grep 117, time 54).
         "fabric"
         "grep"
         "time"
@@ -245,7 +242,10 @@ in
         follows, and for the same reason.
 
         Nothing becomes unreachable. Every server listed here is still rendered
-        to `~/.claude/mcp-available/<name>.json`, ready to attach:
+        to `~/.claude/mcp-available/<name>.json`. A repository attaches one
+        through its skill groups (`programs.agentSkills.groupMcpServers`) or
+        AGENTS.md `mcp-servers:` frontmatter; a single session attaches one
+        with:
 
           claude --mcp-config ~/.claude/mcp-available/zammad.json
 

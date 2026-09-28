@@ -8,10 +8,10 @@ let
   helpers = import ./helpers.nix { inherit pkgs; };
   cfg = hmConfig.config.programs.aiMcp;
   # The nix-managed always-on profile is deliberately EMPTY. zammad and
-  # apple-events left first (~29k tokens between them); codex, fabric, grep and
-  # time followed on measured usage — 149/124/117/54 calls across 1,651 local
-  # transcripts, costing 5,474 tokens of every session between them. A session
-  # calling none of them, which is most sessions, paid that for nothing.
+  # apple-events left first (~29k tokens between them); fabric, grep and time
+  # followed on measured usage — 124/117/54 calls across 1,651 local
+  # transcripts. A session calling none of them, which is most sessions, paid
+  # for their schemas anyway.
   #
   # Asserted as an EXACT SET, not a floor. An empty floor would be vacuously
   # true and would prove nothing; equality fails in both directions, so a

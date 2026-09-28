@@ -153,14 +153,6 @@ in
   # which teaches Claude to invoke the CLI via Bash. No MCP server needed.
 
   # ================================================================
-  # Codex CLI - OpenAI coding agent MCP server
-  # ================================================================
-  codex = {
-    command = "codex";
-    args = [ "mcp-server" ];
-  };
-
-  # ================================================================
   # Apple Events - native macOS Reminders + Calendar via EventKit
   # ================================================================
   # Source: https://github.com/FradSer/mcp-server-apple-events
