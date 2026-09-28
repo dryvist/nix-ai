@@ -126,7 +126,7 @@ in
       && builtins.match ".*--max-tokens 8192.*" judgeCmd != null
       && builtins.match ".*--decode-concurrency ${conc judge27b}.*" judgeCmd != null
       && builtins.match ".*--prompt-concurrency ${conc judge27b}.*" judgeCmd != null
-      && builtins.match ".*--prompt-cache-size 4.*" judgeCmd != null
+      && builtins.match ".*--prompt-cache-size 16.*" judgeCmd != null
       && builtins.match ".*--prompt-cache-bytes ${cacheBytes judge27b}.*" judgeCmd != null
       && builtins.match ".*vllm-mlx.*" judgeCmd == null
       && builtins.match ".*--gpu-memory-utilization.*" judgeCmd == null
@@ -138,7 +138,7 @@ in
         builtins.match ".*--decode-concurrency ${conc "mlx-community/test-model"}.*" uncataloguedCmd != null
       &&
         builtins.match ".*--prompt-concurrency ${conc "mlx-community/test-model"}.*" uncataloguedCmd != null
-      && builtins.match ".*--prompt-cache-size 4.*" uncataloguedCmd != null
+      && builtins.match ".*--prompt-cache-size 16.*" uncataloguedCmd != null
       && builtins.match ".*--prompt-cache-bytes 8589934592.*" uncataloguedCmd != null
       || throw "catalog: non-catalog official workers must inherit the same bounded serial contract: ${uncataloguedCmd}";
     assert
