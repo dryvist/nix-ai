@@ -29,12 +29,6 @@
   MCP_TIMEOUT = "300000";
   MCP_TOOL_TIMEOUT = "300000";
 
-  # MCP Tool Search - defer schemas until needed (~10% context budget cap)
-  # Anthropic enables this by default, but pinning explicitly so future
-  # default changes don't silently re-eager-load every MCP tool's schema.
-  # See: https://code.claude.com/docs/en/mcp (Scale with MCP Tool Search)
-  ENABLE_TOOL_SEARCH = "auto:10";
-
   # Experimental: Agent teams - coordinate multiple Claude Code instances.
   # Off by default: an orchestrator only pays off when work spans more than
   # one context window or has a routine long tail, and loses on a single
