@@ -68,6 +68,25 @@
         printf -- '---\nskill-groups: [core]\nmcp-servers: [vik]\n---\n' > AGENTS.md
         agent-skill-groups link
         [ "$(jq -r '.mcpServers | keys | join(",")' .mcp.json)" = "mine" ]
+        git rm -q --cached .mcp.json && rm .mcp.json
+
+        # A declared group implies its servers with no mcp-servers key, unions
+        # with the key, and keeps servers the linker does not manage.
+        printf '{"homelab":["zam"],"core":["gone"]}' > "$HOME/GROUP-MCP.json"
+        printf -- '---\nskill-groups: [core, homelab]\n---\n' > AGENTS.md
+        agent-skill-groups link
+        [ "$(jq -r '.mcpServers | keys | join(",")' .mcp.json)" = "zam" ]
+        printf -- '---\nskill-groups: [homelab]\nmcp-servers: [vik]\n---\n' > AGENTS.md
+        agent-skill-groups link
+        [ "$(jq -r '.mcpServers | keys | join(",")' .mcp.json)" = "vik,zam" ]
+        jq '.mcpServers.aws = {"command":"uvx"}' .mcp.json > m.tmp && mv m.tmp .mcp.json
+        printf -- '---\nskill-groups: [homelab]\n---\n' > AGENTS.md
+        agent-skill-groups link
+        [ "$(jq -r '.mcpServers | keys | join(",")' .mcp.json)" = "aws,zam" ]
+        printf -- '---\nskill-groups: [core]\nmcp-servers: []\n---\n' > AGENTS.md
+        agent-skill-groups link
+        [ "$(jq -r '.mcpServers | keys | join(",")' .mcp.json)" = "aws" ]
+        rm -f .mcp.json "$HOME/GROUP-MCP.json"
 
         # A skill in ~/.claude/skills is already listed in EVERY Claude session,
         # so linking it per-repo lists it twice for no gain. It must still be

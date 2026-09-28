@@ -266,6 +266,7 @@ in
       file = {
         "${skillRoot}/INDEX.md".text = skillIndex;
         "${skillRoot}/GROUPS.json".text = groupsJson;
+        "${skillRoot}/GROUP-MCP.json".text = builtins.toJSON cfg.groupMcpServers;
         ".config/direnv/lib/agent-skill-groups.sh".source = ./repo-link/direnv-lib.sh;
       }
       // harnessSymlinks
