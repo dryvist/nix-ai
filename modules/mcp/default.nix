@@ -306,7 +306,6 @@ in
     # the `servers` option description above.
     servers =
       (import ./catalog.nix {
-        inherit (config.home) homeDirectory;
         inherit pkgs;
         inherit (config.programs.aiMcp) gatewayBaseUrl;
       })

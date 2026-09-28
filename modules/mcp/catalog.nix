@@ -9,7 +9,6 @@
 # per-server `launchPrefix` supplies them (modules/mcp/default.nix).
 
 {
-  homeDirectory,
   pkgs,
   gatewayBaseUrl ? null,
 }:
