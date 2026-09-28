@@ -199,7 +199,7 @@ in
       settings = {
         # advisorModel intentionally left unset: nix-claude-code defaults it
         # to null, which disables the advisor tool (expensive — forwards the
-        # whole conversation transcript to a stronger reviewer model). Enable
+        # whole conversation log to a stronger reviewer model). Enable
         # per session with `claude config set advisorModel fable` — a
         # runtime write, preserved until the next darwin-rebuild reasserts
         # this Nix default.

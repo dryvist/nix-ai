@@ -10,7 +10,7 @@ let
   # The nix-managed always-on profile is deliberately EMPTY. zammad and
   # apple-events left first (~29k tokens between them); fabric, grep and time
   # followed on measured usage — 124/117/54 calls across 1,651 local
-  # transcripts. A session calling none of them, which is most sessions, paid
+  # session logs. A session calling none of them, which is most sessions, paid
   # for their schemas anyway.
   #
   # Asserted as an EXACT SET, not a floor. An empty floor would be vacuously

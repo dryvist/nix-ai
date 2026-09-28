@@ -28,7 +28,7 @@
   # denying them would be churn with no measured benefit.
   #
   # The same mechanism applies to built-in tools, and their schemas are not
-  # small. Counted by tool-call pattern across 1,651 local transcripts (a naive
+  # small. Counted by tool-call pattern across 1,651 local session logs (a naive
   # name grep overcounts by ~100x, because every session's own schema dump
   # contains every tool name), LSP and NotebookEdit had 0 invocations each.
   #

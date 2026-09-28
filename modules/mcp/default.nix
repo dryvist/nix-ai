@@ -302,7 +302,7 @@ in
     onDemandServers = [
       "apple-events"
       "zammad"
-      # Added on measured usage across 1,651 local transcripts: vikunja is
+      # Added on measured usage across 1,651 local session logs: vikunja is
       # called 2,296 times, an order of magnitude more than any of these
       # three (fabric 124, grep 117, time 54).
       "fabric"

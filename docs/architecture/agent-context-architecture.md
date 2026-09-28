@@ -8,7 +8,7 @@ covers Claude Code only.
 
 Every number here comes from fresh headless sessions in this repo on
 2026-09-02, using `--settings` / `--setting-sources` overrides (which outrank
-user settings), read from the first `usage` block of each transcript.
+user settings), read from the first `usage` block of each session log.
 
 | Configuration | First request |
 | --- | ---: |
@@ -190,7 +190,7 @@ Per-harness native equivalents, no new code:
 
 | Harness | Command |
 | --- | --- |
-| Claude | first `usage` block of a fresh transcript; `/context` for the split |
+| Claude | first `usage` block of a fresh session log; `/context` for the split |
 | Codex | `codex debug prompt-input \| wc -c` |
 | OpenCode | `opencode debug skill`, `opencode stats` |
 | qwen / agy | tree parity against `~/.agents/skills` |
