@@ -9,7 +9,6 @@
 # per-server `launchPrefix` supplies them (modules/mcp/default.nix).
 
 {
-  homeDirectory,
   pkgs,
   gatewayBaseUrl ? null,
 }:
@@ -151,14 +150,6 @@ in
   # The official Obsidian CLI (v1.8+, ships in Obsidian.app) provides 80+
   # commands. Integration uses the kepano/obsidian-skills Claude Code plugin
   # which teaches Claude to invoke the CLI via Bash. No MCP server needed.
-
-  # ================================================================
-  # Codex CLI - OpenAI coding agent MCP server
-  # ================================================================
-  codex = {
-    command = "codex";
-    args = [ "mcp-server" ];
-  };
 
   # ================================================================
   # Apple Events - native macOS Reminders + Calendar via EventKit

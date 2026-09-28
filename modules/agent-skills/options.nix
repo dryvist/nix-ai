@@ -71,6 +71,26 @@ in
       description = "Group name -> skill names. Groups gate deployment via activeGroups; a skill may appear in more than one group.";
     };
 
+    groupMcpServers = lib.mkOption {
+      type = lib.types.attrsOf (lib.types.listOf lib.types.str);
+      default = {
+        homelab = [ "zammad" ];
+        ai = [
+          "fabric"
+          "grep"
+          "time"
+          "token-meter"
+        ];
+      };
+      description = ''
+        Group name -> on-demand MCP server names. A repository declaring a group
+        in AGENTS.md `skill-groups:` gets these servers attached through its
+        untracked .mcp.json, in addition to any AGENTS.md `mcp-servers:` list,
+        so a server is loaded only where its work happens. A name with no
+        ~/.claude/mcp-available file (always-on or unknown) is skipped.
+      '';
+    };
+
     # Which groups deploy. null (the default) keeps today's behavior: every
     # discovered skill deploys. A list deploys exactly the union of the named
     # groups' skills — the lever that keeps a session's skill surface (and so

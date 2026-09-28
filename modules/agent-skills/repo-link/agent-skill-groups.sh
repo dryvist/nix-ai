@@ -9,7 +9,8 @@
 # Targets: .agents/skills/<name> (Codex, Cursor, OpenCode, Antigravity, qwen)
 # and .claude/skills/<name> (Claude Code). Only symlinks into the Nix store are
 # ever created or removed; a repository's own skills are never touched.
-# `mcp-servers: [zammad]` merges ~/.claude/mcp-available/<name>.json into
+# `mcp-servers: [zammad]`, plus the servers the declared groups imply
+# (GROUP-MCP.json), merges ~/.claude/mcp-available/<name>.json into
 # .mcp.json (Claude Code project scope). Nothing is committed: the trees and
 # .mcp.json go into .git/info/exclude.
 
@@ -45,10 +46,22 @@ frontmatter_list() {
 }
 declared="$(frontmatter_list skill-groups)"
 
-# .mcp.json is rewritten on every run; a tracked one is never touched.
+# MCP servers: the frontmatter `mcp-servers:` list plus those the declared
+# groups imply (GROUP-MCP.json, group -> [server]). Managed servers are the
+# ones with an attach file; .mcp.json is rebuilt from them on every run, any
+# other server already in an untracked .mcp.json is kept, and a tracked one is
+# never touched.
 mcp_avail="${AGENT_MCP_CLAUDE_DIR:-$HOME/.claude/mcp-available}"
+group_mcp_file="${AGENT_SKILL_GROUP_MCP_FILE:-$(dirname "$groups_file")/GROUP-MCP.json}"
+group_mcp=""
+if [ -f "$group_mcp_file" ]; then
+  for g in $declared; do
+    group_mcp+="$(jq -r --arg g "$g" '.[$g] // [] | .[]' "$group_mcp_file")"$'\n'
+  done
+fi
+group_mcp="$(printf '%s' "$group_mcp" | sed '/^$/d')"
 mcp_frags=()
-for s in $(frontmatter_list mcp-servers); do
+for s in $(printf '%s\n%s\n' "$(frontmatter_list mcp-servers)" "$group_mcp" | sed '/^$/d' | sort -u); do
   [ -f "$mcp_avail/$s.json" ] && mcp_frags+=("$mcp_avail/$s.json")
 done
 
@@ -159,9 +172,16 @@ for t in "${trees[@]}"; do
   fi
 done
 
-if grep -q '^mcp-servers:' AGENTS.md && ! git ls-files --error-unmatch -- .mcp.json >/dev/null 2>&1; then
-  if [ "${#mcp_frags[@]}" -gt 0 ]; then
-    jq -s 'reduce .[] as $f ({}; . * $f)' "${mcp_frags[@]}" >.mcp.json
+# ponytail: a repository that drops its group keeps the stale managed entry
+# until it declares `mcp-servers: []`; tracking ownership would need a state file.
+if { grep -q '^mcp-servers:' AGENTS.md || [ -n "$group_mcp" ]; } &&
+  ! git ls-files --error-unmatch -- .mcp.json >/dev/null 2>&1; then
+  managed="$(find "$mcp_avail" -maxdepth 1 -name '*.json' -exec basename {} .json \; 2>/dev/null | jq -Rn '[inputs]')"
+  kept='{}'
+  [ -f .mcp.json ] && kept="$(jq --argjson m "$managed" '.mcpServers |= with_entries(select(.key as $k | $m | index($k) | not))' .mcp.json)"
+  merged="$(printf '%s' "$kept" | jq -s 'reduce .[] as $f ({}; . * $f)' - "${mcp_frags[@]}")"
+  if [ "$(printf '%s' "$merged" | jq '.mcpServers // {} | length')" -gt 0 ]; then
+    printf '%s\n' "$merged" >.mcp.json
   else
     rm -f .mcp.json
   fi

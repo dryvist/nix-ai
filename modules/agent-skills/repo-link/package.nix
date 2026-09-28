@@ -4,6 +4,7 @@
   jq,
   git,
   coreutils,
+  findutils,
   gawk,
   gnused,
   gnugrep,
@@ -14,6 +15,7 @@ writeShellApplication {
     jq
     git
     coreutils
+    findutils
     gawk
     gnused
     gnugrep

@@ -8,10 +8,10 @@ let
   helpers = import ./helpers.nix { inherit pkgs; };
   cfg = hmConfig.config.programs.aiMcp;
   # The nix-managed always-on profile is deliberately EMPTY. zammad and
-  # apple-events left first (~29k tokens between them); codex, fabric, grep and
-  # time followed on measured usage — 149/124/117/54 calls across 1,651 local
-  # transcripts, costing 5,474 tokens of every session between them. A session
-  # calling none of them, which is most sessions, paid that for nothing.
+  # apple-events left first (~29k tokens between them); fabric, grep and time
+  # followed on measured usage — 124/117/54 calls across 1,651 local
+  # session logs. A session calling none of them, which is most sessions, paid
+  # for their schemas anyway.
   #
   # Asserted as an EXACT SET, not a floor. An empty floor would be vacuously
   # true and would prove nothing; equality fails in both directions, so a
@@ -140,6 +140,20 @@ in
       launched.http-test.command == null
       || throw "launchPrefixFor wrapped a non-stdio server: ${builtins.toJSON launched.http-test}";
     helpers.mkMarker "check-mcp-launch-prefix" "launchPrefix wins, launchPrefixFor wraps stdio servers with env_vars, others launch directly";
+
+  mcp-on-demand-merge =
+    let
+      lost = builtins.filter (name: !(builtins.elem name launchCfg.onDemandServers)) (
+        cfg.onDemandServers ++ [ "vikunja" ]
+      );
+    in
+    assert
+      lost == [ ]
+      || throw "A consumer onDemandServers definition replaced the curated list; lost ${builtins.toJSON lost}";
+    assert
+      builtins.elem "http-test" hmConfigMcpLaunchPrefix.config.programs.claude.settings.enabledMcpjsonServers
+      || throw "An extraOnDemandMcpServers entry is not approved in enabledMcpjsonServers";
+    helpers.mkMarker "check-mcp-on-demand-merge" "A consumer's onDemandServers entries merge with the curated list";
 
   codex-mcp-launch-contract =
     assert

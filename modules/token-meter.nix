@@ -198,6 +198,9 @@ in
         clientNameEnv = "TOKEN_METER_CALLER";
         disabled = false;
       };
+      # Called from AI-tooling work, not from most sessions: attached per
+      # repository through skill groups rather than loaded everywhere.
+      programs.aiMcp.onDemandServers = [ "token-meter" ];
     })
   ];
 }

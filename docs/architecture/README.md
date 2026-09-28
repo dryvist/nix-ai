@@ -115,3 +115,11 @@ If you find yourself wondering "why does it work this way?", the ADR index is th
 | [herdr.md](../runbooks/herdr.md) | Enabling herdr, verifying agent detection on a live pane, authoring a manifest, and diagnosing a pane stuck as a bare shell |
 | [galileo-onboarding.md](../runbooks/galileo-onboarding.md) | Galileo AI observability setup, daily use, denylist management, and kill switches |
 | [rdma-protection-domains.md](../runbooks/rdma-protection-domains.md) | Why a leaked RDMA protection domain needs a reboot, the boot-scoped ledger that counts them, and the guards that halt before exhaustion |
+
+### [mcp-on-demand.md](mcp-on-demand.md)
+
+How MCP servers are held out of the always-on profile and attached per repository
+through skill groups (`GROUP-MCP.json`) or AGENTS.md `mcp-servers:`, and the checks
+that keep an on-demand server attachable.
+
+**Read when**: Adding an MCP server, or a repository is missing one it needs.

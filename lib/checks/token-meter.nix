@@ -145,7 +145,20 @@ in
   # argument renders token-meter unlabelled, and no other check would catch it.
   token-meter-mcp-caller =
     let
-      claudeServers = hmConfigTokenMeter.config.programs.claude.mcpServers;
+      # token-meter is on-demand, so it renders to an attachable file rather
+      # than the always-on block; read both so the label is checked wherever
+      # the server lands.
+      homeFiles = hmConfigTokenMeter.config.home.file;
+      claudeServers =
+        hmConfigTokenMeter.config.programs.claude.mcpServers
+        //
+          pkgs.lib.foldl'
+            (
+              acc: f:
+              acc // (builtins.fromJSON (builtins.unsafeDiscardStringContext homeFiles.${f}.text)).mcpServers
+            )
+            { }
+            (builtins.filter (pkgs.lib.hasPrefix ".claude/mcp-available/") (builtins.attrNames homeFiles));
       # No other catalog entry sets clientNameEnv, so no other server may have
       # picked the variable up from the shared render step.
       leaked = builtins.attrNames (
@@ -175,5 +188,8 @@ in
     assert
       unwired == [ ] || throw "MCP renderers missing their client name: ${builtins.toJSON unwired}";
     assert leaked == [ ] || throw "TOKEN_METER_CALLER leaked onto: ${builtins.toJSON leaked}";
+    assert
+      !(hmConfigTokenMeter.config.programs.claude.mcpServers ? token-meter)
+      || throw "token-meter must be on-demand, not in every session's always-on MCP block";
     helpers.mkMarker "check-token-meter-mcp-caller" "token-meter MCP: Claude renders TOKEN_METER_CALLER=claude and all six renderers pass their own client name";
 }

@@ -8,7 +8,7 @@ covers Claude Code only.
 
 Every number here comes from fresh headless sessions in this repo on
 2026-09-02, using `--settings` / `--setting-sources` overrides (which outrank
-user settings), read from the first `usage` block of each transcript.
+user settings), read from the first `usage` block of each session log.
 
 | Configuration | First request |
 | --- | ---: |
@@ -137,14 +137,18 @@ skill-groups: [core, homelab]
 ```
 
 Everything else is generated from that declaration plus the group→skill map
-nix-ai publishes at `~/.agents/skills/GROUPS.json`:
+nix-ai publishes at `~/.agents/skills/GROUPS.json` and the group→MCP-server map
+at `~/.agents/skills/GROUP-MCP.json` (`programs.agentSkills.groupMcpServers`):
 
 | Output | Consumed by |
 | --- | --- |
 | `<repo>/.agents/skills/` symlinks | Codex, Cursor, OpenCode, qwen, agy |
 | `<repo>/.claude/skills/` symlinks | Claude Code |
-| `<repo>/.claude/settings.json` `enabledPlugins` | Claude Code |
-| `.mcp.json`, `.codex/config.toml`, `opencode.json` | the matching harness |
+| `<repo>/.mcp.json` (untracked) | Claude Code |
+
+Plugin scoping is a separate, committed mechanism (`ai-pack`, see
+[plugin-scoping.md](plugin-scoping.md)); the linker does not write
+`.claude/settings.json`, `.codex/config.toml` or `opencode.json`.
 
 Renderer: `agent-skill-groups link`, invoked from
 `~/.config/direnv/lib/agent-skill-groups.sh`, which direnv sources before every
@@ -186,7 +190,7 @@ Per-harness native equivalents, no new code:
 
 | Harness | Command |
 | --- | --- |
-| Claude | first `usage` block of a fresh transcript; `/context` for the split |
+| Claude | first `usage` block of a fresh session log; `/context` for the split |
 | Codex | `codex debug prompt-input \| wc -c` |
 | OpenCode | `opencode debug skill`, `opencode stats` |
 | qwen / agy | tree parity against `~/.agents/skills` |
@@ -223,19 +227,9 @@ Per server, over the four-server baseline: **zammad 22,139**, apple-events
 6,746, vikunja 3,140. A single incident-tracking server that a typical session
 never calls is one fifth of that session's entire context.
 
-Hence the third tier applies to MCP servers exactly as it does to skills:
-`programs.aiMcp.onDemandServers` holds servers out of the always-on profile and
-renders each to `~/.claude/mcp-available/<name>.json`, so a session that needs
-one attaches it explicitly:
-
-```sh
-claude --mcp-config ~/.claude/mcp-available/zammad.json
-```
-
-`lib/checks/mcp.nix` -> `shared-mcp-on-demand-reachable` asserts both halves:
-an on-demand server must be absent from the always-on profile **and** present as
-an attachable file. Absent from both is a silent capability loss, which is the
-failure mode this tier is most likely to produce.
+Hence the third tier applies to MCP servers exactly as it does to skills; how
+servers are held out and attached per repository is in
+[mcp-on-demand.md](mcp-on-demand.md).
 
 ### `ENABLE_TOOL_SEARCH` does not help — settled
 

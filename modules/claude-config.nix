@@ -199,7 +199,7 @@ in
       settings = {
         # advisorModel intentionally left unset: nix-claude-code defaults it
         # to null, which disables the advisor tool (expensive — forwards the
-        # whole conversation transcript to a stronger reviewer model). Enable
+        # whole conversation log to a stronger reviewer model). Enable
         # per session with `claude config set advisorModel fable` — a
         # runtime write, preserved until the next darwin-rebuild reasserts
         # this Nix default.
@@ -217,7 +217,7 @@ in
         # ever names catalog servers from the on-demand tier, so approve
         # exactly those without the per-project prompt. Anything else in a
         # `.mcp.json` still prompts, by name.
-        enabledMcpjsonServers = config.programs.aiMcp.onDemandServers;
+        enabledMcpjsonServers = builtins.attrNames config.programs.aiMcp.onDemandEnabledServers;
         env = import ./claude/settings-env.nix {
           inherit lib userConfig;
           inherit (config.programs) litellmLocal;

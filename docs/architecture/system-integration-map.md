@@ -123,7 +123,6 @@ graph LR
 | Server | Transport | Auth | Notes |
 |--------|-----------|------|-------|
 | `apple-events` | stdio (bunx) | macOS TCC prompts | Reminders and Calendar; Darwin-only |
-| `codex` | stdio (binary) | Codex auth | OpenAI Codex CLI server |
 | `fabric` | stdio (uvx) | Fabric CLI setup | Pattern execution |
 | `huggingface` | stdio (uvx) | `HF_TOKEN` from Keychain | Hub/model/dataset search |
 | `time` | stdio (uvx) | None | Official maintained Python server |

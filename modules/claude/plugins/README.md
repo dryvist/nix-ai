@@ -164,8 +164,7 @@ load. **Reduce per-session overhead** by:
 1. Disabling lower-tier duplicates (this directory's primary mechanism).
 2. Committing per-repo `.claude/settings.json` overrides into individual project
    repositories to disable plugins that aren't relevant to that repo's stack.
-3. Verifying `ENABLE_TOOL_SEARCH = "auto:10"` is set in
-   [`modules/claude-config.nix`](../../claude-config.nix) (env block) so MCP
+3. Leaving `ENABLE_TOOL_SEARCH` to nix-claude-code's default (`true`), so MCP
    schemas defer until needed.
 
 See [`docs/architecture/plugin-scoping.md`](../../../docs/architecture/plugin-scoping.md)
