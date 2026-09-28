@@ -141,6 +141,17 @@ in
       || throw "launchPrefixFor wrapped a non-stdio server: ${builtins.toJSON launched.http-test}";
     helpers.mkMarker "check-mcp-launch-prefix" "launchPrefix wins, launchPrefixFor wraps stdio servers with env_vars, others launch directly";
 
+  mcp-on-demand-merge =
+    let
+      lost = builtins.filter (name: !(builtins.elem name launchCfg.onDemandServers)) (
+        cfg.onDemandServers ++ [ "vikunja" ]
+      );
+    in
+    assert
+      lost == [ ]
+      || throw "A consumer onDemandServers definition replaced the curated list; lost ${builtins.toJSON lost}";
+    helpers.mkMarker "check-mcp-on-demand-merge" "A consumer's onDemandServers entries merge with the curated list";
+
   codex-mcp-launch-contract =
     assert
       codexLaunchContractMismatches == [ ]

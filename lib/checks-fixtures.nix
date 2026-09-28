@@ -76,6 +76,9 @@ rec {
             ];
             vikunja.disabled = lib.mkForce false;
           };
+          # A consumer appending one name, exactly as a host does, must keep
+          # the curated list (lib/checks/mcp.nix mcp-on-demand-merge).
+          onDemandServers = lib.mkAfter [ "vikunja" ];
           extraOnDemandMcpServers.http-test = {
             type = "http";
             url = "https://example.invalid/mcp";

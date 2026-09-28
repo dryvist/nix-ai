@@ -209,16 +209,7 @@ in
 
     onDemandServers = lib.mkOption {
       type = lib.types.listOf lib.types.str;
-      default = [
-        "apple-events"
-        "zammad"
-        # Added on measured usage across 1,651 local transcripts: vikunja is
-        # called 2,296 times, an order of magnitude more than any of these
-        # three (fabric 124, grep 117, time 54).
-        "fabric"
-        "grep"
-        "time"
-      ];
+      default = [ ];
       description = ''
         MCP servers kept out of every session's always-on profile and attached
         only by a session that needs them.
@@ -251,6 +242,12 @@ in
 
         A server that a repository needs in every session belongs in the
         always-on profile instead — remove it from this list.
+
+        The curated list is assigned below in `config` (a plain priority-100
+        definition), not as this option's `default`, for the same reason as
+        `servers`: a default is discarded by any consumer definition, so a host
+        adding one name would silently return every curated server to the
+        always-on profile. As a config-level assignment, consumer lists merge.
       '';
     };
 
@@ -302,6 +299,16 @@ in
   };
 
   config.programs.aiMcp = {
+    onDemandServers = [
+      "apple-events"
+      "zammad"
+      # Added on measured usage across 1,651 local transcripts: vikunja is
+      # called 2,296 times, an order of magnitude more than any of these
+      # three (fabric 124, grep 117, time 54).
+      "fabric"
+      "grep"
+      "time"
+    ];
     # Plain (priority-100) assignment so per-server host overrides merge — see
     # the `servers` option description above.
     servers =
