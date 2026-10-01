@@ -27,7 +27,7 @@ on:
     - cron: "7 * * * *"
   repository_dispatch:
     # Unchanged event type: upstream publishers dispatch this when they release.
-    # The payload's input name is informational — the whole lock is relocked.
+    # A dispatch relocks only our inputs that are behind their branch head.
     types: [update-flake-input]
   workflow_dispatch: {}
 
