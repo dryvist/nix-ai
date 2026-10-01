@@ -82,20 +82,13 @@
     cribl_edge_ui = 30910;
   };
 
-  # Doppler project/config that supplies secrets to the AI tooling. Names
-  # only — non-secret selectors, never a secret value. Single source for the
-  # MCP catalog's `doppler run` launches and the d-* shell aliases.
-  doppler = {
-    project = "ai-ci-automation";
-    config = "prd";
-  };
-
   # Z.ai subscription launchers. Everything here is non-secret configuration;
   # the API key remains in Doppler and reaches only the selected child process.
   zai = {
+    # The env var that carries the subscription key. The secret-store
+    # selectors used to fetch it (ZAI_DOPPLER_PROJECT / ZAI_DOPPLER_CONFIG) are
+    # environment, set by the host, not data here.
     doppler = {
-      project = "gh-workflow-tokens";
-      config = "dryvist";
       keyEnv = "ZAI_SUBSCRIPTION_KEY";
     };
     claude = {
