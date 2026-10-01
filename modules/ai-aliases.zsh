@@ -1,6 +1,6 @@
 # AI CLI aliases — sourced by nix-home/nix-darwin zsh init
 # Managed by nix-ai's programs.zsh.initContent via modules/ai-shell.nix.
-# Single source of truth for Claude/Doppler AI-tool wrapper aliases.
+# Single source of truth for AI-tool wrapper aliases.
 
 # Secret-zero for OpenBao-backed commands (the ai-readonly AppRole). Per the
 # ai-agent-access-openbao runbook these live in the automation Keychain —
@@ -92,21 +92,6 @@ alias claude-latest="bunx @anthropic-ai/claude-code@latest"
 alias claude-d="claude --dangerously-skip-permissions"
 alias claude-latest-d="claude-latest --dangerously-skip-permissions"
 
-# Doppler-wrapped Claude — injects AI_DOPPLER_PROJECT/AI_DOPPLER_CONFIG secrets
-# (GEMINI_API_KEY, OPENROUTER_API_KEY, etc.) for sessions that need MCP/API
-# credentials. with-ai-readonly (above) fetches the project/config into only
-# this one child process.
-# Usage: d-claude               # interactive
-#        d-claude -p "prompt"   # non-interactive
-alias d-claude='with-ai-readonly zsh -c '\''doppler run -p "$AI_DOPPLER_PROJECT" -c "${AI_DOPPLER_CONFIG:-prd}" -- claude "$@"'\'' _'
-
-# Doppler-wrapped agent CLIs — inject AI_DOPPLER_PROJECT/AI_DOPPLER_CONFIG
-# secrets for cloud-provider fallback paths (OPENAI_API_KEY, OPENROUTER_API_KEY,
-# DASHSCOPE_API_KEY, etc.). Default sessions use local MLX directly; no
-# Doppler needed.
-alias d-cecli='with-ai-readonly zsh -c '\''doppler run -p "$AI_DOPPLER_PROJECT" -c "${AI_DOPPLER_CONFIG:-prd}" -- cecli "$@"'\'' _'
-alias d-qwen='with-ai-readonly zsh -c '\''doppler run -p "$AI_DOPPLER_PROJECT" -c "${AI_DOPPLER_CONFIG:-prd}" -- qwen "$@"'\'' _'
-
 # Z.ai subscription launchers. The ordinary `claude` and `codex` commands
 # keep their first-party subscriptions; these opt one child process into
 # Z.ai. `claude-zai` is a real PATH command (ai-shell.nix, writeShellApplication)
@@ -114,12 +99,13 @@ alias d-qwen='with-ai-readonly zsh -c '\''doppler run -p "$AI_DOPPLER_PROJECT" -
 # shell — a zsh function is invisible there.
 
 codex-zai() {
-  doppler run \
-    -p "$ZAI_DOPPLER_PROJECT" \
-    -c "$ZAI_DOPPLER_CONFIG" \
-    --no-fallback \
-    --only-secrets "$ZAI_DOPPLER_KEY_ENV" -- \
-    zsh -c '
+  local -a fetch
+  if [[ -z "${(P)ZAI_KEY_ENV}" ]]; then
+    [[ -n "$ZAI_KEY_COMMAND" ]] \
+      || { print -u2 "codex-zai: set $ZAI_KEY_ENV, or ZAI_KEY_COMMAND to fetch it"; return 1; }
+    fetch=(${(z)ZAI_KEY_COMMAND})
+  fi
+  "${fetch[@]}" zsh -c '
       ANTHROPIC_API_KEY= \
       ANTHROPIC_AUTH_TOKEN= \
       OPENAI_API_KEY= \

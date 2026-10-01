@@ -258,7 +258,7 @@ let
     model_providers.ZAI = {
       name = "ZAI";
       base_url = zai.codex.baseUrl;
-      env_key = zai.doppler.keyEnv;
+      env_key = zai.keyEnv;
       wire_api = "responses";
     };
   };
