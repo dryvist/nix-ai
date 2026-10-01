@@ -86,6 +86,16 @@ in
       default = "doppler";
       description = "doppler binary; resolved via the agent's PATH because doppler auth is user-level.";
     };
+
+    dopplerArgs = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      example = [
+        "-p"
+        "example-project"
+      ];
+      description = "Extra `doppler run` selector arguments. Empty uses the scoped default.";
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -105,7 +115,7 @@ in
         ProgramArguments = [
           "/bin/sh"
           "-c"
-          "/bin/wait4path /nix/store && exec ${lib.escapeShellArg cfg.dopplerBin} run -p iac-conf-mgmt -c prd -- ${./scripts/session-archive.sh} ${scriptArgs}"
+          "/bin/wait4path /nix/store && exec ${lib.escapeShellArg cfg.dopplerBin} run ${lib.escapeShellArgs cfg.dopplerArgs} -- ${./scripts/session-archive.sh} ${scriptArgs}"
         ];
         StartCalendarInterval = [
           {

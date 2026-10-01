@@ -16,9 +16,7 @@
 #
 # The id itself is stored in:
 #   - GitHub org variable `dryvist.AI_MODEL_LOCAL_LLM`
-#   - Doppler `gh-workflow-tokens` (configs `prd` + `dryvist`),
-#     secret `AI_MODEL_LOCAL_LLM`
-#   - macOS no-password automation keychain, item `AI_MODEL_LOCAL_LLM`
+#   - the environment, as `AI_MODEL_LOCAL_LLM`
 #
 # Non-Nix consumers (orbstack-kubernetes, ansible, shell scripts) should
 # read ~/.config/ai-stack/registry.json instead — that file is written
