@@ -7,7 +7,7 @@
 #
 # Routes through the local MLX stack (llama-swap at
 # http://127.0.0.1:11434/v1) by default — picks up the Qwen3-Coder
-# model that backs the `coding` / `quickest` capability classes. Cloud
+# model that backs the `coding` / `fast` capability classes. Cloud
 # Dashscope / OpenRouter / OpenAI access is opt-in: run `qwen` with the
 # provider keys in its environment.
 #

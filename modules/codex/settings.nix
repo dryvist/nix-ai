@@ -9,6 +9,7 @@
   lib,
   nix-claude-code,
   userConfig,
+  homelab-contracts,
   ...
 }:
 
@@ -185,10 +186,11 @@ let
   # now lives in its own `~/.codex/<name>.config.toml` with its keys at the
   # TOP level, selected the same way on the command line: `codex --profile
   # judge`. One profile per router capability alias
-  # (modules/litellm-local/aliases.nix) — the committed contract every
-  # nix-ai consumer renders from — replacing the single hardcoded `ox`
-  # profile this used to be.
-  litellmRoles = import ../litellm-local/aliases.nix;
+  # (every role in the role map, lib/role-map.nix) — replacing the single
+  # hardcoded `ox` profile this used to be.
+  litellmRoles =
+    builtins.attrNames
+      (import ../../lib/role-map.nix { src = homelab-contracts; }).roles;
 
   litellmProfileAttrs = lib.genAttrs litellmRoles (role: {
     model = role;

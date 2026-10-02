@@ -591,6 +591,22 @@
         "type": "github"
       }
     },
+    "homelab-contracts": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1790960592,
+        "narHash": "sha256-qb+F+nl5PG2/LB0P9LAIDLSrn5PgVRmnxPx1ogPyyTA=",
+        "owner": "dryvist",
+        "repo": "homelab-contracts",
+        "rev": "71c7f9529dcc1de0ba89001424b97bdf5c8302cc",
+        "type": "github"
+      },
+      "original": {
+        "owner": "dryvist",
+        "repo": "homelab-contracts",
+        "type": "github"
+      }
+    },
     "huggingface-skills": {
       "flake": false,
       "locked": {
@@ -956,6 +972,7 @@
         "herdr-hail-src": "herdr-hail-src",
         "herdr-remote-src": "herdr-remote-src",
         "home-manager": "home-manager",
+        "homelab-contracts": "homelab-contracts",
         "jacobpevans-cc-plugins": "jacobpevans-cc-plugins",
         "karpathy-skills": "karpathy-skills",
         "langfuse-skills": "langfuse-skills",

@@ -119,18 +119,20 @@ let
   #
   # Roles that are NOT about writing code. This module owns this list, because
   # "does this role write code" is a cecli decision; it does not own the role
-  # vocabulary, which is vars/ai-stack.nix's.
+  # vocabulary, which is the role map's.
   nonCodeRoles = [
-    # Both are size/latency classes rather than capability classes — see the
-    # note on `small` in vars/ai-stack.nix, which warns that `quickest` is a
-    # separate axis and may well be a large MoE.
-    "quickest"
+    # Size/latency or non-code roles in the role map (lib/role-map.nix).
+    "fast"
+    "cheap"
     "small"
+    "judge"
+    "recorder"
+    "ocr"
   ];
 
   # Derived, never restated. The previous version listed the six code roles
   # literally, which is a second copy of a vocabulary defined in
-  # vars/ai-stack.nix: rename a role there and this list keeps the dead name
+  # the role map: rename a role there and this list keeps the dead name
   # silently, add one and it is silently omitted — and the only symptom either
   # way is the wrong edit format, which looks like a model being bad at editing
   # rather than like config drift.

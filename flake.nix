@@ -40,6 +40,14 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # Source of the LLM role map (ansible/roles/llm_roles/files/model-roles.json).
+    # Reaches modules via _module.args (lib/role-map.nix), so a consumer's
+    # `follows` decides the map revision.
+    homelab-contracts = {
+      url = "github:dryvist/homelab-contracts";
+      flake = false;
+    };
+
     # Official Anthropic plugin marketplace source (also re-exposed via
     # nix-claude-code). Kept here because nix-ai modules still reference it
     # directly for cookbook command/agent discovery.
@@ -239,6 +247,7 @@
       herdr-remote-src,
       herdr-hail-src,
       token-meter-src,
+      homelab-contracts,
       ...
     }:
     let
@@ -257,6 +266,7 @@
           nix-codex
           nix-agy
           homebrewNix
+          homelab-contracts
           ;
       };
       orchestratorPromptDir =
@@ -285,6 +295,7 @@
           vct-splunk-cli
           gh-stack
           token-meter-src
+          homelab-contracts
           ;
       };
 
@@ -319,6 +330,7 @@
           nixAiLib
           ai-llm-prompts
           herdr-remote-src
+          homelab-contracts
           ;
         src = ./.;
       };

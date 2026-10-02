@@ -10,6 +10,7 @@
 # through the Nix store or through a launchd `EnvironmentVariables` entry. The
 # router bearer is read from its file at exec time, every time.
 {
+  aliases,
   pkgs,
   lib,
   aiStack,
@@ -21,8 +22,6 @@
   otelPackages,
 }:
 let
-  aliases = import ./aliases.nix;
-
   # The proxy runs from a uvx environment pinned to the Renovate-tracked release
   # in lib/versions.nix, the same way the MLX stack does, rather than from
   # nixpkgs' litellm: nixpkgs lags the upstream release train by months, and

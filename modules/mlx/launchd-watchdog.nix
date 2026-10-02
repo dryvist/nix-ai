@@ -97,12 +97,11 @@ in
           # the stack; a non-brain failure just pages.
           MLX_WATCHDOG_PROBE_MODELS_JSON = builtins.toJSON cfg.preload;
           # The brain: the one model whose failure justifies restarting the
-          # whole stack. Default to the tool-calling (fleet-brain) entry when
+          # whole stack. Default to the `best` (fleet-brain) role when
           # it is preloaded, else the first preload entry — never a coder or
           # other non-brain, whose transient busy must not flap a healthy
           # brain (the misclassification this fix removes).
-          MLX_WATCHDOG_BRAIN_MODEL =
-            if lib.elem "tool-calling" cfg.preload then "tool-calling" else lib.head cfg.preload;
+          MLX_WATCHDOG_BRAIN_MODEL = if lib.elem "best" cfg.preload then "best" else lib.head cfg.preload;
           # Single-model fallback for a manual/legacy run of `mlx-watchdog`
           # with no JSON list in the environment.
           MLX_WATCHDOG_PROBE_MODEL = lib.head cfg.preload;

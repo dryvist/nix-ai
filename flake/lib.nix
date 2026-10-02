@@ -11,7 +11,11 @@
   nix-codex,
   nix-agy,
   homebrewNix,
+  homelab-contracts,
 }:
+let
+  roleMap = import ../lib/role-map.nix { src = homelab-contracts; };
+in
 {
   ci = {
     # Render the same settings.json shape nix-ai's pre-PR3 fixture
@@ -103,12 +107,12 @@
   # truth: modules/claude/plugins/packs.nix. See docs/architecture/plugin-scoping.md.
   skillPacks = import ../modules/claude/plugins/packs.nix;
 
-  # Router capability aliases (best/default/fast/cheap/embed/judge/long).
+  # Router capability aliases: every role in the role map.
   # Exported as a plain list, no module system, so a non-home-manager
   # cross-flake consumer (e.g. nix-home's Raycast provider renderer) can read
   # the one committed contract instead of hand-maintaining its own copy.
-  # Single source of truth: modules/litellm-local/aliases.nix.
-  litellmAliases = import ../modules/litellm-local/aliases.nix;
+  # Same list as modules/litellm-local/aliases.nix, from the threaded input.
+  litellmAliases = builtins.attrNames roleMap.roles;
 
   # Role-name → physical mlx-community/* model ID registry.
   # Exported as a plain attrset so foreign consumers (e.g. a homelab
@@ -116,7 +120,7 @@
   # home-manager module system. The module at
   # modules/ai-stack/default.nix uses this same file as its option
   # default — one source of truth.
-  aiStackModels = import ../lib/ai-stack-models.nix;
+  aiStackModels = args: import ../lib/ai-stack-models.nix ({ inherit roleMap; } // args);
 
   # AI-tool Homebrew packages. nix-darwin passes its injected, default-off
   # capability attrset once; package names and package types stay in nix-ai.

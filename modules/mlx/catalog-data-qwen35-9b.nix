@@ -60,6 +60,40 @@ in
     };
   };
 
+  # The small/fast role model (role map: fast, cheap, small, judge, recorder).
+  # A Qwen3.5-9B distill with this family's qwen3_5_text HYBRID geometry
+  # (8 full-attention layers carry KV, 32 KiB/token). Served thinking-off.
+  # concurrencyLimit 2 is the role map's concurrency for this model; #1641
+  # (OptiQ batched-decode leak on this family) caps it there.
+  mimo-9b = {
+    model = "mlx-community/MiMo-V2.6-Distill-Qwen-9B-OptiQ-4bit";
+    weightGb = 7.1;
+    kv = {
+      kvLayers = 8;
+      kvHeads = 4;
+      headDim = 256;
+      kvDtypeBytes = 2;
+    };
+    args = [
+      "--chat-template-args"
+      (builtins.toJSON {
+        enable_thinking = false;
+      })
+    ];
+    concurrencyLimit = 2;
+    classes = {
+      resident.cacheProvisioning.concurrency = 2;
+      swap = {
+        cacheProvisioning.pinned = {
+          mb = 8192;
+          reason = "same pinned value as the qwen35-9b family; unvalidated formula, #1641 buffer-leak history";
+          tracking = "vikunja#106";
+        };
+        flags = swapFlags;
+      };
+    };
+  };
+
   # Small on-demand summarizer. An hourly note-capture pipe requests
   # this exact physical id ("mlx-community/Qwen3.5-9B-MLX-4bit"); registering it
   # swap-class (no roles -> compiles to a llama-swap models.<id> entry keyed by

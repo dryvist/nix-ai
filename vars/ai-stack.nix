@@ -13,7 +13,7 @@
 #   edit this file.
 #
 # Naming:
-#   - models / capability classes: lowercase, hyphenated (`tool-calling`)
+#   - role names come from lib/role-map.nix (see lib/ai-stack-models.nix)
 #   - endpoints / nodeports: snake_case for jq-friendliness in shell consumers
 #
 # Adding new fields:
@@ -23,36 +23,6 @@
 #     docs/architecture/per-agent-flakes.md) when the schema changes,
 #     so the JSON shape stays self-explanatory.
 {
-  # Capability-class registry. The role NAMES are the stable taxonomy
-  # consumers depend on. The role VALUES are populated at evaluation time
-  # by modules/ai-stack/default.nix from `services.aiStack.defaultLocalModelId`
-  # (sourced by the consuming configuration from the dryvist
-  # `AI_MODEL_LOCAL_LLM` org variable / Doppler secret / macOS no-password
-  # automation keychain — never hardcoded in this repo).
-  #
-  # Every role currently resolves to the same physical model id: the
-  # locally-installed default. That is the deliberate posture — one model
-  # resident, every alias pointing at it, swap-thrash impossible. To
-  # introduce per-role differentiation later, change the population logic
-  # in modules/ai-stack/default.nix.
-  #
-  # Reading these `null` values directly (without going through the
-  # services.aiStack.models option) will surface as obvious nulls in
-  # downstream config — the option layer is the only correct read path.
-  models = {
-    default = null;
-    quickest = null;
-    # Size class, not speed class: the cheapest weights that can serve a
-    # latency-sensitive consumer. `quickest` is a separate axis and may well be
-    # a large MoE, so a consumer that needs *small* must not reach for it.
-    small = null;
-    tool-calling = null;
-    coding = null;
-    large-context = null;
-    most-capable = null;
-    oss = null;
-  };
-
   # Well-known LLM endpoints. Each value is a complete OpenAI-compatible
   # `/v1` base URL, read verbatim (no path munging) by whichever entry
   # `services.aiStack.llmEndpoint` selects — see modules/ai-stack/default.nix.
