@@ -40,9 +40,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # Source of the LLM role map (ansible/roles/llm_roles/files/model-roles.json).
-    # Reaches modules via _module.args (lib/role-map.nix), so a consumer's
-    # `follows` decides the map revision.
+    # LLM role map source (lib/role-map.nix).
     homelab-contracts = {
       url = "github:dryvist/homelab-contracts";
       flake = false;
@@ -269,8 +267,6 @@
           homelab-contracts
           ;
       };
-      orchestratorPromptDir =
-        system: "${ai-llm-prompts.packages.${system}.applications}/share/ai-llm-prompts/applications";
     in
     {
       homeManagerModules = import ./flake/home-manager-modules.nix {
@@ -348,18 +344,7 @@
         inherit herdr-remote-src herdr-hail-src nixpkgs-unstable;
       };
 
-      devShells = forAllSystems (
-        system:
-        let
-          pkgs = nixpkgs.legacyPackages.${system};
-        in
-        {
-          default = pkgs.mkShell {
-            packages = [ pkgs.uv ];
-            NIX_AI_PROMPT_DIR = orchestratorPromptDir system;
-          };
-        }
-      );
+      devShells = import ./flake/dev-shells.nix { inherit nixpkgs forAllSystems ai-llm-prompts; };
 
       # Extracted to flake/overlays.nix to stay under the 12KB file-size gate.
       overlays = import ./flake/overlays.nix { inherit self; };
