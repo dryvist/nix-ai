@@ -9,7 +9,7 @@
 #
 # PROVENANCE. Captured from the pinned release, filtered to long options:
 #
-#   uvx --from 'vllm-mlx==0.4.1' vllm-mlx serve --help \
+#   uvx --from 'vllm-mlx==0.5.0' vllm-mlx serve --help \
 #     | grep -oE '^  --[a-z0-9-]+' | tr -d ' ' | sort -u
 #
 # BUMP RULE. Re-run the command above when versions.vllmMlx moves and replace
@@ -21,7 +21,7 @@
 # default.nix) consumes itself before exec'ing `vllm-mlx serve "$model"`, so it
 # never reaches argparse. The check allows it explicitly for that reason.
 {
-  version = "0.4.1";
+  version = "0.5.0";
   flags = [
     "--api-key"
     "--auto-unload-idle-seconds"
@@ -32,6 +32,7 @@
     "--continuous-batching"
     "--default-chat-template-kwargs"
     "--default-min-p"
+    "--default-mllm-draft"
     "--default-presence-penalty"
     "--default-repetition-penalty"
     "--default-temperature"
@@ -41,7 +42,9 @@
     "--disable-prefix-cache"
     "--download-retries"
     "--download-timeout"
+    "--embedding-max-length"
     "--embedding-model"
+    "--embedding-overflow-policy"
     "--enable-auto-tool-choice"
     "--enable-metrics"
     "--enable-mtp"
@@ -61,6 +64,7 @@
     "--max-tokens"
     "--max-tts-input-chars"
     "--mcp-config"
+    "--memory-budget-gb"
     "--mllm"
     "--mllm-draft-block-size"
     "--mllm-draft-kind"
@@ -76,6 +80,9 @@
     "--prefill-batch-size"
     "--prefill-step-size"
     "--prefix-cache-size"
+    "--prefix-trie-cache"
+    "--prefix-trie-cache-memory-mb"
+    "--prefix-trie-cache-size"
     "--rate-limit"
     "--reasoning-parser"
     "--rerank-model"

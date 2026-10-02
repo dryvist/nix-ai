@@ -31,31 +31,18 @@
 # silently overwrites the first. Installing both into ONE derivation
 # reproduces that layout honestly.
 #
-# ATOMICITY, AND WHY transformers IS DELIBERATELY *NOT* PINNED HERE
+# ATOMICITY
 #
-# mlx and mlx-lm are pinned together in mlx-server/uv.lock, so a partial bump of
-# that pair is unrepresentable rather than merely prohibited by a Renovate
-# exclusion a config edit could get wrong.
+# mlx, mlx-lm and the Hugging Face libraries mlx-lm imports (transformers,
+# tokenizers, safetensors, huggingface-hub, hf-xet) are all pinned in
+# mlx-server/uv.lock, so the set the worker runs is the set Renovate moved, in
+# one commit. They come from the published wheels (mlx-lm from its sdist, to
+# carry the harmony patch), so overriding them compiles nothing; packages
+# outside this list keep nixpkgs' versions.
 #
-# transformers rides whatever nixpkgs ships. This IS a deliberate divergence
-# from lib/versions.nix, which governs the uvx path — record it in review rather
-# than "fixing" it by adding a pin.
-#
-# Pinning it was tried and reverted 2026-08-14. transformers enforces its own
-# dependency floors at IMPORT time (transformers/dependency_versions_check.py),
-# not just in metadata, so `dontCheckRuntimeDeps` does not help: the pinned
-# version demanded a newer safetensors than nixpkgs carries and failed its
-# import check during activation. Satisfying it means also overriding
-# safetensors, and then whatever that pulls — and because transformers is a
-# shared dependency, the rebuild reached accelerate, peft, and lm-eval as well.
-# A large, cascading override of a shared package is a worse trade than the
-# divergence.
-#
-# The divergence is measured, not assumed. On 2026-08-14 the nixpkgs version and
-# the pinned version rendered a BYTE-IDENTICAL chat template with tools against
-# the real model snapshot, so tool-parser selection and the bytes reaching the
-# model are unchanged. Re-run that comparison before making any NEW model family
-# a default — a future model may not be as forgiving:
+# Before any NEW model family becomes a default, compare the chat template
+# rendered with tools against the previous transformers — a future model may
+# not render byte-identically:
 #
 #   apply_chat_template(msgs, tools=..., add_generation_prompt=True)
 #   -> compare len + sha256 across both versions (jinja2 must be installed;
@@ -92,12 +79,62 @@ let
   # exists so the config still evaluates on the CI system. The mlx-lm harmony
   # patch below stays unconditional, so CI still builds and tests it.
   useAppleWheel = pkgs.stdenv.hostPlatform.isDarwin && pkgs.stdenv.hostPlatform.isAarch64;
+
+  # Platform tag regex for a wheel this host can install.
+  hostPlatformTag =
+    let
+      arch = pkgs.stdenv.hostPlatform.parsed.cpu.name;
+    in
+    if pkgs.stdenv.hostPlatform.isDarwin then
+      "macosx_[0-9_]+_${if arch == "aarch64" then "arm64" else arch}"
+    else
+      "manylinux[^-]*_${arch}";
+
+  # The Hugging Face stack mlx-lm imports, at the versions in uv.lock: mlx-lm
+  # 0.32.0 requires transformers>=5.7, which nixpkgs does not ship, and each
+  # pulls the next floor up (tokenizers, safetensors, huggingface-hub, hf-xet,
+  # click). Installed from the published wheels, so nothing here compiles.
+  # Runtime dependencies are nixpkgs' list for the same package; the
+  # runtime-deps check fails the build if a new release needs more.
+  #
+  # The value is pythonRelaxDeps. huggingface-hub declares click>=8.4.2 for its
+  # `hf` CLI; nixpkgs ships an older click, and overriding click in this set
+  # rebuilds torch from source through the test inputs of mlx-lm's checks.
+  # Nothing in this env runs the `hf` CLI (that is the separate uvx `hf`
+  # wrapper in modules/ai-tools.nix, which resolves its own click), so the
+  # library keeps nixpkgs' click.
+  lockWheels = {
+    transformers = [ ];
+    tokenizers = [ ];
+    safetensors = [ ];
+    huggingface-hub = [ "click" ];
+    hf-xet = [ ];
+  };
+  fromLockWheel =
+    super: name: relax:
+    super.buildPythonPackage {
+      pname = name;
+      version = uvLock.version name;
+      format = "wheel";
+      src = pkgs.fetchurl (
+        uvLock.hostWheel name {
+          inherit cpTag;
+          platform = hostPlatformTag;
+        }
+      );
+      nativeBuildInputs = lib.optional pkgs.stdenv.hostPlatform.isLinux pkgs.autoPatchelfHook;
+      buildInputs = lib.optional pkgs.stdenv.hostPlatform.isLinux pkgs.stdenv.cc.cc.lib;
+      dependencies = super.${name}.propagatedBuildInputs;
+      pythonRelaxDeps = relax;
+      pythonImportsCheck = [ (lib.replaceStrings [ "-" ] [ "_" ] name) ];
+    };
 in
 py.override {
   self = py;
   packageOverrides =
     _self: super:
-    (lib.optionalAttrs useAppleWheel {
+    lib.mapAttrs (fromLockWheel super) lockWheels
+    // (lib.optionalAttrs useAppleWheel {
       mlx = super.buildPythonPackage {
         pname = "mlx";
         version = versions.mlx;
@@ -144,6 +181,8 @@ py.override {
         super.mlx-lm.overridePythonAttrs (old: {
           version = versions.mlxLm;
           inherit (harmony) src;
+          # The sdist declares setuptools-scm as a build requirement (0.32.0+).
+          build-system = (old.build-system or [ ]) ++ [ super.setuptools-scm ];
           postPatch = (old.postPatch or "") + harmony.postPatch;
         });
     };

@@ -38,6 +38,29 @@ in
       (package name).sdist or (throw "lib/uv-lock.nix: ${name} has no sdist in mlx-server/uv.lock")
     );
 
+  # The wheel of `name` installable on a host: interpreter tag `cpTag` (e.g.
+  # "cp314"), the stable ABI, or pure python; platform tag matching the regex
+  # `platform`, or "any". When several qualify (one per OS deployment target)
+  # the last listed, the newest target, wins.
+  hostWheel =
+    name:
+    { cpTag, platform }:
+    let
+      p = package name;
+      hits = builtins.filter (
+        w:
+        builtins.match ".*-(${cpTag}-${cpTag}|cp3[0-9]+-abi3|py3-none)-(${platform}|any)\\.whl" (
+          baseNameOf w.url
+        ) != null
+      ) (p.wheels or [ ]);
+    in
+    if hits == [ ] then
+      throw "lib/uv-lock.nix: ${name} ${p.version} has no ${cpTag} wheel for platform ${platform} in mlx-server/uv.lock; published: ${
+        builtins.concatStringsSep " " (map (w: baseNameOf w.url) (p.wheels or [ ]))
+      }"
+    else
+      fetchArgs (builtins.elemAt hits (builtins.length hits - 1));
+
   # The wheel of `name` whose filename ends in `-<suffix>.whl`, where suffix is
   # the python, abi and platform tags, e.g. "cp314-cp314-macosx_26_0_arm64" or
   # "py3-none-any". Exactly one wheel matches, or evaluation stops naming the
