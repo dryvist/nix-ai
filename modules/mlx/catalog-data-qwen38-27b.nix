@@ -17,8 +17,8 @@ in
   #
   # Note this family is HYBRID attention but is NOT qwen3_next: it does not hit
   # the mlx-lm#1162 paged-block reconstruction failure, which is why the
-  # incumbent runs without hybridNoPaged and this entry does the same. Do not
-  # "fix" that by adding hybridNoPaged on the strength of the layer_types field
+  # incumbent runs with the paged cache on and this entry does the same. Do not
+  # "fix" that by turning the paged cache off on the strength of the layer_types field
   # alone — the incumbent has served this topology in production for weeks.
   #
   # Thinking is ON at the model's own baseline. Its reasoning is the reason it

@@ -55,7 +55,6 @@ rec {
     "enableAutoToolChoice"
     "toolCallParser"
     "reasoningParser"
-    "harmonyToolParser"
   ];
   mkModelCmd =
     modelId:
@@ -193,13 +192,6 @@ rec {
         ++ lib.optionals (c.prefillBatchSize != null) [
           "--prefill-step-size"
           (toString c.prefillBatchSize)
-        ]
-        # Flag added by the harmony-patched wheel (mlx-lm-patch.nix). Always
-        # emitted so the deployed command states the mode instead of leaving it
-        # to a package-side default.
-        ++ [
-          "--harmony-tool-parser"
-          c.harmonyToolParser
         ]
       );
       # mlx_vlm.server shares only --model/--port/--host with mlx_lm.server;

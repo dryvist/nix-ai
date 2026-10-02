@@ -16,11 +16,6 @@
 # because CLUSTER MODE STILL USES uvx. Both ranks therefore resolve mlx-lm the
 # same way as before, so rank-to-rank rendezvous is unchanged by that move.
 #
-# Note the rank resolves the PLAIN `mlx-lm==<version>` release (see
-# ./cluster-rank-args.nix) while standalone resolves the harmony-patched build.
-# That divergence PREDATES the Nix migration and is unchanged by it, but it
-# means gpt-oss tool calls behave differently in cluster mode.
-#
 # On develop the two patterns happen to be the same string only because the
 # standalone one is stale; the fix for that (deriving it from
 # mlxLmServer.launchScriptBasename) makes them diverge. Threading the standalone

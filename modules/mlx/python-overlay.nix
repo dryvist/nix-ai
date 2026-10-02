@@ -36,8 +36,8 @@
 # mlx, mlx-lm and the Hugging Face libraries mlx-lm imports (transformers,
 # tokenizers, safetensors, huggingface-hub, hf-xet) are all pinned in
 # mlx-server/uv.lock, so the set the worker runs is the set Renovate moved, in
-# one commit. They come from the published wheels (mlx-lm from its sdist, to
-# carry the harmony patch), so overriding them compiles nothing; packages
+# one commit. They come from the published wheels (mlx-lm from its sdist), so
+# overriding them compiles nothing; packages
 # outside this list keep nixpkgs' versions.
 #
 # Before any NEW model family becomes a default, compare the chat template
@@ -182,27 +182,14 @@ py.override {
       };
     })
     // {
-      # mlx-lm carrying the harmony (gpt-oss) tool-call parser. The defect and
-      # the patch's degradation contract are documented in mlx-lm-patch.nix; only
-      # the delivery mechanism changes here. Previously the PyPI wheel was
-      # unzipped, patched, and rezipped because that "needs no build step"; a
-      # nixpkgs source derivation makes it an ordinary postPatch, which is both
-      # smaller and keeps nixpkgs' own check phase.
-      #
-      # Built from the PyPI sdist pinned in mlx-server/uv.lock rather than
-      # nixpkgs' own mlx-lm source, so the release the worker runs is the one
-      # Renovate tracks. Stay on a RELEASE: catalog-lib.nix documents that the
-      # git-wheel serverVariant DROPS --harmony-tool-parser, which gpt-oss needs.
-      mlx-lm =
-        let
-          harmony = import ./mlx-lm-patch.nix { inherit pkgs; };
-        in
-        super.mlx-lm.overridePythonAttrs (old: {
-          version = versions.mlxLm;
-          inherit (harmony) src;
-          # The sdist declares setuptools-scm as a build requirement (0.32.0+).
-          build-system = (old.build-system or [ ]) ++ [ super.setuptools-scm ];
-          postPatch = (old.postPatch or "") + harmony.postPatch;
-        });
+      # mlx-lm built from the PyPI sdist pinned in mlx-server/uv.lock rather
+      # than nixpkgs' own source, so the release the worker runs is the one
+      # Renovate tracks. nixpkgs' check phase is kept.
+      mlx-lm = super.mlx-lm.overridePythonAttrs (old: {
+        version = versions.mlxLm;
+        src = pkgs.fetchurl (uvLock.sdist "mlx-lm");
+        # The sdist declares setuptools-scm as a build requirement (0.32.0+).
+        build-system = (old.build-system or [ ]) ++ [ super.setuptools-scm ];
+      });
     };
 }

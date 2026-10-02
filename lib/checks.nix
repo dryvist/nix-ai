@@ -136,7 +136,6 @@ in
     hmConfigDupRole
     ;
 })
-// (import ./checks/mlx-harmony.nix { inherit pkgs hmConfigCatalog; })
 // (import ./checks/mlx-cluster.nix { inherit pkgs hmConfigCluster src; })
 // (import ./checks/mlx-cluster-sharding.nix { inherit pkgs hmConfigCluster; })
 // (import ./checks/mlx-cluster-watcher-env.nix { inherit pkgs hmConfigCluster; })

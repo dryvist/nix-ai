@@ -106,38 +106,23 @@ rec {
     {
       programs.mlx = {
         catalog = {
-          qwen35-9b-optiq = {
-            class = "swap";
-          };
           qwen38-27b = {
             class = "resident";
             roles = [ "judge" ];
           };
-          qwen36-optiq.class = "resident";
-          # Stock Qwen3.6 sibling, swap-class: enabled so the compiled
-          # modelContextWindows carries its declared 65536 window for
-          # mlx-catalog.nix to assert. Resident would push the fixture past
-          # residentWeightBudgetGb for no added coverage.
-          qwen36-35b.class = "swap";
-          qwen3-coder-30b.class = "resident";
-          gpt-oss-120b.class = "swap";
-          qwen3-next-80b = {
-            class = "swap";
-            tweaks.ttl = 600;
-          };
-          # Carries an intrinsic proxy concurrencyLimit=1 (metal::malloc under
-          # concurrency) — exercises modelConcurrencyLimits compilation.
-          qwen3-next-80b-instruct.class = "swap";
+          # Swap-class text entry with an intrinsic concurrencyLimit (2):
+          # exercises the swap tier, its default ttl and modelConcurrencyLimits.
+          mimo-9b.class = "swap";
           # Vision-language entry: exercises the per-model backend override
           # (catalog `backend` -> modelBackends -> mlx_vlm.server) while the
-          # host backend stays mlx-lm for every other model.
+          # host backend stays mlx-lm for every other model, and the ttl tweak.
           unlimited-ocr = {
             class = "swap";
             tweaks.ttl = 600;
           };
         };
         # Direct host setting on a catalog-managed key must win over the catalog.
-        modelFlagOverrides."mlx-community/Qwen3.6-35B-A3B-OptiQ-4bit".cacheMemoryMb = 8192;
+        modelFlagOverrides."mlx-community/Qwen3.8-27B-4bit".cacheMemoryMb = 8192;
       };
     }
   ];
@@ -152,7 +137,7 @@ rec {
         defaultModelKey = "qwen38-27b";
         catalog = {
           qwen38-27b.class = "resident";
-          qwen36-35b = {
+          mimo-9b = {
             class = "resident";
             roles = [ "judge" ];
           };
@@ -170,7 +155,7 @@ rec {
     {
       programs.mlx.catalog = {
         qwen38-27b.class = "resident";
-        qwen35-9b-optiq = {
+        mimo-9b = {
           class = "swap";
           roles = [ "small" ];
         };
@@ -184,7 +169,7 @@ rec {
           class = "resident";
           roles = [ "small" ];
         };
-        qwen35-9b-optiq = {
+        mimo-9b = {
           class = "swap";
           roles = [ "small" ];
         };

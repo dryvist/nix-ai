@@ -14,7 +14,7 @@
 }:
 let
   helpers = import ./helpers.nix { inherit pkgs; };
-  small9b = "mlx-community/Qwen3.5-9B-OptiQ-4bit";
+  small9b = "mlx-community/MiMo-V2.6-Distill-Qwen-9B-OptiQ-4bit";
 
   # The catalog's one-entry-per-role assertion, located by its message rather
   # than by list index so an unrelated assertion landing beside it cannot make

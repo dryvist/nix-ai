@@ -8,7 +8,7 @@
 { pkgs, hmConfigDefaultModel }:
 let
   cfg = hmConfigDefaultModel.config.programs.mlx;
-  qwen36-35b = "mlx-community/Qwen3.6-35B-A3B-4bit";
+  mimo-9b = "mlx-community/MiMo-V2.6-Distill-Qwen-9B-OptiQ-4bit";
   qwen38-27b = "mlx-community/Qwen3.8-27B-4bit";
   inherit (cfg) defaultModelKeymap;
 
@@ -21,7 +21,7 @@ let
           "default"
           "coding"
         ];
-        ${qwen36-35b}.aliases = [ "goal-judge" ];
+        ${mimo-9b}.aliases = [ "judge" ];
       };
     }
   );
@@ -35,7 +35,7 @@ in
       defaultModelKeymap.declared == "qwen38-27b"
       || throw "keymap must carry the declared key so a cleared/invalid override still has a fallback";
     assert
-      defaultModelKeymap.keys.qwen36-35b == qwen36-35b && !(defaultModelKeymap.keys ? gemma4-31b-optiq)
+      defaultModelKeymap.keys.mimo-9b == mimo-9b && !(defaultModelKeymap.keys ? unlimited-ocr)
       || throw "keymap must map every ENABLED catalog key (and only those) to its physical id";
     pkgs.runCommand "check-mlx-default-model"
       {
@@ -48,7 +48,7 @@ in
         FIXTURE = fixture;
         MLX_DEFAULT_MODEL_KEYMAP = cfg.defaultModelKeymapFile;
         DECLARED = qwen38-27b;
-        OVERRIDE = qwen36-35b;
+        OVERRIDE = mimo-9b;
       }
       ''
         bash ${../../tests/mlx-default-model-test.sh}

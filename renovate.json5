@@ -128,9 +128,8 @@
         "MLX serving stack: take each release as soon as it is published. The org",
         "preset's 3-day release-age soak and two-window PR schedule are lifted for",
         "these packages only, so the stack never sits a release behind. CI still",
-        "gates every merge: the uv.lock-pinned artifacts are fetched by hash, the",
-        "harmony patch must apply to the new mlx-lm, and the llama-swap-build",
-        "check builds the new proxy.",
+        "gates every merge: the uv.lock-pinned artifacts are fetched by hash and the",
+        "llama-swap-build check builds the new proxy.",
       ],
       "matchPackageNames": [
         "mlx",
