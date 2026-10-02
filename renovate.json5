@@ -71,6 +71,17 @@
       "matchPackageNames": ["transformers"],
       "allowedVersions": "!/^5\\.13\\.0$/",
     },
+    {
+      "description": [
+        "Hold huggingface-hub below 2.0 while tokenizers requires it: tokenizers",
+        "0.23.x (required by transformers >=5.18) depends on huggingface-hub <2.0,",
+        "so a 2.x pin makes mlx-server/pyproject.toml unresolvable. Drop this rule",
+        "when a tokenizers release accepts huggingface-hub 2.x.",
+      ],
+      "matchDatasources": ["pypi"],
+      "matchPackageNames": ["huggingface-hub"],
+      "allowedVersions": "<2.0.0",
+    },
     // REMOVED — the MLX-driven cluster pin freeze (`enabled: false` on mlx,
     // mlx-lm, mlx-metal, transformers), by operator decision.
     //
