@@ -191,5 +191,24 @@ py.override {
         # The sdist declares setuptools-scm as a build requirement (0.32.0+).
         build-system = (old.build-system or [ ]) ++ [ super.setuptools-scm ];
       });
+
+      # lm-eval is a test input of mlx-lm; accelerate and peft are test inputs
+      # of lm-eval only, never in the served env. They come from nixpkgs'
+      # unmodified set so their store paths are the ones cache.nixos.org
+      # already built and tested.
+      lm-eval = super.lm-eval.overridePythonAttrs (old: {
+        nativeCheckInputs = map (
+          p:
+          if
+            lib.elem (p.pname or "") [
+              "accelerate"
+              "peft"
+            ]
+          then
+            py.pkgs.${p.pname}
+          else
+            p
+        ) old.nativeCheckInputs;
+      });
     };
 }
