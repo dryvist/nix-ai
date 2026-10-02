@@ -36,7 +36,7 @@
     };
 
     ai-llm-prompts = {
-      url = "github:dryvist/ai-llm-prompts/9f55dee4840752c5b73f92278bc75fbe701e8dff";
+      url = "github:dryvist/ai-llm-prompts";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
