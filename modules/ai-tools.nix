@@ -49,7 +49,7 @@
 #
 # UVX WRAPPER PACKAGES (Python packages not in nixpkgs/homebrew):
 #   hf: huggingface-hub CLI (model downloads, used with HuggingFace MCP)
-#   vllm-mlx: defined in modules/mlx.nix (owns the wrapper + LaunchAgent)
+#   mlx_lm.server: defined in modules/mlx (owns the wrapper + LaunchAgent)
 #
 # DECLARATIVE MODULES (package + config managed by per-agent modules):
 #   cecli      — actively maintained Aider fork; see modules/cecli/ (programs.cecli)

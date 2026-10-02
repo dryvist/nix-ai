@@ -26,7 +26,7 @@ identically, every time.
 | **Qwen Code & Cecli** | Settings for the Alibaba and Aider-fork CLIs |
 | **MCP Servers** | One [catalog](modules/mcp/README.md) (GitHub, Terraform, Context7, filesystem, memory, …) fanned out to every agent |
 | **AI Dev Tools** | cclint, claude-flow, and more |
-| **MLX** *(macOS)* | Local Apple Silicon inference via vllm-mlx with launchd integration |
+| **MLX** *(macOS)* | Local Apple Silicon inference via mlx_lm.server behind llama-swap, with launchd integration |
 
 ## Prerequisites
 
@@ -120,7 +120,7 @@ modules/
 ├── cecli/          # Cecli (Aider fork)
 ├── qwen-code/      # Alibaba Qwen Code
 ├── mcp/            # MCP server catalog, fanned out to every agent
-├── mlx/            # MLX local inference (vllm-mlx, macOS)
+├── mlx/            # MLX local inference (mlx_lm + llama-swap, macOS)
 ├── fabric/         # Fabric prompt patterns + CLI
 ├── agent-skills/   # Cross-tool skill deployment
 ├── token-meter.nix # splunk/token-meter usage dashboard + HTTPS gate

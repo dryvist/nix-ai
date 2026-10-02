@@ -18,12 +18,7 @@ rec {
   # 1, and the excess came back as HTTP 429 (2026-07-24 cron kills).
   effectiveConcurrency = modelId: cfg.modelConcurrencyLimits.${modelId} or cfg.proxy.concurrencyLimit;
 
-  # Per-model backend resolution, exported so mkModelCmd and model-instances.nix
-  # share one answer: the latter needs it to decide how the catalog's
-  # backend-neutral extraArgs must be spelled for that backend, and a second
-  # copy of the `or` chain there would drift from the flag builder it must agree
-  # with. worker-env.nix and assertions.nix still inline the same expression —
-  # folding those in is a separate change, not part of this fix.
+  # Per-model backend resolution.
   backendFor = modelId: cfg.modelBackends.${modelId} or cfg.modelServerBackend;
 
   # Build the selected serving command for a given model ID.
@@ -32,29 +27,22 @@ rec {
   # the serve options this builder reads below. Guarding against that list
   # (not against programs.mlx as a whole) means a typo AND a real-but-unread
   # option name (e.g. huggingFaceHome, preload) both fail the eval instead of
-  # silently keeping the global value.
+  # silently keeping the global value. Catalog class profiles also set
+  # paged-cache, batch-width, request-cap and idle-unload keys; mlx_lm reads
+  # none of those, so they are accepted here and have no effect on the command.
   # NOTE: \${PORT} is a llama-swap template macro — must be escaped to prevent
   # Nix string interpolation from consuming it before the config is written.
   overridableFlags = [
     "host"
     "cacheMemoryMb"
     "prefillBatchSize"
-    "gpuMemoryUtilization"
     "autoUnloadIdleSeconds"
-    "enableMetrics"
-    "continuousBatching"
-    "defaultRepetitionPenalty"
     "enablePrefixCaching"
     "pagedKvCache"
     "pagedCacheBlockSize"
     "maxNumSeqs"
-    "chunkedPrefillTokens"
-    "completionBatchSize"
     "maxTokens"
     "maxRequestTokens"
-    "enableAutoToolChoice"
-    "toolCallParser"
-    "reasoningParser"
   ];
   mkModelCmd =
     modelId:
@@ -92,77 +80,6 @@ rec {
           error = "ERROR";
         }
         .${cfg.serverLogLevel};
-      vllmMlxFlags = lib.concatStringsSep " " (
-        lib.optionals (c.cacheMemoryMb != null) [
-          "--cache-memory-mb"
-          (toString c.cacheMemoryMb)
-        ]
-        ++ lib.optionals (c.prefillBatchSize != null) [
-          "--prefill-batch-size"
-          (toString c.prefillBatchSize)
-        ]
-        ++ lib.optionals (c.gpuMemoryUtilization != null) [
-          "--gpu-memory-utilization"
-          (toString c.gpuMemoryUtilization)
-        ]
-        ++ lib.optionals (c.autoUnloadIdleSeconds != 0) [
-          "--auto-unload-idle-seconds"
-          (toString c.autoUnloadIdleSeconds)
-        ]
-        ++ lib.optionals c.enableMetrics [ "--enable-metrics" ]
-        ++ lib.optionals mtp.enable [ "--enable-mtp" ]
-        # vllm-mlx spells this --mllm-draft-block-size; the bare
-        # --draft-block-size below is mlx-vlm's own CLI, a different binary.
-        # vllm-mlx exits at startup on an unknown flag, so the wrong spelling
-        # kills every worker llama-swap starts for an MTP-enabled model.
-        ++ lib.optionals (mtp.enable && mtp.draftBlockSize != null) [
-          "--mllm-draft-block-size"
-          (toString mtp.draftBlockSize)
-        ]
-        ++ lib.optionals c.continuousBatching [ "--continuous-batching" ]
-        # Applied server-side so every request carries the same logits
-        # processor — a batch mixing penalized with penalty-free requests
-        # wedges mlx_lm's generator. Rationale in options-batching.nix.
-        ++ lib.optionals (c.defaultRepetitionPenalty != null) [
-          "--default-repetition-penalty"
-          (toString c.defaultRepetitionPenalty)
-        ]
-        ++ lib.optionals c.enablePrefixCaching [ "--enable-prefix-cache" ]
-        ++ lib.optionals c.pagedKvCache [ "--use-paged-cache" ]
-        ++ lib.optionals (c.pagedKvCache && c.pagedCacheBlockSize != null) [
-          "--paged-cache-block-size"
-          (toString c.pagedCacheBlockSize)
-        ]
-        ++ lib.optionals (c.maxNumSeqs != null) [
-          "--max-num-seqs"
-          (toString c.maxNumSeqs)
-        ]
-        ++ lib.optionals (c.chunkedPrefillTokens != null) [
-          "--chunked-prefill-tokens"
-          (toString c.chunkedPrefillTokens)
-        ]
-        ++ lib.optionals (c.completionBatchSize != null) [
-          "--completion-batch-size"
-          (toString c.completionBatchSize)
-        ]
-        ++ lib.optionals (c.maxTokens != null) [
-          "--max-tokens"
-          (toString c.maxTokens)
-        ]
-        ++ lib.optionals (c.maxRequestTokens != null) [
-          "--max-request-tokens"
-          (toString c.maxRequestTokens)
-        ]
-        ++ lib.optionals c.enableAutoToolChoice [ "--enable-auto-tool-choice" ]
-        ++ lib.optionals (c.enableAutoToolChoice && c.toolCallParser != null) [
-          "--tool-call-parser"
-          c.toolCallParser
-        ]
-        ++ lib.optionals (c.reasoningParser != null) [
-          "--reasoning-parser"
-          c.reasoningParser
-        ]
-      );
       mlxLmFlags = lib.concatStringsSep " " (
         [
           "--log-level"
@@ -182,7 +99,7 @@ rec {
         ]
         ++
           # Reuse the backend-neutral cache budget. Official mlx_lm calls this
-          # the prompt-cache byte limit; vllm-mlx calls it cache memory in MiB.
+          # the prompt-cache byte limit.
           # Bounded at 16 GiB (effectiveMlxLmCacheMb above) so large-context
           # catalog classes get the cache they declare.
           [
@@ -228,7 +145,6 @@ rec {
       mlxModelServerFlags =
         {
           mlx-lm = mlxLmFlags;
-          vllm-mlx = vllmMlxFlags;
           mlx-vlm = mlxVlmFlags;
           mlx-vlm-native = mlxVlmNativeFlags;
         }

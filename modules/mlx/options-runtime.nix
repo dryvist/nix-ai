@@ -11,8 +11,8 @@
 # maxResidentWorkers and suppressWiredLimit — the residency-budget invariant.
 # Official mlx_lm additionally receives a prompt-cache byte limit. launchd
 # HardResourceLimits is absent: it would cap llama-swap, not its model-server
-# children. gpuMemoryUtilization and autoUnloadIdleSeconds apply to the
-# preserved vllm-mlx backend only and are inert under mlx-lm.
+# children. autoUnloadIdleSeconds is a worker flag mlx_lm does not have; idle unload
+# comes from llama-swap's ttl.
 #
 # MODEL SWITCHING (llama-swap proxy):
 # llama-swap sits on the API port and manages the official mlx_lm.server as
@@ -26,13 +26,12 @@
       type = lib.types.listOf (
         lib.types.enum [
           "mlx-lm"
-          "vllm-mlx"
           "mlx-vlm"
           "mlx-vlm-native"
         ]
       );
       default = [ "mlx-lm" ];
-      description = "Serving implementations permitted to run. Official mlx-lm is enabled; preserved vllm-mlx support remains disabled unless explicitly listed.";
+      description = "Serving implementations permitted to run. Official mlx-lm is enabled by default.";
     };
 
     singleModel = lib.mkOption {
@@ -65,7 +64,6 @@
     modelServerBackend = lib.mkOption {
       type = lib.types.enum [
         "mlx-lm"
-        "vllm-mlx"
         "mlx-vlm"
         "mlx-vlm-native"
       ];
@@ -85,7 +83,7 @@
     autoUnloadIdleSeconds = lib.mkOption {
       type = lib.types.ints.unsigned;
       default = 1800;
-      description = "Worker self-unloads its model after this many idle seconds (vllm-mlx --auto-unload-idle-seconds). 0 = disabled. Keep greater than proxy.idleTtl; this is the failsafe when the proxy cannot evict.";
+      description = "Worker self-unloads its model after this many idle seconds. 0 = disabled. No current backend reads it; llama-swap ttl unloads workers. Keep greater than proxy.idleTtl; this is the failsafe when the proxy cannot evict.";
     };
 
     processType = lib.mkOption {
@@ -106,9 +104,7 @@
       '';
     };
 
-    # Backend-neutral worker verbosity. Official mlx_lm receives its native
-    # --log-level flag; preserved vllm-mlx receives the patched
-    # VLLM_MLX_LOG_LEVEL environment variable.
+    # Worker verbosity. Official mlx_lm receives its native --log-level flag.
     serverLogLevel = lib.mkOption {
       type = lib.types.enum [
         "debug"
@@ -118,9 +114,7 @@
       ];
       default = "info";
       description = ''
-        MLX model-server verbosity. Official mlx_lm receives --log-level;
-        preserved vllm-mlx receives the locally patched VLLM_MLX_LOG_LEVEL
-        environment variable. "debug" is the production default for the
+        MLX model-server verbosity. Official mlx_lm receives --log-level. "debug" is the production default for the
         private observability pipeline and includes request and response
         content. Set to "info" to omit normal request and response bodies.
       '';
@@ -208,8 +202,7 @@
     # live in dedicated files at the 12 KB gate.
 
     # Per-physical-id llama-swap lifecycle for role-registry models. This is
-    # backend-neutral: unlike vllm-mlx's worker-side auto-unload flag, the
-    # proxy TTL also unloads official mlx_lm workers.
+    # backend-neutral: the proxy TTL unloads official mlx_lm workers.
     modelTtls = lib.mkOption {
       type = lib.types.attrsOf lib.types.ints.unsigned;
       default = { };
@@ -220,14 +213,8 @@
     # options. modelExtraArgs can only APPEND flags; it cannot retract a
     # default-on boolean like pagedKvCache, whose --use-paged-cache flag has
     # no CLI negation. Keys must name serve options the command builder
-    # actually reads (the list in modules/mlx/default.nix mkVllmCmd) — any
+    # actually reads (overridableFlags in modules/mlx/model-server-cmd.nix) — any
     # other key fails the eval instead of silently keeping the global value.
-    # Motivating case (vllm-mlx 0.4.0): the paged KV cache is incompatible
-    # with gpt-oss's alternating sliding-window attention — generation fails
-    # with "[broadcast_shapes] Shapes (1,8,64,64) and (1,8,115,64) cannot be
-    # broadcast" (paged-cache block size 64 vs. prompt length). Disabling
-    # pagedKvCache + enablePrefixCaching on that one model fixes it; sibling
-    # models keep prefix caching.
     modelFlagOverrides = lib.mkOption {
       type = lib.types.attrsOf (lib.types.attrsOf lib.types.raw);
       default = { };
@@ -239,14 +226,14 @@
           };
         }
       '';
-      description = "Per-physical-model overrides of programs.mlx serve options (e.g. pagedKvCache, enablePrefixCaching), merged over the global values when building that model's vllm-mlx command.";
+      description = "Per-physical-model overrides of programs.mlx serve options (e.g. pagedKvCache, enablePrefixCaching), merged over the global values when building that model's command.";
     };
 
     # preload — models the warmup agent (mlx-warmup.py, via
     # MLX_PRELOAD_MODELS_JSON) faults in after every proxy (re)start, so the
     # first request never pays a cold start. Deliberately NOT emitted as
-    # llama-swap hooks.on_startup.preload — that hook's request shape 404s
-    # vllm-mlx and llama-swap stops the worker on preload failure (#1175).
+    # llama-swap hooks.on_startup.preload — llama-swap stops the worker on preload
+    # failure (#1175).
     # Multi-resident hosts list every role they keep warm, e.g.
     # [ "default" "coding" ]; each extra entry costs its full weight footprint
     # until the idle TTL evicts it.

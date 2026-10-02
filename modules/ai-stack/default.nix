@@ -125,7 +125,7 @@ in
       '';
       description = ''
         Role-name → physical model ID map. Each role becomes a first-class
-        llama-swap entry whose cmd runs `vllm-mlx serve <physical>`.
+        llama-swap entry whose cmd runs the MLX model server for <physical>.
 
         Default: every role resolves to `services.aiStack.defaultLocalModelId`
         (read via `lib/ai-stack-models.nix`), then

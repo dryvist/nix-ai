@@ -18,6 +18,30 @@
       "mlx"
       "judge"
     ] "`judge` is a role in programs.mlx.roleMap; select its model through programs.mlx.catalog.")
+  ]
+  # Options only the removed vllm-mlx backend read.
+  ++
+    map
+      (
+        name:
+        lib.mkRemovedOptionModule [
+          "programs"
+          "mlx"
+          name
+        ] "The vllm-mlx backend was removed; mlx_lm has no equivalent flag."
+      )
+      [
+        "gpuMemoryUtilization"
+        "enableMetrics"
+        "continuousBatching"
+        "defaultRepetitionPenalty"
+        "chunkedPrefillTokens"
+        "completionBatchSize"
+        "enableAutoToolChoice"
+        "toolCallParser"
+        "reasoningParser"
+      ]
+  ++ [
     (lib.mkRenamedOptionModule
       [
         "programs"

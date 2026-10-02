@@ -54,8 +54,7 @@ in
       # Metal guardrail. Official mlx_lm additionally receives the declared
       # cacheMemoryMb as --prompt-cache-bytes, and programs.mlx.memoryHardLimitGb
       # is enforced in-process by the mlx_lm launcher (mx.set_memory_limit /
-      # mx.set_cache_limit). vllm-only utilization and worker-unload options
-      # remain preserved but inactive for mlx_lm.
+      # mx.set_cache_limit). mlx_lm has no worker-side idle unload; llama-swap's ttl evicts.
       agents = {
         mlx-model-server = {
           enable = true;
