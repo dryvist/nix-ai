@@ -17,6 +17,12 @@
     src = old.src.override {
       hash = "sha256-cgVc4emWipvpV05H6L74RxKBJSJGMSM/ly23T/85+1s=";
     };
+    # A newer test also writes a #!/bin/bash helper, which the Linux sandbox
+    # lacks; point it at bash the same way the recipe already does for its own.
+    postPatch = old.postPatch + ''
+      substituteInPlace cmd/vllm-wrapper/main_test.go \
+        --replace-fail "#!/bin/bash" "#!${pkgs.lib.getExe pkgs.bash}"
+    '';
     vendorHash = "sha256-yelob7FlaGymASUP0DAUkALQm5vnXZnN5ThbnSkH2Ak=";
     passthru = old.passthru // {
       # Upstream moved the UI from ui-svelte/ to ui/.
