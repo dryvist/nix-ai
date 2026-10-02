@@ -10,7 +10,7 @@
 # answers `maint`, the backend has no usable server, and both frontends
 # answer 503 at once.
 #
-# Returns { ports; text; }. The wait/direct ports come from the endpoint URLs in
+# Returns { ports; text; }. The wait/direct/metrics ports come from the endpoint URLs in
 # vars/ai-stack.nix, so each number is written once.
 {
   roleMap,
@@ -27,13 +27,14 @@ let
     ;
 
   inherit (import ../../vars/ai-stack.nix) endpoints;
-  portOf = url: builtins.fromJSON (head (match "http://127.0.0.1:([0-9]+)/v1" url));
+  portOf = url: builtins.fromJSON (head (match "http://127.0.0.1:([0-9]+)/.*" url));
   ports = {
     wait = portOf endpoints.mlx_wait;
     direct = portOf endpoints.mlx_direct;
-    metrics = 11431;
+    metrics = portOf endpoints.mlx_metrics;
     powerAgent = 11430;
   };
+  metricsPath = head (match "http://127.0.0.1:[0-9]+(/.*)" endpoints.mlx_metrics);
   upstream = "127.0.0.1:${toString upstreamPort}";
   agent = "agent-check agent-addr 127.0.0.1 agent-port ${toString ports.powerAgent} agent-inter 30s";
 
@@ -102,7 +103,7 @@ in
 
     frontend metrics
       bind 127.0.0.1:${toString ports.metrics}
-      http-request use-service prometheus-exporter if { path /metrics }
+      http-request use-service prometheus-exporter if { path ${metricsPath} }
 
     ${lines (map backend kept)}
     backend passthrough
