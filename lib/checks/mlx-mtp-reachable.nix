@@ -46,10 +46,6 @@ let
   hmConfigMtp = mkHmConfig [
     {
       programs.mlx = {
-        # Stubbed as ./mlx-catalog-roles.nix stubs it: reading config.assertions
-        # forces a judge message interpolating this option, which is types.str
-        # with no default — otherwise eval throws instead of reporting.
-        judge.model = "mlx-community/test-judge-model";
         defaultModelKey = "qwen38-27b";
         catalog.qwen38-27b.class = "resident";
         enabledBackends = [

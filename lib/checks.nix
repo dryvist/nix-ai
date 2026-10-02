@@ -20,6 +20,7 @@
   home-manager,
   aiModule,
   renderAutonomous,
+  roleMap,
 }:
 let
   inherit (import ./checks-fixtures.nix { inherit pkgs home-manager aiModule; })
@@ -71,7 +72,16 @@ in
     hmConfigSessionArchive
     ;
 })
-// (import ./checks/ai-stack.nix { inherit pkgs testLocalModelId; })
+// (import ./checks/ai-stack.nix { inherit pkgs testLocalModelId roleMap; })
+// (import ./checks/mlx-role-map.nix { inherit pkgs roleMap; })
+// (import ./checks/mlx-local-queue.nix {
+  inherit
+    pkgs
+    roleMap
+    hmConfig
+    mkHmConfig
+    ;
+})
 // (import ./checks/ai-stack-endpoint.nix { inherit pkgs; })
 // (import ./checks/ai-stack-drift-check.nix { inherit pkgs src; })
 // (import ./checks/claude.nix { inherit pkgs hmConfig; })
@@ -124,7 +134,6 @@ in
 // (import ./checks/mlx-model-extra-args.nix { inherit pkgs; })
 // (import ./checks/mlx-catalog.nix { inherit pkgs hmConfigCatalog; })
 // (import ./checks/mlx-backend-selection.nix { inherit pkgs hmConfigCatalog; })
-// (import ./checks/mlx-worker-flag-surface.nix { inherit pkgs hmConfigCatalog; })
 // (import ./checks/mlx-proxy-logging.nix { inherit pkgs hmConfigCatalog; })
 // (import ./checks/mlx-default-model.nix { inherit pkgs hmConfigDefaultModel; })
 // (import ./checks/mlx-catalog-roles.nix {
@@ -134,7 +143,6 @@ in
     hmConfigDupRole
     ;
 })
-// (import ./checks/mlx-harmony.nix { inherit pkgs hmConfigCatalog; })
 // (import ./checks/mlx-cluster.nix { inherit pkgs hmConfigCluster src; })
 // (import ./checks/mlx-cluster-sharding.nix { inherit pkgs hmConfigCluster; })
 // (import ./checks/mlx-cluster-watcher-env.nix { inherit pkgs hmConfigCluster; })

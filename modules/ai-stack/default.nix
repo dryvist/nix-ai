@@ -8,12 +8,11 @@
 # names. Swapping a role's model is then one Nix attr edit + a darwin-rebuild
 # switch — no consumer-side change is required.
 #
-# The role names (default, quickest, small, tool-calling, coding,
-# large-context, most-capable) plus oss for explicit Apache-2/MIT model
-# preference are stable and consumer-facing. Add new roles here; do not embed
-# physical names in consumer modules.
+# The role names come from the role map (lib/role-map.nix, read by
+# lib/ai-stack-models.nix) and are stable and consumer-facing. Add new roles
+# there; do not embed physical names in consumer modules.
 #
-# vars/ai-stack.nix is the data file (models + endpoints + nodeports). The
+# vars/ai-stack.nix is the data file (endpoints + nodeports). The
 # home-manager activation below serializes it to ~/.config/ai-stack/registry.json
 # on every rebuild so non-Nix consumers (orbstack-kubernetes, ansible, shell
 # scripts) can read the same values via plain `jq`.
@@ -22,10 +21,12 @@
   config,
   lib,
   pkgs,
+  homelab-contracts,
   ...
 }:
 let
   cfg = config.services.aiStack;
+  roleMap = import ../../lib/role-map.nix { src = homelab-contracts; };
   registryAttrs = import ../../vars/ai-stack.nix;
 
   # Effective endpoint map = the committed loopback entries plus the
@@ -36,8 +37,7 @@ let
     registryAttrs.endpoints
     // lib.optionalAttrs (cfg.llmRouterEndpoint != "") { router = cfg.llmRouterEndpoint; };
 
-  # The populated registry replaces the var file's null-sentinel `models`
-  # block with the actual role → id map computed from
+  # The populated registry adds the role → id map computed from
   # services.aiStack.defaultLocalModelId, and swaps in the effective endpoint
   # map (with the injected router). The JSON written to
   # ~/.config/ai-stack/registry.json contains the materialized values so
@@ -114,6 +114,7 @@ in
       default =
         (import ../../lib/ai-stack-models.nix {
           inherit (config.services.aiStack) defaultLocalModelId;
+          inherit roleMap;
         })
         // config.services.aiStack.roleOverrides;
       defaultText = lib.literalExpression ''
@@ -124,7 +125,7 @@ in
       '';
       description = ''
         Role-name → physical model ID map. Each role becomes a first-class
-        llama-swap entry whose cmd runs `vllm-mlx serve <physical>`.
+        llama-swap entry whose cmd runs the MLX model server for <physical>.
 
         Default: every role resolves to `services.aiStack.defaultLocalModelId`
         (read via `lib/ai-stack-models.nix`), then

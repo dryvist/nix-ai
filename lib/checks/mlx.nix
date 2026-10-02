@@ -6,7 +6,7 @@ let
 in
 {
   # Verify all expected MLX option paths exist.
-  # Flat structure — no nested backend settings (vllm-mlx only since v0.2.6).
+  # Flat structure — no nested backend settings.
   mlx-options-regression = helpers.mkOptionsRegression {
     label = "MLX";
     checkName = "check-mlx-options-regression";
@@ -16,15 +16,9 @@ in
       "autoUnloadIdleSeconds"
       "bufferCacheLimitGb"
       "cacheMemoryMb"
-      "chunkedPrefillTokens"
-      "completionBatchSize"
-      "continuousBatching"
       "defaultModel"
       "enable"
-      "enableAutoToolChoice"
-      "enableMetrics"
       "enablePrefixCaching"
-      "gpuMemoryUtilization"
       "host"
       "huggingFaceHome"
       "maxTokens"
@@ -35,10 +29,8 @@ in
       "port"
       "prefillBatchSize"
       "proxy"
-      "reasoningParser"
       "serverLogLevel"
       "singleModel"
-      "toolCallParser"
     ];
   };
 

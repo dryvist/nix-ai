@@ -26,7 +26,6 @@ let
   overrideValue = 500;
 
   baseCfg = {
-    judge.model = "mlx-community/test-judge-model";
     defaultModelKey = "qwen38-27b";
     catalog.qwen38-27b.class = "resident";
   };

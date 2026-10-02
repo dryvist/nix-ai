@@ -74,7 +74,6 @@ let
   mustNotHave = [
     ".*--decode-concurrency.*"
     ".*--prompt-cache-bytes.*"
-    ".*--harmony-tool-parser.*"
     ".*--max-num-seqs.*"
   ];
 in

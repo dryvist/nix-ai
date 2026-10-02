@@ -116,7 +116,7 @@ this one.
 - AI CLI tools (Claude Code, Antigravity, Codex, Copilot, Cursor, qwen-code, cecli)
 - MCP servers and wrappers (github-mcp-server, terraform-mcp-server, etc.)
 - AI tool configuration files (`.claude/`, `.gemini/`, `.copilot/`)
-- MLX inference server (vllm-mlx LaunchAgent + wrappers)
+- MLX inference server (mlx_lm.server LaunchAgent + llama-swap + wrappers)
 - AI-specific shell utilities (hf CLI wrapper, Doppler-wrapped aliases)
 
 ### Package placement
@@ -140,15 +140,15 @@ instead. Design decisions in [`docs/adr/`](docs/adr/README.md).
 - `modules/claude-config.nix` — Claude Code config (settings/permissions/marketplace catalog come from the `nix-claude-code` flake input)
 - `modules/claude/plugins/` — Plugin tier files ([README](modules/claude/plugins/README.md))
 - `modules/mcp/catalog.nix` — MCP server definitions
-- `modules/mlx/` — MLX inference server (vllm-mlx LaunchAgent, CLI tools)
+- `modules/mlx/` — MLX inference server (mlx_lm.server LaunchAgent, CLI tools)
 - `modules/common/` — Shared permission engine and formatters
 - `vars/ai-stack.nix` — Central model/endpoint/version registry
 - `lib/checks/` — Per-domain regression tests (lint, claude, mlx)
 
 ## MLX Ecosystem
 
-Three tools — `parakeet-mlx` (audio), `mlx-vlm` (vision), `vllm-mlx` (LLM) — installed
-as `uvx` wrappers; vllm-mlx runs as a LaunchAgent fronted by llama-swap. Full dependency
+Three tools — `parakeet-mlx` (audio), `mlx-vlm` (vision), `mlx-lm` (LLM). The first two are
+`uvx` wrappers; `mlx_lm.server` runs as a LaunchAgent fronted by llama-swap. Full dependency
 graph, version management, and operational notes (tool-call parser, idle eviction, MoE
 throughput) in [`docs/architecture/mlx-stack.md`](docs/architecture/mlx-stack.md).
 Port allocation lives in [`docs/architecture/system-integration-map.md`](docs/architecture/system-integration-map.md).

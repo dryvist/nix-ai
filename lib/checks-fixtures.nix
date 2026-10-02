@@ -6,7 +6,7 @@
 # decides which check groups run and wires each one to the fixtures it needs.
 #
 # `rec` because the fixtures are layered — mkHmConfig sits on mkHmConfigWith,
-# and most hmConfig* sit on mkHmConfig plus judgeModelStub.
+# and most hmConfig* sit on mkHmConfig.
 {
   pkgs,
   home-manager,
@@ -106,38 +106,23 @@ rec {
     {
       programs.mlx = {
         catalog = {
-          qwen35-9b-optiq = {
-            class = "swap";
-          };
           qwen38-27b = {
             class = "resident";
-            roles = [ "goal-judge" ];
+            roles = [ "judge" ];
           };
-          qwen36-optiq.class = "resident";
-          # Stock Qwen3.6 sibling, swap-class: enabled so the compiled
-          # modelContextWindows carries its declared 65536 window for
-          # mlx-catalog.nix to assert. Resident would push the fixture past
-          # residentWeightBudgetGb for no added coverage.
-          qwen36-35b.class = "swap";
-          qwen3-coder-30b.class = "resident";
-          gpt-oss-120b.class = "swap";
-          qwen3-next-80b = {
-            class = "swap";
-            tweaks.ttl = 600;
-          };
-          # Carries an intrinsic proxy concurrencyLimit=1 (metal::malloc under
-          # concurrency) — exercises modelConcurrencyLimits compilation.
-          qwen3-next-80b-instruct.class = "swap";
+          # Swap-class text entry with an intrinsic concurrencyLimit (2):
+          # exercises the swap tier, its default ttl and modelConcurrencyLimits.
+          mimo-9b.class = "swap";
           # Vision-language entry: exercises the per-model backend override
           # (catalog `backend` -> modelBackends -> mlx_vlm.server) while the
-          # host backend stays mlx-lm for every other model.
+          # host backend stays mlx-lm for every other model, and the ttl tweak.
           unlimited-ocr = {
             class = "swap";
             tweaks.ttl = 600;
           };
         };
         # Direct host setting on a catalog-managed key must win over the catalog.
-        modelFlagOverrides."mlx-community/Qwen3.6-35B-A3B-OptiQ-4bit".cacheMemoryMb = 8192;
+        modelFlagOverrides."mlx-community/Qwen3.8-27B-4bit".cacheMemoryMb = 8192;
       };
     }
   ];
@@ -152,9 +137,9 @@ rec {
         defaultModelKey = "qwen38-27b";
         catalog = {
           qwen38-27b.class = "resident";
-          qwen36-35b = {
+          mimo-9b = {
             class = "resident";
-            roles = [ "goal-judge" ];
+            roles = [ "judge" ];
           };
         };
       };
@@ -166,17 +151,11 @@ rec {
   # one role name to two enabled entries, so the uniqueness assertion must come
   # back false. Kept out of hmConfigCatalog so the duplicate case cannot leak
   # into the checks that read that fixture.
-  #
-  # Both set programs.mlx.judge.model even though the judge stays disabled: the
-  # check locates assertions by matching their `message`, and the judge
-  # assertion's message interpolates that option, which has no default.
-  judgeModelStub.programs.mlx.judge.model = "mlx-community/test-judge-model";
   hmConfigSmallRole = mkHmConfig [
-    judgeModelStub
     {
       programs.mlx.catalog = {
         qwen38-27b.class = "resident";
-        qwen35-9b-optiq = {
+        mimo-9b = {
           class = "swap";
           roles = [ "small" ];
         };
@@ -184,14 +163,13 @@ rec {
     }
   ];
   hmConfigDupRole = mkHmConfig [
-    judgeModelStub
     {
       programs.mlx.catalog = {
         qwen38-27b = {
           class = "resident";
           roles = [ "small" ];
         };
-        qwen35-9b-optiq = {
+        mimo-9b = {
           class = "swap";
           roles = [ "small" ];
         };
@@ -201,12 +179,7 @@ rec {
 
   # Fourth evaluation exercising programs.mlx.clusterMode as the coordinator
   # (lib/checks/mlx-cluster.nix): rank env contract, watcher wiring, prefetch.
-  # judgeModelStub rides along because lib/checks/mlx-cluster-sharding.nix reads
-  # this config's `assertions` list, and the judge assertion's message
-  # interpolates an option carrying no default — the same reason the role
-  # fixtures above carry it.
   hmConfigCluster = mkHmConfig [
-    judgeModelStub
     {
       programs.mlx.clusterMode = {
         enable = true;

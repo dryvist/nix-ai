@@ -14,6 +14,7 @@
   nixAiLib,
   ai-llm-prompts,
   herdr-remote-src,
+  homelab-contracts,
   src,
 }:
 let
@@ -40,6 +41,7 @@ in
         home-manager
         src
         ;
+      roleMap = import (src + "/lib/role-map.nix") { src = homelab-contracts; };
       aiModule = self.homeManagerModules.default;
       inherit (nixAiLib) renderAutonomous;
     })

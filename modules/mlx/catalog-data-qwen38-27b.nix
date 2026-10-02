@@ -17,8 +17,8 @@ in
   #
   # Note this family is HYBRID attention but is NOT qwen3_next: it does not hit
   # the mlx-lm#1162 paged-block reconstruction failure, which is why the
-  # incumbent runs without hybridNoPaged and this entry does the same. Do not
-  # "fix" that by adding hybridNoPaged on the strength of the layer_types field
+  # incumbent runs with the paged cache on and this entry does the same. Do not
+  # "fix" that by turning the paged cache off on the strength of the layer_types field
   # alone — the incumbent has served this topology in production for weeks.
   #
   # Thinking is ON at the model's own baseline. Its reasoning is the reason it
@@ -41,9 +41,8 @@ in
   # medium is the model's unsteered baseline, not a step up a dial.
   #
   # What is NOT claimed: that either value is bounded. reasoning_effort is a
-  # prompt string the model may ignore, so neither low nor medium is a budget
-  # — only vllm-mlx's thinking_token_budget enforces a real ceiling. Do not
-  # read this pin as protection against a long think.
+  # prompt string the model may ignore, so neither low nor medium is a
+  # budget. Do not read this pin as protection against a long think.
   #
   # No tok/s figure is recorded here on purpose. Decode on this host measured
   # 17.4-27.3 across runs producing byte-identical output, so a single-run
@@ -82,12 +81,9 @@ in
       # a lower request cap would turn the declared default into a client-only
       # hint and force long-context callers to fail before model dispatch.
       #
-      # maxNumSeqs/maxRequestTokens are declared for the vllm-mlx backend this
-      # entry does not currently run on (mlx-lm is the deployed backend
-      # fleet-wide; see lib/checks/mlx-catalog.nix). model-server-cmd.nix's
-      # mlxLmFlags never reads them, so they are inert today. Left declared
-      # rather than removed: they are the correct values IF vllm-mlx is
-      # re-enabled, and removing them would silently lose that intent.
+      # maxNumSeqs/maxRequestTokens are catalog class-profile keys that
+      # model-server-cmd.nix's mlxLmFlags does not read; they have no effect
+      # on the mlx_lm command.
       #
       # cacheMemoryMb is DERIVED, not stated: cacheProvisioning.concurrency=1
       # means "guarantee ONE genuinely-simultaneous full-window (128k) stream

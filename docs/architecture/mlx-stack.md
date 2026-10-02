@@ -11,10 +11,7 @@ plus shared libraries and operational behaviour.
 | Eyes (Vision) | `mlx-vlm` | Screen/camera image analysis | `uvx` wrapper (Nix derivation) |
 | Brain (LLM) | `mlx-lm` (`mlx_lm.server`) | LLM inference API server | Nix store (LaunchAgent, fronted by llama-swap) |
 
-`mlx-lm` is the only backend that serves. `vllm-mlx` is preserved but disabled:
-the code still carries it, and `modules/mlx/assertions.nix` fails evaluation
-unless `modelServerBackend` and `enabledBackends` are `mlx-lm` alone. A
-vision-language model may opt into `mlx-vlm` per model through
+`mlx-lm` is the text backend. A vision-language model may opt into `mlx-vlm` per model through
 `programs.mlx.modelBackends`.
 
 ## Dependency Graph
@@ -74,7 +71,7 @@ Two delivery paths, split by whether a working Nix package exists:
 | Component | Delivery | Why |
 | --------- | -------- | --- |
 | `mlx`, `mlx-lm`, `transformers` | Nix store (`modules/mlx/python-overlay.nix`) | Always-running serving path; needs dedup and GC |
-| `parakeet-mlx`, `vllm-mlx` (preserved, disabled) | `uvx` wrapper | Not packaged in nixpkgs |
+| `parakeet-mlx` | `uvx` wrapper | Not packaged in nixpkgs |
 | `mlx-vlm` | `uvx` wrapper | nixpkgs lags the pinned version |
 
 The serving stack moved off `uv run --with` because uv's cache is append-only
@@ -123,12 +120,8 @@ overlay's wheel mlx (`modules/mlx/python-overlay.nix`), which reports
 server's `system_fingerprint` ends in the GPU id (e.g. `applegpu_g16s`) when
 Metal is live.
 
-**Tool-call parsing**: the mlx-lm backend uses the patched wheel's
-`--harmony-tool-parser` (`auto` by default; `on`/`off` pinned per model in
-`modules/mlx/catalog-data.nix`). `auto` engages only on turns that open with
-harmony markup, so it is inert for every other model. The `--tool-call-parser`
-flag and its hermes/Qwen compatibility caveat belong to the disabled vllm-mlx
-path only — `programs.mlx.toolCallParser` emits nothing while mlx-lm serves.
+**Tool-call parsing**: the mlx-lm backend infers the tool parser from each
+model's chat template. No tool-call parser flag is passed.
 
 **Idle penalty**: llama-swap evicts an idle model after `proxy.idleTtl` (default 15 min;
 the worker's `autoUnloadIdleSeconds` failsafe fires at 30 min). The next request pays a

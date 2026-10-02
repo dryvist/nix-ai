@@ -9,7 +9,6 @@
 # results are published to https://huggingface.co/datasets/JacobPEvans/mlx-benchmarks
 #
 {
-  config,
   lib,
   pkgs,
   mlxShared,
@@ -19,10 +18,8 @@ let
   inherit (mlxShared)
     cfg
     mlxModelServerPkg
-    vllmMlxPkg
     mlxWarmupPkg
     mlxWatchdogPkg
-    vllmMlxVersion
     parakeetMlxVersion
     mlxVlmVersion
     apiUrl
@@ -36,7 +33,6 @@ let
     allModels
     ;
   versions = import ../../lib/versions.nix;
-  vllmMlxPin = "vllm-mlx==${vllmMlxVersion}";
   mlxLmVersion = versions.mlxLm;
   lmEvalVersion = versions.lmEval;
   workerPortCount = builtins.length (builtins.attrNames allModels);
@@ -202,8 +198,7 @@ in
           '';
         })
 
-        # mlx-watchdog — retained on PATH for manual break-fix and future
-        # vllm-mlx re-enablement. No watchdog LaunchAgent runs for mlx_lm.
+        # mlx-watchdog — also on PATH for manual break-fix.
         mlxWatchdogPkg
 
         # ======================================================================
@@ -245,17 +240,6 @@ in
         # mlx-vlm-generate — vision language model image analysis
         (pkgs.writeShellScriptBin "mlx-vlm-generate" ''
           exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} --from "mlx-vlm==${mlxVlmVersion}" mlx_vlm.generate "$@"
-        '')
-      ]
-      ++ lib.optionals (lib.elem "vllm-mlx" cfg.enabledBackends) [
-        # Preserved for future requalification; absent from deployed hosts while
-        # the backend is disabled.
-        vllmMlxPkg
-        (pkgs.writeShellScriptBin "mlx-bench" ''
-          exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} --from "${vllmMlxPin}" vllm-mlx-bench "$@"
-        '')
-        (pkgs.writeShellScriptBin "mlx-bench-engine" ''
-          exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} --from "${vllmMlxPin}" vllm-mlx bench "$@"
         '')
       ];
     };

@@ -69,8 +69,7 @@
 # unavailable unless that backend is re-enabled. `modelMtpProfiles` provides a
 # separate, opt-in c1-only experimental contract when a served snapshot and
 # backend have both been verified. A future git-wheel
-# serverVariant (staged DeepSeek rollout) adds --mtp but drops
-# --harmony-tool-parser — never select it for gpt-oss.
+# serverVariant (staged DeepSeek rollout) adds --mtp.
 {
   # Paged-cache block sizing (engine default 64): long sessions shatter the KV
   # into enough per-block Metal buffers to trip MLX's buffer-count limit
@@ -88,18 +87,6 @@
   };
   block512 = {
     pagedCacheBlockSize = 512;
-  };
-  # qwen3_next hybrid-attention family: the paged KV cache fails block
-  # reconstruction on every multi-turn request (mlx-lm#1162), wedging the worker
-  # into a full-context re-prefill each turn that the serving watchdog then
-  # reaps. The standard non-paged KV cache reconstructs correctly, so these
-  # models run paged off — the same escape hatch gpt-oss-120b uses for its own
-  # paged-cache attention incompatibility. Prefix sharing needs the paged cache,
-  # so it stays off too (already unsupported for this family). With paged off
-  # there are no per-block Metal buffers, so block-size sizing no longer applies.
-  hybridNoPaged = {
-    pagedKvCache = false;
-    enablePrefixCaching = false;
   };
   # Swap tier: on-demand, idle-unloaded, small caps.
   swapFlags = {

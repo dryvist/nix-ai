@@ -369,11 +369,11 @@
         "treefmt-nix": "treefmt-nix_2"
       },
       "locked": {
-        "lastModified": 1790899751,
-        "narHash": "sha256-pT+QMKtQeshiNtQYPnOw6JAY5CQsWUp/udIOT1hyJg4=",
+        "lastModified": 1790947381,
+        "narHash": "sha256-5KewyOIm/a02JbWR4jDdiwpG0NHBWz35D/ut8NKwFHA=",
         "owner": "dryvist",
         "repo": ".github",
-        "rev": "cb1c52a4e29ca7625afffa3cf7c7887b06646947",
+        "rev": "5fb573bd498c8672c5b7821175d5b1cf0d163508",
         "type": "github"
       },
       "original": {
@@ -588,6 +588,22 @@
         "owner": "nix-community",
         "ref": "release-26.05",
         "repo": "home-manager",
+        "type": "github"
+      }
+    },
+    "homelab-contracts": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1790960592,
+        "narHash": "sha256-qb+F+nl5PG2/LB0P9LAIDLSrn5PgVRmnxPx1ogPyyTA=",
+        "owner": "dryvist",
+        "repo": "homelab-contracts",
+        "rev": "71c7f9529dcc1de0ba89001424b97bdf5c8302cc",
+        "type": "github"
+      },
+      "original": {
+        "owner": "dryvist",
+        "repo": "homelab-contracts",
         "type": "github"
       }
     },
@@ -810,11 +826,11 @@
         "visual-explainer-marketplace": "visual-explainer-marketplace"
       },
       "locked": {
-        "lastModified": 1790940486,
-        "narHash": "sha256-62i79tGeOhIE3jDJ/m7UnTHmdtTnEYoFkr+JvQqkOxg=",
+        "lastModified": 1790973525,
+        "narHash": "sha256-EdzU7MAGgRyQqg36X2iuoqZMPUfUGLSjTkNWibQwhkw=",
         "owner": "dryvist",
         "repo": "nix-claude-code",
-        "rev": "57958c7b7958ef56a5fad5e3b998b8aa9d1200c6",
+        "rev": "1bca6b741b4cf41185280a665e2f624fdc3d7320",
         "type": "github"
       },
       "original": {
@@ -956,6 +972,7 @@
         "herdr-hail-src": "herdr-hail-src",
         "herdr-remote-src": "herdr-remote-src",
         "home-manager": "home-manager",
+        "homelab-contracts": "homelab-contracts",
         "jacobpevans-cc-plugins": "jacobpevans-cc-plugins",
         "karpathy-skills": "karpathy-skills",
         "langfuse-skills": "langfuse-skills",

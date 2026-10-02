@@ -40,6 +40,12 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # LLM role map source (lib/role-map.nix).
+    homelab-contracts = {
+      url = "github:dryvist/homelab-contracts";
+      flake = false;
+    };
+
     # Official Anthropic plugin marketplace source (also re-exposed via
     # nix-claude-code). Kept here because nix-ai modules still reference it
     # directly for cookbook command/agent discovery.
@@ -239,6 +245,7 @@
       herdr-remote-src,
       herdr-hail-src,
       token-meter-src,
+      homelab-contracts,
       ...
     }:
     let
@@ -257,10 +264,9 @@
           nix-codex
           nix-agy
           homebrewNix
+          homelab-contracts
           ;
       };
-      orchestratorPromptDir =
-        system: "${ai-llm-prompts.packages.${system}.applications}/share/ai-llm-prompts/applications";
     in
     {
       homeManagerModules = import ./flake/home-manager-modules.nix {
@@ -285,6 +291,7 @@
           vct-splunk-cli
           gh-stack
           token-meter-src
+          homelab-contracts
           ;
       };
 
@@ -319,6 +326,7 @@
           nixAiLib
           ai-llm-prompts
           herdr-remote-src
+          homelab-contracts
           ;
         src = ./.;
       };
@@ -336,18 +344,7 @@
         inherit herdr-remote-src herdr-hail-src nixpkgs-unstable;
       };
 
-      devShells = forAllSystems (
-        system:
-        let
-          pkgs = nixpkgs.legacyPackages.${system};
-        in
-        {
-          default = pkgs.mkShell {
-            packages = [ pkgs.uv ];
-            NIX_AI_PROMPT_DIR = orchestratorPromptDir system;
-          };
-        }
-      );
+      devShells = import ./flake/dev-shells.nix { inherit nixpkgs forAllSystems ai-llm-prompts; };
 
       # Extracted to flake/overlays.nix to stay under the 12KB file-size gate.
       overlays = import ./flake/overlays.nix { inherit self; };

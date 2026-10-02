@@ -5,28 +5,22 @@ let
 in
 {
   # Catalog compile regression (programs.mlx.catalog -> per-model surfaces).
-  # Uses hmConfigCatalog (lib/checks.nix): optiq+coder resident, gpt-oss+80B
-  # swap (80B with a ttl tweak), plus a direct host override on optiq's
+  # Uses hmConfigCatalog (lib/checks-fixtures.nix): 27B resident, MiMo and OCR
+  # swap (OCR with a ttl tweak), plus a direct host override on the 27B's
   # cacheMemoryMb that must beat the catalog's mkDefault.
   mlx-catalog =
     let
       c = hmConfigCatalog.config.programs.mlx;
-      optiq = "mlx-community/Qwen3.6-35B-A3B-OptiQ-4bit";
-      coder = "mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit";
-      gptOss = "mlx-community/gpt-oss-120b-MXFP4-Q8";
-      next80 = "mlx-community/Qwen3-Next-80B-A3B-Thinking-4bit";
-      next80Instruct = "mlx-community/Qwen3-Next-80B-A3B-Instruct-4bit";
-      qwen36 = "mlx-community/Qwen3.6-35B-A3B-4bit";
+      mimo = "mlx-community/MiMo-V2.6-Distill-Qwen-9B-OptiQ-4bit";
+      ocr = "mlx-community/Unlimited-OCR-bf16";
       judge27b = "mlx-community/Qwen3.8-27B-4bit";
-      optiqFlags = c.modelFlagOverrides.${optiq};
+      judgeFlags = c.modelFlagOverrides.${judge27b};
       judgeArgs = builtins.concatStringsSep " " c.modelExtraArgs.${judge27b};
       commandBuilder = import ../../modules/mlx/model-server-cmd.nix {
         inherit (pkgs) lib;
         cfg = c;
         mlxModelServerPkg = pkgs.writeShellScriptBin "mlx-model-server" "";
       };
-      optiqCmd =
-        commandBuilder.mkModelCmd optiq + " " + pkgs.lib.escapeShellArgs c.modelExtraArgs.${optiq};
       judgeCmd =
         commandBuilder.mkModelCmd judge27b + " " + pkgs.lib.escapeShellArgs c.modelExtraArgs.${judge27b};
       uncataloguedCmd = commandBuilder.mkModelCmd "mlx-community/test-model";
@@ -57,23 +51,16 @@ in
         }).mkModelCmd
           "mlx-community/null-default-test";
       watchdogAgent = hmConfigCatalog.config.launchd.agents.mlx-model-server-watchdog;
-      inst = c.modelFlagOverrides.${next80Instruct};
-      next80InstructPagedOff = inst.pagedKvCache == false && inst.enablePrefixCaching == false;
     in
     assert
-      optiqFlags.cacheMemoryMb == 8192
-      || throw "catalog: direct host override (8192) must beat the catalog default 16384, got ${toString optiqFlags.cacheMemoryMb}";
+      judgeFlags.cacheMemoryMb == 8192
+      || throw "catalog: direct host override (8192) must beat the catalog default, got ${toString judgeFlags.cacheMemoryMb}";
     assert
-      optiqFlags.pagedCacheBlockSize == 512 && optiqFlags.maxNumSeqs == 8
-      || throw "catalog: optiq resident profile (block 512 / maxNumSeqs 8) not compiled";
+      judgeFlags.pagedCacheBlockSize == 512 && judgeFlags.maxNumSeqs == 8
+      || throw "catalog: 27B resident profile (block 512 / maxNumSeqs 8) not compiled";
     assert
-      builtins.match ".*--decode-concurrency ${conc optiq}.*--prompt-concurrency ${conc optiq}.*" optiqCmd
-      != null
-      && builtins.match ".*--tool-call-parser.*" optiqCmd == null
-      || throw "catalog: official mlx_lm serial-serving args not compiled cleanly: ${optiqCmd}";
-    assert
-      c.modelFlagOverrides.${coder}.maxRequestTokens == 32768
-      || throw "catalog: coder resident maxRequestTokens 32768 not compiled";
+      builtins.match ".*--tool-call-parser.*" judgeCmd == null
+      || throw "catalog: official mlx_lm serving args must not carry --tool-call-parser: ${judgeCmd}";
     assert
       c.modelContextWindows.${judge27b} == 131072
       || throw "catalog: Qwen3.8 must compile its 131072-token production window";
@@ -81,8 +68,8 @@ in
       c.modelFlagOverrides.${judge27b}.maxRequestTokens == 131072
       || throw "catalog: Qwen3.8 must admit its declared 131072-token production window";
     assert
-      c.modelContextWindows.${qwen36} == 65536
-      || throw "catalog: Qwen3.6 must advertise its 65536-token declared window";
+      c.modelContextWindows.${mimo} == 32768
+      || throw "catalog: an entry with no declared window must advertise the 32768-token default";
     # The watchdog is the only thing that notices a proxy that is up but not
     # serving, so on a host with a resident set it MUST be running. This used
     # to assert the opposite — that it stay disabled — back when its busy
@@ -149,49 +136,25 @@ in
       c.proxy.logLevel == "info"
       || throw "catalog: production proxy logging must remain prompt-safe INFO";
     assert
-      hmConfigCatalog.config.services.aiStack.roleOverrides.goal-judge == judge27b
-      || throw "catalog: logical goal-judge role must resolve to the catalog-owned physical model";
+      hmConfigCatalog.config.services.aiStack.roleOverrides.judge == judge27b
+      || throw "catalog: logical judge role must resolve to the catalog-owned physical model";
     assert
       !(builtins.hasAttr judge27b c.modelTtls)
       || throw "catalog: resident 27B judge must inherit the resident TTL";
     assert
-      c.modelTtls."mlx-community/Qwen3.5-9B-OptiQ-4bit" == 900
-      || throw "catalog: swap-class role models must retain a backend-neutral 900-second proxy TTL";
+      c.models.${mimo}.ttl == 900
+      || throw "catalog: swap ttl must default to 900, got ${toString c.models.${mimo}.ttl}";
     assert
-      c.modelFlagOverrides.${gptOss}.pagedKvCache == false
-      && c.modelFlagOverrides.${gptOss}.enablePrefixCaching == false
-      || throw "catalog: gpt-oss swap profile must disable paged KV + prefix caching";
+      builtins.match ".*enable_thinking.*false.*" (
+        builtins.concatStringsSep " " c.models.${mimo}.extraArgs
+      ) != null
+      || throw "catalog: MiMo must be served thinking-off";
     assert
-      c.models.${gptOss}.ttl == 900
-      || throw "catalog: gpt-oss swap ttl must default to 900, got ${toString c.models.${gptOss}.ttl}";
+      c.models.${ocr}.ttl == 600 && c.modelFlagOverrides.${ocr}.autoUnloadIdleSeconds == 600
+      || throw "catalog: ttl tweak (600) must reach both llama-swap ttl and worker idle unload";
+    # A catalog concurrencyLimit compiles to the per-model proxy cap, and it
+    # matches the role map's concurrency for that model.
     assert
-      c.models.${next80}.ttl == 600 && c.modelFlagOverrides.${next80}.autoUnloadIdleSeconds == 600
-      || throw "catalog: 80B ttl tweak (600) must reach both llama-swap ttl and worker idle unload";
-    assert
-      builtins.match ".*enable_thinking.*" (builtins.concatStringsSep " " c.models.${next80}.extraArgs)
-      == null
-      || throw "catalog: 80B (always-thinking variant) must not carry an enable_thinking kwarg";
-    assert
-      c.modelFlagOverrides.${next80}.pagedKvCache == false
-      && c.modelFlagOverrides.${next80}.enablePrefixCaching == false
-      || throw "catalog: 80B-thinking (qwen3_next hybrid) must disable paged KV + prefix caching — paged-block reconstruction fails every multi-turn request and wedges the worker (mlx-lm#1162)";
-    assert
-      next80InstructPagedOff
-      || throw "catalog: 80B-instruct (qwen3_next hybrid) must disable paged KV + prefix caching (mlx-lm#1162)";
-    # 40B+ single-slot policy (user directive 2026-07-21): every 40B+ model
-    # compiles concurrencyLimit=1 so llama-swap serializes dispatch. The hybrid
-    # 80Bs abort under concurrent dispatch (Metal resource-limit) and gpt-oss is
-    # 63 GB on one GPU; batching only time-slices and balloons latency into the
-    # 429 storm. maxNumSeqs=1 in the catalog flags is the paired engine-level
-    # guard. Extended from the 2026-07 Instruct-only serialization.
-    assert
-      c.modelConcurrencyLimits.${next80Instruct} == 1
-      || throw "catalog: 80B-instruct must compile concurrencyLimit=1 (40B+ single-slot policy)";
-    assert
-      c.modelConcurrencyLimits.${next80} == 1
-      || throw "catalog: 80B-thinking must compile concurrencyLimit=1 (40B+ single-slot policy)";
-    assert
-      c.modelConcurrencyLimits.${gptOss} == 1
-      || throw "catalog: gpt-oss-120b must compile concurrencyLimit=1 (40B+ single-slot policy)";
+      c.modelConcurrencyLimits.${mimo} == 2 || throw "catalog: mimo-9b must compile concurrencyLimit=2";
     helpers.mkMarker "check-mlx-catalog" "MLX catalog: resident/swap compile, bounded tweak, ttl fan-out, and host-override precedence verified";
 }

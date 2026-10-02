@@ -38,15 +38,6 @@
       description = "Path to HuggingFace model cache (dedicated APFS volume)";
     };
 
-    # Retained for the disabled vllm-mlx backend, whose native
-    # --enable-metrics flag exposes /metrics on each worker. The active
-    # mlx_lm backend does not consume this option.
-    enableMetrics = lib.mkOption {
-      type = lib.types.bool;
-      default = true;
-      description = "Expose native Prometheus metrics when the selected MLX backend supports them.";
-    };
-
     telemetry = {
       enable = lib.mkEnableOption "OpenTelemetry trace export from the MLX inference stack";
 

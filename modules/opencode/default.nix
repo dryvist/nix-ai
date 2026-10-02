@@ -14,6 +14,7 @@
   nix-claude-code,
   llm-agents,
   userConfig,
+  homelab-contracts,
   ...
 }:
 
@@ -61,10 +62,11 @@ let
 
   # Router capability aliases the local proxy serves. Each is a stable name;
   # which physical model it resolves to is an upstream setting, so this list
-  # does not change when the mapping does. Sourced from the one committed
-  # contract every consumer renders from — see
-  # modules/litellm-local/aliases.nix.
-  litellmRoles = import ../litellm-local/aliases.nix;
+  # does not change when the mapping does. Every role in the role map
+  # (lib/role-map.nix), the same list as modules/litellm-local/aliases.nix.
+  litellmRoles =
+    builtins.attrNames
+      (import ../../lib/role-map.nix { src = homelab-contracts; }).roles;
 
   allLitellmModels = lib.unique (litellmRoles ++ cfg.extraModels);
 
