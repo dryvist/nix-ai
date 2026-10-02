@@ -10,27 +10,8 @@ in
 {
   # Fail evaluation when coupled options or generated proxy contracts drift.
   assertions = lib.optionals cfg.enable [
-    # A DENY of vllm-mlx, not `enabledBackends == [ "mlx-lm" ]` as it read until
-    # 2026-08-30. That exact-equality made the MTP assertion below
-    # unsatisfiable (it needs "mlx-vlm-native" IN the list), so every enabled
-    # modelMtpProfiles entry was rejected and the option was dead code. Same
-    # intent, without forbidding the per-model overrides the OCR entry already
-    # relies on. Full account in lib/checks/mlx-mtp-reachable.nix.
-    # Until 2026-09-01 this denied vllm-mlx outright ("preserved but
-    # disabled"). That posture is lifted, because the reason for it was the
-    # cost of switching and the reason against it is now measured: on
-    # 2026-09-01 the mlx-lm tier was driven at 4-way concurrency and produced
-    # 16.8s / 21.1s / 79.1s against a ~12s serial baseline, with one request
-    # never returning at all. Flat-ish latency under concurrency is what a
-    # batching server produces; that is queueing plus stalling. A stalled
-    # request also never fires llama-swap's deferred completion callback, so
-    # its admission reservation is never released -- which is the instant-429
-    # the agent fleet has been hitting.
-    #
-    # So the deny is replaced by coherence guards rather than removed: the
-    # selected backend must actually be enabled, and the vllm-only coupling
-    # assertions below still bind. Selecting vllm-mlx remains a HOST decision;
-    # nothing here changes which backend a host runs.
+    # The selected backend must be enabled (mlx-vlm-native for MTP profiles is
+    # added to enabledBackends, not substituted for mlx-lm).
     {
       assertion = lib.elem cfg.modelServerBackend cfg.enabledBackends;
       message =
@@ -44,14 +25,6 @@ in
     {
       assertion = cfg.singleModel == null || builtins.hasAttr cfg.singleModel allModels;
       message = "programs.mlx.singleModel must name a physical id already compiled into the model registry (a services.aiStack role or programs.mlx.models entry).";
-    }
-    {
-      assertion = cfg.modelServerBackend != "vllm-mlx" || !cfg.enablePrefixCaching || cfg.pagedKvCache;
-      message = ''
-        programs.mlx.enablePrefixCaching requires programs.mlx.pagedKvCache to
-        also be true. vllm-mlx builds the prefix-sharing index inside the paged
-        KV cache. Set both options true or both false.
-      '';
     }
     {
       assertion = lib.all (

@@ -67,11 +67,7 @@ in
       # backend-neutral — an OpenAI completion through llama-swap, launchctl
       # kickstart/bootout of the proxy label, and the port-ownership reap
       # (MLX_PORT / MLX_WORKER_PORT_RANGE_START / MLX_WORKER_PORT_COUNT
-      # below), which does not vary by backend either. The old
-      # `modelServerBackend == "vllm-mlx"` term was dead code the moment
-      # assertions.nix began requiring modelServerBackend == "mlx-lm" whenever
-      # the module is enabled: the two conditions cannot both hold, so the
-      # agent was unconditionally disabled and no serving host had a watchdog.
+      # below), which does not vary by backend either.
       enable = cfg.preload != [ ];
       config = {
         Label = watchdogAgentLabel;
@@ -111,20 +107,11 @@ in
           # Maps the capability alias to its physical worker so progress
           # metrics cannot be borrowed from a healthy non-brain backend.
           MLX_WATCHDOG_CONFIG = mlxShared.llamaSwapRuntimeConfigPath;
-          # What a brain that stays busy past the grace window earns. The
-          # ladder is only safe where a busy probe can be told apart from a
-          # BUSY-BUT-PRODUCTIVE one, and the only progress signal the watchdog
-          # has is vllm_mlx_engine_steps_executed on the worker's own /metrics.
-          # mlx_lm.server exposes no metrics endpoint (see enableMetrics in
-          # options-server.nix) and llama-swap's proxy /metrics carries host
-          # gauges only — no per-model counters — so under mlx-lm the progress
-          # probe fails on every tick by construction. A brain saturating its
-          # concurrency slots correctly 429s each probe, which would then look
-          # identical to a wedge and reap a perfectly healthy loaded model
-          # every grace window. So mlx-lm pages instead of restarting; dead and
-          # down (a real not-serving answer, no progress ambiguity) keep the
-          # full ladder on both backends.
-          MLX_WATCHDOG_BUSY_ESCALATION = if cfg.modelServerBackend == "vllm-mlx" then "restart" else "alert";
+          # What a brain that stays busy past the grace window earns. mlx_lm.server
+          # exposes no per-model progress metric, so a saturated brain cannot be
+          # told apart from a wedged one: busy pages instead of restarting; dead
+          # and down keep the full ladder.
+          MLX_WATCHDOG_BUSY_ESCALATION = "alert";
           # Untracked Slack incoming-webhook url file, shared with the cluster
           # watcher so one seeded url pages for both. Missing file = no page.
           MLX_WATCHDOG_ALERT_URL_FILE = alertUrlFile;

@@ -9,32 +9,8 @@ let
   cfg = config.programs.mlx;
   versions = import ../../lib/versions.nix;
 
-  # Preserved backend implementation. It remains unavailable to workers unless
-  # explicitly included in enabledBackends after future requalification.
-  vllmMlxVersion = versions.vllmMlx;
   parakeetMlxVersion = versions.parakeetMlx;
   mlxVlmVersion = versions.mlxVlm;
-
-  # Official Apple mlx_lm.server wrapper.
-  # The LaunchAgent needs a Nix store path (not a PATH lookup), so the
-  # derivation lives here. Also added to home.packages for CLI access.
-  #
-  # MLX-driven version set: core MLX is the primary driver of every version
-  # below (python, mlx, mlx-lm, transformers). One set, updated together and
-  # deliberately from MLX's official install matrix.
-  # Python rule: MLX supports Python 3.10 or newer with no stated upper bound.
-  # Following the stay-latest-within-MLX principle, pick the newest CPython minor
-  # for which the pinned mlx version publishes a wheel. mlx ${versions.mlx} ships
-  # cp310 through cp314, so the pin is 3.14 (cp314 GPU import validated
-  # 2026-07-19). Bump mechanically when mlx adds a newer cp wheel tag.
-  # mlx and mlx-lm are a lockstep pair; transformers is pinned for mlx-lm import
-  # compatibility (history in lib/versions.nix).
-  # These pins are renovate-excluded on purpose: an unpinned bump can split the
-  # set and desync the two cluster nodes. The exclusions live in the renovate
-  # config, landed separately by the ceiling-fix work; do not float any member.
-  mlxPin = "mlx==${versions.mlx}";
-  mlxLmPin = "mlx-lm==${versions.mlxLm}";
-  transformersPin = "transformers==${versions.transformers}";
 
   # Single source for the CPython minor every uvx invocation in this module
   # resolves. Why it exists: the cluster rank runs uvx on BOTH the coordinator
@@ -42,22 +18,8 @@ let
   # node, so the two ranks loaded mismatched mlx ABIs and failed to rendezvous.
   # Pin every module uvx call to this one version so both nodes match. Sourced
   # from lib/python.nix so there is exactly one declaration (no per-host, no
-  # per-invocation value). Value and bump rule: see the MLX-driven set above.
+  # per-invocation value). Value and bump rule: lib/python.nix.
   uvPythonVersion = (import ../../lib/python.nix { inherit pkgs; }).pythonVersion;
-
-  vllmMlxPatchedWheel = import ./vllm-mlx-patch.nix { inherit pkgs vllmMlxVersion; };
-  vllmMlxPkg = pkgs.writeShellScriptBin "vllm-mlx" ''
-    exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} --from "${vllmMlxPatchedWheel}/vllm_mlx-${vllmMlxVersion}-py3-none-any.whl" --with "${mlxPin}" --with "${mlxLmPin}" --with "${transformersPin}" vllm-mlx "$@"
-  '';
-  vllmMlxServerAdapterPkg = pkgs.writeShellScriptBin "mlx-model-server" ''
-    if [[ "$1" != "--model" || -z "''${2:-}" ]]; then
-      echo "usage: mlx-model-server --model MODEL [server options]" >&2
-      exit 2
-    fi
-    model="$2"
-    shift 2
-    exec ${lib.getExe vllmMlxPkg} serve "$model" "$@"
-  '';
 
   # Official mlx_lm.server wrapper with the in-process L2 memory limit —
   # split to mlx-lm-server.nix for the 12 KB file-size gate. Also carries
@@ -82,7 +44,6 @@ let
 
   mlxModelServerPkgs = {
     mlx-lm = mlxLmServerPkg;
-    vllm-mlx = vllmMlxServerAdapterPkg;
     mlx-vlm = mlxVlmServerPkg;
     mlx-vlm-native = mlxVlmNativeServerPkg;
   };
@@ -147,7 +108,6 @@ let
         ;
     })
     mkModelCmd
-    backendFor
     effectiveConcurrency
     ;
 
@@ -191,7 +151,6 @@ let
         lib
         cfg
         mkModelCmd
-        backendFor
         effectiveConcurrency
         workerEnv
         defaultFilters
@@ -252,10 +211,8 @@ in
     inherit
       cfg
       mlxModelServerPkg
-      vllmMlxPkg
       mlxWarmupPkg
       mlxWatchdogPkg
-      vllmMlxVersion
       parakeetMlxVersion
       mlxVlmVersion
       apiUrl

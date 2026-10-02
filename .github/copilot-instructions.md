@@ -44,7 +44,7 @@ sudo darwin-rebuild switch --flake "$HOME/git/nix-darwin/main" \
 
 - `modules/default.nix` — module entry point
 - `modules/mcp/catalog.nix` — shared MCP server catalog
-- `modules/mlx/` — local Apple Silicon inference (vllm-mlx LaunchAgent)
+- `modules/mlx/` — local Apple Silicon inference (mlx_lm.server LaunchAgent)
 - `vars/ai-stack.nix` — model/endpoint/version registry
 - `lib/checks/` — per-domain regression tests
 

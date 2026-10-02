@@ -176,7 +176,7 @@ intentionally not managed by Nix because it contains credentials.
 
 ### `fabric --pattern X` returns nothing or hangs
 
-Check that the MLX server is running: `launchctl list | grep vllm-mlx`. The default
+Check that the MLX server is running: `launchctl list | grep dev.mlx-model-server`. The default
 model points at the local MLX endpoint at `http://127.0.0.1:11434/v1`. Verify with
 `curl http://127.0.0.1:11434/v1/models`.
 

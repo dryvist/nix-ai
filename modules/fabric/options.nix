@@ -24,7 +24,7 @@
 
         Default 8180 avoids conflicts with:
         - 11434: llama-swap proxy (MLX stack)
-        - 11436: vllm-mlx backend
+        - 11436+: llama-swap model workers
         - 27124: Obsidian Local REST API
       '';
     };

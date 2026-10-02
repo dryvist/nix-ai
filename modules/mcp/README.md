@@ -201,7 +201,7 @@ Two CLI tools work together for local MLX model workflows:
 | Tool | Purpose |
 |------|---------|
 | `hf` | Download and manage models from HuggingFace Hub |
-| `vllm-mlx` | Serve MLX models as OpenAI/Anthropic-compatible API |
+| `mlx_lm.server` | Serve MLX models as an OpenAI-compatible API (programs.mlx, behind llama-swap on :11434) |
 
 **Typical workflow:**
 
@@ -210,11 +210,11 @@ Two CLI tools work together for local MLX model workflows:
 # 2. Download it (uses the default model from modules/mlx/options.nix)
 hf download "$MLX_DEFAULT_MODEL"
 
-# 3. Serve it locally (OpenAI-compatible endpoint at :8000)
-vllm-mlx serve "$MLX_DEFAULT_MODEL"
+# 3. Query it through the local llama-swap proxy
+curl http://127.0.0.1:11434/v1/models
 ```
 
-Both tools are `uvx` wrappers defined in `ai-tools.nix` — no separate installation needed.
+`hf` is a `uvx` wrapper defined in `ai-tools.nix`; the server is the programs.mlx LaunchAgent.
 
 ## Adding New Servers
 

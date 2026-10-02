@@ -14,9 +14,6 @@
   nix-claude-code,
   marketplaceInputs,
   llm-agents,
-  userConfig ? {
-    user.fullName = "JacobPEvans";
-  },
   ...
 }:
 
@@ -247,7 +244,7 @@ in
       # dir (agent-skills declares its own option so it stays standalone).
       agentSkills.opencodeConfigDir = lib.mkDefault config.programs.opencode.configDir;
 
-      # MLX inference server (vllm-mlx on port 11434)
+      # MLX inference server (llama-swap on port 11434)
       mlx = {
         enable = true;
         maxTokens = 8192;

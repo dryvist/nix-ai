@@ -1,15 +1,13 @@
 #
 # MLX Module — KV cache and prefill options
 #
-# vllm-mlx PERFORMANCE TUNING. Sizing target: M4 Max 128 GB.
+# Sizing target: M4 Max 128 GB. The mlx-lm builder reads cacheMemoryMb and
+# prefillBatchSize; the paged-cache keys are catalog class-profile keys.
 #
 # The wired ceiling is per-host and set OUTSIDE this module, by nix-darwin's
 # system.appleSiliconTunables.wiredLimitMb. Every value here is sized against
 # that ceiling, not against physical RAM.
 # https://docs.jacobpevans.com/local-llm/memory-ceilings
-#
-# vllm-mlx 0.2.9 adds Paged KV Cache + prefix sharing on top of the
-# memory-aware cache that auto-sizes based on available RAM.
 #
 # Cache-size rationale (cacheMemoryMb default = 8192):
 #   The KV cache working set is bounded by maxNumSeqs * maxTokens * 2 (K and V)
@@ -27,77 +25,20 @@
 { lib, ... }:
 {
   options.programs.mlx = {
-    # cacheMemoryMb — Override the memory-aware cache size (--cache-memory-mb).
+    # cacheMemoryMb — prompt-cache budget (mlx_lm --prompt-cache-bytes).
     # Default: 8192 (8 GB). Right-sized for maxNumSeqs=4 at maxTokens=8192 with
-    # prefix-cache headroom; see the file-header rationale (lines 11-22) for
+    # prefix-cache headroom; see the file-header rationale for
     # why the previous 32768 (32 GB) default was lowered.
     # Set to null to restore server auto-detect (~20% RAM = ~25.6 GB on 128 GB).
     # Ref: https://github.com/ml-explore/mlx-lm/issues/883
     cacheMemoryMb = lib.mkOption {
       type = lib.types.nullOr lib.types.ints.positive;
       default = 8192;
-      description = "KV cache reservation in MB (vllm-mlx --cache-memory-mb). Null = server auto-detect. Default 8 GB right-sized for maxNumSeqs=4 and maxTokens=8192; raise per-host if a workload needs more.";
-    };
-
-    # gpuMemoryUtilization — a device fraction, NOT the share of the host given
-    # to inference (that is appleSiliconTunables.wiredLimitMb). It both caps
-    # each worker and places the engine's emergency KV-clear trip point.
-    #
-    # It is NOT, however, in a fixed relationship with the host ceiling. This
-    # header used to say the two "must be changed together", which implied the
-    # trip tracks the ceiling by a known margin. It does not: the cap and the
-    # trip are computed on different bases, so raising the ceiling moves one
-    # and not the other. Changing either still warrants looking at both — but
-    # re-derive the two numbers below rather than assuming a margin.
-    #
-    # THE CAP AND THE TRIP ARE COMPUTED ON DIFFERENT BASES. This is the single
-    # most misread thing about this option, and the description below said
-    # "device_mem" for both until 2026-09-01, which is not what the engine does.
-    # Read from the installed vllm-mlx source, not its docs:
-    #
-    #   cap  = max_recommended_working_set_size * util   (engine/batched.py)
-    #   trip = memory_size * min(util + 0.05, 0.99)      (engine_core.py)
-    #
-    # max_recommended_working_set_size tracks iogpu.wired_limit_mb exactly when
-    # that sysctl is set; memory_size is PHYSICAL RAM. On a 128 GiB host wired
-    # to 100 GiB those bases differ by 28 GiB, so the trip is not 5% above the
-    # cap -- at util 0.8 the cap is 80 GiB and the trip is 108.8 GiB.
-    #
-    # CONSEQUENCE, and it holds at this option's own default: a trip above the
-    # wired ceiling can never fire. The emergency clear is reachable only while
-    #
-    #   (util + 0.05) * memory_size < wired ceiling
-    #
-    # which on that host means util < 0.7315. At the default 0.8 the valve is
-    # inert. Treat the CAP as the protection and the trip as absent until this
-    # is fixed properly -- and note the trip reads mx.get_active_memory(), which
-    # is per PROCESS, so it could never bound two resident workers in aggregate
-    # regardless of where it sits.
-    #
-    # A third consumer (worker.py) sizes KV availability from hw.memsize * util
-    # * 0.5, a third base again. Any reasoning about this option that names only
-    # one base is reasoning about one third of the behaviour.
-    # Sizing rules and the re-derivation formula:
-    # https://docs.jacobpevans.com/local-llm/memory-ceilings
-    # (That page states the invariant as footprint < trip < ceiling. With the
-    # bases above, the aggregate form of that invariant is unsatisfiable for
-    # any worker count, because the +0.05 offset is per worker and multiplies.
-    # Treat the cap as the protection until the page is corrected.)
-    #
-    # This is the per-worker enforcement layer that HardResourceLimits could not
-    # provide (see launchd.nix) because it acts inside the worker process itself.
-    # Ref: https://github.com/ml-explore/mlx-lm/issues/883
-    gpuMemoryUtilization = lib.mkOption {
-      type = lib.types.nullOr (lib.types.numbers.between 0.05 1.0);
-      default = 0.8;
-      description = "Fraction each worker may allocate via Metal (vllm-mlx --gpu-memory-utilization). The allocation cap is max_recommended_working_set_size*util; the emergency cache-clear trip is a DIFFERENT base, memory_size*(util+0.05), so the trip can sit above the wired ceiling and never fire — see the comment above before changing this. Null = upstream default (0.90). Override DOWN for a host that needs interactive desktop headroom.";
+      description = "KV cache reservation in MB (mlx_lm --prompt-cache-bytes, capped at 16 GiB). Null = 8192. Default 8 GB right-sized for maxNumSeqs=4 and maxTokens=8192; raise per-host if a workload needs more.";
     };
 
     # bufferCacheLimitGb — per-worker cap on MLX's RETAINED free-buffer cache
-    # (MLX_BUFFER_CACHE_LIMIT env var; vllm-mlx 0.4.0 feeds it to
-    # mx.set_cache_limit at engine start). Unset, vllm-mlx uses a device-scaled
-    # default of max_recommended * gpuMemoryUtilization (~77 GB per worker on a
-    # 128 GB host). Bytes are not the problem — buffer COUNT is: every retained
+    # (applied in-process by the mlx_lm launcher via mx.set_cache_limit). Bytes are not the problem — buffer COUNT is: every retained
     # free buffer stays in the process ResidencySet and counts against Metal's
     # ~499000 buffer-count ceiling ("[metal::malloc] Resource limit (499000)
     # exceeded" at ~31 GB active with ~90 GB free, 2026-07-09). Multi-resident
@@ -108,7 +49,7 @@
     bufferCacheLimitGb = lib.mkOption {
       type = lib.types.nullOr lib.types.ints.positive;
       default = 12;
-      description = "Per-worker MLX retained-buffer-cache cap in GB (MLX_BUFFER_CACHE_LIMIT). Null = vllm-mlx device-scaled default (~gpuMemoryUtilization of device memory), which hoards enough buffers on multi-resident hosts to trip Metal's buffer-count ceiling under concurrency.";
+      description = "Per-worker MLX retained-buffer-cache cap in GB (MLX_BUFFER_CACHE_LIMIT). Null = MLX default, which hoards enough buffers on multi-resident hosts to trip Metal's buffer-count ceiling under concurrency.";
     };
 
     # enablePrefixCaching — Enable prefix sharing across requests (--enable-prefix-cache).
