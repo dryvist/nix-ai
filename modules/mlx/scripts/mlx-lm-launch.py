@@ -18,6 +18,7 @@ import os
 
 import mlx.core as mx
 import mlx_lm.server
+import mlx_lm.utils
 from mlx_lm.server import main
 
 _limit = os.environ.get("MLX_L1_MEMORY_LIMIT_BYTES")
@@ -29,12 +30,13 @@ if _cache:
     mx.set_cache_limit(int(_cache))
 
 # Suppress the upstream wired-limit pin (ml-explore/mlx#3186, Apple
-# FB22091885). mlx_lm.server calls mx.set_wired_limit(max_recommended_working_
-# set_size) unconditionally inside main(), with no flag to disable it. Pinning
-# the whole recommended working set is the discriminating variable for an
-# IOGPUFamily "completeMemory() prepare count underflow" kernel panic: upstream
-# isolated it single-variable at ~100 s to panic with the call under
-# prompt-cache eviction churn, versus ~9 h / 5.3M tokens clean without it.
+# FB22091885). mlx_lm.server's main() unconditionally calls
+# mlx_lm.utils.maybe_set_recommended_wired_limit(), which calls
+# mx.set_wired_limit(max_recommended_working_set_size), with no flag to
+# disable it. Pinning the whole recommended working set is the discriminating
+# variable for an IOGPUFamily "completeMemory() prepare count underflow" kernel
+# panic: upstream isolated it single-variable at ~100 s to panic with the call
+# under prompt-cache eviction churn, versus ~9 h / 5.3M tokens clean without it.
 #
 # mx.set_wired_limit PINS memory resident; it is not a cap. The real ceiling is
 # the host sysctl iogpu.wired_limit_mb. Suppressing this leaves MLX at its
@@ -46,10 +48,20 @@ if os.environ.get("MLX_SUPPRESS_WIRED_LIMIT") == "1":
     # non-intercepting shim reintroduces the kernel panic, so a hard error at
     # worker start is the safer failure: it is immediate and visible, where the
     # alternative is an unrecoverable host crash under load.
-    if "mx.set_wired_limit(" not in inspect.getsource(mlx_lm.server):
+    # Both hops must still be there: main() calling the helper, and the helper
+    # reaching set_wired_limit through the `mx` module attribute this shim
+    # replaces.
+    _helper = getattr(mlx_lm.utils, "maybe_set_recommended_wired_limit", None)
+    if (
+        _helper is None
+        or "maybe_set_recommended_wired_limit(" not in inspect.getsource(main)
+        or "mx.set_wired_limit(" not in inspect.getsource(_helper)
+    ):
         raise RuntimeError(
-            "MLX_SUPPRESS_WIRED_LIMIT=1 but mlx_lm.server no longer calls "
-            "mx.set_wired_limit(). The upstream call site changed shape. "
+            "MLX_SUPPRESS_WIRED_LIMIT=1 but mlx_lm.server.main() no longer "
+            "reaches mx.set_wired_limit() through "
+            "mlx_lm.utils.maybe_set_recommended_wired_limit(). The upstream "
+            "call site changed shape. "
             "Re-check ml-explore/mlx#3186 before removing this shim — if "
             "upstream fixed the panic, drop the option; if it merely moved, "
             "update this guard."

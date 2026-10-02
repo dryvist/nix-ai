@@ -10,11 +10,15 @@ input embedding then dies with
 
     RuntimeError: There is no Stream(gpu, 2) in current thread
 
-Measured against mlx-vlm 0.6.13 (the latest release) with
+Measured against mlx-vlm 0.6.13 with
 mlx-community/Unlimited-OCR-bf16: the model loads, one-shot
 mlx_vlm.generate() returns correct OCR, and every request through
 mlx_vlm.server fails with the above. --max-num-seqs 1 does not avoid it,
 because the failure is the threading model rather than batch width.
+Re-read against 0.7.4: mlx_vlm.server still generates off the main thread
+(asyncio.to_thread), and the load(), generate() and
+prompt_utils.apply_chat_template() signatures this adapter calls are
+unchanged.
 
 So this adapter keeps the exact wire contract mlx_vlm.server offers and drops
 the only part that breaks: it runs generation on the main thread, one request

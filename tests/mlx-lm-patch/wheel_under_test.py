@@ -60,9 +60,24 @@ def load_module(relpath, name):
 
 
 qwen3_coder = load_module("mlx_lm/tool_parsers/qwen3_coder.py", "qwen3_coder")
-infer_tool_parser = lift("mlx_lm/tokenizer_utils.py", {"_infer_tool_parser"})[
-    "_infer_tool_parser"
-]
+_infer_tool_parser = lift(
+    "mlx_lm/tokenizer_utils.py", {"_infer_tool_parser", "_is_xtml_vocab"}
+)["_infer_tool_parser"]
+
+
+class _TemplateOnlyTokenizer:
+    """The two members _infer_tool_parser reads: the template, then the vocab."""
+
+    def __init__(self, chat_template):
+        self.chat_template = chat_template
+
+    def get_vocab(self):
+        return {}
+
+
+def infer_tool_parser(chat_template):
+    """Upstream's inference for a tokenizer carrying only this chat template."""
+    return _infer_tool_parser(_TemplateOnlyTokenizer(chat_template))
 SERVER = lift(
     "mlx_lm/server.py",
     {

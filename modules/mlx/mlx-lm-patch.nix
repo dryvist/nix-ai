@@ -2,8 +2,7 @@
 #
 # THE DEFECT
 #
-# mlx-lm 0.31.3 (upstream's newest release — the pin is current, not stale)
-# infers a tool parser from the chat template in
+# mlx-lm (0.31.3 through 0.32.0, the pinned release) infers a tool parser from the chat template in
 # tokenizer_utils._infer_tool_parser. None of its branches match gpt-oss, so
 # `has_tool_calling` is False and the model's own, semantically correct harmony
 # tool call —
@@ -28,9 +27,9 @@
 # neither calls nor content. `_make_harmony_stream` now engages in `auto` only
 # on a model that inferred no parser of its own. See mlx-lm-patch/test_selection.py.
 #
-# Staying on the 0.31.3 RELEASE is deliberate: catalog-lib.nix documents that
-# the only route past it is a git-wheel serverVariant which DROPS
-# --harmony-tool-parser, the very flag gpt-oss needs. Release-plus-patch is the
+# Staying on a RELEASE is deliberate: catalog-lib.nix documents that the
+# git-wheel serverVariant DROPS --harmony-tool-parser, the very flag gpt-oss
+# needs. Release-plus-patch is the
 # only viable route — do not drift toward the git wheel.
 #
 # WHY TWO EXPORTS

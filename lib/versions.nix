@@ -109,13 +109,13 @@ in
   # regenerates the lock in one commit, so mlx, mlx-metal, mlx-lm and the
   # wheel hashes cannot drift apart.
   #
-  # vllm-mlx 0.4.0 adds GPT-OSS/harmony prompt rendering for tool calls and
+  # vllm-mlx (>=0.4.0) renders GPT-OSS/harmony prompts for tool calls and
   # requires mlx-lm>=0.31.3. mlx and mlx-lm move in lockstep (renovate.json5
   # mlx-core group). renovate.json5 blocks transformers 5.13.0, which breaks
   # mlx-lm at import; the rule there carries the reproduction detail.
   vllmMlx = uvLock.version "vllm-mlx";
   # renovate: datasource=pypi depName=parakeet-mlx
-  parakeetMlx = "0.5.2";
+  parakeetMlx = "0.5.3";
   mlxVlm = uvLock.version "mlx-vlm";
   mlx = uvLock.version "mlx";
   mlxLm = uvLock.version "mlx-lm";
