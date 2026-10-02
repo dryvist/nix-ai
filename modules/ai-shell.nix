@@ -58,14 +58,14 @@ in
   };
 
   config = {
-    # Non-secret launcher settings. The secret-store selectors the d-* aliases
-    # and claude-zai read (AI_DOPPLER_PROJECT/CONFIG, ZAI_DOPPLER_PROJECT/CONFIG)
-    # come from the host's environment, not from this module. Secret values
-    # are never exported here — see with-ai-readonly.
+    # Non-secret launcher settings. ZAI_KEY_COMMAND, the command the Z.ai
+    # launchers use to fetch their key, comes from the host's environment, not
+    # from this module. Secret values are never exported here — see
+    # with-ai-readonly.
     programs.zsh.initContent = lib.mkAfter ''
       export AI_ROUTER_KEY_OPENBAO_PATH_PREFIX=${lib.escapeShellArg cfg.openbaoPathPrefix}
       export AI_ROUTER_KEY_OPENBAO_FIELD_SUFFIX=${lib.escapeShellArg cfg.openbaoFieldSuffix}
-      export ZAI_DOPPLER_KEY_ENV=${lib.escapeShellArg zai.doppler.keyEnv}
+      export ZAI_KEY_ENV=${lib.escapeShellArg zai.keyEnv}
       export ZAI_CLAUDE_BASE_URL=${lib.escapeShellArg zai.claude.baseUrl}
       export ZAI_CLAUDE_PRIMARY_MODEL=${lib.escapeShellArg zai.claude.primaryModel}
       export ZAI_CLAUDE_FAST_MODEL=${lib.escapeShellArg zai.claude.fastModel}

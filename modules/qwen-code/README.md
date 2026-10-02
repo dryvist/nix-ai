@@ -25,9 +25,6 @@ OpenAI/Anthropic/Gemini-compatible endpoint. Apache-2.0.
 - Shared skills linked from `~/.agents/skills` into `~/.qwen/skills`,
   matching Codex and Antigravity rather than maintaining a separate
   skill tree.
-- Doppler-wrapped `d-qwen` shell alias (declared in
-  `modules/ai-aliases.zsh`) for sessions that need cloud-provider keys
-  (Dashscope, OpenRouter, OpenAI, etc.).
 - On non-darwin hosts the module short-circuits silently — no
   install, no warning. Linux users need brew (or Linuxbrew) to use
   qwen-code through this module.
@@ -57,8 +54,9 @@ programs.qwen-code = {
 };
 ```
 
-For cloud-provider sessions, use `d-qwen` (Doppler-injected from the ambient
-`AI_DOPPLER_PROJECT`/`AI_DOPPLER_CONFIG`; see `modules/ai-aliases.zsh`).
+For cloud-provider sessions, run `qwen` with the provider keys
+(`DASHSCOPE_API_KEY`, `OPENROUTER_API_KEY`, `OPENAI_API_KEY`) in its
+environment, for example from `.env`.
 
 ## Adding cloud providers
 

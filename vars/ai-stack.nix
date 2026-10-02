@@ -83,14 +83,12 @@
   };
 
   # Z.ai subscription launchers. Everything here is non-secret configuration;
-  # the API key remains in Doppler and reaches only the selected child process.
+  # the API key reaches only the selected child process.
   zai = {
-    # The env var that carries the subscription key. The secret-store
-    # selectors used to fetch it (ZAI_DOPPLER_PROJECT / ZAI_DOPPLER_CONFIG) are
-    # environment, set by the host, not data here.
-    doppler = {
-      keyEnv = "ZAI_SUBSCRIPTION_KEY";
-    };
+    # The env var that carries the subscription key. When it is unset, the
+    # launchers run the command in ZAI_KEY_COMMAND (set by the host) with
+    # themselves as its argument.
+    keyEnv = "ZAI_SUBSCRIPTION_KEY";
     claude = {
       baseUrl = "https://api.z.ai/api/anthropic";
       primaryModel = "glm-5.3[1m]";

@@ -20,9 +20,6 @@ under `programs.cecli` to ease migration.
 - Three read-only generated config files — `~/.cecli.conf.yml`,
   `~/.cecli/cecli-meta.json`, `~/.cecli/cecli-settings.yml` — wired
   to the local MLX endpoint and the capability-class registry.
-- Doppler-wrapped `d-cecli` shell alias (declared in
-  `modules/ai-aliases.zsh`) for sessions that need cloud-provider
-  keys.
 
 ## Why a local derivation (and not uvx / homebrew)
 
@@ -70,9 +67,8 @@ programs.cecli = {
 };
 ```
 
-For cloud-provider sessions, use the Doppler-injected `d-cecli` shell
-alias — it loads `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, etc. from the
-ambient `AI_DOPPLER_PROJECT`/`AI_DOPPLER_CONFIG` (see `modules/ai-aliases.zsh`).
+For cloud-provider sessions, run `cecli` with `OPENAI_API_KEY`,
+`OPENROUTER_API_KEY`, etc. in its environment, for example from `.env`.
 
 ## Files written
 

@@ -7,16 +7,16 @@ let
   # Literal shell parameter-expansion text, built by plain Nix string
   # concatenation so it interpolates into the shell script below at one
   # unambiguous level (no nested `${}` between Nix and shell syntax).
-  zaiKeyRef = "\${" + zai.doppler.keyEnv + ":-}";
+  zaiKeyRef = "\${" + zai.keyEnv + ":-}";
 in
 pkgs.writeShellApplication {
   name = "claude-zai";
   text = ''
     key_value="${zaiKeyRef}"
     if [ -z "$key_value" ]; then
-      exec doppler run -p "''${ZAI_DOPPLER_PROJECT:?set ZAI_SUBSCRIPTION_KEY, or ZAI_DOPPLER_PROJECT to fetch it}" \
-        -c "''${ZAI_DOPPLER_CONFIG:?set ZAI_DOPPLER_CONFIG}" --no-fallback \
-        --only-secrets ${pkgs.lib.escapeShellArg zai.doppler.keyEnv} -- "$0" "$@"
+      : "''${ZAI_KEY_COMMAND:?set ${zai.keyEnv}, or ZAI_KEY_COMMAND to fetch it}"
+      read -ra fetch <<<"$ZAI_KEY_COMMAND"
+      exec "''${fetch[@]}" "$0" "$@"
     fi
     exec env \
       ANTHROPIC_API_KEY= \
