@@ -1,5 +1,29 @@
 # Changelog
 
+## [7.0.0](https://github.com/dryvist/nix-ai/compare/v6.1.0...v7.0.0) (2026-10-02)
+
+
+### ⚠ BREAKING CHANGES
+
+* **mlx:** drop the vllm-mlx backend ([#2301](https://github.com/dryvist/nix-ai/issues/2301))
+* **mlx:** prune the catalog to the role-map models and drop the harmony patch ([#2300](https://github.com/dryvist/nix-ai/issues/2300))
+* **mlx:** read the LLM role map from homelab-contracts ([#2299](https://github.com/dryvist/nix-ai/issues/2299))
+
+### Features
+
+* **mlx:** add the loopback HAProxy queue front rendered from the role map ([#2305](https://github.com/dryvist/nix-ai/issues/2305)) ([12dc672](https://github.com/dryvist/nix-ai/commit/12dc6720c73e609832bed237d2935f850f94cf40))
+* **mlx:** drop the vllm-mlx backend ([#2301](https://github.com/dryvist/nix-ai/issues/2301)) ([ab3b87a](https://github.com/dryvist/nix-ai/commit/ab3b87a113486c789197be51e25a79642b76e2f5))
+* **mlx:** prune the catalog to the role-map models and drop the harmony patch ([#2300](https://github.com/dryvist/nix-ai/issues/2300)) ([b6d495a](https://github.com/dryvist/nix-ai/commit/b6d495ac4a7d87ea05a28a8be47527f5e9c2725b))
+* **mlx:** publish the queue front metrics endpoint in vars ([#2306](https://github.com/dryvist/nix-ai/issues/2306)) ([bcc7186](https://github.com/dryvist/nix-ai/commit/bcc7186558eddc32192fa211d8dfea90308a592d))
+* **mlx:** read the LLM role map from homelab-contracts ([#2299](https://github.com/dryvist/nix-ai/issues/2299)) ([6089a22](https://github.com/dryvist/nix-ai/commit/6089a220e7d085eadba750160edbcd2596cba85f))
+
+
+### Bug Fixes
+
+* **mlx:** deliver only post-subscription data to llama-swap log subscribers ([#2307](https://github.com/dryvist/nix-ai/issues/2307)) ([e59d1c8](https://github.com/dryvist/nix-ai/commit/e59d1c8c0fa57b0c87b88a787e8d25d78209aaec))
+* **mlx:** take lm-eval's accelerate and peft check inputs from nixpkgs ([#2304](https://github.com/dryvist/nix-ai/issues/2304)) ([cec27de](https://github.com/dryvist/nix-ai/commit/cec27de70b3ab1a2b4ef162323c32cd7710a0475))
+* **renovate:** hold huggingface-hub below 2.0 while tokenizers requires it ([#2298](https://github.com/dryvist/nix-ai/issues/2298)) ([1098053](https://github.com/dryvist/nix-ai/commit/1098053e427a92b5ebeec80a63e79d7a6e294990))
+
 ## [6.1.0](https://github.com/dryvist/nix-ai/compare/v6.0.0...v6.1.0) (2026-10-02)
 
 
