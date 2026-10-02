@@ -212,18 +212,6 @@ let
     groupSwap = cfg.proxy.groupSwap;
   };
 
-  # Judge model entries, split to ./judge-topology.nix for the file-size gate.
-  judgeTopology = import ./judge-topology.nix {
-    inherit
-      lib
-      cfg
-      mkModelCmd
-      workerEnv
-      effectiveConcurrency
-      defaultFilters
-      ;
-  };
-
   llamaSwapConfigAttrs = {
     inherit (cfg.proxy)
       healthCheckTimeout
@@ -248,11 +236,7 @@ let
     # drained, regardless of this value — see cluster-quiesce-log.sh.
     unloadTimeout = 10;
   }
-  // llamaSwapTopology
-  // {
-    models = (llamaSwapTopology.models or { }) // judgeTopology.models;
-    groups = (llamaSwapTopology.groups or { }) // judgeTopology.groups;
-  };
+  // llamaSwapTopology;
 
   # Use pkgs.writeText because command strings embed Nix store paths.
   llamaSwapConfigFile = pkgs.writeText "llama-swap-config.json" (

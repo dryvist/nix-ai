@@ -35,7 +35,7 @@ in
 
     weakModel = lib.mkOption {
       type = lib.types.str;
-      default = "openai/quickest";
+      default = "openai/fast";
       description = "Cheap-task model used for commit messages and summaries.";
     };
 

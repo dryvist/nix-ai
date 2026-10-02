@@ -149,8 +149,8 @@ in
       c.proxy.logLevel == "info"
       || throw "catalog: production proxy logging must remain prompt-safe INFO";
     assert
-      hmConfigCatalog.config.services.aiStack.roleOverrides.goal-judge == judge27b
-      || throw "catalog: logical goal-judge role must resolve to the catalog-owned physical model";
+      hmConfigCatalog.config.services.aiStack.roleOverrides.judge == judge27b
+      || throw "catalog: logical judge role must resolve to the catalog-owned physical model";
     assert
       !(builtins.hasAttr judge27b c.modelTtls)
       || throw "catalog: resident 27B judge must inherit the resident TTL";

@@ -13,6 +13,11 @@
 { lib, ... }:
 {
   imports = [
+    (lib.mkRemovedOptionModule [
+      "programs"
+      "mlx"
+      "judge"
+    ] "`judge` is a role in programs.mlx.roleMap; select its model through programs.mlx.catalog.")
     (lib.mkRenamedOptionModule
       [
         "programs"

@@ -2,21 +2,22 @@
 # Verifies the role → physical-id registry that is exported as a public flake output.
 # ai-stack-models.nix is a function (parameterized by defaultLocalModelId); the
 # aggregator passes a placeholder test id so the registry can be materialized.
-{ pkgs, testLocalModelId }:
+{
+  pkgs,
+  testLocalModelId,
+  roleMap,
+}:
 let
   helpers = import ./helpers.nix { inherit pkgs; };
-  models = import ../ai-stack-models.nix { defaultLocalModelId = testLocalModelId; };
+  models = import ../ai-stack-models.nix {
+    defaultLocalModelId = testLocalModelId;
+    inherit roleMap;
+  };
 
-  expectedRoles = [
-    "coding"
-    "default"
-    "large-context"
-    "most-capable"
-    "oss"
-    "quickest"
-    "small"
-    "tool-calling"
-  ];
+  # Exactly the role map's roles that name a local model; a null-model role
+  # (router-only, e.g. `embed`) must not be registered locally.
+  inherit (roleMap) roles;
+  expectedRoles = builtins.filter (r: roles.${r}.model != null) (builtins.attrNames roles);
 
   actualRoles = builtins.sort builtins.lessThan (builtins.attrNames models);
 

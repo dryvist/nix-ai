@@ -19,6 +19,7 @@
   vct-splunk-cli,
   gh-stack,
   token-meter-src,
+  homelab-contracts,
 }:
 let
   # Marketplace flake inputs now live inside nix-claude-code. Surface the
@@ -96,6 +97,7 @@ in
         vct-cribl-cli
         vct-splunk-cli
         token-meter-src
+        homelab-contracts
         ;
     };
   };
@@ -152,6 +154,7 @@ in
         ai-assistant-instructions
         nix-claude-code
         marketplaceInputs
+        homelab-contracts
         ;
     };
   };
@@ -194,7 +197,7 @@ in
       ../modules/cecli
     ];
     _module.args = partialArgs {
-      inherit ai-assistant-instructions;
+      inherit ai-assistant-instructions homelab-contracts;
     };
   };
 
@@ -211,6 +214,7 @@ in
         ai-assistant-instructions
         nix-claude-code
         marketplaceInputs
+        homelab-contracts
         ;
     };
   };
@@ -234,6 +238,7 @@ in
         nix-claude-code
         marketplaceInputs
         llm-agents
+        homelab-contracts
         ;
     };
   };

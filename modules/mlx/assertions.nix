@@ -105,15 +105,6 @@ in
         substitute weights. A caller naming an unserved model must get a 404.
       '';
     }
-    {
-      assertion = !cfg.judge.enable || !(builtins.hasAttr cfg.judge.model allModels);
-      message = ''
-        programs.mlx.judge.model (${cfg.judge.model}) collides with a physical
-        id already registered as a resident/swap model. The judge's own
-        llama-swap entry would silently overwrite that entry's config.
-        Pick a different physical id for the judge.
-      '';
-    }
     (
       let
         # A modelExtraArgs key is legitimate for either of the two consumers
