@@ -14,7 +14,7 @@
 }:
 
 let
-  inherit (import ../vars/ai-stack.nix) doppler zai;
+  inherit (import ../vars/ai-stack.nix) zai;
   cfg = config.programs.aiRouterKeys;
 in
 {
@@ -58,16 +58,13 @@ in
   };
 
   config = {
-    # Non-secret Doppler selectors, exported so the d-* aliases and any
-    # hand-run `doppler run` share the single source in vars/ai-stack.nix.
-    # Secret values are never exported here — see with-ai-readonly.
+    # Non-secret launcher settings. The secret-store selectors the d-* aliases
+    # and claude-zai read (AI_DOPPLER_PROJECT/CONFIG, ZAI_DOPPLER_PROJECT/CONFIG)
+    # come from the host's environment, not from this module. Secret values
+    # are never exported here — see with-ai-readonly.
     programs.zsh.initContent = lib.mkAfter ''
-      export AI_DOPPLER_PROJECT=${lib.escapeShellArg doppler.project}
-      export AI_DOPPLER_CONFIG=${lib.escapeShellArg doppler.config}
       export AI_ROUTER_KEY_OPENBAO_PATH_PREFIX=${lib.escapeShellArg cfg.openbaoPathPrefix}
       export AI_ROUTER_KEY_OPENBAO_FIELD_SUFFIX=${lib.escapeShellArg cfg.openbaoFieldSuffix}
-      export ZAI_DOPPLER_PROJECT=${lib.escapeShellArg zai.doppler.project}
-      export ZAI_DOPPLER_CONFIG=${lib.escapeShellArg zai.doppler.config}
       export ZAI_DOPPLER_KEY_ENV=${lib.escapeShellArg zai.doppler.keyEnv}
       export ZAI_CLAUDE_BASE_URL=${lib.escapeShellArg zai.claude.baseUrl}
       export ZAI_CLAUDE_PRIMARY_MODEL=${lib.escapeShellArg zai.claude.primaryModel}

@@ -14,8 +14,8 @@ pkgs.writeShellApplication {
   text = ''
     key_value="${zaiKeyRef}"
     if [ -z "$key_value" ]; then
-      exec doppler run -p ${pkgs.lib.escapeShellArg zai.doppler.project} \
-        -c ${pkgs.lib.escapeShellArg zai.doppler.config} --no-fallback \
+      exec doppler run -p "''${ZAI_DOPPLER_PROJECT:?set ZAI_SUBSCRIPTION_KEY, or ZAI_DOPPLER_PROJECT to fetch it}" \
+        -c "''${ZAI_DOPPLER_CONFIG:?set ZAI_DOPPLER_CONFIG}" --no-fallback \
         --only-secrets ${pkgs.lib.escapeShellArg zai.doppler.keyEnv} -- "$0" "$@"
     fi
     exec env \

@@ -33,8 +33,8 @@ EOF
 chmod +x "$test_root/bin/codex"
 
 export PATH="$test_root/bin:$PATH"
-export ZAI_DOPPLER_PROJECT=gh-workflow-tokens
-export ZAI_DOPPLER_CONFIG=dryvist
+export ZAI_DOPPLER_PROJECT=example-project
+export ZAI_DOPPLER_CONFIG=example-config
 export ZAI_DOPPLER_KEY_ENV=ZAI_SUBSCRIPTION_KEY
 export ZAI_CLAUDE_BASE_URL=https://api.z.ai/api/anthropic
 export ZAI_CLAUDE_PRIMARY_MODEL='glm-5.3[1m]'
@@ -57,7 +57,7 @@ set +e
 claude_rc=$?
 set -e
 [ "$claude_rc" -eq 23 ]
-diff -u <(printf '%s\n' run -p gh-workflow-tokens -c dryvist --no-fallback --only-secrets ZAI_SUBSCRIPTION_KEY -- "$claude_zai_bin" 'two words' --flag) "$DOPPLER_LOG"
+diff -u <(printf '%s\n' run -p example-project -c example-config --no-fallback --only-secrets ZAI_SUBSCRIPTION_KEY -- "$claude_zai_bin" 'two words' --flag) "$DOPPLER_LOG"
 diff -u <(printf '%s\n' 'two words' --flag) "$CLAUDE_ARGS_LOG"
 grep -Fxq 'ANTHROPIC_API_KEY=' "$CLAUDE_ENV_LOG"
 grep -Fxq 'ANTHROPIC_AUTH_TOKEN=test-secret' "$CLAUDE_ENV_LOG"
@@ -81,7 +81,7 @@ zsh -c 'source "$1"; codex-zai "two words" --flag' zsh "$aliases_source"
 codex_rc=$?
 set -e
 [ "$codex_rc" -eq 24 ]
-diff -u <(printf '%s\n' run -p gh-workflow-tokens -c dryvist --no-fallback --only-secrets ZAI_SUBSCRIPTION_KEY -- zsh -c) <(head -n 11 "$DOPPLER_LOG")
+diff -u <(printf '%s\n' run -p example-project -c example-config --no-fallback --only-secrets ZAI_SUBSCRIPTION_KEY -- zsh -c) <(head -n 11 "$DOPPLER_LOG")
 diff -u <(printf '%s\n' --profile zai 'two words' --flag) "$CODEX_ARGS_LOG"
 grep -Fxq 'ANTHROPIC_API_KEY=' "$CODEX_ENV_LOG"
 grep -Fxq 'ANTHROPIC_AUTH_TOKEN=' "$CODEX_ENV_LOG"
