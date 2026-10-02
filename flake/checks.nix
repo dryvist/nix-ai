@@ -52,6 +52,10 @@ in
       # (x86_64-linux) like every other check so a single linux runner covers it.
       fabric-ai-build = self.packages.${system}.fabric-ai;
 
+      # Same reason: builds llama-swap at the lib/versions.nix pin, verifying
+      # the source, Go vendor and UI npm hashes nix-update maintains.
+      llama-swap-build = self.packages.${system}.llama-swap;
+
       # The only check that evaluates the NixOS half. Without it `nix flake
       # check` proves `nixosModules.herdr` is an attrset and nothing more,
       # which is how an unfree default (cursor-cli) shipped green through this

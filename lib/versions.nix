@@ -2,15 +2,21 @@
 #
 # Each pin entry (below) must have a `# renovate:` annotation immediately above
 # it so the org-wide customManager regex tracks it (datasource= depName= on one
-# line).
+# line). The MLX serving stack is the exception: those entries are read from
+# mlx-server/uv.lock (lib/uv-lock.nix), which Renovate's pep621 manager keeps
+# current, so they carry no annotation of their own.
+let
+  uvLock = import ./uv-lock.nix;
+in
 {
 
   # HuggingFace stack
   # >=1.21.0 required: adds click>=8.4.0 as a direct dep and caps typer<0.26.0.
   # Older pins left typer unbounded (>=0.20.0), floating to 0.26.x which vendored
   # click and dropped the external dep the hf CLI imports → ModuleNotFoundError.
-  # renovate: datasource=pypi depName=huggingface-hub
-  huggingfaceHub = "1.33.0";
+  # Pinned in mlx-server/pyproject.toml alongside the transformers/tokenizers it
+  # must stay compatible with.
+  huggingfaceHub = uvLock.version "huggingface-hub";
   # renovate: datasource=pypi depName=huggingface-mcp-server
   hfMcpServer = "0.1.0";
 
@@ -97,46 +103,23 @@
   # renovate: datasource=github-tags depName=basher83/Zammad-MCP
   zammadMcp = "1.1.0";
 
-  # MLX inference stack (pypi)
-  # 0.4.0 adds GPT-OSS/harmony prompt rendering for tool calls (required to
-  # serve gpt-oss models with working tool calling) and requires
-  # mlx-lm>=0.31.3, which forces the mlx/mlx-lm pins below forward together.
-  # 0.4.1 keeps that floor (mlx>=0.29.0, mlx-lm>=0.31.3, mlx-vlm>=0.6.5), so the
-  # pins below still satisfy it. Bumping this pin ALSO requires regenerating the
-  # wheel url + hash in modules/mlx/vllm-mlx-patch.nix — that derivation fetches
-  # one literal PyPI wheel path, so a version-only bump fails to build.
-  # renovate: datasource=pypi depName=vllm-mlx
-  vllmMlx = "0.4.1";
+  # MLX inference stack (pypi). Pinned in mlx-server/pyproject.toml and read
+  # from mlx-server/uv.lock, which also carries every artifact hash the Nix
+  # derivations fetch (lib/uv-lock.nix). Renovate bumps the pyproject pin and
+  # regenerates the lock in one commit, so mlx, mlx-metal, mlx-lm and the
+  # wheel hashes cannot drift apart.
+  #
+  # vllm-mlx 0.4.0 adds GPT-OSS/harmony prompt rendering for tool calls and
+  # requires mlx-lm>=0.31.3. mlx and mlx-lm move in lockstep (renovate.json5
+  # mlx-core group). renovate.json5 blocks transformers 5.13.0, which breaks
+  # mlx-lm at import; the rule there carries the reproduction detail.
+  vllmMlx = uvLock.version "vllm-mlx";
   # renovate: datasource=pypi depName=parakeet-mlx
   parakeetMlx = "0.5.2";
-  # renovate: datasource=pypi depName=mlx-vlm
-  mlxVlm = "0.6.13";
-  # The nix-ai#751 hold at mlx 0.31.1 is RESOLVED: vllm-mlx 0.4.0 is built
-  # against mlx 0.31.2 / mlx-lm 0.31.3 (it requires mlx-lm>=0.31.3), and the
-  # cross-thread stream crash ("There is no Stream(gpu, N) in current thread")
-  # no longer reproduces — validated with three concurrent completions against
-  # a 30B-class 4-bit MoE under continuous batching + paged KV cache: zero
-  # errors. Keep mlx and mlx-lm pinned together; they move in lockstep.
-  #
-  # 0.31.2 was previously held as "the last release of the prior minor, never a
-  # #.#.0" after instability on a freshly-bumped minor. That policy is retired:
-  # mlx ships minors rarely — 0.31.0 in February, 0.31.1 in March, 0.31.2 in
-  # April, 0.32.0 in July — so skipping a .0 costs months of fixes rather than
-  # days. Track current instead. mlx-lm 0.31.3 declares mlx>=0.31.2, so 0.32.0
-  # satisfies it.
-  #
-  # mlx-server/pyproject.toml must track this value; it is a dev environment no
-  # build consumes, so drift there is invisible.
-  # renovate: datasource=pypi depName=mlx
-  mlx = "0.32.2";
-  # renovate: datasource=pypi depName=mlx-lm
-  mlxLm = "0.31.3";
-  # renovate.json5 blocks the exact 5.13.0 build via allowedVersions — that
-  # release breaks mlx-lm at import (register() calls key.__module__ on the
-  # string key mlx-lm passes), taking every worker down. The rule there carries
-  # the reproduction detail.
-  # renovate: datasource=pypi depName=transformers
-  transformers = "5.17.0";
+  mlxVlm = uvLock.version "mlx-vlm";
+  mlx = uvLock.version "mlx";
+  mlxLm = uvLock.version "mlx-lm";
+  transformers = uvLock.version "transformers";
   # renovate: datasource=pypi depName=lm-eval
   lmEval = "0.4.12";
 
@@ -162,4 +145,12 @@
   # activation time, not a sandboxed Nix derivation — see modules/fluidaudio.nix.
   # renovate: datasource=github-releases depName=FluidInference/FluidAudio
   fluidAudio = "0.17.4";
+
+  # llama-swap (github-releases), the MLX proxy. Built from this tag by
+  # modules/mlx/llama-swap.nix rather than taken from nixpkgs, which trails
+  # upstream releases. fix-renovate-hashes.yml refreshes the source, Go vendor
+  # and UI npm hashes in that file after a Renovate bump; the llama-swap-pin
+  # check fails when the package the module runs is not this release.
+  # renovate: datasource=github-releases depName=mostlygeek/llama-swap
+  llamaSwap = "v261";
 }

@@ -33,7 +33,7 @@
 #
 # ATOMICITY, AND WHY transformers IS DELIBERATELY *NOT* PINNED HERE
 #
-# mlx and mlx-lm are pinned together from lib/versions.nix, so a partial bump of
+# mlx and mlx-lm are pinned together in mlx-server/uv.lock, so a partial bump of
 # that pair is unrepresentable rather than merely prohibited by a Renovate
 # exclusion a config edit could get wrong.
 #
@@ -77,51 +77,11 @@ let
   # "3.14" -> "cp314", the wheel's interpreter/ABI tag.
   cpTag = "cp" + (pkgs.lib.replaceStrings [ "." ] [ "" ] py.pythonVersion);
 
-  # Keyed by mlx VERSION ONLY, and valid for the default wheelPlatform above.
-  # A caller that overrides wheelPlatform fetches a different wheel while this
-  # map still hands back the default platform's hash, so the fetch fails on a
-  # hash mismatch. That is loud, not silent — nix verifies the hash — but it is
-  # a mismatch error rather than a message about the override, so: overriding
-  # wheelPlatform means supplying hashes for that platform too. No platform
-  # dimension is modelled here because every host this serves resolves the same
-  # target; add one when that stops being true rather than in advance.
-  #
-  # Both wheels move together with the mlx pin in lib/versions.nix; bumping the
-  # pin without updating these fails the build loudly rather than silently
-  # resolving something else.
-  #
-  # THE PIN AND THIS TABLE ARE UPDATED BY DIFFERENT HANDS. Renovate moves
-  # versions.mlx on its own and knows nothing about this map, so an automated
-  # bump lands a version with no entry here and every aarch64-darwin build
-  # stops at the throw below. That is the designed behaviour, not a surprise --
-  # but it means a renovate mlx PR is not complete until someone adds the row.
-  #
-  # To add one, take the version from lib/versions.nix and prefetch both wheels
-  # for this file's cpTag and wheelPlatform:
-  #
-  #   nix-prefetch-url --type sha256 <pypi url for mlx-<v>-cp314-cp314-<plat>.whl>
-  #   nix-prefetch-url --type sha256 <pypi url for mlx_metal-<v>-py3-none-<plat>.whl>
-  #   nix hash convert --hash-algo sha256 --to sri <each result>
-  #
-  # Superseded versions are kept rather than replaced: the map is keyed by the
-  # pin, so there is no ambiguity about which row is live, and keeping them
-  # means rolling the pin back does not also require re-deriving hashes.
-  wheelHashes = {
-    "0.32.0" = {
-      mlx = "sha256-I+g8jnSiMVZpbp+ZBdFqF7fSe1pZbBvA9yCpjfHFqt8=";
-      mlxMetal = "sha256-OvdqSY2EgE9mEZgASZ+dFD19/7CHig3Q18KEblhWX9c=";
-    };
-    "0.32.2" = {
-      mlx = "sha256-NQNhfjqmqOQR31MjbVvKA5/MqXVW8a3hxOXMimTeUtI=";
-      mlxMetal = "sha256-5qvqyaxSZYMMnBVBtvlum+N6hcJEZ2OkatRmxjo4N6s=";
-    };
-  };
-
-  # The message names the platform actually in effect, so an override that
-  # needs its own hashes says which target to prefetch for.
-  hashes =
-    wheelHashes.${versions.mlx}
-      or (throw "python-overlay.nix: no wheel hashes for mlx ${versions.mlx}. Add them to wheelHashes (nix-prefetch-url the ${cpTag}/${wheelPlatform} wheels from PyPI).");
+  # Both wheels, with their hashes, come from mlx-server/uv.lock at the version
+  # pinned there (lib/uv-lock.nix). A Renovate mlx bump regenerates the lock,
+  # so the version and the hashes arrive in the same commit. A wheelPlatform
+  # the lock does not list stops evaluation, naming the published tags.
+  uvLock = import ../../lib/uv-lock.nix;
   # Apple publishes mlx wheels for aarch64-darwin only, so the override below
   # cannot build anywhere else. CI evaluates and BUILDS the home-manager config
   # on x86_64-linux, which reached this package through the serving wrapper and
@@ -143,16 +103,7 @@ py.override {
         version = versions.mlx;
         format = "wheel";
 
-        src = super.fetchPypi {
-          pname = "mlx";
-          version = versions.mlx;
-          format = "wheel";
-          dist = cpTag;
-          python = cpTag;
-          abi = cpTag;
-          platform = wheelPlatform;
-          hash = hashes.mlx;
-        };
+        src = pkgs.fetchurl (uvLock.wheel "mlx" "${cpTag}-${cpTag}-${wheelPlatform}");
 
         nativeBuildInputs = [ pkgs.unzip ];
         propagatedBuildInputs = [ super.numpy ];
@@ -162,16 +113,7 @@ py.override {
         # mlx-metal's copies, which is the order pip and uv produce.
         postInstall =
           let
-            mlxMetalWheel = super.fetchPypi {
-              pname = "mlx_metal";
-              version = versions.mlx;
-              format = "wheel";
-              dist = "py3";
-              python = "py3";
-              abi = "none";
-              platform = wheelPlatform;
-              hash = hashes.mlxMetal;
-            };
+            mlxMetalWheel = pkgs.fetchurl (uvLock.wheel "mlx-metal" "py3-none-${wheelPlatform}");
           in
           ''
             unzip -qo ${mlxMetalWheel} -d $out/${py.sitePackages}
@@ -191,13 +133,18 @@ py.override {
       # nixpkgs source derivation makes it an ordinary postPatch, which is both
       # smaller and keeps nixpkgs' own check phase.
       #
-      # The pin stays on the 0.31.3 RELEASE. mlx-lm 0.31.3 is upstream's newest
-      # (not a stale pin), and catalog-lib.nix documents that the only route past
-      # it is a git-wheel serverVariant that DROPS --harmony-tool-parser, which
-      # gpt-oss needs. Release-plus-patch is therefore the only viable route —
-      # do not drift toward the git wheel.
-      mlx-lm = super.mlx-lm.overridePythonAttrs (old: {
-        postPatch = (old.postPatch or "") + (import ./mlx-lm-patch.nix { inherit pkgs; }).postPatch;
-      });
+      # Built from the PyPI sdist pinned in mlx-server/uv.lock rather than
+      # nixpkgs' own mlx-lm source, so the release the worker runs is the one
+      # Renovate tracks. Stay on a RELEASE: catalog-lib.nix documents that the
+      # git-wheel serverVariant DROPS --harmony-tool-parser, which gpt-oss needs.
+      mlx-lm =
+        let
+          harmony = import ./mlx-lm-patch.nix { inherit pkgs; };
+        in
+        super.mlx-lm.overridePythonAttrs (old: {
+          version = versions.mlxLm;
+          inherit (harmony) src;
+          postPatch = (old.postPatch or "") + harmony.postPatch;
+        });
     };
 }
