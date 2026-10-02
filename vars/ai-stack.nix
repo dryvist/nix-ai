@@ -34,6 +34,10 @@
   # composes it from its own domain var (e.g. nix-darwin's baseDomain).
   endpoints = {
     mlx_local = "http://127.0.0.1:11434/v1";
+    # Loopback queue front (programs.mlx.localQueue): `mlx_wait` queues FIFO,
+    # `mlx_direct` answers 429 while the model is busy.
+    mlx_wait = "http://127.0.0.1:11433/v1";
+    mlx_direct = "http://127.0.0.1:11432/v1";
   };
 
   # OrbStack NodePort allocations. Authoritative source for any consumer

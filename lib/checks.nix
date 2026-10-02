@@ -74,6 +74,14 @@ in
 })
 // (import ./checks/ai-stack.nix { inherit pkgs testLocalModelId roleMap; })
 // (import ./checks/mlx-role-map.nix { inherit pkgs roleMap; })
+// (import ./checks/mlx-local-queue.nix {
+  inherit
+    pkgs
+    roleMap
+    hmConfig
+    mkHmConfig
+    ;
+})
 // (import ./checks/ai-stack-endpoint.nix { inherit pkgs; })
 // (import ./checks/ai-stack-drift-check.nix { inherit pkgs src; })
 // (import ./checks/claude.nix { inherit pkgs hmConfig; })
