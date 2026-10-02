@@ -333,7 +333,7 @@
           vct-splunk-cli
           ;
         inherit (self) nixosConfigurations;
-        inherit herdr-remote-src herdr-hail-src;
+        inherit herdr-remote-src herdr-hail-src nixpkgs-unstable;
       };
 
       devShells = forAllSystems (

@@ -3,13 +3,18 @@ name = "mlx-server"
 version = "0.1.0"
 description = "Apple MLX local inference server environment"
 requires-python = ">=3.14"
+# The single source of truth for the MLX serving stack. lib/uv-lock.nix reads
+# uv.lock: lib/versions.nix takes every version below from it, and
+# modules/mlx/python-overlay.nix and modules/mlx/vllm-mlx-patch.nix take each
+# artifact URL and hash from it. A Renovate bump here regenerates uv.lock and
+# needs no hand-edited hash anywhere.
 dependencies = [
-  # Must track lib/versions.nix, which is the single source of truth for what
-  # the serving path actually runs (uv run --with mlx==${versions.mlx}). This
-  # file is a standalone dev environment that no nix build consumes, so a
-  # divergence here is silent — it previously sat a full minor ahead after a
-  # rollback updated versions.nix and missed this file.
-  "mlx>=0.32.2,<0.32.3",
-  "mlx-lm>=0.31.3,<0.31.4",
-  "huggingface-hub>=1.33.0,<1.33.1",
+  "mlx==0.32.3",
+  # The CPU backend the Linux CI build of the serving env installs.
+  "mlx[cpu]==0.32.3; sys_platform == 'linux'",
+  "mlx-lm==0.32.0",
+  "mlx-vlm==0.7.4",
+  "vllm-mlx==0.5.0",
+  "transformers==5.18.0",
+  "huggingface-hub==1.33.0",
 ]

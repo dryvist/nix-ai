@@ -13,7 +13,7 @@
 # thread, and a model whose own implementation forces a GPU sync while building
 # input embeddings then fails every request with
 # "RuntimeError: There is no Stream(gpu, 2) in current thread".
-# Measured against mlx-vlm 0.6.13 (latest at time of writing) with the OCR
+# Measured against mlx-vlm 0.6.13 (0.7.4 still generates off the main thread) with the OCR
 # entry in ./catalog-data.nix — which is the only place a physical id belongs,
 # so this note names the behaviour rather than the id: the model loads,
 # one-shot mlx_vlm.generate() returns correct OCR, and every mlx_vlm.server

@@ -19,10 +19,9 @@
 # written to by the consumer.
 { pkgs, vllmMlxVersion }:
 let
-  wheelSrc = pkgs.fetchurl {
-    url = "https://files.pythonhosted.org/packages/d0/db/2dac4b94379af9f188aaf18be930dc109fc0e7fca92c1b40e34f4c786511/vllm_mlx-${vllmMlxVersion}-py3-none-any.whl";
-    hash = "sha256-8eFzMMy3nSLoIr2dre1KGLC2KgIh9QikfzfEh9JIDK8=";
-  };
+  # URL and hash from mlx-server/uv.lock, where vllmMlxVersion also comes from
+  # (lib/versions.nix), so a Renovate bump needs no hand-edited hash.
+  wheelSrc = pkgs.fetchurl ((import ../../lib/uv-lock.nix).wheel "vllm-mlx" "py3-none-any");
   wheelName = "vllm_mlx-${vllmMlxVersion}-py3-none-any.whl";
 in
 pkgs.runCommand "vllm-mlx-wheel-patched-${vllmMlxVersion}"

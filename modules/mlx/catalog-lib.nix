@@ -59,9 +59,10 @@
 # An entry only offers the classes it has been validated for; requesting an
 # unoffered class fails the eval.
 #
-# KV-QUANT / MTP FLAGS: DO NOT ADD to normal catalog entries. Measured against the
-# deployed release mlx-lm 0.31.3 wrapper's own --help (2026-08): no
-# --kv-bits/--kv-group-size, no MTP flag exists on the release server at all.
+# KV-QUANT / MTP FLAGS: DO NOT ADD to normal catalog entries. mlx-lm 0.31.3's
+# --help (2026-08) had no --kv-bits/--kv-group-size; 0.32.0 adds them and
+# --quantized-kv-start, not yet validated on any catalog model. No MTP flag
+# exists on the release server at all.
 # The backend is official mlx-lm only (vllm-mlx disabled, enforced by
 # lib/checks/mlx-catalog.nix); #1334's KV-quant half is not actionable until
 # mlx-lm ships the flags, and its MTP half is vllm-mlx-only and stays

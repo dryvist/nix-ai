@@ -2,8 +2,7 @@
 #
 # THE DEFECT
 #
-# mlx-lm 0.31.3 (upstream's newest release — the pin is current, not stale)
-# infers a tool parser from the chat template in
+# mlx-lm (0.31.3 through 0.32.0, the pinned release) infers a tool parser from the chat template in
 # tokenizer_utils._infer_tool_parser. None of its branches match gpt-oss, so
 # `has_tool_calling` is False and the model's own, semantically correct harmony
 # tool call —
@@ -28,9 +27,9 @@
 # neither calls nor content. `_make_harmony_stream` now engages in `auto` only
 # on a model that inferred no parser of its own. See mlx-lm-patch/test_selection.py.
 #
-# Staying on the 0.31.3 RELEASE is deliberate: catalog-lib.nix documents that
-# the only route past it is a git-wheel serverVariant which DROPS
-# --harmony-tool-parser, the very flag gpt-oss needs. Release-plus-patch is the
+# Staying on a RELEASE is deliberate: catalog-lib.nix documents that the
+# git-wheel serverVariant DROPS --harmony-tool-parser, the very flag gpt-oss
+# needs. Release-plus-patch is the
 # only viable route — do not drift toward the git wheel.
 #
 # WHY TWO EXPORTS
@@ -50,7 +49,16 @@
 # platform-independent tree with that same step applied. Both apply the
 # identical two commands, so the checks cannot drift from what ships.
 { pkgs }:
+let
+  uvLock = import ../../lib/uv-lock.nix;
+in
 rec {
+  # The pinned mlx-lm sdist from mlx-server/uv.lock. The runtime package and
+  # patchedSrc both build from it, so the patch is applied to the release the
+  # worker runs, on every platform, and a Renovate mlx-lm bump that moves an
+  # anchor fails the mlx-harmony-patch check.
+  src = pkgs.fetchurl (uvLock.sdist "mlx-lm");
+
   # The patch step, shared verbatim by the runtime override and patchedSrc.
   # Run from the mlx-lm source root (the dir containing mlx_lm/).
   postPatch = ''
@@ -63,13 +71,13 @@ rec {
   # Byte-identical .py files either way, so a green check here is a real
   # statement about what the worker runs.
   patchedSrc =
-    pkgs.runCommand "mlx-lm-src-harmony-${pkgs.python3Packages.mlx-lm.version}"
+    pkgs.runCommand "mlx-lm-src-harmony-${uvLock.version "mlx-lm"}"
       {
-        src = pkgs.python3Packages.mlx-lm.src;
+        inherit src;
         nativeBuildInputs = [ pkgs.python3 ];
       }
       ''
-        cp -r "$src" build && chmod -R u+w build && cd build
+        tar xzf "$src" && cd mlx_lm-*
         ${postPatch}
 
         # Fail loudly here rather than at model-load time.
