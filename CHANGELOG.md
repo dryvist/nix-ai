@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.1.0](https://github.com/dryvist/nix-ai/compare/v6.0.0...v6.1.0) (2026-10-02)
+
+
+### Features
+
+* **mlx:** move the serving stack to the latest releases ([#2291](https://github.com/dryvist/nix-ai/issues/2291)) ([218168e](https://github.com/dryvist/nix-ai/commit/218168e48e27c5ae5243de63885bb025671599a8))
+* **mlx:** track the serving stack's versions and hashes from one source ([#2290](https://github.com/dryvist/nix-ai/issues/2290)) ([2df8c17](https://github.com/dryvist/nix-ai/commit/2df8c17c6ec8750a50668c5bb7ed7febc5f49ac1))
+
 ## [6.0.0](https://github.com/dryvist/nix-ai/compare/v5.30.1...v6.0.0) (2026-10-02)
 
 
