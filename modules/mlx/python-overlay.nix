@@ -69,16 +69,12 @@ let
   # so the version and the hashes arrive in the same commit. A wheelPlatform
   # the lock does not list stops evaluation, naming the published tags.
   uvLock = import ../../lib/uv-lock.nix;
-  # Apple publishes mlx wheels for aarch64-darwin only, so the override below
-  # cannot build anywhere else. CI evaluates and BUILDS the home-manager config
-  # on x86_64-linux, which reached this package through the serving wrapper and
-  # failed with "No module named 'mlx.core'" — the wheel has no Linux artifact.
-  #
-  # Off Apple silicon, fall back to nixpkgs' mlx. That build is CPU-only (see
-  # the header) and is NEVER what serves: this module's consumers are Macs. It
-  # exists so the config still evaluates on the CI system. The mlx-lm harmony
-  # patch below stays unconditional, so CI still builds and tests it.
+  # Apple silicon takes the Metal backend wheel. Linux, which never serves but
+  # where CI builds and tests this env, takes Apple's CPU backend wheel at the
+  # same version: nixpkgs' from-source mlx trails the pin, and mlx-lm's own
+  # tests crash against an mlx older than the one it requires.
   useAppleWheel = pkgs.stdenv.hostPlatform.isDarwin && pkgs.stdenv.hostPlatform.isAarch64;
+  inherit (pkgs.stdenv.hostPlatform) isLinux;
 
   # Platform tag regex for a wheel this host can install.
   hostPlatformTag =
@@ -122,8 +118,12 @@ let
           platform = hostPlatformTag;
         }
       );
-      nativeBuildInputs = lib.optional pkgs.stdenv.hostPlatform.isLinux pkgs.autoPatchelfHook;
-      buildInputs = lib.optional pkgs.stdenv.hostPlatform.isLinux pkgs.stdenv.cc.cc.lib;
+      # hf-xet writes a log under $HOME when imported.
+      nativeBuildInputs = [
+        pkgs.writableTmpDirAsHomeHook
+      ]
+      ++ lib.optional isLinux pkgs.autoPatchelfHook;
+      buildInputs = lib.optional isLinux pkgs.stdenv.cc.cc.lib;
       dependencies = super.${name}.propagatedBuildInputs;
       pythonRelaxDeps = relax;
       pythonImportsCheck = [ (lib.replaceStrings [ "-" ] [ "_" ] name) ];
@@ -134,32 +134,51 @@ py.override {
   packageOverrides =
     _self: super:
     lib.mapAttrs (fromLockWheel super) lockWheels
-    // (lib.optionalAttrs useAppleWheel {
+    // (lib.optionalAttrs (useAppleWheel || isLinux) {
       mlx = super.buildPythonPackage {
         pname = "mlx";
         version = versions.mlx;
         format = "wheel";
 
-        src = pkgs.fetchurl (uvLock.wheel "mlx" "${cpTag}-${cpTag}-${wheelPlatform}");
+        src = pkgs.fetchurl (
+          if useAppleWheel then
+            uvLock.wheel "mlx" "${cpTag}-${cpTag}-${wheelPlatform}"
+          else
+            uvLock.hostWheel "mlx" {
+              inherit cpTag;
+              platform = hostPlatformTag;
+            }
+        );
 
-        nativeBuildInputs = [ pkgs.unzip ];
+        nativeBuildInputs = [ pkgs.unzip ] ++ lib.optional isLinux pkgs.autoPatchelfHook;
+        buildInputs = lib.optional isLinux pkgs.stdenv.cc.cc.lib;
         propagatedBuildInputs = [ super.numpy ];
 
-        # Overlay the Metal backend into the same site-packages, matching how the
-        # two wheels compose in a venv. -o so the shared .py files resolve to
-        # mlx-metal's copies, which is the order pip and uv produce.
+        # Overlay the backend (mlx-metal, or mlx-cpu on Linux) into the same
+        # site-packages, matching how the two wheels compose in a venv. -o so
+        # the shared .py files resolve to the backend's copies, which is the
+        # order pip and uv produce.
         postInstall =
           let
-            mlxMetalWheel = pkgs.fetchurl (uvLock.wheel "mlx-metal" "py3-none-${wheelPlatform}");
+            backendWheel = pkgs.fetchurl (
+              if useAppleWheel then
+                uvLock.wheel "mlx-metal" "py3-none-${wheelPlatform}"
+              else
+                uvLock.hostWheel "mlx-cpu" {
+                  inherit cpTag;
+                  platform = hostPlatformTag;
+                }
+            );
           in
           ''
-            unzip -qo ${mlxMetalWheel} -d $out/${py.sitePackages}
+            unzip -qo ${backendWheel} -d $out/${py.sitePackages}
           '';
 
-        # mlx-metal is vendored above rather than installed as its own dist, so
-        # the runtime-deps check cannot see it and would fail on "not installed".
+        # The backend is vendored above rather than installed as its own dist,
+        # so the runtime-deps check cannot see it and would fail on "not
+        # installed".
         dontCheckRuntimeDeps = true;
-        pythonImportsCheck = [ "mlx" ];
+        pythonImportsCheck = [ "mlx.core" ];
       };
     })
     // {

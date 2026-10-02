@@ -10,6 +10,8 @@ requires-python = ">=3.14"
 # needs no hand-edited hash anywhere.
 dependencies = [
   "mlx==0.32.3",
+  # The CPU backend the Linux CI build of the serving env installs.
+  "mlx[cpu]==0.32.3; sys_platform == 'linux'",
   "mlx-lm==0.32.0",
   "mlx-vlm==0.7.4",
   "vllm-mlx==0.5.0",
