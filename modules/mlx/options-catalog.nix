@@ -83,7 +83,7 @@ let
   swaps = lib.filterAttrs (_: sel: sel.class == "swap") enabled;
 
   # Physical ids already served by the role registry (services.aiStack.models).
-  # A swap-class entry that is ALSO role-registered (e.g. gpt-oss owning the
+  # A swap-class entry that is ALSO role-registered (e.g. a model owning the
   # "default" role but demoted from preload) must keep its single registry
   # backend — emitting a models.<id> entry too would collide in llama-swap's
   # model table and clobber the alias/useModelName wiring. Its args therefore
@@ -163,10 +163,9 @@ in
       default = { };
       example = lib.literalExpression ''
         {
-          qwen36-optiq.class = "resident";
-          qwen3-coder-30b.class = "resident";
-          gpt-oss-120b.class = "swap";
-          qwen3-next-80b = {
+          qwen38-27b.class = "resident";
+          mimo-9b.class = "resident";
+          unlimited-ocr = {
             class = "swap";
             tweaks.ttl = 600;
           };

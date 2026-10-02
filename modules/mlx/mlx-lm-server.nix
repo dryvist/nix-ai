@@ -2,11 +2,6 @@
 # Split from default.nix for the 12 KB file-size gate. The wrapper body lives
 # in scripts/mlx-lm-server.sh; this file only supplies its build-time values.
 #
-# mlx-lm carries the harmony patch rather than being the plain upstream
-# release: upstream infers no tool parser for gpt-oss, so its harmony tool
-# calls come back as raw markup inside `content` with `tool_calls: null`. See
-# mlx-lm-patch.nix for the defect and the patch.
-#
 # The whole stack now resolves from the Nix store (python-overlay.nix) instead
 # of `uv run --with`. uv minted a COMPLETE ~1.4 GB venv per distinct
 # resolution, shared nothing between them (hardlink count 1), and never
@@ -32,7 +27,7 @@ let
 
   gib = 1024 * 1024 * 1024;
 
-  # mlx (Metal wheel) + harmony-patched mlx-lm + transformers, one atomic set.
+  # mlx (Metal wheel) + mlx-lm + transformers, one atomic set.
   pythonEnv = (import ./python-overlay.nix { inherit pkgs versions; }).withPackages (ps: [
     ps.mlx-lm
     # Required by the remote code of models whose tokenizer is not a plain
@@ -96,5 +91,5 @@ in
   # mlx-watchdog.sh, mlx-status.sh, cluster-join.sh's quiesce reap) silently
   # matched nothing for months. See scripts/llama-swap-reap.sh for the
   # measured incident.
-  launchScriptBasename = builtins.baseNameOf (toString launcher);
+  launchScriptBasename = baseNameOf (toString launcher);
 }

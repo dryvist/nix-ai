@@ -123,10 +123,8 @@ overlay's wheel mlx (`modules/mlx/python-overlay.nix`), which reports
 server's `system_fingerprint` ends in the GPU id (e.g. `applegpu_g16s`) when
 Metal is live.
 
-**Tool-call parsing**: the mlx-lm backend uses the patched wheel's
-`--harmony-tool-parser` (`auto` by default; `on`/`off` pinned per model in
-`modules/mlx/catalog-data.nix`). `auto` engages only on turns that open with
-harmony markup, so it is inert for every other model. The `--tool-call-parser`
+**Tool-call parsing**: the mlx-lm backend infers the tool parser from each
+model's chat template. The `--tool-call-parser`
 flag and its hermes/Qwen compatibility caveat belong to the disabled vllm-mlx
 path only — `programs.mlx.toolCallParser` emits nothing while mlx-lm serves.
 

@@ -19,8 +19,8 @@ in
       # Two catalog entries carrying chat-template kwargs, one per emission
       # path: model-instances.nix appends extraArgs in two separate places
       # (registry tier and swap tier), and covering only one ships half a fix.
-      optiq = "mlx-community/Qwen3.6-35B-A3B-OptiQ-4bit"; # resident, enable_thinking
-      gptOss = "mlx-community/gpt-oss-120b-MXFP4-Q8"; # swap, reasoning_effort
+      optiq = "mlx-community/Qwen3.8-27B-4bit"; # resident, reasoning_effort
+      gptOss = "mlx-community/MiMo-V2.6-Distill-Qwen-9B-OptiQ-4bit"; # swap, enable_thinking
 
       # modelBackends is cleared in both: it would otherwise pin catalog entries
       # to the backend the fixture host selected, defeating the override.

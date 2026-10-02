@@ -30,8 +30,8 @@ run apply > no-override.log
 }
 
 # set: alias moves, and the banner names BOTH declared and override.
-run set qwen36-35b > set.log
-[ "$(aliases "$OVERRIDE")" = '["goal-judge","default"]' ] || {
+run set mimo-9b > set.log
+[ "$(aliases "$OVERRIDE")" = '["judge","default"]' ] || {
   echo "override target did not receive the default alias" >&2
   exit 1
 }
@@ -43,14 +43,14 @@ grep -q "MLX DEFAULT MODEL OVERRIDE ACTIVE" set.log || {
   echo "override took effect silently — the whole point is that it cannot" >&2
   exit 1
 }
-grep -q "qwen38-27b" set.log && grep -q "qwen36-35b" set.log || {
+grep -q "qwen38-27b" set.log && grep -q "mimo-9b" set.log || {
   echo "banner must state the declared value AND the overridden value" >&2
   exit 1
 }
 
 # apply is idempotent and re-announces on every activation.
 run apply | grep -q "MLX DEFAULT MODEL OVERRIDE ACTIVE"
-[ "$(aliases "$OVERRIDE")" = '["goal-judge","default"]' ]
+[ "$(aliases "$OVERRIDE")" = '["judge","default"]' ]
 
 # Unusable key: loud on stderr, declared default served, exit 0 so a stale
 # override file cannot abort a rebuild.

@@ -11,7 +11,7 @@
 # and replaceVars fails the build if any of them survives unsubstituted.
 #
 # The python here is a Nix store env holding mlx (Metal wheel), the
-# harmony-patched mlx-lm, and transformers as one atomic set. It used to be
+# mlx-lm release, and transformers as one atomic set. It used to be
 # `uv run --with ...`, which minted a fresh ~1.4 GB venv per resolution and
 # never evicted one. Execing python directly also removes a process layer:
 # llama-swap -> python, not llama-swap -> uv run -> python.
