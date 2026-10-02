@@ -228,6 +228,7 @@ in
       llamaSwapConfigAttrs
       llamaSwapRuntimeConfigPath
       allModels
+      effectiveConcurrency
       ;
   };
 
