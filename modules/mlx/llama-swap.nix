@@ -17,6 +17,10 @@
     src = old.src.override {
       hash = "sha256-cgVc4emWipvpV05H6L74RxKBJSJGMSM/ly23T/85+1s=";
     };
+    # Live log subscribers (OnLogData) receive only data written after they
+    # subscribe; earlier writes still in broadcastLoop's queue are history.
+    # Without it a ?no-history stream can replay pre-subscription lines.
+    patches = (old.patches or [ ]) ++ [ ./llama-swap-logmon-seq.patch ];
     # A newer test also writes a #!/bin/bash helper, which the Linux sandbox
     # lacks; point it at bash the same way the recipe already does for its own.
     postPatch = old.postPatch + ''
