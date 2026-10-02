@@ -50,7 +50,16 @@
 # platform-independent tree with that same step applied. Both apply the
 # identical two commands, so the checks cannot drift from what ships.
 { pkgs }:
+let
+  uvLock = import ../../lib/uv-lock.nix;
+in
 rec {
+  # The pinned mlx-lm sdist from mlx-server/uv.lock. The runtime package and
+  # patchedSrc both build from it, so the patch is applied to the release the
+  # worker runs, on every platform, and a Renovate mlx-lm bump that moves an
+  # anchor fails the mlx-harmony-patch check.
+  src = pkgs.fetchurl (uvLock.sdist "mlx-lm");
+
   # The patch step, shared verbatim by the runtime override and patchedSrc.
   # Run from the mlx-lm source root (the dir containing mlx_lm/).
   postPatch = ''
@@ -63,13 +72,13 @@ rec {
   # Byte-identical .py files either way, so a green check here is a real
   # statement about what the worker runs.
   patchedSrc =
-    pkgs.runCommand "mlx-lm-src-harmony-${pkgs.python3Packages.mlx-lm.version}"
+    pkgs.runCommand "mlx-lm-src-harmony-${uvLock.version "mlx-lm"}"
       {
-        src = pkgs.python3Packages.mlx-lm.src;
+        inherit src;
         nativeBuildInputs = [ pkgs.python3 ];
       }
       ''
-        cp -r "$src" build && chmod -R u+w build && cd build
+        tar xzf "$src" && cd mlx_lm-*
         ${postPatch}
 
         # Fail loudly here rather than at model-load time.

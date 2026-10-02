@@ -96,9 +96,11 @@ let
   mlxWatchdogPkg = import ./mlx-watchdog-pkg.nix { inherit pkgs lib; };
 
   # llama-swap sits on the stable API port and supervises official mlx_lm workers.
-  # Sourced from nixpkgs-unstable: 25.11-darwin froze it at v165 on 2025-09-22
-  # with no backports while unstable kept moving (currently v211). See nix-ai#801.
-  llamaSwapPkg = nixpkgs-unstable.legacyPackages.${pkgs.stdenv.hostPlatform.system}.llama-swap;
+  # nixpkgs-unstable's recipe rebuilt at the lib/versions.nix pin (llama-swap.nix).
+  llamaSwapPkg = import ./llama-swap.nix {
+    pkgs = nixpkgs-unstable.legacyPackages.${pkgs.stdenv.hostPlatform.system};
+    version = versions.llamaSwap;
+  };
 
   # Proxy launcher — split to llama-swap-launch-pkg.nix (12KB gate).
   llamaSwapLaunchPkg = import ./llama-swap-launch-pkg.nix { inherit pkgs lib llamaSwapPkg; };

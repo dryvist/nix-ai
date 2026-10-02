@@ -109,6 +109,7 @@ in
   render = renderAutonomous;
 })
 // (import ./checks/mlx.nix { inherit pkgs hmConfig; })
+// (import ./checks/mlx-llama-swap-pin.nix { inherit pkgs hmConfig; })
 // (import ./checks/mlx-catalog-vlm.nix { inherit pkgs hmConfigCatalog src; })
 // (import ./checks/mlx-mtp-reachable.nix { inherit pkgs mkHmConfig; })
 // (import ./checks/mlx-response-header-timeout-ladder.nix { inherit pkgs mkHmConfig; })
