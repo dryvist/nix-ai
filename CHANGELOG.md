@@ -1,5 +1,24 @@
 # Changelog
 
+## [6.0.0](https://github.com/dryvist/nix-ai/compare/v5.30.1...v6.0.0) (2026-10-02)
+
+
+### ⚠ BREAKING CHANGES
+
+* **zai:** configurable command for Z.ai launchers ([#2283](https://github.com/dryvist/nix-ai/issues/2283))
+* ai-shell no longer exports AI_DOPPLER_* or ZAI_DOPPLER_*; the host sets them. programs.sessionArchive no longer passes fixed doppler selectors; set dopplerArgs.
+
+### Bug Fixes
+
+* **deps:** update dependency huggingface-hub to &gt;=1.33.0,&lt;1.33.1 ([#2279](https://github.com/dryvist/nix-ai/issues/2279)) ([1dc8699](https://github.com/dryvist/nix-ai/commit/1dc869971ee85fb0861c123d5402a0e5ccb4ae62))
+* **flake:** track the ai-llm-prompts branch instead of a pinned rev ([#2284](https://github.com/dryvist/nix-ai/issues/2284)) ([1c87cb3](https://github.com/dryvist/nix-ai/commit/1c87cb332c433b75d7e1aaa147b1688aa5677871))
+
+
+### Refactoring
+
+* read secret-store selectors from the environment ([#2282](https://github.com/dryvist/nix-ai/issues/2282)) ([e46c7f9](https://github.com/dryvist/nix-ai/commit/e46c7f9688a281b4516d079f76b00d65537dce51))
+* **zai:** configurable command for Z.ai launchers ([#2283](https://github.com/dryvist/nix-ai/issues/2283)) ([7f44a29](https://github.com/dryvist/nix-ai/commit/7f44a29c63a691f5b3a972807085cb55d11d815b))
+
 ## [5.30.1](https://github.com/dryvist/nix-ai/compare/v5.30.0...v5.30.1) (2026-09-28)
 
 
