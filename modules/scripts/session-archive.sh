@@ -39,30 +39,6 @@ if ! mkdir "$lock_dir" 2>/dev/null; then
 fi
 trap 'rmdir "$lock_dir" 2>/dev/null || true' EXIT
 
-# Fail loudly on missing auth: a helper that exits 0 having archived nothing is
-# the known estate bug — silence here reads as "backed up" while nothing was.
-for v in VAULT_ADDR AI_SESSIONS_BACKUP_ROLE_ID AI_SESSIONS_BACKUP_SECRET_ID; do
-  if [ -z "${!v:-}" ]; then
-    echo "$(date -Iseconds) missing $v — doppler injection absent" >>"$log"
-    exit 1
-  fi
-done
-
-token=$(curl -sf -X POST "$VAULT_ADDR/v1/auth/approle/login" \
-  -d "{\"role_id\":\"$AI_SESSIONS_BACKUP_ROLE_ID\",\"secret_id\":\"$AI_SESSIONS_BACKUP_SECRET_ID\"}" |
-  python3 -c 'import sys,json; print(json.load(sys.stdin)["auth"]["client_token"])' 2>/dev/null)
-if [ -z "$token" ]; then
-  echo "$(date -Iseconds) approle login failed" >>"$log"
-  exit 1
-fi
-
-secrets=$(curl -sf -H "X-Vault-Token: $token" \
-  "$VAULT_ADDR/v1/secret/data/apps/ai-sessions")
-if [ -z "$secrets" ]; then
-  echo "$(date -Iseconds) secret read failed" >>"$log"
-  exit 1
-fi
-
 exclude_args=()
 for e in "${excludes[@]}"; do exclude_args+=(--exclude "$e"); done
 
@@ -82,17 +58,16 @@ for pair in "${vendors[@]}"; do
   bkt="${pair#*=}"
   src="$HOME/$rel"
   [ -d "$src" ] || continue
-  # Key derivation: bucket ai-sessions-claude -> claude_rw_secret.
-  key="${bkt#ai-sessions-}_rw_secret"
-  secret=$(printf '%s' "$secrets" | python3 -c \
-    'import sys,json; print(json.load(sys.stdin)["data"]["data"][sys.argv[1]])' \
-    "$key" 2>/dev/null)
-  if [ -z "$secret" ]; then
-    echo "$(date -Iseconds) no secret $key for $bkt, skipping $rel" >>"$log"
+  # Secret from the environment: bucket ai-sessions-claude ->
+  # SESSION_ARCHIVE_CLAUDE_SECRET. A missing one counts as a failure, so a run
+  # that archived nothing never exits 0.
+  var="SESSION_ARCHIVE_$(printf '%s' "${bkt#ai-sessions-}" | tr '[:lower:]-' '[:upper:]_')_SECRET"
+  if [ -z "${!var:-}" ]; then
+    echo "$(date -Iseconds) $var unset, skipping $rel" >>"$log"
     failed=$((failed + 1))
     continue
   fi
-  export AWS_ACCESS_KEY_ID="$bkt-rw" AWS_SECRET_ACCESS_KEY="$secret"
+  export AWS_ACCESS_KEY_ID="$bkt-rw" AWS_SECRET_ACCESS_KEY="${!var}"
 
   # Per-leaf sync, never whole-tree: the store's ListObjectsV2 truncates on
   # large parent prefixes, so a whole-tree sync fails to see what is already

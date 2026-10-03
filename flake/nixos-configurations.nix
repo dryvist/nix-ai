@@ -53,8 +53,8 @@ let
 
       # The guest is reached over SSH — both by `nixos-rebuild --target-host`
       # pushing a closure and by `herdr --remote` shelling out. Passwords are
-      # off: the estate authenticates with certificates minted from the OpenBao
-      # SSH CA, and a password path would be a second, weaker way in.
+      # off: clients authenticate with SSH CA certificates, and a password
+      # path would be a second, weaker way in.
       services.openssh = {
         enable = true;
         settings = {

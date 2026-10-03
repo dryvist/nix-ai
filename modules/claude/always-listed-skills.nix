@@ -85,7 +85,6 @@ let
     "replan"
     "resolve-pr-threads"
     "retrospecting"
-    "screenpipe"
     "session-status"
     "shared-workflow-org-refs"
     "ship"

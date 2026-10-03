@@ -1,7 +1,8 @@
 # Daily push of AI session history to S3-compatible vendor buckets (RustFS).
 #
 # Complements session-sync's Mac-to-Mac push: this is the off-Mac copy, one
-# bucket per vendor tool, credentials minted per run from OpenBao via doppler.
+# bucket per vendor tool. Each bucket's secret comes from the environment
+# (SESSION_ARCHIVE_<VENDOR>_SECRET), injected by credentialCommand.
 {
   config,
   lib,
@@ -81,20 +82,20 @@ in
       description = "Minute of the daily run.";
     };
 
-    dopplerBin = lib.mkOption {
-      type = lib.types.str;
-      default = "doppler";
-      description = "doppler binary; resolved via the agent's PATH because doppler auth is user-level.";
-    };
-
-    dopplerArgs = lib.mkOption {
+    credentialCommand = lib.mkOption {
       type = lib.types.listOf lib.types.str;
       default = [ ];
       example = [
-        "-p"
-        "example-project"
+        "my-secrets"
+        "run"
+        "--"
       ];
-      description = "Extra `doppler run` selector arguments. Empty uses the scoped default.";
+      description = ''
+        Command prefix that runs the archive script with each bucket's secret
+        exported as SESSION_ARCHIVE_<VENDOR>_SECRET (bucket ai-sessions-claude
+        -> SESSION_ARCHIVE_CLAUDE_SECRET). Resolved via the agent's PATH.
+        Empty runs the script directly with the agent's environment.
+      '';
     };
   };
 
@@ -111,11 +112,11 @@ in
       config = {
         Label = "dev.session-archive";
         # wait4path: the agent can fire before /nix/store is mounted after boot.
-        # doppler injects the OpenBao AppRole env the script authenticates with.
+        # credentialCommand injects the per-bucket secrets the script reads.
         ProgramArguments = [
           "/bin/sh"
           "-c"
-          "/bin/wait4path /nix/store && exec ${lib.escapeShellArg cfg.dopplerBin} run ${lib.escapeShellArgs cfg.dopplerArgs} -- ${./scripts/session-archive.sh} ${scriptArgs}"
+          "/bin/wait4path /nix/store && exec ${lib.escapeShellArgs cfg.credentialCommand} ${./scripts/session-archive.sh} ${scriptArgs}"
         ];
         StartCalendarInterval = [
           {
@@ -130,7 +131,7 @@ in
         EnvironmentVariables = {
           HOME = config.home.homeDirectory;
           # Same PATH shape as the maestro agent: per-user profile first so the
-          # user-level doppler install resolves, then system and Apple paths.
+          # user-level credentialCommand resolves, then system and Apple paths.
           PATH = "${config.home.profileDirectory}/bin:/run/current-system/sw/bin:/usr/bin:/bin";
         };
         StandardOutPath = "${logDir}/agent.log";
