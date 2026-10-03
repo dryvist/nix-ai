@@ -7,6 +7,7 @@
 # during the transitional window.
 
 {
+  config,
   lib,
   pkgs,
   ...
@@ -35,6 +36,9 @@ in
     # defined) — exactly the failure mode the open-llm identity hit.
     # Factored into claude-zai-pkg.nix so lib/checks/scripts/zai-launchers-test.sh
     # builds and tests this exact derivation, not a hand-kept copy of it.
-    home.packages = [ (pkgs.callPackage ./claude-zai-pkg.nix { inherit zai; }) ];
+    # Installed only with programs.ai.untrustedClis.enable.
+    home.packages = lib.optional config.programs.ai.untrustedClis.enable (
+      pkgs.callPackage ./claude-zai-pkg.nix { inherit zai; }
+    );
   };
 }

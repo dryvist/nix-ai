@@ -28,8 +28,14 @@
   taps = [ ];
 
   brews = {
-    goose = [ "block-goose-cli" ];
     langgraphCli = [ "langgraph-cli" ];
+  };
+
+  # Untrusted agent CLIs. Emitted by flake/lib.nix homebrewFor only when the
+  # host capabilities also carry `untrustedClis = true`, matching
+  # programs.ai.untrustedClis.enable on the home-manager side.
+  untrustedBrews = {
+    goose = [ "block-goose-cli" ];
   };
 
   casks = {

@@ -136,6 +136,8 @@ let
   # Nix-managed defaults for config.toml.
   configAttrs = {
     approval_policy = cfg.approvalPolicy;
+    # Login lives in CODEX_HOME/auth.json, never the OS keyring.
+    cli_auth_credentials_store = "file";
     personality = "pragmatic";
     project_doc_fallback_filenames = [ "AGENTS.md" ];
     projects = lib.listToAttrs (

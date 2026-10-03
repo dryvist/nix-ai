@@ -52,6 +52,8 @@ let
 
   homebrewCfg = import ../lib/homebrew.nix;
 
+  untrusted = config.programs.ai.untrustedClis.enable;
+
   # ~/.homebrew/trust.json — macOS only. Homebrew 5.2.0/6.0.0 enforces
   # HOMEBREW_REQUIRE_TAP_TRUST; pre-trust the AI-tool taps declared in
   # lib/homebrew.nix so brew bundle keeps working when the default flips.
@@ -64,6 +66,13 @@ let
   );
 in
 {
+  options.programs.ai.untrustedClis.enable = lib.mkEnableOption ''
+    the untrusted agent CLIs and their config: claude-zai, opencode,
+    cursor-agent, copilot, gh-copilot, qwen-code, cecli, claude-flow and
+    omo-senpi. Claude Code, Codex and agy are always installed. Off, none of
+    them is on PATH; their package definitions stay available to image builds
+  '';
+
   options.programs.ai-homebrew.trustedTaps = lib.mkOption {
     type = lib.types.listOf lib.types.str;
     default = homebrewCfg.taps;
@@ -110,10 +119,11 @@ in
       # language servers are spliced in from their own file: ai-tools.nix sits
       # at its file-size ceiling.
       packages =
-        (import ./ai-tools.nix { inherit pkgs llm-agents; }).packages
-        ++ import ./ai-tools/lsp-servers.nix { inherit pkgs; };
+        (import ./ai-tools.nix { inherit pkgs; }).packages
+        ++ import ./ai-tools/lsp-servers.nix { inherit pkgs; }
+        ++ lib.optionals untrusted (import ./ai-tools/untrusted-clis.nix { inherit pkgs llm-agents; });
 
-      file = copilotFiles // agentsMdSymlinks;
+      file = lib.optionalAttrs untrusted copilotFiles // agentsMdSymlinks;
 
       activation = {
         brewTrustStore = lib.mkIf pkgs.stdenv.isDarwin (
@@ -192,14 +202,10 @@ in
     # Programs configuration
     programs = {
       # cecli — actively maintained Aider fork (settings handled by modules/cecli/)
-      cecli = {
-        enable = true;
-      };
+      cecli.enable = lib.mkDefault untrusted;
 
       # Qwen Code — Alibaba's CLI agent (settings handled by modules/qwen-code/)
-      qwen-code = {
-        enable = true;
-      };
+      qwen-code.enable = lib.mkDefault untrusted;
 
       # OpenAI Codex configuration (settings handled by modules/codex/)
       codex = {
@@ -208,9 +214,7 @@ in
 
       # Cursor CLI configuration (settings handled by modules/cursor/; the
       # Cursor IDE itself stays installed via nix-darwin home.packages).
-      cursor = {
-        enable = true;
-      };
+      cursor.enable = lib.mkDefault untrusted;
 
       # OpenCode — skills via the agent-skills registry; upstream's native
       # OpenCode command files come straight from the autoresearch input.
@@ -218,7 +222,7 @@ in
       # needs to write through the Nix-owned opencode.json symlink: it sees the
       # plugin entry already present and only manages its own ~/.omo state.
       opencode = {
-        enable = true;
+        enable = lib.mkDefault untrusted;
         commandDirs = [ "${marketplaceInputs.autoresearch}/.opencode/commands" ];
         # @latest matches what the omo installer itself writes; bare
         # "oh-my-openagent" also loads but doctor expects the tagged form.
@@ -274,8 +278,8 @@ in
         integrations = [
           "claude"
           "codex"
-          "opencode"
-        ];
+        ]
+        ++ lib.optional untrusted "opencode";
       };
     };
   };

@@ -25,11 +25,14 @@ let
   };
   grouped = mkHmConfig [
     {
-      programs.agentSkills = {
-        root = "agents";
-        activeGroups = [ "productivity" ];
+      programs = {
+        agentSkills = {
+          root = "agents";
+          activeGroups = [ "productivity" ];
+        };
+        ai.untrustedClis.enable = true;
+        opencode.configDir = ".config/opencode-test";
       };
-      programs.opencode.configDir = ".config/opencode-test";
     }
   ];
   deployed = cfg.deployedSkillPaths;
