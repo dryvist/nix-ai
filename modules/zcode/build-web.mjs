@@ -13,7 +13,10 @@ await build({
   platform: "node",
   format: "cjs",
   metafile: true,
-  alias: resolveBuildAliases(),
+  alias: {
+    ...resolveBuildAliases(),
+    "@zcode/provider": `${process.cwd()}/packages/provider/src/index.ts`,
+  },
   external: resolveBuildExternal(),
   plugins: [createZodDedupePlugin({ expectedV4Version: await readZodBuildVersion() })],
 });

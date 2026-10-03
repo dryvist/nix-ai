@@ -28,6 +28,7 @@ with tempfile.TemporaryDirectory() as home:
     assert len(configs) == 1, "Native key initializer wrote no unique configuration"
     selection = json.loads(configs[0].read_text())["config"]["defaultModelSelection"]
     assert selection["modelId"] == sys.argv[3], selection
+    assert selection["options"]["reasoningLevel"], selection
     env.update(ZCODE_SERVER_AUTH_TOKEN="offline-smoke-token", PORT="3039")
     with (artifacts / "server.log").open("w") as log:
         server = subprocess.Popen([package / "bin/zcode-web"], env=env, stdout=log, stderr=log)
