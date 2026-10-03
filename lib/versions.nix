@@ -150,5 +150,5 @@ in
   # and UI npm hashes in that file after a Renovate bump; the llama-swap-pin
   # check fails when the package the module runs is not this release.
   # renovate: datasource=github-releases depName=mostlygeek/llama-swap
-  llamaSwap = "v261";
+  llamaSwap = "v262";
 }
