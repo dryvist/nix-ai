@@ -150,6 +150,11 @@
 
     # ---- Third-party skill inputs (modules/agent-skills + dual-channel marketplaces)
 
+    mattpocock-skills = {
+      url = "github:mattpocock/skills";
+      flake = false;
+    };
+
     # Animated technical diagrams as self-contained HTML+SVG. Cross-tool only.
     dashmotion = {
       url = "github:csthink/dashmotion";
@@ -230,6 +235,7 @@
       nix-codex,
       nix-agy,
       karpathy-skills,
+      mattpocock-skills,
       fabric-src,
       dashmotion,
       ponytail,
@@ -277,6 +283,7 @@
           browser-use-skills
           nix-claude-code
           karpathy-skills
+          mattpocock-skills
           nixpkgs-unstable
           llm-agents
           dashmotion

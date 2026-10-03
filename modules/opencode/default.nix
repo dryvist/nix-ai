@@ -4,8 +4,7 @@
 # rewrites its global config — state lives in ~/.local/share/opencode — so
 # opencode.json is a plain declarative home.file, no deep-merge activation.
 #
-# Skills arrive via the shared agent-skills registry
-# (modules/agent-skills/harnesses.nix -> ~/.config/opencode/skills symlink).
+# Skills arrive via the shared agent-skills registry and native discovery.
 # Commands are linked per-file from commandDirs so future sources coexist.
 {
   pkgs,
@@ -30,7 +29,32 @@ let
   };
 
   aiCommon = import ../common { inherit lib config nix-claude-code; };
-  permission = aiCommon.formatters.opencode.formatPermission aiCommon.permissions;
+  agentSkills = config.programs.agentSkills;
+  skillRoot = ".${agentSkills.root}/skills";
+  userInvokedSkills = builtins.filter (
+    skill: skill.userInvoked && agentSkills.deployedSkillPaths ? "${skillRoot}/${skill.name}"
+  ) agentSkills.fromFlakeInputs;
+
+  # OpenCode ignores Claude's invocation flag. Native commands load manual
+  # workflows explicitly while skill permissions hide them from model selection.
+  skillCommands = lib.listToAttrs (
+    map (skill: {
+      inherit (skill) name;
+      value = {
+        description = "Run the ${skill.name} skill";
+        template = ''
+          Follow the ${skill.name} skill in @${config.home.homeDirectory}/${skillRoot}/${skill.name}/SKILL.md.
+          Load reusable skills through the native skill tool; resolve supporting
+          files relative to the referenced skill directory.
+
+          User arguments: $ARGUMENTS
+        '';
+      };
+    }) userInvokedSkills
+  );
+  permission = aiCommon.formatters.opencode.formatPermission aiCommon.permissions // {
+    skill = lib.genAttrs (map (skill: skill.name) userInvokedSkills) (_: "deny");
+  };
 
   mcpClient = import ../mcp/client.nix { inherit lib; };
 
@@ -73,6 +97,7 @@ let
   settings = {
     "$schema" = "https://opencode.ai/config.json";
     inherit permission;
+    command = skillCommands;
     mcp = mcpServers;
     # LSP integration is off by default upstream; this enables every built-in
     # server. A server only activates when its binary is on PATH, so the set

@@ -44,6 +44,12 @@ in
         # PR3 started). Splice them in to keep nix-ai's CI output
         # in lockstep with pre-PR3 behavior.
         augmentedCatalog = ncc.marketplaceCatalog.marketplaces // {
+          "mattpocock" = {
+            source = {
+              type = "github";
+              url = "mattpocock/skills";
+            };
+          };
           "jacobpevans-cc-plugins" = {
             source = {
               type = "github";

@@ -67,6 +67,7 @@ let
   allSkillNames = lib.unique (
     map (c: c.name) deployedFlakeInputs ++ builtins.attrNames deployedLocal
   );
+  userInvokedNames = map (c: c.name) (builtins.filter (c: c.userInvoked) deployedFlakeInputs);
 
   # Only categories that actually match a deployed skill become a heading, so a
   # category naming a skill from a removed input silently disappears instead of
@@ -79,7 +80,9 @@ let
   renderSection = title: names: ''
     ## ${title}
 
-    ${lib.concatMapStrings (n: "- ${n}\n") (lib.sort (a: b: a < b) names)}
+    ${lib.concatMapStrings (
+      n: "- ${n}${lib.optionalString (lib.elem n userInvokedNames) " (user-invoked only)"}\n"
+    ) (lib.sort (a: b: a < b) names)}
   '';
 
   skillIndex = ''
@@ -88,6 +91,13 @@ let
     Reusable skills live in `~/${skillRoot}/<name>/SKILL.md`. When a task
     matches a skill below, read its SKILL.md and follow it. A skill may appear
     under more than one category.
+
+    Skills marked user-invoked only require an explicit user request; do not
+    select them automatically or invoke them from another skill. When a skill
+    says to call the Skill tool, use this client's native skill loader, or read
+    the named SKILL.md when no such tool exists. Resolve supporting files from
+    that skill's directory. Repository instructions take precedence over skill
+    examples of trackers, documentation, credentials, and pull requests.
 
     ${lib.concatStrings (lib.mapAttrsToList renderSection categorized)}${
       lib.optionalString (uncategorized != [ ]) (renderSection "Uncategorized" uncategorized)

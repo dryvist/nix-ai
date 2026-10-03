@@ -8,6 +8,11 @@ let
     options = {
       name = lib.mkOption { type = lib.types.str; };
       source = lib.mkOption { type = lib.types.path; };
+      userInvoked = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = "Whether this skill requires an explicit user request.";
+      };
     };
   };
 in
