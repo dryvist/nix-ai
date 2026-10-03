@@ -97,9 +97,10 @@ in
   inherit
     pkgs
     src
-    hmConfig
     mkHmConfig
     ;
+  # opencode.json is one of the artefacts under test.
+  hmConfig = hmConfigUntrusted;
 })
 // (import ./checks/installed-cache-marking.nix { inherit pkgs src; })
 // (import ./checks/agent-skills.nix {
