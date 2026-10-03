@@ -91,6 +91,14 @@ in
 // (import ./checks/agent-skills-repo-link.nix { inherit pkgs; })
 // (import ./checks/agent-skills-groups.nix { inherit pkgs mkHmConfig; })
 // (import ./checks/manual-invoke-marking.nix { inherit pkgs src; })
+// (import ./checks/mattpocock-skills.nix {
+  inherit
+    pkgs
+    src
+    hmConfig
+    mkHmConfig
+    ;
+})
 // (import ./checks/installed-cache-marking.nix { inherit pkgs src; })
 // (import ./checks/agent-skills.nix {
   inherit

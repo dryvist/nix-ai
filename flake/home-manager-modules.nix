@@ -5,6 +5,7 @@
   jacobpevans-cc-plugins,
   nix-claude-code,
   karpathy-skills,
+  mattpocock-skills,
   nixpkgs-unstable,
   llm-agents,
   dashmotion,
@@ -52,6 +53,7 @@ let
     inherit browser-use-skills;
     inherit jacobpevans-cc-plugins;
     inherit karpathy-skills;
+    mattpocock = mattpocock-skills;
     inherit dashmotion;
     inherit ponytail;
     inherit last30days-skill;

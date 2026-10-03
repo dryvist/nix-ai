@@ -67,6 +67,7 @@ let
   allSkillNames = lib.unique (
     map (c: c.name) deployedFlakeInputs ++ builtins.attrNames deployedLocal
   );
+  userInvokedNames = map (c: c.name) (builtins.filter (c: c.userInvoked) deployedFlakeInputs);
 
   # Only categories that actually match a deployed skill become a heading, so a
   # category naming a skill from a removed input silently disappears instead of
@@ -79,7 +80,9 @@ let
   renderSection = title: names: ''
     ## ${title}
 
-    ${lib.concatMapStrings (n: "- ${n}\n") (lib.sort (a: b: a < b) names)}
+    ${lib.concatMapStrings (
+      n: "- ${n}${lib.optionalString (lib.elem n userInvokedNames) " (user-invoked only)"}\n"
+    ) (lib.sort (a: b: a < b) names)}
   '';
 
   skillIndex = ''
@@ -88,6 +91,13 @@ let
     Reusable skills live in `~/${skillRoot}/<name>/SKILL.md`. When a task
     matches a skill below, read its SKILL.md and follow it. A skill may appear
     under more than one category.
+
+    Skills marked user-invoked only require an explicit user request; do not
+    select them automatically or invoke them from another skill. When a skill
+    says to call the Skill tool, use this client's native skill loader, or read
+    the named SKILL.md when no such tool exists. Resolve supporting files from
+    that skill's directory. Repository instructions take precedence over skill
+    examples of trackers, documentation, credentials, and pull requests.
 
     ${lib.concatStrings (lib.mapAttrsToList renderSection categorized)}${
       lib.optionalString (uncategorized != [ ]) (renderSection "Uncategorized" uncategorized)
@@ -109,26 +119,10 @@ let
 
   stableLinks = import ../lib/stable-links.nix { inherit lib pkgs; };
 
-  # Claude Code does not read the shared root. Verified in
-  # docs/architecture/agent-context-architecture.md: a skill present only in
-  # ~/.agents/skills never appears in a Claude session's listing. Claude's three
-  # trees are its enabled plugins, <repo>/.claude/skills, and ~/.claude/skills.
-  #
-  # The per-repo tree cannot carry a skill that must be present everywhere: the
-  # direnv linker (repo-link/agent-skill-groups.sh) exits unless the repository
-  # has an AGENTS.md, and links only the groups that file declares. Many
-  # repositories declare none. ~/.claude/skills is the only tree Claude reads in
-  # every repository with no declaration and no plugin, so a skill required
-  # everywhere is linked there.
-  #
-  # Only skills that BOTH must be everywhere and reach Claude no other way.
-  # Not the whole `core` group: most of core already ships from an enabled
-  # plugin, and linking those here would list each one twice in the same
-  # session — the 2,988-token duplication the repo linker exists to avoid.
-  #
-  # skillSources (not deployedFlakeInputs) is the lookup, so a host that gates
-  # activeGroups away resolves a real store path rather than a dangling link;
-  # the filter drops a name whose source is genuinely absent.
+  # Claude reads plugins and .claude/skills, not the shared root; see
+  # docs/architecture/agent-context-architecture.md. Link only skills needed
+  # everywhere that have no plugin delivery. Resolve from skillSources even
+  # when host groups are gated, and drop genuinely absent sources.
   claudeAlwaysLinks = lib.listToAttrs (
     map (n: lib.nameValuePair ".claude/skills/${n}" skillSources.${n}) (
       builtins.filter (n: skillSources ? ${n}) cfg.claudeAlwaysListed
