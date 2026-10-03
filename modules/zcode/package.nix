@@ -57,6 +57,12 @@ stdenv.mkDerivation (finalAttrs: {
     makeWrapper
   ];
 
+  # The hoisted layout nests a node_modules per workspace, and pnpmConfigHook
+  # patches only the root one; the Linux sandbox has no /usr/bin/env.
+  preBuild = ''
+    patchShebangs --build .
+  '';
+
   # The CLI and the two official plugins it seeds from the filesystem, each
   # with its workspace dependencies, in topological order.
   buildPhase = ''
