@@ -127,11 +127,10 @@
   # UniFi Network - local UniFi gateway/controller management
   # ================================================================
   # Source: https://github.com/enuno/unifi-mcp-server (PyPI: unifi-mcp-server)
-  # stdio server that talks to the UniFi gateway on the LAN. Requires (inject at
-  # runtime — see .env.example): UNIFI_API_KEY (secret, unifi.ui.com) and
-  # UNIFI_LOCAL_HOST (gateway IP, e.g. 192.168.0.1 — real value is topology; keep
-  # it in the no-password secret store, never committed). UNIFI_API_TYPE is
-  # non-secret config and is pinned to "local" here.
+  # stdio server that talks to the UniFi gateway on the LAN. Requires (see
+  # .env.example): UNIFI_API_KEY (secret, unifi.ui.com) and UNIFI_LOCAL_HOST
+  # (gateway IP, e.g. 192.168.0.1 — real value is topology, never committed).
+  # UNIFI_API_TYPE is non-secret config and is pinned to "local" here.
   unifi = {
     command = "uvx";
     args = [
@@ -179,8 +178,8 @@
   # ================================================================
   # Source: https://docs.openwhispr.com/integrations/mcp
   # Remote Streamable-HTTP endpoint. Requires a personal API key
-  # (`owk_live_...`) in OPENWHISPR_API_KEY — inject at runtime (see
-  # .env.example). Workspace keys are not supported. The CLI uses a
+  # (`owk_live_...`) in OPENWHISPR_API_KEY (see .env.example). Workspace keys
+  # are not supported. The CLI uses a
   # separate credential path (`openwhispr auth login` →
   # ~/.openwhispr/cli-config.json); MCP and CLI share the same key
   # material but not the delivery mechanism.
