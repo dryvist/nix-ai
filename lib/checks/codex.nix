@@ -124,6 +124,7 @@ in
         name = "codex.otelExporterKinds (telemetry unconfigured)";
         actual = cfg.otelExporterKinds;
         expected = {
+          logs = "none";
           trace = "none";
           metrics = "none";
         };
