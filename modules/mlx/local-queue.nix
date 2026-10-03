@@ -58,7 +58,8 @@ in
         };
       };
 
-      # Answers HAProxy's agent-check: `ready` on AC power, `maint` on battery.
+      # Answers HAProxy's agent-check: `up ready` on AC power (`up` returns the
+      # server to service, `ready` lifts maintenance), `maint` on battery.
       # launchd owns the socket and runs the line once per connection
       # (inetd-style), so there is no daemon and no script file.
       mlx-power-agent = {
@@ -68,7 +69,7 @@ in
           ProgramArguments = [
             "/bin/sh"
             "-c"
-            "/usr/bin/pmset -g ps | /usr/bin/grep -q 'AC Power' && echo ready || echo maint"
+            "/usr/bin/pmset -g ps | /usr/bin/grep -q 'AC Power' && echo up ready || echo maint"
           ];
           inetdCompatibility.Wait = false;
           Sockets.agent = {
