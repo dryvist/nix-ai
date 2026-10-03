@@ -40,6 +40,9 @@ forAllSystems (
       pkgs = nixpkgs-unstable.legacyPackages.${system};
       version = (import ../lib/versions.nix).llamaSwap;
     };
+    zcode = pkgs.callPackage ../modules/zcode/package.nix {
+      version = (import ../lib/versions.nix).zcode;
+    };
     inherit (cecliPkg.passthru) mcp;
     inherit (vctCliPkgs) vct-cribl-cli vct-splunk-cli;
   }

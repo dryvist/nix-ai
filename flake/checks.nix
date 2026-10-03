@@ -58,6 +58,10 @@ in
       # the source, Go vendor and UI npm hashes nix-update maintains.
       llama-swap-build = self.packages.${system}.llama-swap;
 
+      # Same reason: builds ZCode at the lib/versions.nix pin, verifying the
+      # source and pnpm dependency hashes nix-update maintains.
+      zcode-build = self.packages.${system}.zcode;
+
       # The only check that evaluates the NixOS half. Without it `nix flake
       # check` proves `nixosModules.herdr` is an attrset and nothing more,
       # which is how an unfree default (cursor-cli) shipped green through this
