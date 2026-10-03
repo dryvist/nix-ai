@@ -54,6 +54,11 @@ rec {
 
   hmConfig = mkHmConfig [ ];
 
+  # Same stack with the untrusted agent CLIs switched on
+  # (lib/checks/untrusted-clis.nix). The checks that pin a particular
+  # untrusted CLI's wiring read this fixture; the default one has none.
+  hmConfigUntrusted = mkHmConfig [ { programs.ai.untrustedClis.enable = true; } ];
+
   hmConfigAgentSkillsShared = mkHmConfig [
     {
       programs.agentSkills.root = "agents";

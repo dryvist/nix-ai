@@ -26,8 +26,7 @@
 # NIXPKGS: github-mcp-server, terraform-mcp-server, whisper-cpp,
 #   openai-whisper, entire, yt-dlp, qwen-code, cursor-cli
 #
-# LLM-AGENTS.NIX: claude-code, antigravity-cli (`agy`), copilot-cli, herdr,
-#   codex, opencode
+# LLM-AGENTS.NIX: claude-code, antigravity-cli (`agy`), herdr, codex
 #
 # HOMEBREW (lib/homebrew.nix): block-goose-cli, langgraph-cli, the desktop
 #   apps (claude, codex-app, chatgpt, antigravity, antigravity-ide), plus the
@@ -39,21 +38,18 @@
 #
 # BUNX WRAPPER PACKAGES (npm packages not in nixpkgs/homebrew):
 #   cclint: @felixgeelhaar/cclint (CLAUDE.md lint)
-#   gh-copilot: @githubnext/github-copilot-cli (pinned version)
 #   chatgpt: chatgpt-cli (ChatGPT terminal client)
-#   claude-flow: claude-flow (multi-agent orchestration)
 #   gws: @googleworkspace/cli (pinned)
 #   openwhispr: @openwhispr/cli (voice notes / transcription)
 #   langfuse: langfuse-cli (Langfuse API CLI — traces, prompts, datasets)
-#   omo-senpi: omo-ai (oh-my-openagent Senpi edition — standalone agent, beta)
 #
 # UVX WRAPPER PACKAGES (Python packages not in nixpkgs/homebrew):
 #   hf: huggingface-hub CLI (model downloads, used with HuggingFace MCP)
 #   mlx_lm.server: defined in modules/mlx (owns the wrapper + LaunchAgent)
 #
-# DECLARATIVE MODULES (package + config managed by per-agent modules):
-#   cecli      — actively maintained Aider fork; see modules/cecli/ (programs.cecli)
-#   qwen-code  — Qwen agent CLI; see modules/qwen-code/ (programs.qwen-code)
+# UNTRUSTED AGENT CLIs (gated by programs.ai.untrustedClis.enable, off by default):
+#   copilot-cli, gh-copilot, claude-flow, omo-senpi — ./ai-tools/untrusted-clis.nix
+#   cecli, qwen-code, opencode, cursor — per-agent modules under modules/
 #
 # NOTE: These are home-manager packages, not system packages.
 # modules/default.nix imports this file unconditionally, for every host. It is
@@ -68,18 +64,14 @@
 #   1. Verify availability: nix search nixpkgs <package>
 #   2. Add to packages list below
 
-{ pkgs, llm-agents, ... }:
+{ pkgs, ... }:
 let
   versions = import ../lib/versions.nix;
-  llmAgents = llm-agents.packages.${pkgs.stdenv.hostPlatform.system};
   cclintVersion = versions.cclint;
-  ghCopilotVersion = versions.ghCopilot;
   chatgptCliVersion = versions.chatgptCli;
-  claudeFlowVersion = versions.claudeFlow;
   gwsCliVersion = versions.gwsCli;
   openwhisprCliVersion = versions.openwhisprCli;
   langfuseCliVersion = versions.langfuseCli;
-  omoSenpiVersion = versions.omoSenpi;
 in
 {
   # AI-specific development tools
@@ -139,36 +131,12 @@ in
     entire
 
     # ==========================================================================
-    # GitHub Copilot CLI
-    # ==========================================================================
-    # `copilot` — the current CLI. Not in nixpkgs; llm-agents.nix packages it
-    # for both supported systems. Its config (~/.copilot) is written by
-    # modules/copilot.nix, which previously configured a binary nothing here
-    # installed.
-    llmAgents.copilot-cli
-
-    # `gh-copilot` — the older gh extension, kept for the shell-suggest
-    # workflow it still serves. Source: https://github.com/github/gh-copilot
-    (writeShellScriptBin "gh-copilot" ''
-      exec ${bun}/bin/bunx --bun @githubnext/github-copilot-cli@${ghCopilotVersion} "$@"
-    '')
-
-    # ==========================================================================
     # OpenAI ChatGPT CLI
     # ==========================================================================
     # Source: https://github.com/manno/chatgpt-cli
     # NPM: chatgpt-cli (pinned version)
     (writeShellScriptBin "chatgpt" ''
       exec ${bun}/bin/bunx --bun chatgpt-cli@${chatgptCliVersion} "$@"
-    '')
-
-    # ==========================================================================
-    # Claude Flow - AI Agent Orchestration Platform
-    # ==========================================================================
-    # Source: https://github.com/ruvnet/claude-flow
-    # NPM: claude-flow (pinned version)
-    (writeShellScriptBin "claude-flow" ''
-      exec ${bun}/bin/bunx --bun claude-flow@${claudeFlowVersion} "$@"
     '')
 
     # ==========================================================================
@@ -195,22 +163,6 @@ in
     '')
 
     (import ./ai-tools/langfuse-cli.nix { inherit pkgs langfuseCliVersion; })
-    # ==========================================================================
-    # Oh My OpenAgent — Senpi edition
-    # ==========================================================================
-    # Standalone senpi engine with the OMO extension built in (beta channel).
-    # Source: https://github.com/code-yeongyu/oh-my-openagent
-    # NPM: omo-ai (pinned beta version; `latest` tag is a placeholder, see
-    # lib/versions.nix). The Ultimate/Light plugin editions are NOT installed
-    # here — they load inside OpenCode/Codex via their own installers.
-    #
-    # Named omo-senpi, not `omo`: the Codex Light installer links its own
-    # runtime wrapper at ~/.local/bin/omo (ahead of this dir on PATH), and
-    # bare `omo` on npm is an unrelated package by a different author.
-    (writeShellScriptBin "omo-senpi" ''
-      exec ${bun}/bin/bunx --bun omo-ai@${omoSenpiVersion} "$@"
-    '')
-
     (import ./ai-tools/rulesync.nix { inherit pkgs versions; })
 
     # ==========================================================================
@@ -232,14 +184,6 @@ in
     (writeShellScriptBin "hf" ''
       exec ${uv}/bin/uvx --from "huggingface-hub==${versions.huggingfaceHub}" hf "$@"
     '')
-
-    # ==========================================================================
-    # AI agent CLIs (cecli, qwen-code)
-    # ==========================================================================
-    # Package install + configuration managed by per-agent modules:
-    #   modules/cecli/      → programs.cecli      (uvx install)
-    #   modules/qwen-code/  → programs.qwen-code  (homebrew install via nix-darwin)
-    # See those modules for routing, model selection, and config generation.
 
   ];
 }

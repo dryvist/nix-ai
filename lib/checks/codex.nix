@@ -142,6 +142,21 @@ in
     helpers.mkMarker "check-codex-settings-toml" "Codex settings: activation package builds successfully (config.toml generation verified)"
   );
 
+  # Codex keeps its login in CODEX_HOME/auth.json, never the OS keyring.
+  # The rendered config.toml reaches the activation script by store path, so
+  # the check recovers that path from the script and greps the file itself.
+  codex-credential-store =
+    pkgs.runCommand "check-codex-credential-store"
+      {
+        activation = hmConfig.config.home.activation.codexConfigMerge.data;
+        passAsFile = [ "activation" ];
+      }
+      ''
+        toml=$(grep -m1 -oE '/nix/store/[^"[:space:]]*codex-config\.toml' "$activationPath")
+        grep -Fxq 'cli_auth_credentials_store = "file"' "$toml"
+        touch $out
+      '';
+
   # Validate permissions pipeline produces non-empty rules via home.file output.
   codex-permissions =
     let

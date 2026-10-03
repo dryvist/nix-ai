@@ -15,7 +15,11 @@
 # These prove the SOURCE, not the freshness. Nix evaluation is pure and has no
 # clock, so "is this build recent" cannot be asserted here; that is the weekly
 # relock's job.
-{ pkgs, hmConfig }:
+{
+  pkgs,
+  hmConfig,
+  hmConfigUntrusted,
+}:
 let
   helpers = import ./helpers.nix { inherit pkgs; };
 
@@ -31,16 +35,17 @@ let
   releaseChannelOpencode = pkgs.opencode;
 
   packageOf =
-    pname:
+    hm: pname:
     let
       matches = builtins.filter (
         p: builtins.hasAttr "pname" p && p.pname == pname
-      ) hmConfig.config.home.packages;
+      ) hm.config.home.packages;
     in
     if matches == [ ] then null else builtins.head matches;
 
-  installedCodex = packageOf "codex";
-  installedOpencode = packageOf "opencode";
+  installedCodex = packageOf hmConfig "codex";
+  # opencode is an untrusted CLI: only the untrusted fixture installs it.
+  installedOpencode = packageOf hmConfigUntrusted "opencode";
 in
 {
   # Codex and opencode must come from llm-agents.nix on Linux, not from the

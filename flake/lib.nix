@@ -138,7 +138,9 @@ in
     in
     {
       inherit (homebrewNix) taps;
-      brews = enabled homebrewNix.brews;
+      brews =
+        enabled homebrewNix.brews
+        ++ nixpkgs.lib.optionals (capabilities.untrustedClis or false) (enabled homebrewNix.untrustedBrews);
       casks = enabled homebrewNix.casks;
     };
 

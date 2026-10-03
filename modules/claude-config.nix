@@ -133,13 +133,10 @@ in
       # via /effort as needed.
       effortLevel = "medium";
 
-      # Deliberately unset, not true. Remote Control refuses to start while
-      # ANTHROPIC_BASE_URL points anywhere but api.anthropic.com, and
-      # modules/claude/settings-env.nix points it at the local proxy for every
-      # session, so the two are mutually exclusive and this flag was inert.
-      # No per-session opt-in exists; removing the variable from settings.json
-      # works but trades away subagent routing. Detail: dryvist/nix-ai#1852.
-      remoteControlAtStartup = null;
+      # Remote Control refuses to start while ANTHROPIC_BASE_URL points away
+      # from api.anthropic.com. settings-env.nix sets it only when litellmLocal
+      # routes Claude Code through the proxy (enable && !claudeDirect).
+      remoteControlAtStartup = true;
 
       # Auto-approve CLAUDE.md external imports under the consumer's workspace
       # roots (userConfig.trustedProjectDirs, maintainer profile). Empty default
@@ -197,12 +194,11 @@ in
       rules.fromFlakeInputs = mkSourceEntries "${ai-assistant-instructions}/agentsmd/rules" aiRules;
 
       settings = {
-        # advisorModel intentionally left unset: nix-claude-code defaults it
-        # to null, which disables the advisor tool (expensive — forwards the
-        # whole conversation log to a stronger reviewer model). Enable
-        # per session with `claude config set advisorModel fable` — a
-        # runtime write, preserved until the next darwin-rebuild reasserts
-        # this Nix default.
+        # advisorModel left unset (null = advisor tool off; it forwards the
+        # whole conversation). Per session: `claude config set advisorModel …`.
+
+        # No built-in desktop banner; the attention-notify plugin raises it.
+        preferredNotifChannel = "notifications_disabled";
         # Was forced `true`; upstream default is also `true` (not nullable),
         # so it must be set explicitly to turn off. Thinking is effort's job
         # now; forcing it removed low/medium as real options.

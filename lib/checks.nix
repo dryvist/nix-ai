@@ -21,6 +21,7 @@
   aiModule,
   renderAutonomous,
   roleMap,
+  homebrewFor,
 }:
 let
   inherit (import ./checks-fixtures.nix { inherit pkgs home-manager aiModule; })
@@ -28,6 +29,7 @@ let
     mkHmConfigWith
     mkHmConfig
     hmConfig
+    hmConfigUntrusted
     hmConfigAgentSkillsShared
     hmConfigVctCli
     hmConfigFabricServer
@@ -100,11 +102,31 @@ in
     ;
 })
 // (import ./checks/codex.nix { inherit pkgs hmConfig; })
-// (import ./checks/cli-ownership.nix { inherit pkgs hmConfig; })
-// (import ./checks/cursor.nix { inherit pkgs hmConfig; })
-// (import ./checks/herdr.nix { inherit pkgs hmConfig; })
-// (import ./checks/qwen-code.nix { inherit pkgs hmConfig; })
-// (import ./checks/opencode.nix { inherit pkgs hmConfig; })
+// (import ./checks/cli-ownership.nix { inherit pkgs hmConfig hmConfigUntrusted; })
+// (import ./checks/untrusted-clis.nix {
+  inherit
+    pkgs
+    hmConfig
+    hmConfigUntrusted
+    homebrewFor
+    ;
+})
+// (import ./checks/cursor.nix {
+  inherit pkgs;
+  hmConfig = hmConfigUntrusted;
+})
+// (import ./checks/herdr.nix {
+  inherit pkgs;
+  hmConfig = hmConfigUntrusted;
+})
+// (import ./checks/qwen-code.nix {
+  inherit pkgs;
+  hmConfig = hmConfigUntrusted;
+})
+// (import ./checks/opencode.nix {
+  inherit pkgs;
+  hmConfig = hmConfigUntrusted;
+})
 // (import ./checks/antigravity-cli.nix { inherit pkgs hmConfig; })
 // (import ./checks/vct-cli.nix {
   inherit
