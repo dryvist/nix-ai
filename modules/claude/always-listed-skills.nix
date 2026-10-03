@@ -66,7 +66,6 @@ let
     "github-code-search"
     "github-workflow-security-patterns"
     "goal"
-    "handoff"
     "homelab-runbooks"
     "infrastructure-standards"
     "llm-router-ops"
@@ -104,6 +103,19 @@ let
   # Listed by directive, not by invocation count. Each entry carries its
   # reason in the header above.
   directed = [
+    # Matt Pocock's reusable primitives retain upstream model invocation.
+    # Workflow entrypoints (including handoff) remain user-invoked only.
+    "code-review"
+    "codebase-design"
+    "diagnosing-bugs"
+    "domain-modeling"
+    "grilling"
+    "pr"
+    "prototype"
+    "research"
+    "tdd"
+    "wizard"
+    "writing-for-agents"
     "canvas-design"
     "frontend-design"
     "local-subagents"

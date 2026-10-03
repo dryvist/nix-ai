@@ -4,9 +4,7 @@ result
 __pycache__
 .pytest_cache
 
-# Local secrets / overrides. `.env.example` is the committed template; real .env
-# files and the local agent runbook are never committed (see .env.example +
-# AGENTS.local.md — secrets are direct-injected, not stored on disk).
+# Local overrides, never committed. `.env.example` is tracked.
 .env
 .env.*
 !.env.example

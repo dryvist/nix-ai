@@ -98,6 +98,13 @@ let
     }
   ) (marketplaceCatalog.marketplaces or marketplaceCatalog);
   registry = base // {
+    "mattpocock" = {
+      source = {
+        type = "github";
+        url = "mattpocock/skills";
+      };
+      flakeInput = marketplaceInputs.mattpocock;
+    };
     "browser-use-skills" = (base."browser-use-skills" or { }) // {
       flakeInput = browserUseMarketplace;
     };

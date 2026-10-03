@@ -6,6 +6,39 @@
 # same skills, a second name that matches the topic-driven group vocabulary
 # (default.nix's activeGroups, repo-link's per-repo AGENTS.md declarations).
 rec {
+  engineering = [
+    "ask-matt"
+    "code-review"
+    "codebase-design"
+    "diagnosing-bugs"
+    "domain-modeling"
+    "grill-with-docs"
+    "implement"
+    "implement-spec"
+    "improve-codebase-architecture"
+    "pr"
+    "prototype"
+    "research"
+    "retro"
+    "setup-matt-pocock-skills"
+    "tdd"
+    "to-spec"
+    "to-tickets"
+    "triage"
+    "wayfinder"
+    "wizard"
+  ];
+
+  productivity = [
+    "grill-me"
+    "grilling"
+    "handoff"
+    "teach"
+    "to-questionnaire"
+    "wait-what"
+    "writing-for-agents"
+  ];
+
   # Universal: applies to any task in any repository. Keep this small —
   # every member is listed in every session on every harness.
   core = [

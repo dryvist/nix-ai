@@ -37,6 +37,34 @@ let
     marketplaceName:
     enabledMarketplaces.${marketplaceName} or (!(gatedMarketplaces.${marketplaceName} or false));
 
+  # Root plugins can declare individual skill directories in their manifest,
+  # including category subdirectories that a flat skills/ walk cannot find.
+  discoverManifestSkills =
+    marketplaceName: input:
+    let
+      manifestPath = "${input}/.claude-plugin/plugin.json";
+      manifest = if builtins.pathExists manifestPath then lib.importJSON manifestPath else { };
+      pluginKey = "${manifest.name or marketplaceName}@${marketplaceName}";
+      enabled = enabledPlugins.${pluginKey} or (isMarketplaceEnabled marketplaceName);
+      paths = manifest.skills or [ ];
+    in
+    if enabled && builtins.isList paths then
+      map (
+        path:
+        let
+          dir = "${input}/${lib.removePrefix "./" path}";
+          source = "${dir}/SKILL.md";
+          frontmatter = builtins.head (lib.splitString "\n---" (builtins.readFile source));
+        in
+        {
+          name = builtins.unsafeDiscardStringContext (builtins.baseNameOf dir);
+          inherit source;
+          userInvoked = lib.hasInfix "\ndisable-model-invocation: true\n" (frontmatter + "\n");
+        }
+      ) (builtins.filter (path: builtins.pathExists "${input}/${path}/SKILL.md") paths)
+    else
+      [ ];
+
   # Discovers SKILL.md files from plugin repos.
   # Pattern: <plugin>/skills/<skill-name>/SKILL.md
   discoverSkills =
@@ -205,8 +233,9 @@ let
     marketplaceName: input:
     let
       rootDir = if builtins.pathExists input then builtins.readDir input else { };
+      manifestSkills = discoverManifestSkills marketplaceName input;
     in
-    discoverFlatSkills marketplaceName input
+    (if manifestSkills != [ ] then manifestSkills else discoverFlatSkills marketplaceName input)
     ++ discoverDotClaudeSkills marketplaceName input
     ++ discoverSkills marketplaceName input
     ++

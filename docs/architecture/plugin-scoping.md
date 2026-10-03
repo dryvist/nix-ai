@@ -141,6 +141,26 @@ After adding per-repo `.claude/settings.json` in a consumer repo:
 
 ## Skill groups (non-Claude harnesses)
 
+### Matt Pocock skills
+
+The `mattpocock-skills` flake input supplies the engineering and productivity
+skills from [mattpocock/skills](https://github.com/mattpocock/skills). Claude uses
+the native `mattpocock-skills@mattpocock` plugin. Shared discovery reads the
+plugin's declared skill paths, including categorized directories, and links
+each complete directory so references, scripts, and Codex metadata remain available.
+
+Invocation policy follows upstream. Workflow entrypoints require a user request;
+reusable primitives remain model-invoked. The shared index marks manual-only
+entries, and Codex receives `agents/openai.yaml`. OpenCode's native commands
+read those same skill files and forward arguments, while skill permissions hide
+manual workflows from automatic selection. Other clients use their native
+loader, or read the named `SKILL.md` through the index when no loader exists.
+
+Matt's user-invoked `handoff` is the sole provider. It writes a portable Markdown
+document in the OS temporary directory. The standalone `goal` skill still
+provides a capped goal statement. Repository instructions take precedence over
+upstream tracker, documentation, credential, and pull-request examples.
+
 Claude sessions are scoped by the two-layer plugin model above. The shared
 `~/.agents/skills` catalog consumed by the other harnesses (Codex, OpenCode,
 qwen, gemini, loader-less agents via `INDEX.md`) has the same context-cost
