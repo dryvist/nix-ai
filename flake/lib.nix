@@ -10,6 +10,7 @@
   nix-claude-code,
   nix-codex,
   nix-agy,
+  agent-limits-src,
   homebrewNix,
   homelab-contracts,
 }:
@@ -17,6 +18,8 @@ let
   roleMap = import ../lib/role-map.nix { src = homelab-contracts; };
 in
 {
+  agentNofile = import "${agent-limits-src}/lib/agent-nofile.nix";
+
   ci = {
     # Render the same settings.json shape nix-ai's pre-PR3 fixture
     # produced (top-level $schema, alwaysThinkingEnabled,

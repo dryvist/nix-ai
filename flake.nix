@@ -100,10 +100,7 @@
 
     # Declarative Claude Code module and marketplace source.
     nix-claude-code = {
-      # Pinned to main explicitly: nix-claude-code is git-flow (default
-      # branch develop), so an unref'd url resolves to develop and tracks
-      # unreleased commits instead of release-please-tagged releases.
-      url = "github:dryvist/nix-claude-code/main";
+      url = "github:dryvist/nix-claude-code/73d52b7ccf5b359cd45579cd15bcaf65fc773ea1";
       inputs = {
         nixpkgs.follows = "nixpkgs";
         home-manager.follows = "home-manager";
@@ -111,24 +108,24 @@
         claude-code-plugins.follows = "claude-code-plugins";
         jacobpevans-cc-plugins.follows = "jacobpevans-cc-plugins";
         browser-use-skills.follows = "browser-use-skills";
-        # nix-claude-code injects fabric-src as the module arg that our
-        # fabric-ai package consumes in the composed home config. Pin it to
-        # our own fabric-src so the built source matches lib/versions.nix
-        # (and the vendorHash); otherwise nix-claude-code's independently
-        # pinned fabric-src drifts and the fabric-ai build fails.
+        # Share the source pin used by fabric-ai and its vendorHash.
         fabric-src.follows = "fabric-src";
       };
     };
 
-    # The other two per-CLI leaves, composed into `lib.renderAutonomous` by
-    # flake/lib.nix. Pinned to main for the same git-flow reason as
-    # nix-claude-code; `follows` only keeps the lock lean.
+    # Per-CLI renderers and launchers; share the existing package set.
     nix-codex = {
-      url = "github:dryvist/nix-codex/main";
+      url = "github:dryvist/nix-codex/8c7d623970b50dbf03491fe6cfa0562a86417b55";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # Pure resource-limit value, without evaluating the system flake's inputs.
+    agent-limits-src = {
+      url = "github:dryvist/nix-darwin/develop";
+      flake = false;
+    };
     nix-agy = {
-      url = "github:dryvist/nix-agy/main";
+      url = "github:dryvist/nix-agy/76f2d049fc6f535584f14a1b120c5802399b9669";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
@@ -234,6 +231,7 @@
       nix-claude-code,
       nix-codex,
       nix-agy,
+      agent-limits-src,
       karpathy-skills,
       mattpocock-skills,
       fabric-src,
@@ -269,6 +267,7 @@
           nix-claude-code
           nix-codex
           nix-agy
+          agent-limits-src
           homebrewNix
           homelab-contracts
           ;
@@ -282,6 +281,8 @@
           jacobpevans-cc-plugins
           browser-use-skills
           nix-claude-code
+          nix-codex
+          nix-agy
           karpathy-skills
           mattpocock-skills
           nixpkgs-unstable
@@ -300,6 +301,7 @@
           token-meter-src
           homelab-contracts
           ;
+        inherit (nixAiLib) agentNofile;
       };
 
       # CI-friendly and cross-flake outputs. Extracted to flake/lib.nix to keep
