@@ -148,7 +148,7 @@
       flake = false;
     };
 
-    # ---- Third-party skill inputs (modules/agent-skills + dual-channel marketplaces)
+    # Third-party skills shared with Claude marketplaces.
 
     mattpocock-skills = {
       url = "github:mattpocock/skills";

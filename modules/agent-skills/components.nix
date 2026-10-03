@@ -119,26 +119,10 @@ let
 
   stableLinks = import ../lib/stable-links.nix { inherit lib pkgs; };
 
-  # Claude Code does not read the shared root. Verified in
-  # docs/architecture/agent-context-architecture.md: a skill present only in
-  # ~/.agents/skills never appears in a Claude session's listing. Claude's three
-  # trees are its enabled plugins, <repo>/.claude/skills, and ~/.claude/skills.
-  #
-  # The per-repo tree cannot carry a skill that must be present everywhere: the
-  # direnv linker (repo-link/agent-skill-groups.sh) exits unless the repository
-  # has an AGENTS.md, and links only the groups that file declares. Many
-  # repositories declare none. ~/.claude/skills is the only tree Claude reads in
-  # every repository with no declaration and no plugin, so a skill required
-  # everywhere is linked there.
-  #
-  # Only skills that BOTH must be everywhere and reach Claude no other way.
-  # Not the whole `core` group: most of core already ships from an enabled
-  # plugin, and linking those here would list each one twice in the same
-  # session — the 2,988-token duplication the repo linker exists to avoid.
-  #
-  # skillSources (not deployedFlakeInputs) is the lookup, so a host that gates
-  # activeGroups away resolves a real store path rather than a dangling link;
-  # the filter drops a name whose source is genuinely absent.
+  # Claude reads plugins and .claude/skills, not the shared root; see
+  # docs/architecture/agent-context-architecture.md. Link only skills needed
+  # everywhere that have no plugin delivery. Resolve from skillSources even
+  # when host groups are gated, and drop genuinely absent sources.
   claudeAlwaysLinks = lib.listToAttrs (
     map (n: lib.nameValuePair ".claude/skills/${n}" skillSources.${n}) (
       builtins.filter (n: skillSources ? ${n}) cfg.claudeAlwaysListed
