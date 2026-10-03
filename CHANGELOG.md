@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.1.0](https://github.com/dryvist/nix-ai/compare/v7.0.2...v7.1.0) (2026-10-03)
+
+
+### Features
+
+* **skills:** share Matt Pocock workflows across clients ([#2327](https://github.com/dryvist/nix-ai/issues/2327)) ([145f7ec](https://github.com/dryvist/nix-ai/commit/145f7ec6a8c821e87491a20fe350f9f50a7805b8))
+
 ## [7.0.2](https://github.com/dryvist/nix-ai/compare/v7.0.1...v7.0.2) (2026-10-03)
 
 
