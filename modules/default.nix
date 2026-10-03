@@ -67,28 +67,32 @@ let
   );
 in
 {
-  options.programs.ai.untrustedClis.enable = lib.mkEnableOption ''
-    the untrusted agent CLIs and their config: claude-zai, opencode,
-    cursor-agent, copilot, gh-copilot, qwen-code, cecli and claude-flow.
-    Claude Code, Codex and agy are always installed. Off, none of them is on
-    PATH; their package definitions stay available to image builds
-  '';
+  options.programs = {
+    ai = {
+      untrustedClis.enable = lib.mkEnableOption ''
+        the untrusted agent CLIs and their config: claude-zai, opencode,
+        cursor-agent, copilot, gh-copilot, qwen-code, cecli and claude-flow.
+        Claude Code, Codex and agy are always installed. Off, none of them is on
+        PATH; their package definitions stay available to image builds
+      '';
 
-  options.programs.ai.ohMyOpenagent.disabled = lib.mkOption {
-    type = lib.types.bool;
-    default = true;
-    description = ''
-      Disable oh-my-openagent: the OpenCode plugin entry and the omo-senpi
-      wrapper. Set to false to configure both. omo-senpi also needs
-      programs.ai.untrustedClis.enable, because the wrapper is one of the
-      untrusted CLIs.
-    '';
-  };
+      ohMyOpenagent.disabled = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = ''
+          Disable oh-my-openagent: the OpenCode plugin entry and the omo-senpi
+          wrapper. Set to false to configure both. omo-senpi also needs
+          programs.ai.untrustedClis.enable, because the wrapper is one of the
+          untrusted CLIs.
+        '';
+      };
+    };
 
-  options.programs.ai-homebrew.trustedTaps = lib.mkOption {
-    type = lib.types.listOf lib.types.str;
-    default = homebrewCfg.taps;
-    description = "List of trusted Homebrew taps. Defaults to AI taps but can be extended by other modules.";
+    ai-homebrew.trustedTaps = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = homebrewCfg.taps;
+      description = "List of trusted Homebrew taps. Defaults to AI taps but can be extended by other modules.";
+    };
   };
 
   imports = [
