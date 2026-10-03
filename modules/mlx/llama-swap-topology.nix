@@ -12,22 +12,15 @@
 #     being disabled. Empty (default) -> byte-identical to the historical
 #     single-model emission.
 #
-#     WHETHER A SMALL LOAD EVICTS THE RESIDENT DEPENDS ON maxResidentWorkers,
-#     and this header used to claim unconditionally that it "can never evict"
-#     the resident. At the DEFAULT maxResidentWorkers = 1 that is FALSE and
-#     backwards: collapseToOne merges the resident and the small ids into ONE
-#     swapping group precisely so they DO evict each other, keeping
-#     k_max * memoryHardLimitGb under the host wired ceiling. The
-#     never-evicts guarantee is the k_max >= 2 tiered shape (persistent
-#     resident + separate non-exclusive small tier), which is opt-in and needs
-#     memoryHardLimitGb lowered so two workers fit.
-#
-#     The unqualified claim cost a real misdiagnosis: an operator measured the
-#     small model evicting the resident on a k_max = 1 host, read this header,
-#     concluded the runtime was broken, and nearly shipped a rename that would
-#     have defeated the memory bound. The authoritative statement of the
-#     intended shape is the assertion set in lib/checks/mlx-single-model.nix —
-#     believe those over any prose here, including this paragraph.
+#     WHETHER A LOAD EVICTS ANOTHER MODEL DEPENDS ON maxResidentWorkers
+#     (k_max). At k_max = 1 every model shares ONE swapping group, so any
+#     load evicts the previous worker. At k_max >= 2 the tiered shape applies:
+#     a persistent resident group beside a non-exclusive swap tier. The
+#     resident group stops swapping when every resident plus one swap-tier
+#     worker fits k_max, so those residents stay loaded together with
+#     ttl = 0; otherwise it swaps (groupSwap) and holds one worker.
+#     lib/checks/mlx-single-model.nix and lib/checks/mlx-residency-topology.nix
+#     assert these shapes.
 { lib }:
 {
   residentModels,
@@ -40,21 +33,18 @@
 }:
 let
   # The memory invariant is k_max * memoryHardLimitGb <= host wired ceiling,
-  # where k_max is how many workers can hold weights at once. The two-tier
-  # topology below makes k_max = 2 by construction: mlx-models is persistent
-  # and mlx-swap-models is non-exclusive, so a swap-tier load sits BESIDE the
-  # resident rather than replacing it. That is deliberate (a small on-demand
-  # model must not evict the big one) and it is also what takes the permitted
-  # total from 1x to 2x the per-worker budget — 2 x 99 GiB against a 100 GiB
-  # ceiling on a 128 GiB host, which over-commits.
-  #
-  # Collapsing to ONE exclusive group is the fix that needs no new number:
-  # k_max = 1 satisfies the invariant at the existing memoryHardLimitGb. The
-  # cost is a model-swap reload (~10-20 s from NVMe) whenever traffic alternates
-  # between tiers, paid on a fleet whose consumers are autonomous rather than
-  # interactive. Raise maxResidentWorkers only alongside lowering
-  # memoryHardLimitGb so the product still fits.
+  # where k_max is how many workers can hold weights at once. k_max = 1
+  # collapses every model into one swapping group.
   collapseToOne = maxResidentWorkers == 1;
+
+  # Residents stay loaded together when all of them, plus one swap-tier
+  # worker, fit k_max.
+  swapTierWorkers = if swapModels == { } then 0 else 1;
+  residentsFit =
+    builtins.length (builtins.attrNames residentModels) + swapTierWorkers <= maxResidentWorkers;
+  residentSwap = groupSwap && !residentsFit;
+  # Residents that never evict each other also never idle out.
+  pinResidents = !collapseToOne && !residentSwap;
 
   # swap is forced true when collapsed: a single group whose members do not
   # evict each other would keep both resident and defeat the whole point.
@@ -69,7 +59,7 @@ let
 
   tieredGroups = {
     mlx-models = {
-      swap = groupSwap;
+      swap = residentSwap;
       exclusive = true;
       persistent = true;
       members = builtins.attrNames residentModels;
@@ -147,7 +137,11 @@ if singleModel != null then
   }
 else
   {
-    models = allModels;
+    models =
+      allModels
+      // lib.optionalAttrs pinResidents (
+        lib.mapAttrs (id: _: allModels.${id} // { ttl = 0; }) residentModels
+      );
     # Merge the two group definitions INSIDE `groups` (disjoint keys), not via
     # an outer `//` on the whole config set. `//` is a shallow update: two
     # sibling `groups.<name>` paths in `a // b` make `b`'s `groups` replace
