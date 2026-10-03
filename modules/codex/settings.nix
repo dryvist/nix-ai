@@ -89,30 +89,18 @@ let
 
   optionalValue = key: value: lib.optionalAttrs (value != null) { ${key} = value; };
 
-  # OpenTelemetry, sharing the one telemetry surface with Claude Code
-  # (userConfig.telemetry) so both agents point at the same collector.
-  #
-  # Two things here differ from Claude Code and were measured, not assumed:
-  #
-  #  - Codex posts to the configured endpoint VERBATIM. Pointed at
-  #    `http://host:port` it POSTs to `/`, appending no signal path — so this
-  #    takes the full `/v1/traces` (or `/v1/metrics`) URL, the opposite of the
-  #    generic OTEL_EXPORTER_OTLP_ENDPOINT that Claude Code uses as a base.
-  #  - `protocol = "binary"` is OTLP/HTTP protobuf. The collector answers 501
-  #    to JSON, so the encoding is load-bearing rather than cosmetic.
-  #
-  # Both exporters must always be pinned explicitly, never left unset: Codex
-  # defaults an unset metrics_exporter to its own built-in Statsig exporter,
-  # not "nothing" (codex-rs/config/src/types.rs:
-  # OtelConfig::default().metrics_exporter is OtelExporterKind::Statsig), and
-  # an unset trace_exporter falls back to an OTel SDK convention that is a
-  # loopback address nothing here serves. Each signal gets "otlp-http" to its
-  # own endpoint when set, else "none" — independently, so setting one
-  # doesn't drag the other's config along or silently no-op.
+  # Share Claude Code's telemetry configuration. Codex uses full signal URLs
+  # verbatim; Claude's generic endpoint is a base URL. Binary means protobuf.
+  # Explicitly disable unconfigured signals: an unset metrics_exporter can
+  # select Statsig, while an unset trace_exporter can select an SDK default.
+  otlpEndpoint = userConfig.telemetry.otlpEndpoint or null;
+  logsEndpoint =
+    if otlpEndpoint == null then null else "${lib.removeSuffix "/" otlpEndpoint}/v1/logs";
   tracesEndpoint = userConfig.telemetry.tracesEndpoint or null;
   metricsEndpoint = userConfig.telemetry.metricsEndpoint or null;
   telemetryEnabled =
-    (userConfig.telemetry.enable or false) && (tracesEndpoint != null || metricsEndpoint != null);
+    (userConfig.telemetry.enable or false)
+    && (logsEndpoint != null || tracesEndpoint != null || metricsEndpoint != null);
 
   otelExporter =
     endpoint:
@@ -128,6 +116,7 @@ let
     otel = {
       environment = "homelab";
       log_user_prompt = userConfig.telemetry.logUserPrompts or false;
+      exporter = otelExporter logsEndpoint;
       metrics_exporter = otelExporter metricsEndpoint;
       trace_exporter = otelExporter tracesEndpoint;
     };
@@ -287,6 +276,7 @@ in
         mcpServerNames = lib.attrNames mcpServers;
         litellmProfileNames = lib.attrNames litellmProfileTomls;
         otelExporterKinds = {
+          logs = if logsEndpoint == null then "none" else "otlp-http";
           trace = if tracesEndpoint == null then "none" else "otlp-http";
           metrics = if metricsEndpoint == null then "none" else "otlp-http";
         };
