@@ -282,6 +282,7 @@
           jacobpevans-cc-plugins
           browser-use-skills
           nix-claude-code
+          nix-codex
           karpathy-skills
           mattpocock-skills
           nixpkgs-unstable

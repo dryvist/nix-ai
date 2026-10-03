@@ -4,6 +4,7 @@
   browser-use-skills,
   jacobpevans-cc-plugins,
   nix-claude-code,
+  nix-codex,
   karpathy-skills,
   mattpocock-skills,
   nixpkgs-unstable,
@@ -86,6 +87,7 @@ in
       # transitively available to nix-ai modules — we only set args
       # unique to nix-ai here.
       nix-claude-code.homeModules.claude
+      nix-codex.homeModules.approvals
       ../modules/default.nix
     ];
     _module.args = {
@@ -146,6 +148,7 @@ in
 
   codex = {
     imports = [
+      nix-codex.homeModules.approvals
       ../modules/mcp/module.nix
       ../modules/agent-skills
       ../modules/codex

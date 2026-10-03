@@ -28,6 +28,8 @@ in
 
   config = lib.mkIf cfg.enable {
     programs.codex = {
+      approvalPolicy = lib.mkDefault "on-request";
+      approvalsReviewer = lib.mkDefault "auto_review";
       # One owner per host. Codex ships several releases a week, faster than a
       # relock-and-rebuild cycle can follow.
       #

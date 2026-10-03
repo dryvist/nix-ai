@@ -13,6 +13,7 @@ in
     inherit cfg;
     expectedOptions = [
       "approvalPolicy"
+      "approvalsReviewer"
       "enable"
       "excludedMcpServers"
       "features"
@@ -45,7 +46,12 @@ in
       {
         name = "codex.approvalPolicy";
         actual = cfg.approvalPolicy;
-        expected = "never";
+        expected = "on-request";
+      }
+      {
+        name = "codex.approvalsReviewer";
+        actual = cfg.approvalsReviewer;
+        expected = "auto_review";
       }
       {
         # `hooks` is on because programs.herdr.integrations names codex: Codex
