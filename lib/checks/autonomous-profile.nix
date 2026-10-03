@@ -25,10 +25,15 @@
         claudeSettings = render.claudeSettingsJson;
         codexConfig = render.codexConfigToml;
         geminiSettings = render.geminiSettingsJson;
+        opencodeSettings = render.opencodeSettingsJson;
+        opencodeProvider = (import ../../vars/ai-stack.nix).zai.opencode.provider;
+        opencodeModel = (import ../../vars/ai-stack.nix).zai.opencode.model;
+        zaiKeyEnv = (import ../../vars/ai-stack.nix).zai.keyEnv;
         passAsFile = [
           "claudeSettings"
           "codexConfig"
           "codexRules"
+          "opencodeSettings"
           "geminiSettings"
           "geminiPolicyToml"
         ];
@@ -72,6 +77,14 @@
         jq -e ".permissions.deny | length == $n" "$claudeSettingsPath"
         [ "$(grep -c '"forbidden"' "$codexRulesPath")" -eq "$n" ]
         [ "$(grep -c 'decision = "deny"' "$geminiPolicyTomlPath")" -eq "$n" ]
+
+        jq -e --arg provider "$opencodeProvider" --arg model "$opencodeModel" --arg key "$zaiKeyEnv" '.permission["*"] == "allow" and .permission.bash["*"] == "allow" and
+          .permission.bash["gh repo delete*"] == "deny" and
+          .permission.bash["git push --force*"] == "deny" and
+          .autoupdate == false and .share == "disabled" and
+          .model == ($provider + "/" + $model) and
+          .provider[$provider].options.apiKey == ("{env:" + $key + "}")' "$opencodeSettingsPath"
+        jq -e "[.permission.bash[] | select(. == \"deny\")] | length == $n" "$opencodeSettingsPath"
 
         touch "$out"
       '';
