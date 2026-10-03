@@ -33,7 +33,9 @@ zcode.overrideAttrs (old: {
       --set ZCODE_ENV production
     makeWrapper ${lib.getExe nodejs_24} "$out/bin/zcode-web" \
       --add-flags "$out/lib/zcode/packages/server/dist/entry-http.js" \
-      --run ': "''${ZCODE_SERVER_AUTH_TOKEN:?ZCODE_SERVER_AUTH_TOKEN is required}"' \
+      --run ${lib.escapeShellArg ''
+        ${lib.getExe nodejs_24} -e 'if (!(process.env.ZCODE_SERVER_AUTH_TOKEN || "").trim()) { console.error("ZCODE_SERVER_AUTH_TOKEN is required"); process.exit(64); }' || exit $?
+      ''} \
       --set ZCODE_ENV production \
       --set NODE_USE_ENV_PROXY 1 \
       --prefix PATH : ${

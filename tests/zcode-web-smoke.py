@@ -16,8 +16,21 @@ artifacts.mkdir(parents=True, exist_ok=True)
 with tempfile.TemporaryDirectory() as home:
     env = {**os.environ, "HOME": home, "ZCODE_ENV": "production"}
     env.pop("ZCODE_SERVER_AUTH_TOKEN", None)
-    denied = subprocess.run([package / "bin/zcode-web"], env=env, capture_output=True)
-    assert denied.returncode != 0 and b"ZCODE_SERVER_AUTH_TOKEN" in denied.stderr
+    refused_tokens = {}
+    for name, token in {
+        "unset": None,
+        "empty": "",
+        "ascii_whitespace": " \t\r\n\v\f",
+        "unicode_whitespace": "\u00a0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000\ufeff",
+    }.items():
+        denied_env = {**env}
+        if token is not None:
+            denied_env["ZCODE_SERVER_AUTH_TOKEN"] = token
+        denied = subprocess.run(
+            [package / "bin/zcode-web"], env=denied_env, capture_output=True, timeout=10
+        )
+        assert denied.returncode == 64 and b"ZCODE_SERVER_AUTH_TOKEN" in denied.stderr, name
+        refused_tokens[name] = denied.returncode
     subprocess.run([package / "bin/zcode", "--version"], env=env, check=True)
     subprocess.run(
         [package / "bin/zcode-configure-key"],
@@ -41,7 +54,7 @@ with tempfile.TemporaryDirectory() as home:
                 except urllib.error.HTTPError as error:
                     assert error.code == 401
                     break
-                except urllib.error.URLError:
+                except (urllib.error.URLError, TimeoutError):
                     time.sleep(0.1)
             else:
                 raise AssertionError("Server did not listen")
@@ -55,6 +68,7 @@ with tempfile.TemporaryDirectory() as home:
                 assert "/assets/" in html
             (artifacts / "result.json").write_text(json.dumps({
                 "missing_token_refused": True,
+                "refused_tokens": refused_tokens,
                 "unauthorized_status": 401,
                 "authorized_status": 200,
                 "native_ui": True,
