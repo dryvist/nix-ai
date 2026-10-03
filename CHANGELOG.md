@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.0.2](https://github.com/dryvist/nix-ai/compare/v7.0.1...v7.0.2) (2026-10-03)
+
+
+### Bug Fixes
+
+* **mlx:** report up ready from the power agent ([#2322](https://github.com/dryvist/nix-ai/issues/2322)) ([5efbdad](https://github.com/dryvist/nix-ai/commit/5efbdaddddb8b4a72b4c84e1d791d127e1333520))
+
 ## [7.0.1](https://github.com/dryvist/nix-ai/compare/v7.0.0...v7.0.1) (2026-10-03)
 
 
