@@ -10,6 +10,12 @@
 #   mlx-local-queue-config   `haproxy -c` (warnings fatal) accepts the config
 #                            rendered for every host class, and rejects a
 #                            config with an unknown keyword.
+#   mlx-local-queue-agent-recovery
+#                            HAProxy, started on the rendered config with the
+#                            module's own power-agent command answering each
+#                            probe, takes every server UP -> MAINT (battery)
+#                            -> UP (AC). The same cycle against an agent that
+#                            replies a bare `ready` must fail.
 {
   pkgs,
   roleMap,
@@ -81,6 +87,27 @@ let
   # positive control (same fixture, one variable).
   evaluates = extra: (builtins.tryEval (enabledWith extra).config.launchd.agents).success;
   agents = (enabledWith catalog).config.launchd.agents;
+
+  # Agent-recovery fixture: the rendered config probing every second instead of
+  # every 30s, and the launchd agent's command with its macOS-only pieces
+  # swapped for a power state held in $PMSET_STATE (grep is the sandbox's).
+  rendered = import ../../modules/mlx/local-queue-cfg.nix {
+    inherit roleMap;
+    hostClass = "server";
+    upstreamPort = 11434;
+  };
+  fastCfg = pkgs.writeText "haproxy-fast-probe.cfg" (
+    builtins.replaceStrings [ "agent-inter 30s" ] [ "agent-inter 1s" ] rendered.text
+  );
+  agentScript =
+    command:
+    pkgs.writeText "power-agent.sh" (
+      builtins.replaceStrings [ "/usr/bin/pmset -g ps" "/usr/bin/grep" ] [ "cat \"$PMSET_STATE\"" "grep" ]
+        command
+    );
+  liveAgent = agentScript (lib.last agents.mlx-power-agent.config.ProgramArguments);
+  # The reply before the fix: `ready` lifts maintenance but never sets UP.
+  bareReadyAgent = agentScript "/usr/bin/pmset -g ps | /usr/bin/grep -q 'AC Power' && echo ready || echo maint";
 in
 {
   mlx-local-queue-maxconn =
@@ -117,4 +144,17 @@ in
         fi
         touch $out
       '';
+
+  mlx-local-queue-agent-recovery = pkgs.runCommand "check-mlx-local-queue-agent-recovery" {
+    nativeBuildInputs = [
+      pkgs.haproxy
+      pkgs.socat
+      pkgs.curl
+    ];
+    HAPROXY_CFG = fastCfg;
+    AGENT_PORT = toString rendered.ports.powerAgent;
+    METRICS_URL = (import ../../vars/ai-stack.nix).endpoints.mlx_metrics;
+    LIVE_AGENT = liveAgent;
+    BARE_READY_AGENT = bareReadyAgent;
+  } "bash ${./scripts/mlx-local-queue-agent-recovery.sh}";
 }
