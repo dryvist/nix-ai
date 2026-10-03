@@ -53,7 +53,7 @@ let
   homebrewCfg = import ../lib/homebrew.nix;
 
   untrusted = config.programs.ai.untrustedClis.enable;
-  ohMyOpenagent = config.programs.ai.ohMyOpenagent.enable;
+  ohMyOpenagentDisabled = config.programs.ai.ohMyOpenagent.disabled;
 
   # ~/.homebrew/trust.json — macOS only. Homebrew 5.2.0/6.0.0 enforces
   # HOMEBREW_REQUIRE_TAP_TRUST; pre-trust the AI-tool taps declared in
@@ -74,12 +74,16 @@ in
     PATH; their package definitions stay available to image builds
   '';
 
-  options.programs.ai.ohMyOpenagent.enable = lib.mkEnableOption ''
-    oh-my-openagent: the OpenCode plugin entry and the omo-senpi wrapper.
-    Off, neither is configured. omo-senpi also needs
-    programs.ai.untrustedClis.enable, because the wrapper is one of the
-    untrusted CLIs
-  '';
+  options.programs.ai.ohMyOpenagent.disabled = lib.mkOption {
+    type = lib.types.bool;
+    default = true;
+    description = ''
+      Disable oh-my-openagent: the OpenCode plugin entry and the omo-senpi
+      wrapper. Set to false to configure both. omo-senpi also needs
+      programs.ai.untrustedClis.enable, because the wrapper is one of the
+      untrusted CLIs.
+    '';
+  };
 
   options.programs.ai-homebrew.trustedTaps = lib.mkOption {
     type = lib.types.listOf lib.types.str;
@@ -130,7 +134,7 @@ in
         (import ./ai-tools.nix { inherit pkgs; }).packages
         ++ import ./ai-tools/lsp-servers.nix { inherit pkgs; }
         ++ lib.optionals untrusted (
-          import ./ai-tools/untrusted-clis.nix { inherit pkgs llm-agents ohMyOpenagent; }
+          import ./ai-tools/untrusted-clis.nix { inherit pkgs llm-agents ohMyOpenagentDisabled; }
         );
 
       file = lib.optionalAttrs untrusted copilotFiles // agentsMdSymlinks;
@@ -229,7 +233,7 @@ in
       # OpenCode — skills via the agent-skills registry; upstream's native
       # OpenCode command files come straight from the autoresearch input.
       # The oh-my-openagent plugin entry is declared only with
-      # programs.ai.ohMyOpenagent.enable, so the omo installer never needs to
+      # programs.ai.ohMyOpenagent.disabled = false, so the omo installer never needs to
       # write through the Nix-owned opencode.json symlink: it sees the plugin
       # entry already present and only manages its own ~/.omo state.
       opencode = {
@@ -237,7 +241,7 @@ in
         commandDirs = [ "${marketplaceInputs.autoresearch}/.opencode/commands" ];
         # @latest matches what the omo installer itself writes; bare
         # "oh-my-openagent" also loads but doctor expects the tagged form.
-        extraSettings = lib.optionalAttrs ohMyOpenagent {
+        extraSettings = lib.optionalAttrs (!ohMyOpenagentDisabled) {
           plugin = [ "oh-my-openagent@latest" ];
         };
       };

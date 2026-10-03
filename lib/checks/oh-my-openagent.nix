@@ -1,9 +1,9 @@
-# oh-my-openagent opt-in (programs.ai.ohMyOpenagent.enable).
+# oh-my-openagent switch (programs.ai.ohMyOpenagent.disabled, default true).
 #
 # Default: no plugin entry in the OpenCode settings and no omo-senpi wrapper.
-# Enabled: the plugin entry appears, and omo-senpi appears when the untrusted
-# CLI gate is also on. The enabled half keeps the default-off assertions from
-# passing vacuously on a renamed plugin or wrapper.
+# disabled = false: the plugin entry appears, and omo-senpi appears when the
+# untrusted CLI gate is also on. The enabled half keeps the default
+# assertions from passing vacuously on a renamed plugin or wrapper.
 {
   pkgs,
   hmConfig,
@@ -25,9 +25,9 @@ in
     checkName = "check-oh-my-openagent-opt-in";
     checks = [
       {
-        name = "default: programs.ai.ohMyOpenagent.enable";
-        actual = hmConfig.config.programs.ai.ohMyOpenagent.enable;
-        expected = false;
+        name = "default: programs.ai.ohMyOpenagent.disabled";
+        actual = hmConfig.config.programs.ai.ohMyOpenagent.disabled;
+        expected = true;
       }
       {
         name = "default: omo-senpi installed";
@@ -50,23 +50,23 @@ in
         expected = [ ];
       }
       {
-        name = "enabled: omo-senpi installed";
+        name = "disabled = false: omo-senpi installed";
         actual = hasWrapper hmConfigOhMyOpenagent;
         expected = true;
       }
       {
-        name = "enabled: plugin entry";
+        name = "disabled = false: plugin entry";
         actual = pluginEntries hmConfigOhMyOpenagent;
         expected = entry;
       }
       {
-        # omo-senpi is an untrusted CLI, so the opt-in alone never installs it.
-        name = "enabled without the untrusted gate: omo-senpi installed";
+        # omo-senpi is an untrusted CLI, so clearing `disabled` alone never installs it.
+        name = "disabled = false without the untrusted gate: omo-senpi installed";
         actual = hasWrapper hmConfigOhMyOpenagentTrusted;
         expected = false;
       }
       {
-        name = "enabled without the untrusted gate: plugin entry";
+        name = "disabled = false without the untrusted gate: plugin entry";
         actual = pluginEntries hmConfigOhMyOpenagentTrusted;
         expected = entry;
       }
