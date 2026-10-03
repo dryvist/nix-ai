@@ -90,7 +90,7 @@ in
   };
 
   # GitHub - github-mcp-server from nixpkgs.
-  # Requires: GITHUB_PERSONAL_ACCESS_TOKEN — inject at runtime (see .env.example).
+  # Requires: GITHUB_PERSONAL_ACCESS_TOKEN.
   github = {
     command = "github-mcp-server";
     disabled = true;
@@ -115,7 +115,7 @@ in
   # HuggingFace MCP - Model/dataset/paper search and documentation
   # ================================================================
   # Community stdio package: https://github.com/shreyaskarnik/huggingface-mcp-server
-  # Requires: HF_TOKEN — inject at runtime (see .env.example).
+  # Requires: HF_TOKEN.
   huggingface = codexMcp {
     command = "${mcpPkgs.huggingface-mcp-server}/bin/huggingface-mcp-server";
     args = [ ];

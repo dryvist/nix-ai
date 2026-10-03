@@ -132,11 +132,10 @@ Servers that need API keys read them from environment variables at runtime.
 - Env-var-backed servers (HF_TOKEN, GitHub PAT, UniFi, …) read from the process
   environment, injected directly or through a `launchPrefix`.
 
-The full variable catalog — required vs optional, purpose, and source manager —
-is [`.env.example`](../../.env.example). The local injection runbook (the
-direct-injection commands and which manager holds what) is `AGENTS.local.md`
-(gitignored). Design rationale and full per-secret runbooks live on the
-[docs site](https://docs.jacobpevans.com/security/overview) and the private docs repo.
+Each server's required variables are listed in its section below and in
+`catalog.nix` / `catalog-services.nix`. Design rationale and full per-secret
+runbooks live on the [docs site](https://docs.jacobpevans.com/security/overview)
+and the private docs repo.
 
 ### Plugin-managed servers (context7)
 
@@ -155,8 +154,7 @@ and get `context7` only from the catalog route.
 
 The `huggingface` server provides tools for searching and exploring HuggingFace Hub.
 
-**Requires:** `HF_TOKEN` (see [Secrets Management](#secrets-management) and
-[`.env.example`](../../.env.example)) — inject it directly at runtime.
+**Requires:** `HF_TOKEN`.
 
 **Available tools:** search models, datasets, spaces, and papers; get model/dataset info; compare models.
 
@@ -167,9 +165,8 @@ installed via `uvx`) manages a local UniFi gateway/controller. It is **local-onl
 it talks to the gateway on the LAN, so it only works on a machine with network access
 to that gateway.
 
-`UNIFI_API_TYPE` is pinned to `local` in the catalog. The rest are injected
-directly at runtime from your secrets manager (see [`.env.example`](../../.env.example)
-and `AGENTS.local.md`):
+`UNIFI_API_TYPE` is pinned to `local` in the catalog. The rest are read from
+the environment:
 
 | Variable | Purpose |
 |----------|---------|
@@ -192,7 +189,7 @@ is stored in the Nix config — there is nothing to put in a secret store.
 ## OpenWhispr MCP and CLI
 
 Hosted connector at `https://mcp.openwhispr.com/mcp` ([setup](https://docs.openwhispr.com/integrations/mcp)).
-**Requires:** `OPENWHISPR_API_KEY` (see [`.env.example`](../../.env.example)). CLI: [`ai-tools.nix`](../ai-tools.nix).
+**Requires:** `OPENWHISPR_API_KEY`. CLI: [`ai-tools.nix`](../ai-tools.nix).
 
 ## MLX Inference (Local Apple Silicon)
 
