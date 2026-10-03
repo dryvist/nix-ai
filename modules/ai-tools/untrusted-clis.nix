@@ -7,7 +7,7 @@
 {
   pkgs,
   llm-agents,
-  ohMyOpenagentDisabled ? true,
+  ohMyOpenagentDisabled,
 }:
 let
   versions = import ../../lib/versions.nix;

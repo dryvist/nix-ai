@@ -237,9 +237,9 @@ in
       # OpenCode — skills via the agent-skills registry; upstream's native
       # OpenCode command files come straight from the autoresearch input.
       # The oh-my-openagent plugin entry is declared only with
-      # programs.ai.ohMyOpenagent.disabled = false, so the omo installer never needs to
-      # write through the Nix-owned opencode.json symlink: it sees the plugin
-      # entry already present and only manages its own ~/.omo state.
+      # programs.ai.ohMyOpenagent.disabled = false. Declaring it keeps the omo
+      # installer from writing through the Nix-owned opencode.json symlink: it
+      # sees the entry already present and only manages its own ~/.omo state.
       opencode = {
         enable = lib.mkDefault untrusted;
         commandDirs = [ "${marketplaceInputs.autoresearch}/.opencode/commands" ];

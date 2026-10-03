@@ -49,9 +49,7 @@ _:
     # filter variant, complementary to pr-review-toolkit:code-reviewer).
     "feature-dev@claude-plugins-official" = true;
 
-    # Security guidance: off. Its security_reminder_hook.py is registered about
-    # a dozen times across the PostToolUse/Stop/SubagentStop events and
-    # ensure_agent_sdk.py runs at every SessionStart.
+    # Security guidance: disabled
     "security-guidance@claude-plugins-official" = false;
 
     # Plugin Development (user maintains claude-code-plugins repo)
