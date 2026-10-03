@@ -132,8 +132,8 @@ Servers that need API keys read them from environment variables at runtime.
 - Env-var-backed servers (HF_TOKEN, GitHub PAT, UniFi, …) read from the process
   environment, injected directly or through a `launchPrefix`.
 
-Each server's required variables are listed in its section below and in
-`catalog.nix` / `catalog-services.nix`. Design rationale and full per-secret
+The full variable catalog — required vs optional and purpose — is
+[`.env.example`](../../.env.example). Design rationale and full per-secret
 runbooks live on the [docs site](https://docs.jacobpevans.com/security/overview)
 and the private docs repo.
 
@@ -154,7 +154,7 @@ and get `context7` only from the catalog route.
 
 The `huggingface` server provides tools for searching and exploring HuggingFace Hub.
 
-**Requires:** `HF_TOKEN`.
+**Requires:** `HF_TOKEN` (see [`.env.example`](../../.env.example)).
 
 **Available tools:** search models, datasets, spaces, and papers; get model/dataset info; compare models.
 
@@ -166,7 +166,7 @@ it talks to the gateway on the LAN, so it only works on a machine with network a
 to that gateway.
 
 `UNIFI_API_TYPE` is pinned to `local` in the catalog. The rest are read from
-the environment:
+the environment (see [`.env.example`](../../.env.example)):
 
 | Variable | Purpose |
 |----------|---------|
@@ -189,7 +189,7 @@ is stored in the Nix config — there is nothing to put in a secret store.
 ## OpenWhispr MCP and CLI
 
 Hosted connector at `https://mcp.openwhispr.com/mcp` ([setup](https://docs.openwhispr.com/integrations/mcp)).
-**Requires:** `OPENWHISPR_API_KEY`. CLI: [`ai-tools.nix`](../ai-tools.nix).
+**Requires:** `OPENWHISPR_API_KEY` (see [`.env.example`](../../.env.example)). CLI: [`ai-tools.nix`](../ai-tools.nix).
 
 ## MLX Inference (Local Apple Silicon)
 

@@ -4,9 +4,10 @@ result
 __pycache__
 .pytest_cache
 
-# Local overrides, never committed.
+# Local overrides, never committed. `.env.example` is tracked.
 .env
 .env.*
+!.env.example
 AGENTS.local.md
 
 # Git worktrees created inside the clone. `.claude/worktrees/` is Claude Code's
