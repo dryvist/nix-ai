@@ -4,7 +4,7 @@
 # and embeds prebuilt rg/bfs/ugrep archives vendored under
 # apps/zcode-cli/dependencies/. Neither step runs here. The plain CLI build
 # (packages/cli/scripts/build.mjs, the step build:sea runs first) produces
-# dist/zcode.cjs, which runs on nixpkgs Node from the built workspace tree.
+# dist/zcode.cjs, which runs on nixpkgs Node with production dependencies.
 # Outside a SEA the CLI resolves its search tools as bare `rg`, `bfs` and
 # `ugrep` on PATH (bootstrap/src/app/embedded-search-backend.ts), so the
 # wrapper prepends the nixpkgs builds and the vendored archives are not copied.
@@ -40,9 +40,8 @@ stdenv.mkDerivation (finalAttrs: {
     hash = "sha256-4LZIl6ofaxcmb28fu21Kc5oJAe+/AKRDAM/2xRKYxI8=";
   };
 
-  # Upstream's .npmrc sets node-linker=hoisted, under which pnpm links every
-  # workspace's dependencies whatever the --filter, so the whole lockfile is
-  # fetched and installed (about 3.4 GiB). Only the build below is filtered.
+  # The full lockfile supplies the build; production deployments below keep
+  # desktop and build dependencies out of the runtime output.
   pnpmDeps = fetchPnpmDeps {
     inherit (finalAttrs) pname version src;
     pnpm = pnpm_10;
@@ -78,10 +77,7 @@ stdenv.mkDerivation (finalAttrs: {
 
   installPhase = ''
     runHook preInstall
-    rm -rf apps/zcode-cli/dependencies
-    rm apps/zcode-cli/packages/cli/dist/zcode.cjs.map
-    mkdir -p $out/lib
-    cp -r . $out/lib/zcode
+    source ${./install.sh}
     makeWrapper ${lib.getExe nodejs_24} $out/bin/zcode \
       --add-flags $out/lib/zcode/apps/zcode-cli/packages/cli/dist/zcode.cjs \
       --prefix PATH : ${

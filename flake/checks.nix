@@ -59,8 +59,11 @@ in
       llama-swap-build = self.packages.${system}.llama-swap;
 
       # Same reason: builds ZCode at the lib/versions.nix pin, verifying the
-      # source and pnpm dependency hashes nix-update maintains.
-      zcode-build = self.packages.${system}.zcode;
+      # source and pnpm dependency hashes, then runs the installed CLI.
+      zcode-build = pkgs.runCommand "zcode-runtime-smoke" { } ''
+        ${pkgs.lib.getExe self.packages.${system}.zcode} --version
+        touch $out
+      '';
 
       # The only check that evaluates the NixOS half. Without it `nix flake
       # check` proves `nixosModules.herdr` is an attrset and nothing more,
