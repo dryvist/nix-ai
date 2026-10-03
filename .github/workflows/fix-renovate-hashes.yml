@@ -41,7 +41,7 @@ jobs:
           ref: ${{ github.ref }}
 
       - name: Install Nix
-        uses: DeterminateSystems/determinate-nix-action@8d87e8d5e5b8a8309d4281094560f127d9a265f1 # v3
+        uses: DeterminateSystems/determinate-nix-action@8d87e8d5e5b8a8309d4281094560f127d9a265f1 # v3.22.5
 
       - name: Update mcp hash
         run: nix run nixpkgs#nix-update -- --flake mcp --version="$(nix eval --raw .#mcp.version)"
@@ -52,5 +52,13 @@ jobs:
       - name: Update llama-swap hashes
         run: nix run nixpkgs#nix-update -- --flake llama-swap --override-filename modules/mlx/llama-swap.nix --version=skip --subpackage ui
 
+      # Commits through the GraphQL API, so GitHub signs it (Verified).
       - name: Commit hash fixes
-        run: .github/scripts/commit-hash-fixes.sh
+        uses: planetscale/ghcommit-action@a6b150b81dca5dd027baa898604418eec9e11465 # v0.2.22
+        with:
+          commit_message: "fix(deps): update package hashes after a version bump"
+          repo: ${{ github.repository }}
+          branch: ${{ github.ref_name }}
+          file_pattern: modules/cecli/package.nix modules/mlx/llama-swap.nix
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
