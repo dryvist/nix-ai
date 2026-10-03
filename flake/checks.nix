@@ -71,6 +71,11 @@ in
             touch $out
           '';
 
+      zcode-web-build = pkgs.runCommand "zcode-web-runtime-smoke" { } ''
+        ${pkgs.python3}/bin/python ${../tests/zcode-web-smoke.py} \
+          ${self.packages.${system}.zcode-web} $out ${(import ../vars/ai-stack.nix).zai.zcode.model}
+      '';
+
       # The only check that evaluates the NixOS half. Without it `nix flake
       # check` proves `nixosModules.herdr` is an attrset and nothing more,
       # which is how an unfree default (cursor-cli) shipped green through this

@@ -56,6 +56,11 @@ stdenv.mkDerivation (finalAttrs: {
     makeWrapper
   ];
 
+  postPatch = ''
+    cp ${./builtin-download.ts} packages/provider-node/src/zcode-builtin-download.ts
+    source ${./disable-downloads.sh}
+  '';
+
   # The hoisted layout nests a node_modules per workspace, and pnpmConfigHook
   # patches only the root one; the Linux sandbox has no /usr/bin/env.
   preBuild = ''
@@ -80,6 +85,8 @@ stdenv.mkDerivation (finalAttrs: {
     source ${./install.sh}
     makeWrapper ${lib.getExe nodejs_24} $out/bin/zcode \
       --add-flags $out/lib/zcode/apps/zcode-cli/packages/cli/dist/zcode.cjs \
+      --set NODE_USE_ENV_PROXY 1 \
+      --set ZCODE_ENV production \
       --prefix PATH : ${
         lib.makeBinPath [
           ripgrep

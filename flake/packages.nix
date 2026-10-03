@@ -14,6 +14,9 @@ forAllSystems (
   system:
   let
     pkgs = nixpkgs.legacyPackages.${system};
+    zcodePkg = pkgs.callPackage ../modules/zcode/package.nix {
+      version = (import ../lib/versions.nix).zcode;
+    };
     cecliPkg = pkgs.callPackage ../modules/cecli/package.nix { };
     vctCliPkgs = import ../modules/vct-cli/packages.nix {
       inherit
@@ -40,9 +43,8 @@ forAllSystems (
       pkgs = nixpkgs-unstable.legacyPackages.${system};
       version = (import ../lib/versions.nix).llamaSwap;
     };
-    zcode = pkgs.callPackage ../modules/zcode/package.nix {
-      version = (import ../lib/versions.nix).zcode;
-    };
+    zcode = zcodePkg;
+    zcode-web = pkgs.callPackage ../modules/zcode/web.nix { zcode = zcodePkg; };
     inherit (cecliPkg.passthru) mcp;
     inherit (vctCliPkgs) vct-cribl-cli vct-splunk-cli;
   }
@@ -70,3 +72,16 @@ forAllSystems (
     };
   }
 )
+// {
+  aarch64-linux =
+    let
+      pkgs = nixpkgs.legacyPackages.aarch64-linux;
+      zcode = pkgs.callPackage ../modules/zcode/package.nix {
+        version = (import ../lib/versions.nix).zcode;
+      };
+    in
+    {
+      inherit zcode;
+      zcode-web = pkgs.callPackage ../modules/zcode/web.nix { inherit zcode; };
+    };
+}
