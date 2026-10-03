@@ -7,7 +7,6 @@
 # during the transitional window.
 
 {
-  config,
   lib,
   pkgs,
   ...
@@ -15,56 +14,13 @@
 
 let
   inherit (import ../vars/ai-stack.nix) zai;
-  cfg = config.programs.aiRouterKeys;
 in
 {
-  options.programs.aiRouterKeys = {
-    openbaoPathPrefix = lib.mkOption {
-      type = lib.types.str;
-      default = "secret/data/apps";
-      description = ''
-        OpenBao KV v2 path prefix `aikey <harness>` (modules/ai-aliases.zsh)
-        reads a harness's router key from: `<openbaoPathPrefix>/<harness>`.
-        The `data` segment is KV v2's explicit path element (matching
-        `modules/scripts/session-archive.sh`'s `secret/data/apps/...` read),
-        distinct from the `.data.data` field nesting inside the JSON
-        response body. `aikey opencode` reads `secret/data/apps/opencode`
-        by default — reading it requires the `ai-public` AppRole policy to
-        grant `secret/data/apps/<harness>` for that harness (see the
-        `openbaoFieldSuffix` note below on the apps-side grant rollout).
-      '';
-    };
-
-    openbaoFieldSuffix = lib.mkOption {
-      type = lib.types.str;
-      default = "_llm_router_key";
-      description = ''
-        Field-name suffix `aikey <harness>` reads within its OpenBao secret.
-        The harness name has every hyphen turned into an underscore before
-        the suffix is appended (`hermes-splunk-admin` -> field
-        `hermes_splunk_admin_llm_router_key`), matching the field-naming
-        scheme ansible-proxmox-ai's `roles/llm_router/defaults/main/56-virtual-keys.yml`
-        defines for `bao_apps_secrets`. Defaults to
-        `_llm_router_key`, the name settled by the apps-side grant PR and
-        the router A4 PR — e.g. `aikey opencode` reads field
-        `opencode_llm_router_key`. Reading any of these fields requires the
-        `ai-public` AppRole policy to grant read on `secret/data/apps/*`
-        for the harnesses in use; today it grants only
-        `secret/data/ai/public/*`, and the apps-side grant PR that adds
-        `opencode`/`raycast`/`codex`/`cursor` has not converged yet — until
-        it does, `aikey` fails closed with a permission-denied reason.
-      '';
-    };
-  };
-
   config = {
     # Non-secret launcher settings. ZAI_KEY_COMMAND, the command the Z.ai
     # launchers use to fetch their key, comes from the host's environment, not
-    # from this module. Secret values are never exported here — see
-    # with-ai-readonly.
+    # from this module. Secret values are never exported here.
     programs.zsh.initContent = lib.mkAfter ''
-      export AI_ROUTER_KEY_OPENBAO_PATH_PREFIX=${lib.escapeShellArg cfg.openbaoPathPrefix}
-      export AI_ROUTER_KEY_OPENBAO_FIELD_SUFFIX=${lib.escapeShellArg cfg.openbaoFieldSuffix}
       export ZAI_KEY_ENV=${lib.escapeShellArg zai.keyEnv}
       export ZAI_CLAUDE_BASE_URL=${lib.escapeShellArg zai.claude.baseUrl}
       export ZAI_CLAUDE_PRIMARY_MODEL=${lib.escapeShellArg zai.claude.primaryModel}
