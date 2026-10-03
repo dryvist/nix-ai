@@ -15,7 +15,7 @@
     version = builtins.replaceStrings [ "v" ] [ "" ] version;
     # The tag already follows finalAttrs.version; only the hash changes.
     src = old.src.override {
-      hash = "sha256-cgVc4emWipvpV05H6L74RxKBJSJGMSM/ly23T/85+1s=";
+      hash = "sha256-DAYaR+N7alGbdLsGlaiDlsHiqxOMg65069i/vHOkLKk=";
     };
     # Live log subscribers (OnLogData) receive only data written after they
     # subscribe; earlier writes still in broadcastLoop's queue are history.
