@@ -29,7 +29,12 @@ on:
     # Unchanged event type: upstream publishers dispatch this when they release.
     # A dispatch relocks only our inputs that are behind their branch head.
     types: [update-flake-input]
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      targeted:
+        description: Refresh only stale owned inputs
+        type: boolean
+        default: false
 
 permissions: {}
 
@@ -37,6 +42,6 @@ jobs:
   relock:
     uses: dryvist/.github/.github/workflows/_update-flake-lock.yml@main
     with:
-      targeted: ${{ github.event_name == 'repository_dispatch' || github.event.schedule == '7 * * * *' }}
+      targeted: ${{ inputs.targeted || github.event_name == 'repository_dispatch' || github.event.schedule == '7 * * * *' }}
     secrets:
       GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
