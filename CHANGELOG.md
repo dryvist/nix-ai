@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.0.1](https://github.com/dryvist/nix-ai/compare/v7.0.0...v7.0.1) (2026-10-03)
+
+
+### Bug Fixes
+
+* **mlx:** update llama-swap v262 source hash ([#2317](https://github.com/dryvist/nix-ai/issues/2317)) ([df7da50](https://github.com/dryvist/nix-ai/commit/df7da50d114f9ff9d5549eb1d6b4b33a8efa769e))
+
 ## [7.0.0](https://github.com/dryvist/nix-ai/compare/v6.1.0...v7.0.0) (2026-10-02)
 
 
