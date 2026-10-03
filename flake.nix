@@ -100,7 +100,7 @@
 
     # Declarative Claude Code module and marketplace source.
     nix-claude-code = {
-      url = "github:dryvist/nix-claude-code/73d52b7ccf5b359cd45579cd15bcaf65fc773ea1";
+      url = "github:dryvist/nix-claude-code/develop";
       inputs = {
         nixpkgs.follows = "nixpkgs";
         home-manager.follows = "home-manager";
@@ -115,7 +115,7 @@
 
     # Per-CLI renderers and launchers; share the existing package set.
     nix-codex = {
-      url = "github:dryvist/nix-codex/8c7d623970b50dbf03491fe6cfa0562a86417b55";
+      url = "github:dryvist/nix-codex/develop";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
@@ -125,7 +125,7 @@
       flake = false;
     };
     nix-agy = {
-      url = "github:dryvist/nix-agy/76f2d049fc6f535584f14a1b120c5802399b9669";
+      url = "github:dryvist/nix-agy/develop";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
