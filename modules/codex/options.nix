@@ -132,7 +132,7 @@ in
       readOnly = true;
       internal = true;
       description = ''
-        Resolved `otel.trace_exporter`/`otel.metrics_exporter` kind ("none" or
+        Resolved `otel.exporter`/`otel.trace_exporter`/`otel.metrics_exporter` kind ("none" or
         "otlp-http") as rendered to config.toml; read-only, for regression tests.
       '';
     };

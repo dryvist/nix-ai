@@ -109,10 +109,14 @@ let
   # loopback address nothing here serves. Each signal gets "otlp-http" to its
   # own endpoint when set, else "none" — independently, so setting one
   # doesn't drag the other's config along or silently no-op.
+  otlpEndpoint = userConfig.telemetry.otlpEndpoint or null;
+  logsEndpoint =
+    if otlpEndpoint == null then null else "${lib.removeSuffix "/" otlpEndpoint}/v1/logs";
   tracesEndpoint = userConfig.telemetry.tracesEndpoint or null;
   metricsEndpoint = userConfig.telemetry.metricsEndpoint or null;
   telemetryEnabled =
-    (userConfig.telemetry.enable or false) && (tracesEndpoint != null || metricsEndpoint != null);
+    (userConfig.telemetry.enable or false)
+    && (logsEndpoint != null || tracesEndpoint != null || metricsEndpoint != null);
 
   otelExporter =
     endpoint:
@@ -128,6 +132,7 @@ let
     otel = {
       environment = "homelab";
       log_user_prompt = userConfig.telemetry.logUserPrompts or false;
+      exporter = otelExporter logsEndpoint;
       metrics_exporter = otelExporter metricsEndpoint;
       trace_exporter = otelExporter tracesEndpoint;
     };
@@ -287,6 +292,7 @@ in
         mcpServerNames = lib.attrNames mcpServers;
         litellmProfileNames = lib.attrNames litellmProfileTomls;
         otelExporterKinds = {
+          logs = if logsEndpoint == null then "none" else "otlp-http";
           trace = if tracesEndpoint == null then "none" else "otlp-http";
           metrics = if metricsEndpoint == null then "none" else "otlp-http";
         };

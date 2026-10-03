@@ -16,6 +16,12 @@ let
   metricsUrl = "${endpoint}/v1/metrics";
 
   noTelemetry = configOf { };
+  logsOnly = configOf {
+    telemetry = {
+      enable = true;
+      otlpEndpoint = "${endpoint}/";
+    };
+  };
   metricsOnly = configOf {
     telemetry = {
       enable = true;
@@ -39,6 +45,27 @@ let
   claudeBoth = (configOf { telemetry = bothTelemetry; }).programs.claude.settings.env;
 in
 {
+  codex-otel-logs-rendered =
+    pkgs.runCommand "check-codex-otel-logs-rendered"
+      {
+        activation = logsOnly.home.activation.codexConfigMerge.data;
+        passAsFile = [ "activation" ];
+        nativeBuildInputs = [ pkgs.python3 ];
+      }
+      ''
+        toml=$(grep -m1 -oE '/nix/store/[^"[:space:]]*codex-config\.toml' "$activationPath")
+        python3 - "$toml" <<'PY'
+        import sys, tomllib
+        with open(sys.argv[1], "rb") as source:
+            otel = tomllib.load(source)["otel"]
+        assert otel["exporter"] == {"otlp-http": {"endpoint": "https://otel.test.invalid/v1/logs", "protocol": "binary"}}
+        assert otel["metrics_exporter"] == "none"
+        assert otel["trace_exporter"] == "none"
+        assert otel["log_user_prompt"] is False
+        PY
+        touch "$out"
+      '';
+
   codex-otel-wiring = helpers.mkDefaultsRegression {
     label = "Codex OTEL";
     checkName = "check-codex-otel-wiring";
@@ -47,6 +74,7 @@ in
         name = "no telemetry: both exporters pinned none";
         actual = noTelemetry.programs.codex.otelExporterKinds;
         expected = {
+          logs = "none";
           trace = "none";
           metrics = "none";
         };
@@ -60,6 +88,7 @@ in
         name = "metrics-only: metrics otlp-http, trace stays none";
         actual = metricsOnly.programs.codex.otelExporterKinds;
         expected = {
+          logs = "none";
           trace = "none";
           metrics = "otlp-http";
         };
@@ -68,6 +97,7 @@ in
         name = "traces-only: trace otlp-http, metrics stays none";
         actual = tracesOnly.programs.codex.otelExporterKinds;
         expected = {
+          logs = "none";
           trace = "otlp-http";
           metrics = "none";
         };
@@ -76,8 +106,18 @@ in
         name = "both signals: both exporters otlp-http";
         actual = both.programs.codex.otelExporterKinds;
         expected = {
+          logs = "none";
           trace = "otlp-http";
           metrics = "otlp-http";
+        };
+      }
+      {
+        name = "logs-only: logs otlp-http, other signals stay none";
+        actual = logsOnly.programs.codex.otelExporterKinds;
+        expected = {
+          logs = "otlp-http";
+          trace = "none";
+          metrics = "none";
         };
       }
       {
