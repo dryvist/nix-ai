@@ -5,10 +5,11 @@
 # every push to a Renovate branch, re-runs nix-update for the affected
 # packages, and commits corrected hashes back before CI runs.
 #
-# Packages covered: cecli, mcp (via cecli passthru), and llama-swap (source,
-# Go vendor and UI npm hashes in modules/mlx/llama-swap.nix). The MLX Python
-# stack needs no step here: its hashes come from mlx-server/uv.lock, which
-# Renovate regenerates itself.
+# Packages covered: cecli, mcp (via cecli passthru), llama-swap (source,
+# Go vendor and UI npm hashes in modules/mlx/llama-swap.nix), and zcode
+# (source and pnpm dependency hashes in modules/zcode/package.nix). The MLX
+# Python stack needs no step here: its hashes come from mlx-server/uv.lock,
+# which Renovate regenerates itself.
 # Add new packages here and to the packages output in flake.nix when needed.
 name: Fix Renovate hash updates
 
@@ -52,6 +53,9 @@ jobs:
       - name: Update llama-swap hashes
         run: nix run nixpkgs#nix-update -- --flake llama-swap --override-filename modules/mlx/llama-swap.nix --version=skip --subpackage ui
 
+      - name: Update zcode hashes
+        run: nix run nixpkgs#nix-update -- --flake zcode --override-filename modules/zcode/package.nix --version=skip
+
       # Commits through the GraphQL API, so GitHub signs it (Verified).
       - name: Commit hash fixes
         uses: planetscale/ghcommit-action@a6b150b81dca5dd027baa898604418eec9e11465 # v0.2.22
@@ -59,6 +63,6 @@ jobs:
           commit_message: "fix(deps): update package hashes after a version bump"
           repo: ${{ github.repository }}
           branch: ${{ github.ref_name }}
-          file_pattern: modules/cecli/package.nix modules/mlx/llama-swap.nix
+          file_pattern: modules/cecli/package.nix modules/mlx/llama-swap.nix modules/zcode/package.nix
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
