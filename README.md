@@ -29,8 +29,10 @@ identically, every time.
 | **MLX** *(macOS)* | Local Apple Silicon inference via mlx_lm.server behind llama-swap, with launchd integration |
 
 Claude Code, Codex and Antigravity CLI are always configured. The other agent CLIs
-(Copilot, Cursor, OpenCode, Qwen Code, Cecli, claude-zai, claude-flow, omo-senpi) are
-installed only when `programs.ai.untrustedClis.enable = true`.
+(Copilot, Cursor, OpenCode, Qwen Code, Cecli, claude-zai, claude-flow) are
+installed only when `programs.ai.untrustedClis.enable = true`. oh-my-openagent (the
+OpenCode plugin entry and the `omo-senpi` wrapper) is off by default and needs
+`programs.ai.ohMyOpenagent.enable = true`; `omo-senpi` also needs the untrusted gate.
 
 ## Prerequisites
 

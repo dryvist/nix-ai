@@ -20,7 +20,6 @@ let
     "copilot-cli"
     "cursor-cli"
     "gh-copilot"
-    "omo-senpi"
     "opencode"
     "qwen-code"
   ];
