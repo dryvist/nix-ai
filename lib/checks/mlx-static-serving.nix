@@ -23,8 +23,20 @@ let
   limits =
     builtins.fromJSON
       hmConfigStaticServing.config.home.file.".config/mlx/resident-model-limits.json".text;
-  routes = hmConfigStaticServing.config.programs.litellmLocal.renderedConfig.model_list;
+  renderedConfig = hmConfigStaticServing.config.programs.litellmLocal.renderedConfig;
+  routes = renderedConfig.model_list;
   routeFor = name: builtins.head (builtins.filter (route: route.model_name == name) routes);
+  residentGroups = lib.unique (
+    lib.concatMap (contract: builtins.attrNames contract.roles) (builtins.attrValues contracts)
+  );
+  fallbackSources = map (
+    entry: builtins.head (builtins.attrNames entry)
+  ) renderedConfig.litellm_settings.fallbacks;
+  singleDeploymentResidentGroups = builtins.filter (
+    group:
+    builtins.length (builtins.filter (route: route.model_name == group) routes) == 1
+    && !(builtins.elem group fallbackSources)
+  ) residentGroups;
   judge = routeFor "judge";
   fast = routeFor "fast";
   default = routeFor "default";
@@ -84,6 +96,14 @@ in
       helpers.mkMarker "check-mlx-static-resident-routing" "LiteLLM judge and fast aliases resolve directly to the on-machine resident with catalog-derived limits"
     else
       throw "static resident LiteLLM aliases must route directly with catalog-derived context, output, and timeout values";
+
+  mlx-static-resident-cooldowns =
+    if
+      singleDeploymentResidentGroups != [ ] && renderedConfig.router_settings.disable_cooldowns == true
+    then
+      helpers.mkMarker "check-mlx-static-resident-cooldowns" "catalog-derived single-deployment resident groups render LiteLLM cooldown suppression"
+    else
+      throw "single-deployment static resident groups without fallbacks must render LiteLLM router cooldown suppression";
 
   mlx-static-resident-limits =
     if
