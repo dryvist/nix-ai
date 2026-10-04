@@ -98,6 +98,7 @@ in
   imports = [
     ./maintainer-profile.nix
     ./ai-shell.nix
+    ./agent-launchers.nix
     ./ai-stack
     ./agent-context-baseline.nix
     ./agent-hooks
