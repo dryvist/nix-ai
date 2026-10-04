@@ -4,6 +4,11 @@
   browser-use-skills,
   jacobpevans-cc-plugins,
   nix-claude-code,
+  nix-codex,
+  nix-agy,
+  nix-claude-code-launcher-src,
+  nix-codex-launcher-src,
+  agentNofile,
   karpathy-skills,
   mattpocock-skills,
   nixpkgs-unstable,
@@ -91,6 +96,11 @@ in
     _module.args = {
       inherit
         nix-claude-code
+        nix-codex
+        nix-agy
+        nix-claude-code-launcher-src
+        nix-codex-launcher-src
+        agentNofile
         browser-use-skills
         awesome-claude-skills
         marketplaceInputs
@@ -119,6 +129,7 @@ in
       # User-facing values (model, marketplaces, hooks, settings.*) live in
       # this module — nix-claude-code only declares the option schema.
       ../modules/claude-config.nix
+      ../modules/agent-launchers.nix
       # userConfig option surface (claude-config reads it via common →
       # permissions). Imported here so standalone consumers get the same
       # option as homeManagerModules.default.
@@ -127,6 +138,11 @@ in
     _module.args = partialArgs {
       inherit
         nix-claude-code
+        nix-codex
+        nix-agy
+        nix-claude-code-launcher-src
+        nix-codex-launcher-src
+        agentNofile
         marketplaceInputs
         llm-agents
         ;
@@ -149,12 +165,19 @@ in
       ../modules/mcp/module.nix
       ../modules/agent-skills
       ../modules/codex
+      ../modules/agent-launchers.nix
       ../modules/maintainer-profile.nix
     ];
     _module.args = partialArgs {
       inherit
         ai-assistant-instructions
         nix-claude-code
+        nix-codex
+        nix-agy
+        nix-claude-code-launcher-src
+        nix-codex-launcher-src
+        agentNofile
+        llm-agents
         marketplaceInputs
         homelab-contracts
         ;
@@ -166,12 +189,18 @@ in
       ../modules/mcp/module.nix
       ../modules/agent-skills
       ../modules/antigravity-cli
+      ../modules/agent-launchers.nix
       ../modules/maintainer-profile.nix
     ];
     _module.args = partialArgs {
       inherit
         ai-assistant-instructions
         nix-claude-code
+        nix-codex
+        nix-agy
+        nix-claude-code-launcher-src
+        nix-codex-launcher-src
+        agentNofile
         marketplaceInputs
         llm-agents
         ;

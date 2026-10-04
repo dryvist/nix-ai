@@ -120,15 +120,31 @@
       };
     };
 
-    # The other two per-CLI leaves, composed into `lib.renderAutonomous` by
-    # flake/lib.nix. Pinned to main for the same git-flow reason as
-    # nix-claude-code; `follows` only keeps the lock lean.
+    # Launcher source from the current API branch; the module flake above
+    # remains pinned to its release branch.
+    nix-claude-code-launcher-src = {
+      url = "github:dryvist/nix-claude-code/develop";
+      flake = false;
+    };
+
+    # The Codex module is still pinned to its release branch.
     nix-codex = {
       url = "github:dryvist/nix-codex/main";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    nix-codex-launcher-src = {
+      url = "github:dryvist/nix-codex/develop";
+      flake = false;
+    };
+
+    # Pure resource-limit value, without evaluating the system flake's inputs.
+    agent-limits-src = {
+      url = "github:dryvist/nix-darwin/develop";
+      flake = false;
+    };
     nix-agy = {
-      url = "github:dryvist/nix-agy/main";
+      url = "github:dryvist/nix-agy/develop";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
@@ -220,143 +236,5 @@
 
   };
 
-  outputs =
-    {
-      self,
-      nixpkgs,
-      nixpkgs-unstable,
-      llm-agents,
-      home-manager,
-      ai-llm-prompts,
-      ai-assistant-instructions,
-      jacobpevans-cc-plugins,
-      browser-use-skills,
-      nix-claude-code,
-      nix-codex,
-      nix-agy,
-      karpathy-skills,
-      mattpocock-skills,
-      fabric-src,
-      dashmotion,
-      ponytail,
-      last30days-skill,
-      autoresearch,
-      context-engineering-kit,
-      managing-dependencies,
-      langfuse-skills,
-      awesome-claude-skills,
-      vct-cribl-cli,
-      vct-splunk-cli,
-      gh-stack,
-      herdr-remote-src,
-      herdr-hail-src,
-      token-meter-src,
-      homelab-contracts,
-      ...
-    }:
-    let
-      supportedSystems = [
-        "aarch64-darwin"
-        "x86_64-linux"
-      ];
-      forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
-      homebrewNix = import ./lib/homebrew.nix;
-      # In `let`, not just the outputs attrset, so `checks` can reference the
-      # composed renderAutonomous — attrset siblings are not in scope.
-      nixAiLib = import ./flake/lib.nix {
-        inherit
-          nixpkgs
-          nix-claude-code
-          nix-codex
-          nix-agy
-          homebrewNix
-          homelab-contracts
-          ;
-      };
-    in
-    {
-      homeManagerModules = import ./flake/home-manager-modules.nix {
-        inherit (nixpkgs) lib;
-        inherit
-          ai-assistant-instructions
-          jacobpevans-cc-plugins
-          browser-use-skills
-          nix-claude-code
-          karpathy-skills
-          mattpocock-skills
-          nixpkgs-unstable
-          llm-agents
-          dashmotion
-          ponytail
-          last30days-skill
-          autoresearch
-          context-engineering-kit
-          managing-dependencies
-          langfuse-skills
-          awesome-claude-skills
-          vct-cribl-cli
-          vct-splunk-cli
-          gh-stack
-          token-meter-src
-          homelab-contracts
-          ;
-      };
-
-      # CI-friendly and cross-flake outputs. Extracted to flake/lib.nix to keep
-      # this file under the file-size budget while preserving the explanatory
-      # comments — see that file. The public `nix-ai.lib.*` shape is unchanged.
-      lib = nixAiLib;
-
-      # System-level modules. herdr is the first thing this flake manages that
-      # runs as a service on a Linux guest rather than a launchd agent on the
-      # Mac, so this output is new — see flake/nixos-modules.nix.
-      nixosModules = import ./flake/nixos-modules.nix {
-        inherit llm-agents herdr-remote-src herdr-hail-src;
-      };
-
-      # Whole-guest configurations. `nixosModules` above are importable but not
-      # deployable; ansible-proxmox-ai's nixos_deploy role dereferences
-      # `nixosConfigurations.<host>`, which is what this provides. x86_64-linux
-      # only — see flake/nixos-configurations.nix.
-      nixosConfigurations = import ./flake/nixos-configurations.nix {
-        inherit nixpkgs llm-agents;
-        inherit (self) nixosModules;
-      };
-
-      # Extracted to flake/checks.nix to stay under the 12KB file-size gate.
-      # Still x86_64-linux-scoped; see that file for why.
-      checks = import ./flake/checks.nix {
-        inherit
-          self
-          nixpkgs
-          home-manager
-          nixAiLib
-          ai-llm-prompts
-          herdr-remote-src
-          homelab-contracts
-          ;
-        src = ./.;
-      };
-
-      # Extracted to flake/packages.nix to stay under the 12KB file-size gate.
-      packages = import ./flake/packages.nix {
-        inherit
-          nixpkgs
-          forAllSystems
-          fabric-src
-          vct-cribl-cli
-          vct-splunk-cli
-          ;
-        inherit (self) nixosConfigurations;
-        inherit herdr-remote-src herdr-hail-src nixpkgs-unstable;
-      };
-
-      devShells = import ./flake/dev-shells.nix { inherit nixpkgs forAllSystems ai-llm-prompts; };
-
-      # Extracted to flake/overlays.nix to stay under the 12KB file-size gate.
-      overlays = import ./flake/overlays.nix { inherit self; };
-
-      # Formatter
-      formatter = forAllSystems (system: nixpkgs.legacyPackages.${system}.nixfmt-tree);
-    };
+  outputs = inputs: import ./flake/outputs.nix inputs;
 }

@@ -22,6 +22,7 @@
   renderAutonomous,
   roleMap,
   homebrewFor,
+  agentNofile,
 }:
 let
   inherit (import ./checks-fixtures.nix { inherit pkgs home-manager aiModule; })
@@ -49,8 +50,25 @@ let
     hmConfigLitellmLocal
     hmConfigMcpLaunchPrefix
     ;
+  mkHmConfigDarwin =
+    (import ./checks-fixtures.nix {
+      inherit home-manager aiModule;
+      pkgs = import pkgs.path {
+        system = "aarch64-darwin";
+        config.allowUnfree = true;
+      };
+    }).mkHmConfig;
 in
 (import ./checks/lint.nix { inherit pkgs src; })
+// (import ./checks/agent-nofile.nix {
+  inherit
+    pkgs
+    src
+    mkHmConfig
+    mkHmConfigDarwin
+    agentNofile
+    ;
+})
 // (import ./checks/token-meter.nix {
   inherit
     pkgs
