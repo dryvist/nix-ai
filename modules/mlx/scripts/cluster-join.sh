@@ -33,16 +33,13 @@
 #   CLUSTER_WORKER_STABLE_SECS  worker: seconds the rank must stay up to pass
 #   coordinator only:
 #   CLUSTER_NORMAL_PROXY        normal-mode llama-swap base URL (graceful unload)
-#   CLUSTER_SERVER_LABEL        normal-mode server (llama-swap) launchd label
-#   CLUSTER_WARMUP_LABEL        normal-mode warmup one-shot launchd label
-#   CLUSTER_SERVER_PLIST        that agent's plist — join boots the agent out,
-#                             so the failure-path restore needs the plist to
-#                             bootstrap it back (restore_normal_serving)
+#   CLUSTER_SERVER_LABELS       space-separated resident server launchd labels
+#   CLUSTER_LAUNCH_AGENTS_DIR   directory containing those agents' plists
 #   CLUSTER_WATCHDOG_LABEL      serving watchdog launchd label — join boots this
 #                             out too, or it sees the coordinator as "up but not
 #                             serving" for the whole cluster window and reloads
 #                             the standalone stack mid-window
-#   CLUSTER_WATCHDOG_PLIST      that agent's plist, same reason as CLUSTER_SERVER_PLIST
+#   CLUSTER_WATCHDOG_PLIST      that agent's plist, for bootstrap on restore
 #   CLUSTER_KEEP_RESIDENT       newline-separated command-line substrings; a
 #                             `vllm-mlx serve` engine matching any is left
 #                             running through the quiesce (standalone keep-
@@ -309,11 +306,13 @@ Loading a shard against stale swap spirals to a panic."
   # a host left serving nothing.
   quiesced=true
   curl -fsS -m 30 -X POST "${CLUSTER_NORMAL_PROXY:-}/api/models/unload" > /dev/null 2>&1 || true
-  /bin/launchctl bootout "gui/$uid/${CLUSTER_WARMUP_LABEL}" > /dev/null 2>&1 || true
-  /bin/launchctl bootout "gui/$uid/${CLUSTER_SERVER_LABEL}" > /dev/null 2>&1 || true
-  echo "cluster-join: booted out standalone serving ($CLUSTER_SERVER_LABEL, $CLUSTER_WARMUP_LABEL)"
+  IFS=' ' read -r -a resident_server_labels <<< "${CLUSTER_SERVER_LABELS:-}"
+  for resident_server_label in "${resident_server_labels[@]}"; do
+    /bin/launchctl bootout "gui/$uid/$resident_server_label" > /dev/null 2>&1 || true
+  done
+  echo "cluster-join: booted out standalone serving (${CLUSTER_SERVER_LABELS:-})"
   # The watchdog probes the standalone proxy on its own 60s timer, independent
-  # of the two agents above. Left running through the cluster window it finds
+  # of the resident agents above. Left running through the cluster window it finds
   # the coordinator "up but not serving" like a real outage and climbs its
   # escalation ladder -- rung 2 is a full bootstrap of the standalone stack,
   # which would reload it mid-window and reclaim the memory this quiesce just

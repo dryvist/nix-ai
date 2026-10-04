@@ -10,6 +10,7 @@
   residentWeightGb,
   selectedRoles,
   residents,
+  swaps,
 }:
 [
   {

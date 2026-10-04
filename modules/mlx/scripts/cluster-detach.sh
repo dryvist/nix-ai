@@ -23,9 +23,8 @@
 #   CLUSTER_STANDALONE_PROBE_URL       normal-mode proxy /v1 base URL
 #   CLUSTER_STANDALONE_PROBE_MODEL     primary resident model id (real-completion probe)
 #   coordinator only:
-#   CLUSTER_SERVER_LABEL        normal-mode server (llama-swap) launchd label
-#   CLUSTER_SERVER_PLIST        path to the server agent plist (for bootstrap)
-#   CLUSTER_WARMUP_LABEL        normal-mode warmup one-shot launchd label
+#   CLUSTER_SERVER_LABELS       space-separated resident server launchd labels
+#   CLUSTER_LAUNCH_AGENTS_DIR   directory containing those agents' plists
 #   CLUSTER_WATCHDOG_LABEL      serving watchdog launchd label — carried so
 #                             restore_normal_serving (step 2) can bootstrap it
 #                             back if cluster-join booted it out

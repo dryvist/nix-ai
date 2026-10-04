@@ -6,12 +6,12 @@
   nix-claude-code,
   nix-codex,
   nix-agy,
+  nixpkgs-unstable,
   nix-claude-code-launcher-src,
   nix-codex-launcher-src,
   agentNofile,
   karpathy-skills,
   mattpocock-skills,
-  nixpkgs-unstable,
   llm-agents,
   dashmotion,
   ponytail,
@@ -99,13 +99,13 @@ in
         nix-claude-code
         nix-codex
         nix-agy
+        nixpkgs-unstable
         nix-claude-code-launcher-src
         nix-codex-launcher-src
         agentNofile
         browser-use-skills
         awesome-claude-skills
         marketplaceInputs
-        nixpkgs-unstable
         llm-agents
         vct-cribl-cli
         vct-splunk-cli

@@ -10,13 +10,7 @@
   mlxModelServerPkgs ? { },
 }:
 rec {
-  # SINGLE DEFINITION of per-model concurrency. Both consumers derive from it:
-  # llama-swap's advertised `concurrencyLimit` (default.nix registryModels) and
-  # the MLX server's own --decode-concurrency/--prompt-concurrency below.
-  # These were two independent values — the flags were hard-coded "1" while the
-  # proxy default is 4 — so llama-swap admitted 4 requests to a server serving
-  # 1, and the excess came back as HTTP 429 (2026-07-24 cron kills).
-  effectiveConcurrency = modelId: cfg.modelConcurrencyLimits.${modelId} or cfg.proxy.concurrencyLimit;
+  effectiveConcurrency = modelId: cfg.modelConcurrencyLimits.${modelId} or 1;
 
   # Per-model backend resolution.
   backendFor = modelId: cfg.modelBackends.${modelId} or cfg.modelServerBackend;
@@ -30,8 +24,6 @@ rec {
   # silently keeping the global value. Catalog class profiles also set
   # paged-cache, batch-width, request-cap and idle-unload keys; mlx_lm reads
   # none of those, so they are accepted here and have no effect on the command.
-  # NOTE: \${PORT} is a llama-swap template macro — must be escaped to prevent
-  # Nix string interpolation from consuming it before the config is written.
   overridableFlags = [
     "host"
     "cacheMemoryMb"
@@ -44,8 +36,8 @@ rec {
     "maxTokens"
     "maxRequestTokens"
   ];
-  mkModelCmd =
-    modelId:
+  mkModelArgs =
+    modelId: port:
     let
       backend = backendFor modelId;
       mtp =
@@ -57,7 +49,6 @@ rec {
           tokenQueueTimeoutSeconds = 1800;
           draftBlockSize = null;
         };
-      serverPkg = mlxModelServerPkgs.${backend} or mlxModelServerPkg;
       overrides = cfg.modelFlagOverrides.${modelId} or { };
       unknown = lib.filter (k: !(lib.elem k overridableFlags)) (lib.attrNames overrides);
       c =
@@ -80,68 +71,55 @@ rec {
           error = "ERROR";
         }
         .${cfg.serverLogLevel};
-      mlxLmFlags = lib.concatStringsSep " " (
+      mlxLmFlags = [
+        "--log-level"
+        mlxLmLogLevel
+        "--max-tokens"
+        (toString effectiveMlxLmMaxTokens)
+        "--decode-concurrency"
+        (toString (effectiveConcurrency modelId))
+        "--prompt-concurrency"
+        (toString (effectiveConcurrency modelId))
+        # 16 slots: the fleet has roughly 8 Hermes profiles plus
+        # Hindsight and interactive clients interleaving turns on the
+        # 27B model, and a 4-slot cache measured hits at 4.7s versus
+        # 98-154s misses re-prefilling roughly 20k tokens.
+        "--prompt-cache-size"
+        "16"
+      ]
+      ++
+        # Reuse the backend-neutral cache budget. Official mlx_lm calls this
+        # the prompt-cache byte limit.
+        # Bounded at 16 GiB (effectiveMlxLmCacheMb above) so large-context
+        # catalog classes get the cache they declare.
         [
-          "--log-level"
-          mlxLmLogLevel
-          "--max-tokens"
-          (toString effectiveMlxLmMaxTokens)
-          "--decode-concurrency"
-          (toString (effectiveConcurrency modelId))
-          "--prompt-concurrency"
-          (toString (effectiveConcurrency modelId))
-          # 16 slots: the fleet has roughly 8 Hermes profiles plus
-          # Hindsight and interactive clients interleaving turns on the
-          # 27B model, and a 4-slot cache measured hits at 4.7s versus
-          # 98-154s misses re-prefilling roughly 20k tokens.
-          "--prompt-cache-size"
-          "16"
+          "--prompt-cache-bytes"
+          (toString (effectiveMlxLmCacheMb * 1024 * 1024))
         ]
-        ++
-          # Reuse the backend-neutral cache budget. Official mlx_lm calls this
-          # the prompt-cache byte limit.
-          # Bounded at 16 GiB (effectiveMlxLmCacheMb above) so large-context
-          # catalog classes get the cache they declare.
-          [
-            "--prompt-cache-bytes"
-            (toString (effectiveMlxLmCacheMb * 1024 * 1024))
-          ]
-        ++ lib.optionals (c.prefillBatchSize != null) [
-          "--prefill-step-size"
-          (toString c.prefillBatchSize)
-        ]
-      );
-      # mlx_vlm.server shares only --model/--port/--host with mlx_lm.server;
-      # none of the mlx-lm tuning flags above exist on it, so this set stays
-      # deliberately bare rather than reusing mlxLmFlags. Idle unload is not a
-      # worker flag here either — mlx_vlm.server has none, so llama-swap's
-      # proxy-side ttl is the only eviction path (see modelTtls).
-      # --trust-remote-code: the vision OCR architectures this backend exists to
-      # serve ship custom modelling code. Weights are already resolved from the
-      # local HF cache with HF_HUB_OFFLINE=1 (worker-env.nix), so this executes
-      # pinned on-disk code, never anything fetched at serve time.
-      mlxVlmFlags = "--trust-remote-code";
-      mlxVlmNativeFlags = lib.concatStringsSep " " (
-        [
-          "--trust-remote-code"
-          "--max-tokens"
-          (toString effectiveMlxLmMaxTokens)
-          "--max-kv-size"
-          (toString mtp.maxKvTokens)
-        ]
-        ++ lib.optionals mtp.enable [
-          "--draft-model"
-          mtp.drafterModel
-          "--draft-kind"
-          "mtp"
-          "--max-num-seqs"
-          (toString mtp.maxNumSeqs)
-        ]
-        ++ lib.optionals (mtp.enable && mtp.draftBlockSize != null) [
-          "--draft-block-size"
-          (toString mtp.draftBlockSize)
-        ]
-      );
+      ++ lib.optionals (c.prefillBatchSize != null) [
+        "--prefill-step-size"
+        (toString c.prefillBatchSize)
+      ];
+      mlxVlmFlags = [ "--trust-remote-code" ];
+      mlxVlmNativeFlags = [
+        "--trust-remote-code"
+        "--max-tokens"
+        (toString effectiveMlxLmMaxTokens)
+        "--max-kv-size"
+        (toString mtp.maxKvTokens)
+      ]
+      ++ lib.optionals mtp.enable [
+        "--draft-model"
+        mtp.drafterModel
+        "--draft-kind"
+        "mtp"
+        "--max-num-seqs"
+        (toString mtp.maxNumSeqs)
+      ]
+      ++ lib.optionals (mtp.enable && mtp.draftBlockSize != null) [
+        "--draft-block-size"
+        (toString mtp.draftBlockSize)
+      ];
       mlxModelServerFlags =
         {
           mlx-lm = mlxLmFlags;
@@ -150,8 +128,23 @@ rec {
         }
         .${backend};
     in
-    "${lib.getExe serverPkg} --model ${modelId} --port \${PORT} --host ${c.host}${
-      lib.optionalString (mlxModelServerFlags != "") " ${mlxModelServerFlags}"
-    }";
+    [
+      "--model"
+      modelId
+      "--port"
+      (toString port)
+      "--host"
+      c.host
+    ]
+    ++ mlxModelServerFlags;
+
+  mkModelCmd =
+    modelId:
+    let
+      backend = backendFor modelId;
+      serverPkg = mlxModelServerPkgs.${backend} or mlxModelServerPkg;
+      args = mkModelArgs modelId cfg.port;
+    in
+    "${lib.getExe serverPkg} ${lib.escapeShellArgs args}";
 
 }

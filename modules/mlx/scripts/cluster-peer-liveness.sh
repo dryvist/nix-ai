@@ -69,8 +69,8 @@
 #                                     request that is producing no tokens
 # Inherited from the watcher's contract and consumed by the shared helpers in
 # ./cluster-link-helpers.sh (alert, set_wired_limit, restore_normal_serving):
-#   CLUSTER_ALERT_URL_FILE CLUSTER_WARMUP_LABEL CLUSTER_SERVER_LABEL
-#   CLUSTER_SERVER_PLIST CLUSTER_WATCHDOG_LABEL CLUSTER_WATCHDOG_PLIST
+#   CLUSTER_ALERT_URL_FILE CLUSTER_SERVER_LABELS CLUSTER_LAUNCH_AGENTS_DIR
+#   CLUSTER_WATCHDOG_LABEL CLUSTER_WATCHDOG_PLIST
 #   CLUSTER_RESTORE_CMD CLUSTER_NORMAL_PROXY
 #   CLUSTER_WIRED_LIMIT_MB CLUSTER_STANDALONE_WIRED_LIMIT_MB
 

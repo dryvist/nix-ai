@@ -20,7 +20,8 @@
 #   CLUSTER_LINK_REPAIR     1 = repair a missing local link address in place
 #   CLUSTER_LINK_ACTIVATE_TIMEOUT_SECS  bound on the activation repair fallback
 #   CLUSTER_RANK_LABEL      launchd label of the cluster rank agent
-#   CLUSTER_WARMUP_LABEL    launchd label of the normal-serving warmup one-shot
+#   CLUSTER_SERVER_LABELS   space-separated resident server launchd labels
+#   CLUSTER_LAUNCH_AGENTS_DIR directory containing those agents' plists
 #   CLUSTER_NORMAL_PROXY    normal-mode llama-swap base URL (coordinator only)
 #   CLUSTER_RANK_URL        cluster rank OpenAI base URL (coordinator only) —
 #                         warmed once per link session after readiness
@@ -44,9 +45,6 @@
 #                         (applied via the exact-value sudoers grant from
 #                         nix-darwin; a failed apply SKIPS the rank start)
 #   CLUSTER_STANDALONE_WIRED_LIMIT_MB  restore value at link-down (default 0)
-#   CLUSTER_SERVER_LABEL    coordinator only: normal-mode server (llama-swap)
-#                         launchd label, bootstrapped before the warmup fires
-#   CLUSTER_SERVER_PLIST    coordinator only: that agent's plist, for bootstrap
 #   CLUSTER_WATCHDOG_LABEL  coordinator only: serving watchdog launchd label,
 #                         bootstrapped back by restore_normal_serving on every
 #                         teardown this watcher owns (up->down edge, PD-guard

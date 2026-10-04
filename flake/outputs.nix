@@ -134,7 +134,7 @@ in
       vct-splunk-cli
       ;
     inherit (self) nixosConfigurations;
-    inherit herdr-remote-src herdr-hail-src nixpkgs-unstable;
+    inherit herdr-remote-src herdr-hail-src;
   };
 
   devShells = import ./dev-shells.nix { inherit nixpkgs forAllSystems ai-llm-prompts; };

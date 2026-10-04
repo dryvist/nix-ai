@@ -48,12 +48,16 @@ mkdir -p "$tmp/bin"
   cat << 'FAKE'
 printf '%s\n' "$*" >> "$FAKE_DIR/launchctl.log"
 case "${1:-}" in
-  print) [ -f "$FAKE_DIR/loaded" ] ;;
+  print)
+    label="${2##*/}"
+    [ -f "$FAKE_DIR/$label.loaded" ]
+    ;;
   bootstrap)
     if [ "${FAKE_BOOTSTRAP_FAILS:-0}" = 1 ]; then
       exit 1
     fi
-    touch "$FAKE_DIR/loaded"
+    label="${3##*/}"
+    touch "$FAKE_DIR/${label%.plist}.loaded"
     ;;
   *) exit 0 ;;
 esac
@@ -71,13 +75,14 @@ kicks_file="$state_dir/rank-kickstarts"
 debt_file="$state_dir/pd-debt"
 
 export CLUSTER_ROLE=coordinator
-export CLUSTER_SERVER_LABEL=dev.mlx.server
-export CLUSTER_SERVER_PLIST="$tmp/server.plist"
-export CLUSTER_WARMUP_LABEL=dev.mlx.warmup
+export CLUSTER_SERVER_LABELS="dev.mlx.server dev.mlx.server.mimo"
+export CLUSTER_LAUNCH_AGENTS_DIR="$tmp/LaunchAgents"
 export CLUSTER_RANK_PROCESS_PATTERN='/mlx_lm\.server'
 export CLUSTER_PD_DEBT_MAX=5
 export CLUSTER_PD_DEVICE_BUDGET=11
-: > "$CLUSTER_SERVER_PLIST"
+mkdir -p "$CLUSTER_LAUNCH_AGENTS_DIR"
+: > "$CLUSTER_LAUNCH_AGENTS_DIR/dev.mlx.server.plist"
+: > "$CLUSTER_LAUNCH_AGENTS_DIR/dev.mlx.server.mimo.plist"
 
 # shellcheck disable=SC1090
 source "${BOOT_SCOPE:?set BOOT_SCOPE to cluster-boot-scope.sh}"
@@ -140,40 +145,47 @@ contains() {
   esac
 }
 reset() {
-  rm -f "$tmp/launchctl.log" "$tmp/loaded" "$halt_file" "$kicks_file" "$debt_file"
+  rm -f "$tmp/launchctl.log" "$tmp"/*.loaded "$halt_file" "$kicks_file" "$debt_file"
   export FAKE_BOOTSTRAP_FAILS=0
   rank_absent
 }
-warmed() { grep -qE 'kickstart .*dev\.mlx\.warmup' "$tmp/launchctl.log" 2> /dev/null && echo yes || echo no; }
+resident_agents_restored() {
+  local label
+  local -a labels=()
+  read -r -a labels <<< "$CLUSTER_SERVER_LABELS"
+  for label in "${labels[@]}"; do
+    grep -qF "bootstrap gui/$(id -u) $CLUSTER_LAUNCH_AGENTS_DIR/$label.plist" "$tmp/launchctl.log" 2> /dev/null || return 1
+  done
+  echo yes
+}
 
 echo "cluster-join's failure path restores standalone serving:"
 
 reset
 quiesced=false
 out="$(restore_serving_if_join_left_it_down 2>&1)"
-check "an early refusal restores nothing (serving was never taken away)" no "$(warmed)"
+check "an early refusal restores nothing (serving was never taken away)" no "$(resident_agents_restored || echo no)"
 contains "and says so" "never quiesced" "$out"
 
 reset
 quiesced=true
 out="$(restore_serving_if_join_left_it_down 2>&1)"
-check "quiesced + no rank + no halt -> serving is restored" yes "$(warmed)"
+check "quiesced + no rank + no halt -> every resident is restored" yes "$(resident_agents_restored || echo no)"
 contains "the branch that fired is named" "restoring standalone serving" "$out"
-check "the booted-out server agent is bootstrapped back first" yes \
-  "$(grep -qE 'bootstrap ' "$tmp/launchctl.log" 2> /dev/null && echo yes || echo no)"
+check "each booted-out resident agent is bootstrapped back" yes "$(resident_agents_restored || echo no)"
 
 reset
 rank_running
 quiesced=true
 out="$(restore_serving_if_join_left_it_down 2>&1)"
-check "a running rank means the watcher owns serving -> no restore" no "$(warmed)"
+check "a running rank means the watcher owns serving -> no restore" no "$(resident_agents_restored || echo no)"
 contains "and the deferral is logged, not silent" "rank process is running" "$out"
 
 reset
 quiesced=true
 printf 'cause=peer-absent\tdetail\n' > "$halt_file"
 out="$(restore_serving_if_join_left_it_down 2>&1)"
-check "a recorded halt means the watcher's halt path restores -> no restore" no "$(warmed)"
+check "a recorded halt means the watcher's halt path restores -> no restore" no "$(resident_agents_restored || echo no)"
 contains "and the deferral names the halt" "halt is recorded" "$out"
 
 # The failure the whole trap exists to make visible: a restore that could not

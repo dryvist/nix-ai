@@ -21,6 +21,8 @@ import mlx_lm.server
 import mlx_lm.utils
 from mlx_lm.server import main
 
+from mlx_bounded_queue import DropOldestRequestQueue
+
 _limit = os.environ.get("MLX_L1_MEMORY_LIMIT_BYTES")
 if _limit:
     mx.set_memory_limit(int(_limit))
@@ -78,5 +80,46 @@ if os.environ.get("MLX_SUPPRESS_WIRED_LIMIT") == "1":
         return 0
 
     mx.set_wired_limit = _suppress_wired_limit
+
+_max_pending = os.environ.get("MLX_MAX_PENDING_REQUESTS")
+if _max_pending is not None:
+    _capacity = int(_max_pending)
+    _generator = mlx_lm.server.ResponseGenerator
+    _init_source = inspect.getsource(_generator.__init__)
+    _generate_source = inspect.getsource(_generator.generate)
+    if (
+        "self.requests = Queue()" not in _init_source
+        or "self.requests.put((response_queue, request, generation_args))" not in _generate_source
+    ):
+        raise RuntimeError(
+            "MLX_MAX_PENDING_REQUESTS is enabled but the pinned mlx-lm request "
+            "queue call sites changed shape; re-check bounded-queue ownership."
+        )
+
+    _original_init = _generator.__init__
+
+    def _init_with_bounded_queue(self, model_provider, prompt_cache):
+        original_queue = mlx_lm.server.Queue
+        created_pending_queue = False
+
+        def queue_factory(*args, **kwargs):
+            nonlocal created_pending_queue
+            if not created_pending_queue:
+                if args or kwargs:
+                    raise RuntimeError("mlx-lm pending queue constructor changed shape")
+                created_pending_queue = True
+                return DropOldestRequestQueue(_capacity)
+            return original_queue(*args, **kwargs)
+
+        mlx_lm.server.Queue = queue_factory
+        try:
+            _original_init(self, model_provider, prompt_cache)
+        finally:
+            mlx_lm.server.Queue = original_queue
+        if not created_pending_queue:
+            raise RuntimeError("mlx-lm did not create its pending request queue")
+
+    _generator.__init__ = _init_with_bounded_queue
+    print(f"mlx-lm-launch: bounded pending queue enabled (capacity={_capacity})", flush=True)
 
 main()

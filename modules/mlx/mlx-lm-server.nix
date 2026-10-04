@@ -65,6 +65,7 @@ let
     "@suppressWiredLimit@" = if cfg.suppressWiredLimit then "1" else "";
     "@pythonEnv@" = "${pythonEnv}";
     "@launcher@" = "${launcher}";
+    "@launcherDirectory@" = "${./scripts}";
   };
 
   rawScript = builtins.readFile ./scripts/mlx-lm-server.sh;

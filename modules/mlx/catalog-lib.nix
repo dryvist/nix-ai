@@ -71,6 +71,11 @@
 # backend have both been verified. A future git-wheel
 # serverVariant (staged DeepSeek rollout) adds --mtp.
 {
+  # The static resident queue size is shared by both catalog entries. The
+  # module derives their distinct timeouts from their own context/output,
+  # concurrency, and measured throughput rates.
+  defaultResidentQueueSize = 25;
+
   # Paged-cache block sizing (engine default 64): long sessions shatter the KV
   # into enough per-block Metal buffers to trip MLX's buffer-count limit
   # ("Resource limit (499000) exceeded", not a byte OOM; nix-darwin#1609).

@@ -126,12 +126,9 @@ rec {
             class = "resident";
             roles = [ "judge" ];
           };
-          # Swap-class text entry with an intrinsic concurrencyLimit (2):
-          # exercises the swap tier, its default ttl and modelConcurrencyLimits.
+          # Swap-class text entry exercises its default ttl and model concurrency.
           mimo-9b.class = "swap";
-          # Vision-language entry: exercises the per-model backend override
-          # (catalog `backend` -> modelBackends -> mlx_vlm.server) while the
-          # host backend stays mlx-lm for every other model, and the ttl tweak.
+          # OCR stays in the pinned role map and exercises the VLM backend.
           unlimited-ocr = {
             class = "swap";
             tweaks.ttl = 600;
@@ -140,24 +137,71 @@ rec {
         # Direct host setting on a catalog-managed key must win over the catalog.
         modelFlagOverrides."mlx-community/Qwen3.8-27B-4bit".cacheMemoryMb = 8192;
       };
+      programs.litellmLocal.enable = true;
+      services.aiStack = {
+        llmEndpoint = "router";
+        llmRouterEndpoint = "https://router.example.invalid/v1";
+        llmEndpointTokenFile = "/tmp/test-router-token";
+      };
     }
   ];
 
-  # Evaluation exercising programs.mlx.defaultModelKey (lib/checks/
-  # mlx-default-model.nix): the declared default is one catalog entry, the
-  # runtime override re-points it at another — the two-Mac shape where the
-  # serving config is shared and only this key differs.
-  hmConfigDefaultModel = mkHmConfig [
+  # The MacBook production static-resident shape: both resident catalog
+  # entries, the stable role mapping, and no swap-class selection.
+  hmConfigStaticServing = mkHmConfig [
     {
       programs.mlx = {
-        defaultModelKey = "qwen38-27b";
-        catalog = {
-          qwen38-27b.class = "resident";
-          mimo-9b = {
-            class = "resident";
-            roles = [ "judge" ];
+        enable = true;
+        memoryHardLimitGb = 46;
+        roleMap = {
+          models = {
+            qwen38-27b = {
+              id = "mlx-community/Qwen3.8-27B-4bit";
+              concurrency = 1;
+            };
+            mimo-9b = {
+              id = "mlx-community/MiMo-V2.6-Distill-Qwen-9B-OptiQ-4bit";
+              concurrency = 4;
+            };
+          };
+          roles = {
+            default.model = "qwen38-27b";
+            fast.model = "mimo-9b";
+            judge.model = "mimo-9b";
+            recorder.model = "mimo-9b";
+            cheap.model = "mimo-9b";
+            small.model = "mimo-9b";
+          };
+          hosts.workstation = {
+            resident = [
+              "qwen38-27b"
+              "mimo-9b"
+            ];
+            swap = [ ];
           };
         };
+        catalog = {
+          qwen38-27b = {
+            class = "resident";
+            roles = [ "default" ];
+          };
+          mimo-9b = {
+            class = "resident";
+            roles = [
+              "fast"
+              "judge"
+              "recorder"
+              "cheap"
+              "small"
+            ];
+          };
+        };
+      };
+      programs.litellmLocal.enable = true;
+      services.aiStack = {
+        llmEndpoint = "router";
+        llmRouterEndpoint = "https://router.example.invalid/v1";
+        llmEndpointTokenFile = "/tmp/test-router-token";
       };
     }
   ];
@@ -169,6 +213,12 @@ rec {
   # into the checks that read that fixture.
   hmConfigSmallRole = mkHmConfig [
     {
+      programs.litellmLocal.enable = true;
+      services.aiStack = {
+        llmEndpoint = "router";
+        llmRouterEndpoint = "https://router.example.invalid/v1";
+        llmEndpointTokenFile = "/tmp/test-router-token";
+      };
       programs.mlx.catalog = {
         qwen38-27b.class = "resident";
         mimo-9b = {
@@ -180,6 +230,12 @@ rec {
   ];
   hmConfigDupRole = mkHmConfig [
     {
+      programs.litellmLocal.enable = true;
+      services.aiStack = {
+        llmEndpoint = "router";
+        llmRouterEndpoint = "https://router.example.invalid/v1";
+        llmEndpointTokenFile = "/tmp/test-router-token";
+      };
       programs.mlx.catalog = {
         qwen38-27b = {
           class = "resident";
@@ -194,18 +250,61 @@ rec {
   ];
 
   # Fourth evaluation exercising programs.mlx.clusterMode as the coordinator
-  # (lib/checks/mlx-cluster.nix): rank env contract, watcher wiring, prefetch.
+  # (lib/checks/mlx-cluster.nix): rank env contract, watcher wiring, and the
+  # catalog-rendered resident stop list.
   hmConfigCluster = mkHmConfig [
     {
-      programs.mlx.clusterMode = {
+      programs.mlx = {
         enable = true;
-        role = "coordinator";
-        modelCatalogKey = "glm47-reap50";
-        # glm4_moe is pipeline-only; the clusterMode assertions now reject
-        # tensor-parallel on it, so this fixture must name the real mode.
-        shardingMode = "pipeline";
-        wiredLimitMb = 90000;
-        standaloneWiredLimitMb = 118000;
+        roleMap = {
+          models = {
+            qwen38-27b = {
+              id = "mlx-community/Qwen3.8-27B-4bit";
+              concurrency = 1;
+            };
+            mimo-9b = {
+              id = "mlx-community/MiMo-V2.6-Distill-Qwen-9B-OptiQ-4bit";
+              concurrency = 4;
+            };
+          };
+          roles = {
+            default.model = "qwen38-27b";
+            fast.model = "mimo-9b";
+          };
+          hosts.workstation = {
+            resident = [
+              "qwen38-27b"
+              "mimo-9b"
+            ];
+            swap = [ ];
+          };
+        };
+        catalog = {
+          qwen38-27b = {
+            class = "resident";
+            roles = [ "default" ];
+          };
+          mimo-9b = {
+            class = "resident";
+            roles = [ "fast" ];
+          };
+        };
+        clusterMode = {
+          enable = true;
+          role = "coordinator";
+          modelCatalogKey = "glm47-reap50";
+          # glm4_moe is pipeline-only; the clusterMode assertions now reject
+          # tensor-parallel on it, so this fixture must name the real mode.
+          shardingMode = "pipeline";
+          wiredLimitMb = 90000;
+          standaloneWiredLimitMb = 118000;
+        };
+      };
+      programs.litellmLocal.enable = true;
+      services.aiStack = {
+        llmEndpoint = "router";
+        llmRouterEndpoint = "https://router.example.invalid/v1";
+        llmEndpointTokenFile = "/tmp/test-router-token";
       };
     }
   ];
@@ -250,59 +349,5 @@ rec {
       };
     }
   ];
-  # Evaluation with the local LiteLLM proxy enabled. The module is off by
-  # default, so without this fixture every `lib.optionalAttrs
-  # litellmLocal.enable` branch across the client modules would go unevaluated
-  # and a typo in one of them would pass CI.
-  hmConfigLitellmLocal = mkHmConfig [
-    {
-      programs = {
-        litellmLocal = {
-          enable = true;
-          # Required once localModels is non-empty: the terminal rung forwards
-          # the requested group name upstream, so it must name a group the shared
-          # router serves rather than passing through the local rung's own name.
-          routerEntryModel = "test-router-entry";
-          # Local rungs are what give the subagent tier real depth: this host's own
-          # models first, the shared router appended automatically as the terminal
-          # rung. Declared here so the fallback-tier check asserts against the
-          # shape a real host uses, not against an empty chain.
-          localModels = [
-            {
-              # A ROUTER rung at the head: the estate's shape puts the shared
-              # router's single-GPU group ahead of this host's own model.
-              # Declared here so the fallback-tier check proves a router rung
-              # renders against LLM_ROUTER_URL and carries no local window.
-              name = "subagent";
-              router = "test-gpu-group";
-            }
-            {
-              name = "subagent-local";
-              id = "test-local/small-4bit";
-              contextWindow = 131072;
-            }
-            {
-              # contextWindow OMITTED on purpose: this rung exercises the
-              # derivation from `mlx.modelContextWindows` below. Without a rung
-              # that leaves it null, the suite could only ever prove the
-              # hand-written path and would pass unchanged if the derivation were
-              # deleted.
-              name = "subagent-local2";
-              id = "test-local/tiny-4bit";
-            }
-          ];
-        };
-        # The catalog side of that derivation. Keyed by physical model id, the
-        # same shape options-catalog.nix builds from real entries.
-        mlx.modelContextWindows = {
-          "test-local/tiny-4bit" = 32768;
-        };
-      };
-      services.aiStack = {
-        llmEndpoint = "router";
-        llmRouterEndpoint = "https://llm.example.invalid/v1";
-        llmEndpointTokenFile = "/run/secrets/LLM_ROUTER_BEARER";
-      };
-    }
-  ];
+  inherit (import ./checks-fixtures-litellm.nix { inherit mkHmConfig; }) hmConfigLitellmLocal;
 }
