@@ -1,26 +1,43 @@
 # Validated MLX model catalog — pure data (model entries), shipped with the
 # module. Holds the models the role map (lib/role-map.nix) references plus the
 # cluster-mode model; programs.mlx.roleMap's assertion requires every role-map
-# model to be an entry here. The entry schema and the shared serve-arg helpers
-# inherited below are documented in catalog-lib.nix. qwen38-27b lives in its
-# own file (12KB gate), merged below.
+# model to be an entry here. Per-model limits come from homelab-contracts;
+# backend-specific args and KV geometry stay local. qwen38-27b lives in its own
+# file (12KB gate), merged below.
 let
-  inherit (import ./catalog-lib.nix) defaultResidentQueueSize swapFlags;
-  mimoContextWindowTokens = 40960;
-  mimoMaxOutputTokens = 4096;
-  mimoConcurrency = 4;
+  modelCatalog = import ./model-catalog.nix;
+  ocr = modelCatalog."mlx-community/Unlimited-OCR-bf16";
+  mimo = modelCatalog."mlx-community/MiMo-V2.6-Distill-Qwen-9B-OptiQ-4bit";
+  mimoProfile = mimo.profiles.mlx;
+  mimoSwap = mimoProfile.swap;
+  mimoMaxOutputTokens = mimoProfile.max_output_tokens;
+  mimoConcurrency = mimoProfile.max_parallel_requests;
+  mimoSwapFlags = {
+    autoUnloadIdleSeconds = mimoSwap.auto_unload_idle_seconds;
+    maxNumSeqs = mimoSwap.max_num_sequences;
+    maxRequestTokens = mimoSwap.max_request_tokens;
+  }
+  // (
+    if mimoSwap ? paged_cache_block_size then
+      {
+        pagedCacheBlockSize = mimoSwap.paged_cache_block_size;
+      }
+    else
+      { }
+  );
 in
 (import ./catalog-data-qwen38-27b.nix)
 // {
   # Keep this entry while the pinned role map still names the vision model.
   # It is outside a host's static resident set unless explicitly selected.
   unlimited-ocr = {
-    model = "mlx-community/Unlimited-OCR-bf16";
+    model = ocr.name;
     backend = "mlx-vlm";
     weightGb = 6.7;
     args = [ ];
-    concurrency = 1;
-    concurrencyLimit = 1;
+    contextWindowTokens = ocr.context_window;
+    concurrency = ocr.max_parallel_requests;
+    concurrencyLimit = ocr.max_parallel_requests;
     classes = {
       swap.flags = { };
     };
@@ -41,12 +58,12 @@ in
       headDim = 256;
       kvDtypeBytes = 2;
     };
-    contextWindowTokens = mimoContextWindowTokens;
+    contextWindowTokens = mimoProfile.context_window;
     maxOutputTokens = mimoMaxOutputTokens;
     concurrency = mimoConcurrency;
-    queueSize = defaultResidentQueueSize;
-    prefillTokensPerSecond = 600;
-    decodeTokensPerSecond = 40;
+    queueSize = mimoProfile.queue_size;
+    prefillTokensPerSecond = mimoProfile.prefill_tokens_per_second;
+    decodeTokensPerSecond = mimoProfile.decode_tokens_per_second;
     servicePort = 11433;
     args = [
       "--chat-template-args"
@@ -61,11 +78,11 @@ in
       };
       swap = {
         cacheProvisioning.pinned = {
-          mb = 8192;
+          mb = mimoSwap.cache_memory_mb;
           reason = "same pinned value as the prior 9B swap entries; unvalidated formula, #1641 buffer-leak history";
           tracking = "vikunja#106";
         };
-        flags = swapFlags;
+        flags = mimoSwapFlags;
       };
     };
   };
