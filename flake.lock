@@ -3,11 +3,11 @@
     "agent-limits-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1791110468,
-        "narHash": "sha256-Ndzr7FV0iUS6974F6lkpwOKeM4wZtYl4j6TJoSKU+zU=",
+        "lastModified": 1791147900,
+        "narHash": "sha256-TzIPEF9N3UAQkGF/Nt/RDCkC73ee0PJUcsGsyj0f+0I=",
         "owner": "dryvist",
         "repo": "nix-darwin",
-        "rev": "ece5ae9b51021a53ae86effa8bc5d39fed6adb5a",
+        "rev": "65904a650781399302196fae2aa14b9ba196d7f9",
         "type": "github"
       },
       "original": {
@@ -643,11 +643,11 @@
     "jacobpevans-cc-plugins": {
       "flake": false,
       "locked": {
-        "lastModified": 1791124780,
-        "narHash": "sha256-rlT0kRJj1FDoN5Y1gZYP823pxLRz4E4ksznAU1hUCy0=",
+        "lastModified": 1791142451,
+        "narHash": "sha256-wsQ2w+Jgfj9XdZrn+KlkoxizLUXIjYQcyAkFir5W+ew=",
         "owner": "dryvist",
         "repo": "claude-code-plugins",
-        "rev": "4d4c6fc329fe8510ddc4e4d5cfcbf35a7d0ba57d",
+        "rev": "0dc7ce44febde21403ec94006b2355ff138165aa",
         "type": "github"
       },
       "original": {
@@ -876,11 +876,11 @@
     "nix-claude-code-launcher-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1791127627,
-        "narHash": "sha256-n3aSswMpW/6T7TusUew79zm4wqqUoVKXWIMa1g/4oB4=",
+        "lastModified": 1791142980,
+        "narHash": "sha256-q+W5g8cHXkme349gttXNFzZwYlfqvEjz0AimWiXlRY4=",
         "owner": "dryvist",
         "repo": "nix-claude-code",
-        "rev": "ef043cebc53268d08bbdfe9e3921f56fad5cea02",
+        "rev": "4ff6acfddbe2f7466d9015e37ca5f969bea84a60",
         "type": "github"
       },
       "original": {
