@@ -141,6 +141,14 @@
       url = "github:dryvist/nix-darwin/develop";
       flake = false;
     };
+
+    # ZCode dispatcher client module and package source. Source-only avoids a
+    # cycle because nix-agent-sandbox consumes nix-ai for container configs.
+    nix-agent-sandbox-src = {
+      url = "github:dryvist/nix-agent-sandbox/f885685cf3370e77418b27ac56e903937734849a";
+      flake = false;
+    };
+
     nix-agy = {
       url = "github:dryvist/nix-agy/develop";
       inputs.nixpkgs.follows = "nixpkgs";
