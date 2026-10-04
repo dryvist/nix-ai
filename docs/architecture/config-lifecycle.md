@@ -71,7 +71,7 @@ All `home.activation` entries and their targets:
 | Claude settings merge | `nix-claude-code` flake input (wired via `modules/claude-config.nix`) | `~/.claude.json`, `~/.claude/settings.json` | MCP servers, project trust, permissions, plugins, hooks, model, sandbox |
 | `knownMarketplacesMerge` | `nix-claude-code` flake input (`modules/settings.nix`) | `~/.claude/plugins/known_marketplaces.json` | Synthetic marketplace registry (installLocation + source) |
 | `mergeAntigravitySettings` | `modules/antigravity-cli/settings.nix` | `~/.gemini/antigravity-cli/settings.json` | MCP servers, policies, folder trust |
-| `codexConfigMerge` | `modules/codex/settings.nix` | `~/.codex/config.toml` | Model, MCP servers, approval policy |
+| `codexConfigMerge` | `modules/codex/settings.nix` | `~/.codex/config.toml` | Model, MCP servers, approval policy and reviewer |
 | `qwenCodeSettingsMerge` | `modules/qwen-code/settings.nix` | `~/.qwen/settings.json` | Local provider routing, MCP servers |
 | `seedLlamaSwapConfig` | `modules/mlx/launchd.nix` | `~/.config/mlx/llama-swap.json` | Copies Nix-generated seed; preserves runtime models |
 | `discoverMlxModels` | `modules/mlx/launchd.nix` | `~/.config/mlx/llama-swap.json` | Extends the seed with locally available MLX models (swap tier when configured) |
@@ -99,6 +99,25 @@ writable** (mode `r-xr-xr-x`). Any runtime write from the tool would fail with
 The deep-merge activation script creates (or updates) a real file at the target path,
 owned by the user, writable at runtime. Nix-managed keys are overlaid each rebuild;
 everything else is preserved.
+
+### Codex Approvals
+
+The option schema comes from `nix-codex.homeModules.approvals`. nix-ai sets
+`programs.codex.approvalPolicy = lib.mkDefault "on-request"` and
+`programs.codex.approvalsReviewer = lib.mkDefault "auto_review"`, selecting
+Codex's **Approve for me** setting with the `workspace-write` sandbox.
+An ordinary consumer definition overrides either default:
+
+```nix
+programs.codex = {
+  approvalPolicy = "on-request";
+  approvalsReviewer = "user";
+};
+```
+
+Activation overlays both `approval_policy` and `approvals_reviewer` onto
+`config.toml`. A runtime change to either key lasts until the next activation;
+set the Nix options for a persistent override. Runtime-only keys are preserved.
 
 ## Runtime CLI Tools
 
