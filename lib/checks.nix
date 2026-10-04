@@ -173,7 +173,14 @@ in
   render = renderAutonomous;
 })
 // (import ./checks/mlx.nix { inherit pkgs hmConfig; })
-// (import ./checks/mlx-static-serving.nix { inherit pkgs src hmConfigStaticServing; })
+// (import ./checks/mlx-static-serving.nix {
+  inherit
+    pkgs
+    src
+    hmConfigStaticServing
+    mkHmConfig
+    ;
+})
 // (import ./checks/mlx-catalog-vlm.nix { inherit pkgs src hmConfigCatalog; })
 // (import ./checks/mlx-mtp-reachable.nix { inherit pkgs mkHmConfig; })
 // (import ./checks/mlx-model-extra-args.nix { inherit pkgs; })

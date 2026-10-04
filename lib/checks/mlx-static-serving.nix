@@ -4,10 +4,41 @@
   pkgs,
   src,
   hmConfigStaticServing,
+  mkHmConfig,
 }:
 let
   inherit (pkgs) lib;
   helpers = import ./helpers.nix { inherit pkgs; };
+  proxyConsumerHm =
+    localProxyConsumers:
+    mkHmConfig [
+      {
+        programs.mlx = {
+          enable = true;
+          catalog.qwen38-27b = {
+            class = "resident";
+            roles = [ "default" ];
+          };
+          staticResidentLocalProxyConsumers = localProxyConsumers;
+        };
+        services.aiStack.models.default = (import ../../modules/mlx/catalog-data.nix).qwen38-27b.model;
+        programs.litellmLocal.enable = false;
+      }
+    ];
+  noProxyNoConsumersHm = proxyConsumerHm false;
+  noProxyConsumersHm = proxyConsumerHm true;
+  noProxyNoConsumersEval = builtins.tryEval (
+    builtins.deepSeq noProxyNoConsumersHm.config.assertions noProxyNoConsumersHm.config.assertions
+  );
+  noProxyConsumersEval = builtins.tryEval (
+    builtins.deepSeq noProxyConsumersHm.config.assertions noProxyConsumersHm.config.assertions
+  );
+  proxyConsumersWithProxyEval = builtins.tryEval (
+    builtins.deepSeq hmConfigStaticServing.config.assertions hmConfigStaticServing.config.assertions
+  );
+  noProxyResidentAgents = builtins.filter (
+    agent: lib.hasPrefix "dev.mlx-model-server" agent.config.Label
+  ) (builtins.attrValues noProxyNoConsumersHm.config.launchd.agents);
   cfg = hmConfigStaticServing.config.programs.mlx;
   agents = hmConfigStaticServing.config.launchd.agents;
   residentAgents = builtins.filter (
@@ -138,6 +169,18 @@ in
       helpers.mkMarker "check-mlx-static-resident-limits" "resident limits file, LiteLLM, judge timeout, and server flags agree with the two catalog contracts; no swap or TTL is rendered"
     else
       throw "static resident mode must derive MiMo concurrency and client limits from the resident catalog with no swap or TTL";
+
+  mlx-static-resident-proxy-requirement =
+    if
+      noProxyNoConsumersEval.success
+      && !(noProxyNoConsumersHm.config.home.file ? ".config/mlx/resident-model-limits.json")
+      && builtins.length noProxyResidentAgents == 1
+      && !noProxyConsumersEval.success
+      && proxyConsumersWithProxyEval.success
+    then
+      helpers.mkMarker "check-mlx-static-resident-proxy-requirement" "resident servers render without local proxy clients when none are declared, while declared local clients fail evaluation without LiteLLM"
+    else
+      throw "static resident proxy requirement: server-only config must render its model agent without client routes, and declared local consumers must require LiteLLM";
 
   mlx-static-resident-queue = queueTest;
 }

@@ -16,6 +16,8 @@ let
     ;
   gib = 1024 * 1024 * 1024;
   contracts = cfg.staticResidentContracts;
+  localProxyRoutesEnabled =
+    cfg.staticResidentLocalProxyConsumers || config.programs.litellmLocal.enable;
   byRole = lib.foldl' (
     acc: modelId: acc // lib.genAttrs (builtins.attrNames contracts.${modelId}.roles) (_: modelId)
   ) { } (builtins.attrNames contracts);
@@ -108,19 +110,21 @@ in
         message = "each static resident must resolve a model-server backend.";
       }
       {
-        assertion = config.programs.litellmLocal.enable;
-        message = "static resident serving requires the local LiteLLM proxy for stable role aliases.";
+        assertion = !cfg.staticResidentLocalProxyConsumers || config.programs.litellmLocal.enable;
+        message = "static resident local proxy consumers require programs.litellmLocal.enable for stable role aliases.";
       }
     ];
     launchd.agents = staticAgents;
     home = {
+      activation.createStaticMlxLogDir = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        run mkdir -p "${config.home.homeDirectory}/Library/Logs/mlx-model-server"
+      '';
+    }
+    // lib.optionalAttrs localProxyRoutesEnabled {
       file.".config/mlx/resident-model-limits.json".text = builtins.toJSON consumerConfig;
       sessionVariables = {
         MLX_RESIDENT_MODEL_LIMITS_FILE = "${config.home.homeDirectory}/.config/mlx/resident-model-limits.json";
       };
-      activation.createStaticMlxLogDir = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-        run mkdir -p "${config.home.homeDirectory}/Library/Logs/mlx-model-server"
-      '';
     };
   };
 }
