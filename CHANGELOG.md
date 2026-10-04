@@ -1,5 +1,21 @@
 # Changelog
 
+## [7.3.0](https://github.com/dryvist/nix-ai/compare/v7.2.0...v7.3.0) (2026-10-04)
+
+
+### Features
+
+* **codex:** render configurable approval defaults ([#2343](https://github.com/dryvist/nix-ai/issues/2343)) ([fd420c5](https://github.com/dryvist/nix-ai/commit/fd420c5f297c9a311ccf0cc6941683ec2b3f7e89))
+* **limits:** use shared agent file limits ([#2340](https://github.com/dryvist/nix-ai/issues/2340)) ([784765d](https://github.com/dryvist/nix-ai/commit/784765d54638801374be19c9de77ff940460da68))
+* **opencode:** disable oh-my-openagent by default ([4972d62](https://github.com/dryvist/nix-ai/commit/4972d622e4a1207edb77ad06df0125d367f0c1e4))
+
+
+### Bug Fixes
+
+* **mlx:** keep residents that fit maxResidentWorkers loaded together ([3c9bb02](https://github.com/dryvist/nix-ai/commit/3c9bb02cb774b5bab6c547d46e06330ebe3a0cf2))
+* **mlx:** keep residents that fit maxResidentWorkers loaded together ([a302f6a](https://github.com/dryvist/nix-ai/commit/a302f6af2d6e358039fa6d566a84d5a065b6c8e0))
+* **options:** nest programs.* option declarations ([8105036](https://github.com/dryvist/nix-ai/commit/8105036c020dc4c3066cfb67af44c033667f7228))
+
 ## [7.2.0](https://github.com/dryvist/nix-ai/compare/v7.1.0...v7.2.0) (2026-10-03)
 
 
