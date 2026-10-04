@@ -1,5 +1,18 @@
 # Changelog
 
+## [7.5.0](https://github.com/dryvist/nix-ai/compare/v7.4.1...v7.5.0) (2026-10-04)
+
+
+### Features
+
+* enable fast-subagent access in Codex and agy ([#2367](https://github.com/dryvist/nix-ai/issues/2367)) ([3d0c0b0](https://github.com/dryvist/nix-ai/commit/3d0c0b0ba2abdba61caa209efa28fdd961ade3a8))
+
+
+### Bug Fixes
+
+* **mlx:** preserve bounded-queue import path ([dd275a3](https://github.com/dryvist/nix-ai/commit/dd275a3dc55c35fdf35523ad516f453920c4a44a))
+* render per-connection MCP bearer auth ([#2361](https://github.com/dryvist/nix-ai/issues/2361)) ([4d37a92](https://github.com/dryvist/nix-ai/commit/4d37a923e21f480f21ae52bca95f88ab3d412168))
+
 ## [7.4.1](https://github.com/dryvist/nix-ai/compare/v7.4.0...v7.4.1) (2026-10-04)
 
 
