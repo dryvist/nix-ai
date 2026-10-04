@@ -79,8 +79,8 @@ in
     assert
       builtins.all (k: peerEnv ? ${k}) [
         "CLUSTER_ALERT_URL_FILE"
-        "CLUSTER_WARMUP_LABEL"
-        "CLUSTER_SERVER_PLIST"
+        "CLUSTER_SERVER_LABELS"
+        "CLUSTER_LAUNCH_AGENTS_DIR"
       ]
       || throw "cluster: peer-liveness must be able to page AND restore standalone serving, or a confirmed wedge just sits there";
     assert

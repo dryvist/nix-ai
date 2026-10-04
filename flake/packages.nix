@@ -7,7 +7,6 @@
   nixosConfigurations,
   herdr-remote-src,
   herdr-hail-src,
-  nixpkgs-unstable,
 }:
 
 forAllSystems (
@@ -37,12 +36,6 @@ forAllSystems (
       src = herdr-hail-src;
     };
     cecli = cecliPkg;
-    # The MLX proxy at the lib/versions.nix pin. Exposed so CI builds it (the
-    # llama-swap-build check) and fix-renovate-hashes.yml can nix-update it.
-    llama-swap = import ../modules/mlx/llama-swap.nix {
-      pkgs = nixpkgs-unstable.legacyPackages.${system};
-      version = (import ../lib/versions.nix).llamaSwap;
-    };
     zcode = zcodePkg;
     zcode-web = pkgs.callPackage ../modules/zcode/web.nix { zcode = zcodePkg; };
     inherit (cecliPkg.passthru) mcp;

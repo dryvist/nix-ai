@@ -122,9 +122,8 @@ export CLUSTER_MODEL="test/model"
 export CLUSTER_RANK_LOGS="$tmp/rank.log $tmp/rank.error.log"
 export CLUSTER_RANK_PROGRESS_LOG="$tmp/rank.error.log"
 export CLUSTER_ALERT_URL_FILE="$tmp/alert-url"
-export CLUSTER_WARMUP_LABEL="dev.mlx.warmup"
-export CLUSTER_SERVER_LABEL="dev.mlx.server"
-export CLUSTER_SERVER_PLIST="$tmp/server.plist"
+export CLUSTER_SERVER_LABELS="dev.mlx.server dev.mlx.server.mimo"
+export CLUSTER_LAUNCH_AGENTS_DIR="$tmp/LaunchAgents"
 export CLUSTER_NORMAL_PROXY="http://127.0.0.1:8080"
 export CLUSTER_PING_BIN="$tmp/bin/ping"
 export CLUSTER_NETSTAT_BIN="$tmp/bin/netstat"
@@ -241,7 +240,7 @@ tick coordinator
 check "3 failed probes -> torn down" yes "$(torn_down)"
 check "cause names the wedge" yes "$(alert_says "peer rank is WEDGED")"
 check "evidence records the open rendezvous" yes "$(alert_says "rendezvous=established")"
-check "standalone serving re-warmed" yes "$(grep -q "kickstart -k gui/.*dev.mlx.warmup" "$tmp/launchctl.log" && echo yes || echo no)"
+check "both resident agents checked for restore" yes "$(grep -qF "print gui/$(id -u)/dev.mlx.server" "$tmp/launchctl.log" && grep -qF "print gui/$(id -u)/dev.mlx.server.mimo" "$tmp/launchctl.log" && echo yes || echo no)"
 
 # A 200 with an empty completion is the exact failure that kept /v1/models
 # looking healthy for 900s. HTTP status alone must never count as progress.

@@ -14,8 +14,7 @@
   staticSelfIp,
   staticPeerIp,
   rankLabel,
-  warmupAgentLabel,
-  launchAgentLabel,
+  residentAgentLabels,
   watchdogAgentLabel,
   launchAgentsDir,
   stateFile,
@@ -43,7 +42,8 @@ in
 {
   CLUSTER_ROLE = ncfg.role;
   CLUSTER_RANK_LABEL = rankLabel;
-  CLUSTER_WARMUP_LABEL = warmupAgentLabel;
+  CLUSTER_SERVER_LABELS = lib.concatStringsSep " " residentAgentLabels;
+  CLUSTER_LAUNCH_AGENTS_DIR = launchAgentsDir;
   CLUSTER_NORMAL_PROXY = "http://127.0.0.1:${toString cfg.port}";
   CLUSTER_STATE_FILE = stateFile;
   CLUSTER_MAX_KICKSTARTS = toString ncfg.maxKickstarts;
@@ -185,17 +185,8 @@ in
   CLUSTER_HEALTH_GATE_CONCURRENCY = toString ncfg.healthGateConcurrency;
   CLUSTER_HEALTH_GATE_CONCURRENT_TIMEOUT_SECS = toString ncfg.healthGateConcurrentTimeoutSecs;
   CLUSTER_RANK_SETTLE_SECS = toString ncfg.rankSettleSecs;
-  # The link-down re-warm POSTs through llama-swap, so the watcher needs to be
-  # able to bootstrap that agent when cluster-join has booted it out -- otherwise
-  # the kickstart silently no-ops and standalone serving never returns.
-  # Same pair cluster-detach already carries, so both paths
-  # converge.
-  CLUSTER_SERVER_LABEL = launchAgentLabel;
-  CLUSTER_SERVER_PLIST = "${launchAgentsDir}/${launchAgentLabel}.plist";
-  # Same pair, for the serving watchdog cluster-join boots out alongside the
-  # server and warmup agents: restore_normal_serving needs the plist to
-  # bootstrap it back on every teardown path this watcher owns (up->down edge,
-  # PD-guard halt, wedge teardown).
+  # cluster-join boots these resident agents out, so each teardown path this
+  # watcher owns must be able to bootstrap them back from its plist.
   CLUSTER_WATCHDOG_LABEL = watchdogAgentLabel;
   CLUSTER_WATCHDOG_PLIST = "${launchAgentsDir}/${watchdogAgentLabel}.plist";
 }

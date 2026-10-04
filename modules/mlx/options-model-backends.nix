@@ -32,10 +32,8 @@
     );
     default = { };
     example = lib.literalExpression ''
-      {
-        "mlx-community/<vision-language-model>" = "mlx-vlm";
-      }
+      { "mlx-community/<vision-language-model>" = "mlx-vlm"; }
     '';
-    description = "Per-physical-model override of programs.mlx.modelServerBackend, for models the host backend cannot serve (e.g. vision-language models needing mlx_vlm.server).";
+    description = "Per-physical-model override of programs.mlx.modelServerBackend, for models the host backend cannot serve.";
   };
 }

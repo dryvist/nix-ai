@@ -89,12 +89,35 @@ let
       else
         null;
   }) cfg.localModels;
+  staticResidentModels = config.programs.mlx.staticResidentContracts or { };
 
   fallbackTier = import ./fallback-tier.nix {
     inherit lib;
     localModels = resolvedLocalModels;
-    inherit (cfg) routerEntryModel headAliases;
+    inherit (cfg) routerEntryModel;
+    headAliases = if staticResidentModels != { } then [ ] else cfg.headAliases;
   };
+
+  staticResidentRoutes = lib.concatMap (
+    modelId:
+    let
+      contract = staticResidentModels.${modelId};
+    in
+    map (role: {
+      model_name = role;
+      litellm_params = {
+        model = "openai/${modelId}";
+        api_base = "http://127.0.0.1:${toString contract.servicePort}/v1";
+        api_key = "os.environ/OPENAI_API_KEY";
+        timeout = contract.timeoutSeconds;
+        stream_timeout = contract.timeoutSeconds;
+      };
+      model_info = {
+        max_input_tokens = contract.maxInputTokens;
+        max_output_tokens = contract.maxOutputTokens;
+      };
+    }) (builtins.attrNames contract.roles)
+  ) (builtins.attrNames staticResidentModels);
 
   # Reuses the maintainer profile's single traces endpoint rather than adding a
   # second one: this proxy's spans belong on the same path as Claude Code's and
@@ -121,7 +144,12 @@ let
   # credential-forwarding scope that keeps a client bearer off the router leg
   # is documented there.
   proxyConfig = import ./proxy-config.nix {
-    inherit lib fallbackTier telemetryTracesEndpoint;
+    inherit
+      lib
+      fallbackTier
+      telemetryTracesEndpoint
+      staticResidentRoutes
+      ;
   };
 
   configYaml = (pkgs.formats.yaml { }).generate "litellm-local-config.yaml" proxyConfig;

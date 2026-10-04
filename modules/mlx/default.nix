@@ -2,81 +2,36 @@
   config,
   lib,
   pkgs,
-  nixpkgs-unstable,
   ...
 }:
 let
   cfg = config.programs.mlx;
   versions = import ../../lib/versions.nix;
-
   parakeetMlxVersion = versions.parakeetMlx;
   mlxVlmVersion = versions.mlxVlm;
-
-  # Single source for the CPython minor every uvx invocation in this module
-  # resolves. Why it exists: the cluster rank runs uvx on BOTH the coordinator
-  # and the worker; with no `--python`, uv resolved a different CPython build per
-  # node, so the two ranks loaded mismatched mlx ABIs and failed to rendezvous.
-  # Pin every module uvx call to this one version so both nodes match. Sourced
-  # from lib/python.nix so there is exactly one declaration (no per-host, no
-  # per-invocation value). Value and bump rule: lib/python.nix.
   uvPythonVersion = (import ../../lib/python.nix { inherit pkgs; }).pythonVersion;
 
-  # Official mlx_lm.server wrapper with the in-process L2 memory limit —
-  # split to mlx-lm-server.nix for the 12 KB file-size gate. Also carries
-  # launchScriptBasename, the single source modelServerProcessPattern.mlx-lm
-  # derives from below.
   mlxLmServer = import ./mlx-lm-server.nix {
-    inherit
-      pkgs
-      cfg
-      versions
-      ;
+    inherit pkgs cfg versions;
   };
-  mlxLmServerPkg = mlxLmServer.pkg;
-
-  # Vision-language path — split to mlx-vlm-server.nix (12 KB gate), which
-  # also carries the launchScriptBasename the pattern derives from.
   mlxVlmServer = import ./mlx-vlm-server.nix {
     inherit pkgs mlxVlmVersion uvPythonVersion;
   };
-  mlxVlmServerPkg = mlxVlmServer.pkg;
-  mlxVlmNativeServerPkg = mlxVlmServer.nativePkg;
-
   mlxModelServerPkgs = {
-    mlx-lm = mlxLmServerPkg;
-    mlx-vlm = mlxVlmServerPkg;
-    mlx-vlm-native = mlxVlmNativeServerPkg;
+    mlx-lm = mlxLmServer.pkg;
+    mlx-vlm = mlxVlmServer.pkg;
+    mlx-vlm-native = mlxVlmServer.nativePkg;
   };
   mlxModelServerPkg = mlxModelServerPkgs.${cfg.modelServerBackend};
-  mlxWarmupPkg = pkgs.writeShellScriptBin "mlx-warmup" ''
-    exec ${pkgs.python3}/bin/python3 ${./scripts/mlx-warmup.py} "$@"
-  '';
-  # mlx-watchdog — periodic serving probe that kickstarts the proxy when it is
-  # up but not serving, INCLUDING a slot-accounting wedge (see
-  # mlx-watchdog-pkg.nix, 12KB-gate split).
-  mlxWatchdogPkg = import ./mlx-watchdog-pkg.nix { inherit pkgs lib; };
-
-  # llama-swap sits on the stable API port and supervises official mlx_lm workers.
-  # nixpkgs-unstable's recipe rebuilt at the lib/versions.nix pin (llama-swap.nix).
-  llamaSwapPkg = import ./llama-swap.nix {
-    pkgs = nixpkgs-unstable.legacyPackages.${pkgs.stdenv.hostPlatform.system};
-    version = versions.llamaSwap;
-  };
-
-  # Proxy launcher — split to llama-swap-launch-pkg.nix (12KB gate).
-  llamaSwapLaunchPkg = import ./llama-swap-launch-pkg.nix { inherit pkgs lib llamaSwapPkg; };
-
   apiUrl = "http://${cfg.host}:${toString cfg.port}/v1";
-  launchAgentLabel = "dev.mlx-model-server";
-  warmupAgentLabel = "dev.mlx-model-server.warmup";
+
+  # The cluster lifecycle module uses these identifiers when it quiesces
+  # standalone serving. Labels are taken from the selected resident contracts.
+  residentAgentLabels = map (contract: contract.launchdLabel) (
+    lib.attrValues cfg.staticResidentContracts
+  );
   watchdogAgentLabel = "dev.mlx-model-server.watchdog";
 
-  # See ./warmup-timeout.nix for why this is derived rather than guessed.
-  warmupTimeoutSeconds = import ./warmup-timeout.nix cfg lib;
-
-  # Single definition of the model-server pgrep pattern, derived from the real
-  # launcher — split to model-server-pattern.nix (12KB file-size gate). Its
-  # header carries the measured evidence for why it is derived and unanchored.
   inherit
     (import ./model-server-pattern.nix {
       inherit
@@ -88,16 +43,7 @@ let
     })
     modelServerProcessPattern
     ;
-
-  # Shared per-backend env — split to worker-env.nix (12KB file-size gate).
   inherit (import ./worker-env.nix { inherit lib cfg; }) workerEnv;
-
-  # Mutable runtime config path — llama-swap reads this with --watch-config.
-  # mlx-discover merges auto-discovered models into this file at runtime.
-  # The Nix-generated llamaSwapConfigFile seeds this on first activation.
-  llamaSwapRuntimeConfigPath = "${config.home.homeDirectory}/.config/mlx/llama-swap.json";
-
-  # MLX model-server command builder — split for the 12KB file-size gate.
   inherit
     (import ./model-server-cmd.nix {
       inherit
@@ -107,129 +53,26 @@ let
         mlxModelServerPkgs
         ;
     })
-    mkModelCmd
-    effectiveConcurrency
+    mkModelArgs
     ;
-
-  # Role registry (services.aiStack.models): role-name -> physical model ID.
-  # Single source of truth.
-  roleModels = config.services.aiStack.models;
-
-  # Group roles by physical model. One backend serves many role aliases.
-  rolesByPhysical = lib.groupBy (role: roleModels.${role}) (lib.attrNames roleModels);
-
-  # One entry per unique physical model. Every model — including the entry
-  # owning the "default" alias — inherits the uniform proxy idle TTL.
-  # Preloading is done by the warmup LaunchAgent (mlx-warmup.py reading
-  # MLX_PRELOAD_MODELS_JSON), NOT llama-swap's hooks.on_startup.preload:
-  # that hook's request shape is not portable across MLX backends, so llama-swap
-  # would start the worker, fail the preload, and stop it — residents cold.
-  # After proxy.idleTtl of idle a model unloads and the next request reloads
-  # it (~15-30 s).
-  #
-  # useModelName makes llama-swap rewrite the OpenAI-compatible request body's
-  # `model` field to the physical model id before forwarding to the MLX server.
-  # MLX servers validate the model field against the loaded model name and
-  # return 404 for unknown names — without this rewrite, callers
-  # using a capability-class alias (e.g. `model: "default"`) hit
-  #   "The model `default` does not exist."
-  # even though llama-swap routed the request correctly. With it, the alias
-  # works end-to-end through the local proxy.
-  # Default llama-swap filters applied to every model in the registry.
-  # See modules/mlx/options-filters.nix for the schema and reasoning.
-  # Filters run at the proxy layer BEFORE the request hits the MLX server, so they
-  # apply universally to every caller, every prompt, every model — including
-  # callers that explicitly send greedy-decoding parameters (setParams
-  # overrides client values per llama-swap's documented semantics).
-  inherit (cfg.proxy) defaultFilters;
-
-  # Model-instance maps (registry + swap tier) — split to model-instances.nix
-  # for the 12KB file-size gate.
-  inherit
-    (import ./model-instances.nix {
-      inherit
-        lib
-        cfg
-        mkModelCmd
-        effectiveConcurrency
-        workerEnv
-        defaultFilters
-        rolesByPhysical
-        ;
-    })
-    residentModels
-    swapModels
-    allModels
-    ;
-
-  # Model/group topology (models/disabledModels/groups/disabledGroups) is a
-  # pure function of the above — split into llama-swap-topology.nix so
-  # lib/checks/mlx.nix can unit-test single-model mode directly.
-  llamaSwapTopology = import ./llama-swap-topology.nix { inherit lib; } {
-    inherit residentModels swapModels allModels;
-    inherit (cfg) singleModel alwaysAvailableModels maxResidentWorkers;
-    groupSwap = cfg.proxy.groupSwap;
-  };
-
-  llamaSwapConfigAttrs = {
-    inherit (cfg.proxy)
-      healthCheckTimeout
-      logLevel
-      logToStdout
-      logTimeFormat
-      ;
-    # logLevel="info" keeps lifecycle/routing evidence without prompt bodies.
-    # logToStdout="both" merges proxy and MLX server output into one stream.
-    # logTimeFormat stamps the proxy's OWN request lines, which upstream leaves
-    # untimestamped by default — without it those lines carry client address
-    # and status but no time, so a 429 or 502 cannot be tied to the failure it
-    # caused. See the option's description for why the MLX servers' own
-    # timestamps do not close that gap.
-    # Tap live I/O with: curl http://127.0.0.1:11434/logs/stream
-    # Configurable via programs.mlx.proxy.logLevel / logToStdout / logTimeFormat.
-    startPort = 11436;
-    # Deliberately llama-swap's own default (10s), not left unset by accident.
-    # Bounds how long /api/models/unload blocks per process during cluster
-    # quiesce (cluster-link-helpers.sh: quiesce_normal_serving) before
-    # escalating SIGTERM to SIGKILL. In-flight requests are killed, not
-    # drained, regardless of this value — see cluster-quiesce-log.sh.
-    unloadTimeout = 10;
-  }
-  // llamaSwapTopology;
-
-  # Use pkgs.writeText because command strings embed Nix store paths.
-  llamaSwapConfigFile = pkgs.writeText "llama-swap-config.json" (
-    builtins.toJSON llamaSwapConfigAttrs
-  );
 in
 {
-  # The module list lives in ./imports.nix (per-file size cap).
   imports = import ./imports.nix;
 
-  # Pass shared bindings to sub-modules via _module.args
   _module.args.mlxShared = {
     inherit
       cfg
       mlxModelServerPkg
-      mlxWarmupPkg
-      mlxWatchdogPkg
+      mlxModelServerPkgs
+      mkModelArgs
+      workerEnv
       parakeetMlxVersion
       mlxVlmVersion
       apiUrl
       uvPythonVersion
-      launchAgentLabel
-      warmupAgentLabel
+      residentAgentLabels
       watchdogAgentLabel
-      warmupTimeoutSeconds
       modelServerProcessPattern
-      llamaSwapPkg
-      llamaSwapLaunchPkg
-      llamaSwapConfigFile
-      llamaSwapConfigAttrs
-      llamaSwapRuntimeConfigPath
-      allModels
-      effectiveConcurrency
       ;
   };
-
 }

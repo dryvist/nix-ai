@@ -14,6 +14,7 @@
   lib,
   fallbackTier,
   telemetryTracesEndpoint,
+  staticResidentRoutes ? [ ],
 }:
 # `os.environ/NAME` is LiteLLM's own indirection: the literal string is what
 # goes in the config file, and LiteLLM resolves it from the process
@@ -54,7 +55,8 @@
   # routing. Naming them at all is the point — `*` would resolve
   # `subagent-free` upstream, where the alias may not exist.
   ++ fallbackTier.localOnlyEntries
-  ++ fallbackTier.modelList;
+  ++ fallbackTier.modelList
+  ++ staticResidentRoutes;
 
   litellm_settings = {
     # Clients disagree about which sampling params they send; dropping the

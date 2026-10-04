@@ -3,7 +3,15 @@
 # into the same catalog attrset by catalog-data.nix; see that file for the
 # entry schema and catalog-lib.nix for the shared serve-arg helpers.
 let
-  inherit (import ./catalog-lib.nix) block256 block512 swapFlags;
+  inherit (import ./catalog-lib.nix)
+    block256
+    block512
+    defaultResidentQueueSize
+    swapFlags
+    ;
+  contextWindowTokens = 131072;
+  maxOutputTokens = 8192;
+  concurrency = 1;
 in
 {
   # Resident Hermes goal judge and default small/midsize model.
@@ -64,7 +72,14 @@ in
     # The model supports a native 262,144-token window. Production roles use
     # 131,072 so the remaining range is available for separately managed 200K
     # feasibility work rather than silently becoming a fleet default.
-    contextWindowTokens = 131072;
+    inherit contextWindowTokens maxOutputTokens concurrency;
+    queueSize = defaultResidentQueueSize;
+    # Conservative floors from the MacBook measurements used to derive the
+    # queue-aware timeout. These are catalog calibration inputs, not copied
+    # client timeout values.
+    prefillTokensPerSecond = 150;
+    decodeTokensPerSecond = 17;
+    servicePort = 11434;
     args = [
       "--chat-template-args"
       (builtins.toJSON {
@@ -93,10 +108,11 @@ in
       # memoryHardLimitGb this reproduces 16384 (the prior literal) precisely,
       # with headroom to spare — see options-catalog.nix's derivedCacheMb.
       resident = {
-        cacheProvisioning.concurrency = 1;
+        cacheProvisioning.concurrency = concurrency;
         flags = block512 // {
           maxNumSeqs = 8;
-          maxRequestTokens = 131072;
+          maxRequestTokens = contextWindowTokens;
+          maxTokens = maxOutputTokens;
         };
       };
       # cacheMemoryMb PINNED (derive.nix's cacheMemoryMbFor): forModel does

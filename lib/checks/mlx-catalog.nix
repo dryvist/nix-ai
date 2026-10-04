@@ -5,8 +5,8 @@ let
 in
 {
   # Catalog compile regression (programs.mlx.catalog -> per-model surfaces).
-  # Uses hmConfigCatalog (lib/checks-fixtures.nix): 27B resident, MiMo and OCR
-  # swap (OCR with a ttl tweak), plus a direct host override on the 27B's
+  # Uses hmConfigCatalog (lib/checks-fixtures.nix): 27B resident, MiMo swap,
+  # plus a direct host override on the 27B's
   # cacheMemoryMb that must beat the catalog's mkDefault.
   mlx-catalog =
     let
@@ -50,7 +50,6 @@ in
           mlxModelServerPkg = pkgs.writeShellScriptBin "mlx-model-server" "";
         }).mkModelCmd
           "mlx-community/null-default-test";
-      watchdogAgent = hmConfigCatalog.config.launchd.agents.mlx-model-server-watchdog;
     in
     assert
       judgeFlags.cacheMemoryMb == 8192
@@ -68,29 +67,10 @@ in
       c.modelFlagOverrides.${judge27b}.maxRequestTokens == 131072
       || throw "catalog: Qwen3.8 must admit its declared 131072-token production window";
     assert
-      c.modelContextWindows.${mimo} == 32768
-      || throw "catalog: an entry with no declared window must advertise the 32768-token default";
-    # The watchdog is the only thing that notices a proxy that is up but not
-    # serving, so on a host with a resident set it MUST be running. This used
-    # to assert the opposite — that it stay disabled — back when its busy
-    # handling depended on a vllm-only progress metric. The dependency now
-    # lives behind MLX_WATCHDOG_BUSY_ESCALATION, so the intent is re-expressed
-    # rather than dropped: enabled everywhere, and pinned to "alert" on the
-    # backend that publishes no such metric, which is what keeps it from
-    # reaping a brain that is merely saturating its slots.
-    assert
-      watchdogAgent.enable
-      || throw "catalog: the serving watchdog must be enabled — a resident set with no watchdog has nothing supervising an up-but-not-serving proxy";
-    assert
-      watchdogAgent.config.EnvironmentVariables.MLX_WATCHDOG_BUSY_ESCALATION == "alert"
-      || throw "catalog: mlx-lm exposes no engine-progress metric, so an expired busy grace must page (\"alert\"), never run the restart ladder against a saturated brain";
-    # The 27B entry MUST NOT pin concurrency. It used to: as a latency-sensitive
-    # judge beside a resident 80B it carried concurrencyLimit = 1. That entry is
-    # gone, and this one is shaped as a fleet brain — so a pin of 1 makes
-    # llama-swap serialize every request on any host where it is resident. That
-    # regression shipped once and was caught only by reading the deployed
-    # llama-swap.json, so assert the absence rather than a value: an entry with
-    # no pin inherits proxy.concurrencyLimit, which is the intended contract.
+      c.modelContextWindows.${mimo} == 40960
+      || throw "catalog: the MiMo entry must advertise its declared context window";
+    # Concurrency must come from the model's catalog entry rather than a proxy
+    # default, so the static worker's admission limit agrees with its queue.
     # The reasoning effort must be PINNED EXPLICITLY, to one of the two values
     # measured to finish. The chat template defaults reasoning_effort to
     # 'xhigh' when no kwarg is passed, and at xhigh this model exhausted
@@ -104,9 +84,9 @@ in
     # should not require editing a regression check. xhigh is excluded by
     # construction, since it matches neither alternative.
     assert
-      !(builtins.hasAttr judge27b c.modelConcurrencyLimits)
+      c.modelConcurrencyLimits.${judge27b} == 1
       && builtins.match ".*reasoning_effort.*(low|medium).*" judgeArgs != null
-      || throw "catalog: the 27B entry must not pin concurrency (a pin of 1 serializes every request where it is resident) and must pin reasoning_effort to low or medium (unset defaults to xhigh, which never finishes)";
+      || throw "catalog: the 27B entry must declare its worker concurrency and pin reasoning_effort to low or medium";
     assert
       builtins.match ".*mlx-model-server --model mlx-community/Qwen3.8-27B-4bit.*" judgeCmd != null
       && builtins.match ".*--log-level INFO.*" judgeCmd != null
@@ -133,28 +113,11 @@ in
       && builtins.match ".*--prompt-cache-bytes 8589934592.*" nullDefaultsCmd != null
       || throw "catalog: nullable legacy settings must retain bounded official mlx_lm defaults: ${nullDefaultsCmd}";
     assert
-      c.proxy.logLevel == "info"
-      || throw "catalog: production proxy logging must remain prompt-safe INFO";
-    assert
       hmConfigCatalog.config.services.aiStack.roleOverrides.judge == judge27b
       || throw "catalog: logical judge role must resolve to the catalog-owned physical model";
+    assert c.modelConcurrencyLimits.${mimo} == 4 || throw "catalog: mimo-9b must compile concurrency=4";
     assert
-      !(builtins.hasAttr judge27b c.modelTtls)
-      || throw "catalog: resident 27B judge must inherit the resident TTL";
-    assert
-      c.models.${mimo}.ttl == 900
-      || throw "catalog: swap ttl must default to 900, got ${toString c.models.${mimo}.ttl}";
-    assert
-      builtins.match ".*enable_thinking.*false.*" (
-        builtins.concatStringsSep " " c.models.${mimo}.extraArgs
-      ) != null
-      || throw "catalog: MiMo must be served thinking-off";
-    assert
-      c.models.${ocr}.ttl == 600 && c.modelFlagOverrides.${ocr}.autoUnloadIdleSeconds == 600
-      || throw "catalog: ttl tweak (600) must reach both llama-swap ttl and worker idle unload";
-    # A catalog concurrencyLimit compiles to the per-model proxy cap, and it
-    # matches the role map's concurrency for that model.
-    assert
-      c.modelConcurrencyLimits.${mimo} == 2 || throw "catalog: mimo-9b must compile concurrencyLimit=2";
-    helpers.mkMarker "check-mlx-catalog" "MLX catalog: resident/swap compile, bounded tweak, ttl fan-out, and host-override precedence verified";
+      c.modelBackends.${ocr} == "mlx-vlm"
+      || throw "catalog: the role-map OCR entry remains declared on its VLM backend";
+    helpers.mkMarker "check-mlx-catalog" "MLX catalog: resident command, role-map OCR metadata, context and host-override precedence verified";
 }

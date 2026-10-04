@@ -37,7 +37,7 @@ let
     hmConfigVctCli
     hmConfigFabricServer
     hmConfigCatalog
-    hmConfigDefaultModel
+    hmConfigStaticServing
     hmConfigSmallRole
     hmConfigDupRole
     hmConfigCluster
@@ -96,14 +96,6 @@ in
 })
 // (import ./checks/ai-stack.nix { inherit pkgs testLocalModelId roleMap; })
 // (import ./checks/mlx-role-map.nix { inherit pkgs roleMap; })
-// (import ./checks/mlx-local-queue.nix {
-  inherit
-    pkgs
-    roleMap
-    hmConfig
-    mkHmConfig
-    ;
-})
 // (import ./checks/ai-stack-endpoint.nix { inherit pkgs; })
 // (import ./checks/ai-stack-drift-check.nix { inherit pkgs src; })
 // (import ./checks/claude.nix { inherit pkgs hmConfig; })
@@ -180,24 +172,12 @@ in
   render = renderAutonomous;
 })
 // (import ./checks/mlx.nix { inherit pkgs hmConfig; })
-// (import ./checks/mlx-llama-swap-pin.nix { inherit pkgs hmConfig; })
-// (import ./checks/mlx-catalog-vlm.nix { inherit pkgs hmConfigCatalog src; })
+// (import ./checks/mlx-static-serving.nix { inherit pkgs src hmConfigStaticServing; })
+// (import ./checks/mlx-catalog-vlm.nix { inherit pkgs src hmConfigCatalog; })
 // (import ./checks/mlx-mtp-reachable.nix { inherit pkgs mkHmConfig; })
-// (import ./checks/mlx-response-header-timeout-ladder.nix { inherit pkgs mkHmConfig; })
-// (import ./checks/mlx-single-model.nix { inherit pkgs src; })
-// (import ./checks/mlx-residency-topology.nix { inherit pkgs; })
-// (import ./checks/mlx-bash32.nix { inherit pkgs hmConfig src; })
-// (import ./checks/mlx-watchdog.nix { inherit pkgs src; })
-// (import ./checks/mlx-watchdog-ping.nix { inherit pkgs src; })
-// (import ./checks/mlx-wedge-detect.nix { inherit pkgs src; })
-// (import ./checks/mlx-wedge-metricsfree.nix { inherit pkgs src; })
-// (import ./checks/mlx-worker-reap.nix { inherit pkgs hmConfig src; })
-// (import ./checks/mlx-warmup.nix { inherit pkgs src; })
 // (import ./checks/mlx-model-extra-args.nix { inherit pkgs; })
 // (import ./checks/mlx-catalog.nix { inherit pkgs hmConfigCatalog; })
 // (import ./checks/mlx-backend-selection.nix { inherit pkgs hmConfigCatalog; })
-// (import ./checks/mlx-proxy-logging.nix { inherit pkgs hmConfigCatalog; })
-// (import ./checks/mlx-default-model.nix { inherit pkgs hmConfigDefaultModel; })
 // (import ./checks/mlx-catalog-roles.nix {
   inherit
     pkgs

@@ -10,6 +10,7 @@
   hmConfigCluster,
 }:
 let
+  inherit (pkgs) lib;
   helpers = import ./helpers.nix { inherit pkgs; };
 
   # The link-down settle window in seconds, resolved to the probe count the
@@ -26,8 +27,7 @@ let
       staticSelfIp = "192.168.208.2";
       staticPeerIp = "192.168.208.1";
       rankLabel = "dev.test.rank";
-      warmupAgentLabel = "dev.test.warmup";
-      launchAgentLabel = "dev.test.server";
+      residentAgentLabels = [ ];
       watchdogAgentLabel = "dev.test.watchdog";
       launchAgentsDir = "/tmp/LaunchAgents";
       stateFile = "/tmp/link-state";
@@ -56,6 +56,13 @@ in
       agents = hmConfigCluster.config.launchd.agents;
       watcher = agents.mlx-cluster-watcher.config;
       watcherEnv = watcher.EnvironmentVariables;
+      residentAgents = builtins.filter (
+        agent: builtins.hasAttr "MLX_MAX_PENDING_REQUESTS" (agent.config.EnvironmentVariables or { })
+      ) (builtins.attrValues agents);
+      residentLabels = lib.sort builtins.lessThan (map (agent: agent.config.Label) residentAgents);
+      stopLabels = lib.sort builtins.lessThan (
+        builtins.filter (label: label != "") (lib.splitString " " watcherEnv.CLUSTER_SERVER_LABELS)
+      );
     in
     assert
       watcher.StartInterval == 30 && watcher.RunAtLoad == true
@@ -66,6 +73,9 @@ in
     assert
       watcherEnv.CLUSTER_NORMAL_PROXY == "http://127.0.0.1:11434"
       || throw "cluster: watcher must quiesce the normal-mode proxy on its configured port";
+    assert
+      residentLabels != [ ] && stopLabels == residentLabels
+      || throw "cluster: serving stop list must equal the labels on all rendered resident server agents";
     assert
       watcherEnv.CLUSTER_HTTP_PORT == "11440"
       || throw "cluster: coordinator watcher must get the cluster endpoint port to readiness-probe";
@@ -78,9 +88,9 @@ in
       && watcherEnv.CLUSTER_MODEL == "mlx-community/GLM-4.7-REAP-50-mxfp4"
       || throw "cluster: coordinator watcher must know the rank endpoint and model for the post-readiness warm-up";
     assert
-      watcherEnv ? CLUSTER_SERVER_LABEL
-      && builtins.match ".*/Library/LaunchAgents/.*[.]plist" watcherEnv.CLUSTER_SERVER_PLIST != null
-      || throw "cluster: coordinator watcher must carry the standalone server label+plist, or the link-down re-warm silently no-ops when cluster-join booted that agent out";
+      watcherEnv ? CLUSTER_SERVER_LABELS
+      && builtins.match ".*/Library/LaunchAgents" watcherEnv.CLUSTER_LAUNCH_AGENTS_DIR != null
+      || throw "cluster: coordinator watcher must carry the resident label list and plist directory for standalone restore";
     assert
       watcherEnv ? CLUSTER_WATCHDOG_LABEL
       || throw "cluster: coordinator watcher must carry the serving watchdog label";

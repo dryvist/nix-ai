@@ -23,7 +23,6 @@
   ./options-batching.nix
   ./options-catalog.nix
   ./options-role-map.nix
-  ./options-default-model.nix
   ./options-filters.nix
   ./options-runtime.nix
   ./options-mtp-profiles.nix
@@ -40,12 +39,10 @@
   ./options-cluster-peer-state.nix
   ./assertions.nix
   ./packages.nix
-  ./launchd.nix
-  ./launchd-watchdog.nix
+  ./static-residents.nix
   ./cluster-mode.nix
   ./cluster-mode-maintenance.nix
   ./peer-liveness.nix
   ./cluster-peer-state.nix
   ./uv-cache-prune.nix
-  ./local-queue.nix
 ]

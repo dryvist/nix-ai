@@ -35,8 +35,7 @@
 let
   inherit (mlxShared)
     cfg
-    warmupAgentLabel
-    launchAgentLabel
+    residentAgentLabels
     watchdogAgentLabel
     apiUrl
     uvPythonVersion
@@ -133,8 +132,7 @@ let
       rankLabel
       watcherLabel
       launchAgentsDir
-      launchAgentLabel
-      warmupAgentLabel
+      residentAgentLabels
       watchdogAgentLabel
       stateFile
       pdDebtFile
@@ -164,8 +162,7 @@ let
       staticSelfIp
       staticPeerIp
       rankLabel
-      warmupAgentLabel
-      launchAgentLabel
+      residentAgentLabels
       watchdogAgentLabel
       launchAgentsDir
       stateFile

@@ -128,8 +128,7 @@
         "MLX serving stack: take each release as soon as it is published. The org",
         "preset's 3-day release-age soak and two-window PR schedule are lifted for",
         "these packages only, so the stack never sits a release behind. CI still",
-        "gates every merge: the uv.lock-pinned artifacts are fetched by hash and the",
-        "llama-swap-build check builds the new proxy.",
+        "gates every merge: the uv.lock-pinned artifacts are fetched by hash.",
       ],
       "matchPackageNames": [
         "mlx",
@@ -139,22 +138,9 @@
         "transformers",
         "huggingface-hub",
         "parakeet-mlx",
-        "mostlygeek/llama-swap",
       ],
       "minimumReleaseAge": "0 days",
       "schedule": ["at any time"],
-    },
-    {
-      "description": [
-        "llama-swap numbers releases with a single integer (v261, v262, ...), so",
-        "semver-coerced versioning classes EVERY release as a major and the org",
-        "major-default rule would hold each one 30 days unmerged. Its releases are",
-        "builds of one series, not API breaks: auto-merge them like any",
-        "minor/patch, behind the same green-CI gate.",
-      ],
-      "matchPackageNames": ["mostlygeek/llama-swap"],
-      "matchUpdateTypes": ["major"],
-      "automerge": true,
     },
   ],
 }

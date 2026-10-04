@@ -144,14 +144,6 @@ in
   # renovate: datasource=github-releases depName=FluidInference/FluidAudio
   fluidAudio = "0.17.4";
 
-  # llama-swap (github-releases), the MLX proxy. Built from this tag by
-  # modules/mlx/llama-swap.nix rather than taken from nixpkgs, which trails
-  # upstream releases. fix-renovate-hashes.yml refreshes the source, Go vendor
-  # and UI npm hashes in that file after a Renovate bump; the llama-swap-pin
-  # check fails when the package the module runs is not this release.
-  # renovate: datasource=github-releases depName=mostlygeek/llama-swap
-  llamaSwap = "v262";
-
   # ZCode CLI (github-releases), built from this tag by modules/zcode/package.nix.
   # fix-renovate-hashes.yml refreshes the source and pnpm dependency hashes in
   # that file after a Renovate bump; the zcode-build check builds it.
