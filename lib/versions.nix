@@ -48,6 +48,8 @@ in
   omoSenpi = "5.0.0-0.beta.17";
 
   # MCP servers (npm)
+  # renovate: datasource=npm depName=@pyroprompts/any-chat-completions-mcp
+  anyChatCompletionsMcp = "0.1.1";
   # renovate: datasource=npm depName=@upstash/context7-mcp
   context7Mcp = "3.2.3";
   # renovate: datasource=npm depName=@modelcontextprotocol/server-everything

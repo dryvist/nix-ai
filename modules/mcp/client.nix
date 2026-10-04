@@ -29,7 +29,7 @@
           server
           // {
             env = server.env // {
-              ${server.clientNameEnv} = client;
+              ${server.clientNameEnv} = server.clientNameEnvValues.${client} or client;
             };
           };
     in

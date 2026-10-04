@@ -149,12 +149,18 @@ in
 
     headAliases = lib.mkOption {
       type = lib.types.listOf lib.types.str;
-      default = [ "fast" ];
+      default = [
+        "fast"
+        "claude-code"
+        "codex"
+        "agy"
+      ];
       description = ''
         Additional group names served by the SAME chain as the head (`subagent`).
         `fast` is the router's own name for this tier, so a client that asks
         for it must traverse this host's chain rather than fall through the
-        `*` wildcard straight to the router and skip this host's own rung.
+        `*` wildcard straight to the router and skip this host's own rung. The
+        harness names expose the same chain to chat-completions MCP clients.
         Empty disables the aliases.
       '';
     };

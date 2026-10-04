@@ -19,7 +19,7 @@ let
   # missing one would. shared-mcp-on-demand-reachable proves everything moved
   # out is still attachable, which is what makes each move a scoping change
   # rather than a capability loss.
-  expectedGlobalServers = [ ];
+  expectedGlobalServers = [ "ai-chat" ];
   unexpectedGlobalServers = builtins.filter (
     name: !(builtins.elem name expectedGlobalServers)
   ) cfg.enabledServerNames;

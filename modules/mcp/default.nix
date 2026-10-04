@@ -51,6 +51,11 @@ let
         type = lib.types.nullOr lib.types.str;
         default = null;
       };
+      clientNameEnvValues = lib.mkOption {
+        type = lib.types.attrsOf lib.types.str;
+        default = { };
+        description = "Optional per-renderer value mapping for clientNameEnv; unmapped clients keep their renderer name.";
+      };
       cwd = lib.mkOption {
         type = lib.types.nullOr lib.types.str;
         default = null;
@@ -315,6 +320,8 @@ in
       (import ./catalog.nix {
         inherit pkgs;
         inherit (config.programs.aiMcp) gatewayBaseUrl;
+        localRouterBaseUrl = config.programs.litellmLocal.baseUrl or null;
+        localRouterClientToken = config.programs.litellmLocal.clientToken or null;
       })
       // config.programs.aiMcp.extraOnDemandMcpServers;
     enabledServers = withLaunchPrefix (

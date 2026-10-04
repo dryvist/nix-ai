@@ -11,6 +11,8 @@
 {
   pkgs,
   gatewayBaseUrl ? null,
+  localRouterBaseUrl ? null,
+  localRouterClientToken ? null,
 }:
 let
   # Remote route on the shared agentgateway MCP layer. Disabled until a
@@ -158,6 +160,25 @@ in
   # First call triggers macOS TCC prompts for Reminders + Calendar.
   apple-events = codexMcp (bunx [ "mcp-server-apple-events@${versions.mcpAppleEvents}" ]);
 
+}
+// pkgs.lib.optionalAttrs (localRouterBaseUrl != null && localRouterClientToken != null) {
+  # Shared prompt-to-chat-completions tool. The proxy URL and marker key come
+  # from the local proxy options; the model group is selected per renderer.
+  ai-chat =
+    codexMcp (bunx [ "@pyroprompts/any-chat-completions-mcp@${versions.anyChatCompletionsMcp}" ])
+    // {
+      env = {
+        AI_CHAT_BASE_URL = localRouterBaseUrl;
+        AI_CHAT_KEY = localRouterClientToken;
+        AI_CHAT_NAME = "router";
+      };
+      clientNameEnv = "AI_CHAT_MODEL";
+      clientNameEnvValues = {
+        claude = "claude-code";
+        codex = "codex";
+        antigravity-cli = "agy";
+      };
+    };
 }
 // import ./catalog-services.nix {
   inherit
