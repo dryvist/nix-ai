@@ -20,6 +20,19 @@ let
   cfg = config.programs.antigravity-cli;
   homeDir = config.home.homeDirectory;
   gitDir = config.userConfig.paths.git;
+  skillRoot =
+    if config.programs.agentSkills.root == "agents" then ".agents/skills" else ".codex/skills";
+  fastSubagentSkillDir =
+    config.programs.agentSkills.deployedSkillPaths."${skillRoot}/fast-subagent" or null;
+  fastSubagentPermissions =
+    if fastSubagentSkillDir == null then
+      [ ]
+    else
+      [
+        "read_file(${fastSubagentSkillDir}/SKILL.md)"
+        "read_file(${fastSubagentSkillDir}/scripts/fast-subagent.sh)"
+        "command(${homeDir}/${skillRoot}/fast-subagent/scripts/fast-subagent.sh)"
+      ];
 
   aiCommon = import ../common {
     inherit lib config nix-claude-code;
@@ -90,6 +103,8 @@ let
         "AGENTS.local.md"
       ];
     };
+
+    permissions.allow = [ "command(doppler)" ] ++ fastSubagentPermissions;
 
     security = {
       folderTrust = {
