@@ -802,8 +802,8 @@
       },
       "original": {
         "owner": "dryvist",
+        "ref": "main",
         "repo": "nix-agent-sandbox",
-        "rev": "43f8141613de6b15e8b69f264a45ebec2f92773e",
         "type": "github"
       }
     },

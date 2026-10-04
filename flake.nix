@@ -145,7 +145,7 @@
     # ZCode dispatcher client module and package source. Source-only avoids a
     # cycle because nix-agent-sandbox consumes nix-ai for container configs.
     nix-agent-sandbox-src = {
-      url = "github:dryvist/nix-agent-sandbox/43f8141613de6b15e8b69f264a45ebec2f92773e";
+      url = "github:dryvist/nix-agent-sandbox/main";
       flake = false;
     };
 
