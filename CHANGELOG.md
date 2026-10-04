@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.5.1](https://github.com/dryvist/nix-ai/compare/v7.5.0...v7.5.1) (2026-10-04)
+
+
+### Bug Fixes
+
+* **mlx:** scope static resident proxy assertion ([#2372](https://github.com/dryvist/nix-ai/issues/2372)) ([c8e6983](https://github.com/dryvist/nix-ai/commit/c8e69830821299c5241ca4a802491550d4fce7b3))
+
 ## [7.5.0](https://github.com/dryvist/nix-ai/compare/v7.4.1...v7.5.0) (2026-10-04)
 
 
