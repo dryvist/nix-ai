@@ -48,8 +48,11 @@
         at the existing memoryHardLimitGb with no number change, at the cost of
         a model-swap reload when traffic alternates between tiers.
 
-        Above 1 restores the tiered topology, where a persistent resident and a
-        non-exclusive swap tier can hold weights simultaneously. Only raise it
+        Above 1 selects the tiered topology: a persistent resident group beside
+        a non-exclusive swap tier. When every resident model plus one swap-tier
+        worker fits this count, the resident group does not swap and those
+        models stay loaded together (ttl = 0); otherwise it swaps per
+        proxy.groupSwap. Only raise it
         together with a lowered memoryHardLimitGb so the product still fits the
         ceiling — 2 workers at the default 99 GiB permits 198 GiB against a
         100 GiB ceiling, which over-commits it.
