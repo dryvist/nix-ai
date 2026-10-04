@@ -100,7 +100,10 @@
 
     # Declarative Claude Code module and marketplace source.
     nix-claude-code = {
-      url = "github:dryvist/nix-claude-code/develop";
+      # Pinned to main explicitly: nix-claude-code is git-flow (default
+      # branch develop), so an unref'd url resolves to develop and tracks
+      # unreleased commits instead of release-please-tagged releases.
+      url = "github:dryvist/nix-claude-code/main";
       inputs = {
         nixpkgs.follows = "nixpkgs";
         home-manager.follows = "home-manager";
@@ -108,15 +111,31 @@
         claude-code-plugins.follows = "claude-code-plugins";
         jacobpevans-cc-plugins.follows = "jacobpevans-cc-plugins";
         browser-use-skills.follows = "browser-use-skills";
-        # Share the source pin used by fabric-ai and its vendorHash.
+        # nix-claude-code injects fabric-src as the module arg that our
+        # fabric-ai package consumes in the composed home config. Pin it to
+        # our own fabric-src so the built source matches lib/versions.nix
+        # (and the vendorHash); otherwise nix-claude-code's independently
+        # pinned fabric-src drifts and the fabric-ai build fails.
         fabric-src.follows = "fabric-src";
       };
     };
 
-    # Per-CLI renderers and launchers; share the existing package set.
+    # Launcher source from the current API branch; the module flake above
+    # remains pinned to its release branch.
+    nix-claude-code-launcher-src = {
+      url = "github:dryvist/nix-claude-code/develop";
+      flake = false;
+    };
+
+    # The Codex module is still pinned to its release branch.
     nix-codex = {
-      url = "github:dryvist/nix-codex/develop";
+      url = "github:dryvist/nix-codex/main";
       inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    nix-codex-launcher-src = {
+      url = "github:dryvist/nix-codex/develop";
+      flake = false;
     };
 
     # Pure resource-limit value, without evaluating the system flake's inputs.
@@ -232,6 +251,8 @@
       nix-codex,
       nix-agy,
       agent-limits-src,
+      nix-claude-code-launcher-src,
+      nix-codex-launcher-src,
       karpathy-skills,
       mattpocock-skills,
       fabric-src,
@@ -283,6 +304,8 @@
           nix-claude-code
           nix-codex
           nix-agy
+          nix-claude-code-launcher-src
+          nix-codex-launcher-src
           karpathy-skills
           mattpocock-skills
           nixpkgs-unstable

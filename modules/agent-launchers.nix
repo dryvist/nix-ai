@@ -4,6 +4,8 @@
   pkgs,
   nix-claude-code,
   nix-codex,
+  nix-claude-code-launcher-src,
+  nix-codex-launcher-src,
   nix-agy,
   agentNofile,
   ...
@@ -11,11 +13,11 @@
 let
   tools = {
     claude = {
-      renderer = nix-claude-code.lib.mkLauncher;
+      renderer = import "${nix-claude-code-launcher-src}/lib/mk-launcher.nix";
       cfg = config.programs.claude or { };
     };
     codex = {
-      renderer = nix-codex.lib.mkLauncher;
+      renderer = import "${nix-codex-launcher-src}/lib/mk-launcher.nix";
       cfg = config.programs.codex or { };
     };
     agy = {

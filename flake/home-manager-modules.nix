@@ -6,6 +6,8 @@
   nix-claude-code,
   nix-codex,
   nix-agy,
+  nix-claude-code-launcher-src,
+  nix-codex-launcher-src,
   agentNofile,
   karpathy-skills,
   mattpocock-skills,
@@ -96,6 +98,8 @@ in
         nix-claude-code
         nix-codex
         nix-agy
+        nix-claude-code-launcher-src
+        nix-codex-launcher-src
         agentNofile
         browser-use-skills
         awesome-claude-skills
@@ -136,6 +140,8 @@ in
         nix-claude-code
         nix-codex
         nix-agy
+        nix-claude-code-launcher-src
+        nix-codex-launcher-src
         agentNofile
         marketplaceInputs
         llm-agents
@@ -168,6 +174,8 @@ in
         nix-claude-code
         nix-codex
         nix-agy
+        nix-claude-code-launcher-src
+        nix-codex-launcher-src
         agentNofile
         llm-agents
         marketplaceInputs
@@ -190,6 +198,8 @@ in
         nix-claude-code
         nix-codex
         nix-agy
+        nix-claude-code-launcher-src
+        nix-codex-launcher-src
         agentNofile
         marketplaceInputs
         llm-agents
