@@ -69,6 +69,10 @@ in
     agentNofile
     ;
 })
+// (import ./checks/zcode-job.nix {
+  inherit pkgs;
+  hmConfigDarwin = mkHmConfigDarwin [ ];
+})
 // (import ./checks/token-meter.nix {
   inherit
     pkgs

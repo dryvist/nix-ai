@@ -26,6 +26,7 @@
   gh-stack,
   token-meter-src,
   homelab-contracts,
+  nix-agent-sandbox-src,
 }:
 let
   # Marketplace flake inputs now live inside nix-claude-code. Surface the
@@ -93,6 +94,21 @@ in
       nix-claude-code.homeModules.claude
       nix-codex.homeModules.approvals
       ../modules/default.nix
+      (import "${nix-agent-sandbox-src}/nix/zcode-job-module.nix")
+      (
+        {
+          config,
+          lib,
+          pkgs,
+          ...
+        }:
+        {
+          # The dispatcher client is safe on Darwin; keep its connection config opt-in.
+          home.packages = lib.optionals (pkgs.stdenv.isDarwin && config.programs.zcode-job.disabled) [
+            config.programs.zcode-job.package
+          ];
+        }
+      )
     ];
     _module.args = {
       inherit
