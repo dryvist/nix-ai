@@ -31,6 +31,8 @@ let
     mkHmConfig
     hmConfig
     hmConfigUntrusted
+    hmConfigOhMyOpenagent
+    hmConfigOhMyOpenagentTrusted
     hmConfigAgentSkillsShared
     hmConfigVctCli
     hmConfigFabricServer
@@ -138,6 +140,15 @@ in
     homebrewFor
     ;
 })
+// (import ./checks/oh-my-openagent.nix {
+  inherit
+    pkgs
+    hmConfig
+    hmConfigUntrusted
+    hmConfigOhMyOpenagent
+    hmConfigOhMyOpenagentTrusted
+    ;
+})
 // (import ./checks/cursor.nix {
   inherit pkgs;
   hmConfig = hmConfigUntrusted;
@@ -173,6 +184,7 @@ in
 // (import ./checks/mlx-mtp-reachable.nix { inherit pkgs mkHmConfig; })
 // (import ./checks/mlx-response-header-timeout-ladder.nix { inherit pkgs mkHmConfig; })
 // (import ./checks/mlx-single-model.nix { inherit pkgs src; })
+// (import ./checks/mlx-residency-topology.nix { inherit pkgs; })
 // (import ./checks/mlx-bash32.nix { inherit pkgs hmConfig src; })
 // (import ./checks/mlx-watchdog.nix { inherit pkgs src; })
 // (import ./checks/mlx-watchdog-ping.nix { inherit pkgs src; })

@@ -151,4 +151,10 @@ in
   # check fails when the package the module runs is not this release.
   # renovate: datasource=github-releases depName=mostlygeek/llama-swap
   llamaSwap = "v262";
+
+  # ZCode CLI (github-releases), built from this tag by modules/zcode/package.nix.
+  # fix-renovate-hashes.yml refreshes the source and pnpm dependency hashes in
+  # that file after a Renovate bump; the zcode-build check builds it.
+  # renovate: datasource=github-releases depName=zai-org/ZCode
+  zcode = "v3.14.3";
 }

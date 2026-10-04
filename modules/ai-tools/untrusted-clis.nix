@@ -2,8 +2,13 @@
 #
 # Added to home.packages only when programs.ai.untrustedClis.enable is true
 # (modules/default.nix). opencode, cursor-agent, qwen-code and cecli are
-# gated by their own programs.<name>.enable; claude-zai by modules/ai-shell.nix.
-{ pkgs, llm-agents }:
+# gated by their own programs.<name>.enable; claude-zai by modules/ai-shell.nix;
+# omo-senpi additionally by programs.ai.ohMyOpenagent.disabled = false.
+{
+  pkgs,
+  llm-agents,
+  ohMyOpenagentDisabled,
+}:
 let
   versions = import ../../lib/versions.nix;
 in
@@ -24,16 +29,19 @@ in
     exec ${pkgs.bun}/bin/bunx --bun claude-flow@${versions.claudeFlow} "$@"
   '')
 
-  # Oh My OpenAgent, Senpi edition — standalone senpi engine with the OMO
-  # extension built in (beta channel).
-  # Source: https://github.com/code-yeongyu/oh-my-openagent
-  # NPM: omo-ai (pinned beta version; the `latest` tag is a placeholder, see
-  # lib/versions.nix). The Ultimate/Light plugin editions are not installed here.
-  #
-  # Named omo-senpi, not `omo`: the Codex Light installer links its own runtime
-  # wrapper at ~/.local/bin/omo (ahead of this dir on PATH), and bare `omo` on
-  # npm is an unrelated package by a different author.
-  (pkgs.writeShellScriptBin "omo-senpi" ''
-    exec ${pkgs.bun}/bin/bunx --bun omo-ai@${versions.omoSenpi} "$@"
-  '')
 ]
+# Oh My OpenAgent, Senpi edition — standalone senpi engine with the OMO
+# extension built in (beta channel). Disabled by default: added only with
+# programs.ai.ohMyOpenagent.disabled = false, on top of the untrusted CLI gate.
+# Source: https://github.com/code-yeongyu/oh-my-openagent
+# NPM: omo-ai (pinned beta version; the `latest` tag is a placeholder, see
+# lib/versions.nix). The Ultimate/Light plugin editions are not installed here.
+#
+# Named omo-senpi, not `omo`: the Codex Light installer links its own runtime
+# wrapper at ~/.local/bin/omo (ahead of this dir on PATH), and bare `omo` on
+# npm is an unrelated package by a different author.
+++ pkgs.lib.optional (!ohMyOpenagentDisabled) (
+  pkgs.writeShellScriptBin "omo-senpi" ''
+    exec ${pkgs.bun}/bin/bunx --bun omo-ai@${versions.omoSenpi} "$@"
+  ''
+)

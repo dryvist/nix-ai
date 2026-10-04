@@ -49,8 +49,8 @@ _:
     # filter variant, complementary to pr-review-toolkit:code-reviewer).
     "feature-dev@claude-plugins-official" = true;
 
-    # Security guidance (useful for infra work)
-    "security-guidance@claude-plugins-official" = true;
+    # Security guidance: disabled
+    "security-guidance@claude-plugins-official" = false;
 
     # Plugin Development (user maintains claude-code-plugins repo)
     "plugin-dev@claude-plugins-official" = false;

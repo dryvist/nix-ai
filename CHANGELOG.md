@@ -1,5 +1,15 @@
 # Changelog
 
+## [7.2.0](https://github.com/dryvist/nix-ai/compare/v7.1.0...v7.2.0) (2026-10-03)
+
+
+### Features
+
+* **codex:** configure OTLP log export ([9f59189](https://github.com/dryvist/nix-ai/commit/9f591895dce45d5318c371dbe099e33829aa72e8))
+* **codex:** configure OTLP log export ([d7d68a0](https://github.com/dryvist/nix-ai/commit/d7d68a016eb6cf11c6eaba77e13beb6fe6f3655d))
+* **zcode:** package native Web server ([fb18ab0](https://github.com/dryvist/nix-ai/commit/fb18ab0accf2c7a1e45d292f56e2785cf74d476a))
+* **zcode:** package the source-built CLI ([04db4dd](https://github.com/dryvist/nix-ai/commit/04db4dd9f4ceac3bb981d036145ced8340e23dba))
+
 ## [7.1.0](https://github.com/dryvist/nix-ai/compare/v7.0.2...v7.1.0) (2026-10-03)
 
 

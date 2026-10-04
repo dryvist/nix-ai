@@ -71,6 +71,11 @@
       fastModel = "glm-5.3-flash[1m]";
       autoCompactWindow = "500000";
     };
+    opencode = {
+      provider = "zai-coding-plan";
+      model = "glm-5.3-flash";
+    };
+    zcode.model = "GLM-5.3-Flash";
     codex = {
       baseUrl = "https://api.z.ai/api/v1";
       model = "glm-5.3";

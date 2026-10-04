@@ -198,14 +198,38 @@ in
       claude = import "${nix-claude-code}/lib/render-autonomous.nix" args;
       codex = import "${nix-codex}/lib/render-autonomous.nix" args;
       agy = import "${nix-agy}/lib/render-autonomous.nix" args;
+      inherit (import ../vars/ai-stack.nix) zai;
+      opencodeFormatter = (import ../modules/common/formatters.nix { inherit (nixpkgs) lib; }).opencode;
+      opencodePermission = opencodeFormatter.formatPermission {
+        allow = [ "" ];
+        ask = [ ];
+        deny = residualDeny;
+      };
+      opencodeSettingsJson = builtins.toJSON {
+        "$schema" = "https://opencode.ai/config.json";
+        permission = {
+          "*" = "allow";
+        }
+        // opencodePermission
+        // {
+          external_directory = "allow";
+        };
+        autoupdate = false;
+        share = "disabled";
+        model = "${zai.opencode.provider}/${zai.opencode.model}";
+        enabled_providers = [ zai.opencode.provider ];
+        provider.${zai.opencode.provider}.options.apiKey = "{env:${zai.keyEnv}}";
+      };
     in
     {
       inherit residualDeny;
+      inherit opencodeSettingsJson;
       claudeSettingsJson = claude.settingsJson;
       codexConfigToml = codex.configToml;
       codexRules = codex.rules;
       inherit (agy) geminiSettingsJson geminiPolicyToml;
       files = {
+        ".config/opencode/opencode.json" = opencodeSettingsJson;
         ".claude/settings.json" = claude.settingsJson;
         ".codex/config.toml" = codex.configToml;
         ".codex/rules/default.rules" = codex.rules;
