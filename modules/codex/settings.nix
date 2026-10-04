@@ -44,6 +44,13 @@ let
     ++ cfg.trustedProjectDirs
   );
 
+  selectedOnDemandMcpServers = lib.filterAttrs (
+    name: _: lib.elem name cfg.onDemandMcpServers
+  ) config.programs.aiMcp.onDemandEnabledServers;
+  unknownOnDemandMcpServers = builtins.filter (
+    name: !(config.programs.aiMcp.onDemandEnabledServers ? ${name})
+  ) cfg.onDemandMcpServers;
+
   normalizeMcpServer =
     server:
     let
@@ -81,7 +88,7 @@ let
     ) server;
 
   mcpServers = mcpClient.renderServers {
-    inherit (config.programs.aiMcp) enabledServers;
+    enabledServers = config.programs.aiMcp.enabledServers // selectedOnDemandMcpServers;
     excluded = cfg.excludedMcpServers;
     normalize = normalizeMcpServer;
     client = "codex";
@@ -282,6 +289,12 @@ in
           metrics = if metricsEndpoint == null then "none" else "otlp-http";
         };
       };
+      assertions = lib.optionals cfg.enable [
+        {
+          assertion = unknownOnDemandMcpServers == [ ];
+          message = "Codex on-demand MCP servers are not available: ${builtins.toJSON unknownOnDemandMcpServers}";
+        }
+      ];
     }
     # Codex reads hooks.json only behind this flag. A non-empty hooks.events
     # implies it, so every contributor (herdr, the worktree-add guard, …)

@@ -71,6 +71,10 @@ let
   # launch unchanged.
   launchCfg = hmConfigMcpLaunchPrefix.config.programs.aiMcp;
   launched = launchCfg.onDemandEnabledServers // launchCfg.enabledServers;
+  codexOnDemandNames = hmConfigMcpLaunchPrefix.config.programs.codex.mcpServerNames;
+  claudeHttpTest =
+    builtins.fromJSON
+      hmConfigMcpLaunchPrefix.config.home.file.".claude/mcp-available/http-test.json".text;
   catalogZammad = launchCfg.servers.zammad;
   catalogVikunja = launchCfg.servers.vikunja;
   codexLaunchContractMismatches = builtins.filter (
@@ -140,6 +144,16 @@ in
       launched.http-test.command == null
       || throw "launchPrefixFor wrapped a non-stdio server: ${builtins.toJSON launched.http-test}";
     helpers.mkMarker "check-mcp-launch-prefix" "launchPrefix wins, launchPrefixFor wraps stdio servers with env_vars, others launch directly";
+
+  mcp-on-demand-codex-auth =
+    assert
+      builtins.elem "http-test" codexOnDemandNames
+      || throw "Codex did not render its selected on-demand MCP server: ${builtins.toJSON codexOnDemandNames}";
+    assert
+      claudeHttpTest.mcpServers.http-test.headersHelper
+      == "printf '{\"Authorization\":\"Bearer %s\"}\\n' \"\${TEST_TOKEN}\""
+      || throw "Claude did not render the on-demand bearer env var as a per-connection header helper: ${builtins.toJSON claudeHttpTest}";
+    helpers.mkMarker "check-mcp-on-demand-codex-auth" "Claude and Codex render selected on-demand bearer-authenticated MCP servers";
 
   mcp-on-demand-merge =
     let
