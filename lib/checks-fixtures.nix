@@ -349,6 +349,5 @@ rec {
       };
     }
   ];
-  hmConfigLitellmLocal =
-    (import ./checks-fixtures-litellm.nix { inherit mkHmConfig; }).hmConfigLitellmLocal;
+  inherit (import ./checks-fixtures-litellm.nix { inherit mkHmConfig; }) hmConfigLitellmLocal;
 }

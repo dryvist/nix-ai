@@ -167,8 +167,6 @@ in
   };
 
   config = lib.mkIf (cfg.enable && enabled != { }) {
-    programs.mlx.modelContextWindows = catalogContextWindows;
-    programs.mlx.staticResidentContracts = staticResidentContracts;
     assertions = import ./catalog-assertions.nix {
       inherit
         lib
@@ -181,6 +179,9 @@ in
     };
 
     programs.mlx = {
+      modelContextWindows = catalogContextWindows;
+      inherit staticResidentContracts;
+
       # Registry models (residents + role-registered swaps) read
       # modelExtraArgs; non-registry swap args travel on the models.<id>
       # entry instead. mkDefault everywhere: a direct host setting on the

@@ -32,7 +32,7 @@ let
   );
   watchdogAgentLabel = "dev.mlx-model-server.watchdog";
 
-  modelServerProcessPattern =
+  inherit
     (import ./model-server-pattern.nix {
       inherit
         lib
@@ -40,9 +40,11 @@ let
         mlxLmServer
         mlxVlmServer
         ;
-    }).modelServerProcessPattern;
-  workerEnv = (import ./worker-env.nix { inherit lib cfg; }).workerEnv;
-  mkModelArgs =
+    })
+    modelServerProcessPattern
+    ;
+  inherit (import ./worker-env.nix { inherit lib cfg; }) workerEnv;
+  inherit
     (import ./model-server-cmd.nix {
       inherit
         lib
@@ -50,7 +52,9 @@ let
         mlxModelServerPkg
         mlxModelServerPkgs
         ;
-    }).mkModelArgs;
+    })
+    mkModelArgs
+    ;
 in
 {
   imports = import ./imports.nix;

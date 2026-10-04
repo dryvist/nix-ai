@@ -37,7 +37,7 @@ let
       ghGuard = lib.optionalAttrs (judgeModelId != null) {
         url = "${routerUrl}/chat/completions";
         model = "judge";
-        timeoutSeconds = judgeContract.timeoutSeconds;
+        inherit (judgeContract) timeoutSeconds;
       };
       recorder = {
         baseUrl = routerUrl;
@@ -113,12 +113,14 @@ in
       }
     ];
     launchd.agents = staticAgents;
-    home.file.".config/mlx/resident-model-limits.json".text = builtins.toJSON consumerConfig;
-    home.sessionVariables = {
-      MLX_RESIDENT_MODEL_LIMITS_FILE = "${config.home.homeDirectory}/.config/mlx/resident-model-limits.json";
+    home = {
+      file.".config/mlx/resident-model-limits.json".text = builtins.toJSON consumerConfig;
+      sessionVariables = {
+        MLX_RESIDENT_MODEL_LIMITS_FILE = "${config.home.homeDirectory}/.config/mlx/resident-model-limits.json";
+      };
+      activation.createStaticMlxLogDir = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        run mkdir -p "${config.home.homeDirectory}/Library/Logs/mlx-model-server"
+      '';
     };
-    home.activation.createStaticMlxLogDir = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-      run mkdir -p "${config.home.homeDirectory}/Library/Logs/mlx-model-server"
-    '';
   };
 }

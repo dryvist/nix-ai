@@ -6,7 +6,7 @@
   hmConfigStaticServing,
 }:
 let
-  lib = pkgs.lib;
+  inherit (pkgs) lib;
   helpers = import ./helpers.nix { inherit pkgs; };
   cfg = hmConfigStaticServing.config.programs.mlx;
   agents = hmConfigStaticServing.config.launchd.agents;
@@ -20,9 +20,9 @@ let
   qwen = contracts."mlx-community/Qwen3.8-27B-4bit";
   mimo = contracts."mlx-community/MiMo-V2.6-Distill-Qwen-9B-OptiQ-4bit";
   session = hmConfigStaticServing.config.home.sessionVariables;
-  limits = builtins.fromJSON (
-    hmConfigStaticServing.config.home.file.".config/mlx/resident-model-limits.json".text
-  );
+  limits =
+    builtins.fromJSON
+      hmConfigStaticServing.config.home.file.".config/mlx/resident-model-limits.json".text;
   routes = hmConfigStaticServing.config.programs.litellmLocal.renderedConfig.model_list;
   routeFor = name: builtins.head (builtins.filter (route: route.model_name == name) routes);
   judge = routeFor "judge";
