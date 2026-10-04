@@ -1,5 +1,13 @@
 # Changelog
 
+## [7.5.2](https://github.com/dryvist/nix-ai/compare/v7.5.1...v7.5.2) (2026-10-04)
+
+
+### Bug Fixes
+
+* **ci:** follow shared workflow main ([#2378](https://github.com/dryvist/nix-ai/issues/2378)) ([ccddb7c](https://github.com/dryvist/nix-ai/commit/ccddb7cf1d7fb5701997ee8bcd6b9091a00d7af1))
+* **mlx:** derive role-map concurrency from catalog ([#2379](https://github.com/dryvist/nix-ai/issues/2379)) ([0a128b1](https://github.com/dryvist/nix-ai/commit/0a128b1721986c803f4201658803e6554eaba3b2))
+
 ## [7.5.1](https://github.com/dryvist/nix-ai/compare/v7.5.0...v7.5.1) (2026-10-04)
 
 
