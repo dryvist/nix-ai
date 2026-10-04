@@ -1,14 +1,15 @@
-# Role map contract (modules/mlx/role-map-errors.nix) against the catalog.
-#
-# Three rules, each with a positive case (the pinned homelab-contracts map
-# passes) and a negative case (a map breaking only that rule is reported):
+# Role-map contracts checked against the local catalog:
 #   - every map model key is a catalog entry with the same physical id
+#   - every map model exposes concurrency from the shared model catalog
 #   - a dense model has concurrency 1
 #   - every model a host class keeps, and every role it resolves, is declared
 { pkgs, roleMap }:
 let
   helpers = import ./helpers.nix { inherit pkgs; };
   catalog = import ../../modules/mlx/catalog-data.nix;
+  missingConcurrency = builtins.filter (key: !(roleMap.models.${key} ? concurrency)) (
+    builtins.attrNames roleMap.models
+  );
   errorsFor =
     candidate:
     import ../../modules/mlx/role-map-errors.nix {
@@ -46,6 +47,9 @@ let
 in
 {
   mlx-role-map =
+    assert
+      missingConcurrency == [ ]
+      || throw "role map models have no catalog concurrency: ${builtins.toJSON missingConcurrency}";
     assert
       realErrors == [ ]
       || throw "role map: the pinned homelab-contracts map breaks the catalog contract: ${builtins.toJSON realErrors}";
