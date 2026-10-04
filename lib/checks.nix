@@ -30,6 +30,8 @@ let
     mkHmConfig
     hmConfig
     hmConfigUntrusted
+    hmConfigOhMyOpenagent
+    hmConfigOhMyOpenagentTrusted
     hmConfigAgentSkillsShared
     hmConfigVctCli
     hmConfigFabricServer
@@ -119,6 +121,15 @@ in
     hmConfig
     hmConfigUntrusted
     homebrewFor
+    ;
+})
+// (import ./checks/oh-my-openagent.nix {
+  inherit
+    pkgs
+    hmConfig
+    hmConfigUntrusted
+    hmConfigOhMyOpenagent
+    hmConfigOhMyOpenagentTrusted
     ;
 })
 // (import ./checks/cursor.nix {

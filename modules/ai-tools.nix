@@ -48,7 +48,7 @@
 #   mlx_lm.server: defined in modules/mlx (owns the wrapper + LaunchAgent)
 #
 # UNTRUSTED AGENT CLIs (gated by programs.ai.untrustedClis.enable, off by default):
-#   copilot-cli, gh-copilot, claude-flow, omo-senpi — ./ai-tools/untrusted-clis.nix
+#   copilot-cli, gh-copilot, claude-flow, omo-senpi (also needs ohMyOpenagent.disabled = false) — ./ai-tools/untrusted-clis.nix
 #   cecli, qwen-code, opencode, cursor — per-agent modules under modules/
 #
 # NOTE: These are home-manager packages, not system packages.
