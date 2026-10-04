@@ -17,6 +17,10 @@ let
   ) (builtins.attrValues agents);
   labels = map (agent: agent.config.Label) residentAgents;
   contracts = cfg.staticResidentContracts;
+  mlxLmServer = import ../../modules/mlx/mlx-lm-server.nix {
+    inherit pkgs cfg;
+    versions = import ../../lib/versions.nix;
+  };
   qwen = contracts."mlx-community/Qwen3.8-27B-4bit";
   mimo = contracts."mlx-community/MiMo-V2.6-Distill-Qwen-9B-OptiQ-4bit";
   session = hmConfigStaticServing.config.home.sessionVariables;
@@ -50,15 +54,16 @@ let
     else
       (builtins.head args == first && builtins.length args > 1 && builtins.elemAt args 1 == second)
       || hasPair (builtins.tail args) first second;
-  queueTest =
-    pkgs.runCommand "check-mlx-bounded-queue"
-      {
-        nativeBuildInputs = [ pkgs.python3 ];
-      }
-      ''
-        python ${src}/tests/test_mlx_bounded_queue.py
-        touch "$out"
-      '';
+  queueTest = pkgs.runCommand "check-mlx-bounded-queue" { } ''
+    server=${mlxLmServer.pkg}/bin/mlx-lm-server
+    python="$(${pkgs.gnused}/bin/sed -n 's|^exec "\([^"]*/bin/python\)".*|\1|p' "$server")"
+    unset PYTHONPATH
+    ${pkgs.gnused}/bin/sed '/^exec /,$d' "$server" > mlx-lm-server-env.sh
+    source mlx-lm-server-env.sh
+    "$python" -c 'import mlx_bounded_queue'
+    "$python" ${src}/tests/test_mlx_bounded_queue.py
+    touch "$out"
+  '';
 in
 {
   mlx-static-resident-agents =
