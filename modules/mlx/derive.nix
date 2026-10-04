@@ -148,29 +148,24 @@ let
       usable = lib.filter fits blockSizeCandidates;
     in
     if usable == [ ] then null else lib.head usable;
+  requestTimeoutSeconds = import ./request-timeout.nix { inherit lib; };
+  concurrencyCeilingFor = import ./concurrency-ceiling.nix {
+    inherit
+      lib
+      calibration
+      gib
+      perTokenKvBytes
+      ;
+  };
 in
 rec {
-  inherit metalBufferCeiling calibration perTokenKvBytes;
-
-  # Bound caller timeouts from the same serving envelope used by the worker.
-  # A full queue can place a new request behind ceil(queueSize/concurrency)
-  # service waves; add the request's own worst-case prefill and decode time.
-  requestTimeoutSeconds =
-    {
-      contextWindowTokens,
-      maxOutputTokens,
-      concurrency,
-      queueSize,
-      prefillTokensPerSecond,
-      decodeTokensPerSecond,
-    }:
-    let
-      requestSeconds =
-        divCeil (contextWindowTokens - maxOutputTokens) prefillTokensPerSecond
-        + divCeil maxOutputTokens decodeTokensPerSecond;
-      queueWaves = divCeil queueSize concurrency;
-    in
-    (queueWaves + 1) * requestSeconds;
+  inherit
+    metalBufferCeiling
+    calibration
+    perTokenKvBytes
+    requestTimeoutSeconds
+    concurrencyCeilingFor
+    ;
 
   # ---- PER-MODEL DERIVATION ------------------------------------------------
 
@@ -265,24 +260,4 @@ rec {
       # (see the file header) — neither is this file's to set.
     };
 
-  # ---- CEILING -------------------------------------------------------------
-
-  # The replacement for options-proxy.nix's concurrencyLimitCeiling. Same
-  # shape, but every input is read from the catalog rather than restated: the
-  # peak weight and the largest granted window come from the enabled entries
-  # themselves, so raising a window cannot leave the ceiling computing against
-  # a stale one.
-  concurrencyCeilingFor =
-    {
-      budgetGb,
-      peakWeightGb,
-      peakWindowTokens,
-      peakKv,
-    }:
-    let
-      headroomBytes = (budgetGb - peakWeightGb) * gib;
-      perStreamBytes = peakWindowTokens * (perTokenKvBytes peakKv);
-      memoryFit = if perStreamBytes <= 0 then 1 else lib.max 1 (headroomBytes / perStreamBytes);
-    in
-    lib.min calibration.operatorConcurrencyCap memoryFit;
 }
