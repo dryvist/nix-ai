@@ -3,11 +3,11 @@
     "ai-assistant-instructions": {
       "flake": false,
       "locked": {
-        "lastModified": 1791054719,
-        "narHash": "sha256-hHVyXZTcvQe+vWyDAw/4AhlL6Wg9oR7xpala9NK/AaM=",
+        "lastModified": 1791061139,
+        "narHash": "sha256-fg1RjgTSRX8eWbukejH0V0rMs/oU3xXeHIPnPjAIpwg=",
         "owner": "dryvist",
         "repo": "ai-assistant-instructions",
-        "rev": "ed2059dd8652fdb4cf0df11ddd8fee18a6779b70",
+        "rev": "10203e17e5eb7c5e2ef9c35781ba741c70bf45a6",
         "type": "github"
       },
       "original": {
@@ -626,11 +626,11 @@
     "jacobpevans-cc-plugins": {
       "flake": false,
       "locked": {
-        "lastModified": 1791049359,
-        "narHash": "sha256-8o3cx6w8QX8QmxvKD71I2uOnuCBSZH1MKf1gitoCARw=",
+        "lastModified": 1791061549,
+        "narHash": "sha256-xwSoo3YYOx90JBhLUXv9QQZAFV0XY6nQwL1ioZ13qXM=",
         "owner": "dryvist",
         "repo": "claude-code-plugins",
-        "rev": "722f0411178c957b9a01c93f5347a32ce22fde08",
+        "rev": "4849503b1feb80a9d5917097fb86a1b12bf59488",
         "type": "github"
       },
       "original": {
