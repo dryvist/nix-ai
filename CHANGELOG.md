@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.4.1](https://github.com/dryvist/nix-ai/compare/v7.4.0...v7.4.1) (2026-10-04)
+
+
+### Bug Fixes
+
+* **mlx:** suppress cooldowns for resident routes ([#2362](https://github.com/dryvist/nix-ai/issues/2362)) ([640d1a6](https://github.com/dryvist/nix-ai/commit/640d1a6f6123363f308808280ca3c37ea978ba9e))
+
 ## [7.4.0](https://github.com/dryvist/nix-ai/compare/v7.3.0...v7.4.0) (2026-10-04)
 
 
