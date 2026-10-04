@@ -14,6 +14,10 @@ let
     mkModelArgs
     workerEnv
     ;
+  modelServerPreflight = pkgs.writeShellApplication {
+    name = "mlx-model-server-preflight";
+    text = builtins.readFile ./scripts/mlx-model-server-preflight.sh;
+  };
   gib = 1024 * 1024 * 1024;
   contracts = cfg.staticResidentContracts;
   localProxyRoutesEnabled =
@@ -56,8 +60,12 @@ let
     let
       key = contract.catalogKey;
       label = contract.launchdLabel;
-      command = lib.getExe mlxModelServerPkgs.${contract.backend};
-      args = mkModelArgs modelId contract.servicePort ++ (cfg.modelExtraArgs.${modelId} or [ ]);
+      command = lib.getExe modelServerPreflight;
+      args = [
+        (lib.getExe mlxModelServerPkgs.${contract.backend})
+      ]
+      ++ mkModelArgs modelId contract.servicePort
+      ++ (cfg.modelExtraArgs.${modelId} or [ ]);
       logDir = "${config.home.homeDirectory}/Library/Logs/mlx-model-server";
       env =
         workerEnv modelId
