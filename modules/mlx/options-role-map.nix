@@ -15,7 +15,7 @@ in
   options.programs.mlx.roleMap = lib.mkOption {
     type = lib.types.attrsOf lib.types.anything;
     default = import ../../lib/role-map.nix { src = homelab-contracts; };
-    defaultText = lib.literalExpression "homelab-contracts ansible/roles/llm_roles/files/model-roles.json";
+    defaultText = lib.literalExpression "homelab-contracts role map and shared model catalog";
     description = "LLM role map: `models` keyed by catalog entry, `roles` bound to a model key, `hosts` resident/swap sets per host class.";
   };
 
