@@ -1,13 +1,30 @@
 {
   "nodes": {
+    "agent-limits-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1791069353,
+        "narHash": "sha256-XY8g/tbegzs7UtPWLhAp2ywFRAfoXyv7M9DdyzDPsqk=",
+        "owner": "dryvist",
+        "repo": "nix-darwin",
+        "rev": "7f014c52426bed4d747df857199f4dd09afcbeab",
+        "type": "github"
+      },
+      "original": {
+        "owner": "dryvist",
+        "ref": "develop",
+        "repo": "nix-darwin",
+        "type": "github"
+      }
+    },
     "ai-assistant-instructions": {
       "flake": false,
       "locked": {
-        "lastModified": 1791054719,
-        "narHash": "sha256-hHVyXZTcvQe+vWyDAw/4AhlL6Wg9oR7xpala9NK/AaM=",
+        "lastModified": 1791061139,
+        "narHash": "sha256-fg1RjgTSRX8eWbukejH0V0rMs/oU3xXeHIPnPjAIpwg=",
         "owner": "dryvist",
         "repo": "ai-assistant-instructions",
-        "rev": "ed2059dd8652fdb4cf0df11ddd8fee18a6779b70",
+        "rev": "10203e17e5eb7c5e2ef9c35781ba741c70bf45a6",
         "type": "github"
       },
       "original": {
@@ -626,11 +643,11 @@
     "jacobpevans-cc-plugins": {
       "flake": false,
       "locked": {
-        "lastModified": 1791049359,
-        "narHash": "sha256-8o3cx6w8QX8QmxvKD71I2uOnuCBSZH1MKf1gitoCARw=",
+        "lastModified": 1791061549,
+        "narHash": "sha256-xwSoo3YYOx90JBhLUXv9QQZAFV0XY6nQwL1ioZ13qXM=",
         "owner": "dryvist",
         "repo": "claude-code-plugins",
-        "rev": "722f0411178c957b9a01c93f5347a32ce22fde08",
+        "rev": "4849503b1feb80a9d5917097fb86a1b12bf59488",
         "type": "github"
       },
       "original": {
@@ -781,16 +798,16 @@
         ]
       },
       "locked": {
-        "lastModified": 1790019185,
-        "narHash": "sha256-7S/BIA/xIkibASD+RDteqNnahh/JAKavLWZVqQAuANI=",
+        "lastModified": 1791061697,
+        "narHash": "sha256-XAy1nNNp6JNj0fo3m96VC0fqb+QP1rwCjXPPXr4nS8s=",
         "owner": "dryvist",
         "repo": "nix-agy",
-        "rev": "30cb395a52574b610695ddd378751fa0f917a5f4",
+        "rev": "0d57cbea9a577aac4c326b333d18b8dd86587520",
         "type": "github"
       },
       "original": {
         "owner": "dryvist",
-        "ref": "main",
+        "ref": "develop",
         "repo": "nix-agy",
         "type": "github"
       }
@@ -856,6 +873,23 @@
         "type": "github"
       }
     },
+    "nix-claude-code-launcher-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1791061684,
+        "narHash": "sha256-IAwo+ht9Bpt3OllaBJqaZEwWh63wtYjDe1pgEm3W3+I=",
+        "owner": "dryvist",
+        "repo": "nix-claude-code",
+        "rev": "b7573f2d1c96b11ba11344f3a1655f6e760efd7e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "dryvist",
+        "ref": "develop",
+        "repo": "nix-claude-code",
+        "type": "github"
+      }
+    },
     "nix-codex": {
       "inputs": {
         "nixpkgs": [
@@ -863,16 +897,33 @@
         ]
       },
       "locked": {
-        "lastModified": 1791001360,
-        "narHash": "sha256-YPrtnOWOWN/XUBVhv6six4Gml/a0lGkjxQriwDEIbUs=",
+        "lastModified": 1791075079,
+        "narHash": "sha256-3mbs+nXwCHnE8BgXIWZpyz/BrbrQWOCklGio7m6j4w4=",
         "owner": "dryvist",
         "repo": "nix-codex",
-        "rev": "943d250f5b5240bbef98c6235705e452f228e724",
+        "rev": "50f9001a570b44f61cc350b26d653413f2351101",
         "type": "github"
       },
       "original": {
         "owner": "dryvist",
         "ref": "main",
+        "repo": "nix-codex",
+        "type": "github"
+      }
+    },
+    "nix-codex-launcher-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1791071036,
+        "narHash": "sha256-gEejTFvEyMFdtqW1Pk6f3TWd4DvXE8bIhhkfWwOGjl8=",
+        "owner": "dryvist",
+        "repo": "nix-codex",
+        "rev": "74b3b8ea05838b39026da4baafcd8b712e22b078",
+        "type": "github"
+      },
+      "original": {
+        "owner": "dryvist",
+        "ref": "develop",
         "repo": "nix-codex",
         "type": "github"
       }
@@ -975,6 +1026,7 @@
     },
     "root": {
       "inputs": {
+        "agent-limits-src": "agent-limits-src",
         "ai-assistant-instructions": "ai-assistant-instructions",
         "ai-llm-prompts": "ai-llm-prompts",
         "autoresearch": "autoresearch",
@@ -998,7 +1050,9 @@
         "mattpocock-skills": "mattpocock-skills",
         "nix-agy": "nix-agy",
         "nix-claude-code": "nix-claude-code",
+        "nix-claude-code-launcher-src": "nix-claude-code-launcher-src",
         "nix-codex": "nix-codex",
+        "nix-codex-launcher-src": "nix-codex-launcher-src",
         "nixpkgs": "nixpkgs_2",
         "nixpkgs-unstable": "nixpkgs-unstable",
         "ponytail": "ponytail",

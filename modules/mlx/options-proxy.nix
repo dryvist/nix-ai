@@ -55,7 +55,7 @@ in
       groupSwap = lib.mkOption {
         type = lib.types.bool;
         default = true;
-        description = "Whether llama-swap unloads the resident model before loading another (groups.mlx-models.swap). Set false on hosts with the memory headroom to keep several models resident at once.";
+        description = "Whether llama-swap unloads the resident model before loading another (groups.mlx-models.swap). Applies only when the resident models plus one swap-tier worker do not fit programs.mlx.maxResidentWorkers; when they fit, the resident group never swaps. A resident group that does not swap emits ttl = 0 for its members, so they stay loaded.";
       };
 
       healthCheckTimeout = lib.mkOption {

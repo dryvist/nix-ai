@@ -22,6 +22,7 @@
   renderAutonomous,
   roleMap,
   homebrewFor,
+  agentNofile,
 }:
 let
   inherit (import ./checks-fixtures.nix { inherit pkgs home-manager aiModule; })
@@ -30,6 +31,8 @@ let
     mkHmConfig
     hmConfig
     hmConfigUntrusted
+    hmConfigOhMyOpenagent
+    hmConfigOhMyOpenagentTrusted
     hmConfigAgentSkillsShared
     hmConfigVctCli
     hmConfigFabricServer
@@ -47,8 +50,25 @@ let
     hmConfigLitellmLocal
     hmConfigMcpLaunchPrefix
     ;
+  mkHmConfigDarwin =
+    (import ./checks-fixtures.nix {
+      inherit home-manager aiModule;
+      pkgs = import pkgs.path {
+        system = "aarch64-darwin";
+        config.allowUnfree = true;
+      };
+    }).mkHmConfig;
 in
 (import ./checks/lint.nix { inherit pkgs src; })
+// (import ./checks/agent-nofile.nix {
+  inherit
+    pkgs
+    src
+    mkHmConfig
+    mkHmConfigDarwin
+    agentNofile
+    ;
+})
 // (import ./checks/token-meter.nix {
   inherit
     pkgs
@@ -111,6 +131,7 @@ in
     ;
 })
 // (import ./checks/codex.nix { inherit pkgs hmConfig; })
+// (import ./checks/codex-approvals.nix { inherit pkgs hmConfig mkHmConfig; })
 // (import ./checks/cli-ownership.nix { inherit pkgs hmConfig hmConfigUntrusted; })
 // (import ./checks/untrusted-clis.nix {
   inherit
@@ -118,6 +139,15 @@ in
     hmConfig
     hmConfigUntrusted
     homebrewFor
+    ;
+})
+// (import ./checks/oh-my-openagent.nix {
+  inherit
+    pkgs
+    hmConfig
+    hmConfigUntrusted
+    hmConfigOhMyOpenagent
+    hmConfigOhMyOpenagentTrusted
     ;
 })
 // (import ./checks/cursor.nix {
@@ -155,6 +185,7 @@ in
 // (import ./checks/mlx-mtp-reachable.nix { inherit pkgs mkHmConfig; })
 // (import ./checks/mlx-response-header-timeout-ladder.nix { inherit pkgs mkHmConfig; })
 // (import ./checks/mlx-single-model.nix { inherit pkgs src; })
+// (import ./checks/mlx-residency-topology.nix { inherit pkgs; })
 // (import ./checks/mlx-bash32.nix { inherit pkgs hmConfig src; })
 // (import ./checks/mlx-watchdog.nix { inherit pkgs src; })
 // (import ./checks/mlx-watchdog-ping.nix { inherit pkgs src; })

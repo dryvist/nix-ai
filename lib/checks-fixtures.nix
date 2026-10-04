@@ -59,6 +59,17 @@ rec {
   # untrusted CLI's wiring read this fixture; the default one has none.
   hmConfigUntrusted = mkHmConfig [ { programs.ai.untrustedClis.enable = true; } ];
 
+  # oh-my-openagent switched on (lib/checks/oh-my-openagent.nix): with and
+  # without the untrusted CLI gate, since omo-senpi needs both and the plugin
+  # entry needs only the first.
+  hmConfigOhMyOpenagent = mkHmConfig [
+    {
+      programs.ai.untrustedClis.enable = true;
+      programs.ai.ohMyOpenagent.disabled = false;
+    }
+  ];
+  hmConfigOhMyOpenagentTrusted = mkHmConfig [ { programs.ai.ohMyOpenagent.disabled = false; } ];
+
   hmConfigAgentSkillsShared = mkHmConfig [
     {
       programs.agentSkills.root = "agents";

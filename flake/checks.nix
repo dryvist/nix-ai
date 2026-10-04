@@ -43,7 +43,7 @@ in
         ;
       roleMap = import (src + "/lib/role-map.nix") { src = homelab-contracts; };
       aiModule = self.homeManagerModules.default;
-      inherit (nixAiLib) renderAutonomous homebrewFor;
+      inherit (nixAiLib) renderAutonomous homebrewFor agentNofile;
     })
     // {
       # `nix flake check` only *evaluates* packages.<system> (reports "build
