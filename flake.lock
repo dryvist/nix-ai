@@ -3,11 +3,11 @@
     "agent-limits-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1791082295,
-        "narHash": "sha256-yBMt6X5C0ZSFKG4FbntnPdxURhT+QWotxcViwHVDvxA=",
+        "lastModified": 1791086058,
+        "narHash": "sha256-AanFmCi1vaiFYX1kEhSlhRsEcI9khi1hwypq0Dvf5Lc=",
         "owner": "dryvist",
         "repo": "nix-darwin",
-        "rev": "acf29ab84e4d18ae47b7f6b2c1463f6476f62f98",
+        "rev": "e188ca0ea503df6b4fbea716877e28db79eca8a2",
         "type": "github"
       },
       "original": {
@@ -40,11 +40,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1791081736,
-        "narHash": "sha256-1nAlDZ8ZwlpOskuNR2Yv2CXyMgHOfQ4dUoPtx38w4Xs=",
+        "lastModified": 1791090913,
+        "narHash": "sha256-TbHZ5Fi5Sc3e/4Y38LauE2LhonfeCVGIpm4YVreM+pU=",
         "owner": "dryvist",
         "repo": "ai-llm-prompts",
-        "rev": "945cf3e3aed7aab4e977418950ec5e0780703137",
+        "rev": "9c3fb6afaa064ba2bfba6992b40760d1adac90d2",
         "type": "github"
       },
       "original": {
