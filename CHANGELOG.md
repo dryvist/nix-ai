@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.4.0](https://github.com/dryvist/nix-ai/compare/v7.3.0...v7.4.0) (2026-10-04)
+
+
+### Features
+
+* **mlx:** serve resident models from catalog ([#2357](https://github.com/dryvist/nix-ai/issues/2357)) ([c3a4232](https://github.com/dryvist/nix-ai/commit/c3a42322e397d5d5b167bb0bc0cefa93411e3976))
+
 ## [7.3.0](https://github.com/dryvist/nix-ai/compare/v7.2.0...v7.3.0) (2026-10-04)
 
 
