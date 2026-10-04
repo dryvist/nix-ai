@@ -153,6 +153,7 @@ rec {
     {
       programs.mlx = {
         enable = true;
+        staticResidentLocalProxyConsumers = true;
         memoryHardLimitGb = 46;
         roleMap = {
           models = {
