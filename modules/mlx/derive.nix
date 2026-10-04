@@ -152,6 +152,26 @@ in
 rec {
   inherit metalBufferCeiling calibration perTokenKvBytes;
 
+  # Bound caller timeouts from the same serving envelope used by the worker.
+  # A full queue can place a new request behind ceil(queueSize/concurrency)
+  # service waves; add the request's own worst-case prefill and decode time.
+  requestTimeoutSeconds =
+    {
+      contextWindowTokens,
+      maxOutputTokens,
+      concurrency,
+      queueSize,
+      prefillTokensPerSecond,
+      decodeTokensPerSecond,
+    }:
+    let
+      requestSeconds =
+        divCeil (contextWindowTokens - maxOutputTokens) prefillTokensPerSecond
+        + divCeil maxOutputTokens decodeTokensPerSecond;
+      queueWaves = divCeil queueSize concurrency;
+    in
+    (queueWaves + 1) * requestSeconds;
+
   # ---- PER-MODEL DERIVATION ------------------------------------------------
 
   # Memory and buffer-count sizing for one model's PROMPT CACHE, from that

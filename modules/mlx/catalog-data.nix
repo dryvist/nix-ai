@@ -5,37 +5,21 @@
 # inherited below are documented in catalog-lib.nix. qwen38-27b lives in its
 # own file (12KB gate), merged below.
 let
-  inherit (import ./catalog-lib.nix) swapFlags;
+  inherit (import ./catalog-lib.nix) defaultResidentQueueSize swapFlags;
+  mimoContextWindowTokens = 40960;
+  mimoMaxOutputTokens = 4096;
+  mimoConcurrency = 4;
 in
 (import ./catalog-data-qwen38-27b.nix)
 // {
-  # Document OCR, on demand. The only non-text entry in the catalog: an
-  # SAM + CLIP-L + DeepSeek-V2 vision-language model, so it CANNOT run on the
-  # host's mlx_lm.server (no image input path) and pins backend = "mlx-vlm".
-  # mlx-vlm carries this architecture explicitly — its prompt_utils MODEL_CONFIG
-  # registry maps model_type "unlimited-ocr" to a single-image message format.
-  #
-  # WEIGHTS MUST BE PRE-CACHED (worker-env.nix sets HF_HUB_OFFLINE=1) — run
-  # `hf download mlx-community/Unlimited-OCR-bf16` on the serving host before
-  # enabling this. HF_HUB_OFFLINE=1 makes an uncached id 502 for minutes rather
-  # than fetch. Note the near-miss names already on disk there
-  # (LoJexLLM/Unlimited-OCR-MLX, baidu/Unlimited-OCR) are DIFFERENT repos and
-  # do not satisfy this id.
-  #
-  # swap only, never resident: OCR is bursty and 6.7 GB of bf16 weights should
-  # not sit in the co-residency budget between documents. No swapFlags — those
-  # are mlx_lm serve flags (maxNumSeqs/maxRequestTokens/autoUnloadIdleSeconds)
-  # that the mlx-vlm adapter rejects; idle unload comes from llama-swap's
-  # proxy-side ttl instead, which the host sets via catalog tweaks.ttl.
-  #
-  # concurrencyLimit 1: a full-page VLM decode is a long single-stream job, and
-  # the proxy admitting parallel requests to a one-at-a-time worker is what
-  # produced the 429s that motivated effectiveConcurrency in the first place.
+  # Keep this entry while the pinned role map still names the vision model.
+  # It is outside a host's static resident set unless explicitly selected.
   unlimited-ocr = {
     model = "mlx-community/Unlimited-OCR-bf16";
     backend = "mlx-vlm";
     weightGb = 6.7;
     args = [ ];
+    concurrency = 1;
     concurrencyLimit = 1;
     classes = {
       swap.flags = { };
@@ -45,8 +29,9 @@ in
   # The small/fast role model (role map: fast, cheap, small, judge, recorder).
   # A Qwen3.5-9B distill with the qwen3_5_text HYBRID geometry (8
   # full-attention layers carry KV, 32 KiB/token). Served thinking-off.
-  # concurrencyLimit 2 is the role map's concurrency for this model; #1641
-  # (OptiQ batched-decode leak on this family) caps it there.
+  # Four-way batching is sized against the measured 40,960-token request
+  # window; residency arithmetic in staticmbp-report.md shows the four
+  # concurrent KV streams fit below the MacBook wired ceiling.
   mimo-9b = {
     model = "mlx-community/MiMo-V2.6-Distill-Qwen-9B-OptiQ-4bit";
     weightGb = 7.1;
@@ -56,15 +41,24 @@ in
       headDim = 256;
       kvDtypeBytes = 2;
     };
+    contextWindowTokens = mimoContextWindowTokens;
+    maxOutputTokens = mimoMaxOutputTokens;
+    concurrency = mimoConcurrency;
+    queueSize = defaultResidentQueueSize;
+    prefillTokensPerSecond = 600;
+    decodeTokensPerSecond = 40;
+    servicePort = 11433;
     args = [
       "--chat-template-args"
       (builtins.toJSON {
         enable_thinking = false;
       })
     ];
-    concurrencyLimit = 2;
     classes = {
-      resident.cacheProvisioning.concurrency = 2;
+      resident = {
+        cacheProvisioning.concurrency = mimoConcurrency;
+        flags.maxTokens = mimoMaxOutputTokens;
+      };
       swap = {
         cacheProvisioning.pinned = {
           mb = 8192;

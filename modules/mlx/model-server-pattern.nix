@@ -48,9 +48,7 @@
 let
   patterns = {
     mlx-lm = lib.escapeRegex mlxLmServer.launchScriptBasename;
-    # uvx runs the adapter script, so argv carries its basename as a Nix store
-    # path suffix — same shape as the mlx-lm launcher above, and derived from
-    # the same single source for the same reason.
+    # The per-model VLM adapter runs as a script path in uvx argv.
     mlx-vlm = lib.escapeRegex mlxVlmServer.launchScriptBasename;
     mlx-vlm-native = lib.escapeRegex mlxVlmServer.nativeLaunchScriptBasename;
   };

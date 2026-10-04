@@ -54,10 +54,6 @@ in
       # (x86_64-linux) like every other check so a single linux runner covers it.
       fabric-ai-build = self.packages.${system}.fabric-ai;
 
-      # Same reason: builds llama-swap at the lib/versions.nix pin, verifying
-      # the source, Go vendor and UI npm hashes nix-update maintains.
-      llama-swap-build = self.packages.${system}.llama-swap;
-
       # Same reason: builds ZCode at the lib/versions.nix pin, verifying the
       # source and pnpm dependency hashes, then runs the installed CLI.
       zcode-build =

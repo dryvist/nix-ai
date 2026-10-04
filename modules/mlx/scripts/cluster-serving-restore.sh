@@ -18,7 +18,7 @@
 #
 # Consumed environment:
 #   CLUSTER_ROLE          coordinator | worker
-#   coordinator: CLUSTER_SERVER_LABEL / CLUSTER_SERVER_PLIST / CLUSTER_WARMUP_LABEL
+#   coordinator: CLUSTER_SERVER_LABELS / CLUSTER_LAUNCH_AGENTS_DIR
 #                CLUSTER_WATCHDOG_LABEL / CLUSTER_WATCHDOG_PLIST (optional — an
 #                older generation without them just skips the watchdog restore)
 #   worker:      CLUSTER_RESTORE_CMD  (cluster-restore — bootstraps back exactly
@@ -27,29 +27,28 @@ restore_normal_serving() {
   local uid
   uid="$(id -u)"
   if [ "$CLUSTER_ROLE" = "coordinator" ]; then
-    # The warmup one-shot re-warms the preload list by POSTing to
-    # llama-swap over loopback, so if the server agent is not loaded the
-    # kickstart hits nothing and no-ops SILENTLY -- serving never comes back.
-    # cluster-join boots that agent out, so any session that used it left the
-    # unattended cable-yank path unable to restore. Bootstrap it first.
-    if [ -n "${CLUSTER_SERVER_LABEL:-}" ] &&
-      ! launchctl print "gui/$uid/$CLUSTER_SERVER_LABEL" > /dev/null 2>&1; then
-      if [ ! -f "${CLUSTER_SERVER_PLIST:-}" ]; then
-        echo "cluster-link: WARN $CLUSTER_SERVER_LABEL not loaded and no plist to bootstrap" >&2
-        return 1
+    # cluster-join boots the resident agents out, so every absent resident must
+    # be bootstrapped from its own plist before standalone serving is restored.
+    local server_label server_plist
+    local -a server_labels=()
+    read -r -a server_labels <<< "${CLUSTER_SERVER_LABELS:-}"
+    for server_label in "${server_labels[@]}"; do
+      if ! launchctl print "gui/$uid/$server_label" > /dev/null 2>&1; then
+        server_plist="${CLUSTER_LAUNCH_AGENTS_DIR:-}/$server_label.plist"
+        if [ ! -f "$server_plist" ]; then
+          echo "cluster-link: WARN $server_label not loaded and no plist to bootstrap" >&2
+          return 1
+        fi
+        echo "cluster-link: standalone server agent not loaded; bootstrapping"
+        if ! launchctl bootstrap "gui/$uid" "$server_plist" > /dev/null 2>&1; then
+          echo "cluster-link: WARN failed to bootstrap $server_label" >&2
+          return 1
+        fi
       fi
-      echo "cluster-link: standalone server agent not loaded; bootstrapping"
-      if ! launchctl bootstrap "gui/$uid" "$CLUSTER_SERVER_PLIST" > /dev/null 2>&1; then
-        echo "cluster-link: WARN failed to bootstrap $CLUSTER_SERVER_LABEL" >&2
-        return 1
-      fi
-    fi
-    # Re-warm the declared preload list through the existing warmup one-shot.
-    launchctl kickstart -k "gui/$uid/$CLUSTER_WARMUP_LABEL" || true
-    # The serving watchdog is booted out alongside the server agent above (see
-    # cluster-join), so it needs the same bootstrap-back treatment -- a plain
-    # kickstart on an unloaded job fails silently, the same failure shape
-    # already fixed for the warmup one-shot. Best-effort: standalone serving itself is
+    done
+    # The serving watchdog is booted out alongside the resident agents above (see
+    # cluster-join), so it needs the same bootstrap-back treatment. Best-effort:
+    # standalone serving itself is
     # already restored by this point, so a watchdog that cannot come back is a
     # missing safety net, not a repeat of the outage this function exists to fix.
     if [ -z "${CLUSTER_WATCHDOG_LABEL:-}" ]; then

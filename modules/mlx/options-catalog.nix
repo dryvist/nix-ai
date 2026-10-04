@@ -20,6 +20,7 @@ let
   cfg = config.programs.mlx;
   catalogData = import ./catalog-data.nix;
   derivePinning = import ./derive-pinning.nix { inherit lib; };
+  derive = import ./derive.nix { inherit lib; };
 
   enabled = lib.filterAttrs (_: sel: sel.enable) cfg.catalog;
 
@@ -67,6 +68,9 @@ let
   flagsFor =
     name: sel:
     profileFor name sel
+    // lib.optionalAttrs (sel.class == "resident" && (entryFor name) ? maxOutputTokens) {
+      maxTokens = (entryFor name).maxOutputTokens;
+    }
     // lib.filterAttrs (k: v: k != "ttl" && v != null) sel.tweaks
     // lib.optionalAttrs (sel.class == "swap" && sel.tweaks.ttl != null) {
       autoUnloadIdleSeconds = sel.tweaks.ttl;
@@ -104,9 +108,48 @@ let
   catalogContextWindows = lib.mapAttrs' (
     name: _: lib.nameValuePair (entryFor name).model ((entryFor name).contextWindowTokens or 32768)
   ) enabled;
+  staticResidentContracts = lib.mapAttrs' (
+    name: _sel:
+    let
+      entry = entryFor name;
+      timeoutSeconds = derive.requestTimeoutSeconds {
+        inherit (entry)
+          contextWindowTokens
+          maxOutputTokens
+          concurrency
+          queueSize
+          prefillTokensPerSecond
+          decodeTokensPerSecond
+          ;
+      };
+      roles = lib.filterAttrs (_: model: model == entry.model) config.services.aiStack.models;
+    in
+    lib.nameValuePair entry.model {
+      inherit (entry)
+        model
+        servicePort
+        contextWindowTokens
+        maxOutputTokens
+        concurrency
+        queueSize
+        ;
+      catalogKey = name;
+      launchdLabel = if roles ? default then "dev.mlx-model-server" else "dev.mlx-model-server.${name}";
+      backend = cfg.modelBackends.${entry.model} or cfg.modelServerBackend;
+      maxInputTokens = entry.contextWindowTokens - entry.maxOutputTokens;
+      inherit timeoutSeconds roles;
+    }
+  ) (lib.filterAttrs (name: sel: sel.class == "resident" && (entryFor name) ? servicePort) enabled);
 in
 {
   options.programs.mlx = {
+    staticResidentContracts = lib.mkOption {
+      type = lib.types.attrsOf lib.types.attrs;
+      default = { };
+      internal = true;
+      description = "Catalog-derived serving, routing, queue, and timeout limits for static resident model servers.";
+    };
+
     modelContextWindows = lib.mkOption {
       type = lib.types.attrsOf lib.types.ints.positive;
       default = { };
@@ -165,10 +208,7 @@ in
         {
           qwen38-27b.class = "resident";
           mimo-9b.class = "resident";
-          unlimited-ocr = {
-            class = "swap";
-            tweaks.ttl = 600;
-          };
+          unlimited-ocr.class = "swap";
         }
       '';
       description = "Validated-model catalog selections. Keys name entries in modules/mlx/catalog-data.nix; the catalog owns parser stacks and per-class flag profiles, the host only picks entries, classes, and bounded tweaks.";
@@ -183,6 +223,7 @@ in
 
   config = lib.mkIf (cfg.enable && enabled != { }) {
     programs.mlx.modelContextWindows = catalogContextWindows;
+    programs.mlx.staticResidentContracts = staticResidentContracts;
     assertions = import ./catalog-assertions.nix {
       inherit
         lib
@@ -190,6 +231,7 @@ in
         residentWeightGb
         selectedRoles
         residents
+        swaps
         ;
     };
 
@@ -211,8 +253,8 @@ in
       # aborts under parallel dispatch). Compile it to the per-physical-id
       # override; mkDefault so a direct host setting still wins.
       modelConcurrencyLimits = lib.mapAttrs' (
-        name: _sel: lib.nameValuePair (entryFor name).model (lib.mkDefault (entryFor name).concurrencyLimit)
-      ) (lib.filterAttrs (name: _sel: (entryFor name) ? concurrencyLimit) enabled);
+        name: _sel: lib.nameValuePair (entryFor name).model (lib.mkDefault (entryFor name).concurrency)
+      ) (lib.filterAttrs (name: _sel: (entryFor name) ? concurrency) enabled);
 
       # A catalog entry may declare the backend it must be served on, for models
       # the host backend cannot run at all (vision-language models: mlx_lm.server

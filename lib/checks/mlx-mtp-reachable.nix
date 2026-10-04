@@ -45,8 +45,13 @@ let
 
   hmConfigMtp = mkHmConfig [
     {
+      programs.litellmLocal.enable = true;
+      services.aiStack = {
+        llmEndpoint = "router";
+        llmRouterEndpoint = "https://router.example.invalid/v1";
+        llmEndpointTokenFile = "/tmp/test-router-token";
+      };
       programs.mlx = {
-        defaultModelKey = "qwen38-27b";
         catalog.qwen38-27b.class = "resident";
         enabledBackends = [
           "mlx-lm"

@@ -33,4 +33,8 @@ if [ "$suppressWiredLimit" = "1" ]; then
   export MLX_SUPPRESS_WIRED_LIMIT=1
 fi
 
+# mlx-lm-launch.py is a single-file store path; the queue helper is a sibling
+# source file, so expose their shared directory explicitly.
+export PYTHONPATH="@launcherDirectory@''${PYTHONPATH:+:$PYTHONPATH}"
+
 exec "@pythonEnv@/bin/python" "@launcher@" "$@"

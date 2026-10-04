@@ -14,8 +14,7 @@
   rankLabel,
   watcherLabel,
   launchAgentsDir,
-  launchAgentLabel,
-  warmupAgentLabel,
+  residentAgentLabels,
   watchdogAgentLabel,
   stateFile,
   pdDebtFile,
@@ -87,19 +86,13 @@ let
       # join consumes the watcher's rank-warmed marker (zero completions issued
       # by join itself), so it needs no cluster endpoint URL/model.
       CLUSTER_NORMAL_PROXY = "http://127.0.0.1:${toString cfg.port}";
-      CLUSTER_SERVER_LABEL = launchAgentLabel;
-      # join BOOTS THIS AGENT OUT, so its failure-path restore cannot work
-      # without the plist: restore_normal_serving refuses with "not loaded and
-      # no plist to bootstrap" in exactly the case that matters. Same pair
-      # cluster-detach and the watcher already carry.
-      CLUSTER_SERVER_PLIST = "${launchAgentsDir}/${launchAgentLabel}.plist";
-      CLUSTER_WARMUP_LABEL = warmupAgentLabel;
+      CLUSTER_SERVER_LABELS = lib.concatStringsSep " " residentAgentLabels;
+      CLUSTER_LAUNCH_AGENTS_DIR = launchAgentsDir;
       # join also boots this agent out (it would otherwise run its escalation
       # ladder against a coordinator it sees as "up but not serving" for the
       # whole cluster window and reload the standalone stack mid-window,
-      # reclaiming the memory the quiesce just freed). Same plist requirement
-      # as CLUSTER_SERVER_PLIST above: restore_normal_serving needs it to
-      # bootstrap the watchdog back on the failure path.
+      # reclaiming the memory the quiesce just freed). restore_normal_serving
+      # needs the watchdog plist to bootstrap it back on the failure path.
       CLUSTER_WATCHDOG_LABEL = watchdogAgentLabel;
       CLUSTER_WATCHDOG_PLIST = "${launchAgentsDir}/${watchdogAgentLabel}.plist";
       CLUSTER_STANDALONE_PROCESS_PATTERN = modelServerProcessPattern;
@@ -143,12 +136,11 @@ let
       CLUSTER_RANK_PLIST = "${launchAgentsDir}/${rankLabel}.plist";
     }
     // lib.optionalAttrs isCoordinator {
-      CLUSTER_SERVER_LABEL = launchAgentLabel;
-      CLUSTER_SERVER_PLIST = "${launchAgentsDir}/${launchAgentLabel}.plist";
-      CLUSTER_WARMUP_LABEL = warmupAgentLabel;
-      # Detach never boots this out itself — it only feeds restore_normal_serving,
-      # same as the pair above. Carried so a detach that follows a join which did
-      # boot the watchdog out can still bootstrap it back.
+      CLUSTER_SERVER_LABELS = lib.concatStringsSep " " residentAgentLabels;
+      CLUSTER_LAUNCH_AGENTS_DIR = launchAgentsDir;
+      # Detach never boots this out itself — it only feeds restore_normal_serving.
+      # Carried so a detach that follows a join which did boot the watchdog out
+      # can still bootstrap it back.
       CLUSTER_WATCHDOG_LABEL = watchdogAgentLabel;
       CLUSTER_WATCHDOG_PLIST = "${launchAgentsDir}/${watchdogAgentLabel}.plist";
     }

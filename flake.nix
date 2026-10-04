@@ -15,10 +15,8 @@
     # cannot bump either — a branch ref never changes, so there is nothing to
     # diff. deps-flake-lock.yml relocks weekly, moving both together.
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-26.05-darwin";
-    # Second nixpkgs only for llama-swap: 25.11-darwin froze it at v165 on
-    # 2025-09-22 with no backports. See nix-ai#801.
+    # Cursor CLI remains sourced from unstable because the release branch is stale.
     nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-
     # Nix packages for AI coding agent CLIs (claude-code, codex, antigravity-cli,
     # copilot-cli, herdr, ...), rebuilt daily by numtide CI for x86_64-linux,
     # aarch64-linux and aarch64-darwin. This is what lets the stack run anywhere

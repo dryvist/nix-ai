@@ -26,8 +26,7 @@
 let
   inherit (mlxShared)
     cfg
-    warmupAgentLabel
-    launchAgentLabel
+    residentAgentLabels
     watchdogAgentLabel
     ;
   ncfg = cfg.clusterMode;
@@ -217,7 +216,8 @@ in
           # mlx_lm.server writes generation timings to stderr.
           CLUSTER_RANK_PROGRESS_LOG = rankStderr;
           CLUSTER_ALERT_URL_FILE = ncfg.alertUrlFile;
-          CLUSTER_WARMUP_LABEL = warmupAgentLabel;
+          CLUSTER_SERVER_LABELS = lib.concatStringsSep " " residentAgentLabels;
+          CLUSTER_LAUNCH_AGENTS_DIR = launchAgentsDir;
           CLUSTER_NORMAL_PROXY = "http://127.0.0.1:${toString cfg.port}";
           CLUSTER_PEER_PROGRESS_PATTERN = pcfg.progressPattern;
           CLUSTER_PEER_PROBE_INTERVAL_SECS = toString pcfg.probeIntervalSecs;
@@ -233,14 +233,8 @@ in
           CLUSTER_HTTP_PORT = toString ncfg.httpPort;
           CLUSTER_RANK_URL = "http://127.0.0.1:${toString ncfg.httpPort}";
           CLUSTER_MODEL = ncfg.model;
-          # Same pair cluster-detach and the watcher carry: restore_normal_serving
-          # must be able to bootstrap llama-swap, or the teardown silently
-          # no-ops and standalone serving never returns.
-          CLUSTER_SERVER_LABEL = launchAgentLabel;
-          CLUSTER_SERVER_PLIST = "${launchAgentsDir}/${launchAgentLabel}.plist";
-          # Same pair, for the serving watchdog: this supervisor's own
-          # restore_normal_serving calls (rank-dead teardown) must be able to
-          # bootstrap it back too, not just llama-swap.
+          # The serving watchdog's restore path must be able to bootstrap it
+          # back too, not just restore resident serving.
           CLUSTER_WATCHDOG_LABEL = watchdogAgentLabel;
           CLUSTER_WATCHDOG_PLIST = "${launchAgentsDir}/${watchdogAgentLabel}.plist";
         }
