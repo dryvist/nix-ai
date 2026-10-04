@@ -137,6 +137,15 @@ in
       '';
     };
 
+    onDemandMcpServers = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      description = ''
+        On-demand MCP servers to enable in Codex's config.toml. Names must be
+        present in programs.aiMcp.onDemandEnabledServers.
+      '';
+    };
+
     # excludedMcpServers + mcpServerNames come from the shared MCP client helper.
   }
   // mcpClient.mkClientOptions "Codex";
