@@ -17,7 +17,20 @@ let
   # timeouts, opencode fuses command+args, qwen splits url/httpUrl); only the
   # filter/exclude step is shared, via mcpClient.renderServers below.
   normalizeClaudeMcpServer =
-    server:
+    original:
+    let
+      # Claude reads credential variables in remote headers as empty in some
+      # cases. A headersHelper reads this consumer's current environment on
+      # every connection, avoiding OAuth discovery and stale session headers.
+      server =
+        if original.bearer_token_env_var != null && !(original.headers ? Authorization) then
+          original
+          // {
+            headersHelper = "printf '{\"Authorization\":\"Bearer %s\"}\\n' \"\${${original.bearer_token_env_var}}\"";
+          }
+        else
+          original;
+    in
     lib.filterAttrs (
       name: value:
       lib.elem name [
@@ -27,6 +40,7 @@ let
         "env"
         "url"
         "headers"
+        "headersHelper"
         "disabled"
       ]
       && value != null

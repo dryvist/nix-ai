@@ -98,9 +98,10 @@ rec {
           extraOnDemandMcpServers.http-test = {
             type = "http";
             url = "https://example.invalid/mcp";
-            env_vars = [ "TEST_TOKEN" ];
+            bearer_token_env_var = "TEST_TOKEN";
           };
         };
+        programs.codex.onDemandMcpServers = [ "http-test" ];
       }
     )
   ];
