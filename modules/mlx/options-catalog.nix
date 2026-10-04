@@ -143,6 +143,12 @@ let
 in
 {
   options.programs.mlx = {
+    staticResidentLocalProxyConsumers = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = "Whether host-local clients consume static resident role aliases through programs.litellmLocal; true requires that proxy to be enabled.";
+    };
+
     staticResidentContracts = lib.mkOption {
       type = lib.types.attrsOf lib.types.attrs;
       default = { };
