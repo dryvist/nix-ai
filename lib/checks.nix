@@ -123,6 +123,7 @@ in
     ;
 })
 // (import ./checks/codex.nix { inherit pkgs hmConfig; })
+// (import ./checks/fast-delegation.nix { inherit pkgs mkHmConfig; })
 // (import ./checks/codex-approvals.nix { inherit pkgs hmConfig mkHmConfig; })
 // (import ./checks/cli-ownership.nix { inherit pkgs hmConfig hmConfigUntrusted; })
 // (import ./checks/untrusted-clis.nix {

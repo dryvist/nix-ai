@@ -25,6 +25,7 @@ let
   inherit (aiCommon) permissions formatters;
 
   mcpClient = import ../mcp/client.nix { inherit lib; };
+  localProxyFeatures = import ./local-proxy-features.nix { inherit config lib; };
 
   # Mirror upstream home-manager programs.codex path logic so rules/config.toml stay co-located.
   packageVersion = if cfg.package != null then lib.getVersion cfg.package else "0.2.0";
@@ -43,6 +44,8 @@ let
     ++ (permissions.directories.config or [ ])
     ++ cfg.trustedProjectDirs
   );
+
+  features = cfg.features // localProxyFeatures;
 
   selectedOnDemandMcpServers = lib.filterAttrs (
     name: _: lib.elem name cfg.onDemandMcpServers
@@ -145,7 +148,7 @@ let
     );
     sandbox_mode = "workspace-write";
     sandbox_workspace_write = {
-      network_access = false;
+      network_access = litellmLocal.enable;
       writable_roots = writableRoots;
     };
     mcp_servers = mcpServers;
@@ -158,8 +161,8 @@ let
   // optionalValue "review_model" cfg.reviewModel
   // optionalValue "service_tier" cfg.serviceTier
   // optionalValue "web_search" cfg.webSearch
-  // lib.optionalAttrs (cfg.features != { }) {
-    inherit (cfg) features;
+  // lib.optionalAttrs (features != { }) {
+    inherit features;
   }
   # Local LiteLLM proxy as an ADDITIONAL provider, not the default one: the
   # top-level model/model_provider above stay as they are, so the lead model
