@@ -123,3 +123,9 @@
     turn_off_message_logging = true;
   };
 }
+// lib.optionalAttrs (staticResidentRoutes != [ ]) {
+  # Static resident aliases are catalog-derived singleton groups. LiteLLM
+  # 1.98 exposes cooldown suppression at router level, so enable its native
+  # setting only when those routes are rendered.
+  router_settings.disable_cooldowns = true;
+}
