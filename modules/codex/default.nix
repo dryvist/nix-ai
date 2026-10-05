@@ -53,7 +53,11 @@ in
         else
           llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.codex
       );
-      context = lib.mkDefault (builtins.readFile "${ai-assistant-instructions}/AGENTS.md");
+      context = lib.mkDefault (
+        import ../../lib/shared-agent-instructions.nix {
+          inherit lib ai-assistant-instructions;
+        }
+      );
       # config.toml is managed via home.activation — do NOT set settings here.
     };
 

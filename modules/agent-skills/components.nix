@@ -35,13 +35,27 @@ let
     source = config.lib.file.mkOutOfStoreSymlink "${homeDir}/${skillRoot}";
   });
 
-  # AGENTS.md fan-out: each tool's native global path → ~/.agents/AGENTS.md
-  harnessAgentsMdSymlinks = lib.mapAttrs' (_name: relPath: {
-    name = relPath;
-    value = {
-      source = config.lib.file.mkOutOfStoreSymlink "${homeDir}/.agents/AGENTS.md";
+  # Global instruction fan-out: each tool's native path receives generated
+  # AGENTS.md, which carries the one canonical operating-core rule.
+  harnessAgentsMdSymlinks =
+    lib.mapAttrs' (_name: relPath: {
+      name = relPath;
+      value = {
+        source = config.lib.file.mkOutOfStoreSymlink "${homeDir}/.agents/AGENTS.md";
+      };
+    }) harnesses.agentsMd
+    // {
+      # Gemini and Antigravity load this global context file directly. Keep their
+      # existing user notes and import the shared sources without copying them.
+      ".gemini/GEMINI.md".text = ''
+        @${homeDir}/.gemini/GEMINI.local.md
+        @${homeDir}/.agents/AGENTS.md
+      '';
     };
-  }) harnesses.agentsMd;
+
+  preserveGeminiContextActivation = import ./gemini-context-activation.nix {
+    inherit lib homeDir;
+  };
 
   # Names-only manifest (descriptions would force IFD on wrapped-command
   # skills). Harnesses without a native skill loader (Copilot, cecli) are
@@ -172,6 +186,8 @@ in
 
     home = {
       activation = {
+        preserveGeminiGlobalContext = preserveGeminiContextActivation;
+
         cleanupLegacySkillCopies = lib.hm.dag.entryBefore [ "checkLinkTargets" ] ''
           cleanup_legacy_root_link() {
             root="$1"

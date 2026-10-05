@@ -1,6 +1,6 @@
 # Harness registry — single source of truth for the shared-agent fan-out.
 #
-# Maps harness name -> skills directory and AGENTS.md file (relative to $HOME).
+# Maps harness name -> skills directory and instruction file (relative to $HOME).
 # Skill directories are symlinked to the root selected by
 # programs.agentSkills.root. Adding a harness here is ONE line: the symlink,
 # the legacy-copy cleanup, and the regression check (lib/checks/agent-skills.nix)
@@ -19,7 +19,8 @@ rec {
     qwen = ".qwen/skills";
     antigravity = ".gemini/antigravity/skills";
     antigravity-cli = ".gemini/antigravity-cli/skills";
-    gemini = ".gemini/config/skills";
+    gemini = ".gemini/skills";
+    zcode = ".zcode/skills";
   };
 
   # AGENTS.md fan-out — each entry is a file path (relative to $HOME) that
@@ -28,6 +29,8 @@ rec {
   agentsMd = {
     qwen = ".qwen/AGENTS.md";
     antigravity-cli = ".gemini/antigravity-cli/AGENTS.md";
+    gemini = ".gemini/GEMINI.md";
     opencode = ".config/opencode/AGENTS.md";
+    zcode = ".zcode/AGENTS.md";
   };
 }
