@@ -790,6 +790,23 @@
         "type": "github"
       }
     },
+    "nix-agent-sandbox-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1791145659,
+        "narHash": "sha256-A+hW2K4VEFiPgneELfLjQY/Z8mxUxYv13/cNetmbljg=",
+        "owner": "dryvist",
+        "repo": "nix-agent-sandbox",
+        "rev": "43f8141613de6b15e8b69f264a45ebec2f92773e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "dryvist",
+        "ref": "main",
+        "repo": "nix-agent-sandbox",
+        "type": "github"
+      }
+    },
     "nix-agy": {
       "inputs": {
         "gemini-cli": "gemini-cli",
@@ -1048,6 +1065,7 @@
         "llm-agents": "llm-agents",
         "managing-dependencies": "managing-dependencies",
         "mattpocock-skills": "mattpocock-skills",
+        "nix-agent-sandbox-src": "nix-agent-sandbox-src",
         "nix-agy": "nix-agy",
         "nix-claude-code": "nix-claude-code",
         "nix-claude-code-launcher-src": "nix-claude-code-launcher-src",
