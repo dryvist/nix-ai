@@ -78,6 +78,7 @@ let
   mimoAgent = builtins.head (
     builtins.filter (agent: lib.hasSuffix ".mimo-9b" agent.config.Label) residentAgents
   );
+  preflightServer = builtins.head mimoAgent.config.ProgramArguments;
   hasPair =
     args: first: second:
     if args == [ ] then
@@ -95,6 +96,33 @@ let
     "$python" ${src}/tests/test_mlx_bounded_queue.py
     touch "$out"
   '';
+  cachePreflightTest = pkgs.runCommand "check-mlx-resident-model-cache" { } ''
+    cat > model-server-stub <<'EOF'
+    #!/bin/sh
+    : > "$MODEL_CACHE_TEST_LISTENER"
+    EOF
+    chmod +x model-server-stub
+    export MODEL_CACHE_TEST_LISTENER="$PWD/listener-opened"
+    export HF_HUB_OFFLINE=1
+    export HF_HOME="$TMPDIR/hf-home"
+    unset HF_HUB_CACHE
+    model="modelcache-fixture/missing-model"
+    snapshot_dir="$HF_HOME/hub/models--modelcache-fixture--missing-model/snapshots"
+    if ${preflightServer} "$PWD/model-server-stub" --model "$model" 2>missing.log; then
+      echo "old behavior: resident server reached its listener with an absent cache" >&2
+      exit 1
+    fi
+    [ ! -e "$MODEL_CACHE_TEST_LISTENER" ] || {
+      echo "resident server reached its listener with an absent cache" >&2
+      exit 1
+    }
+    printf 'mlx-model-server-preflight: model %s is missing from HF cache; expected a snapshot at %s/*\n' "$model" "$snapshot_dir" > expected.log
+    diff -u expected.log missing.log
+    mkdir -p "$snapshot_dir/revision-fixture"
+    ${preflightServer} "$PWD/model-server-stub" --model "$model"
+    [ -e "$MODEL_CACHE_TEST_LISTENER" ]
+    touch "$out"
+  '';
 in
 {
   mlx-static-resident-agents =
@@ -109,8 +137,19 @@ in
       && lib.all (
         agent: !(lib.any (arg: lib.hasInfix "llama-swap" arg) agent.config.ProgramArguments)
       ) residentAgents
+      && lib.all (
+        agent:
+        let
+          args = agent.config.ProgramArguments;
+        in
+        builtins.length args >= 3
+        && builtins.head args == preflightServer
+        && builtins.elemAt args 2 == "--model"
+        && agent.config.EnvironmentVariables.HF_HUB_OFFLINE == "1"
+        && agent.config.EnvironmentVariables.HF_HOME != ""
+      ) residentAgents
     then
-      helpers.mkMarker "check-mlx-static-resident-agents" "two always-loaded resident LaunchAgents run mlx-lm-server directly"
+      helpers.mkMarker "check-mlx-static-resident-agents" "two always-loaded resident LaunchAgents share the cache preflight before starting model servers"
     else
       throw "static resident mode must render exactly the two KeepAlive model agents without llama-swap";
 
@@ -183,4 +222,5 @@ in
       throw "static resident proxy requirement: server-only config must render its model agent without client routes, and declared local consumers must require LiteLLM";
 
   mlx-static-resident-queue = queueTest;
+  mlx-static-resident-cache = cachePreflightTest;
 }
