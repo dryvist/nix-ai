@@ -5,7 +5,7 @@
 let
   model = (import ./model-catalog.nix)."mlx-community/Qwen3.8-27B-4bit";
   profile = model.profiles.mlx;
-  swap = profile.swap;
+  inherit (profile) swap;
   contextWindowTokens = profile.context_window;
   maxOutputTokens = profile.max_output_tokens or model.max_output_tokens;
   concurrency = profile.max_parallel_requests or model.max_parallel_requests;
