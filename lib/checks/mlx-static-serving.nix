@@ -193,9 +193,29 @@ in
         == "http://127.0.0.1:${toString hmConfigStaticServing.config.programs.litellmLocal.port}/v1"
       && limits.clients.ghGuard.url == "${limits.routerUrl}/chat/completions"
       && limits.clients.ghGuard.timeoutSeconds == mimo.timeoutSeconds
+      && limits.clients.recorder.identity == "recorder"
+      && limits.clients.recorder.models.default == "default"
+      && limits.clients.recorder.models.fast == "fast"
+      &&
+        limits.clients.recorder.requestTimeoutSeconds == builtins.foldl' lib.max 0 (
+          map (model: limits.models.${model}.timeoutSeconds) [
+            qwen.model
+            mimo.model
+          ]
+        )
+      &&
+        limits.clients.recorder.pipeTimeoutSeconds == builtins.foldl' lib.max 0 (
+          map (model: limits.models.${model}.pipeTimeoutSeconds) [
+            qwen.model
+            mimo.model
+          ]
+        )
+      && limits.clients.recorder.pipeTimeoutSeconds > limits.clients.recorder.requestTimeoutSeconds
       && limits.models.${mimo.model}.timeoutSeconds == mimo.timeoutSeconds
+      && limits.models.${mimo.model}.pipeTimeoutSeconds > limits.models.${mimo.model}.timeoutSeconds
       && limits.models.${mimo.model}.queueSize == mimo.queueSize
       && limits.models.${qwen.model}.timeoutSeconds == qwen.timeoutSeconds
+      && limits.models.${qwen.model}.pipeTimeoutSeconds > limits.models.${qwen.model}.timeoutSeconds
       &&
         session.MLX_RESIDENT_MODEL_LIMITS_FILE
         == "${hmConfigStaticServing.config.home.homeDirectory}/.config/mlx/resident-model-limits.json"
