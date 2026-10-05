@@ -9,7 +9,7 @@ let
 in
 builtins.listToAttrs (
   map (model: {
-    name = model.name;
+    inherit (model) name;
     value = model;
   }) models
 )
