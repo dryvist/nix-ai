@@ -1,7 +1,7 @@
-# Bound caller timeouts from the same serving envelope used by the worker.
+# Bound the caller and pipe deadlines from the same serving envelope.
 # A full queue can place a new request behind ceil(queueSize/concurrency)
-# service waves; add the request's own worst-case prefill and decode time.
-{ lib }:
+# service waves; the pipe gets one additional service wave after the request
+# deadline so it cannot cancel the request at its own timeout boundary.
 {
   contextWindowTokens,
   maxOutputTokens,
@@ -17,4 +17,7 @@ let
     + divCeil maxOutputTokens decodeTokensPerSecond;
   queueWaves = divCeil queueSize concurrency;
 in
-(queueWaves + 1) * requestSeconds
+{
+  requestTimeoutSeconds = (queueWaves + 1) * requestSeconds;
+  pipeTimeoutSeconds = (queueWaves + 2) * requestSeconds;
+}

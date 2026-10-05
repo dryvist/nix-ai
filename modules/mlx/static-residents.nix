@@ -28,6 +28,17 @@ let
   judgeModelId = byRole.judge or null;
   judgeContract = if judgeModelId == null then { } else contracts.${judgeModelId};
   routerUrl = "http://127.0.0.1:${toString config.programs.litellmLocal.port}/v1";
+  recorderModels = {
+    default = "default";
+    fast = "fast";
+  };
+  recorderContracts = map (role: contracts.${byRole.${role}}) (builtins.attrValues recorderModels);
+  recorderRequestTimeoutSeconds = lib.foldl' lib.max 0 (
+    map (contract: contract.timeoutSeconds) recorderContracts
+  );
+  recorderPipeTimeoutSeconds = lib.foldl' lib.max 0 (
+    map (contract: contract.pipeTimeoutSeconds) recorderContracts
+  );
   consumerConfig = {
     inherit routerUrl;
     models = lib.mapAttrs (
@@ -48,10 +59,10 @@ let
       recorder = {
         baseUrl = routerUrl;
         defaultModel = "fast";
-        models = {
-          default = "default";
-          fast = "fast";
-        };
+        identity = "recorder";
+        models = recorderModels;
+        requestTimeoutSeconds = recorderRequestTimeoutSeconds;
+        pipeTimeoutSeconds = recorderPipeTimeoutSeconds;
       };
     };
   };
