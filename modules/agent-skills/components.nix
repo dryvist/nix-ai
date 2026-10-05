@@ -53,6 +53,10 @@ let
       '';
     };
 
+  preserveGeminiContextActivation = import ./gemini-context-activation.nix {
+    inherit lib homeDir;
+  };
+
   # Names-only manifest (descriptions would force IFD on wrapped-command
   # skills). Harnesses without a native skill loader (Copilot, cecli) are
   # pointed at this file from their instruction context, so any file-capable
@@ -182,21 +186,7 @@ in
 
     home = {
       activation = {
-        preserveGeminiGlobalContext = lib.hm.dag.entryBefore [ "checkLinkTargets" ] ''
-          context_file="${homeDir}/.gemini/GEMINI.md"
-          local_file="${homeDir}/.gemini/GEMINI.local.md"
-          $DRY_RUN_CMD mkdir -p "${homeDir}/.gemini"
-          if [ -f "$context_file" ] && [ ! -L "$context_file" ]; then
-            if [ -e "$local_file" ]; then
-              echo "Cannot preserve Gemini context: $local_file already exists" >&2
-              exit 1
-            fi
-            $DRY_RUN_CMD mv "$context_file" "$local_file"
-          fi
-          if [ ! -e "$local_file" ]; then
-            $DRY_RUN_CMD touch "$local_file"
-          fi
-        '';
+        preserveGeminiGlobalContext = preserveGeminiContextActivation;
 
         cleanupLegacySkillCopies = lib.hm.dag.entryBefore [ "checkLinkTargets" ] ''
           cleanup_legacy_root_link() {
