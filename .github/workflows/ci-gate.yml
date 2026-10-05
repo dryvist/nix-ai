@@ -35,6 +35,8 @@ jobs:
       # validation (startup_failure).
       actions: write
     uses: dryvist/.github/.github/workflows/_ci-gate.yml@main
+    secrets:
+      TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
     with:
       runner_label: runs-on=${{ github.run_id }}/runner=2cpu-linux-x64
       nix_validate: true
