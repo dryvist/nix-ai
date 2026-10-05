@@ -118,6 +118,7 @@ in
       self
       nixpkgs
       home-manager
+      ai-assistant-instructions
       nixAiLib
       ai-llm-prompts
       herdr-remote-src

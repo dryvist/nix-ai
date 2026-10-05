@@ -18,6 +18,7 @@
   pkgs,
   src,
   home-manager,
+  ai-assistant-instructions,
   aiModule,
   renderAutonomous,
   roleMap,
@@ -125,6 +126,9 @@ in
     hmConfig
     hmConfigAgentSkillsShared
     ;
+})
+// (import ./checks/agent-skills-monitoring.nix {
+  inherit pkgs hmConfig ai-assistant-instructions;
 })
 // (import ./checks/codex.nix { inherit pkgs hmConfig; })
 // (import ./checks/fast-delegation.nix { inherit pkgs mkHmConfig; })

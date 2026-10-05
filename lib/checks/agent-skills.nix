@@ -114,12 +114,6 @@ in
   agent-skills-home-files =
     let
       skillIndex = hmConfig.config.home.file.".codex/skills/INDEX.md".text;
-      geminiGlobalContext = hmConfig.config.home.file.".gemini/GEMINI.md".text;
-      sharedAgentsMd = hmConfig.config.home.file.".agents/AGENTS.md".text;
-      codexContext = hmConfig.config.programs.codex.context;
-      homeDir = hmConfig.config.home.homeDirectory;
-      monitoringRule = "Check system state with monitoring first; follow the `monitoring-first` skill before direct shell probes.";
-      countOccurrences = needle: text: builtins.length (pkgs.lib.splitString needle text) - 1;
       # Same registry the module fans out from — the check cannot drift.
       harnesses = import ../../modules/agent-skills/harnesses.nix;
       sharedSkillLinks = builtins.attrValues harnesses.skills;
@@ -180,33 +174,6 @@ in
     assert
       missingAgentsMdLinks == [ ]
       || throw "Agent Skills AGENTS.md harness links missing: ${builtins.toJSON missingAgentsMdLinks}";
-    assert
-      builtins.elem ".gemini/skills" sharedSkillLinks
-      || throw "Gemini Agent Skills path is missing from the harness registry";
-    assert
-      builtins.elem ".zcode/skills" sharedSkillLinks
-      || throw "ZCode Agent Skills path is missing from the harness registry";
-    assert
-      builtins.elem ".gemini/GEMINI.md" sharedAgentsMdLinks
-      || throw "Gemini global instruction path is missing from the harness registry";
-    assert
-      builtins.elem ".zcode/AGENTS.md" sharedAgentsMdLinks
-      || throw "ZCode global instruction path is missing from the harness registry";
-    assert
-      countOccurrences "@${homeDir}/.agents/AGENTS.md" geminiGlobalContext == 1
-      || throw "Gemini global context must import shared AGENTS.md exactly once";
-    assert
-      !(pkgs.lib.hasInfix "@${homeDir}/.agents/agentsmd/rules/operating-core.md" geminiGlobalContext)
-      || throw "Gemini imports operating-core twice through its shared AGENTS.md";
-    assert
-      countOccurrences monitoringRule sharedAgentsMd == 1
-      || throw "Generated shared AGENTS.md must contain the monitoring rule exactly once";
-    assert
-      countOccurrences monitoringRule codexContext == 1
-      || throw "Codex context must contain the monitoring rule exactly once";
-    assert
-      pkgs.lib.hasInfix "@${homeDir}/.gemini/GEMINI.local.md" geminiGlobalContext
-      || throw "Gemini global context does not preserve local notes";
     # autoresearch is opt-in (disabled globally, see modules/claude/plugins/
     # 04-community.nix), so hf-cli proves this marketplace-flag-gated flake
     # input discovery path instead.
@@ -216,12 +183,6 @@ in
     assert
       builtins.elem ".codex/skills/premium-agent-orchestration" managedSkillEntries
       || throw "premium-agent-orchestration skill not discovered from the direct plugin input";
-    assert
-      builtins.elem ".codex/skills/monitoring-first" managedSkillEntries
-      || throw "monitoring-first skill not discovered from homelab-ops";
-    assert
-      pkgs.lib.hasInfix "- monitoring-first" skillIndex
-      || throw "monitoring-first is missing from the shared skill index";
     # Discovery follows the plugin flag: a disabled plugin's skills must not
     # deploy, or disabling a plugin would trim the listing but not the tree.
     assert
