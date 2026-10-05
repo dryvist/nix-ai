@@ -1,9 +1,9 @@
 # MLX Module — the serving-limit derivation
 #
 # Every memory/buffer limit a model server runs with is computed HERE from a
-# small input set, not hand-set at a call site. Before this file the values
-# were literals in catalog entries, catalog-lib, and options-proxy, hand-
-# calculated once and hand-synced forever — already drifted (below).
+# small input set, not hand-set at a call site. Request limits and backend
+# profiles live in the shared homelab-contracts catalog; this file computes
+# memory sizing from those inputs and the declared hardware/model geometry.
 #
 #   INPUT       a hardware/model fact or deliberate choice. Written once.
 #   CALIBRATION an empirical coefficient, not derivable from first
@@ -14,10 +14,10 @@
 #
 # WHAT WAS WRONG BEFORE (2026-08-27), each a live trap:
 #
-#   1. catalog-lib.nix documents
+#   1. The old local helper documented
 #        perTokenKvBytes = 2 * kvLayers * kvHeads * headDim * kvDtypeBytes
 #      but never executed it — every occurrence was hand-evaluated into a
-#      COMMENT. This file is the first code that computes it.
+#      COMMENT. This file is the code that computes it.
 #
 #   2. options-proxy.nix's concurrencyLimitCeiling restated the catalog
 #      instead of reading it (peakWeightGiB=31, kvPerTokenDenseKiB=64,
@@ -69,8 +69,8 @@ let
     # MLX allocator internals, not derivable from first principles.
     #
     # SEEDED AT 1, DELIBERATELY UNCALIBRATED: no real buffer-exhaustion run
-    # exists to fit it to yet (catalog-lib's "~98K buffers at maxNumSeqs 8 x
-    # 65K window" and catalog-data.nix's unrelated-model
+    # exists to fit it to yet (the former helper's "~98K buffers at maxNumSeqs
+    # 8 x 65K window" and catalog-data.nix's unrelated-model
     # perTokenKvBytes=98304 B/token were checked 2026-08-28 and are
     # legitimately different quantities, not a units collision — but neither
     # is a calibration measurement). Fit to a real run before trusting the
@@ -103,7 +103,7 @@ let
   gib = 1024 * 1024 * 1024;
   mib = 1024 * 1024;
 
-  # perTokenKvBytes — the formula catalog-lib.nix documents, finally executed.
+  # perTokenKvBytes — the formerly documentation-only formula, now executed.
   #
   # kvLayers is the count of KV-BEARING layers, which for a hybrid-attention
   # model is ONLY its full-attention layers: the linear/recurrent layers get an
