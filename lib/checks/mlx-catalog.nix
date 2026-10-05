@@ -14,6 +14,13 @@ in
       mimo = "mlx-community/MiMo-V2.6-Distill-Qwen-9B-OptiQ-4bit";
       ocr = "mlx-community/Unlimited-OCR-bf16";
       judge27b = "mlx-community/Qwen3.8-27B-4bit";
+      modelCatalog = import ../../modules/mlx/model-catalog.nix;
+      mimoModel = modelCatalog.${mimo};
+      mimoProfile = mimoModel.profiles.mlx;
+      mimoSwap = mimoProfile.swap;
+      judgeModel = modelCatalog.${judge27b};
+      judgeProfile = judgeModel.profiles.mlx;
+      judgeMaxOutput = judgeProfile.max_output_tokens or judgeModel.max_output_tokens;
       judgeFlags = c.modelFlagOverrides.${judge27b};
       judgeArgs = builtins.concatStringsSep " " c.modelExtraArgs.${judge27b};
       commandBuilder = import ../../modules/mlx/model-server-cmd.nix {
@@ -55,20 +62,21 @@ in
       judgeFlags.cacheMemoryMb == 8192
       || throw "catalog: direct host override (8192) must beat the catalog default, got ${toString judgeFlags.cacheMemoryMb}";
     assert
-      judgeFlags.pagedCacheBlockSize == 512 && judgeFlags.maxNumSeqs == 8
-      || throw "catalog: 27B resident profile (block 512 / maxNumSeqs 8) not compiled";
+      judgeFlags.pagedCacheBlockSize == judgeProfile.paged_cache_block_size
+      && judgeFlags.maxNumSeqs == judgeProfile.max_num_sequences
+      || throw "catalog: Qwen3.8 resident cache settings disagree with the shared model profile";
     assert
       builtins.match ".*--tool-call-parser.*" judgeCmd == null
       || throw "catalog: official mlx_lm serving args must not carry --tool-call-parser: ${judgeCmd}";
     assert
-      c.modelContextWindows.${judge27b} == 131072
-      || throw "catalog: Qwen3.8 must compile its 131072-token production window";
+      c.modelContextWindows.${judge27b} == judgeProfile.context_window
+      || throw "catalog: Qwen3.8 context window disagrees with the shared model profile";
     assert
-      c.modelFlagOverrides.${judge27b}.maxRequestTokens == 131072
-      || throw "catalog: Qwen3.8 must admit its declared 131072-token production window";
+      c.modelFlagOverrides.${judge27b}.maxRequestTokens == judgeProfile.context_window
+      || throw "catalog: Qwen3.8 request cap disagrees with the shared model profile";
     assert
-      c.modelContextWindows.${mimo} == 40960
-      || throw "catalog: the MiMo entry must advertise its declared context window";
+      c.modelContextWindows.${mimo} == mimoProfile.context_window
+      || throw "catalog: MiMo context window disagrees with the shared MLX profile";
     # Concurrency must come from the model's catalog entry rather than a proxy
     # default, so the static worker's admission limit agrees with its queue.
     # The reasoning effort must be PINNED EXPLICITLY, to one of the two values
@@ -88,9 +96,17 @@ in
       && builtins.match ".*reasoning_effort.*(low|medium).*" judgeArgs != null
       || throw "catalog: the 27B entry must declare its worker concurrency and pin reasoning_effort to low or medium";
     assert
+      c.modelConcurrencyLimits.${mimo} == mimoProfile.max_parallel_requests
+      && mimoProfile.max_parallel_requests != mimoModel.max_parallel_requests
+      && c.modelFlagOverrides.${mimo}.maxNumSeqs == mimoSwap.max_num_sequences
+      && c.modelFlagOverrides.${mimo}.maxRequestTokens == mimoSwap.max_request_tokens
+      && c.modelFlagOverrides.${mimo}.autoUnloadIdleSeconds == mimoSwap.auto_unload_idle_seconds
+      && c.modelFlagOverrides.${mimo}.cacheMemoryMb == mimoSwap.cache_memory_mb
+      || throw "catalog: MiMo backend and swap projections disagree with the shared model profile";
+    assert
       builtins.match ".*mlx-model-server --model mlx-community/Qwen3.8-27B-4bit.*" judgeCmd != null
       && builtins.match ".*--log-level INFO.*" judgeCmd != null
-      && builtins.match ".*--max-tokens 8192.*" judgeCmd != null
+      && builtins.match ".*--max-tokens ${toString judgeMaxOutput}.*" judgeCmd != null
       && builtins.match ".*--decode-concurrency ${conc judge27b}.*" judgeCmd != null
       && builtins.match ".*--prompt-concurrency ${conc judge27b}.*" judgeCmd != null
       && builtins.match ".*--prompt-cache-size 16.*" judgeCmd != null
@@ -115,7 +131,9 @@ in
     assert
       hmConfigCatalog.config.services.aiStack.roleOverrides.judge == judge27b
       || throw "catalog: logical judge role must resolve to the catalog-owned physical model";
-    assert c.modelConcurrencyLimits.${mimo} == 4 || throw "catalog: mimo-9b must compile concurrency=4";
+    assert
+      c.staticResidentContracts.${judge27b}.queueSize == judgeProfile.queue_size
+      || throw "catalog: Qwen3.8 resident queue disagrees with the shared model profile";
     assert
       c.modelBackends.${ocr} == "mlx-vlm"
       || throw "catalog: the role-map OCR entry remains declared on its VLM backend";

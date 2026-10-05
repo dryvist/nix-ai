@@ -12,6 +12,7 @@
   nix-codex,
   nix-agy,
   agent-limits-src,
+  nix-agent-sandbox-src,
   nix-claude-code-launcher-src,
   nix-codex-launcher-src,
   karpathy-skills,
@@ -84,6 +85,7 @@ in
       gh-stack
       token-meter-src
       homelab-contracts
+      nix-agent-sandbox-src
       ;
     inherit (nixAiLib) agentNofile;
   };
@@ -116,6 +118,7 @@ in
       self
       nixpkgs
       home-manager
+      ai-assistant-instructions
       nixAiLib
       ai-llm-prompts
       herdr-remote-src

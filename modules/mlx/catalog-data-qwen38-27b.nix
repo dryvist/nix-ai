@@ -1,17 +1,27 @@
 # qwen38-27b — split out of catalog-data.nix for the per-file 12KB gate (same
 # split-rather-than-exempt pattern as catalog-data-80b-instruct.nix). Merged
-# into the same catalog attrset by catalog-data.nix; see that file for the
-# entry schema and catalog-lib.nix for the shared serve-arg helpers.
+# into the same catalog attrset by catalog-data.nix; homelab-contracts owns its
+# serving profile values.
 let
-  inherit (import ./catalog-lib.nix)
-    block256
-    block512
-    defaultResidentQueueSize
-    swapFlags
-    ;
-  contextWindowTokens = 131072;
-  maxOutputTokens = 8192;
-  concurrency = 1;
+  model = (import ./model-catalog.nix)."mlx-community/Qwen3.8-27B-4bit";
+  profile = model.profiles.mlx;
+  inherit (profile) swap;
+  contextWindowTokens = profile.context_window;
+  maxOutputTokens = profile.max_output_tokens or model.max_output_tokens;
+  concurrency = profile.max_parallel_requests or model.max_parallel_requests;
+  swapFlags = {
+    autoUnloadIdleSeconds = swap.auto_unload_idle_seconds;
+    maxNumSeqs = swap.max_num_sequences;
+    maxRequestTokens = swap.max_request_tokens;
+  }
+  // (
+    if swap ? paged_cache_block_size then
+      {
+        pagedCacheBlockSize = swap.paged_cache_block_size;
+      }
+    else
+      { }
+  );
 in
 {
   # Resident Hermes goal judge and default small/midsize model.
@@ -73,12 +83,9 @@ in
     # 131,072 so the remaining range is available for separately managed 200K
     # feasibility work rather than silently becoming a fleet default.
     inherit contextWindowTokens maxOutputTokens concurrency;
-    queueSize = defaultResidentQueueSize;
-    # Conservative floors from the MacBook measurements used to derive the
-    # queue-aware timeout. These are catalog calibration inputs, not copied
-    # client timeout values.
-    prefillTokensPerSecond = 150;
-    decodeTokensPerSecond = 17;
+    queueSize = profile.queue_size;
+    prefillTokensPerSecond = profile.prefill_tokens_per_second;
+    decodeTokensPerSecond = profile.decode_tokens_per_second;
     servicePort = 11434;
     args = [
       "--chat-template-args"
@@ -109,8 +116,9 @@ in
       # with headroom to spare — see options-catalog.nix's derivedCacheMb.
       resident = {
         cacheProvisioning.concurrency = concurrency;
-        flags = block512 // {
-          maxNumSeqs = 8;
+        flags = {
+          pagedCacheBlockSize = profile.paged_cache_block_size;
+          maxNumSeqs = profile.max_num_sequences;
           maxRequestTokens = contextWindowTokens;
           maxTokens = maxOutputTokens;
         };
@@ -120,11 +128,11 @@ in
       # real run. Tracked: Vikunja #106.
       swap = {
         cacheProvisioning.pinned = {
-          mb = 3072;
+          mb = swap.cache_memory_mb;
           reason = "live working value; forModel's derivation for this shape unvalidated against a real run";
           tracking = "vikunja#106";
         };
-        flags = block256 // swapFlags;
+        flags = swapFlags;
       };
     };
   };
