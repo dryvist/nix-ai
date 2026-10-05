@@ -1,5 +1,20 @@
 # Changelog
 
+## [7.6.0](https://github.com/dryvist/nix-ai/compare/v7.5.2...v7.6.0) (2026-10-05)
+
+
+### Features
+
+* add zcode-job to Darwin Home Manager ([bd527fe](https://github.com/dryvist/nix-ai/commit/bd527fedc0420c80eb4ca01c8a8dde1ca358acac))
+* **agent-skills:** fan out monitoring-first context ([b1dcde1](https://github.com/dryvist/nix-ai/commit/b1dcde105adfcdf237b34a51e3108cfd2a2f6a1c))
+
+
+### Bug Fixes
+
+* **mlx:** preflight resident cache startup ([#2385](https://github.com/dryvist/nix-ai/issues/2385)) ([24b5342](https://github.com/dryvist/nix-ai/commit/24b5342c9634161c660b0632bc8f627cb9f4ee47))
+* **zcode-job:** pin merged sandbox source ([293bcc6](https://github.com/dryvist/nix-ai/commit/293bcc66f240fc06e7ee7220e8d04efc931ad790))
+* **zcode-job:** track sandbox source branch ([4515759](https://github.com/dryvist/nix-ai/commit/4515759814d9872b7034c25c2f715d3193c253fd))
+
 ## [7.5.2](https://github.com/dryvist/nix-ai/compare/v7.5.1...v7.5.2) (2026-10-04)
 
 
