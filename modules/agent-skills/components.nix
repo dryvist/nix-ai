@@ -35,13 +35,23 @@ let
     source = config.lib.file.mkOutOfStoreSymlink "${homeDir}/${skillRoot}";
   });
 
-  # AGENTS.md fan-out: each tool's native global path → ~/.agents/AGENTS.md
-  harnessAgentsMdSymlinks = lib.mapAttrs' (_name: relPath: {
-    name = relPath;
-    value = {
-      source = config.lib.file.mkOutOfStoreSymlink "${homeDir}/.agents/AGENTS.md";
+  # Global instruction fan-out: each tool's native path receives generated
+  # AGENTS.md, which carries the one canonical operating-core rule.
+  harnessAgentsMdSymlinks =
+    lib.mapAttrs' (_name: relPath: {
+      name = relPath;
+      value = {
+        source = config.lib.file.mkOutOfStoreSymlink "${homeDir}/.agents/AGENTS.md";
+      };
+    }) harnesses.agentsMd
+    // {
+      # Gemini and Antigravity load this global context file directly. Keep their
+      # existing user notes and import the shared sources without copying them.
+      ".gemini/GEMINI.md".text = ''
+        @${homeDir}/.gemini/GEMINI.local.md
+        @${homeDir}/.agents/AGENTS.md
+      '';
     };
-  }) harnesses.agentsMd;
 
   # Names-only manifest (descriptions would force IFD on wrapped-command
   # skills). Harnesses without a native skill loader (Copilot, cecli) are
@@ -172,6 +182,22 @@ in
 
     home = {
       activation = {
+        preserveGeminiGlobalContext = lib.hm.dag.entryBefore [ "checkLinkTargets" ] ''
+          context_file="${homeDir}/.gemini/GEMINI.md"
+          local_file="${homeDir}/.gemini/GEMINI.local.md"
+          $DRY_RUN_CMD mkdir -p "${homeDir}/.gemini"
+          if [ -f "$context_file" ] && [ ! -L "$context_file" ]; then
+            if [ -e "$local_file" ]; then
+              echo "Cannot preserve Gemini context: $local_file already exists" >&2
+              exit 1
+            fi
+            $DRY_RUN_CMD mv "$context_file" "$local_file"
+          fi
+          if [ ! -e "$local_file" ]; then
+            $DRY_RUN_CMD touch "$local_file"
+          fi
+        '';
+
         cleanupLegacySkillCopies = lib.hm.dag.entryBefore [ "checkLinkTargets" ] ''
           cleanup_legacy_root_link() {
             root="$1"

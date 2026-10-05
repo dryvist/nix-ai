@@ -155,6 +155,7 @@ rec {
     "dell-idrac-bmc-ops"
     "homelab-runbooks"
     "infrastructure-standards"
+    "monitoring-first"
     "openbao-dynamic-aws-creds"
     "openbao-secrets"
     "orchestrate-infra"

@@ -18,17 +18,19 @@
 }:
 
 let
-  # AgentsMD symlinks from ai-assistant-instructions flake input.
-  # Deployed to ~/.agents/ (not ~/ bare) — each AI CLI tool finds
-  # AGENTS.md via its native global config hierarchy and the harness
-  # symlinks in modules/agent-skills/harnesses.nix.
-  agentsMdSymlinks = {
+  # Generated from canonical AGENTS.md plus the one always-on rule that names
+  # the shared monitoring skill. Harness-native AGENTS.md paths link to this
+  # single output; instructions and the rule remain owned by their source files.
+  sharedAgentsMd = import ../lib/shared-agent-instructions.nix {
+    inherit lib ai-assistant-instructions;
+  };
+  agentsMdFiles = {
     ".agents/CLAUDE.md" = {
       source = "${ai-assistant-instructions}/CLAUDE.md";
       force = true;
     };
     ".agents/AGENTS.md" = {
-      source = "${ai-assistant-instructions}/AGENTS.md";
+      text = sharedAgentsMd;
       force = true;
     };
     ".agents/agentsmd" = {
@@ -142,7 +144,7 @@ in
           import ./ai-tools/untrusted-clis.nix { inherit pkgs llm-agents ohMyOpenagentDisabled; }
         );
 
-      file = lib.optionalAttrs untrusted copilotFiles // agentsMdSymlinks;
+      file = lib.optionalAttrs untrusted copilotFiles // agentsMdFiles;
 
       activation = {
         brewTrustStore = lib.mkIf pkgs.stdenv.isDarwin (
