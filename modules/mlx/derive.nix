@@ -148,7 +148,7 @@ let
       usable = lib.filter fits blockSizeCandidates;
     in
     if usable == [ ] then null else lib.head usable;
-  requestTimeoutSeconds = import ./request-timeout.nix { inherit lib; };
+  requestTimeouts = import ./request-timeout.nix;
   concurrencyCeilingFor = import ./concurrency-ceiling.nix {
     inherit
       lib
@@ -163,7 +163,7 @@ rec {
     metalBufferCeiling
     calibration
     perTokenKvBytes
-    requestTimeoutSeconds
+    requestTimeouts
     concurrencyCeilingFor
     ;
 

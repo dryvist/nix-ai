@@ -112,7 +112,7 @@ let
     name: _sel:
     let
       entry = entryFor name;
-      timeoutSeconds = derive.requestTimeoutSeconds {
+      timeouts = derive.requestTimeouts {
         inherit (entry)
           contextWindowTokens
           maxOutputTokens
@@ -137,7 +137,9 @@ let
       launchdLabel = if roles ? default then "dev.mlx-model-server" else "dev.mlx-model-server.${name}";
       backend = cfg.modelBackends.${entry.model} or cfg.modelServerBackend;
       maxInputTokens = entry.contextWindowTokens - entry.maxOutputTokens;
-      inherit timeoutSeconds roles;
+      timeoutSeconds = timeouts.requestTimeoutSeconds;
+      inherit (timeouts) pipeTimeoutSeconds;
+      inherit roles;
     }
   ) (lib.filterAttrs (name: sel: sel.class == "resident" && (entryFor name) ? servicePort) enabled);
 in

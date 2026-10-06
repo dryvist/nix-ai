@@ -49,7 +49,7 @@ in
 
   # MCP servers (npm)
   # renovate: datasource=npm depName=@upstash/context7-mcp
-  context7Mcp = "3.2.3";
+  context7Mcp = "4.0.5";
   # renovate: datasource=npm depName=@modelcontextprotocol/server-everything
   mcpEverything = "2026.7.4";
   # renovate: datasource=npm depName=@modelcontextprotocol/server-filesystem
