@@ -1,5 +1,18 @@
 # Changelog
 
+## [7.8.0](https://github.com/dryvist/nix-ai/compare/v7.7.0...v7.8.0) (2026-10-06)
+
+
+### Features
+
+* **mlx,litellm:** align local router to standard port 11434, assign model-size ports 11409 and 11427, enable MiMo thinking ([82df375](https://github.com/dryvist/nix-ai/commit/82df375ff5558c0b1f2df9861a3632fd796ee1df))
+* **mlx,litellm:** update local proxy default port and resident model backend ports ([2f76f28](https://github.com/dryvist/nix-ai/commit/2f76f2870b26d10cfbefca6f6068c27c5ce33196))
+
+
+### Bug Fixes
+
+* **deps:** update dependency transformers to v5.19.0 ([#2401](https://github.com/dryvist/nix-ai/issues/2401)) ([b558fb6](https://github.com/dryvist/nix-ai/commit/b558fb67f0ec152e5fd028052dce8c5c5909550b))
+
 ## [7.7.0](https://github.com/dryvist/nix-ai/compare/v7.6.0...v7.7.0) (2026-10-06)
 
 
