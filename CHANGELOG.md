@@ -1,5 +1,20 @@
 # Changelog
 
+## [7.7.0](https://github.com/dryvist/nix-ai/compare/v7.6.0...v7.7.0) (2026-10-06)
+
+
+### Features
+
+* **mlx:** add client identity and pipe deadlines ([#2395](https://github.com/dryvist/nix-ai/issues/2395)) ([fbe67c5](https://github.com/dryvist/nix-ai/commit/fbe67c5151d1fa95c2e0023ed31989f7964123b3))
+
+
+### Bug Fixes
+
+* **deps:** update dependency mlx-vlm to v0.7.6 ([8b16088](https://github.com/dryvist/nix-ai/commit/8b160889fcaca623db355feb9039918aa0992af2))
+* **deps:** update dependency mlx-vlm to v0.7.6 ([9ecab9e](https://github.com/dryvist/nix-ai/commit/9ecab9ed5d9b2814f11e955a5101336b2a0323ec))
+* **deps:** update multidict to 6.9.1 ([5a86c6c](https://github.com/dryvist/nix-ai/commit/5a86c6c6ff9607de83dfdc9507be2cfb20a86cd1))
+* **deps:** update multidict to 6.9.1 ([ee7c65c](https://github.com/dryvist/nix-ai/commit/ee7c65c89ca61c84f39d0beb2b42d5d5f9a33bc5))
+
 ## [7.6.0](https://github.com/dryvist/nix-ai/compare/v7.5.2...v7.6.0) (2026-10-05)
 
 
