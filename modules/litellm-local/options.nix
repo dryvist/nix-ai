@@ -218,12 +218,11 @@ in
 
     port = lib.mkOption {
       type = lib.types.port;
-      default = 4100;
+      default = 11434;
       description = ''
         Loopback port for the proxy.
 
-        Default 4100 avoids the ports already allocated by this repo's stack:
-        8180 (fabric REST API), 11434 (llama-swap proxy), 11436+ (llama-swap workers).
+        Default 11434 matches the standard local OpenAI-compatible endpoint.
       '';
     };
 

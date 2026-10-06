@@ -137,7 +137,7 @@ let
   # missing argument or an undefined binding a check failure instead of a
   # rebuild failure.
   agentsFullyEvaluate = builtins.deepSeq enabled.launchd.agents true;
-  agentLoopbackOnly = enabled.programs.litellmLocal.port == 4100;
+  agentLoopbackOnly = enabled.programs.litellmLocal.port == 11434;
   # The router URL reaches the agent as plain env; the bearer does not — the
   # wrapper reads it from the file at exec time.
   agentCarriesNoSecret =
@@ -203,7 +203,7 @@ in
     assert
       agyGetsRoot
       || throw "the Gemini-format client must get the proxy root URL, not the /v1 OpenAI base: it appends /v1beta/models/<model>:generateContent itself; got: ${agyBase}";
-    assert agentLoopbackOnly || throw "the proxy port default must stay 4100";
+    assert agentLoopbackOnly || throw "the proxy port default must stay 11434";
     assert
       exportsRouterUrl
       || throw "shell init must export LLM_ROUTER_URL so a caller can reach the upstream router directly; the local wildcard hides what a role resolves to";
