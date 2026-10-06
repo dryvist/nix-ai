@@ -35,7 +35,7 @@ graph TD
     CC -->|HTTP MCP| CRIBL["Cribl MCP\n:30030"]
     MAE -->|claude subprocess| CC
 
-    CC -->|Anthropic API| LL["Local LiteLLM proxy\n:4100 (loopback)"]
+    CC -->|Anthropic API| LL["Local LiteLLM proxy\n:11434 (loopback)"]
     CDX -->|per-alias profile only| LL
     LL -->|"claude-* (client's own credentials)"| ANTH["Anthropic API"]
     LL -->|"every other model name"| ROUTER["Shared LLM router"]
@@ -49,7 +49,7 @@ graph TD
 
 Claude Code is the exception to "no local gateway hop": with
 `programs.litellmLocal.enable`, its `ANTHROPIC_BASE_URL` points at the loopback
-proxy on `:4100`. The proxy splits traffic by model name — `claude-*` reaches
+proxy on `:11434`. The proxy splits traffic by model name — `claude-*` reaches
 Anthropic with the session's own forwarded credentials (so the main model still
 bills the subscription and is never rerouted), while every other name resolves
 through the shared router.
