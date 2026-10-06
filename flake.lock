@@ -3,11 +3,11 @@
     "agent-limits-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1791272584,
-        "narHash": "sha256-t9VW2l2askVCzkpXzlEdITc7lEbpV8rGAVugqpkaJBc=",
+        "lastModified": 1791300278,
+        "narHash": "sha256-4SrslFhVBMuToborrl3dSshM9lg/4ohuYUnxEVmKvY8=",
         "owner": "dryvist",
         "repo": "nix-darwin",
-        "rev": "10d7b2a96c43603724fcf113c15ece1f4d995ae1",
+        "rev": "a948256251f7bbac80ca854ae3a6c6a036b7a8c0",
         "type": "github"
       },
       "original": {
@@ -645,11 +645,11 @@
     "homelab-contracts": {
       "flake": false,
       "locked": {
-        "lastModified": 1791224800,
-        "narHash": "sha256-p66jm7053xGjk7kTzH4hkWsG5y4uJWYGltSDqX0Wbbo=",
+        "lastModified": 1791284622,
+        "narHash": "sha256-pA5WL9NVUZbYTo4MXX/4D27WLK6ahrzFXFMoC3WIpv0=",
         "owner": "dryvist",
         "repo": "homelab-contracts",
-        "rev": "2dd80c425347daa98fc581a486f43142fb827d6a",
+        "rev": "a4bac9793976cbbbfe3f5048a5831b6ff5b69664",
         "type": "github"
       },
       "original": {
