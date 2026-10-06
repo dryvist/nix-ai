@@ -86,7 +86,7 @@ in
     queueSize = profile.queue_size;
     prefillTokensPerSecond = profile.prefill_tokens_per_second;
     decodeTokensPerSecond = profile.decode_tokens_per_second;
-    servicePort = 11434;
+    servicePort = 11427;
     args = [
       "--chat-template-args"
       (builtins.toJSON {

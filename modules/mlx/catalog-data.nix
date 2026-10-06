@@ -45,7 +45,7 @@ in
 
   # The small/fast role model (role map: fast, cheap, small, judge, recorder).
   # A Qwen3.5-9B distill with the qwen3_5_text HYBRID geometry (8
-  # full-attention layers carry KV, 32 KiB/token). Served thinking-off.
+  # full-attention layers carry KV, 32 KiB/token). Served thinking-on.
   # Four-way batching is sized against the measured 40,960-token request
   # window; residency arithmetic in staticmbp-report.md shows the four
   # concurrent KV streams fit below the MacBook wired ceiling.
@@ -64,11 +64,11 @@ in
     queueSize = mimoProfile.queue_size;
     prefillTokensPerSecond = mimoProfile.prefill_tokens_per_second;
     decodeTokensPerSecond = mimoProfile.decode_tokens_per_second;
-    servicePort = 11433;
+    servicePort = 11409;
     args = [
       "--chat-template-args"
       (builtins.toJSON {
-        enable_thinking = false;
+        enable_thinking = true;
       })
     ];
     classes = {
