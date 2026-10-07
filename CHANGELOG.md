@@ -1,5 +1,19 @@
 # Changelog
 
+## [7.9.0](https://github.com/dryvist/nix-ai/compare/v7.8.0...v7.9.0) (2026-10-07)
+
+
+### Features
+
+* **mcp:** add splunkbase and splunk to on-demand MCP catalog and skill groups ([#2413](https://github.com/dryvist/nix-ai/issues/2413)) ([358d9ce](https://github.com/dryvist/nix-ai/commit/358d9ce8addfc79cecd91cd102a792b6f9d9faeb))
+
+
+### Bug Fixes
+
+* derive MLX-VLM spec directly from uv lock ([f7f380d](https://github.com/dryvist/nix-ai/commit/f7f380d47b2abc0c1fd2c150570796091bbe32a8))
+* **nix:** use immutable MLX-VLM archive for uv hash ([63464bb](https://github.com/dryvist/nix-ai/commit/63464bb1dcafd849d239d436b5e7bb762b0246b9))
+* use inherit for shared MLX-VLM spec ([1f7cd9d](https://github.com/dryvist/nix-ai/commit/1f7cd9dab6aec5afd96d0e133ec8b7b426faf451))
+
 ## [7.8.0](https://github.com/dryvist/nix-ai/compare/v7.7.0...v7.8.0) (2026-10-06)
 
 
