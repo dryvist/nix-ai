@@ -114,7 +114,11 @@ in
   # mlx-lm at import; the rule there carries the reproduction detail.
   # renovate: datasource=pypi depName=parakeet-mlx
   parakeetMlx = "0.5.3";
-  mlxVlmInstallSpec = uvLock.installSpec "mlx-vlm";
+  mlxVlmInstallSpec =
+    let
+      package = uvLock.package "mlx-vlm";
+    in
+    "${package.name} @ ${package.source.url}";
   mlx = uvLock.version "mlx";
   mlxLm = uvLock.version "mlx-lm";
   transformers = uvLock.version "transformers";
