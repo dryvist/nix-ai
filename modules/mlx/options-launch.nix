@@ -57,6 +57,9 @@
         becomes its own responsible process and needs a stable code-signing
         identity instead — see dryvist/nix-darwin's programs.mlxClusterSigning.
 
+        The host renders each agent behind a named executable that execs this
+        command line unchanged, so the interpreter above stays the final image.
+
         Set to null only if a script genuinely needs bash 5 — and then fix the
         script, because this is what keeps these agents working across rebuilds.
       '';
