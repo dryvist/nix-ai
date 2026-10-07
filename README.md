@@ -135,6 +135,14 @@ lib/                # Pure helpers (settings/registry generators, CI exports)
 docs/               # Architecture notes (docs/architecture) and ADRs (docs/adr)
 ```
 
+## launchd/TCC
+
+Agents defined here declare their program and arguments as usual. The consuming host
+configuration renders every agent behind a distinctly named executable and checks the
+rendered plists, so Background Items never lists a shell or interpreter. The launched
+program, its arguments and its final process image are unchanged; MLX agents keep Apple's
+bash through `programs.mlx.appleInterpreter`.
+
 ## License
 
 [MIT](LICENSE)
