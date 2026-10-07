@@ -105,14 +105,14 @@ in
       # the agent-skills check fails the build the moment one is not.
       groups = lib.mkDefault config.programs.agentSkills.categories;
 
-      # B6 "topic-scoped skill groups": `iac` and `security` are opt-in per
-      # repository (repo-link/agent-skill-groups.sh links them in when the
-      # repo's AGENTS.md declares the group or its GitHub topics say so), not
-      # part of the global always-installed set. Every other category still
-      # deploys everywhere — unchanged default. A host that already sets
-      # activeGroups keeps its own list (mkDefault).
+      # B6 "topic-scoped skill groups": `iac`, `security`, `observability`, and
+      # `splunk` are opt-in per repository (repo-link/agent-skill-groups.sh links
+      # them in when the repo's AGENTS.md declares the group), not part of the
+      # global always-installed set. Every other category still deploys
+      # everywhere — unchanged default. A host that already sets activeGroups
+      # keeps its own list (mkDefault).
       activeGroups = lib.mkDefault (
-        builtins.filter (g: g != "iac" && g != "security") (
+        builtins.filter (g: g != "iac" && g != "security" && g != "observability" && g != "splunk") (
           builtins.attrNames config.programs.agentSkills.categories
         )
       );
