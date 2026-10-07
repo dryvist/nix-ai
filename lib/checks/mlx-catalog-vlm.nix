@@ -6,7 +6,7 @@
 }:
 let
   c = hmConfigCatalog.config.programs.mlx;
-  mlxVlmInstallSpec = (import ../versions.nix).mlxVlmInstallSpec;
+  inherit (import ../versions.nix) mlxVlmInstallSpec;
   ocr = "mlx-community/Unlimited-OCR-bf16";
   ocrBuilder = import ../../modules/mlx/model-server-cmd.nix {
     inherit (pkgs) lib;
