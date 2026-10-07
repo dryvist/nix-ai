@@ -10,7 +10,7 @@ let
     cfg
     mlxModelServerPkg
     parakeetMlxVersion
-    mlxVlmVersion
+    mlxVlmInstallSpec
     apiUrl
     uvPythonVersion
     ;
@@ -87,7 +87,7 @@ in
         })
 
         (pkgs.writeShellScriptBin "mlx-vlm-generate" ''
-          exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} --from "mlx-vlm==${mlxVlmVersion}" mlx_vlm.generate "$@"
+          exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} --from "${mlxVlmInstallSpec}" mlx_vlm.generate "$@"
         '')
       ];
     };

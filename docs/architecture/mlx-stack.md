@@ -60,9 +60,9 @@ graph TD
 
 ## Version Management
 
-- **Version constants**: `lib/versions.nix` — single source of truth with Renovate annotations
+- **Package pins**: `lib/versions.nix` for registry packages; `mlx-server/pyproject.toml` and `mlx-server/uv.lock` for the commit-pinned `mlx-vlm` source
 - **uvx wrappers**: `modules/mlx/packages.nix` — declarative Nix derivations for the MLX tools
-- **Auto-update**: Renovate annotation-based manager bumps version constants, weekly schedule
+- **Auto-update**: Renovate updates registry pins from annotations and advances the `mlx-vlm` Git digest from its tracked upstream ref
 
 ## Package Delivery
 
