@@ -7,18 +7,12 @@
 # To run a full audit: zizmor --persona=auditor .github/workflows/
 
 rules:
-  # POLICY: Well-known trusted actions use version tags, not commit hashes.
-  # Hash pinning is reserved for untrusted or lesser-known actions only.
+  # Trusted first-party reusable workflows follow the organization policy and
+  # use reviewed refs. Other unpinned action references remain findings.
   unpinned-uses:
-    disable: true
-
-  # IGNORED: workflow_run trigger is required for post-CI workflows that need
-  # write permissions. These workflows only run on completed CI Gate events
-  # on the main branch. The risk is accepted and tracked.
-  # TODO: Evaluate migrating to pull_request_target or environment protection rules
-  dangerous-triggers:
-    ignore:
-      - ai-ci.yml
+    config:
+      policies:
+        dryvist/*: ref-pin
 
   # IGNORED: These workflows use reusable workflows from ai-workflows that require
   # secrets for authentication (API keys, tokens). secrets: inherit is intentional
@@ -27,15 +21,5 @@ rules:
   secrets-inherit:
     ignore:
       - ai-all.yml
-      - ai-ci.yml
       - ai-merge-gate.yml
       - dispatch-to-nix-darwin.yml
-      - issue-auto-resolve.yml
-
-  # IGNORED: These workflows delegate to reusable workflows that require broad
-  # permissions. The permissions are set at the workflow level because the reusable
-  # workflows need them and cannot be narrowed without refactoring upstream.
-  # TODO: Narrow permissions in upstream ai-workflows reusable workflows
-  excessive-permissions:
-    ignore:
-      - issue-auto-resolve.yml
