@@ -79,7 +79,19 @@ in
     groupMcpServers = lib.mkOption {
       type = lib.types.attrsOf (lib.types.listOf lib.types.str);
       default = {
-        homelab = [ "zammad" ];
+        homelab = [
+          "zammad"
+          "splunkbase"
+          "splunk"
+        ];
+        observability = [
+          "splunkbase"
+          "splunk"
+        ];
+        splunk = [
+          "splunkbase"
+          "splunk"
+        ];
         ai = [
           "fabric"
           "grep"

@@ -172,6 +172,12 @@ rec {
   # name) — B6 "topic-scoped skill groups": infra-standards, infra-orchestration,
   # homelab-ops and openbao, opt-in per repo instead of always installed.
   iac = homelab;
+  # Topic-vocabulary group for monitoring and observability. Opt-in per repo
+  # instead of bundled into every session.
+  observability = [
+    "monitoring-first"
+  ];
+  splunk = observability;
   # Topic-vocabulary group for the codeql-resolver skills (repo-link maps the
   # `codeql` GitHub topic here) — opt-in per repo instead of bundled into `git`.
   security = [
