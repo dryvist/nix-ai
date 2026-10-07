@@ -7,16 +7,16 @@
 # mlx-vlm-generate CLI in ./packages.nix.
 {
   pkgs,
-  mlxVlmVersion,
+  mlxVlmInstallSpec,
   uvPythonVersion,
 }:
 {
   pkg = pkgs.writeShellScriptBin "mlx-model-server" ''
-    exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} --from "mlx-vlm==${mlxVlmVersion}" python ${./scripts/mlx-vlm-adapter.py} "$@"
+    exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} --from "${mlxVlmInstallSpec}" python ${./scripts/mlx-vlm-adapter.py} "$@"
   '';
 
   nativePkg = pkgs.writeShellScriptBin "mlx-vlm-native-server" ''
-    exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} --from "mlx-vlm==${mlxVlmVersion}" python -m mlx_vlm.server "$@"
+    exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} --from "${mlxVlmInstallSpec}" python -m mlx_vlm.server "$@"
   '';
 
   launchScriptBasename = builtins.baseNameOf (toString ./scripts/mlx-vlm-adapter.py);

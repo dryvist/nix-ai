@@ -6,6 +6,7 @@
 }:
 let
   c = hmConfigCatalog.config.programs.mlx;
+  inherit (import ../versions.nix) mlxVlmInstallSpec;
   ocr = "mlx-community/Unlimited-OCR-bf16";
   ocrBuilder = import ../../modules/mlx/model-server-cmd.nix {
     inherit (pkgs) lib;
@@ -64,6 +65,13 @@ in
       c.modelBackends.${ocr} == "mlx-vlm" && c.modelServerBackend == "mlx-lm"
       || throw "catalog: OCR must override only its own backend";
     pkgs.runCommand "check-mlx-catalog-vlm" { } "touch $out";
+
+  mlx-vlm-install-spec =
+    assert
+      builtins.match "mlx-vlm @ https://github\\.com/Blaizzy/mlx-vlm/archive/[0-9a-f]{40}\\.zip" mlxVlmInstallSpec
+      != null
+      || throw "mlx-vlm install spec must resolve to a commit-pinned upstream archive: ${mlxVlmInstallSpec}";
+    pkgs.runCommand "check-mlx-vlm-install-spec" { } "touch $out";
 
   mlx-vlm-adapter = pkgs.runCommand "check-mlx-vlm-adapter" { } ''
     ${pkgs.python3}/bin/python3 ${src}/tests/test-mlx-vlm-adapter.py && touch $out

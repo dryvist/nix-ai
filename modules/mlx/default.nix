@@ -8,14 +8,14 @@ let
   cfg = config.programs.mlx;
   versions = import ../../lib/versions.nix;
   parakeetMlxVersion = versions.parakeetMlx;
-  mlxVlmVersion = versions.mlxVlm;
+  inherit (versions) mlxVlmInstallSpec;
   uvPythonVersion = (import ../../lib/python.nix { inherit pkgs; }).pythonVersion;
 
   mlxLmServer = import ./mlx-lm-server.nix {
     inherit pkgs cfg versions;
   };
   mlxVlmServer = import ./mlx-vlm-server.nix {
-    inherit pkgs mlxVlmVersion uvPythonVersion;
+    inherit pkgs mlxVlmInstallSpec uvPythonVersion;
   };
   mlxModelServerPkgs = {
     mlx-lm = mlxLmServer.pkg;
@@ -67,7 +67,7 @@ in
       mkModelArgs
       workerEnv
       parakeetMlxVersion
-      mlxVlmVersion
+      mlxVlmInstallSpec
       apiUrl
       uvPythonVersion
       residentAgentLabels
