@@ -221,12 +221,9 @@ in
         roughly 26% of a session's entire context, in repositories that never
         call either one.
 
-        The MCP block is the largest addressable cost in a session and it is
-        repo-independent: 32,622 in nix-ai, 35,210 in tofu-proxmox, 33,045 in
-        docs-starlight. All three repos measure UNDER the 90k budget with no
-        MCP and OVER it with. For comparison the entire skill listing is
-        12–15k, so MCP is more than double the block this stack spent most of
-        its optimisation effort on.
+        The MCP block is the largest addressable cost in a session: ~33k tokens
+        across repositories, more than double the skill listing. Keeping it
+        on-demand preserves the context budget.
 
         Membership here is decided by recorded usage, never by judgment about
         what a session "might" want — the same rule the skill keep-list
@@ -308,6 +305,8 @@ in
       "fabric"
       "grep"
       "time"
+      "splunkbase"
+      "splunk"
     ];
     # Plain (priority-100) assignment so per-server host overrides merge — see
     # the `servers` option description above.

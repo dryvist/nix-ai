@@ -13,8 +13,9 @@ claude --mcp-config ~/.claude/mcp-available/zammad.json
 ```
 
 A repository attaches on-demand servers through its skill groups: the linker
-unions `GROUP-MCP.json` entries for the declared groups (default `homelab` →
-zammad; `ai` → fabric, grep, time, token-meter) with any AGENTS.md
+unions `GROUP-MCP.json` entries for the declared groups (default `homelab` /
+`observability` → zammad, splunkbase, splunk; `ai` → fabric, grep, time, token-meter)
+with any AGENTS.md
 `mcp-servers:` list, and rebuilds the managed part of `.mcp.json` from
 `~/.claude/mcp-available/`. Servers it does not manage stay in the file.
 `enabledMcpjsonServers` lists every on-demand name, so no approval prompt fires.

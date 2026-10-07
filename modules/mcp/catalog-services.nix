@@ -218,4 +218,15 @@
     url = "http://localhost:30030/mcp";
   };
 
+  # ================================================================
+  # Splunkbase MCP - search and browse public Splunkbase apps
+  # ================================================================
+  # Source: https://dev.splunk.com/enterprise/reference/splunkbase/splunkbase-mcp
+  # Remote Streamable-HTTP endpoint, keyless.
+  splunkbase = {
+    type = "http";
+    url = "https://api.splunkbase.splunk.com/mcp";
+  };
+
 }
+
