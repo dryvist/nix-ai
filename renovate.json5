@@ -8,7 +8,7 @@
       "customType": "regex",
       "managerFilePatterns": ["/^mlx-server\\/pyproject\\.toml$/"],
       "matchStrings": [
-        '# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+) packageName=(?<packageName>\\S+) currentValue=(?<currentValue>\\S+)\\n\\s+"mlx-vlm @ git\\+https://github\\.com/Blaizzy/mlx-vlm\\.git@(?<currentDigest>[a-f0-9]{40})"',
+        '# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+) packageName=(?<packageName>\\S+) currentValue=(?<currentValue>\\S+)\\n\\s+"mlx-vlm @ https://github\\.com/Blaizzy/mlx-vlm/archive/(?<currentDigest>[a-f0-9]{40})\\.zip"',
       ],
     },
   ],

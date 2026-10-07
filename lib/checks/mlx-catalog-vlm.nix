@@ -68,9 +68,9 @@ in
 
   mlx-vlm-install-spec =
     assert
-      builtins.match "git\\+https://github\\.com/Blaizzy/mlx-vlm\\.git@[0-9a-f]{40}" mlxVlmInstallSpec
+      builtins.match "mlx-vlm @ https://github\\.com/Blaizzy/mlx-vlm/archive/[0-9a-f]{40}\\.zip" mlxVlmInstallSpec
       != null
-      || throw "mlx-vlm install spec must resolve to a commit-pinned upstream Git source: ${mlxVlmInstallSpec}";
+      || throw "mlx-vlm install spec must resolve to a commit-pinned upstream archive: ${mlxVlmInstallSpec}";
     pkgs.runCommand "check-mlx-vlm-install-spec" { } "touch $out";
 
   mlx-vlm-adapter = pkgs.runCommand "check-mlx-vlm-adapter" { } ''

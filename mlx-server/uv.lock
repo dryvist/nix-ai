@@ -553,14 +553,14 @@ requires-dist = [
     { name = "mlx", specifier = "==0.32.3" },
     { name = "mlx", extras = ["cpu"], marker = "sys_platform == 'linux'", specifier = "==0.32.3" },
     { name = "mlx-lm", specifier = "==0.32.0" },
-    { name = "mlx-vlm", git = "https://github.com/Blaizzy/mlx-vlm.git?rev=3d87e88402f307efbf68e568971aa887ee7d9ed0" },
+    { name = "mlx-vlm", url = "https://github.com/Blaizzy/mlx-vlm/archive/3d87e88402f307efbf68e568971aa887ee7d9ed0.zip" },
     { name = "transformers", specifier = "==5.19.0" },
 ]
 
 [[package]]
 name = "mlx-vlm"
 version = "0.7.4"
-source = { git = "https://github.com/Blaizzy/mlx-vlm.git?rev=3d87e88402f307efbf68e568971aa887ee7d9ed0#3d87e88402f307efbf68e568971aa887ee7d9ed0" }
+source = { url = "https://github.com/Blaizzy/mlx-vlm/archive/3d87e88402f307efbf68e568971aa887ee7d9ed0.zip" }
 dependencies = [
     { name = "fastapi" },
     { name = "jinja2" },
@@ -580,6 +580,34 @@ dependencies = [
     { name = "uvicorn" },
     { name = "websockets" },
 ]
+sdist = { hash = "sha256:74c15ecdb1e9b5571b3ff06b82b65a7e48aac39d60a3478638c417f08bcc19c5" }
+
+[package.metadata]
+requires-dist = [
+    { name = "datasets", marker = "extra == 'train'", specifier = ">=2.19.1" },
+    { name = "fastapi", specifier = ">=0.95.1" },
+    { name = "gradio", marker = "extra == 'ui'", specifier = ">=5.19.0" },
+    { name = "jinja2", specifier = ">=3.1.0" },
+    { name = "llguidance", specifier = ">=1.7.0" },
+    { name = "miniaudio", specifier = ">=1.59" },
+    { name = "mlx", specifier = ">=0.32.2" },
+    { name = "mlx-audio", specifier = ">=0.5.2" },
+    { name = "mlx-cpu", marker = "extra == 'cpu'" },
+    { name = "mlx-cuda", marker = "extra == 'cuda'" },
+    { name = "numpy" },
+    { name = "opencv-python", specifier = ">=4.12.0.88" },
+    { name = "pillow", specifier = ">=10.3.0" },
+    { name = "python-multipart", specifier = ">=0.0.9" },
+    { name = "requests", specifier = ">=2.31.0" },
+    { name = "sentencepiece", specifier = ">=0.2.0" },
+    { name = "sounddevice", marker = "extra == 'realtime'", specifier = ">=0.5.0" },
+    { name = "starlette", specifier = ">=1.0.1" },
+    { name = "tqdm", specifier = ">=4.66.2" },
+    { name = "transformers", specifier = ">=5.14.0" },
+    { name = "uvicorn" },
+    { name = "websockets", specifier = ">=14.0" },
+]
+provides-extras = ["ui", "cuda", "cpu", "train", "realtime"]
 
 [[package]]
 name = "numpy"

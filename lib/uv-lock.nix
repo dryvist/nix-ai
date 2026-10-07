@@ -31,8 +31,8 @@ in
 
   version = name: (package name).version;
 
-  # The install spec passed to uvx. Registry packages stay pinned by version;
-  # VCS packages use the exact commit recorded by uv.lock.
+  # The install spec passed to uvx. Registry packages stay version-pinned;
+  # non-registry sources retain their locked identity.
   installSpec =
     name:
     let
@@ -49,6 +49,8 @@ in
         throw "lib/uv-lock.nix: ${name} has an unsupported VCS source in mlx-server/uv.lock: ${source.git}"
       else
         "git+${builtins.elemAt gitRef 0}@${builtins.elemAt gitRef 1}"
+    else if source ? url then
+      "${name} @ ${source.url}"
     else
       "${name}==${p.version}";
 
