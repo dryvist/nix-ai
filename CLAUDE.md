@@ -9,12 +9,6 @@ Nix home-manager modules.
 2. **Module args injection**: All flake inputs reach modules via `_module.args`, not function parameters
 3. **Worktrees required**: Run `/refresh-repo` then create a worktree before any work
 4. **No direct main commits**: Always use feature branches
-5. **launchd/TCC**: a launchd agent never becomes a generic interpreter's privacy client.
-   Agents declare `ProgramArguments` exactly as before; the host configuration renders each
-   one behind a distinctly named executable, so the final process image is unchanged
-   (`programs.mlx.appleInterpreter` keeps Apple's bash as the responsible process for
-   network-gated jobs). A process that needs a privacy permission (screen, microphone,
-   AppleEvents, full disk access, calendar) runs as its own named binary.
 
 ## Validation
 
