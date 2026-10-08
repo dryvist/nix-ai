@@ -57,5 +57,4 @@ jobs:
       GH_APP_CLAUDE_BOT_PRIVATE_KEY: ${{ secrets.GH_APP_CLAUDE_BOT_PRIVATE_KEY }}
     with:
       repo_context: "Nix AI tools configuration using home-manager modules (Nix flakes)."
-      extra_tools: "Bash(nix:*)"
       issue_number: ${{ github.event.issue.number || inputs.issue_number || '0' }}

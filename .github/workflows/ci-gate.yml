@@ -93,32 +93,21 @@ jobs:
           jobs: ${{ toJSON(needs) }}
 
   ci-failure-handler:
-    name: Handle CI failure
+    name: Report main-branch CI failure
     needs: [shared-gate]
     if: >-
       always() && !cancelled() &&
       needs.shared-gate.result == 'failure' &&
-      (github.event_name != 'pull_request' ||
-       github.event.pull_request.head.repo.full_name == github.repository)
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main'
     permissions:
       actions: read
-      contents: write
+      contents: read
       issues: write
-      pull-requests: write
-    uses: dryvist/ai-workflows/.github/workflows/suite-ci.yml@403af23f9212599affb14cec404199b7e05c9392
+    uses: dryvist/ai-workflows/.github/workflows/ci-fail-issue.yml@403af23f9212599affb14cec404199b7e05c9392
     with:
       workflow_name: CI Gate
-      repo_context: "Nix home-manager modules for AI CLI tools (Claude, Gemini, Copilot, MCP servers)"
-      ci_structure: "ci-gate.yml (shared Nix, Python, Ansible, OpenTofu, lint, and security gates)"
       failure_conclusion: failure
       failure_run_id: ${{ github.run_id }}
       failure_run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-      failure_head_branch: ${{ github.head_ref || github.ref_name }}
-      failure_head_sha: ${{ github.event.pull_request.head.sha || github.sha }}
-      failure_head_repository: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name || github.event_name != 'pull_request' && github.repository }}
-      failure_actor: ${{ github.actor }}
-      extra_tools: "Bash(nix *)"
-    secrets:
-      LLM_ROUTER_BASE_URL: ${{ secrets.LLM_ROUTER_BASE_URL }}
-      LLM_ROUTER_API_KEY: ${{ secrets.LLM_ROUTER_API_KEY }}
-      GH_APP_CLAUDE_BOT_PRIVATE_KEY: ${{ secrets.GH_APP_CLAUDE_BOT_PRIVATE_KEY }}
+      failure_head_sha: ${{ github.sha }}
