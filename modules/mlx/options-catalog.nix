@@ -203,12 +203,34 @@ in
         lib.nameValuePair (entryFor name).model (lib.mapAttrs (_: lib.mkDefault) (flagsFor name sel))
       ) enabled;
 
-      # A catalog entry may pin a proxy-side concurrency cap (e.g. the 80B that
-      # aborts under parallel dispatch). Compile it to the per-physical-id
-      # override; mkDefault so a direct host setting still wins.
+      # Catalog concurrency configures active worker decode. Keep proxy
+      # admission separate: only entries with an explicit concurrencyLimit
+      # override the default derived from modelConcurrencyLimits.
       modelConcurrencyLimits = lib.mapAttrs' (
         name: _sel: lib.nameValuePair (entryFor name).model (lib.mkDefault (entryFor name).concurrency)
       ) (lib.filterAttrs (name: _sel: (entryFor name) ? concurrency) enabled);
+
+      modelAdmissionLimits =
+        lib.mapAttrs'
+          (
+            name: _sel:
+            let
+              entry = entryFor name;
+              modelId = entry.model;
+            in
+            lib.nameValuePair modelId (
+              lib.mkDefault (entry.concurrencyLimit or cfg.modelConcurrencyLimits.${modelId})
+            )
+          )
+          (
+            lib.filterAttrs (
+              name: _sel:
+              let
+                entry = entryFor name;
+              in
+              (entry ? concurrencyLimit) || builtins.hasAttr entry.model cfg.modelConcurrencyLimits
+            ) enabled
+          );
 
       # A catalog entry may declare the backend it must be served on, for models
       # the host backend cannot run at all (vision-language models: mlx_lm.server

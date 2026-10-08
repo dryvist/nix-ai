@@ -8,6 +8,7 @@ let
   c = hmConfigCatalog.config.programs.mlx;
   inherit (import ../versions.nix) mlxVlmInstallSpec;
   ocr = "mlx-community/Unlimited-OCR-bf16";
+  ocrAdmission = (import ../../modules/mlx/catalog-data.nix).unlimited-ocr.concurrencyLimit;
   ocrBuilder = import ../../modules/mlx/model-server-cmd.nix {
     inherit (pkgs) lib;
     cfg = c;
@@ -62,8 +63,11 @@ in
       && builtins.match ".*--prompt-cache-bytes.*" ocrCmd == null
       || throw "catalog: OCR must compile onto the VLM adapter without mlx-lm-only flags: ${ocrCmd}";
     assert
-      c.modelBackends.${ocr} == "mlx-vlm" && c.modelServerBackend == "mlx-lm"
-      || throw "catalog: OCR must override only its own backend";
+      c.modelBackends.${ocr} == "mlx-vlm"
+      && c.modelServerBackend == "mlx-lm"
+      && c.modelAdmissionLimits.${ocr} == ocrAdmission
+      && c.modelConcurrencyLimits.${ocr} == ocrAdmission
+      || throw "catalog: OCR must retain its serialized worker and admission limits while overriding its backend";
     pkgs.runCommand "check-mlx-catalog-vlm" { } "touch $out";
 
   mlx-vlm-install-spec =

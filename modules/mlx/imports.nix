@@ -25,6 +25,7 @@
   ./options-role-map.nix
   ./options-filters.nix
   ./options-runtime.nix
+  ./options-admission.nix
   ./options-mtp-profiles.nix
   ./options-model-backends.nix
   ./options-residency.nix

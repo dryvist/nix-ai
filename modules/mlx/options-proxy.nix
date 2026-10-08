@@ -132,15 +132,10 @@ in
         description = ''
           Max in-flight requests llama-swap will forward to a model server per
           model. Maps directly to the YAML key llama-swap reads
-          (`concurrencyLimit`); excess requests get HTTP 429.
-
-          This is the SINGLE definition of per-model concurrency. It feeds both
-          llama-swap's advertised limit and the MLX server's own
-          --decode-concurrency/--prompt-concurrency (see
-          model-server-cmd.nix `effectiveConcurrency`). Do not set either
-          consumer independently — that split is what produced the 2026-07-24
-          cron kills: the proxy admitted 4 while the server served 1, and the
-          excess came back as 429.
+          (`concurrencyLimit`); excess requests get HTTP 429. A per-model
+          `modelAdmissionLimits` entry overrides this fallback. Admission can
+          include bounded worker waiters; active decode concurrency is set
+          separately by `modelConcurrencyLimits`.
 
           Default 1, ceiling ${toString concurrencyLimitCeiling} on this host:
           min(operatorConcurrencyCap = ${toString operatorConcurrencyCap}, memory fit
@@ -148,20 +143,9 @@ in
           programs.mlx.memoryHardLimitGb (currently ${toString perWorkerBudgetGiB} GiB)
           — the largest number of concurrent maxGrantedRequestTokens-length
           requests the worker's memory budget can hold after the peak
-          resident model's own weight footprint. The operator cap holds
-          regardless: more requests would fit in memory long before Apple
-          Silicon's single GPU could actually decode them concurrently. 1 serializes and
-          defeats continuous batching; that is the accepted trade while the
-          simplest non-crashing configuration is the goal. Raising it means
-          raising the server's real capacity at the same time, which now
-          happens automatically because both derive from here.
-
-          Above the limit callers get 429 — cap or retry with backoff; the
-          llm_router tier absorbs 429s via its retry policy. Prior sweep data
-          (2026-07-11, MBP Coder-30B, c1-c8) measured 1.6-2.3x aggregate when
-          the batcher engages, worst case ~1.0x; scheduling is bimodal, so
-          treat >1x as opportunistic and keep bench drivers pinned to their
-          documented concurrency (mlx-benchmarks RUNBOOK).
+          resident model's own weight footprint. The operator cap holds for
+          this fallback; a per-model admission override may be higher when a
+          bounded queue absorbs the additional waiters.
         '';
       };
     };
