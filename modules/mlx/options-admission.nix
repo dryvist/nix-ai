@@ -8,12 +8,14 @@
       }
     '';
     description = ''
-      Per-physical-model llama-swap admission limit, keyed by physical model
-      id. This is separate from modelConcurrencyLimits, which sets the MLX
-      worker's decode/prompt concurrency. By default, admission matches the
-      worker limit; catalog entries can raise it to the worker's bounded queue
-      capacity plus active requests. Models without an override retain their
-      existing limit, including serialized adapters such as OCR.
+      Per-physical-model admission limit for local static-resident requests,
+      keyed by physical model id. Every rendered LiteLLM role route applies it
+      as max_parallel_requests. This is separate from modelConcurrencyLimits,
+      which sets the MLX worker's decode/prompt concurrency. By default,
+      admission matches the worker limit; catalog entries can raise it to the
+      worker's bounded queue capacity plus active requests. Models without an
+      override retain their existing limit, including serialized adapters
+      such as OCR.
     '';
   };
 

@@ -196,6 +196,9 @@ in
     mkHmConfig
     ;
 })
+// (import ./checks/mlx-model-admission.nix {
+  inherit pkgs hmConfigStaticServing mkHmConfig;
+})
 // (import ./checks/mlx-catalog-vlm.nix { inherit pkgs src hmConfigCatalog; })
 // (import ./checks/mlx-mtp-reachable.nix { inherit pkgs mkHmConfig; })
 // (import ./checks/mlx-model-extra-args.nix { inherit pkgs; })
