@@ -16,11 +16,7 @@ on:
         required: true
         type: string
 
-permissions:
-  contents: write
-  id-token: write
-  issues: write
-  pull-requests: write
+permissions: {}
 
 concurrency:
   group: issue-auto-resolve-${{ github.event.issue.number || inputs.issue_number }}
@@ -28,13 +24,27 @@ concurrency:
 
 jobs:
   triage:
+    # The reusable triage workflow reads issue state and publishes via an App token.
+    permissions:
+      contents: read
+      issues: read
     if: >-
       github.event_name == 'issues' &&
       (github.event.action == 'opened' || github.event.action == 'reopened')
     uses: dryvist/ai-workflows/.github/workflows/issue-triage.yml@v0
-    secrets: inherit
+    secrets:
+      LLM_ROUTER_BASE_URL: ${{ secrets.LLM_ROUTER_BASE_URL }}
+      LLM_ROUTER_API_KEY: ${{ secrets.LLM_ROUTER_API_KEY }}
+      GH_APP_CLAUDE_BOT_PRIVATE_KEY: ${{ secrets.GH_APP_CLAUDE_BOT_PRIVATE_KEY }}
+    with:
+      issue_number: ${{ github.event.issue.number || inputs.issue_number || '0' }}
 
   resolve:
+    # Agent jobs read repository state; publishers write through an App token.
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
     needs: [triage]
     if: >-
       always() &&
@@ -43,8 +53,10 @@ jobs:
         github.event.action == 'labeled' &&
         github.event.label.name != 'ai:ready')
     uses: dryvist/ai-workflows/.github/workflows/cc-issue-resolver.yml@v0
-    secrets: inherit
+    secrets:
+      LLM_ROUTER_BASE_URL: ${{ secrets.LLM_ROUTER_BASE_URL }}
+      LLM_ROUTER_API_KEY: ${{ secrets.LLM_ROUTER_API_KEY }}
+      GH_APP_CLAUDE_BOT_PRIVATE_KEY: ${{ secrets.GH_APP_CLAUDE_BOT_PRIVATE_KEY }}
     with:
       repo_context: "Nix AI tools configuration using home-manager modules (Nix flakes)."
-      extra_tools: "Bash(nix:*)"
       issue_number: ${{ github.event.issue.number || inputs.issue_number || '0' }}

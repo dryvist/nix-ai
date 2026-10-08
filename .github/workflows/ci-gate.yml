@@ -62,11 +62,7 @@ jobs:
         PYSEC-2026-139 CVE-2025-3000 GHSA-rrmf-rvhw-rf47 GHSA-p4gq-832x-fm9v PYSEC-2026-597 PYSEC-2026-3740
       osv_scan: true
       osv_config_file: osv-scanner.toml
-      # Staged: the first zizmor run over this repo reported findings in
-      # ai-ci.yml (trigger), fix-renovate-hashes.yml (App token use) and
-      # issue-auto-resolve.yml (permissions). Those are tracked separately;
-      # flip this on once they are resolved.
-      zizmor: false
+      zizmor: true
       filters: |
         nix:
           - '.github/workflows/ci-gate.yml'
@@ -90,8 +86,29 @@ jobs:
     needs: [shared-gate]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
+    permissions: {}
     steps:
       - name: Check all results
         uses: re-actors/alls-green@b5b5b37504aa4183270bd3d855c52a67f212be35 # release/v1
         with:
           jobs: ${{ toJSON(needs) }}
+
+  ci-failure-handler:
+    name: Report main-branch CI failure
+    needs: [shared-gate]
+    if: >-
+      always() && !cancelled() &&
+      needs.shared-gate.result == 'failure' &&
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main'
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+    uses: dryvist/ai-workflows/.github/workflows/ci-fail-issue.yml@403af23f9212599affb14cec404199b7e05c9392
+    with:
+      workflow_name: CI Gate
+      failure_conclusion: failure
+      failure_run_id: ${{ github.run_id }}
+      failure_run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      failure_head_sha: ${{ github.sha }}

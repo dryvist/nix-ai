@@ -12,6 +12,8 @@
 # Add new packages here and to the packages output in flake.nix when needed.
 name: Fix Renovate hash updates
 
+permissions: {}
+
 on:
   push:
     branches:
@@ -22,8 +24,7 @@ jobs:
     name: Update fetchPypi hashes
     runs-on: ubuntu-latest
     environment: automation
-    permissions:
-      contents: write
+    permissions: {}
     steps:
       - name: Generate GitHub App Token
         id: app-token
@@ -39,6 +40,7 @@ jobs:
         with:
           token: ${{ steps.app-token.outputs.token }}
           ref: ${{ github.ref }}
+          persist-credentials: false
 
       - name: Install Nix
         uses: DeterminateSystems/determinate-nix-action@8d87e8d5e5b8a8309d4281094560f127d9a265f1 # v3.22.5
