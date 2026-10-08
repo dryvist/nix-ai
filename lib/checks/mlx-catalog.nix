@@ -77,8 +77,8 @@ in
     assert
       c.modelContextWindows.${mimo} == mimoProfile.context_window
       || throw "catalog: MiMo context window disagrees with the shared MLX profile";
-    # Concurrency must come from the model's catalog entry rather than a proxy
-    # default, so the static worker's admission limit agrees with its queue.
+    # Worker concurrency and proxy admission are separate: the Qwen worker
+    # stays serial while the proxy admits its active slot plus bounded waiters.
     # The reasoning effort must be PINNED EXPLICITLY, to one of the two values
     # measured to finish. The chat template defaults reasoning_effort to
     # 'xhigh' when no kwarg is passed, and at xhigh this model exhausted
@@ -93,10 +93,12 @@ in
     # construction, since it matches neither alternative.
     assert
       c.modelConcurrencyLimits.${judge27b} == 1
+      && c.modelAdmissionLimits.${judge27b} == judgeProfile.queue_size + 1
       && builtins.match ".*reasoning_effort.*(low|medium).*" judgeArgs != null
-      || throw "catalog: the 27B entry must declare its worker concurrency and pin reasoning_effort to low or medium";
+      || throw "catalog: the 27B entry must keep worker concurrency at 1, admit queue capacity plus the active request, and pin reasoning_effort to low or medium";
     assert
       c.modelConcurrencyLimits.${mimo} == mimoProfile.max_parallel_requests
+      && c.modelAdmissionLimits.${mimo} == c.modelConcurrencyLimits.${mimo}
       && mimoProfile.max_parallel_requests != mimoModel.max_parallel_requests
       && c.modelFlagOverrides.${mimo}.maxNumSeqs == mimoSwap.max_num_sequences
       && c.modelFlagOverrides.${mimo}.maxRequestTokens == mimoSwap.max_request_tokens

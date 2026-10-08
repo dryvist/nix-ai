@@ -84,6 +84,9 @@ in
     # feasibility work rather than silently becoming a fleet default.
     inherit contextWindowTokens maxOutputTokens concurrency;
     queueSize = profile.queue_size;
+    # Admit the active request and every bounded worker waiter before the
+    # worker queue applies its own overflow policy.
+    concurrencyLimit = profile.queue_size + 1;
     prefillTokensPerSecond = profile.prefill_tokens_per_second;
     decodeTokensPerSecond = profile.decode_tokens_per_second;
     servicePort = 11427;
@@ -93,10 +96,8 @@ in
         reasoning_effort = "medium";
       })
     ];
-    # NO concurrencyLimit. The entry this replaced carried concurrencyLimit = 1
-    # because it was a latency-sensitive judge that never needed concurrent
-    # decode. This entry is the fleet brain every role resolves to, so pinning
-    # it to 1 would make llama-swap serialize every request on the host.
+    # Worker concurrency stays at the catalog's active decode capacity. The
+    # separate concurrencyLimit above admits this model's bounded worker queue.
     classes = {
       # Fleet-brain resident profile, matched to the entry it takes over from:
       # The 128k catalog window must also be admitted by the serving worker;
