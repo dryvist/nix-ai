@@ -58,8 +58,11 @@ in
         # exec-time file read. Same for the loopback endpoint this host's own
         # models are served on.
         LLM_ROUTER_URL = aiStack.llmRouterEndpoint;
-        LOCAL_LLM_URL = cfg.localEndpoint;
         HOME = config.home.homeDirectory;
+      }
+      # Set only when the host names a model server of its own.
+      // lib.optionalAttrs (cfg.localEndpoint != null) {
+        LOCAL_LLM_URL = cfg.localEndpoint;
       }
       # LiteLLM reads its OWN names here — `OTEL_EXPORTER` / `OTEL_ENDPOINT`
       # — not the standard OTEL_EXPORTER_OTLP_* pair. Setting the standard

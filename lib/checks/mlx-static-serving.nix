@@ -172,6 +172,15 @@ in
     else
       throw "static resident LiteLLM aliases must route directly with catalog-derived context, output, and timeout values";
 
+  mlx-static-resident-local-endpoint =
+    if
+      hmConfigStaticServing.config.programs.litellmLocal.localEndpoint
+      == "http://127.0.0.1:${toString qwen.servicePort}/v1"
+    then
+      helpers.mkMarker "check-mlx-static-resident-local-endpoint" "LiteLLM local rungs call the default-role resident's loopback port"
+    else
+      throw "LiteLLM localEndpoint must be the default-role resident's loopback endpoint, got ${builtins.toJSON hmConfigStaticServing.config.programs.litellmLocal.localEndpoint}";
+
   mlx-static-resident-cooldowns =
     if
       singleDeploymentResidentGroups != [ ] && renderedConfig.router_settings.disable_cooldowns == true

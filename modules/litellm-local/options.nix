@@ -207,12 +207,24 @@ in
     };
 
     localEndpoint = lib.mkOption {
-      type = lib.types.str;
-      default = "http://127.0.0.1:11434/v1";
+      type = lib.types.nullOr lib.types.str;
+      # Loopback endpoint of the static resident carrying the `default` role (the
+      # unsuffixed dev.mlx-model-server agent); null when there is none.
+      default =
+        let
+          primary = lib.findFirst (contract: contract.roles ? default) null (
+            lib.attrValues (config.programs.mlx.staticResidentContracts or { })
+          );
+        in
+        if primary == null then null else "http://127.0.0.1:${toString primary.servicePort}/v1";
       description = ''
-        OpenAI-compatible base URL for this host's own model server. Loopback by
-        default — the point of the local rungs is that they keep working when
-        the network or the shared router does not.
+        OpenAI-compatible base URL of this host's own model server, exported as
+        LOCAL_LLM_URL for the local rungs (`localModels` without a `router`).
+        Loopback by default — the point of the local rungs is that they keep
+        working when the network or the shared router does not.
+
+        Never this proxy's own address: a local rung aimed at the proxy calls
+        itself. Null leaves LOCAL_LLM_URL unset.
       '';
     };
 
