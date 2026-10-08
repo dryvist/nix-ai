@@ -21,7 +21,7 @@ rec {
     in
     {
       id = entry.model;
-      concurrency = entry.concurrency;
+      inherit (entry) concurrency;
     }
     // import ./model-serving.nix {
       catalogEntry = { };
