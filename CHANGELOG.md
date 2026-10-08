@@ -1,5 +1,13 @@
 # Changelog
 
+## [7.9.2](https://github.com/dryvist/nix-ai/compare/v7.9.1...v7.9.2) (2026-10-08)
+
+
+### Bug Fixes
+
+* **ci:** point the CI failure handler at ai-workflows main ([#2432](https://github.com/dryvist/nix-ai/issues/2432)) ([3ca37fc](https://github.com/dryvist/nix-ai/commit/3ca37fc5b3fa6ea678c1b3d786d350972978d972))
+* queue MiMo admission and point local rungs at the model server ([#2431](https://github.com/dryvist/nix-ai/issues/2431)) ([2620899](https://github.com/dryvist/nix-ai/commit/26208997f99f7bc70fc5a619ae9c083b30e8f109))
+
 ## [7.9.1](https://github.com/dryvist/nix-ai/compare/v7.9.0...v7.9.1) (2026-10-08)
 
 
