@@ -34,7 +34,7 @@ in
   # renovate: datasource=npm depName=@openwhispr/cli
   openwhisprCli = "0.1.2";
   # renovate: datasource=npm depName=langfuse-cli
-  langfuseCli = "0.0.12";
+  langfuseCli = "1.2.0";
   # Agent-config synchronizer. The npm package is dyoshikawa/rulesync; at least
   # six unrelated projects share the name, so pin and verify against that repo.
   # renovate: datasource=npm depName=rulesync
