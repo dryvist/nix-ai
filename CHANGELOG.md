@@ -1,5 +1,21 @@
 # Changelog
 
+## [7.9.1](https://github.com/dryvist/nix-ai/compare/v7.9.0...v7.9.1) (2026-10-08)
+
+
+### Bug Fixes
+
+* **ci:** enable workflow security checks ([42ab3f7](https://github.com/dryvist/nix-ai/commit/42ab3f786306c6b2d6f649d1bc98b21bec74b188))
+* **ci:** pin CI handler contract ([8b97479](https://github.com/dryvist/nix-ai/commit/8b974794e88f48947068117dc16c6afc0406230e))
+* **ci:** pin CI handler contract ([dff9500](https://github.com/dryvist/nix-ai/commit/dff950087e145d6b2c2057c219f7f046f7485d87))
+* **ci:** restrict automated failure handling to main ([#2424](https://github.com/dryvist/nix-ai/issues/2424)) ([4d07c87](https://github.com/dryvist/nix-ai/commit/4d07c87acfb7762975f8184477c310c367c10514))
+* **ci:** scope promotion workflows and issue inputs ([#2425](https://github.com/dryvist/nix-ai/issues/2425)) ([e94788f](https://github.com/dryvist/nix-ai/commit/e94788f3ae0a86abb0ccb2dd9587cf4242854ca2))
+* **mlx:** apply model admission limits to resident routes ([#2423](https://github.com/dryvist/nix-ai/issues/2423)) ([a72a787](https://github.com/dryvist/nix-ai/commit/a72a7877f873dbcfb3af1b42ee9b32e39d19d5b9))
+* **mlx:** infer missing role-map chat metadata ([#2422](https://github.com/dryvist/nix-ai/issues/2422)) ([6f0d598](https://github.com/dryvist/nix-ai/commit/6f0d598efff2d263268262de183c9906b7cc4a18))
+* **mlx:** preserve model serving metadata ([#2420](https://github.com/dryvist/nix-ai/issues/2420)) ([b2c6ce2](https://github.com/dryvist/nix-ai/commit/b2c6ce23c087f17aa42604d2673fbf74fe5a00c1))
+* **mlx:** separate admission and worker concurrency ([8369e67](https://github.com/dryvist/nix-ai/commit/8369e6734301fd3780daa32f6c0d613d02f2c4ff))
+* **mlx:** separate model admission from worker concurrency ([70d110c](https://github.com/dryvist/nix-ai/commit/70d110c0726f65af01abfbe416d39840f6095ce8))
+
 ## [7.9.0](https://github.com/dryvist/nix-ai/compare/v7.8.0...v7.9.0) (2026-10-07)
 
 
