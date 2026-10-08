@@ -62,6 +62,8 @@ in
     maxOutputTokens = mimoMaxOutputTokens;
     concurrency = mimoConcurrency;
     queueSize = mimoProfile.queue_size;
+    # Admission: worker concurrency plus the bounded queue.
+    concurrencyLimit = mimoConcurrency + mimoProfile.queue_size;
     prefillTokensPerSecond = mimoProfile.prefill_tokens_per_second;
     decodeTokensPerSecond = mimoProfile.decode_tokens_per_second;
     servicePort = 11409;

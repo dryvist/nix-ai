@@ -96,9 +96,10 @@ in
       && c.modelAdmissionLimits.${judge27b} == judgeProfile.queue_size + 1
       && builtins.match ".*reasoning_effort.*(low|medium).*" judgeArgs != null
       || throw "catalog: the 27B entry must keep worker concurrency at 1, admit queue capacity plus the active request, and pin reasoning_effort to low or medium";
+    # MiMo admission: worker concurrency plus the bounded queue (as for the 27B entry).
     assert
       c.modelConcurrencyLimits.${mimo} == mimoProfile.max_parallel_requests
-      && c.modelAdmissionLimits.${mimo} == c.modelConcurrencyLimits.${mimo}
+      && c.modelAdmissionLimits.${mimo} == c.modelConcurrencyLimits.${mimo} + mimoProfile.queue_size
       && mimoProfile.max_parallel_requests != mimoModel.max_parallel_requests
       && c.modelFlagOverrides.${mimo}.maxNumSeqs == mimoSwap.max_num_sequences
       && c.modelFlagOverrides.${mimo}.maxRequestTokens == mimoSwap.max_request_tokens

@@ -9,6 +9,8 @@
       programs = {
         litellmLocal = {
           enable = true;
+          # No mlx resident is declared in this fixture, so the model server is named directly.
+          localEndpoint = "http://127.0.0.1:18080/v1";
           # Required once localModels is non-empty: the terminal rung forwards
           # the requested group name upstream, so it must name a group the shared
           # router serves rather than passing through the local rung's own name.
