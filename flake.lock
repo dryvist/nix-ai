@@ -827,11 +827,11 @@
     "nix-agent-sandbox-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1791441792,
-        "narHash": "sha256-AAe2oeUYoqah53r2wBgqpz5172iwp3XQiykuLoRXWZ4=",
+        "lastModified": 1791468773,
+        "narHash": "sha256-RaX38q3WL6scuSv5/N51FoNP3otlnc5NerPIhV0wzhM=",
         "owner": "dryvist",
         "repo": "nix-agent-sandbox",
-        "rev": "953ee921f999fe1cc29ed8cf105ce566f9d88e96",
+        "rev": "be5d1391529ab7b1801d3302a0d80e773558c9a0",
         "type": "github"
       },
       "original": {
