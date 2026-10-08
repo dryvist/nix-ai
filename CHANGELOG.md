@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.9.3](https://github.com/dryvist/nix-ai/compare/v7.9.2...v7.9.3) (2026-10-08)
+
+
+### Bug Fixes
+
+* **ci:** grant actions: read to daily run limit callers ([#2444](https://github.com/dryvist/nix-ai/issues/2444)) ([c138944](https://github.com/dryvist/nix-ai/commit/c1389442b1382ae57ea6aeede53abbd5b1a56d16))
+
 ## [7.9.2](https://github.com/dryvist/nix-ai/compare/v7.9.1...v7.9.2) (2026-10-08)
 
 
