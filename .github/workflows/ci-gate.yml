@@ -105,7 +105,7 @@ jobs:
       contents: write
       issues: write
       pull-requests: write
-    uses: dryvist/ai-workflows/.github/workflows/suite-ci.yml@08f7c5f1ec7f1ca0dd826fe96f0734b7398e6006
+    uses: dryvist/ai-workflows/.github/workflows/suite-ci.yml@403af23f9212599affb14cec404199b7e05c9392
     with:
       workflow_name: CI Gate
       repo_context: "Nix home-manager modules for AI CLI tools (Claude, Gemini, Copilot, MCP servers)"
