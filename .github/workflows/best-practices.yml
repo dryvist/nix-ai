@@ -8,6 +8,7 @@ on:
   # --- END DISABLED ---
 
 permissions:
+  actions: read
   contents: read
   id-token: write
   issues: write
