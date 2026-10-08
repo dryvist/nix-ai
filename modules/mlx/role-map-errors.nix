@@ -6,13 +6,23 @@ let
   inherit (roleMap) models roles hosts;
   inherit (builtins) attrNames concatMap filter;
 
-  # Every map model is a catalog entry serving the same physical id.
+  # Only chat models configured in the local MLX catalog need an MLX catalog
+  # entry. Other serving metadata remains in the role map for its consumers.
   modelErrors = concatMap (
     key:
-    if !(catalog ? ${key}) then
+    let
+      model = models.${key};
+      mlxChat = model.mlxChat or false;
+      hasCatalogEntry = builtins.hasAttr key catalog;
+    in
+    if hasCatalogEntry && !mlxChat then
+      [ "model `${key}` has an MLX catalog entry without a chat-completion backend" ]
+    else if !mlxChat then
+      [ ]
+    else if !hasCatalogEntry then
       [ "model `${key}` is not a catalog entry" ]
-    else if catalog.${key}.model != models.${key}.id then
-      [ "model `${key}` id ${models.${key}.id} differs from catalog ${catalog.${key}.model}" ]
+    else if catalog.${key}.model != model.id then
+      [ "model `${key}` id ${model.id} differs from catalog ${catalog.${key}.model}" ]
     else
       [ ]
   ) (attrNames models);

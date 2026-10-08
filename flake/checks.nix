@@ -43,7 +43,10 @@ in
         ai-assistant-instructions
         src
         ;
-      roleMap = import (src + "/lib/role-map.nix") { src = homelab-contracts; };
+      roleMap = import (src + "/lib/role-map.nix") {
+        src = homelab-contracts;
+        mlxCatalog = import (src + "/modules/mlx/catalog-data.nix");
+      };
       aiModule = self.homeManagerModules.default;
       inherit (nixAiLib) renderAutonomous homebrewFor agentNofile;
     })

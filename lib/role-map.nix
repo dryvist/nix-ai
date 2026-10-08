@@ -14,6 +14,7 @@
       lock = builtins.fromJSON (builtins.readFile ../flake.lock);
     in
     fetchTree lock.nodes.${lock.nodes.root.inputs.homelab-contracts}.locked,
+  mlxCatalog ? { },
 }:
 let
   roleMap = builtins.fromJSON (
@@ -35,11 +36,16 @@ let
       concurrency =
         catalogEntry.max_parallel_requests
           or (throw "shared catalog entry `${model.id}` for role-map model `${key}` is missing `max_parallel_requests`");
+      serving = import ./model-serving.nix {
+        inherit catalogEntry;
+        roleModel = model;
+        mlxCatalogEntry = mlxCatalog.${key} or null;
+      };
     in
     if !(builtins.isInt concurrency) || concurrency < 1 then
       throw "shared catalog entry `${model.id}` for role-map model `${key}` must define a positive integer `max_parallel_requests`"
     else
-      model // { inherit concurrency; }
+      model // { inherit concurrency; } // serving
   ) roleMap.models;
 in
 roleMap // { inherit models; }
