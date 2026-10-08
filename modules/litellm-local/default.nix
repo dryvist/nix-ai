@@ -206,6 +206,10 @@ in
             || (aiStack.llmEndpointBearerFromEnv && cfg.launchPrefix != [ ]);
           message = "programs.litellmLocal.enable needs the router bearer: set services.aiStack.llmEndpointTokenFile, or set services.aiStack.llmEndpointBearerFromEnv together with programs.litellmLocal.launchPrefix. The proxy runs as a launchd agent with no shell init, so a shell-exported bearer cannot reach it.";
         }
+        {
+          assertion = cfg.localEndpoint != null || builtins.all (m: m.router != null) cfg.localModels;
+          message = "programs.litellmLocal.localModels declares a model this host serves itself, so programs.litellmLocal.localEndpoint must name this host's model server. It is unset, and no static resident carries the default role to derive it from.";
+        }
       ]
       ++ fallbackTier.assertions;
 
