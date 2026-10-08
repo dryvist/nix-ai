@@ -46,8 +46,8 @@ jobs:
       # volume=80gb: the default root volume runs out of space while the
       # llama-swap and fabric Go builds compile side by side.
       nix_validate_runner_label: runs-on=${{ github.run_id }}/cpu=4/ram=16/family=m7+c7/extras=s3-cache/volume=80gb
-      # Pull requests run the full cross-system suite; main pushes do too.
-      all_systems: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
+      # PRs run the Linux-scoped checks; only main runs the cross-system suite.
+      all_systems: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       nix_skip_deps_only: true
       token_limits: true
       python_security: true
@@ -86,6 +86,7 @@ jobs:
     needs: [shared-gate]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
+    permissions: {}
     steps:
       - name: Check all results
         uses: re-actors/alls-green@b5b5b37504aa4183270bd3d855c52a67f212be35 # release/v1

@@ -24,8 +24,7 @@ jobs:
     name: Update fetchPypi hashes
     runs-on: ubuntu-latest
     environment: automation
-    permissions:
-      contents: read
+    permissions: {}
     steps:
       - name: Generate GitHub App Token
         id: app-token
