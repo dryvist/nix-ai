@@ -138,9 +138,6 @@ let
   # rebuild failure.
   agentsFullyEvaluate = builtins.deepSeq enabled.launchd.agents true;
   agentLoopbackOnly = enabled.programs.litellmLocal.port == 11434;
-  localEndpointIsNotProxy =
-    enabled.programs.litellmLocal.localEndpoint
-    != "http://127.0.0.1:${toString enabled.programs.litellmLocal.port}/v1";
   # The router URL reaches the agent as plain env; the bearer does not — the
   # wrapper reads it from the file at exec time.
   agentCarriesNoSecret =
@@ -167,12 +164,6 @@ in
       wildcardHasOwnKey
       || throw "the litellm-local wildcard deployment must carry its own api_key so it authenticates to the router as itself";
     helpers.mkMarker "check-litellm-local-header-scope" "litellm-local: client-header forwarding scoped to claude-* only, no proxy credential, router leg authenticates with its own key";
-
-  litellm-local-local-endpoint =
-    assert
-      localEndpointIsNotProxy
-      || throw "programs.litellmLocal.localEndpoint must not be the proxy's own address, got ${builtins.toJSON enabled.programs.litellmLocal.localEndpoint}";
-    helpers.mkMarker "check-litellm-local-local-endpoint" "litellm-local: local rungs target a model server, not the proxy's own port";
 
   litellm-local-client-wiring =
     assert

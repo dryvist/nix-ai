@@ -232,6 +232,7 @@ in
     hmConfigLitellmLocal
     ;
 })
+// (import ./checks/litellm-local-endpoint.nix { inherit pkgs hmConfigLitellmLocal; })
 // (import ./checks/litellm-local-negative.nix { inherit pkgs mkHmConfig; })
 // (import ./checks/litellm-local-launch-prefix.nix { inherit pkgs mkHmConfig; })
 // (import ./checks/litellm-local-scripts.nix { inherit pkgs src; })
