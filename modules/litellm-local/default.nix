@@ -111,6 +111,7 @@ let
         api_key = "os.environ/OPENAI_API_KEY";
         timeout = contract.timeoutSeconds;
         stream_timeout = contract.timeoutSeconds;
+        max_parallel_requests = config.programs.mlx.modelAdmissionLimits.${modelId};
       };
       model_info = {
         max_input_tokens = contract.maxInputTokens;
