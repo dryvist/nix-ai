@@ -127,6 +127,26 @@ let
     };
 
   realErrors = errorsFor roleMap;
+  callerRoleMapWithoutMlxChat = roleMap // {
+    models = roleMap.models // {
+      mimo-9b = builtins.removeAttrs roleMap.models.mimo-9b [ "mlxChat" ];
+    };
+  };
+  callerRoleMapWithExplicitFalse = roleMap // {
+    models = roleMap.models // {
+      mimo-9b = roleMap.models.mimo-9b // {
+        mlxChat = false;
+      };
+    };
+  };
+  callerRoleMapWithWrongCatalogId = roleMap // {
+    models = roleMap.models // {
+      mimo-9b = roleMap.models.mimo-9b // {
+        id = "mlx-community/not-the-catalog-model";
+        mlxChat = true;
+      };
+    };
+  };
 
   unknownModel = roleMap // {
     models = roleMap.models // {
@@ -190,6 +210,11 @@ in
       && stage0RoleMap.models.stage0_systemone_opendecider.serving.endpoint == "/v1/systemone"
       || throw "role map: non-MLX runtime records must remain available to their consumers";
     assert
+      errorsFor callerRoleMapWithoutMlxChat == [ ]
+      && reports callerRoleMapWithExplicitFalse ".*model `mimo-9b` has an MLX catalog entry without a chat-completion backend.*"
+      && reports callerRoleMapWithWrongCatalogId ".*model `mimo-9b` id .* differs from catalog .*"
+      || throw "role map: missing chat metadata derives from a matching catalog entry; explicit false and mismatched ids remain invalid";
+    assert
       reports unknownModel ".*not-in-catalog.*not a catalog entry.*"
       || throw "role map: a model key absent from the catalog must be reported";
     assert
@@ -198,5 +223,5 @@ in
     assert
       reports undeclaredHostModel ".*host class `server` keeps undeclared model `undeclared-model`.*"
       || throw "role map: a host class keeping an undeclared model must be reported";
-    helpers.mkMarker "check-mlx-role-map" "role map: catalog keys, dense concurrency and host-class models hold; each rule's negative case is reported";
+    helpers.mkMarker "check-mlx-role-map" "role map: missing chat metadata derives from catalog; invalid catalog, concurrency and host-class cases are reported";
 }

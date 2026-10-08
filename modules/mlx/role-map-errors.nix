@@ -5,6 +5,7 @@
 let
   inherit (roleMap) models roles hosts;
   inherit (builtins) attrNames concatMap filter;
+  modelServing = import ../../lib/model-serving.nix;
 
   # Only chat models configured in the local MLX catalog need an MLX catalog
   # entry. Other serving metadata remains in the role map for its consumers.
@@ -12,8 +13,19 @@ let
     key:
     let
       model = models.${key};
-      mlxChat = model.mlxChat or false;
       hasCatalogEntry = builtins.hasAttr key catalog;
+      catalogEntry = if hasCatalogEntry then catalog.${key} else null;
+      hasMatchingCatalogEntry = hasCatalogEntry && (catalogEntry.model or null) == (model.id or null);
+      inferredServing =
+        if hasMatchingCatalogEntry then
+          modelServing {
+            catalogEntry = { };
+            roleModel = model;
+            mlxCatalogEntry = catalogEntry;
+          }
+        else
+          { mlxChat = false; };
+      mlxChat = model.mlxChat or inferredServing.mlxChat;
     in
     if hasCatalogEntry && !mlxChat then
       [ "model `${key}` has an MLX catalog entry without a chat-completion backend" ]
