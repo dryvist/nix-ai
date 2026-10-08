@@ -13,6 +13,21 @@
   aiModule,
 }:
 rec {
+  localMlxCatalog = import ../modules/mlx/catalog-data.nix;
+  mkMlxRoleModel =
+    key:
+    let
+      entry = localMlxCatalog.${key};
+    in
+    {
+      id = entry.model;
+      concurrency = entry.concurrency;
+    }
+    // import ./model-serving.nix {
+      catalogEntry = { };
+      mlxCatalogEntry = entry;
+    };
+
   # Placeholder physical model id for regression tests. The real value is
   # sourced by consumers (nix-darwin) from AI_MODEL_LOCAL_LLM; tests only need
   # a valid non-empty mlx-community/* string to populate services.aiStack and
@@ -157,14 +172,8 @@ rec {
         memoryHardLimitGb = 46;
         roleMap = {
           models = {
-            qwen38-27b = {
-              id = "mlx-community/Qwen3.8-27B-4bit";
-              concurrency = 1;
-            };
-            mimo-9b = {
-              id = "mlx-community/MiMo-V2.6-Distill-Qwen-9B-OptiQ-4bit";
-              concurrency = 4;
-            };
+            qwen38-27b = mkMlxRoleModel "qwen38-27b";
+            mimo-9b = mkMlxRoleModel "mimo-9b";
           };
           roles = {
             default.model = "qwen38-27b";
@@ -260,14 +269,8 @@ rec {
         enable = true;
         roleMap = {
           models = {
-            qwen38-27b = {
-              id = "mlx-community/Qwen3.8-27B-4bit";
-              concurrency = 1;
-            };
-            mimo-9b = {
-              id = "mlx-community/MiMo-V2.6-Distill-Qwen-9B-OptiQ-4bit";
-              concurrency = 4;
-            };
+            qwen38-27b = mkMlxRoleModel "qwen38-27b";
+            mimo-9b = mkMlxRoleModel "mimo-9b";
           };
           roles = {
             default.model = "qwen38-27b";

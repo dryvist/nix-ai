@@ -3,10 +3,34 @@
 #   - every map model exposes concurrency from the shared model catalog
 #   - a dense model has concurrency 1
 #   - every model a host class keeps, and every role it resolves, is declared
-{ pkgs, roleMap }:
+{
+  pkgs,
+  roleMap,
+  hmConfigStaticServing,
+  hmConfigCluster,
+}:
 let
   helpers = import ./helpers.nix { inherit pkgs; };
   catalog = import ../../modules/mlx/catalog-data.nix;
+  mlxRoleModels = [
+    "qwen38-27b"
+    "mimo-9b"
+  ];
+  fixtureModels = hmConfig: hmConfig.config.programs.mlx.roleMap.models;
+  fixtureHasChatServingMetadata =
+    models:
+    builtins.all (
+      key:
+      let
+        model = models.${key};
+        catalogEntry = catalog.${key};
+      in
+      model.id == catalogEntry.model
+      && model.concurrency == catalogEntry.concurrency
+      && model.serving.backend == "mlx-lm"
+      && model.serving.endpoint == "/v1/chat/completions"
+      && model.mlxChat
+    ) mlxRoleModels;
   missingConcurrency = builtins.filter (key: !(roleMap.models.${key} ? concurrency)) (
     builtins.attrNames roleMap.models
   );
@@ -143,6 +167,10 @@ in
     assert
       realErrors == [ ]
       || throw "role map: the pinned homelab-contracts map breaks the catalog contract: ${builtins.toJSON realErrors}";
+    assert
+      fixtureHasChatServingMetadata (fixtureModels hmConfigStaticServing)
+      && fixtureHasChatServingMetadata (fixtureModels hmConfigCluster)
+      || throw "role map: static-serving and cluster fixtures must derive current catalog chat metadata";
     assert
       embedding.serving.endpoint == "/v1/embeddings"
       && !embedding.mlxChat
