@@ -90,8 +90,6 @@ let
         null;
   };
   resolvedLocalModels = map resolveRung cfg.localModels;
-  # Isolated chains resolve their rungs the same way, so a chain's window comes
-  # from the same catalog a tier rung's does.
   resolvedChains = lib.mapAttrs (_: map resolveRung) cfg.isolatedChains;
   staticResidentModels = config.programs.mlx.staticResidentContracts or { };
 
@@ -224,7 +222,7 @@ in
             || builtins.all (m: m.router != null) (
               cfg.localModels ++ lib.concatLists (lib.attrValues cfg.isolatedChains)
             );
-          message = "programs.litellmLocal.localModels or isolatedChains declares a model this host serves itself, so programs.litellmLocal.localEndpoint must name this host's model server. It is unset, and no static resident carries the default role to derive it from.";
+          message = "A programs.litellmLocal.localModels or isolatedChains rung is served by this host, so programs.litellmLocal.localEndpoint must name this host's model server; it is unset and no static resident carries the default role.";
         }
       ]
       ++ fallbackTier.assertions
