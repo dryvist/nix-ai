@@ -42,7 +42,8 @@ _:
     # Code Review (essential) — Tier 1 keepers; supersedes Tier 4 duplicates
     # in 04-community.nix (codebase-cleanup, tdd-workflows, code-refactoring all ship
     # a code-reviewer agent that we disable there).
-    "code-review@claude-plugins-official" = true;
+    # Disabled: no use in 30 days of session logs (2026-09-08 to 2026-10-08).
+    "code-review@claude-plugins-official" = false;
     "pr-review-toolkit@claude-plugins-official" = false;
 
     # Feature Development — provides feature-dev:code-reviewer (high-confidence
@@ -57,7 +58,8 @@ _:
     "hookify@claude-plugins-official" = true;
 
     # Setup & Management
-    "claude-code-setup@claude-plugins-official" = true;
+    # Disabled: no use in 30 days of session logs (2026-09-08 to 2026-10-08).
+    "claude-code-setup@claude-plugins-official" = false;
     "claude-md-management@claude-plugins-official" = false;
 
     # Frontend Design — standalone single-skill plugin, and it STAYS off.

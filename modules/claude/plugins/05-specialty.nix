@@ -44,10 +44,10 @@ _:
     # ========================================================================
     # bitwarden-marketplace — bitwarden/ai-plugins
     # ========================================================================
-    # Two plugins kept: claude-retrospective (3 skills), claude-config-validator
-    # (1 skill).
+    # One plugin kept: claude-retrospective (3 skills).
     "claude-retrospective@bitwarden-marketplace" = true;
-    "claude-config-validator@bitwarden-marketplace" = true;
+    # Disabled: no use in 30 days of session logs (2026-09-08 to 2026-10-08).
+    "claude-config-validator@bitwarden-marketplace" = false;
     # NOT enabled — Bitwarden-specific:
     # bitwarden-code-review, bitwarden-software-engineer,
     # bitwarden-security-engineer, bitwarden-product-analyst, bitwarden-init,
@@ -61,10 +61,8 @@ _:
     # DISABLED — superseded by Tier 2 codex@openai-codex (official OpenAI plugin).
     "codex@cc-dev-tools" = false;
 
-    # KEEP — no Google-official Claude plugin exists for Gemini delegation.
-    # Re-evaluated during the cost/intelligence alignment pass; this
-    # documented decision stands.
-    "gemini@cc-dev-tools" = true;
+    # Disabled: no use in 30 days of session logs (2026-09-08 to 2026-10-08).
+    "gemini@cc-dev-tools" = false;
 
     # Already disabled — requires TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID env vars
     # which aren't configured.
@@ -128,7 +126,7 @@ _:
     # disabled globally; re-enable in Obsidian-vault repos via per-repo
     # .claude/settings.json.
     "obsidian@obsidian-skills" = false;
-    "obsidian-visual-skills@axton-obsidian-visual-skills" = true;
+    "obsidian-visual-skills@axton-obsidian-visual-skills" = false;
     "visual-explainer@visual-explainer-marketplace" = false;
 
     # ========================================================================
