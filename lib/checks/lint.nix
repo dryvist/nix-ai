@@ -148,4 +148,15 @@
     SRC = src;
     nativeBuildInputs = [ pkgs.jq ];
   } "${pkgs.bash}/bin/bash ${./scripts/worktree-add-guard-test.sh}";
+
+  # Runs modules/agent-hooks/agent-spawn-gate.sh against the allow/deny cases
+  # in scripts/agent-spawn-gate-test.sh (roster, effort floor, scouting,
+  # Codex-first) with codex-quota stubbed.
+  agent-spawn-gate = pkgs.runCommand "check-agent-spawn-gate" {
+    SRC = src;
+    nativeBuildInputs = [
+      pkgs.jq
+      pkgs.gnugrep
+    ];
+  } "${pkgs.bash}/bin/bash ${./scripts/agent-spawn-gate-test.sh}";
 }
