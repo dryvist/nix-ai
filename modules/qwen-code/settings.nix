@@ -4,8 +4,9 @@
 # Writes ~/.qwen/settings.json. Schema documented at
 # https://github.com/QwenLM/qwen-code (look for the configuration table).
 # Key blocks:
-#   - modelProviders[]    Each provider declares baseUrl, protocol, model
-#                         list, and the env var that holds the API key.
+#   - modelProviders      `{ <authType> = [ model ]; }`, rendered from the
+#                         provider list below (baseUrl, protocol, models,
+#                         API-key env var) at write time.
 #   - env                 Fallback API-key store (lowest priority; we
 #                         leave empty and prefer .env files for secrets).
 #   - security.auth       The active provider type (openai for our local
@@ -138,8 +139,34 @@ let
   # (env entries, security, model.name) deep-merges normally.
   extraProviders = cfg.extraSettings.modelProviders or [ ];
   extraWithoutProviders = builtins.removeAttrs cfg.extraSettings [ "modelProviders" ];
+
+  # qwen-code reads modelProviders as `{ <authType> = [ model ]; }`, one flat
+  # entry per model carrying its own baseUrl/envKey (a list here is skipped
+  # whole as "Invalid authType key"). Providers stay the authoring shape;
+  # each expands to its models, with an optional provider-level
+  # generationConfig (e.g. `timeout` in ms) copied onto every model.
+  toModelEntries =
+    p:
+    map (
+      m:
+      {
+        id = m.name;
+        inherit (m) name;
+        inherit (p) baseUrl envKey;
+      }
+      // lib.optionalAttrs (m ? description) { inherit (m) description; }
+      // lib.optionalAttrs (p ? generationConfig) { inherit (p) generationConfig; }
+    ) p.models;
+  allProviders = baseSettings.modelProviders ++ extraProviders;
+
   finalSettings = (lib.recursiveUpdate baseSettings extraWithoutProviders) // {
-    modelProviders = baseSettings.modelProviders ++ extraProviders;
+    modelProviders = lib.foldl' (
+      acc: p:
+      acc
+      // {
+        ${p.protocol} = (acc.${p.protocol} or [ ]) ++ toModelEntries p;
+      }
+    ) { } allProviders;
   };
 
   settingsJson = pkgs.writeText "qwen-settings.json" (builtins.toJSON finalSettings);
