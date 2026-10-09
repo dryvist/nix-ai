@@ -45,7 +45,8 @@ let
   );
 
   # Every model a host class keeps, and every role it resolves (with the
-  # class's own overrides applied), names a declared model.
+  # class's own overrides applied), names a declared model. A kept model is
+  # selected into the host's programs.mlx.catalog, so it needs a catalog entry.
   hostErrors = concatMap (
     class:
     let
@@ -53,11 +54,13 @@ let
       effectiveRoles = roles // (host.roles or { });
       kept = host.resident ++ host.swap;
       badKept = filter (key: !(models ? ${key})) kept;
+      uncataloged = filter (key: models ? ${key} && !(catalog ? ${key})) kept;
       badRoles = filter (
         role: effectiveRoles.${role}.model != null && !(models ? ${effectiveRoles.${role}.model})
       ) (attrNames effectiveRoles);
     in
     map (key: "host class `${class}` keeps undeclared model `${key}`") badKept
+    ++ map (key: "host class `${class}` keeps model `${key}` with no MLX catalog entry") uncataloged
     ++ map (role: "role `${role}` on host class `${class}` names an undeclared model") badRoles
   ) (attrNames hosts);
 in
