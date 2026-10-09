@@ -1,5 +1,18 @@
 # Changelog
 
+## [7.10.0](https://github.com/dryvist/nix-ai/compare/v7.9.3...v7.10.0) (2026-10-09)
+
+
+### Features
+
+* **claude:** subagent spawn gate, codex-quota, managed CLAUDE.md and haiku-high/opus-high roster ([#2455](https://github.com/dryvist/nix-ai/issues/2455)) ([f7e1799](https://github.com/dryvist/nix-ai/commit/f7e179960961e5e25c1ea72419384b63dc9bcfe8))
+
+
+### Bug Fixes
+
+* **mcp:** vikunja-mcp create and bulk-create search before creating ([f639214](https://github.com/dryvist/nix-ai/commit/f639214c0b4a410f9c883a61ab29808fb807088b))
+* **mcp:** vikunja-mcp create and bulk-create search before creating ([580f67d](https://github.com/dryvist/nix-ai/commit/580f67da693aec2925fff323a8c2925c0b09280a))
+
 ## [7.9.3](https://github.com/dryvist/nix-ai/compare/v7.9.2...v7.9.3) (2026-10-08)
 
 
