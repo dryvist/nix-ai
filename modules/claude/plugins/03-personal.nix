@@ -51,5 +51,8 @@ in
     # SessionStart hook only checks a Doppler log for the PAL MCP server,
     # which was removed (#974); the log it greps for is permanently stale.
     "pal-health@jacobpevans-cc-plugins" = false;
+    # Disabled: no use in 30 days of session logs (2026-09-08 to 2026-10-08).
+    "codeql-resolver@jacobpevans-cc-plugins" = false;
+    "testing@jacobpevans-cc-plugins" = false;
   };
 }

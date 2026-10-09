@@ -18,7 +18,12 @@
   # uses the account-tier default. Override per-session via /model, or here
   # using a stable capability alias:
   # ANTHROPIC_MODEL = "sonnet"; # aliases: opus / sonnet / haiku
-  # CLAUDE_CODE_SUBAGENT_MODEL = "haiku"; # cost control for subagents
+
+  # Default subagent model: the haiku-high roster tier. An explicit
+  # `claude-*[1m]` id, never a bare alias, so it reaches Anthropic directly
+  # even when a local proxy fronts Claude Code. The spawn gate in
+  # modules/agent-hooks enforces the rest of the roster.
+  CLAUDE_CODE_SUBAGENT_MODEL = "claude-haiku-5-5[1m]";
 
   # To pin an exact model id instead of an alias, set the *_MODEL env vars below
   # to full ids from the model-config docs. Exact ids are omitted here on purpose
@@ -104,25 +109,6 @@
     ANTHROPIC_CUSTOM_HEADERS = "x-litellm-api-key: Bearer ${litellmLocal.clientToken}";
   }
   // {
-    # Which tier subagents run on. Default `anthropic` — a NATIVE Claude
-    # subagent, pinned to an explicit `claude-*[1m]` id so it matches the
-    # `claude-*` group and reaches Anthropic on the caller's own forwarded
-    # credential. It never touches the router leg, so there is no third-party
-    # egress and no retention question.
-    #
-    # `router` names `subagent`, the head of the generated chain in
-    # ./fallback-tier.nix. That is a LOCAL model_list group which deliberately
-    # shadows the upstream router's same-named alias — the upstream one still
-    # points at a model whose preview period ended and 404s every call. Naming
-    # the role without that local group is what breaks every subagent spawn,
-    # and `claudeShapedNamesCannotReachWildcard` is what keeps a Claude-shaped
-    # name from silently taking that path instead.
-    CLAUDE_CODE_SUBAGENT_MODEL =
-      if litellmLocal.subagentTier == "anthropic" then
-        litellmLocal.subagentAnthropicModel
-      else
-        "subagent";
-
     # The haiku tier deliberately stays on Anthropic. Claude Code's background
     # requests carry its full system prompt (measured ~36k tokens), and the
     # `cheap` role targets the always-on small local model, whose 32k window
