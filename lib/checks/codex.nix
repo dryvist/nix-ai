@@ -66,7 +66,7 @@ in
       {
         name = "codex.model";
         actual = cfg.model;
-        expected = null;
+        expected = "gpt-6.1-sol";
       }
       {
         name = "codex.modelProvider";
