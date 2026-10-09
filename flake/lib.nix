@@ -198,7 +198,7 @@ in
       claude = import "${nix-claude-code}/lib/render-autonomous.nix" args;
       codex = import "${nix-codex}/lib/render-autonomous.nix" args;
       agy = import "${nix-agy}/lib/render-autonomous.nix" args;
-      inherit (import ../vars/ai-stack.nix) zai;
+      inherit (import ../vars/ai-stack.nix) router;
       opencodeFormatter = (import ../modules/common/formatters.nix { inherit (nixpkgs) lib; }).opencode;
       opencodePermission = opencodeFormatter.formatPermission {
         allow = [ "" ];
@@ -216,14 +216,59 @@ in
         };
         autoupdate = false;
         share = "disabled";
-        model = "${zai.opencode.provider}/${zai.opencode.model}";
-        enabled_providers = [ zai.opencode.provider ];
-        provider.${zai.opencode.provider}.options.apiKey = "{env:${zai.keyEnv}}";
+        # Batch runs use the router. A terminal session signs in to any
+        # provider by hand and picks its model, so no provider list is set.
+        model = "${router.providerId}/${router.model}";
+        provider.${router.providerId} = {
+          npm = "@ai-sdk/openai-compatible";
+          name = router.providerId;
+          options = {
+            baseURL = "{env:AGENT_ROUTER_BASE_URL}";
+            apiKey = "{env:AGENT_ROUTER_KEY}";
+          };
+          models.${router.model}.name = router.model;
+        };
+      };
+      # ZCode's personal provider file (~/.zcode/v2/provider_config.json)
+      # for a batch run through the router. ZCode reads no env references,
+      # so the consumer sets api.baseUrl and access.apiKey at run time.
+      zcodeRouterProviderConfigJson = builtins.toJSON {
+        schemaVersion = 1;
+        config = {
+          providerOrder = [ router.providerId ];
+          providerConfigRules.providerRules = [
+            {
+              inherit (router) providerId;
+              providerName = router.providerId;
+              enabled = true;
+              config = {
+                group = "standard-personal";
+                access = {
+                  type = "api-key";
+                  apiKey = null;
+                };
+                api = {
+                  type = "openai-chat-completions";
+                  baseUrl = null;
+                };
+                personalModelIds = [ router.model ];
+              };
+            }
+          ];
+          modelConfigRules = {
+            providerModelRules = [ ];
+            manualProviderModelRules = [ ];
+          };
+          defaultModelSelection = {
+            inherit (router) providerId;
+            modelId = router.model;
+          };
+        };
       };
     in
     {
       inherit residualDeny;
-      inherit opencodeSettingsJson;
+      inherit opencodeSettingsJson zcodeRouterProviderConfigJson;
       claudeSettingsJson = claude.settingsJson;
       codexConfigToml = codex.configToml;
       codexRules = codex.rules;

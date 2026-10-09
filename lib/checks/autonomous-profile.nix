@@ -26,14 +26,14 @@
         codexConfig = render.codexConfigToml;
         geminiSettings = render.geminiSettingsJson;
         opencodeSettings = render.opencodeSettingsJson;
-        opencodeProvider = (import ../../vars/ai-stack.nix).zai.opencode.provider;
-        opencodeModel = (import ../../vars/ai-stack.nix).zai.opencode.model;
-        zaiKeyEnv = (import ../../vars/ai-stack.nix).zai.keyEnv;
+        zcodeRouterProviderConfig = render.zcodeRouterProviderConfigJson;
+        inherit ((import ../../vars/ai-stack.nix).router) providerId model;
         passAsFile = [
           "claudeSettings"
           "codexConfig"
           "codexRules"
           "opencodeSettings"
+          "zcodeRouterProviderConfig"
           "geminiSettings"
           "geminiPolicyToml"
         ];
@@ -78,12 +78,25 @@
         [ "$(grep -c '"forbidden"' "$codexRulesPath")" -eq "$n" ]
         [ "$(grep -c 'decision = "deny"' "$geminiPolicyTomlPath")" -eq "$n" ]
 
-        jq -e --arg provider "$opencodeProvider" --arg model "$opencodeModel" --arg key "$zaiKeyEnv" '.permission["*"] == "allow" and .permission.bash["*"] == "allow" and
+        jq -e --arg provider "$providerId" --arg model "$model" '.permission["*"] == "allow" and .permission.bash["*"] == "allow" and
           .permission.bash["gh repo delete*"] == "deny" and
           .permission.bash["git push --force*"] == "deny" and
           .autoupdate == false and .share == "disabled" and
           .model == ($provider + "/" + $model) and
-          .provider[$provider].options.apiKey == ("{env:" + $key + "}")' "$opencodeSettingsPath"
+          (has("enabled_providers") | not) and
+          .provider[$provider].npm == "@ai-sdk/openai-compatible" and
+          .provider[$provider].options == {baseURL: "{env:AGENT_ROUTER_BASE_URL}", apiKey: "{env:AGENT_ROUTER_KEY}"} and
+          (.provider[$provider].models | keys) == [$model]' "$opencodeSettingsPath"
+
+        # ZCode router provider: the one routed model is the default, and the
+        # URL and key are left for the consumer to set at run time.
+        jq -e --arg provider "$providerId" --arg model "$model" '.schemaVersion == 1 and
+          .config.defaultModelSelection == {providerId: $provider, modelId: $model} and
+          (.config.providerConfigRules.providerRules | length == 1) and
+          (.config.providerConfigRules.providerRules[0] | .providerId == $provider and
+            .config.access == {type: "api-key", apiKey: null} and
+            .config.api == {type: "openai-chat-completions", baseUrl: null} and
+            .config.personalModelIds == [$model])' "$zcodeRouterProviderConfigPath"
         jq -e "[.permission.bash[] | select(. == \"deny\")] | length == $n" "$opencodeSettingsPath"
 
         touch "$out"

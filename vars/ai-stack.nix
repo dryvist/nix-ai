@@ -52,6 +52,14 @@
     cribl_edge_ui = 30910;
   };
 
+  # The OpenAI-compatible model router the sandbox tools call. The base URL
+  # and the per-tool key arrive at run time as AGENT_ROUTER_BASE_URL and
+  # AGENT_ROUTER_KEY; `model` is the router alias every tool key may use.
+  router = {
+    providerId = "router";
+    model = "auto";
+  };
+
   # Z.ai subscription launchers. Everything here is non-secret configuration;
   # the API key reaches only the selected child process.
   zai = {
@@ -64,10 +72,6 @@
       primaryModel = "glm-5.3[1m]";
       fastModel = "glm-5.3-flash[1m]";
       autoCompactWindow = "500000";
-    };
-    opencode = {
-      provider = "zai-coding-plan";
-      model = "glm-5.3-flash";
     };
     zcode.model = "GLM-5.3-Flash";
     codex = {
