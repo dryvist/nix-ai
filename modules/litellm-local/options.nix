@@ -5,6 +5,7 @@
 { config, lib, ... }:
 let
   cfg = config.programs.litellmLocal;
+  rungType = import ./rung-type.nix { inherit lib; };
 in
 {
   options.programs.litellmLocal = {
@@ -83,56 +84,11 @@ in
     };
 
     localModels = lib.mkOption {
-      type = lib.types.listOf (
-        lib.types.submodule {
-          options = {
-            name = lib.mkOption {
-              type = lib.types.str;
-              description = "Group name clients address. The FIRST entry must be `subagent` — consumers name that string forever.";
-            };
-            id = lib.mkOption {
-              type = lib.types.nullOr lib.types.str;
-              default = null;
-              description = "Model id as this host's own server serves it. Exactly one of `id` and `router` is set.";
-            };
-            router = lib.mkOption {
-              type = lib.types.nullOr lib.types.str;
-              default = null;
-              example = "fast-gpu";
-              description = ''
-                A GROUP the shared router serves, used as this rung instead of a
-                model this host serves itself. This is how a router tier sits
-                AHEAD of this host's own model (the single-GPU fast-subagent
-                group first, the laptop second). A group name only — never a
-                provider, model id, or price; what the group resolves to is
-                edited in the router's admin UI, not here.
-              '';
-            };
-            contextWindow = lib.mkOption {
-              type = lib.types.nullOr lib.types.ints.positive;
-              default = null;
-              description = ''
-                Real serving window in tokens -- what lets LiteLLM detect an
-                overflow and escape to the shared router instead of letting the
-                model truncate silently.
-
-                Null (the default) DERIVES it from `programs.mlx.modelContextWindows`,
-                which the mlx catalog already computes for the model this host
-                serves. Leave it null: the catalog is the single source, and a
-                number written here is free to drift above the real window,
-                which silently disables the escape.
-
-                Set it only for a model served by something other than the mlx
-                catalog. An id the catalog does not serve and that carries no
-                explicit value fails the build.
-              '';
-            };
-          };
-        }
-      );
+      type = lib.types.listOf rungType;
       default = [ ];
       description = ''
-        Models THIS host serves itself, tried before the shared router.
+        Models THIS host serves itself, tried before the shared router. The
+        FIRST entry must be `subagent` — consumers name that string forever.
 
         Ordered: LiteLLM walks the list as written. The shared homelab router is
         appended automatically as the final rung, so the chain always ends
@@ -144,6 +100,21 @@ in
         Never name a cloud provider here. The router already owns a
         credentialed, budgeted, ordered cloud chain; naming one here puts the
         decision in two places, and `fallback-tier.nix` asserts against it.
+      '';
+    };
+
+    isolatedChains = lib.mkOption {
+      type = lib.types.attrsOf (lib.types.listOf rungType);
+      default = { };
+      description = ''
+        Self-contained fallback ladders, keyed by a label. Each chain is an
+        ordered list of rungs (the same shape as `localModels`); every rung
+        falls through to the rungs below it in its own chain, and to nothing
+        else. The shared router's terminal rung is never appended, so a chain
+        cannot escape to the cloud chain behind the router.
+
+        Rung names are unique across `localModels` and every chain. Empty
+        (the default) renders nothing extra.
       '';
     };
 

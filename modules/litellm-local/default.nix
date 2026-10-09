@@ -75,7 +75,7 @@ let
   # fallback-tier.nix's contextWindow assertion. That is intended -- naming a
   # model this host does not serve is a build error, not a runtime 404.
   mlxWindows = config.programs.mlx.modelContextWindows or { };
-  resolvedLocalModels = map (m: {
+  resolveRung = m: {
     inherit (m)
       name
       id
@@ -88,7 +88,9 @@ let
         mlxWindows.${m.id} or null
       else
         null;
-  }) cfg.localModels;
+  };
+  resolvedLocalModels = map resolveRung cfg.localModels;
+  resolvedChains = lib.mapAttrs (_: map resolveRung) cfg.isolatedChains;
   staticResidentModels = config.programs.mlx.staticResidentContracts or { };
 
   fallbackTier = import ./fallback-tier.nix {
@@ -96,6 +98,13 @@ let
     localModels = resolvedLocalModels;
     inherit (cfg) routerEntryModel;
     headAliases = if staticResidentModels != { } then [ ] else cfg.headAliases;
+  };
+
+  isolatedTier = import ./isolated-chains.nix {
+    inherit lib;
+    inherit (fallbackTier) renderRung forbiddenProviderMarkers;
+    reservedNames = fallbackTier.names ++ fallbackTier.headAliases;
+    chains = resolvedChains;
   };
 
   staticResidentRoutes = lib.concatMap (
@@ -148,6 +157,7 @@ let
     inherit
       lib
       fallbackTier
+      isolatedTier
       telemetryTracesEndpoint
       staticResidentRoutes
       ;
@@ -207,11 +217,16 @@ in
           message = "programs.litellmLocal.enable needs the router bearer: set services.aiStack.llmEndpointTokenFile, or set services.aiStack.llmEndpointBearerFromEnv together with programs.litellmLocal.launchPrefix. The proxy runs as a launchd agent with no shell init, so a shell-exported bearer cannot reach it.";
         }
         {
-          assertion = cfg.localEndpoint != null || builtins.all (m: m.router != null) cfg.localModels;
-          message = "programs.litellmLocal.localModels declares a model this host serves itself, so programs.litellmLocal.localEndpoint must name this host's model server. It is unset, and no static resident carries the default role to derive it from.";
+          assertion =
+            cfg.localEndpoint != null
+            || builtins.all (m: m.router != null) (
+              cfg.localModels ++ lib.concatLists (lib.attrValues cfg.isolatedChains)
+            );
+          message = "A programs.litellmLocal.localModels or isolatedChains rung is served by this host, so programs.litellmLocal.localEndpoint must name this host's model server; it is unset and no static resident carries the default role.";
         }
       ]
-      ++ fallbackTier.assertions;
+      ++ fallbackTier.assertions
+      ++ isolatedTier.assertions;
 
       home.packages = [ fallbackProbe ];
 
