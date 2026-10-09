@@ -1,0 +1,232 @@
+; OpenCode sandbox: deny-default Seatbelt profile.
+;
+; OpenCode runs as the same macOS user as the trusted tier, so the boundary is
+; this profile, not the process identity. The launcher in default.nix runs
+;   sandbox-exec -D WORKTREE=<realpath> -D GIT_COMMON=<realpath> -D TMPDIR=<realpath> -f <this file>
+; and renders @HOME@ at build time, so no username is committed to the repo.
+;
+; Base allowances (sysctls, IOKit, PTY, libinfo) are copied from openai/codex
+; codex-rs/sandboxing: seatbelt_base_policy.sbpl. Codex's network-policy mach
+; services (SecurityServer, trustd, ocspd, configd, networkd) are deliberately
+; omitted: HTTPS to a model API and DNS resolution succeed without them.
+;
+; Seatbelt evaluates rules in order and the LAST matching rule wins, so every
+; deny below sits after the allow it overrides.
+
+(version 1)
+
+(deny default)
+
+; Children inherit this profile, so exec is allowed in general; the sudo deny
+; and the service denies at the bottom are what remain closed.
+(allow process-exec)
+(allow process-fork)
+(allow signal (target same-sandbox))
+(allow process-info* (target same-sandbox))
+
+(allow file-write-data
+  (require-all
+    (path "/dev/null")
+    (vnode-type CHARACTER-DEVICE)))
+
+(allow sysctl-read
+  (sysctl-name "hw.activecpu")
+  (sysctl-name "hw.busfrequency_compat")
+  (sysctl-name "hw.byteorder")
+  (sysctl-name "hw.cacheconfig")
+  (sysctl-name "hw.cachelinesize_compat")
+  (sysctl-name "hw.cpufamily")
+  (sysctl-name "hw.cpufrequency_compat")
+  (sysctl-name "hw.cputype")
+  (sysctl-name "hw.l1dcachesize_compat")
+  (sysctl-name "hw.l1icachesize_compat")
+  (sysctl-name "hw.l2cachesize_compat")
+  (sysctl-name "hw.l3cachesize_compat")
+  (sysctl-name "hw.logicalcpu_max")
+  (sysctl-name "hw.machine")
+  (sysctl-name "hw.model")
+  (sysctl-name "hw.memsize")
+  (sysctl-name "hw.ncpu")
+  (sysctl-name "hw.nperflevels")
+  (sysctl-name-prefix "hw.optional.arm.")
+  (sysctl-name-prefix "hw.optional.armv8_")
+  (sysctl-name "hw.packages")
+  (sysctl-name "hw.pagesize_compat")
+  (sysctl-name "hw.pagesize")
+  (sysctl-name "hw.physicalcpu")
+  (sysctl-name "hw.physicalcpu_max")
+  (sysctl-name "hw.logicalcpu")
+  (sysctl-name "hw.cpufrequency")
+  (sysctl-name "hw.tbfrequency_compat")
+  (sysctl-name "hw.vectorunit")
+  (sysctl-name "machdep.cpu.brand_string")
+  (sysctl-name "kern.argmax")
+  (sysctl-name "kern.hostname")
+  (sysctl-name "kern.maxfilesperproc")
+  (sysctl-name "kern.maxproc")
+  (sysctl-name "kern.osproductversion")
+  (sysctl-name "kern.osrelease")
+  (sysctl-name "kern.ostype")
+  (sysctl-name "kern.osvariant_status")
+  (sysctl-name "kern.osversion")
+  (sysctl-name "kern.secure_kernel")
+  (sysctl-name "kern.sysv.semmns")
+  (sysctl-name "kern.usrstack64")
+  (sysctl-name "kern.version")
+  (sysctl-name "sysctl.proc_cputype")
+  (sysctl-name "vm.loadavg")
+  (sysctl-name-prefix "hw.perflevel")
+  (sysctl-name-prefix "kern.proc.pgrp.")
+  (sysctl-name-prefix "kern.proc.pid.")
+  (sysctl-name-prefix "net.routetable.")
+)
+
+(allow sysctl-write
+  (sysctl-name "kern.grade_cputype"))
+
+(allow iokit-open
+  (iokit-registry-entry-class "RootDomainUserClient"))
+
+(allow ipc-posix-sem)
+
+(allow pseudo-tty)
+(allow file-read* file-write* file-ioctl (literal "/dev/ptmx"))
+(allow file-read* file-write*
+  (require-all
+    (regex #"^/dev/ttys[0-9]+")
+    (extension "com.apple.sandbox.pty")))
+(allow file-ioctl (regex #"^/dev/ttys[0-9]+"))
+
+; Mach services: libinfo (user and group lookup) and the directory helper.
+; DNS works through the unix socket allowed below, so no network mach service is
+; needed. Everything else is denied by default.
+(allow mach-lookup
+  (global-name "com.apple.system.opendirectoryd.libinfo")
+  (global-name "com.apple.system.opendirectoryd.membership")
+  (global-name "com.apple.bsd.dirhelper")
+  (global-name "com.apple.PowerManagement.control"))
+
+(allow system-socket
+  (require-all
+    (socket-domain AF_SYSTEM)
+    (socket-protocol 2)))
+
+; Network: TCP and UDP only. Unix-domain sockets are denied below.
+(allow network-outbound (remote ip))
+
+; Reads are an allowlist. Metadata is open so paths can be traversed; the
+; contents of anything not listed here stay unreadable.
+(allow file-read-metadata)
+
+; dyld maps executables and reads the shared cache from the Cryptexes volume.
+(allow file-map-executable)
+
+(allow file-read*
+  (literal "/")
+  (subpath "/System")
+  (subpath "/System/Volumes/Preboot/Cryptexes")
+  (subpath "/System/Cryptexes")
+  (subpath "/usr")
+  (subpath "/bin")
+  (subpath "/sbin")
+  (subpath "/Library")
+  (subpath "/private/etc")
+  (subpath "/private/var/db/timezone")
+  (subpath "/private/var/select")
+  (subpath "/dev")
+  (subpath "/nix/store")
+  (subpath "/nix/var/nix/profiles")
+  (subpath "/etc/profiles")
+  (subpath "/run/current-system"))
+
+; Shell startup and git configuration, read-only.
+(allow file-read*
+  (literal "@HOME@/.zshenv")
+  (literal "@HOME@/.zprofile")
+  (literal "@HOME@/.zshrc")
+  (literal "@HOME@/.zlogin")
+  (literal "@HOME@/.zlogout")
+  (literal "@HOME@/.gitconfig")
+  (literal "@HOME@/.config/git/config")
+  (literal "@HOME@/.config/git/ignore")
+  (literal "@HOME@/.nix-profile")
+  (subpath "@HOME@/.local/state/nix/profiles"))
+
+; OpenCode's own config (read-only: OpenCode never rewrites it, and Nix owns it),
+; and the agent skills it loads (read-only, nix-deployed instructions).
+(allow file-read*
+  (subpath "@HOME@/.config/opencode")
+  (subpath "@HOME@/.agents/skills"))
+
+; OpenCode's own state and cache. Writes are limited to these three trees.
+(allow file-read* file-write*
+  (subpath "@HOME@/.local/share/opencode")
+  (subpath "@HOME@/.local/state/opencode")
+  (subpath "@HOME@/.cache/opencode"))
+
+; The worktree, plus the git common dir so linked worktrees can update their index
+; and refs. Protected paths inside these trees are denied at the bottom.
+(allow file-read* file-write*
+  (subpath (param "WORKTREE"))
+  (subpath (param "GIT_COMMON"))
+  (subpath (param "TMPDIR")))
+
+; ---- Denies. Last match wins, so these override the allows above. ----
+
+; Unix-domain sockets: no ssh-agent, no launchd or GUI sockets, no docker.
+(deny network-outbound (remote unix-socket))
+(deny network-bind (local unix-socket))
+; The system DNS resolver socket is the one exception; everything else stays closed.
+(allow network-outbound
+  (remote unix-socket (path-literal "/private/var/run/mDNSResponder")))
+
+; Keychain and LaunchServices mach services.
+(deny mach-lookup
+  (global-name "com.apple.SecurityServer")
+  (global-name "com.apple.securityd")
+  (global-name "com.apple.security.keychaind")
+  (global-name "com.apple.secd")
+  (global-name "com.apple.security.agent")
+  (global-name "com.apple.coreservices.launchservicesd")
+  (global-name "com.apple.launchservicesd"))
+
+; Launching apps, sending AppleEvents, and creating launchd jobs all leave
+; the sandbox, so they stay closed.
+(deny lsopen)
+(deny appleevent-send)
+(deny job-creation)
+
+; Privilege escalation through sudo, by any path.
+(deny process-exec (regex #"/sudo$"))
+
+; Credential stores. The read allowlist already excludes them; these are explicit.
+(deny file-read* file-write*
+  (subpath "@HOME@/.doppler")
+  (subpath "@HOME@/.config/gh")
+  (subpath "@HOME@/.config/sops")
+  (subpath "@HOME@/.config/bws")
+  (subpath "@HOME@/.config/secrets")
+  (subpath "@HOME@/.config/openbao")
+  (subpath "@HOME@/.codex")
+  (subpath "@HOME@/.claude")
+  (literal "@HOME@/.claude.json")
+  (subpath "@HOME@/.ssh")
+  (subpath "@HOME@/.gnupg")
+  (subpath "@HOME@/Library/Keychains")
+  (subpath "/Library/Keychains")
+  (subpath "@HOME@/Library/LaunchAgents"))
+
+; Files that run later, under Claude or git, outside this sandbox. The git
+; hooks and config are denied wherever they sit, which covers both the plain
+; .git and the common dir of a linked worktree.
+(deny file-write*
+  (regex #"/\.git/(hooks|config)(/|$)")
+  (regex #"/\.git/worktrees/[^/]+/config\.worktree$")
+  (regex #"/(\.envrc|\.mcp\.json|opencode\.json)$")
+  (regex #"/(\.opencode|\.claude|\.vscode)(/|$)"))
+
+; OpenCode writes .opencode/.gitignore when it starts in a project. That one
+; file is not code, and no subpath is allowed, so plugins, tools and node_modules
+; under .opencode stay closed.
+(allow file-write*
+  (regex #"/\.opencode/\.gitignore$"))
