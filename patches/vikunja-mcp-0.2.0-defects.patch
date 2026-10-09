@@ -1,6 +1,6 @@
 diff --color -ruN a/dist/tools/projects.js b/dist/tools/projects.js
---- a/dist/tools/projects.js	2026-09-22 16:38:13
-+++ b/dist/tools/projects.js	2026-09-22 16:38:13
+--- a/dist/tools/projects.js	1985-10-26 03:15:00.000000000 -0500
++++ b/dist/tools/projects.js	2026-10-08 22:33:06.842371552 -0400
 @@ -106,6 +106,7 @@
          page: zod_1.z.number().optional(),
          perPage: zod_1.z.number().optional(),
@@ -32,9 +32,17 @@ diff --color -ruN a/dist/tools/projects.js b/dist/tools/projects.js
                          return {
                              content: [
 diff --color -ruN a/dist/tools/tasks/bulk-operations.js b/dist/tools/tasks/bulk-operations.js
---- a/dist/tools/tasks/bulk-operations.js	2026-09-22 16:38:13
-+++ b/dist/tools/tasks/bulk-operations.js	2026-09-22 16:42:47
-@@ -137,124 +137,14 @@
+--- a/dist/tools/tasks/bulk-operations.js	1985-10-26 03:15:00.000000000 -0500
++++ b/dist/tools/tasks/bulk-operations.js	2026-10-08 22:33:35.203854257 -0400
+@@ -13,6 +13,7 @@
+ const retry_1 = require("../../utils/retry");
+ const constants_1 = require("./constants");
+ const validation_1 = require("./validation");
++const crud_1 = require("./crud");
+ /**
+  * Process an array in batches
+  */
+@@ -137,124 +138,14 @@
          const client = await (0, client_1.getVikunjaClient)();
          // Use the proper bulk update API endpoint
          try {
@@ -167,7 +175,7 @@ diff --color -ruN a/dist/tools/tasks/bulk-operations.js b/dist/tools/tasks/bulk-
          }
          catch (bulkError) {
              // If bulk update fails, fall back to individual updates
-@@ -563,7 +453,15 @@
+@@ -563,7 +454,18 @@
          // Create tasks in batches
          const projectId = args.projectId; // TypeScript knows this is defined due to earlier check
          const creationResults = await processBatches(args.tasks, constants_1.BULK_OPERATION_BATCH_SIZE, async (batch) => {
@@ -181,10 +189,13 @@ diff --color -ruN a/dist/tools/tasks/bulk-operations.js b/dist/tools/tasks/bulk-
 +            for (const taskData of batch) {
 +                try {
 +                    const value = await (async (taskData) => {
++                const duplicate = await (0, crud_1.findOpenDuplicate)(client, projectId, taskData.title);
++                if (duplicate)
++                    return (0, crud_1.recordDuplicate)(client, duplicate, taskData.description);
                  // Create the base task
                  const newTask = {
                      title: taskData.title,
-@@ -636,7 +534,13 @@
+@@ -636,7 +538,13 @@
                      }
                  }
                  return createdTask;
@@ -200,9 +211,76 @@ diff --color -ruN a/dist/tools/tasks/bulk-operations.js b/dist/tools/tasks/bulk-
          });
          // Process results
 diff --color -ruN a/dist/tools/tasks/crud.js b/dist/tools/tasks/crud.js
---- a/dist/tools/tasks/crud.js	2026-09-22 16:38:13
-+++ b/dist/tools/tasks/crud.js	2026-09-22 16:42:21
-@@ -200,6 +200,13 @@
+--- a/dist/tools/tasks/crud.js	1985-10-26 03:15:00.000000000 -0500
++++ b/dist/tools/tasks/crud.js	2026-10-08 22:34:14.986130647 -0400
+@@ -7,6 +7,9 @@
+ exports.getTask = getTask;
+ exports.updateTask = updateTask;
+ exports.deleteTask = deleteTask;
++exports.normalizeTitle = normalizeTitle;
++exports.findOpenDuplicate = findOpenDuplicate;
++exports.recordDuplicate = recordDuplicate;
+ const index_1 = require("../../types/index");
+ const client_1 = require("../../client");
+ const logger_1 = require("../../utils/logger");
+@@ -15,6 +18,30 @@
+ const constants_1 = require("./constants");
+ const validation_1 = require("./validation");
+ /**
++ * Search-before-create: the fingerprint is the project plus the title,
++ * lowercased with punctuation and whitespace collapsed.
++ */
++function normalizeTitle(title) {
++    return String(title).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
++}
++async function findOpenDuplicate(client, projectId, title) {
++    const want = normalizeTitle(title);
++    // Search by the longest word, then compare normalized titles, so case and
++    // punctuation differences still match. ponytail: one page of 50 hits; a
++    // very common longest word can push the twin off the page.
++    const word = want.split(' ').reduce((a, b) => (b.length > a.length ? b : a), '');
++    const found = await client.tasks.getProjectTasks(projectId, { s: word, per_page: 50 });
++    return (found || []).find((t) => !t.done && normalizeTitle(t.title) === want);
++}
++// An open task with the same fingerprint gets the new description as a
++// comment instead of a second task.
++async function recordDuplicate(client, existing, description) {
++    await client.tasks.createTaskComment(existing.id, {
++        comment: `Duplicate create suppressed (same title, still open).${description ? `\n\n${description}` : ''}`,
++    });
++    return client.tasks.getTask(existing.id);
++}
++/**
+  * Create a new task
+  */
+ async function createTask(args) {
+@@ -35,6 +62,25 @@
+             args.assignees.forEach((id) => (0, validation_1.validateId)(id, 'assignee ID'));
+         }
+         const client = await (0, client_1.getVikunjaClient)();
++        const duplicate = await findOpenDuplicate(client, args.projectId, args.title);
++        if (duplicate) {
++            const task = await recordDuplicate(client, duplicate, args.description);
++            return {
++                content: [
++                    {
++                        type: 'text',
++                        text: JSON.stringify({
++                            success: true,
++                            operation: 'create',
++                            deduplicated: true,
++                            message: `Open task #${task.id} already has this title; added a comment to it instead of creating a duplicate`,
++                            task,
++                            metadata: { timestamp: new Date().toISOString() },
++                        }, null, 2),
++                    },
++                ],
++            };
++        }
+         const newTask = {
+             title: args.title,
+             project_id: args.projectId,
+@@ -200,6 +246,13 @@
          if (!args.id) {
              throw new index_1.MCPError(index_1.ErrorCode.VALIDATION_ERROR, 'Task id is required for update operation');
          }
@@ -216,7 +294,7 @@ diff --color -ruN a/dist/tools/tasks/crud.js b/dist/tools/tasks/crud.js
          (0, validation_1.validateId)(args.id, 'id');
          // Validate date if provided
          if (args.dueDate) {
-@@ -237,11 +244,16 @@
+@@ -237,11 +290,16 @@
              affectedFields.push('labels');
          if (args.assignees !== undefined)
              affectedFields.push('assignees');
@@ -234,8 +312,8 @@ diff --color -ruN a/dist/tools/tasks/crud.js b/dist/tools/tasks/crud.js
              ...(args.description !== undefined && { description: args.description }),
              ...(args.dueDate !== undefined && { due_date: args.dueDate }),
 diff --color -ruN a/dist/tools/tasks/index.js b/dist/tools/tasks/index.js
---- a/dist/tools/tasks/index.js	2026-09-22 16:38:13
-+++ b/dist/tools/tasks/index.js	2026-09-22 16:38:13
+--- a/dist/tools/tasks/index.js	1985-10-26 03:15:00.000000000 -0500
++++ b/dist/tools/tasks/index.js	2026-10-08 22:33:06.843789072 -0400
 @@ -72,8 +72,11 @@
              tasks = await client.tasks.getProjectTasks(args.projectId, params);
          }

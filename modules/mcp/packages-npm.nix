@@ -33,7 +33,10 @@ in
     # Defect patch from Vikunja task 3413: sequential bulk-create (avoids
     # server-side task-index races), allProjects fan-out (avoids /tasks/all's
     # 500), update projectId (was a silent no-op), and an optional `fields`
-    # filter on `list` (the raw project list was reported as huge).
+    # filter on `list` (the raw project list was reported as huge). Also
+    # search-before-create: `create`/`bulk-create` comment on an open task
+    # with the same normalized title in the same project instead of
+    # duplicating it.
     patches = [ ../../patches/vikunja-mcp-0.2.0-defects.patch ];
 
     postPatch = ''
@@ -56,7 +59,8 @@ in
       VIKUNJA_MCP_DIST="$PWD/dist" node --test \
         ${../../patches/test-bulk-update-no-clobber.mjs} \
         ${../../patches/test-update-done.mjs} \
-        ${../../patches/test-update-field-value-rejected.mjs}
+        ${../../patches/test-update-field-value-rejected.mjs} \
+        ${../../patches/test-create-dedupe.mjs}
       runHook postCheck
     '';
 
