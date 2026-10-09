@@ -130,7 +130,7 @@ in
         # routine work. See modules/claude-config.nix for the full rationale.
         name = "effortLevel";
         actual = cfg.effortLevel;
-        expected = "medium";
+        expected = "high";
       }
       {
         name = "validateSettings.enable";

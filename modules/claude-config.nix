@@ -53,7 +53,6 @@ let
 
   cbCommands = discoverMarkdownFiles "${claude-cookbooks}/.claude/commands";
   aiAgents = discoverMarkdownFiles "${ai-assistant-instructions}/agentsmd/agents";
-  cbAgents = discoverMarkdownFiles "${claude-cookbooks}/.claude/agents";
   aiRules = discoverMarkdownFiles "${ai-assistant-instructions}/agentsmd/rules";
 
   # Plugin tier files (per-user enablement) stay in nix-ai. The catalog of
@@ -129,9 +128,9 @@ in
       # See: https://code.claude.com/docs/en/output-styles
       outputStyle = "concise";
 
-      # Upstream `high` costs ~2x `medium` for ~2 accuracy points; escalate
-      # via /effort as needed.
-      effortLevel = "medium";
+      # Effort floor for every session and subagent; per-model overrides
+      # live in ./claude/instructions.nix.
+      effortLevel = "high";
 
       # Remote Control refuses to start while ANTHROPIC_BASE_URL points away
       # from api.anthropic.com. settings-env.nix sets it only when litellmLocal
@@ -181,9 +180,9 @@ in
         fromFlakeInputs = mkSourceEntries "${claude-cookbooks}/.claude/commands" cbCommands;
       };
 
-      agents.fromFlakeInputs =
-        (mkSourceEntries "${ai-assistant-instructions}/agentsmd/agents" aiAgents)
-        ++ (mkSourceEntries "${claude-cookbooks}/.claude/agents" cbAgents);
+      # The subagent roster (haiku-high, opus-high) comes only from
+      # ai-assistant-instructions; modules/agent-hooks gates spawns against it.
+      agents.fromFlakeInputs = mkSourceEntries "${ai-assistant-instructions}/agentsmd/agents" aiAgents;
 
       # home-manager is the single canonical delivery pipe for agent instructions.
       # Non-recursive discovery delivers only top-level `agentsmd/rules/*.md` flat to
