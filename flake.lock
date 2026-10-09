@@ -20,11 +20,11 @@
     "ai-assistant-instructions": {
       "flake": false,
       "locked": {
-        "lastModified": 1791501402,
-        "narHash": "sha256-vqjwzGgFyS6lx/+nNg6LOsjWAL4FIV955mn1s8NT8FA=",
+        "lastModified": 1791512233,
+        "narHash": "sha256-CQdITR/aYfcqbrwP8iWAVp0qVUnKGL+Tr5RlKjT2L1Y=",
         "owner": "dryvist",
         "repo": "ai-assistant-instructions",
-        "rev": "c42a1c61d0cfdbd7d1d98799d921189c1b10f738",
+        "rev": "56846430bf63dbb42912ea248fd270ad3cf826df",
         "type": "github"
       },
       "original": {
@@ -677,11 +677,11 @@
     "jacobpevans-cc-plugins": {
       "flake": false,
       "locked": {
-        "lastModified": 1791501218,
-        "narHash": "sha256-/w9Y9BcM1oIoUvkMmUvhlmbNvwlLqZfQ9an4CYYVAnw=",
+        "lastModified": 1791511946,
+        "narHash": "sha256-IpNtqGfFktRL9V4ySb2aigFICp1/7JV83uDD2MqoyLQ=",
         "owner": "dryvist",
         "repo": "claude-code-plugins",
-        "rev": "cce61254e1da1eb81c276ff101477c8e52d47866",
+        "rev": "6bd47315f83ae04daeb661bc41ef8fa5502b41b7",
         "type": "github"
       },
       "original": {
@@ -927,11 +927,11 @@
     "nix-claude-code-launcher-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1791502616,
-        "narHash": "sha256-Y5QqD0hDlgi7O9wBv0IGv28o0Qi2OAeW6uzu5YLu+HE=",
+        "lastModified": 1791512153,
+        "narHash": "sha256-jO0dCHyZjPC/iMFArlgtES/kWh55n6gPakQV0zvKNUg=",
         "owner": "dryvist",
         "repo": "nix-claude-code",
-        "rev": "e61ee9aa3187341211132099e6df6995a35eecf9",
+        "rev": "43c2535761b90a570269e4f4739d6454e374b9d5",
         "type": "github"
       },
       "original": {
