@@ -3,6 +3,7 @@
 #   - every map model exposes concurrency from the shared model catalog
 #   - a dense model has concurrency 1
 #   - every model a host class keeps, and every role it resolves, is declared
+#   - every model a host class keeps has an MLX catalog entry
 {
   pkgs,
   roleMap,
@@ -108,15 +109,12 @@ let
         egress = "none";
       };
     };
-    hosts = {
-      workstation = {
-        resident = [ ];
-        swap = [
-          "stage0_embedding"
-          "stage0_systemone_opendecider"
-          "stage0_systemone_laya"
-        ];
-      };
+    hosts = { };
+  };
+  stage0KeptByHost = stage0RoleMap // {
+    hosts.workstation = {
+      resident = [ ];
+      swap = [ "stage0_embedding" ];
     };
   };
   errorsFor =
@@ -223,5 +221,8 @@ in
     assert
       reports undeclaredHostModel ".*host class `server` keeps undeclared model `undeclared-model`.*"
       || throw "role map: a host class keeping an undeclared model must be reported";
+    assert
+      reports stage0KeptByHost ".*host class `workstation` keeps model `stage0_embedding` with no MLX catalog entry.*"
+      || throw "role map: a host class keeping a model with no MLX catalog entry must be reported";
     helpers.mkMarker "check-mlx-role-map" "role map: missing chat metadata derives from catalog; invalid catalog, concurrency and host-class cases are reported";
 }
