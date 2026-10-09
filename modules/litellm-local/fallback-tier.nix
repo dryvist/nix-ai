@@ -77,7 +77,7 @@ let
   # own ladder last — while still naming only a group, never a provider,
   # model id, or price (the DRY guard below still applies to every rung).
   isRouterRung = m: (m.router or null) != null;
-  localList = map (
+  renderRung =
     m:
     {
       model_name = m.name;
@@ -102,8 +102,9 @@ let
     # host serves declares one (and needs one, for the overflow escape).
     // lib.optionalAttrs ((m.contextWindow or null) != null) {
       model_info.max_input_tokens = m.contextWindow;
-    }
-  ) localModels;
+    };
+
+  localList = map renderRung localModels;
 
   hostRungs = builtins.filter (m: !(isRouterRung m)) localModels;
 
@@ -169,7 +170,12 @@ rec {
   aliasEntries = map (a: headEntry // { model_name = a; }) headAliases;
   modelList = modelList0 ++ aliasEntries;
 
-  inherit names;
+  inherit
+    names
+    renderRung
+    forbiddenProviderMarkers
+    headAliases
+    ;
 
   # The entry point clients name. Everything after it is the fallback chain.
   entryPoint = builtins.head names;

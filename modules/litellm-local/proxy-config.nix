@@ -13,6 +13,7 @@
 {
   lib,
   fallbackTier,
+  isolatedTier,
   telemetryTracesEndpoint,
   staticResidentRoutes ? [ ],
 }:
@@ -56,6 +57,7 @@
   # `subagent-free` upstream, where the alias may not exist.
   ++ fallbackTier.localOnlyEntries
   ++ fallbackTier.modelList
+  ++ isolatedTier.modelList
   ++ staticResidentRoutes;
 
   litellm_settings = {
@@ -80,7 +82,7 @@
     # Anthropic rate-limits. Losing the request is recoverable; not noticing
     # the model changed underneath a long session is not. The main tier gets
     # retries and a context-window fallback, never a silent quality swap.
-    inherit (fallbackTier) fallbacks;
+    fallbacks = fallbackTier.fallbacks ++ isolatedTier.fallbacks;
 
     # A context-window overflow is unambiguous — the request cannot succeed
     # as sent, and a larger window is strictly better rather than a
@@ -100,7 +102,8 @@
     context_window_fallbacks = [
       { "claude-*" = [ fallbackTier.entryPoint ]; }
     ]
-    ++ fallbackTier.contextWindowFallbacks;
+    ++ fallbackTier.contextWindowFallbacks
+    ++ isolatedTier.contextWindowFallbacks;
   }
   # Every non-Anthropic call this host makes traverses this proxy, so with no
   # callback the entire local fabric is an observability blind spot.
