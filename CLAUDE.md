@@ -83,9 +83,7 @@ home-manager is the single canonical delivery pipe for agent instructions from
 path-scoped tier rules flat to `~/.claude/rules/`; Claude Code's native loader
 then honors each file's `paths:` frontmatter (present = path-scoped, absent =
 always-on). The `on-demand/` tier is a subdir that discovery skips by design —
-read by path when needed, never delivered. `~/.claude/CLAUDE.md` imports the
-shared `~/.agents/AGENTS.md` and appends `agentsmd/claude-code.md`
-(`modules/claude/instructions.nix`). The one sanctioned fallback for a
+read by path when needed, never delivered. The one sanctioned fallback for a
 non-Nix machine is cloning `ai-assistant-instructions` and reading `AGENTS.md` +
 `agentsmd/rules/` directly (as that repo's own CLAUDE.md instructs). The
 CI-sparse-checkout, Obsidian-submodule, and copy-paste "pipes" are not sync
