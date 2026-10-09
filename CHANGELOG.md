@@ -1,5 +1,18 @@
 # Changelog
 
+## [7.11.0](https://github.com/dryvist/nix-ai/compare/v7.10.0...v7.11.0) (2026-10-09)
+
+
+### Features
+
+* **autonomous:** route OpenCode and ZCode batch runs through the model router ([#2463](https://github.com/dryvist/nix-ai/issues/2463)) ([e78c1cc](https://github.com/dryvist/nix-ai/commit/e78c1ccc1d61a202621c5a9a6946cc34f0769e63))
+
+
+### Bug Fixes
+
+* **mlx:** report host-kept role-map models with no MLX catalog entry ([8c6ce47](https://github.com/dryvist/nix-ai/commit/8c6ce475b033e2dd53650194cc98cb017c27e362))
+* **mlx:** report host-kept role-map models with no MLX catalog entry ([4fa1cd3](https://github.com/dryvist/nix-ai/commit/4fa1cd35b9e0de7a4988ae42aa5f6e187326fa07))
+
 ## [7.10.0](https://github.com/dryvist/nix-ai/compare/v7.9.3...v7.10.0) (2026-10-09)
 
 
