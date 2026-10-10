@@ -42,6 +42,7 @@ jobs:
     with:
       runner_label: runs-on=${{ github.run_id }}/runner=2cpu-linux-x64
       nix_validate: true
+      profile: nix
       # `nix flake check` evaluates the whole tree; give it the larger runner.
       # volume=80gb: the default root volume runs out of space while the
       # llama-swap and fabric Go builds compile side by side.
