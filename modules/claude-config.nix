@@ -63,6 +63,9 @@ let
 
   inherit (pluginTiers) enabledPlugins;
 
+  # Opt-in for the Slack channel plugin; false keeps the marketplace and plugin out.
+  slackChannelEnable = config.programs.claude.slackChannel.enable;
+
   # Helper to build command/agent entries from discovered names
   mkSourceEntries =
     sourcePath: names:
@@ -164,15 +167,21 @@ in
             fabric-src
             nix-claude-code
             ;
+          slackChannel = slackChannelEnable;
         };
 
-        enabled = enabledPlugins // {
-          # Host-specific opinion (was nix-darwin hosts/macbook-m4/home.nix):
-          # playwright plugin disabled globally — only useful in specific
-          # projects. playwright@claude-skills (skills-only, no MCP) stays
-          # enabled via 04-community.nix.
-          "playwright@claude-plugins-official" = false;
-        };
+        enabled =
+          enabledPlugins
+          // {
+            # Host-specific opinion (was nix-darwin hosts/macbook-m4/home.nix):
+            # playwright plugin disabled globally — only useful in specific
+            # projects. playwright@claude-skills (skills-only, no MCP) stays
+            # enabled via 04-community.nix.
+            "playwright@claude-plugins-official" = false;
+          }
+          // lib.optionalAttrs slackChannelEnable {
+            "slack@claude-channel-slack" = true;
+          };
         allowRuntimeInstall = true;
       };
 

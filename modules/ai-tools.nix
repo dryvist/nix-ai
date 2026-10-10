@@ -24,7 +24,7 @@
 # ============================================================================
 #
 # NIXPKGS: github-mcp-server, terraform-mcp-server, whisper-cpp,
-#   openai-whisper, entire, yt-dlp, qwen-code, cursor-cli
+#   openai-whisper, entire, yt-dlp, qwen-code
 #
 # LLM-AGENTS.NIX: claude-code, antigravity-cli (`agy`), herdr, codex
 #
@@ -49,7 +49,7 @@
 #
 # UNTRUSTED AGENT CLIs (gated by programs.ai.untrustedClis.enable, off by default):
 #   copilot-cli, gh-copilot, claude-flow, omo-senpi (also needs ohMyOpenagent.disabled = false) — ./ai-tools/untrusted-clis.nix
-#   cecli, qwen-code, opencode, cursor — per-agent modules under modules/
+#   cecli, qwen-code, opencode — per-agent modules under modules/
 #
 # NOTE: These are home-manager packages, not system packages.
 # modules/default.nix imports this file unconditionally, for every host. It is

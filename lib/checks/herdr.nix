@@ -22,7 +22,6 @@ let
   managedAgents = {
     claude = programs.claude.enable or false;
     codex = programs.codex.enable or false;
-    cursor = programs.cursor.enable or false;
     opencode = programs.opencode.enable or false;
     antigravity-cli = programs.antigravity-cli.enable or false;
     qwen-code = programs.qwen-code.enable or false;

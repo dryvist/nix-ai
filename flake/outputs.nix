@@ -20,6 +20,7 @@
   fabric-src,
   dashmotion,
   ponytail,
+  claude-channel-slack,
   last30days-skill,
   autoresearch,
   context-engineering-kit,
@@ -74,6 +75,7 @@ in
       llm-agents
       dashmotion
       ponytail
+      claude-channel-slack
       last30days-skill
       autoresearch
       context-engineering-kit

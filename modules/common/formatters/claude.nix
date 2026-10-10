@@ -29,7 +29,7 @@ let
   #
   # Claude Code's own gate is `permissions.defaultMode = "auto"` plus the
   # auto-mode classifier, not this list. Every other harness formatter
-  # (cursor, gemini, opencode, qwen) still consumes `denyPatterns` from the
+  # (gemini, opencode, qwen) still consumes `denyPatterns` from the
   # shared data, so the patterns remain in force for those CLIs.
   getClaudeDenyPermissions = _permissions: [ ];
 
@@ -51,7 +51,7 @@ rec {
   # nix-claude-code documents `permissions.allow` as empty by design for the
   # same reason.
   #
-  # Every other harness formatter (codex, gemini, cursor, opencode, qwen)
+  # Every other harness formatter (codex, gemini, opencode, qwen)
   # still renders the shared shell allow data; none of them has a classifier.
   formatAllowed =
     permissions:

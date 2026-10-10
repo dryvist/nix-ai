@@ -73,7 +73,7 @@ in
     ai = {
       untrustedClis.enable = lib.mkEnableOption ''
         the untrusted agent CLIs and their config: claude-zai, opencode,
-        cursor-agent, copilot, gh-copilot, qwen-code, cecli and claude-flow.
+        copilot, gh-copilot, qwen-code, cecli and claude-flow.
         Claude Code, Codex and agy are always installed. Off, none of them is on
         PATH; their package definitions stay available to image builds
       '';
@@ -113,9 +113,9 @@ in
     # depending on `_module.args.nix-claude-code` — infinite recursion).
     ./claude-config.nix
     ./claude/instructions.nix
+    ./claude/slack-channel.nix
     ./claude/skill-packs.nix
     ./codex
-    ./cursor
     ./antigravity-ide
     ./antigravity-cli
     ./fabric
@@ -233,10 +233,6 @@ in
       codex = {
         enable = true;
       };
-
-      # Cursor CLI configuration (settings handled by modules/cursor/; the
-      # Cursor IDE itself stays installed via nix-darwin home.packages).
-      cursor.enable = lib.mkDefault untrusted;
 
       # OpenCode — skills via the agent-skills registry; upstream's native
       # OpenCode command files come straight from the autoresearch input.

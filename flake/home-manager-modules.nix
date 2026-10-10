@@ -15,6 +15,7 @@
   llm-agents,
   dashmotion,
   ponytail,
+  claude-channel-slack,
   last30days-skill,
   autoresearch,
   context-engineering-kit,
@@ -62,6 +63,7 @@ let
     mattpocock = mattpocock-skills;
     inherit dashmotion;
     inherit ponytail;
+    inherit claude-channel-slack;
     inherit last30days-skill;
     inherit autoresearch;
     inherit context-engineering-kit;
@@ -289,16 +291,6 @@ in
         llm-agents
         homelab-contracts
         ;
-    };
-  };
-
-  cursor = {
-    imports = [
-      ../modules/mcp/module.nix
-      ../modules/cursor
-    ];
-    _module.args = partialArgs {
-      inherit nix-claude-code;
     };
   };
 

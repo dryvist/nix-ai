@@ -16,7 +16,6 @@ let
   copilot = import ./formatters/copilot.nix { inherit lib flattenCommands; };
   codex = import ./formatters/codex.nix { inherit lib flattenCommands; };
   opencode = import ./formatters/opencode.nix { inherit lib flattenCommands; };
-  cursor = import ./formatters/cursor.nix { inherit lib flattenCommands; };
   qwen = import ./formatters/qwen.nix { inherit lib flattenCommands; };
 in
 {
@@ -26,7 +25,6 @@ in
     copilot
     codex
     opencode
-    cursor
     qwen
     utils
     ;

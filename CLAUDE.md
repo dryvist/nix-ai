@@ -113,7 +113,7 @@ this one.
 
 ### What belongs here (nix-ai)
 
-- AI CLI tools (Claude Code, Antigravity, Codex, Copilot, Cursor, qwen-code, cecli)
+- AI CLI tools (Claude Code, Antigravity, Codex, Copilot, qwen-code, cecli)
 - MCP servers and wrappers (github-mcp-server, terraform-mcp-server, etc.)
 - AI tool configuration files (`.claude/`, `.gemini/`, `.copilot/`)
 - MLX inference server (mlx_lm.server LaunchAgent + llama-swap + wrappers)

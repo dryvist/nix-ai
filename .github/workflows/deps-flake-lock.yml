@@ -40,7 +40,7 @@ permissions: {}
 
 jobs:
   relock:
-    uses: dryvist/.github/.github/workflows/_update-flake-lock.yml@main
+    uses: dryvist/.github/.github/workflows/_update-flake-lock.yml@v1
     with:
       targeted: ${{ inputs.targeted || github.event_name == 'repository_dispatch' || github.event.schedule == '7 * * * *' }}
     secrets:

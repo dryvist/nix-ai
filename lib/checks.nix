@@ -114,6 +114,7 @@ in
 // (import ./checks/telemetry.nix { inherit pkgs mkHmConfigWith; })
 // (import ./checks/codex-otel.nix { inherit pkgs mkHmConfigWith; })
 // (import ./checks/opencode-otel.nix { inherit pkgs mkHmConfigWith; })
+// (import ./checks/opencode-sandbox.nix { inherit pkgs; })
 // (import ./checks/agent-skills-repo-link.nix { inherit pkgs; })
 // (import ./checks/agent-skills-groups.nix { inherit pkgs mkHmConfig; })
 // (import ./checks/manual-invoke-marking.nix { inherit pkgs src; })
@@ -157,10 +158,6 @@ in
     hmConfigOhMyOpenagent
     hmConfigOhMyOpenagentTrusted
     ;
-})
-// (import ./checks/cursor.nix {
-  inherit pkgs;
-  hmConfig = hmConfigUntrusted;
 })
 // (import ./checks/herdr.nix {
   inherit pkgs;
@@ -234,6 +231,7 @@ in
 })
 // (import ./checks/litellm-local-endpoint.nix { inherit pkgs hmConfigLitellmLocal; })
 // (import ./checks/litellm-local-negative.nix { inherit pkgs mkHmConfig; })
+// (import ./checks/litellm-local-isolated-chains.nix { inherit pkgs mkHmConfig; })
 // (import ./checks/litellm-local-launch-prefix.nix { inherit pkgs mkHmConfig; })
 // (import ./checks/litellm-local-scripts.nix { inherit pkgs src; })
 // (import ./checks/litellm-local-aliases.nix { inherit pkgs hmConfig; })

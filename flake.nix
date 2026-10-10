@@ -15,7 +15,6 @@
     # cannot bump either — a branch ref never changes, so there is nothing to
     # diff. deps-flake-lock.yml relocks weekly, moving both together.
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-26.05-darwin";
-    # Cursor CLI remains sourced from unstable because the release branch is stale.
     nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     # Nix packages for AI coding agent CLIs (claude-code, codex, antigravity-cli,
     # copilot-cli, herdr, ...), rebuilt daily by numtide CI for x86_64-linux,
@@ -187,6 +186,15 @@
     # abstractions. Dual-channel, wired like karpathy-skills.
     ponytail = {
       url = "github:DietrichGebert/ponytail";
+      flake = false;
+    };
+
+    # Slack channel plugin for Claude Code (Socket Mode bridge, sender
+    # allowlist, permission relay). Pinned by full commit SHA, never a branch:
+    # third-party source. Wired only when programs.claude.slackChannel.enable
+    # is set (default off).
+    claude-channel-slack = {
+      url = "github:Seungwoo321/claude-channel-slack/47c2394530cb96160c9664184fc792977064ece8";
       flake = false;
     };
 

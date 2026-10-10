@@ -18,14 +18,12 @@ let
     "claude-flow"
     "claude-zai"
     "copilot-cli"
-    "cursor-cli"
     "gh-copilot"
     "opencode"
     "qwen-code"
   ];
   untrustedPrograms = [
     "cecli"
-    "cursor"
     "opencode"
     "qwen-code"
   ];

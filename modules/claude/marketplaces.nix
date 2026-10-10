@@ -13,6 +13,8 @@
   marketplaceInputs,
   fabric-src,
   nix-claude-code,
+  # Registers the Slack channel marketplace only when its plugin is enabled.
+  slackChannel ? false,
 }:
 let
   # Versions come from lib/versions.nix (single source of truth for Renovate).
@@ -173,6 +175,15 @@ let
       flakeInput = marketplaceInputs.managing-dependencies;
     };
   };
+  # claude-channel-slack: Slack channel plugin (Socket Mode). Pinned by SHA in
+  # nix-ai's flake.nix. Registered only with programs.claude.slackChannel.enable.
+  slackChannelMarketplace = {
+    source = {
+      type = "github";
+      url = "Seungwoo321/claude-channel-slack";
+    };
+    flakeInput = marketplaceInputs.claude-channel-slack;
+  };
 in
 lib.mapAttrs (
   name: marketplace:
@@ -180,4 +191,4 @@ lib.mapAttrs (
   // {
     flakeInput = withManualInvoke name (marketplace.flakeInput or null);
   }
-) registry
+) (registry // lib.optionalAttrs slackChannel { "claude-channel-slack" = slackChannelMarketplace; })

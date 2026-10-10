@@ -1,7 +1,7 @@
 # Untrusted agent CLIs installed by the ai-tools set.
 #
 # Added to home.packages only when programs.ai.untrustedClis.enable is true
-# (modules/default.nix). opencode, cursor-agent, qwen-code and cecli are
+# (modules/default.nix). opencode, qwen-code and cecli are
 # gated by their own programs.<name>.enable; claude-zai by modules/ai-shell.nix;
 # omo-senpi additionally by programs.ai.ohMyOpenagent.disabled = false.
 {
