@@ -2,7 +2,7 @@
 ;
 ; OpenCode runs as the same macOS user as the trusted tier, so the boundary is
 ; this profile, not the process identity. The launcher in default.nix runs
-;   sandbox-exec -D WORKTREE=<realpath> -D GIT_COMMON=<realpath> -D TMPDIR=<realpath> -f <this file>
+;   sandbox-exec -D WORKTREE=<realpath> -D TMPDIR=<realpath> -f <this file>
 ; and renders @HOME@ at build time, so no username is committed to the repo.
 ;
 ; Base allowances (sysctls, IOKit, PTY, libinfo) are copied from openai/codex
@@ -164,11 +164,10 @@
   (subpath "@HOME@/.local/state/opencode")
   (subpath "@HOME@/.cache/opencode"))
 
-; The worktree, plus the git common dir so linked worktrees can update their index
-; and refs. Protected paths inside these trees are denied at the bottom.
+; The worktree (a standalone clone, which holds its own .git) and the per-run temp
+; directory. Protected paths inside the worktree are denied at the bottom.
 (allow file-read* file-write*
   (subpath (param "WORKTREE"))
-  (subpath (param "GIT_COMMON"))
   (subpath (param "TMPDIR")))
 
 ; ---- Denies. Last match wins, so these override the allows above. ----

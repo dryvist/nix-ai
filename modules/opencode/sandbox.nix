@@ -7,6 +7,7 @@
 {
   opencode,
   home,
+  workRoot,
   localPorts ? [ ],
   extraEnv ? { },
 }:
@@ -24,8 +25,7 @@ let
   extraEnvLines = lib.concatMapStrings (
     name: "envargs+=(${lib.escapeShellArg "${name}=${extraEnv.${name}}"})\n"
   ) (lib.attrNames extraEnv);
-in
-let
+
   launcher = pkgs.writeShellApplication {
     name = "opencode";
     runtimeInputs = [
@@ -34,9 +34,16 @@ let
     ];
     text =
       builtins.replaceStrings
-        [ "@HOME@" "@EXTRA_ENV@" "@PROFILE@" "@OPENCODE@" ]
+        [
+          "@HOME@"
+          "@WORK_ROOT@"
+          "@EXTRA_ENV@"
+          "@PROFILE@"
+          "@OPENCODE@"
+        ]
         [
           (lib.escapeShellArg home)
+          (lib.escapeShellArg workRoot)
           extraEnvLines
           "${profile}"
           "${opencode}/bin/opencode"

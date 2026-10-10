@@ -70,6 +70,7 @@ let
   sandboxedOpencode = import ./sandbox.nix { inherit pkgs lib; } {
     opencode = cfg.package;
     home = config.home.homeDirectory;
+    workRoot = cfg.sandbox.workRoot;
     localPorts = lib.optional litellmLocal.enable litellmLocal.port;
     extraEnv = sandboxEnv;
   };
