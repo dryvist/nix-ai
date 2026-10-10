@@ -294,16 +294,6 @@ in
     };
   };
 
-  cursor = {
-    imports = [
-      ../modules/mcp/module.nix
-      ../modules/cursor
-    ];
-    _module.args = partialArgs {
-      inherit nix-claude-code;
-    };
-  };
-
   herdr = {
     imports = [ ../modules/herdr ];
     _module.args = partialArgs {

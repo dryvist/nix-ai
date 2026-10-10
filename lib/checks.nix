@@ -159,10 +159,6 @@ in
     hmConfigOhMyOpenagentTrusted
     ;
 })
-// (import ./checks/cursor.nix {
-  inherit pkgs;
-  hmConfig = hmConfigUntrusted;
-})
 // (import ./checks/herdr.nix {
   inherit pkgs;
   hmConfig = hmConfigUntrusted;
