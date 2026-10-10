@@ -66,7 +66,12 @@ in
       {
         name = "codex.model";
         actual = cfg.model;
-        expected = "gpt-6-luna";
+        expected = null;
+      }
+      {
+        name = "codex.modelFamily";
+        actual = cfg.modelFamily;
+        expected = "luna";
       }
       {
         name = "codex.modelProvider";
@@ -76,7 +81,7 @@ in
       {
         name = "codex.modelReasoningEffort";
         actual = cfg.modelReasoningEffort;
-        expected = "high";
+        expected = "xhigh";
       }
       {
         name = "codex.modelVerbosity";
@@ -86,7 +91,7 @@ in
       {
         name = "codex.planModeReasoningEffort";
         actual = cfg.planModeReasoningEffort;
-        expected = "high";
+        expected = "xhigh";
       }
       {
         name = "codex.reviewModel";
@@ -298,6 +303,20 @@ in
         print("codex-zai-profile: TOML structure and ZAI provider table verified")
         PYEOF
                 touch $out
+      '';
+
+  # The family-model activation script: lowest-priority listed model wins, nothing else in config.toml changes.
+  codex-family-model =
+    pkgs.runCommand "check-codex-family-model"
+      {
+        nativeBuildInputs = [
+          pkgs.jq
+          pkgs.yj
+        ];
+      }
+      ''
+        ${pkgs.bash}/bin/bash ${./scripts/codex-family-model-test.sh} ${../../modules/scripts/codex-family-model.sh}
+        touch $out
       '';
 
   zai-launchers =

@@ -28,10 +28,11 @@ in
 
   config = lib.mkIf cfg.enable {
     programs.codex = {
-      # The only Codex model in use, declared here so `codex exec` never runs
-      # whatever an interactive /model pick last wrote. Effort is never below
-      # high: modelReasoningEffort and planModeReasoningEffort default to it.
-      model = lib.mkDefault "gpt-6-luna";
+      # No model is pinned here: `model` stays null and the codexFamilyModel
+      # activation below writes the newest listed model of `modelFamily` (luna),
+      # so `codex exec` never runs whatever an interactive /model pick last
+      # wrote. Effort defaults to xhigh (modelReasoningEffort and
+      # planModeReasoningEffort).
       approvalPolicy = lib.mkDefault "on-request";
       approvalsReviewer = lib.mkDefault "auto_review";
       # One owner per host. Codex ships several releases a week, faster than a
@@ -69,5 +70,14 @@ in
     home.file.".codex/.keep".text = ''
       # Managed by Nix - programs.codex module
     '';
+
+    # Codex accepts exact model slugs only, so the slug is read from Codex's own
+    # model cache at activation instead of being written (or versioned) here.
+    home.activation.codexFamilyModel = lib.mkIf (cfg.model == null && cfg.modelFamily != null) (
+      lib.hm.dag.entryAfter [ "codexConfigMerge" ] ''
+        export PATH="${pkgs.jq}/bin:${pkgs.yj}/bin:$PATH"
+        $DRY_RUN_CMD ${../scripts/codex-family-model.sh} "${cfg.modelFamily}" "${config.home.homeDirectory}/.codex"
+      ''
+    );
   };
 }

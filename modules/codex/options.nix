@@ -61,7 +61,16 @@ in
     model = lib.mkOption {
       type = nullableStr;
       default = null;
-      description = "Default Codex model.";
+      description = "Default Codex model. Leave null to resolve it from `modelFamily`.";
+    };
+
+    modelFamily = lib.mkOption {
+      type = nullableStr;
+      default = "luna";
+      description = ''
+        Model family whose newest listed model is written to config.toml at activation when `model` is null.
+        Codex accepts exact model slugs only, so the slug comes from its own model cache and none is written here.
+      '';
     };
 
     modelProvider = lib.mkOption {
@@ -72,7 +81,7 @@ in
 
     modelReasoningEffort = lib.mkOption {
       type = nullableReasoningEffort;
-      default = "high";
+      default = "xhigh";
       description = "Default reasoning effort for Codex.";
     };
 
@@ -84,7 +93,7 @@ in
 
     planModeReasoningEffort = lib.mkOption {
       type = nullableReasoningEffort;
-      default = "high";
+      default = "xhigh";
       description = "Default reasoning effort for plan mode.";
     };
 
