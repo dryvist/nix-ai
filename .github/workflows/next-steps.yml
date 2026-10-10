@@ -18,5 +18,5 @@ concurrency:
 
 jobs:
   next-steps:
-    uses: dryvist/ai-workflows/.github/workflows/cc-next-steps.yml@d1d335bdb010b47108374e8a6152a7926477a32a # v0.48.1
+    uses: dryvist/ai-workflows/.github/workflows/cc-next-steps.yml@aa4ed4a4bca92a3094bf4432689ddc5d84b98649 # v0.48.3
     secrets: inherit # zizmor: ignore[secrets-inherit]
