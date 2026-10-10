@@ -15,7 +15,6 @@
     # cannot bump either — a branch ref never changes, so there is nothing to
     # diff. deps-flake-lock.yml relocks weekly, moving both together.
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-26.05-darwin";
-    # Cursor CLI remains sourced from unstable because the release branch is stale.
     nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     # Nix packages for AI coding agent CLIs (claude-code, codex, antigravity-cli,
     # copilot-cli, herdr, ...), rebuilt daily by numtide CI for x86_64-linux,

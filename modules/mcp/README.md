@@ -143,7 +143,7 @@ Some servers are also provided by Claude Code plugins, which manage their own
 MCP server lifecycle under a different name. The catalog's `context7` gateway
 route and the plugin's own MCP coexist without conflict because they render as
 distinct server names to Claude (`context7` vs
-`mcp__plugin_context7_context7`); Cursor, OpenCode, and Codex have no plugin
+`mcp__plugin_context7_context7`); OpenCode and Codex have no plugin
 and get `context7` only from the catalog route.
 
 | Plugin | Server |

@@ -49,8 +49,7 @@ let
 in
 {
   # Codex and opencode must come from llm-agents.nix on Linux, not from the
-  # frozen release channel. Compared by drvPath against `pkgs.X`, the same
-  # inversion cursor-ownership-regression uses, so a silent fall-back is red.
+  # frozen release channel. Compared by drvPath against `pkgs.X`, so a silent fall-back is red.
   cli-source-regression = helpers.mkDefaultsRegression {
     label = "AI CLI source";
     checkName = "check-cli-source-regression";
