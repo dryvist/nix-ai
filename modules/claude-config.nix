@@ -89,17 +89,9 @@ in
   # same as every other client. Declared here rather than in nix-claude-code
   # because the shared catalog and its per-client exclude semantics are nix-ai's
   # concern; nix-claude-code owns only the rendering of programs.claude.mcpServers.
-  options.programs.claude = mcpClient.mkClientOptions "Claude Code" // {
-    # Off by default. On: the Slack channel plugin is installed, and interactive
-    # `claude` sessions opted in at runtime (see claude/slack-channel.zsh) load it.
-    slackChannel.enable = lib.mkEnableOption "the Slack channel plugin (claude-channel-slack) for interactive Claude Code sessions";
-  };
+  options.programs.claude = mcpClient.mkClientOptions "Claude Code";
 
   config = {
-    programs.zsh.initContent = lib.mkIf slackChannelEnable (
-      lib.mkAfter "source ${./claude/slack-channel.zsh}"
-    );
-
     programs.claude = {
       enable = true;
 
