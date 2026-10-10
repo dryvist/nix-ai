@@ -1,6 +1,7 @@
 {
   lib,
   ai-assistant-instructions,
+  ai-llm-prompts,
   browser-use-skills,
   jacobpevans-cc-plugins,
   nix-claude-code,
@@ -114,6 +115,7 @@ in
     ];
     _module.args = {
       inherit
+        ai-llm-prompts
         nix-claude-code
         nix-codex
         nix-agy
@@ -191,6 +193,7 @@ in
     _module.args = partialArgs {
       inherit
         ai-assistant-instructions
+        ai-llm-prompts
         nix-claude-code
         nix-codex
         nix-agy

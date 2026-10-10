@@ -13,6 +13,7 @@
   pkgs,
   lib,
   ai-assistant-instructions,
+  ai-llm-prompts,
   nix-claude-code,
   marketplaceInputs,
   llm-agents,
@@ -52,7 +53,12 @@ let
     map (name: lib.removeSuffix ".md" name) (builtins.attrNames mdFiles);
 
   cbCommands = discoverMarkdownFiles "${claude-cookbooks}/.claude/commands";
-  aiAgents = discoverMarkdownFiles "${ai-assistant-instructions}/agentsmd/agents";
+  # Subagents and always-loaded rules come from the prompt catalog; each directory
+  # holds an OKF index.md that is not a delivered file.
+  promptsClaudeCode = "${ai-llm-prompts}/auto-ai-agent/claude-code";
+  withoutIndex = lib.filter (name: name != "index");
+  aiAgents = withoutIndex (discoverMarkdownFiles "${promptsClaudeCode}/agents");
+  promptRules = withoutIndex (discoverMarkdownFiles "${promptsClaudeCode}/rules");
   aiRules = discoverMarkdownFiles "${ai-assistant-instructions}/agentsmd/rules";
 
   # Plugin tier files (per-user enablement) stay in nix-ai. The catalog of
@@ -189,9 +195,9 @@ in
         fromFlakeInputs = mkSourceEntries "${claude-cookbooks}/.claude/commands" cbCommands;
       };
 
-      # The subagent roster (haiku-high, opus-high) comes only from
-      # ai-assistant-instructions; modules/agent-hooks gates spawns against it.
-      agents.fromFlakeInputs = mkSourceEntries "${ai-assistant-instructions}/agentsmd/agents" aiAgents;
+      # The subagent roster (haiku-xhigh, opus-medium) comes from the prompt catalog.
+      # The ai-delegation plugin's router picks the tier for generic spawns.
+      agents.fromFlakeInputs = mkSourceEntries "${promptsClaudeCode}/agents" aiAgents;
 
       # home-manager is the single canonical delivery pipe for agent instructions.
       # Non-recursive discovery delivers only top-level `agentsmd/rules/*.md` flat to
@@ -199,7 +205,9 @@ in
       # whose `paths:` frontmatter Claude Code's native loader honors. The opt-in
       # `agentsmd/rules/on-demand/` tier lives in a subdir that discovery skips on
       # purpose — it is read by path, never delivered. Do not make discovery recurse.
-      rules.fromFlakeInputs = mkSourceEntries "${ai-assistant-instructions}/agentsmd/rules" aiRules;
+      rules.fromFlakeInputs =
+        mkSourceEntries "${ai-assistant-instructions}/agentsmd/rules" aiRules
+        ++ mkSourceEntries "${promptsClaudeCode}/rules" promptRules;
 
       settings = {
         # advisorModel left unset (null = advisor tool off; it forwards the
