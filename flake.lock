@@ -694,11 +694,11 @@
     "jacobpevans-cc-plugins": {
       "flake": false,
       "locked": {
-        "lastModified": 1791643100,
-        "narHash": "sha256-llmKz0dMA3cUyMRt3aKoUISAYrcJSaB2xWEGPF17oeU=",
+        "lastModified": 1791643185,
+        "narHash": "sha256-cnECzOn6a4KNLVzI5RxM+INWtpaIWXW8nW5KeYLAzx8=",
         "owner": "dryvist",
         "repo": "claude-code-plugins",
-        "rev": "c9095f593d672924ef44addd16d29f68d73629d7",
+        "rev": "0c39cdf26ed1b603bd35b529c0629240e5399e5e",
         "type": "github"
       },
       "original": {
