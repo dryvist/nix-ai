@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # Launches OpenCode under the Seatbelt profile. sandbox.nix fills the placeholders.
 
 refuse() {
