@@ -28,9 +28,10 @@ in
 
   config = lib.mkIf cfg.enable {
     programs.codex = {
-      # The implementation delegate's model, declared here so `codex exec`
-      # never runs whatever an interactive /model pick last wrote.
-      model = lib.mkDefault "gpt-6.1-sol";
+      # The only Codex model in use, declared here so `codex exec` never runs
+      # whatever an interactive /model pick last wrote. Effort is never below
+      # high: modelReasoningEffort and planModeReasoningEffort default to it.
+      model = lib.mkDefault "gpt-6-luna";
       approvalPolicy = lib.mkDefault "on-request";
       approvalsReviewer = lib.mkDefault "auto_review";
       # One owner per host. Codex ships several releases a week, faster than a
