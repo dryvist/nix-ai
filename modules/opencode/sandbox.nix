@@ -7,12 +7,18 @@
 {
   opencode,
   home,
+  localPorts ? [ ],
   extraEnv ? { },
 }:
 let
-  # @HOME@ is the only build-time placeholder in the profile. Per-run paths arrive as -D parameters.
+  # Build-time placeholders in the profile. Per-run paths arrive as -D parameters.
+  localAllowRules = lib.concatMapStrings (
+    port: "(allow network-outbound (remote ip \"localhost:${toString port}\"))\n"
+  ) localPorts;
   profile = pkgs.writeText "opencode.sb" (
-    builtins.replaceStrings [ "@HOME@" ] [ home ] (builtins.readFile ./opencode.sb)
+    builtins.replaceStrings [ "@HOME@" "@LOCAL_PORTS@" ] [ home localAllowRules ] (
+      builtins.readFile ./opencode.sb
+    )
   );
 
   extraEnvLines = lib.concatMapStrings (

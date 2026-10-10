@@ -180,6 +180,11 @@
 (allow network-outbound
   (remote unix-socket (path-literal "/private/var/run/mDNSResponder")))
 
+; Loopback: no local listener is reachable except the LLM proxy port. The launcher
+; renders the allow lines from the configured LiteLLM port.
+(deny network-outbound (remote ip "localhost:*"))
+@LOCAL_PORTS@
+
 ; Keychain and LaunchServices mach services.
 (deny mach-lookup
   (global-name "com.apple.SecurityServer")

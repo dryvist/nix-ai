@@ -66,9 +66,11 @@ let
   }
   // lib.optionalAttrs litellmLocal.enable { LITELLM_LOCAL_KEY = litellmLocal.clientToken; };
 
+  # Loopback stays closed except the port OpenCode's provider talks to: the LiteLLM proxy.
   sandboxedOpencode = import ./sandbox.nix { inherit pkgs lib; } {
     opencode = cfg.package;
     home = config.home.homeDirectory;
+    localPorts = lib.optional litellmLocal.enable litellmLocal.port;
     extraEnv = sandboxEnv;
   };
 
