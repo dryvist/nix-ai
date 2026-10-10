@@ -31,7 +31,7 @@ jobs:
     if: >-
       github.event_name == 'issues' &&
       (github.event.action == 'opened' || github.event.action == 'reopened')
-    uses: dryvist/ai-workflows/.github/workflows/issue-triage.yml@v0
+    uses: dryvist/ai-workflows/.github/workflows/issue-triage.yml@d1d335bdb010b47108374e8a6152a7926477a32a # v0.48.1
     secrets:
       LLM_ROUTER_BASE_URL: ${{ secrets.LLM_ROUTER_BASE_URL }}
       LLM_ROUTER_API_KEY: ${{ secrets.LLM_ROUTER_API_KEY }}
@@ -52,7 +52,7 @@ jobs:
       !(github.event_name == 'issues' &&
         github.event.action == 'labeled' &&
         github.event.label.name != 'ai:ready')
-    uses: dryvist/ai-workflows/.github/workflows/cc-issue-resolver.yml@v0
+    uses: dryvist/ai-workflows/.github/workflows/cc-issue-resolver.yml@d1d335bdb010b47108374e8a6152a7926477a32a # v0.48.1
     secrets:
       LLM_ROUTER_BASE_URL: ${{ secrets.LLM_ROUTER_BASE_URL }}
       LLM_ROUTER_API_KEY: ${{ secrets.LLM_ROUTER_API_KEY }}
