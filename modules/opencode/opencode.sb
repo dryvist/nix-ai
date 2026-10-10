@@ -222,14 +222,21 @@
   (subpath "/Library/Keychains")
   (subpath "@HOME@/Library/LaunchAgents"))
 
-; Files that run later, under Claude or git, outside this sandbox. The git
-; hooks and config are denied wherever they sit, which covers both the plain
-; .git and the common dir of a linked worktree.
+; Files that run later, under Claude or git, outside this sandbox. Git reads hooks
+; and config from the gitdir it is pointed at, so they are denied in the plain .git,
+; in a submodule's modules/ dir, and in a linked worktree's worktrees/ dir. The .git
+; entry cannot be created, removed or renamed, so no gitfile can point git at a
+; gitdir under another name. Seatbelt regexes match case-insensitively on macOS, so
+; .GIT and claude.md are covered too.
 (deny file-write*
-  (regex #"/\.git/(hooks|config)(/|$)")
-  (regex #"/\.git/worktrees/[^/]+/config\.worktree$")
-  (regex #"/(\.envrc|\.mcp\.json|opencode\.json)$")
-  (regex #"/(\.opencode|\.claude|\.vscode)(/|$)"))
+  (regex #"/\.git$")
+  (regex #"/\.git[^/]*/((modules|worktrees)/[^/]+/)*(hooks|config(\.worktree)?)(/|$)")
+  (regex #"/(\.envrc|\.mcp\.json|opencode\.json|CLAUDE\.md|AGENTS\.md|GEMINI\.md)$")
+  (regex #"/(\.opencode|\.claude|\.vscode|\.cursor)(/|$)"))
+
+; A hard link to a protected file would bypass the path rules above, so links
+; are denied outright.
+(deny file-link)
 
 ; OpenCode writes .opencode/.gitignore when it starts in a project. That one
 ; file is not code, and no subpath is allowed, so plugins, tools and node_modules
