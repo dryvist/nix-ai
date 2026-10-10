@@ -19,10 +19,10 @@
   # using a stable capability alias:
   # ANTHROPIC_MODEL = "sonnet"; # aliases: opus / sonnet / haiku
 
-  # Default subagent model: the haiku-high roster tier. An explicit
+  # Default subagent model: the haiku-xhigh roster tier. An explicit
   # `claude-*[1m]` id, never a bare alias, so it reaches Anthropic directly
-  # even when a local proxy fronts Claude Code. The spawn gate in
-  # modules/agent-hooks enforces the rest of the roster.
+  # even when a local proxy fronts Claude Code. A model passed on the Agent
+  # call wins over this default; the ai-delegation plugin's router sets one.
   CLAUDE_CODE_SUBAGENT_MODEL = "claude-haiku-5-5[1m]";
 
   # To pin an exact model id instead of an alias, set the *_MODEL env vars below
