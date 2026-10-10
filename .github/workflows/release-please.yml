@@ -11,7 +11,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    uses: dryvist/.github/.github/workflows/_release-please.yml@main
+    uses: dryvist/.github/.github/workflows/_release-please.yml@v1
     secrets:
       GH_ACTION_RELEASE_PLEASE_PRIVATE_KEY: ${{ secrets.GH_ACTION_RELEASE_PLEASE_PRIVATE_KEY }}
 
@@ -32,7 +32,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install Nix
-        uses: DeterminateSystems/determinate-nix-action@8d87e8d5e5b8a8309d4281094560f127d9a265f1 # v3
+        uses: DeterminateSystems/determinate-nix-action@8d87e8d5e5b8a8309d4281094560f127d9a265f1 # v3.22.5
 
       - name: Build the template
         run: nix build .#herdr-lxc-template --out-link result --print-build-logs
@@ -74,7 +74,7 @@ jobs:
   publish-release:
     name: Publish the release
     needs: [release-please, publish-lxc-template]
-    uses: dryvist/.github/.github/workflows/_publish-draft-release.yml@main
+    uses: dryvist/.github/.github/workflows/_publish-draft-release.yml@v1
     with:
       tag: ${{ needs.publish-lxc-template.outputs.tag }}
       latest: true
