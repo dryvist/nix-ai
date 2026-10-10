@@ -1,5 +1,21 @@
 # Changelog
 
+## [7.12.0](https://github.com/dryvist/nix-ai/compare/v7.11.0...v7.12.0) (2026-10-10)
+
+
+### Features
+
+* **claude:** opt-in Slack channel plugin for interactive sessions ([#2477](https://github.com/dryvist/nix-ai/issues/2477)) ([6cabc05](https://github.com/dryvist/nix-ai/commit/6cabc0528d453a148c8591694e25f700663bbdcc))
+* **cursor:** remove the local Cursor CLI module ([#2483](https://github.com/dryvist/nix-ai/issues/2483)) ([11ae3c7](https://github.com/dryvist/nix-ai/commit/11ae3c783893bb938d21a8ebe99e2e38e2b3a9fb))
+* **litellm-local:** isolated fallback chains; fix qwen-code modelProviders shape ([#2469](https://github.com/dryvist/nix-ai/issues/2469)) ([9916153](https://github.com/dryvist/nix-ai/commit/99161530b32814d52f3cb0ba992e498c878135cc))
+* **opencode:** run under a deny-default seatbelt profile ([#2473](https://github.com/dryvist/nix-ai/issues/2473)) ([33ec887](https://github.com/dryvist/nix-ai/commit/33ec8871a93996506f91102acd168072b0275edc))
+
+
+### Bug Fixes
+
+* **agent-hooks:** allow Opus reviews in the spawn gate ([#2475](https://github.com/dryvist/nix-ai/issues/2475)) ([3392e94](https://github.com/dryvist/nix-ai/commit/3392e948aaf819ea751cef96b722c38613c37257))
+* **opencode:** close the sandbox .git escape and allow FSEvents ([#2484](https://github.com/dryvist/nix-ai/issues/2484)) ([fa73e03](https://github.com/dryvist/nix-ai/commit/fa73e03a21810e395a126a4e8be2f635abd17fe9))
+
 ## [7.11.0](https://github.com/dryvist/nix-ai/compare/v7.10.0...v7.11.0) (2026-10-09)
 
 
