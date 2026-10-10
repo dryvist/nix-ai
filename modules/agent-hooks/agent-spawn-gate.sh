@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Claude Code PreToolUse hook. Denies subagent spawns that break the
 # delegation policy: roster is haiku + opus only, effort never below high,
-# no Opus on read-only scouting, no Claude implementation while Codex has quota.
+# no Opus on read-only scouting (reviews and security judgment are not
+# scouting), no Claude implementation while Codex has quota.
 # Every other tool passes through untouched.
 set -euo pipefail
 
@@ -52,15 +53,17 @@ esac
 
 lc="$(tr '[:upper:]' '[:lower:]' <<<"$text")"
 scout_re='read-only|readonly|\bscout|\bexplore\b|\blocate\b|\binventory\b|bulk read|summari[sz]e'
+review_re='\breview(er)?\b|\baudit\b|security judg|adversarial'
 impl_re='\bimplement|\brefactor|\bedit (the|this|these)|\bwrite (the )?code|\bapply (the )?(fix|change|patch)|\bcommit\b|open (a |the )?pr\b'
 
-if [ "$family" = opus ] && { [ "$type" = "Explore" ] || grep -Eq "$scout_re" <<<"$lc"; }; then
+if [ "$family" = opus ] && { [ "$type" = "Explore" ] ||
+  { grep -Eq "$scout_re" <<<"$lc" && ! grep -Eq "$review_re" <<<"$lc"; }; }; then
   deny "read-only scouting goes to haiku-high, not Opus."
 fi
 
 if grep -Eq "$impl_re" <<<"$lc" && ! grep -Eq "$scout_re" <<<"$lc" &&
   ! grep -q '\[codex-fallback\]' <<<"$lc" && "$quota_cmd" >/dev/null 2>&1; then
-  deny "Codex has quota; implementation goes to Codex first: cd ~/git && codex exec -s danger-full-access -c model_reasoning_effort='\"xhigh\"' --skip-git-repo-check -C <repo> -o <out> - < prompt.md (background). If Codex fails, retry this spawn with [codex-fallback] in the prompt."
+  deny "Codex has quota; implementation goes to Codex first: cd ~/git && codex exec -m gpt-6-luna -s danger-full-access -c model_reasoning_effort='\"<high|xhigh|max>\"' --skip-git-repo-check -C <repo> -o <out> - < prompt.md (background). If Codex fails, retry this spawn with [codex-fallback] in the prompt."
 fi
 
 exit 0
