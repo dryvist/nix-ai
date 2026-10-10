@@ -62,6 +62,7 @@ in
     inherit (nixpkgs) lib;
     inherit
       ai-assistant-instructions
+      ai-llm-prompts
       jacobpevans-cc-plugins
       browser-use-skills
       nix-claude-code

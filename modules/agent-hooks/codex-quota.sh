@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Exit 0 when Codex has quota: every window in the newest limit_id=codex
-# rate_limits record is under 90% used or already reset. Exit 1 otherwise.
+# rate_limits record is under 95% used or already reset. Exit 1 otherwise.
 set -euo pipefail
 
 sessions="${CODEX_HOME:-$HOME/.codex}/sessions"
@@ -20,7 +20,7 @@ if [ -z "$rl" ]; then
 fi
 
 if jq -e --argjson now "$now" \
-  '[.primary, .secondary] | map(select(. != null)) | all(.used_percent < 90 or .resets_at <= $now)' \
+  '[.primary, .secondary] | map(select(. != null)) | all(.used_percent < 95 or .resets_at <= $now)' \
   <<<"$rl" >/dev/null; then
   echo "codex-quota: available $(jq -c '{p: .primary.used_percent, s: .secondary.used_percent}' <<<"$rl")"
   exit 0
