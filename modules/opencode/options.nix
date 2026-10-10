@@ -63,6 +63,14 @@ in
         Directory holding the standalone clones OpenCode may open in the sandbox; linked worktrees and
         checkouts elsewhere are refused. It sits outside ~/git so direnv never loads it, and changes leave only
         through a git push that the trusted tier reviews as an untrusted PR.
+
+        The profile denies the agent writes to a clone's .git entry, config and hooks, and to its agent instruction
+        files (see opencode.sb). A clone is still untrusted input: git runs the commands named in a repository's
+        config. Trusted tools must never run git inside a clone under this directory with the clone's own config.
+        Review an agent's branch by fetching it into a trusted repository outside this directory
+        (`git -C <trusted> fetch <clone> <branch>`), or run git in the clone with
+        `git -c core.fsmonitor=false -c core.hooksPath=/dev/null`, which overrides only those two keys.
+        Creating a .git entry, as git init does, fails inside the sandbox.
       '';
     };
 

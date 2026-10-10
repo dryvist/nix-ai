@@ -97,13 +97,15 @@
     (extension "com.apple.sandbox.pty")))
 (allow file-ioctl (regex #"^/dev/ttys[0-9]+"))
 
-; Mach services: libinfo (user and group lookup) and the directory helper.
-; DNS works through the unix socket allowed below, so no network mach service is
-; needed. Everything else is denied by default.
+; Mach services: libinfo (user and group lookup), the directory helper, and FSEvents,
+; which the file watcher uses for change notifications; the lookup is the whole
+; grant. DNS works through the unix socket allowed below, so no network mach service
+; is needed. Everything else is denied by default.
 (allow mach-lookup
   (global-name "com.apple.system.opendirectoryd.libinfo")
   (global-name "com.apple.system.opendirectoryd.membership")
   (global-name "com.apple.bsd.dirhelper")
+  (global-name "com.apple.FSEvents")
   (global-name "com.apple.PowerManagement.control"))
 
 (allow system-socket
@@ -220,14 +222,21 @@
   (subpath "/Library/Keychains")
   (subpath "@HOME@/Library/LaunchAgents"))
 
-; Files that run later, under Claude or git, outside this sandbox. The git
-; hooks and config are denied wherever they sit, which covers both the plain
-; .git and the common dir of a linked worktree.
+; Files that run later, under Claude or git, outside this sandbox. Git reads hooks
+; and config from the gitdir it is pointed at, so they are denied in the plain .git,
+; in a submodule's modules/ dir, and in a linked worktree's worktrees/ dir. The .git
+; entry cannot be created, removed or renamed, so no gitfile can point git at a
+; gitdir under another name. Seatbelt regexes match case-insensitively on macOS, so
+; .GIT and claude.md are covered too.
 (deny file-write*
-  (regex #"/\.git/(hooks|config)(/|$)")
-  (regex #"/\.git/worktrees/[^/]+/config\.worktree$")
-  (regex #"/(\.envrc|\.mcp\.json|opencode\.json)$")
-  (regex #"/(\.opencode|\.claude|\.vscode)(/|$)"))
+  (regex #"/\.git$")
+  (regex #"/\.git[^/]*/((modules|worktrees)/[^/]+/)*(hooks|config(\.worktree)?)(/|$)")
+  (regex #"/(\.envrc|\.mcp\.json|opencode\.json|CLAUDE\.md|AGENTS\.md|GEMINI\.md)$")
+  (regex #"/(\.opencode|\.claude|\.vscode|\.cursor)(/|$)"))
+
+; A hard link to a protected file would bypass the path rules above, so links
+; are denied outright.
+(deny file-link)
 
 ; OpenCode writes .opencode/.gitignore when it starts in a project. That one
 ; file is not code, and no subpath is allowed, so plugins, tools and node_modules

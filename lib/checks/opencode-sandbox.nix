@@ -1,7 +1,8 @@
 # OpenCode sandbox regression check: the Seatbelt profile keeps its deny rules,
 # the launcher keeps its standalone-clone refusal and per-run temp directory, and
 # the launcher's environment allowlist names no credential variable.
-# The live matrix runs outside Nix; this pins the text the matrix depends on.
+# The live probes in tests/test-opencode-sandbox-escape.sh run on macOS; this pins the
+# text they depend on.
 { pkgs }:
 let
   inherit (pkgs) lib;
@@ -19,9 +20,11 @@ let
     "(deny network-outbound (remote unix-socket))"
     ''(deny network-outbound (remote ip "localhost:*"))''
     "(deny process-exec (regex #\"/sudo$\"))"
-    ".git/(hooks|config)"
-    "(\\.envrc|\\.mcp\\.json|opencode\\.json)"
-    "(\\.opencode|\\.claude|\\.vscode)"
+    ''(regex #"/\.git$")''
+    ''/\.git[^/]*/((modules|worktrees)/[^/]+/)*(hooks|config(\.worktree)?)(/|$)''
+    "(deny file-link)"
+    ''(\.envrc|\.mcp\.json|opencode\.json|CLAUDE\.md|AGENTS\.md|GEMINI\.md)''
+    ''(\.opencode|\.claude|\.vscode|\.cursor)''
   ];
 
   requiredLauncher = [
