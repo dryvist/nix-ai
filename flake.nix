@@ -33,13 +33,13 @@
     };
 
     ai-llm-prompts = {
-      url = "github:dryvist/ai-llm-prompts";
+      url = "github:dryvist/ai-llm-prompts?ref=v1";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
     # LLM role map source (lib/role-map.nix).
     homelab-contracts = {
-      url = "github:dryvist/homelab-contracts";
+      url = "github:dryvist/homelab-contracts?ref=v5";
       flake = false;
     };
 
@@ -79,14 +79,14 @@
 
     # AI Assistant Instructions - source of truth for AI agent configuration.
     ai-assistant-instructions = {
-      url = "github:dryvist/ai-assistant-instructions";
+      url = "github:dryvist/ai-assistant-instructions?ref=v1";
       flake = false;
     };
 
     # Canonical dryvist plugin and cross-tool skill source. Retain the input
     # name for compatibility; non-Claude harnesses consume it directly.
     jacobpevans-cc-plugins = {
-      url = "github:dryvist/claude-code-plugins";
+      url = "github:dryvist/claude-code-plugins?ref=v6";
       flake = false;
     };
 
@@ -100,7 +100,7 @@
       # Pinned to main explicitly: nix-claude-code is git-flow (default
       # branch develop), so an unref'd url resolves to develop and tracks
       # unreleased commits instead of release-please-tagged releases.
-      url = "github:dryvist/nix-claude-code/main";
+      url = "github:dryvist/nix-claude-code?ref=v2";
       inputs = {
         nixpkgs.follows = "nixpkgs";
         home-manager.follows = "home-manager";
@@ -120,7 +120,7 @@
     # Launcher source from the current API branch; the module flake above
     # remains pinned to its release branch.
     nix-claude-code-launcher-src = {
-      url = "github:dryvist/nix-claude-code/develop";
+      url = "github:dryvist/nix-claude-code?ref=v2";
       flake = false;
     };
 
@@ -137,7 +137,7 @@
 
     # Pure resource-limit value, without evaluating the system flake's inputs.
     agent-limits-src = {
-      url = "github:dryvist/nix-darwin/develop";
+      url = "github:dryvist/nix-darwin?ref=v3";
       flake = false;
     };
 
