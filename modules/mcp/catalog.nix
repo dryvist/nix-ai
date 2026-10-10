@@ -104,7 +104,7 @@ in
   # instead of a per-harness bunx process (fixes duplicate local MCP spawns).
   # Claude additionally has the context7 *plugin* (mcp__plugin_context7_context7,
   # 569x vs 48x per Splunk for this entry); the two coexist under different
-  # names. Cursor/OpenCode/Codex, which have no plugin, get context7 only
+  # names. OpenCode/Codex, which have no plugin, get context7 only
   # from this route.
   context7 = gatewayRoute "/context7" { };
 
