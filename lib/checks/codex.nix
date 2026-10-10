@@ -66,7 +66,7 @@ in
       {
         name = "codex.model";
         actual = cfg.model;
-        expected = "gpt-6.1-sol";
+        expected = "gpt-6-luna";
       }
       {
         name = "codex.modelProvider";
@@ -76,7 +76,7 @@ in
       {
         name = "codex.modelReasoningEffort";
         actual = cfg.modelReasoningEffort;
-        expected = "medium";
+        expected = "high";
       }
       {
         name = "codex.modelVerbosity";

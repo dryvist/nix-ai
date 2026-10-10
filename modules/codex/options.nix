@@ -72,7 +72,7 @@ in
 
     modelReasoningEffort = lib.mkOption {
       type = nullableReasoningEffort;
-      default = "medium";
+      default = "high";
       description = "Default reasoning effort for Codex.";
     };
 
