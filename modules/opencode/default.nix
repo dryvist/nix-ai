@@ -58,6 +58,23 @@ let
 
   mcpClient = import ../mcp/client.nix { inherit lib; };
 
+  # Variables OpenCode gets under the sandbox. The launcher drops everything
+  # else, so credentials in the shell never reach it. The LiteLLM key is a
+  # placeholder: the local proxy checks no credential (modules/litellm-local).
+  sandboxEnv = {
+    OPENCODE_DISABLE_LSP_DOWNLOAD = "true";
+  }
+  // lib.optionalAttrs litellmLocal.enable { LITELLM_LOCAL_KEY = litellmLocal.clientToken; };
+
+  # Loopback stays closed except the port OpenCode's provider talks to: the LiteLLM proxy.
+  sandboxedOpencode = import ./sandbox.nix { inherit pkgs lib; } {
+    opencode = cfg.package;
+    home = config.home.homeDirectory;
+    workRoot = cfg.sandbox.workRoot;
+    localPorts = lib.optional litellmLocal.enable litellmLocal.port;
+    extraEnv = sandboxEnv;
+  };
+
   # opencode.json uses a local/remote-tagged MCP schema: local servers carry a
   # single `command` array (argv0 included) and `environment`; remote servers
   # carry `url` and optional `headers`. `enabled` defaults true, so it is
@@ -184,6 +201,13 @@ in
       };
     }
     (lib.mkIf cfg.enable {
+      assertions = [
+        {
+          assertion = !cfg.sandbox.enable || pkgs.stdenv.hostPlatform.isDarwin;
+          message = "programs.opencode.sandbox.enable needs macOS: the Seatbelt profile is applied by /usr/bin/sandbox-exec.";
+        }
+      ];
+
       # llm-agents.nix packages opencode for both supported systems, so the
       # binary is no longer "installed out-of-band" — that gap is why a Linux
       # host got config with nothing to run it.
@@ -194,7 +218,9 @@ in
       programs.opencode.package = lib.mkDefault llmAgents.opencode;
 
       home = {
-        packages = lib.optional (cfg.package != null) cfg.package;
+        packages = lib.optional (cfg.package != null) (
+          if cfg.sandbox.enable then sandboxedOpencode else cfg.package
+        );
 
         # Every language server OpenCode should use is Nix-provided on PATH
         # (modules/ai-tools.nix + per-repo devShells). Its built-ins

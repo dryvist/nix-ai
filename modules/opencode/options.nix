@@ -1,5 +1,10 @@
 # OpenCode Module Options
-{ lib, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 let
   mcpClient = import ../mcp/client.nix { inherit lib; };
 in
@@ -36,6 +41,29 @@ in
       type = lib.types.attrs;
       default = { };
       description = "Attrs merged into the opencode config (~/.config/opencode/opencode.json; wins over module defaults).";
+    };
+
+    sandbox.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = pkgs.stdenv.hostPlatform.isDarwin;
+      defaultText = lib.literalExpression "pkgs.stdenv.hostPlatform.isDarwin";
+      description = ''
+        Launch OpenCode through the deny-default Seatbelt profile (opencode.sb)
+        with an allowlisted environment. The profile is applied by
+        /usr/bin/sandbox-exec, so this is macOS only. When false, `opencode`
+        runs the package directly.
+      '';
+    };
+
+    sandbox.workRoot = lib.mkOption {
+      type = lib.types.str;
+      default = "${config.home.homeDirectory}/opencode-work";
+      defaultText = lib.literalExpression ''"''${config.home.homeDirectory}/opencode-work"'';
+      description = ''
+        Directory holding the standalone clones OpenCode may open in the sandbox; linked worktrees and
+        checkouts elsewhere are refused. It sits outside ~/git so direnv never loads it, and changes leave only
+        through a git push that the trusted tier reviews as an untrusted PR.
+      '';
     };
 
     extraModels = lib.mkOption {
