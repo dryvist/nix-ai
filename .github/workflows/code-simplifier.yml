@@ -18,5 +18,5 @@ concurrency:
 
 jobs:
   simplify:
-    uses: dryvist/ai-workflows/.github/workflows/cc-code-simplifier.yml@main
+    uses: dryvist/ai-workflows/.github/workflows/cc-code-simplifier.yml@11a1a55bff10a4c4111e1002658021c2df126ce8 # main
     secrets: inherit # zizmor: ignore[secrets-inherit]

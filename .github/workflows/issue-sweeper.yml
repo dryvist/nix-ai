@@ -12,5 +12,5 @@ permissions:
   pull-requests: read
 jobs:
   sweep:
-    uses: dryvist/ai-workflows/.github/workflows/issue-sweeper.yml@main
+    uses: dryvist/ai-workflows/.github/workflows/issue-sweeper.yml@11a1a55bff10a4c4111e1002658021c2df126ce8 # main
     secrets: inherit # zizmor: ignore[secrets-inherit]

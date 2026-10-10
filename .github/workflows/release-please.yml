@@ -11,7 +11,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    uses: dryvist/.github/.github/workflows/_release-please.yml@v1
+    uses: dryvist/.github/.github/workflows/_release-please.yml@c4501ea67ce4469a5cc95216c9a989516da2adb8 # v1
     secrets:
       GH_ACTION_RELEASE_PLEASE_PRIVATE_KEY: ${{ secrets.GH_ACTION_RELEASE_PLEASE_PRIVATE_KEY }}
 
@@ -74,7 +74,7 @@ jobs:
   publish-release:
     name: Publish the release
     needs: [release-please, publish-lxc-template]
-    uses: dryvist/.github/.github/workflows/_publish-draft-release.yml@v1
+    uses: dryvist/.github/.github/workflows/_publish-draft-release.yml@c4501ea67ce4469a5cc95216c9a989516da2adb8 # v1
     with:
       tag: ${{ needs.publish-lxc-template.outputs.tag }}
       latest: true
