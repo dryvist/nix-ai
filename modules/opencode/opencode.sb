@@ -97,13 +97,15 @@
     (extension "com.apple.sandbox.pty")))
 (allow file-ioctl (regex #"^/dev/ttys[0-9]+"))
 
-; Mach services: libinfo (user and group lookup) and the directory helper.
-; DNS works through the unix socket allowed below, so no network mach service is
-; needed. Everything else is denied by default.
+; Mach services: libinfo (user and group lookup), the directory helper, and FSEvents,
+; which the file watcher uses for change notifications; the lookup is the whole
+; grant. DNS works through the unix socket allowed below, so no network mach service
+; is needed. Everything else is denied by default.
 (allow mach-lookup
   (global-name "com.apple.system.opendirectoryd.libinfo")
   (global-name "com.apple.system.opendirectoryd.membership")
   (global-name "com.apple.bsd.dirhelper")
+  (global-name "com.apple.FSEvents")
   (global-name "com.apple.PowerManagement.control"))
 
 (allow system-socket
