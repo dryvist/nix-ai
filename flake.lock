@@ -249,6 +249,23 @@
         "type": "github"
       }
     },
+    "claude-channel-slack": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1786767127,
+        "narHash": "sha256-VnNUzqyoUwKPMXM8GUWzzuN9AMSF6ZGoY8UTEqfezpE=",
+        "owner": "Seungwoo321",
+        "repo": "claude-channel-slack",
+        "rev": "47c2394530cb96160c9664184fc792977064ece8",
+        "type": "github"
+      },
+      "original": {
+        "owner": "Seungwoo321",
+        "repo": "claude-channel-slack",
+        "rev": "47c2394530cb96160c9664184fc792977064ece8",
+        "type": "github"
+      }
+    },
     "claude-code-plugins": {
       "flake": false,
       "locked": {
@@ -1083,6 +1100,7 @@
         "autoresearch": "autoresearch",
         "awesome-claude-skills": "awesome-claude-skills",
         "browser-use-skills": "browser-use-skills",
+        "claude-channel-slack": "claude-channel-slack",
         "claude-code-plugins": "claude-code-plugins_2",
         "context-engineering-kit": "context-engineering-kit",
         "dashmotion": "dashmotion",

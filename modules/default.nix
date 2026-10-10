@@ -113,6 +113,7 @@ in
     # depending on `_module.args.nix-claude-code` — infinite recursion).
     ./claude-config.nix
     ./claude/instructions.nix
+    ./claude/slack-channel.nix
     ./claude/skill-packs.nix
     ./codex
     ./cursor

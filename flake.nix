@@ -190,6 +190,15 @@
       flake = false;
     };
 
+    # Slack channel plugin for Claude Code (Socket Mode bridge, sender
+    # allowlist, permission relay). Pinned by full commit SHA, never a branch:
+    # third-party source. Wired only when programs.claude.slackChannel.enable
+    # is set (default off).
+    claude-channel-slack = {
+      url = "github:Seungwoo321/claude-channel-slack/47c2394530cb96160c9664184fc792977064ece8";
+      flake = false;
+    };
+
     # Autonomous goal-directed iteration engine (modify → verify →
     # keep/discard). Dual-channel; its .opencode/ command files also feed the
     # opencode module directly.
