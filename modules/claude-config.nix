@@ -63,6 +63,9 @@ let
 
   inherit (pluginTiers) enabledPlugins;
 
+  # Opt-in for the Slack channel plugin; false keeps the marketplace and plugin out.
+  slackChannelEnable = config.programs.claude.slackChannel.enable;
+
   # Helper to build command/agent entries from discovered names
   mkSourceEntries =
     sourcePath: names:
@@ -86,9 +89,17 @@ in
   # same as every other client. Declared here rather than in nix-claude-code
   # because the shared catalog and its per-client exclude semantics are nix-ai's
   # concern; nix-claude-code owns only the rendering of programs.claude.mcpServers.
-  options.programs.claude = mcpClient.mkClientOptions "Claude Code";
+  options.programs.claude = mcpClient.mkClientOptions "Claude Code" // {
+    # Off by default. On: the Slack channel plugin is installed, and interactive
+    # `claude` sessions opted in at runtime (see claude/slack-channel.zsh) load it.
+    slackChannel.enable = lib.mkEnableOption "the Slack channel plugin (claude-channel-slack) for interactive Claude Code sessions";
+  };
 
   config = {
+    programs.zsh.initContent = lib.mkIf slackChannelEnable (
+      lib.mkAfter "source ${./claude/slack-channel.zsh}"
+    );
+
     programs.claude = {
       enable = true;
 
@@ -164,15 +175,21 @@ in
             fabric-src
             nix-claude-code
             ;
+          slackChannel = slackChannelEnable;
         };
 
-        enabled = enabledPlugins // {
-          # Host-specific opinion (was nix-darwin hosts/macbook-m4/home.nix):
-          # playwright plugin disabled globally — only useful in specific
-          # projects. playwright@claude-skills (skills-only, no MCP) stays
-          # enabled via 04-community.nix.
-          "playwright@claude-plugins-official" = false;
-        };
+        enabled =
+          enabledPlugins
+          // {
+            # Host-specific opinion (was nix-darwin hosts/macbook-m4/home.nix):
+            # playwright plugin disabled globally — only useful in specific
+            # projects. playwright@claude-skills (skills-only, no MCP) stays
+            # enabled via 04-community.nix.
+            "playwright@claude-plugins-official" = false;
+          }
+          // lib.optionalAttrs slackChannelEnable {
+            "slack@claude-channel-slack" = true;
+          };
         allowRuntimeInstall = true;
       };
 
