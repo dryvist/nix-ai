@@ -1,5 +1,5 @@
 # OpenCode Module Options
-{ lib, ... }:
+{ lib, pkgs, ... }:
 let
   mcpClient = import ../mcp/client.nix { inherit lib; };
 in
@@ -36,6 +36,18 @@ in
       type = lib.types.attrs;
       default = { };
       description = "Attrs merged into the opencode config (~/.config/opencode/opencode.json; wins over module defaults).";
+    };
+
+    sandbox.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = pkgs.stdenv.hostPlatform.isDarwin;
+      defaultText = lib.literalExpression "pkgs.stdenv.hostPlatform.isDarwin";
+      description = ''
+        Launch OpenCode through the deny-default Seatbelt profile (opencode.sb)
+        with an allowlisted environment. The profile is applied by
+        /usr/bin/sandbox-exec, so this is macOS only. When false, `opencode`
+        runs the package directly.
+      '';
     };
 
     extraModels = lib.mkOption {
