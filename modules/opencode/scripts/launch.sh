@@ -32,11 +32,19 @@ if [ "$(realpath "$git_common")" != "$worktree/.git" ]; then
   refuse "$worktree is a linked worktree; use a standalone clone under $work_root"
 fi
 
-tmpdir="$(realpath "${TMPDIR:-/private/tmp}")"
+# A private temp directory per run, removed when the run ends. The shared per-user
+# temp directory stays outside the sandbox.
+cache_dir="$home_dir/.cache/opencode"
+mkdir -p "$cache_dir"
+tmpdir="$(realpath "$(mktemp -d "$cache_dir/tmp.XXXXXX")")"
+trap 'rm -rf "$tmpdir"' EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 # Allowlist only. Credentials in the caller's shell never reach OpenCode.
-envargs=()
-for name in HOME USER LOGNAME PATH TERM COLORTERM LANG TMPDIR SHELL; do
+envargs=("TMPDIR=$tmpdir")
+for name in HOME USER LOGNAME PATH TERM COLORTERM LANG SHELL; do
   if [ -n "${!name+x}" ]; then
     envargs+=("$name=${!name}")
   fi
@@ -47,6 +55,7 @@ while IFS= read -r entry; do
   esac
 done < <(/usr/bin/env)
 @EXTRA_ENV@
-exec /usr/bin/env -i "${envargs[@]}" /usr/bin/sandbox-exec \
+# Not exec: the EXIT trap has to remove the temp directory after OpenCode returns.
+/usr/bin/env -i "${envargs[@]}" /usr/bin/sandbox-exec \
   -D WORKTREE="$worktree" -D TMPDIR="$tmpdir" \
   -f @PROFILE@ @OPENCODE@ "$@"
