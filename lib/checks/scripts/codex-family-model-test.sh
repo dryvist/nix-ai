@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Usage: codex-family-model-test.sh <path to codex-family-model.sh>
+# The script runs through `bash` because the Nix build sandbox has no /usr/bin/env for its shebang.
 # Fixture slugs carry no version on purpose: the script must rank by `priority` alone.
 set -euo pipefail
 
@@ -25,20 +26,20 @@ expect() { # <label> <jq filter> <expected>
 }
 
 write_cache; write_config
-"$script" luna "$root"
+bash "$script" luna "$root"
 expect "lowest priority wins" .model gpt-newer-luna
 expect "other keys kept" .model_reasoning_effort xhigh
 expect "tables kept" .mcp_servers.demo.command demo
 
 write_config
-"$script" sol "$root"
+bash "$script" sol "$root"
 expect "other family" .model gpt-newest-sol
 
 write_config
-"$script" absent "$root"
+bash "$script" absent "$root"
 expect "unknown family leaves model" .model stale
 
 write_config; rm "$root/models_cache.json"
-"$script" luna "$root"
+bash "$script" luna "$root"
 expect "missing cache leaves model" .model stale
 echo "codex-family-model: all cases passed"
