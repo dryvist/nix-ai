@@ -53,12 +53,14 @@ let
     map (name: lib.removeSuffix ".md" name) (builtins.attrNames mdFiles);
 
   cbCommands = discoverMarkdownFiles "${claude-cookbooks}/.claude/commands";
-  # Subagents and always-loaded rules come from the prompt catalog; each directory
-  # holds an OKF index.md that is not a delivered file.
-  promptsClaudeCode = "${ai-llm-prompts}/auto-ai-agent/claude-code";
-  withoutIndex = lib.filter (name: name != "index");
-  aiAgents = withoutIndex (discoverMarkdownFiles "${promptsClaudeCode}/agents");
-  promptRules = withoutIndex (discoverMarkdownFiles "${promptsClaudeCode}/rules");
+  promptCatalog = import ./claude/prompt-catalog.nix {
+    inherit
+      lib
+      ai-llm-prompts
+      discoverMarkdownFiles
+      mkSourceEntries
+      ;
+  };
   aiRules = discoverMarkdownFiles "${ai-assistant-instructions}/agentsmd/rules";
 
   # Plugin tier files (per-user enablement) stay in nix-ai. The catalog of
@@ -196,8 +198,7 @@ in
       };
 
       # The subagent roster (haiku-xhigh, opus-medium) comes from the prompt catalog.
-      # The ai-delegation plugin's router picks the tier for generic spawns.
-      agents.fromFlakeInputs = mkSourceEntries "${promptsClaudeCode}/agents" aiAgents;
+      agents.fromFlakeInputs = promptCatalog.agents;
 
       # home-manager is the single canonical delivery pipe for agent instructions.
       # Non-recursive discovery delivers only top-level `agentsmd/rules/*.md` flat to
@@ -206,8 +207,7 @@ in
       # `agentsmd/rules/on-demand/` tier lives in a subdir that discovery skips on
       # purpose — it is read by path, never delivered. Do not make discovery recurse.
       rules.fromFlakeInputs =
-        mkSourceEntries "${ai-assistant-instructions}/agentsmd/rules" aiRules
-        ++ mkSourceEntries "${promptsClaudeCode}/rules" promptRules;
+        mkSourceEntries "${ai-assistant-instructions}/agentsmd/rules" aiRules ++ promptCatalog.rules;
 
       settings = {
         # advisorModel left unset (null = advisor tool off; it forwards the
