@@ -46,7 +46,7 @@ Add the input to your flake:
 ```nix
 {
   inputs.nix-ai = {
-    url = "github:dryvist/nix-ai";
+    url = "github:dryvist/nix-ai?ref=v<major>";
     inputs.nixpkgs.follows = "nixpkgs";
     inputs.home-manager.follows = "home-manager";
   };
