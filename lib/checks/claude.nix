@@ -18,6 +18,28 @@ in
     ''
   );
 
+  # Subagents and the briefing rule come from the prompt catalog. The OKF
+  # index.md in each directory must never be delivered as an agent or a rule.
+  prompt-catalog-delivery =
+    let
+      names = map (entry: entry.name);
+      agents = names cfg.agents.fromFlakeInputs;
+      rules = names cfg.rules.fromFlakeInputs;
+    in
+    assert
+      builtins.all (a: builtins.elem a agents) [
+        "haiku-xhigh"
+        "opus-medium"
+      ]
+      || throw "prompt catalog agents haiku-xhigh and opus-medium must be delivered";
+    assert
+      builtins.elem "brief-delegates" rules
+      || throw "prompt catalog rule brief-delegates must be delivered";
+    assert !(builtins.elem "index" (agents ++ rules)) || throw "an OKF index.md must not be delivered";
+    pkgs.runCommand "check-prompt-catalog-delivery" { } ''
+      touch $out
+    '';
+
   # Verify expected option paths exist (catches accidentally dropped
   # options from the nix-claude-code-provided schema).
   options-regression =

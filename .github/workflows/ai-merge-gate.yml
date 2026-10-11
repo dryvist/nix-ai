@@ -5,5 +5,5 @@ on:
 permissions: read-all
 jobs:
   gate:
-    uses: dryvist/ai-workflows/.github/workflows/_ai-merge-gate.yml@main
+    uses: dryvist/ai-workflows/.github/workflows/_ai-merge-gate.yml@aa4ed4a4bca92a3094bf4432689ddc5d84b98649 # v0.48.3
     secrets: inherit

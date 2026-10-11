@@ -21,6 +21,7 @@
   fetchPnpmDeps,
   pnpmConfigHook,
   pnpm_10,
+  pnpm_10_latest ? pnpm_10,
   nodejs_24,
   makeWrapper,
   ripgrep,
@@ -44,14 +45,14 @@ stdenv.mkDerivation (finalAttrs: {
   # desktop and build dependencies out of the runtime output.
   pnpmDeps = fetchPnpmDeps {
     inherit (finalAttrs) pname version src;
-    pnpm = pnpm_10;
+    pnpm = pnpm_10_latest;
     fetcherVersion = 4;
     hash = "sha256-q2ClqOoSG0/Oyi4H9snIUc0AVk5y40V+optxyMBfzn8=";
   };
 
   nativeBuildInputs = [
     nodejs_24
-    pnpm_10
+    pnpm_10_latest
     pnpmConfigHook
     makeWrapper
   ];
