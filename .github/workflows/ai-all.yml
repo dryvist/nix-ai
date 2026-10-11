@@ -57,7 +57,7 @@ jobs:
       id-token: write
       issues: write
       pull-requests: write
-    uses: dryvist/ai-workflows/.github/workflows/suite-all.yml@0562bd5a12e6a0cf0f140d870798b4e9129449a8 # v0.48.4
+    uses: dryvist/ai-workflows/.github/workflows/suite-all.yml@2456bca533a27c71009b03097c6e03f2971f508a # v0.48.5
     with:
       caller_event: ${{ github.event_name }}
       review_prompt: "Focus on Nix flake patterns, home-manager module structure, AI tool configuration best practices"
