@@ -1,5 +1,19 @@
 # Changelog
 
+## [7.13.0](https://github.com/dryvist/nix-ai/compare/v7.12.0...v7.13.0) (2026-10-11)
+
+
+### Features
+
+* **claude:** deliver subagents and the briefing rule from the prompt catalog ([#2486](https://github.com/dryvist/nix-ai/issues/2486)) ([21be9d3](https://github.com/dryvist/nix-ai/commit/21be9d36e9b8bb1ba070b0365a901490588ceff0))
+
+
+### Bug Fixes
+
+* **codex:** default the Codex CLI to Luna at high reasoning effort ([#2490](https://github.com/dryvist/nix-ai/issues/2490)) ([df11f2b](https://github.com/dryvist/nix-ai/commit/df11f2b1f8e29a429550bcca5931fb84d129f7be))
+* **codex:** set the Codex model from its model list and default effort to xhigh ([#2492](https://github.com/dryvist/nix-ai/issues/2492)) ([a27653d](https://github.com/dryvist/nix-ai/commit/a27653dff2b78ea75aaf57b7eb98e9be6a1f8e62))
+* **zcode:** build with the patched pnpm 10 release ([#2502](https://github.com/dryvist/nix-ai/issues/2502)) ([93005d6](https://github.com/dryvist/nix-ai/commit/93005d6f97b9411afaac01d654f810aae6c15127))
+
 ## [7.12.0](https://github.com/dryvist/nix-ai/compare/v7.11.0...v7.12.0) (2026-10-10)
 
 
