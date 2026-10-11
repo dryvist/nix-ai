@@ -117,10 +117,6 @@ rec {
   authoring = [
     "claude-automation-recommender"
     "claude-skill-authoring"
-    "hookify-configure"
-    "hookify-help"
-    "hookify-hookify"
-    "hookify-list"
     "reviewing-agent-definitions"
     "reviewing-claude-config"
     "reviewing-command-definitions"

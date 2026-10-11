@@ -55,7 +55,9 @@ _:
 
     # Plugin Development (user maintains claude-code-plugins repo)
     "plugin-dev@claude-plugins-official" = false;
-    "hookify@claude-plugins-official" = true;
+    # Disabled: its four per-tool-call hooks only read rule files in the session cwd;
+    # the rules now run as content-guards credential-guard.
+    "hookify@claude-plugins-official" = false;
 
     # Setup & Management
     # Disabled: no use in 30 days of session logs (2026-09-08 to 2026-10-08).
