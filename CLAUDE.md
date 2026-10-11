@@ -121,9 +121,8 @@ this one.
 
 ### Package placement
 
-The `nix-package-placement` rule lives in
-[ai-assistant-instructions/agentsmd/rules/nix-package-placement.md](https://github.com/dryvist/ai-assistant-instructions/blob/main/agentsmd/rules/nix-package-placement.md)
-and auto-loads via path-scoping when `.nix` / `flake.*` files are in context.
+The package-placement standard lives at
+[docs.jacobpevans.com/nix/package-placement](https://docs.jacobpevans.com/nix/package-placement).
 It contains the full decision matrix for the nix repos, including homebrew
 constraints and on-demand patterns.
 
