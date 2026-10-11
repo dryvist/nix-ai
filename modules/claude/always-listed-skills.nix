@@ -124,5 +124,17 @@ let
     # it every time a routine step appears.
     "fast-subagent"
   ];
+
+  # Measured entries with no model invocation in the last 30 days (2026-10-11
+  # audit). Subtracted here so regenerating `measured` cannot bring them back.
+  # Each stays reachable by /name.
+  delisted = [
+    "extracting-session-data"
+    "homelab-runbooks"
+    "native-first"
+    "ponytail"
+    "shared-workflow-org-refs"
+    "sync-inventory"
+  ];
 in
-measured ++ directed
+builtins.filter (s: !(builtins.elem s delisted)) (measured ++ directed)
