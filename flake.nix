@@ -124,14 +124,14 @@
       flake = false;
     };
 
-    # The Codex module is still pinned to its release branch.
+    # The Codex module follows its floating major tag.
     nix-codex = {
-      url = "github:dryvist/nix-codex/main";
+      url = "github:dryvist/nix-codex?ref=v1";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
     nix-codex-launcher-src = {
-      url = "github:dryvist/nix-codex/develop";
+      url = "github:dryvist/nix-codex?ref=v1";
       flake = false;
     };
 
@@ -144,12 +144,12 @@
     # ZCode dispatcher client module and package source. Source-only avoids a
     # cycle because nix-agent-sandbox consumes nix-ai for container configs.
     nix-agent-sandbox-src = {
-      url = "github:dryvist/nix-agent-sandbox/main";
+      url = "github:dryvist/nix-agent-sandbox?ref=v1";
       flake = false;
     };
 
     nix-agy = {
-      url = "github:dryvist/nix-agy/develop";
+      url = "github:dryvist/nix-agy?ref=v1";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 

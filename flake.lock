@@ -848,16 +848,16 @@
     "nix-agent-sandbox-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1791682302,
-        "narHash": "sha256-yisYN1bTLloClJHQbVjqoHwtK+Zz+xYr/1w3p0SpdQI=",
+        "lastModified": 1791682258,
+        "narHash": "sha256-3S8KysBECsBlm2GRVU2OLGOj9gok7V7JTlhnP0drreI=",
         "owner": "dryvist",
         "repo": "nix-agent-sandbox",
-        "rev": "a1443acbd26c74e5e88dfce342624b87f4c41f06",
+        "rev": "87fb946fc1b94083a89571788f18ee8cfc6f3b46",
         "type": "github"
       },
       "original": {
         "owner": "dryvist",
-        "ref": "main",
+        "ref": "v1",
         "repo": "nix-agent-sandbox",
         "type": "github"
       }
@@ -870,16 +870,16 @@
         ]
       },
       "locked": {
-        "lastModified": 1791682667,
-        "narHash": "sha256-XpGBy4dGlXpNg6/jyuvv4Ob13kRAtgNy6+h/t+U72l8=",
+        "lastModified": 1791684669,
+        "narHash": "sha256-ShgvdwKIVJ/4fG1ESeocpsKbmKyuAX4MNB7CY9kkn7o=",
         "owner": "dryvist",
         "repo": "nix-agy",
-        "rev": "f4c736a7e299361ec4d4928820f6a322f725cc39",
+        "rev": "6f6b7da7e5d622c697f2da7a83cf133fbf6e38ee",
         "type": "github"
       },
       "original": {
         "owner": "dryvist",
-        "ref": "develop",
+        "ref": "v1",
         "repo": "nix-agy",
         "type": "github"
       }
@@ -969,16 +969,16 @@
         ]
       },
       "locked": {
-        "lastModified": 1791682749,
-        "narHash": "sha256-dBoQafQvc4wXAquJ93gbz7AKioJGgn+Mgfnx7LSYyTs=",
+        "lastModified": 1791684668,
+        "narHash": "sha256-mhEvZg7MaT6Ni2c7Mz4fQo/A8KtkbI+WILPzwr4aqDw=",
         "owner": "dryvist",
         "repo": "nix-codex",
-        "rev": "4076b369497d403bb5acf2fddf8e493cbe404e3f",
+        "rev": "357d4b858a0cb45f5bf1f78343a16974ad9bff25",
         "type": "github"
       },
       "original": {
         "owner": "dryvist",
-        "ref": "main",
+        "ref": "v1",
         "repo": "nix-codex",
         "type": "github"
       }
@@ -986,16 +986,16 @@
     "nix-codex-launcher-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1791682578,
-        "narHash": "sha256-dBoQafQvc4wXAquJ93gbz7AKioJGgn+Mgfnx7LSYyTs=",
+        "lastModified": 1791684668,
+        "narHash": "sha256-mhEvZg7MaT6Ni2c7Mz4fQo/A8KtkbI+WILPzwr4aqDw=",
         "owner": "dryvist",
         "repo": "nix-codex",
-        "rev": "6d0c02eb02c1bd3dc6e2638764bb8dbbab472464",
+        "rev": "357d4b858a0cb45f5bf1f78343a16974ad9bff25",
         "type": "github"
       },
       "original": {
         "owner": "dryvist",
-        "ref": "develop",
+        "ref": "v1",
         "repo": "nix-codex",
         "type": "github"
       }
