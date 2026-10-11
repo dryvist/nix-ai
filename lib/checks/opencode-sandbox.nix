@@ -1,6 +1,7 @@
 # OpenCode sandbox regression check: the Seatbelt profile keeps its deny rules,
 # the launcher keeps its standalone-clone refusal and per-run temp directory, and
-# the launcher's environment allowlist names no credential variable.
+# the launcher's environment allowlist names no credential variable, and the
+# sandbox ignores a checkout's own opencode.json.
 # The live probes in tests/test-opencode-sandbox-escape.sh run on macOS; this pins the
 # text they depend on.
 { pkgs }:
@@ -10,6 +11,7 @@ let
 
   profile = builtins.readFile ../../modules/opencode/opencode.sb;
   launcher = builtins.readFile ../../modules/opencode/scripts/launch.sh;
+  module = builtins.readFile ../../modules/opencode/default.nix;
 
   requiredDenies = [
     ''(global-name "com.apple.SecurityServer")''
@@ -53,6 +55,7 @@ let
   missingLauncher = builtins.filter (needle: !(lib.hasInfix needle launcher)) requiredLauncher;
   leakedGrants = builtins.filter (needle: lib.hasInfix needle (profile + launcher)) forbiddenGrants;
   leakedEnv = builtins.filter (name: lib.hasInfix name launcher) forbiddenEnv;
+  projectConfigOff = lib.hasInfix ''OPENCODE_DISABLE_PROJECT_CONFIG = "true";'' module;
 in
 {
   opencode-sandbox-regression =
@@ -68,5 +71,7 @@ in
     assert lib.assertMsg (
       leakedEnv == [ ]
     ) "scripts/launch.sh names credential variables: ${lib.concatStringsSep ", " leakedEnv}";
+    assert lib.assertMsg projectConfigOff
+      "the sandbox env no longer ignores a checkout's opencode.json";
     helpers.mkMarker "check-opencode-sandbox-regression" "OpenCode sandbox keeps its deny rules, guards, and env allowlist";
 }

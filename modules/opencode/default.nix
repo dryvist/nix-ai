@@ -61,8 +61,10 @@ let
   # Variables OpenCode gets under the sandbox. The launcher drops everything
   # else, so credentials in the shell never reach it. The LiteLLM key is a
   # placeholder: the local proxy checks no credential (modules/litellm-local).
+  # A checkout's own opencode.json is ignored, so only the home config applies.
   sandboxEnv = {
     OPENCODE_DISABLE_LSP_DOWNLOAD = "true";
+    OPENCODE_DISABLE_PROJECT_CONFIG = "true";
   }
   // lib.optionalAttrs litellmLocal.enable { LITELLM_LOCAL_KEY = litellmLocal.clientToken; };
 
