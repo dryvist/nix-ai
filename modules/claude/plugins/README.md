@@ -53,7 +53,7 @@ priority system above.
 | `anthropic-agent-skills` | `anthropics/skills` | 127235 | 1 |
 | `claude-plugins-official` | `anthropics/claude-plugins-official` | 18410 | 1 / 2 |
 | `openai-codex` | `openai/codex-plugin-cc` | 17071 | 2 |
-| `jacobpevans-cc-plugins` | `JacobPEvans/claude-code-plugins` | 2 | 3 |
+| `jacobpevans-cc-plugins` | `dryvist/claude-code-plugins` | 2 | 3 |
 | `claude-code-workflows` | `wshobson/agents` | 34640 | 4 |
 | `superpowers-marketplace` | `obra/superpowers-marketplace` | 925 | 4 |
 | `cc-marketplace` | `ananddtyagi/cc-marketplace` | 679 | 4 |
@@ -152,7 +152,7 @@ Nix wraps them via derivations (the marketplace-overrides derivation lives in th
 | `browser-use-skills` | `browser-use/browser-use` | Wraps upstream skills directory |
 | `vct-cribl-pack-validator-skills` | private source | Wraps bare `.claude/skills/` layout |
 | `fabric-patterns` | `danielmiessler/fabric` | Wraps a curated subset of patterns as individual skills |
-| `jacobpevans-cc-plugins` | `JacobPEvans/claude-code-plugins` | Auto-generates `marketplace.json` from discovered `plugin.json` files |
+| `jacobpevans-cc-plugins` | `dryvist/claude-code-plugins` | Auto-generates `marketplace.json` from discovered `plugin.json` files |
 
 ## Token-Cost Awareness
 

@@ -98,7 +98,7 @@ feeds `ai-assistant-instructions` content through nix-claude-code's options (the
 "what content flows and how"). Tiered rule delivery (top-level delivered,
 `on-demand/` not) is a property of nix-ai's `discoverMarkdownFiles`, using
 nix-claude-code's `rules` option verbatim. Mirror in
-[nix-claude-code `AGENTS.md`](https://github.com/JacobPEvans/nix-claude-code/blob/main/AGENTS.md).
+[nix-claude-code `AGENTS.md`](https://github.com/dryvist/nix-claude-code/blob/main/AGENTS.md).
 
 ### Test ownership follows the same boundary
 
@@ -122,7 +122,7 @@ this one.
 ### Package placement
 
 The `nix-package-placement` rule lives in
-[ai-assistant-instructions/agentsmd/rules/nix-package-placement.md](https://github.com/JacobPEvans/ai-assistant-instructions/blob/main/agentsmd/rules/nix-package-placement.md)
+[ai-assistant-instructions/agentsmd/rules/nix-package-placement.md](https://github.com/dryvist/ai-assistant-instructions/blob/main/agentsmd/rules/nix-package-placement.md)
 and auto-loads via path-scoping when `.nix` / `flake.*` files are in context.
 It contains the full decision matrix for the nix repos, including homebrew
 constraints and on-demand patterns.
@@ -155,6 +155,6 @@ Port allocation lives in [`docs/architecture/system-integration-map.md`](docs/ar
 
 ## Related Repos
 
-This repo exports home-manager modules consumed by [`nix-darwin`](https://github.com/JacobPEvans/nix-darwin).
-Sibling repos: [`nix-home`](https://github.com/JacobPEvans/nix-home) (user dev environment) and
-[`nix-devenv`](https://github.com/JacobPEvans/nix-devenv) (reusable dev shells).
+This repo exports home-manager modules consumed by [`nix-darwin`](https://github.com/dryvist/nix-darwin).
+Sibling repos: [`nix-home`](https://github.com/dryvist/nix-home) (user dev environment) and
+[`nix-devenv`](https://github.com/dryvist/nix-devenv) (reusable dev shells).

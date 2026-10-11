@@ -6,7 +6,7 @@
 #   Plugins in this file are SUPERSEDED by Tiers 1, 2.
 #
 # Marketplaces in this tier:
-#   - jacobpevans-cc-plugins (JacobPEvans/claude-code-plugins, 2★)
+#   - jacobpevans-cc-plugins (dryvist/claude-code-plugins, 2★)
 #       Plugins are auto-discovered from the flake input at evaluation time.
 #       The list is determined by the repository contents (any directory
 #       containing .claude-plugin/plugin.json is registered).

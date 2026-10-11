@@ -56,7 +56,7 @@ in
           "jacobpevans-cc-plugins" = {
             source = {
               type = "github";
-              url = "JacobPEvans/claude-code-plugins";
+              url = "dryvist/claude-code-plugins";
             };
           };
           "karpathy-skills" = {

@@ -118,7 +118,7 @@ let
     "jacobpevans-cc-plugins" = {
       source = {
         type = "github";
-        url = "JacobPEvans/claude-code-plugins";
+        url = "dryvist/claude-code-plugins";
       };
       flakeInput = jacobpevansMarketplace;
     };
