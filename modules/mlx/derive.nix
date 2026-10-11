@@ -42,7 +42,7 @@
 # ceilings.mdx "load-time admission control"), not a promise of pre-reserved
 # capacity for that many simultaneous streams. Admission width already has a
 # single source: the ADR at d/decisions/llm-serving-concurrency-single-source
-# (docs-starlight) plus the catalog's per-entry `concurrencyLimit`. This file
+# (private docs) plus the catalog's per-entry `concurrencyLimit`. This file
 # sets neither — only sizing for a stated provisioning target (see
 # `concurrency` on forModel).
 #

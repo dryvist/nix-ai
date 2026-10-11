@@ -171,6 +171,12 @@ in
       commands = lib.concatMap (entry: map (h: h.command or "") (entry.hooks or [ ])) sessionStart;
       declaresHerdr = lib.any (c: lib.hasInfix "herdr-agent-state.sh" c) commands;
       declaresTyped = lib.any (c: lib.hasInfix "session-start.sh" c) commands;
+      refreshesAsync = lib.any (
+        entry:
+        lib.any (h: lib.hasInfix "session-start.sh" (h.command or "") && (h.async or false)) (
+          entry.hooks or [ ]
+        )
+      ) sessionStart;
 
       expectedFiles = {
         claude = [ ".claude/hooks/herdr-agent-state.sh" ];
@@ -197,7 +203,13 @@ in
         ) "claude integration renders its hook but never registers it in settings.hooks.SessionStart"
         ++
           lib.optional (lib.elem "claude" cfg.integrations && claudeTypedSessionStart && !declaresTyped)
-            "settings.hooks.SessionStart replaced the typed hook nix-claude-code renders instead of appending to it";
+            "settings.hooks.SessionStart replaced the typed hook nix-claude-code renders instead of appending to it"
+        ++ lib.optional (
+          lib.elem "claude" cfg.integrations
+          && claudeTypedSessionStart
+          && (hmConfig.config.programs.claude.hooks.refreshMarketplaces or false)
+          && !refreshesAsync
+        ) "the typed SessionStart marketplace refresh lost async, so it blocks every session start";
     in
     assert lib.assertMsg (problems == [ ]) ''
       herdr integrations are misdeclared:

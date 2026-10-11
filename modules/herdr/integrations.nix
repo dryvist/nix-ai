@@ -39,26 +39,15 @@ let
   };
 
   # nix-claude-code merges `settings.hooks` over its typed hooks with `//`, so
-  # an entry for an event that also has a typed hook would drop it. Rebuild the
-  # typed entries from that flake's own mapping and append herdr's, keeping
-  # both. Importing the mapping rather than restating it is what keeps this
-  # correct when upstream adds an event.
-  hookEventMapping = import "${nix-claude-code}/lib/hook-event-mapping.nix";
-
-  typedClaudeHooks = lib.mapAttrs' (
-    _hookName: mapping:
-    lib.nameValuePair mapping.claudeEvent [
-      {
-        matcher = "";
-        hooks = [
-          {
-            type = "command";
-            command = "${homeDir}/.claude/hooks/${mapping.fileName}";
-          }
-        ];
-      }
-    ]
-  ) (lib.filterAttrs (hookName: _: (claudeCfg.hooks.${hookName} or null) != null) hookEventMapping);
+  # an entry for an event that also has a typed hook would drop it. Take the
+  # typed entries from that flake's own renderer and append herdr's, keeping
+  # both. Reusing the renderer rather than restating it keeps the matcher,
+  # async and timeout of each typed hook (the startup-only async marketplace
+  # refresh) correct when upstream changes them or adds an event.
+  typedClaudeHooks = import "${nix-claude-code}/lib/typed-hooks.nix" {
+    inherit lib;
+    cfg = claudeCfg;
+  };
 
   herdrClaudeHooks.SessionStart = [
     {
