@@ -8444,7 +8444,7 @@
 ### Features
 
 * add AI merge gate ([#419](https://github.com/JacobPEvans/nix-ai/issues/419)) ([1791db9](https://github.com/JacobPEvans/nix-ai/commit/1791db99d7574dd7ee958507f12dad937c0a9d06))
-* add browser-use skills via synthetic marketplace ([#319](https://github.com/JacobPEvans/nix-ai/issues/319)) ([c4315cb](https://github.com/JacobPEvans/nix-ai/commit/c4315cb05953f4380622e6d17db8a783f6bc1c44))
+* add browser-use skills via a generated plugin marketplace ([#319](https://github.com/JacobPEvans/nix-ai/issues/319)) ([c4315cb](https://github.com/JacobPEvans/nix-ai/commit/c4315cb05953f4380622e6d17db8a783f6bc1c44))
 * add CI infrastructure ([#1](https://github.com/JacobPEvans/nix-ai/issues/1)) ([a251829](https://github.com/JacobPEvans/nix-ai/commit/a251829c405e1da283442cbebf2b0c19e8910b74))
 * add daily repo health audit agentic workflow ([#137](https://github.com/JacobPEvans/nix-ai/issues/137)) ([daa4a0e](https://github.com/JacobPEvans/nix-ai/commit/daa4a0ea05d5a828034d24377f187273763aecf9))
 * add devenv with ai-dev shell, convert mlx-server to devenv ([#158](https://github.com/JacobPEvans/nix-ai/issues/158)) ([0d1deb1](https://github.com/JacobPEvans/nix-ai/commit/0d1deb113464adb622186e08c4b95d3882db4c8f))
@@ -8581,7 +8581,7 @@
 * **pal:** bulletproof MCP diagnostics, logs, and activation ([#266](https://github.com/JacobPEvans/nix-ai/issues/266)) ([6836fe9](https://github.com/JacobPEvans/nix-ai/commit/6836fe97271c991a57a17c6110336e879574dbd5))
 * **pal:** dynamic model discovery via OpenRouter, kill stale defaults ([#434](https://github.com/JacobPEvans/nix-ai/issues/434)) ([3e8dea9](https://github.com/JacobPEvans/nix-ai/commit/3e8dea9ebb909043a7da6aeca805ebf9a39c0f5c))
 * **pal:** radically simplify cloud model discovery ([37f7afe](https://github.com/JacobPEvans/nix-ai/commit/37f7afeed9983ef69cbcddcc5292320c8aaffae9))
-* **plugins:** add synthetic marketplace support for browser-use ([#331](https://github.com/JacobPEvans/nix-ai/issues/331)) ([c255fef](https://github.com/JacobPEvans/nix-ai/commit/c255fef1fb9fbb3248d66fdf77b89d7e66bfcd64))
+* **plugins:** add generated plugin marketplace support for browser-use ([#331](https://github.com/JacobPEvans/nix-ai/issues/331)) ([c255fef](https://github.com/JacobPEvans/nix-ai/commit/c255fef1fb9fbb3248d66fdf77b89d7e66bfcd64))
 * **plugins:** replace per-file symlinks with directory symlinks ([#186](https://github.com/JacobPEvans/nix-ai/issues/186)) ([cff42d5](https://github.com/JacobPEvans/nix-ai/commit/cff42d58f776b58e75faf8f3a9e45dfa0810b966))
 * **plugins:** update stale plugin count comment in development.nix ([#222](https://github.com/JacobPEvans/nix-ai/issues/222)) ([5ffd43d](https://github.com/JacobPEvans/nix-ai/commit/5ffd43db73206590cda7797aa37a642dc94521c9))
 * quote flake URL in orchestrator .envrc ([10c57ba](https://github.com/JacobPEvans/nix-ai/commit/10c57badb8bfa8b7ccfd610346ea16a5bf417a95))
@@ -8940,7 +8940,7 @@
 
 ### Features
 
-* add browser-use skills via synthetic marketplace ([#319](https://github.com/JacobPEvans/nix-ai/issues/319)) ([c4315cb](https://github.com/JacobPEvans/nix-ai/commit/c4315cb05953f4380622e6d17db8a783f6bc1c44))
+* add browser-use skills via a generated plugin marketplace ([#319](https://github.com/JacobPEvans/nix-ai/issues/319)) ([c4315cb](https://github.com/JacobPEvans/nix-ai/commit/c4315cb05953f4380622e6d17db8a783f6bc1c44))
 
 
 ### Bug Fixes
