@@ -23,7 +23,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
-    uses: dryvist/.github/.github/workflows/_disclosure-gate.yml@10af73f872e043e91ff6327d0ef2548881f61298 # v1.11.2
+    uses: dryvist/.github/.github/workflows/_disclosure-gate.yml@0aab1ddaecacea5dc9752b075e2ac10491af33bf # v1.11.3
     secrets:
       GITLEAKS_PRIVATE_CONFIG: ${{ secrets.GITLEAKS_PRIVATE_CONFIG }}
       GITLEAKS_LICENSE_KEY: ${{ secrets.GITLEAKS_LICENSE_KEY }}
