@@ -27,7 +27,7 @@ permissions:
 
 jobs:
   scan:
-    uses: dryvist/.github/.github/workflows/_osv-scan.yml@aeab7c1ac2a9dc807e468fc507ad5b5c1c93df8c # v1.11.4
+    uses: dryvist/.github/.github/workflows/_osv-scan.yml@1f09b25303a04bf276087348059671728ffea50a # v1.13.2
     with:
       config_file: osv-scanner.toml
       runner_label: ubuntu-latest
