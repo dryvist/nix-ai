@@ -54,7 +54,7 @@
     # Token Meter has no flake. Its source is staged and wrapped by the
     # Home Manager module; the weekly lock workflow advances this branch pin.
     token-meter-src = {
-      url = "github:dryvist/token-meter/fix/claude-discovery-and-oauth";
+      url = "github:dryvist/token-meter?ref=v1";
       flake = false;
     };
 

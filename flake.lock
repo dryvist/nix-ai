@@ -1169,16 +1169,16 @@
     "token-meter-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1790526605,
-        "narHash": "sha256-CH1bkDJlJLgOsUtFqBwASJQbC0Bgp/CF4WFlu8C8/mI=",
+        "lastModified": 1791734919,
+        "narHash": "sha256-im7H0BAAp0Xc40fMmdBw7H1I5l5epZgXVYwgBxgE2y8=",
         "owner": "dryvist",
         "repo": "token-meter",
-        "rev": "a3793ec2ebca35e357ae1827d948d9eb2d21549f",
+        "rev": "347dae4b083f111c2d34a8e3eb0d2366229872e0",
         "type": "github"
       },
       "original": {
         "owner": "dryvist",
-        "ref": "fix/claude-discovery-and-oauth",
+        "ref": "v1",
         "repo": "token-meter",
         "type": "github"
       }
