@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.13.1](https://github.com/dryvist/nix-ai/compare/v7.13.0...v7.13.1) (2026-10-11)
+
+
+### Bug Fixes
+
+* **opencode:** ignore a checkout's opencode.json under the sandbox ([#2525](https://github.com/dryvist/nix-ai/issues/2525)) ([542cc5a](https://github.com/dryvist/nix-ai/commit/542cc5a7bcfcf44bb5a4ac12552ed4fae8d26ea9))
+
 ## [7.13.0](https://github.com/dryvist/nix-ai/compare/v7.12.0...v7.13.0) (2026-10-11)
 
 
