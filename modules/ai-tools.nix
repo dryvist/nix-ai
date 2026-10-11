@@ -24,7 +24,7 @@
 # ============================================================================
 #
 # NIXPKGS: github-mcp-server, terraform-mcp-server, whisper-cpp,
-#   openai-whisper, entire, yt-dlp, qwen-code
+#   openai-whisper, yt-dlp, qwen-code
 #
 # LLM-AGENTS.NIX: claude-code, antigravity-cli (`agy`), herdr, codex
 #
@@ -122,13 +122,6 @@ in
     # or the researcher agent workflow.
     # Source: https://github.com/yt-dlp/yt-dlp
     yt-dlp
-
-    # ==========================================================================
-    # entire — captures AI agent sessions alongside git commits
-    # ==========================================================================
-    # Records AI coding sessions and ties them to the commits they produced.
-    # Source: https://github.com/entireio/cli
-    entire
 
     # ==========================================================================
     # OpenAI ChatGPT CLI
