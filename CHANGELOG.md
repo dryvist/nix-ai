@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.13.2](https://github.com/dryvist/nix-ai/compare/v7.13.1...v7.13.2) (2026-10-11)
+
+
+### Bug Fixes
+
+* **herdr:** keep the async startup marketplace refresh ([#2539](https://github.com/dryvist/nix-ai/issues/2539)) ([b0736a6](https://github.com/dryvist/nix-ai/commit/b0736a655960b53b90cdb8e26e33950222a6a101))
+
 ## [7.13.1](https://github.com/dryvist/nix-ai/compare/v7.13.0...v7.13.1) (2026-10-11)
 
 
