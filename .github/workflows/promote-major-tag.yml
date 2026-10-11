@@ -1,0 +1,19 @@
+---
+# Moves the floating major tag to each stable release. The shared workflow holds
+# the logic; this caller only passes the published release tag.
+name: Promote Major Tag
+
+on:
+  release:
+    types: [published]
+
+permissions: {}
+
+jobs:
+  promote-major-tag:
+    permissions:
+      contents: write
+      checks: read
+    uses: dryvist/.github/.github/workflows/promote-major-tag.yml@0aab1ddaecacea5dc9752b075e2ac10491af33bf # v1.11.3
+    with:
+      tag: ${{ github.event.release.tag_name }}
