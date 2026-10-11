@@ -23,7 +23,7 @@ jobs:
       contents: read
       id-token: write
       pull-requests: write
-    uses: dryvist/ai-workflows/.github/workflows/cc-dep-review.yml@2456bca533a27c71009b03097c6e03f2971f508a # v0.48.5
+    uses: dryvist/ai-workflows/.github/workflows/cc-dep-review.yml@a5fcd42bd8843822f56f05346f6392ca7d9e0aec # v0.48.6
     secrets:
       LLM_ROUTER_BASE_URL: ${{ secrets.LLM_ROUTER_BASE_URL }}
       LLM_ROUTER_API_KEY: ${{ secrets.LLM_ROUTER_API_KEY }}
@@ -33,7 +33,7 @@ jobs:
       contents: read
       id-token: write
       pull-requests: write
-    uses: dryvist/ai-workflows/.github/workflows/cc-release-notes.yml@2456bca533a27c71009b03097c6e03f2971f508a # v0.48.5
+    uses: dryvist/ai-workflows/.github/workflows/cc-release-notes.yml@a5fcd42bd8843822f56f05346f6392ca7d9e0aec # v0.48.6
     secrets:
       LLM_ROUTER_BASE_URL: ${{ secrets.LLM_ROUTER_BASE_URL }}
       LLM_ROUTER_API_KEY: ${{ secrets.LLM_ROUTER_API_KEY }}
