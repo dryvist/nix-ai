@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.14.1](https://github.com/dryvist/nix-ai/compare/v7.14.0...v7.14.1) (2026-10-12)
+
+
+### Bug Fixes
+
+* **mlx:** resolve the recorder client's medium and small models in the limits file ([#2554](https://github.com/dryvist/nix-ai/issues/2554)) ([2aded05](https://github.com/dryvist/nix-ai/commit/2aded05d455b681edc92a024ecd131d6f127702e))
+
 ## [7.14.0](https://github.com/dryvist/nix-ai/compare/v7.13.2...v7.14.0) (2026-10-12)
 
 
