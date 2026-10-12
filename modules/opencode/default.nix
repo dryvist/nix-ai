@@ -70,7 +70,7 @@ let
 
   # Loopback stays closed except the port OpenCode's provider talks to: the LiteLLM proxy.
   sandboxedOpencode = import ./sandbox.nix { inherit pkgs lib; } {
-    opencode = cfg.package;
+    inherit (cfg) package;
     home = config.home.homeDirectory;
     workRoot = cfg.sandbox.workRoot;
     localPorts = lib.optional litellmLocal.enable litellmLocal.port;
