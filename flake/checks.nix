@@ -188,3 +188,7 @@ in
         '';
     };
 }
+// (import ./darwin-checks.nix {
+  inherit nixpkgs home-manager src;
+  aiModule = self.homeManagerModules.default;
+})

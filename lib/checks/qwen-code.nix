@@ -8,6 +8,7 @@
 let
   helpers = import ./helpers.nix { inherit pkgs; };
   cfg = hmConfig.config.programs.qwen-code;
+  homeDir = hmConfig.config.home.homeDirectory;
 in
 {
   # Verify all expected Qwen Code option paths exist.
@@ -23,6 +24,7 @@ in
       "installVia"
       "mcpServerNames"
       "model"
+      "sandbox"
     ];
   };
 
@@ -45,6 +47,16 @@ in
         name = "qwen-code.contextFileNames";
         actual = cfg.contextFileNames;
         expected = [ "AGENTS.md" ];
+      }
+      {
+        name = "qwen-code.sandbox.enable";
+        actual = cfg.sandbox.enable;
+        expected = pkgs.stdenv.hostPlatform.isDarwin;
+      }
+      {
+        name = "qwen-code.sandbox.workRoot";
+        actual = cfg.sandbox.workRoot;
+        expected = "${homeDir}/qwen-code-work";
       }
     ];
   };

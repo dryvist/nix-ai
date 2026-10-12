@@ -25,6 +25,12 @@ OpenAI/Anthropic/Gemini-compatible endpoint. Apache-2.0.
 - Shared skills linked from `~/.agents/skills` into `~/.qwen/skills`,
   matching Codex and Antigravity rather than maintaining a separate
   skill tree.
+- On macOS, Qwen Code runs through a deny-default Seatbelt profile by
+  default. It can read its Nix-managed settings and deployed skills, write
+  only its session-state directories and the configured worktree, and reach
+  the configured LiteLLM Local port plus the same outbound IP network as
+  OpenCode. Other files in `~/.qwen` and other agents' config directories
+  remain closed.
 - On non-darwin hosts the module short-circuits silently — no
   install, no warning. Linux users need brew (or Linuxbrew) to use
   qwen-code through this module.
@@ -58,9 +64,11 @@ programs.qwen-code = {
 
 For the local proxy or homelab router, use `medium`.
 
-For cloud-provider sessions, run `qwen` with the provider keys
-(`DASHSCOPE_API_KEY`, `OPENROUTER_API_KEY`, `OPENAI_API_KEY`) in its
-environment, for example from `.env`.
+With the sandbox enabled, only `OPENAI_API_KEY` and `OPENAI_BASE_URL` are
+forwarded from the launching shell. Other provider keys require explicitly
+disabling `programs.qwen-code.sandbox.enable`. The sandbox requires a Nix
+package so the launcher can name its executable; `installVia = "brew"` needs
+the sandbox disabled.
 
 ## Adding cloud providers
 
