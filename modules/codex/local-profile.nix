@@ -7,7 +7,7 @@
 let
   routerAliases = import ../litellm-local/aliases.nix;
   inherit (config.programs) litellmLocal;
-  localRouterAlias = "medium";
+  localRouterAlias = "small";
   routerBaseUrl = config.services.aiStack.llmRouterEndpoint;
 
   localProfileAttrs =

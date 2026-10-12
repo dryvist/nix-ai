@@ -110,7 +110,7 @@ let
   # each resolves to is an upstream setting, so this list does not change when
   # the mapping does.
   litellmRoles = import ../litellm-local/aliases.nix;
-  localRouterAlias = "medium";
+  localRouterAlias = "small";
   localRouterAgent =
     assert builtins.elem localRouterAlias litellmRoles;
     {
@@ -172,7 +172,7 @@ let
   # router capabilities. The provider catalog and delegated agents share the
   # alias contract from modules/litellm-local/aliases.nix.
   // lib.optionalAttrs litellmLocal.enable {
-    model = "litellm/medium";
+    model = "litellm/small";
     small_model = "litellm/small";
   };
 

@@ -5,7 +5,7 @@ let
   cfg = hmConfig.config.programs.opencode;
   homeDir = hmConfig.config.home.homeDirectory;
   settingsFile = hmConfig.config.home.file."${cfg.configDir}/opencode.json".source;
-  localRouterAlias = "medium";
+  localRouterAlias = "small";
   routerAliases = import ../../modules/litellm-local/aliases.nix;
 in
 {
