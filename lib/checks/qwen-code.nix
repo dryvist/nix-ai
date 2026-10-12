@@ -1,5 +1,10 @@
 # Qwen Code module regression tests
-{ pkgs, hmConfig }:
+{
+  pkgs,
+  hmConfig,
+  hmConfigLitellmLocal,
+  hmConfigRouter,
+}:
 let
   helpers = import ./helpers.nix { inherit pkgs; };
   cfg = hmConfig.config.programs.qwen-code;
@@ -34,12 +39,29 @@ in
       {
         name = "qwen-code.model";
         actual = cfg.model;
-        expected = "medium";
+        expected = "coding";
       }
       {
         name = "qwen-code.contextFileNames";
         actual = cfg.contextFileNames;
         expected = [ "AGENTS.md" ];
+      }
+    ];
+  };
+
+  qwen-code-routed-defaults-regression = helpers.mkDefaultsRegression {
+    label = "Qwen Code routed model defaults";
+    checkName = "check-qwen-code-routed-defaults-regression";
+    checks = [
+      {
+        name = "qwen-code.model.local-proxy";
+        actual = hmConfigLitellmLocal.config.programs.qwen-code.model;
+        expected = "medium";
+      }
+      {
+        name = "qwen-code.model.router";
+        actual = hmConfigRouter.config.programs.qwen-code.model;
+        expected = "medium";
       }
     ];
   };

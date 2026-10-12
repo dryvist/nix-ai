@@ -1,5 +1,15 @@
 { mkHmConfig }:
 {
+  hmConfigRouter = mkHmConfig [
+    {
+      services.aiStack = {
+        llmEndpoint = "router";
+        llmRouterEndpoint = "https://router.example.invalid/v1";
+        llmEndpointTokenFile = "/tmp/test-router-token";
+      };
+    }
+  ];
+
   # Evaluation with the local LiteLLM proxy enabled. The module is off by
   # default, so without this fixture every lib.optionalAttrs
   # litellmLocal.enable branch across the client modules would go unevaluated

@@ -25,7 +25,7 @@ galileo-on          # sets GALILEO_TRACE=1, prints confirmation
 # Hit MLX directly with trace header:
 gcurl http://127.0.0.1:11434/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -d '{"model":"medium","messages":[{"role":"user","content":"hello"}]}'
+  -d '{"model":"default","messages":[{"role":"user","content":"hello"}]}'
 
 # Check Galileo console:
 # app.galileo.ai → project: homelab → log stream: default

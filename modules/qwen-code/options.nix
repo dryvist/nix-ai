@@ -1,9 +1,11 @@
 #
 # Qwen Code Module — Option Declarations
 #
-{ lib, ... }:
+{ config, lib, ... }:
 
 let
+  usesRouterCapabilities =
+    config.programs.litellmLocal.enable || config.services.aiStack.llmEndpoint == "router";
   mcpClient = import ../mcp/client.nix { inherit lib; };
 in
 {
@@ -44,10 +46,10 @@ in
 
     model = lib.mkOption {
       type = lib.types.str;
-      default = "medium";
+      default = if usesRouterCapabilities then "medium" else "coding";
       description = ''
-        Default capability alias to start sessions with. The selected local
-        endpoint or router resolves the alias to its current model.
+        Default model to start sessions with. Direct MLX uses a local role name;
+        the local proxy and homelab router use a capability alias.
       '';
     };
 
