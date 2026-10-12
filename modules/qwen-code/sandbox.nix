@@ -20,6 +20,11 @@ import ../opencode/sandbox.nix { inherit pkgs lib; } {
       kind = "subpath";
       path = ".qwen/skills";
     }
+    # Qwen Code reads this file at start and writes it only when absent.
+    {
+      kind = "literal";
+      path = ".qwen/output-language.md";
+    }
   ];
   statePaths = [
     ".qwen/history"
@@ -28,7 +33,14 @@ import ../opencode/sandbox.nix { inherit pkgs lib; } {
   ];
   projectConfigFileRegex = "settings\\.json";
   projectConfigDirRegex = "\\.qwen";
-  appWriteExceptionRule = "";
+  # The profile denies every write under a `.qwen` directory after the state
+  # allows, so the state paths and the language file are re-allowed here.
+  appWriteExceptionRule = ''
+    (allow file-write*
+      (subpath "${home}/.qwen/history")
+      (subpath "${home}/.qwen/file-history")
+      (subpath "${home}/.qwen/tmp")
+      (literal "${home}/.qwen/output-language.md"))'';
   # The router bearer and base URL are the only caller-shell values it receives.
   inheritedEnv = [
     "OPENAI_API_KEY"
