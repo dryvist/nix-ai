@@ -197,6 +197,8 @@ in
       && mimoAgent.config.EnvironmentVariables.MLX_MAX_PENDING_REQUESTS == toString mimo.queueSize
       && limits.aliases.judge == mimo.model
       && limits.aliases.recorder == mimo.model
+      && limits.aliases.medium == qwen.model
+      && limits.aliases.small == mimo.model
       &&
         limits.routerUrl
         == "http://127.0.0.1:${toString hmConfigStaticServing.config.programs.litellmLocal.port}/v1"
