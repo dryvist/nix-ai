@@ -107,57 +107,13 @@ let
     chains = resolvedChains;
   };
 
-  staticResidentRoutes = lib.concatMap (
-    modelId:
-    let
-      contract = staticResidentModels.${modelId};
-    in
-    map (role: {
-      model_name = role;
-      litellm_params = {
-        model = "openai/${modelId}";
-        api_base = "http://127.0.0.1:${toString contract.servicePort}/v1";
-        api_key = "os.environ/OPENAI_API_KEY";
-        timeout = contract.timeoutSeconds;
-        stream_timeout = contract.timeoutSeconds;
-        max_parallel_requests = config.programs.mlx.modelAdmissionLimits.${modelId};
-      };
-      model_info = {
-        max_input_tokens = contract.maxInputTokens;
-        max_output_tokens = contract.maxOutputTokens;
-      };
-    }) (builtins.attrNames contract.roles)
-  ) (builtins.attrNames staticResidentModels);
-
-  # Head aliases (`small`) keep a way out of a stopped resident: the same name
-  # goes to the shared router unchanged, after any of this host's other models
-  # that is a different model from the one the alias is resident on. Every
-  # other resident role stays a direct, single-deployment route. Each router
-  # rung is its own group (`<role>-homelab`) because a fallback target must be
-  # a named group; the wildcard cannot be one.
-  staticFallbackRoles = lib.optionals (staticResidentModels != { }) cfg.headAliases;
-  residentModelOf =
-    role:
-    lib.findFirst (modelId: staticResidentModels.${modelId}.roles ? ${role}) null (
-      builtins.attrNames staticResidentModels
-    );
-  staticRouterRung = role: "${role}-homelab";
-  staticRouterRungs = map (role: {
-    model_name = staticRouterRung role;
-    litellm_params = {
-      model = "openai/${role}";
-      api_base = "os.environ/LLM_ROUTER_URL";
-      api_key = "os.environ/OPENAI_API_KEY";
-    };
-  }) staticFallbackRoles;
-  staticFallbacks = map (role: {
-    ${role} =
-      map (m: m.name) (builtins.filter (m: m.id != residentModelOf role) resolvedLocalModels)
-      ++ [ (staticRouterRung role) ];
-  }) staticFallbackRoles;
-  staticContextWindowFallbacks = map (role: {
-    ${role} = [ (staticRouterRung role) ];
-  }) staticFallbackRoles;
+  # The resident routes, plus the router fallbacks of the head aliases.
+  staticTier = import ./static-tier.nix {
+    inherit lib staticResidentModels;
+    inherit (cfg) headAliases;
+    admissionLimits = config.programs.mlx.modelAdmissionLimits;
+    localModels = resolvedLocalModels;
+  };
 
   # Reuses the maintainer profile's single traces endpoint rather than adding a
   # second one: this proxy's spans belong on the same path as Claude Code's and
@@ -189,10 +145,7 @@ let
       fallbackTier
       isolatedTier
       telemetryTracesEndpoint
-      staticResidentRoutes
-      staticRouterRungs
-      staticFallbacks
-      staticContextWindowFallbacks
+      staticTier
       ;
   };
 

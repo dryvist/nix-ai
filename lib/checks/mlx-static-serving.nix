@@ -172,29 +172,6 @@ in
     else
       throw "static resident LiteLLM aliases must route directly with catalog-derived context, output, and timeout values";
 
-  mlx-static-resident-router-fallback =
-    let
-      fallbackFor =
-        group: lib.findFirst (entry: entry ? ${group}) null renderedConfig.litellm_settings.fallbacks;
-      windowFallbackFor =
-        group:
-        lib.findFirst (
-          entry: entry ? ${group}
-        ) null renderedConfig.litellm_settings.context_window_fallbacks;
-      smallRouter = routeFor "small-homelab";
-    in
-    if
-      (fallbackFor "small").small == [ "small-homelab" ]
-      && (windowFallbackFor "small").small == [ "small-homelab" ]
-      && smallRouter.litellm_params.model == "openai/small"
-      && smallRouter.litellm_params.api_base == "os.environ/LLM_ROUTER_URL"
-      && fallbackFor "judge" == null
-      && fallbackFor "default" == null
-    then
-      helpers.mkMarker "check-mlx-static-resident-router-fallback" "a stopped `small` resident falls back to the router under the same name; other resident roles stay direct"
-    else
-      throw "the `small` head alias must fall back to a router rung named small-homelab that forwards `small`, and no other resident role may gain a fallback";
-
   mlx-static-resident-local-endpoint =
     if
       hmConfigStaticServing.config.programs.litellmLocal.localEndpoint

@@ -15,10 +15,12 @@
   fallbackTier,
   isolatedTier,
   telemetryTracesEndpoint,
-  staticResidentRoutes ? [ ],
-  staticRouterRungs ? [ ],
-  staticFallbacks ? [ ],
-  staticContextWindowFallbacks ? [ ],
+  staticTier ? {
+    routes = [ ];
+    routerRungs = [ ];
+    fallbacks = [ ];
+    contextWindowFallbacks = [ ];
+  },
 }:
 # `os.environ/NAME` is LiteLLM's own indirection: the literal string is what
 # goes in the config file, and LiteLLM resolves it from the process
@@ -61,8 +63,8 @@
   ++ fallbackTier.localOnlyEntries
   ++ fallbackTier.modelList
   ++ isolatedTier.modelList
-  ++ staticResidentRoutes
-  ++ staticRouterRungs;
+  ++ staticTier.routes
+  ++ staticTier.routerRungs;
 
   litellm_settings = {
     # Clients disagree about which sampling params they send; dropping the
@@ -86,7 +88,7 @@
     # Anthropic rate-limits. Losing the request is recoverable; not noticing
     # the model changed underneath a long session is not. The main tier gets
     # retries and a context-window fallback, never a silent quality swap.
-    fallbacks = fallbackTier.fallbacks ++ isolatedTier.fallbacks ++ staticFallbacks;
+    fallbacks = fallbackTier.fallbacks ++ isolatedTier.fallbacks ++ staticTier.fallbacks;
 
     # A context-window overflow is unambiguous — the request cannot succeed
     # as sent, and a larger window is strictly better rather than a
@@ -108,7 +110,7 @@
     ]
     ++ fallbackTier.contextWindowFallbacks
     ++ isolatedTier.contextWindowFallbacks
-    ++ staticContextWindowFallbacks;
+    ++ staticTier.contextWindowFallbacks;
   }
   # Every non-Anthropic call this host makes traverses this proxy, so with no
   # callback the entire local fabric is an observability blind spot.
@@ -131,7 +133,7 @@
     turn_off_message_logging = true;
   };
 }
-// lib.optionalAttrs (staticResidentRoutes != [ ]) {
+// lib.optionalAttrs (staticTier.routes != [ ]) {
   # Static resident aliases are catalog-derived singleton groups. LiteLLM
   # 1.98 exposes cooldown suppression at router level, so enable its native
   # setting only when those routes are rendered.
