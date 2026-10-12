@@ -4,6 +4,9 @@ let
   helpers = import ./helpers.nix { inherit pkgs; };
   cfg = hmConfig.config.programs.opencode;
   homeDir = hmConfig.config.home.homeDirectory;
+  settingsFile = hmConfig.config.home.file."${cfg.configDir}/opencode.json".source;
+  localRouterAlias = "small";
+  routerAliases = import ../../modules/litellm-local/aliases.nix;
 in
 {
   # Verify all expected OpenCode option paths exist.
@@ -61,4 +64,25 @@ in
       }
     ];
   };
+
+  opencode-router-local-agent =
+    assert builtins.elem localRouterAlias routerAliases;
+    pkgs.runCommand "check-opencode-router-local-agent"
+      {
+        nativeBuildInputs = [ pkgs.jq ];
+      }
+      ''
+        jq -e --arg alias "${localRouterAlias}" '
+          .provider.router.npm == "@ai-sdk/openai-compatible" and
+          .provider.router.name == "router" and
+          .provider.router.options == {
+            baseURL: "{env:AGENT_ROUTER_BASE_URL}",
+            apiKey: "{env:AGENT_ROUTER_KEY}"
+          } and
+          .provider.router.models[$alias].name == $alias and
+          .agent.local.mode == "subagent" and
+          .agent.local.model == ("router/" + $alias)
+        ' ${settingsFile} >/dev/null
+        touch $out
+      '';
 }
