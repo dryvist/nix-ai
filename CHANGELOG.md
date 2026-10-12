@@ -1,5 +1,17 @@
 # Changelog
 
+## [7.14.0](https://github.com/dryvist/nix-ai/compare/v7.13.2...v7.14.0) (2026-10-12)
+
+
+### Features
+
+* **qwen-code:** run under a deny-default Seatbelt profile ([#2547](https://github.com/dryvist/nix-ai/issues/2547)) ([9d5eb2b](https://github.com/dryvist/nix-ai/commit/9d5eb2ba2c08c0c2e7d2fa33829682c32fe57f6d))
+
+
+### Bug Fixes
+
+* **models:** name routed models by capability ([#2546](https://github.com/dryvist/nix-ai/issues/2546)) ([0fd8872](https://github.com/dryvist/nix-ai/commit/0fd887285b79be02121f0a918d90c7793215cf52))
+
 ## [7.13.2](https://github.com/dryvist/nix-ai/compare/v7.13.1...v7.13.2) (2026-10-11)
 
 
