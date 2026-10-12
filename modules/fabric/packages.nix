@@ -60,7 +60,7 @@ in
         # model is literally named "Default" — so the name carries no `FABRIC_`
         # prefix. The prefixed spelling this module used before was read by
         # nothing, which is why the value in the user-managed .env kept winning.
-        DEFAULT_MODEL = if litellmLocal.enable then "cheap" else cfg.defaultModel;
+        DEFAULT_MODEL = if litellmLocal.enable then "small" else cfg.defaultModel;
       }
       // lib.optionalAttrs (cfg.customPatternsDir != null) {
         FABRIC_CUSTOM_PATTERNS_DIR = cfg.customPatternsDir;

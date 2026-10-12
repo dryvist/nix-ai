@@ -108,7 +108,7 @@ fsevents_start() {
     fsevents_log="$root/opencode-run.log"
     sandbox_argv "$fsevents_clone"
     perl -e 'chdir shift or die "chdir: $!"; alarm shift; exec @ARGV' "$fsevents_clone" 60 \
-      "${sbx[@]}" "$OPENCODE_BIN" run --print-logs -m litellm/default "say ok" >"$fsevents_log" 2>&1 &
+      "${sbx[@]}" "$OPENCODE_BIN" run --print-logs -m litellm/medium "say ok" >"$fsevents_log" 2>&1 &
     fsevents_pid=$!
   fi
 }

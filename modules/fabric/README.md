@@ -37,7 +37,7 @@ What it does NOT manage:
 | User-managed custom patterns directory | `programs.fabric.customPatternsDir` (default `~/.config/fabric/custom-patterns`) |
 | YouTube/multimedia extraction | `yt-dlp` added to `home.packages` |
 | Optional REST API server (LaunchAgent) | `programs.fabric.enableServer = true` (port 8180) |
-| Curated patterns as Claude Code skills | Synthetic marketplace (derivation lives in the `nix-claude-code` flake input) |
+| Curated patterns as Claude Code skills | Generated plugin marketplace (derivation lives in the `nix-claude-code` flake input) |
 | Fabric MCP server in Claude Code | `modules/mcp/catalog.nix` (community-maintained) |
 
 ## One-time runtime setup
@@ -66,7 +66,7 @@ credentials to per-host setup.
 | `enableServer` | bool | `false` | Run `fabric --serve` as a macOS LaunchAgent on port 8180 |
 | `host` | str | `"127.0.0.1"` | REST API server host |
 | `port` | port | `8180` | REST API server port |
-| `defaultModel` | str | the registry's `most-capable` class | Default model for `fabric --pattern X` (resolved from `vars/ai-stack.nix`) |
+| `defaultModel` | str | `small` | Default model for `fabric --pattern X` |
 | `customPatternsDir` | str or null | `~/.config/fabric/custom-patterns` | User-managed custom patterns directory |
 
 The read-only Nix-managed patterns directory always lives at
@@ -135,7 +135,7 @@ Two paths exist:
 
 ### Path A: As Claude Code skills (always-on, auto-discovery)
 
-A synthetic marketplace wraps a curated subset of fabric patterns as Claude Code
+A generated plugin marketplace wraps a curated subset of fabric patterns as Claude Code
 skills. Claude Code auto-loads them based on description matching when relevant to
 the user's task. The marketplace derivation and its curated-patterns JSON live in
 the `nix-claude-code` flake input, along with the `fabric-marketplace-build`
@@ -195,7 +195,7 @@ ports are reserved by other services.
 ### Marketplace SKILL.md count mismatch in `nix flake check`
 
 The `fabric-marketplace-build` check failed because the curated-patterns JSON was
-edited but the synthetic marketplace wasn't rebuilt. The marketplace derivation,
+edited but the generated plugin marketplace wasn't rebuilt. The marketplace derivation,
 its JSON, and this check now live in the `nix-claude-code` flake input — re-run
 `nix flake check` there to recompute the expected count.
 
@@ -203,5 +203,5 @@ its JSON, and this check now live in the `nix-claude-code` flake input — re-ru
 
 - Upstream: <https://github.com/danielmiessler/fabric>
 - Pattern library: <https://github.com/danielmiessler/fabric/tree/main/data/patterns>
-- Curated subset + synthetic marketplace: `nix-claude-code` flake input
+- Curated subset + generated plugin marketplace: `nix-claude-code` flake input
 - Regression tests: `lib/checks/fabric.nix`

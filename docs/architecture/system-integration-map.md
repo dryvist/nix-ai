@@ -54,8 +54,8 @@ Anthropic with the session's own forwarded credentials (so the main model still
 bills the subscription and is never rerouted), while every other name resolves
 through the shared router.
 
-The subagent tier names one stable group, `subagent`, which heads a cost-ordered
-chain assembled by
+The `medium` capability names one stable group that heads a cost-ordered chain
+assembled by
 [`fallback-tier.nix`](../../modules/litellm-local/fallback-tier.nix) from
 generated data in `tier-candidates.json`. A chain rather than one model, so a
 single retired upstream model cannot take every subagent down with it; a stable
@@ -92,7 +92,7 @@ cluster-hosted Open WebUI.
 | Product | Module Path | Transport | Purpose | Key Config Files |
 |---------|------------|-----------|---------|-----------------|
 | Claude Code | `modules/claude-config.nix` | Desktop app | Primary AI coding assistant | `~/.claude/settings.json`, `~/.claude.json` |
-| Local LiteLLM proxy | `modules/litellm-local/` | HTTP :4100 (loopback) | Role aliases + cost-ordered subagent fallback chain | rendered config, `modules/litellm-local/fallback-tier.nix` |
+| Local LiteLLM proxy | `modules/litellm-local/` | HTTP :4100 (loopback) | Capability aliases + cost-ordered medium fallback chain | rendered config, `modules/litellm-local/fallback-tier.nix` |
 | Antigravity CLI | `modules/antigravity-cli/` | CLI | Google Antigravity assistant | `~/.gemini/antigravity-cli/settings.json` |
 | Codex CLI | `modules/codex/` | CLI | OpenAI coding assistant | `~/.codex/config.toml` |
 | Qwen Code | `modules/qwen-code/` | CLI | Local-first coding assistant | `~/.qwen/settings.json` |

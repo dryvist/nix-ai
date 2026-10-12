@@ -31,14 +31,13 @@
 
     defaultModel = lib.mkOption {
       type = lib.types.str;
-      default = "default";
+      default = "small";
       description = ''
         Default model fabric should use when no `--model` flag is specified.
 
-        Defaults to the role name "default" so fabric, llama-swap, and the
-        rest of the AI stack share a single source of truth in
-        services.aiStack.models. Routes through the local MLX stack at
-        http://127.0.0.1:11434/v1.
+        Defaults to the `small` capability for quick prompt-pattern tasks.
+        The selected local endpoint or router resolves the alias to its
+        current model.
 
         Override to a cloud provider model id (any Claude, Gemini, or GPT model
         your provider exposes) but be aware fabric needs API keys

@@ -44,12 +44,10 @@ in
 
     model = lib.mkOption {
       type = lib.types.str;
-      default = "coding";
+      default = "medium";
       description = ''
-        Default capability-class alias to start sessions with. Resolved
-        through services.aiStack.models — `coding` maps to the
-        Qwen3-Coder backend in the default registry, which is the most
-        natural fit for Qwen Code's intended workload.
+        Default capability alias to start sessions with. The selected local
+        endpoint or router resolves the alias to its current model.
       '';
     };
 

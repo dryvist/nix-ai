@@ -165,16 +165,16 @@ run_check() {
   set -o errexit
 }
 
-ROLES="coding default quickest small tool-calling"
+ROLES="small medium large embed ocr"
 
-# ---- (A) + (D) role names the router cannot address ----------------------
-# Router addresses THE_MODEL and the role name `tool-calling`, but not the other
-# four roles. Exactly those four must be reported.
-echo "(A) router missing four of five role names"
+# ---- (A) + (D) capability names the router cannot address ----------------
+# Router addresses THE_MODEL and the `medium` capability, but not the other
+# four capabilities. Exactly those four must be reported.
+echo "(A) router missing four of five capability names"
 write_registry "$work/reg-a.json" $ROLES
 set_endpoints "$work/reg-a.json" "http://127.0.0.1:$port/v1" "http://127.0.0.1:$port/v1"
 write_models "$THE_MODEL"
-write_info "$THE_MODEL" "tool-calling"
+write_info "$THE_MODEL" "medium"
 run_check "$work/reg-a.json"
 check "exit status" "1" "$rc"
 check "reports the unroutable heading" "yes" \
@@ -190,7 +190,7 @@ check "reports the unroutable heading" "yes" \
 # this line ended the run after two failures.
 reported="$( { sed -n '/ROLE NAME NOT ADDRESSABLE AT THE ROUTER/,/^$/p' "$work/out.txt" \
   | grep -E '^  [a-z-]+$' | tr -d ' ' | sort | tr '\n' ','; } || true )"
-check "exactly the unroutable roles" "coding,default,quickest,small," "$reported"
+check "exactly the unroutable capabilities" "embed,large,ocr,small," "$reported"
 
 # (B) the local endpoint listed no aliases at all and must not be blamed for it.
 check "local endpoint not blamed" "yes" \

@@ -34,7 +34,7 @@ in
       {
         name = "qwen-code.model";
         actual = cfg.model;
-        expected = "coding";
+        expected = "medium";
       }
       {
         name = "qwen-code.contextFileNames";

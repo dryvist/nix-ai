@@ -26,22 +26,22 @@ in
 
     model = lib.mkOption {
       type = lib.types.str;
-      default = "openai/default";
+      default = "openai/medium";
       description = ''
-        Main model. Use openai/<role> names; the role is resolved by
-        llama-swap to the physical HF id (see services.aiStack.models).
+        Main model. Use openai/<capability> names served by the selected
+        local endpoint or router.
       '';
     };
 
     weakModel = lib.mkOption {
       type = lib.types.str;
-      default = "openai/fast";
+      default = "openai/small";
       description = "Cheap-task model used for commit messages and summaries.";
     };
 
     editorModel = lib.mkOption {
       type = lib.types.str;
-      default = "openai/coding";
+      default = "openai/medium";
       description = "Editor model used in architect/editor-pair mode.";
     };
 

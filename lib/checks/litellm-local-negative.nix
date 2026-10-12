@@ -50,7 +50,7 @@ let
             localEndpoint = "http://127.0.0.1:18080/v1";
             localModels = [
               {
-                name = "subagent";
+                name = "medium";
                 id = "test-local/small-4bit";
                 contextWindow = 131072;
               }

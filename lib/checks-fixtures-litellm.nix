@@ -25,7 +25,7 @@
               # router's single-GPU group ahead of this host's own model.
               # Declared here so the fallback-tier check proves a router rung
               # renders against LLM_ROUTER_URL and carries no local window.
-              name = "subagent";
+              name = "medium";
               router = "test-gpu-group";
             }
             {

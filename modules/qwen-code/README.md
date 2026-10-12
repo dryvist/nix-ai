@@ -11,9 +11,8 @@ OpenAI/Anthropic/Gemini-compatible endpoint. Apache-2.0.
   nix-darwin's `homebrew.brews`, sourced from nix-ai's
   capability-driven `lib.homebrewFor` flake output.
 - A generated `~/.qwen/settings.json` wired to local llama-swap with
-  one provider entry per capability-class alias from
-  `services.aiStack.models`. Default startup model is the `coding`
-  class.
+  one provider entry per router capability alias when routed. Default
+  startup model is `medium`.
 - MCP servers rendered from the shared `programs.aiMcp.enabledServers`
   profile, with `programs.qwen-code.excludedMcpServers` reserved for
   Qwen-only compatibility gaps.
@@ -50,7 +49,7 @@ Routes to local MLX via llama-swap (`http://127.0.0.1:11434/v1`).
 ```nix
 programs.qwen-code = {
   enable = true;
-  model = "coding";  # capability-class alias
+  model = "medium";  # router capability alias
 };
 ```
 

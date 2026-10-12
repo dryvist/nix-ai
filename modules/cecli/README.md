@@ -63,7 +63,7 @@ no API keys required.
 ```nix
 programs.cecli = {
   enable = true;
-  model = "openai/default"; # capability-class alias from services.aiStack.models
+  model = "openai/medium"; # router capability alias
 };
 ```
 

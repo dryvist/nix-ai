@@ -104,14 +104,12 @@ let
     output_cost_per_token = 0;
   };
 
-  # See the qwen-code module for why these live here and not in the
-  # shared registry: they resolve upstream, not on this host.
-  proxyOnlyRoles = lib.optionalAttrs litellmLocal.enable {
-    subagent = null;
-    fast = null;
-    cheap = null;
-  };
-  allRoles = models // proxyOnlyRoles;
+  routerAliases = import ../litellm-local/aliases.nix;
+  allRoles =
+    if litellmLocal.enable || llmEndpoint == "router" then
+      lib.genAttrs routerAliases (_: null)
+    else
+      models;
 
   modelMetadata = lib.mapAttrs' (
     role: model: lib.nameValuePair "openai/${role}" (metadataEntry model)
@@ -125,13 +123,8 @@ let
   # "does this role write code" is a cecli decision; it does not own the role
   # vocabulary, which is the role map's.
   nonCodeRoles = [
-    # Size/latency or non-code roles in the role map (lib/role-map.nix).
-    "fast"
-    "cheap"
+    # Size/latency or non-code capabilities.
     "small"
-    "judge"
-    "recorder"
-    "ocr"
   ];
 
   # Derived, never restated. The previous version listed the six code roles
@@ -141,11 +134,10 @@ let
   # way is the wrong edit format, which looks like a model being bad at editing
   # rather than like config drift.
   #
-  # Derived from `models` and NOT from `allRoles`, so proxy-only roles continue
-  # to take the weak format exactly as they do today. A role newly added to the
+  # Derived from the selected model names. A capability newly added to the
   # registry becomes a code role unless it is named above, which is the safer
   # default for an edit-format picker and forces the decision to be explicit.
-  codeRoles = lib.subtractLists nonCodeRoles (builtins.attrNames models);
+  codeRoles = lib.subtractLists nonCodeRoles (builtins.attrNames allRoles);
 
   makeSettingsEntry =
     name: role:

@@ -63,7 +63,7 @@ in
       {
         name = "fabric.defaultModel";
         actual = cfg.defaultModel;
-        expected = "default";
+        expected = "small";
       }
       # Environment variables — FABRIC_PATTERNS_DIR is computed from
       # config.home.homeDirectory + the fixed ".config/fabric/patterns"

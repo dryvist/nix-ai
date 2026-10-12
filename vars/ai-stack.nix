@@ -57,7 +57,7 @@
   # AGENT_ROUTER_KEY; `model` is the router alias every tool key may use.
   router = {
     providerId = "router";
-    model = "auto";
+    model = "medium";
   };
 
   # Z.ai subscription launchers. Everything here is non-secret configuration;

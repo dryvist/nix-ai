@@ -13,7 +13,6 @@
   nix-claude-code,
   llm-agents,
   userConfig,
-  homelab-contracts,
   ...
 }:
 
@@ -103,13 +102,10 @@ let
     client = "opencode";
   };
 
-  # Router capability aliases the local proxy serves. Each is a stable name;
-  # which physical model it resolves to is an upstream setting, so this list
-  # does not change when the mapping does. Every role in the role map
-  # (lib/role-map.nix), the same list as modules/litellm-local/aliases.nix.
-  litellmRoles =
-    builtins.attrNames
-      (import ../../lib/role-map.nix { src = homelab-contracts; }).roles;
+  # Router capability aliases the local proxy serves. Which physical model
+  # each resolves to is an upstream setting, so this list does not change when
+  # the mapping does.
+  litellmRoles = import ../litellm-local/aliases.nix;
 
   allLitellmModels = lib.unique (litellmRoles ++ cfg.extraModels);
 
@@ -126,9 +122,9 @@ let
     lsp = true;
   }
   // lib.optionalAttrs (otelPlugins != [ ]) { plugin = otelPlugins; }
-  # The primary agent's model is deliberately NOT set: it stays whatever the
-  # user has chosen. Only the cheap background tier is repointed, plus the
-  # provider itself so `litellm/<role>` or `litellm/<model>` is selectable.
+  # Route OpenCode's default and small background tier through the matching
+  # router capabilities. The provider catalog and delegated agents share the
+  # alias contract from modules/litellm-local/aliases.nix.
   // lib.optionalAttrs litellmLocal.enable {
     provider.litellm = {
       npm = "@ai-sdk/openai-compatible";
@@ -141,14 +137,13 @@ let
         inherit name;
       });
     };
-    small_model = "litellm/cheap";
-    # One subagent per router capability alias, so a delegation skill that
-    # addresses a tier by alias name (`@judge`, `@cheap`, ...) works here as it
-    # does elsewhere. Each is pinned to its own `litellm/<role>` model rather
-    # than inheriting the caller's, which is the whole point of a tier.
+    model = "litellm/medium";
+    small_model = "litellm/small";
+    # One subagent per router capability alias. Each is pinned to its own
+    # `litellm/<capability>` model rather than inheriting the caller's.
     # Permissions stay the global defaults.
     agent = lib.genAttrs litellmRoles (role: {
-      description = "Delegate to the router's `${role}` tier (resolved upstream, never a physical model)";
+      description = "Delegate to the router's `${role}` capability (resolved upstream, never a physical model)";
       mode = "subagent";
       model = "litellm/${role}";
     });
