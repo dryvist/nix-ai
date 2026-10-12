@@ -45,6 +45,9 @@ let
   );
 
   features = cfg.features // localProxyFeatures;
+  routerAliases = import ../litellm-local/aliases.nix;
+  localRouterAlias = "small";
+  routerBaseUrl = config.services.aiStack.llmRouterEndpoint;
 
   selectedOnDemandMcpServers = lib.filterAttrs (
     name: _: lib.elem name cfg.onDemandMcpServers
@@ -97,6 +100,24 @@ let
   };
 
   optionalValue = key: value: lib.optionalAttrs (value != null) { ${key} = value; };
+
+  localProfileAttrs =
+    assert builtins.elem localRouterAlias routerAliases;
+    {
+      model = localRouterAlias;
+      model_provider = "router";
+      model_reasoning_effort = "low";
+      model_providers.router = {
+        name = "router";
+        base_url = routerBaseUrl;
+        env_key = "AGENT_ROUTER_KEY";
+        wire_api = "responses";
+      };
+    };
+  localProfileJson = pkgs.writeText "codex-local-profile.json" (builtins.toJSON localProfileAttrs);
+  localProfileToml = pkgs.runCommand "codex-local.config.toml" { nativeBuildInputs = [ pkgs.yj ]; } ''
+    yj -jt < ${localProfileJson} > $out
+  '';
 
   # Share Claude Code's telemetry configuration. Codex uses full signal URLs
   # verbatim; Claude's generic endpoint is a base URL. Binary means protobuf.
@@ -187,7 +208,7 @@ let
   # TOP level, selected the same way on the command line: `codex --profile
   # small`. One profile per router capability alias from
   # modules/litellm-local/aliases.nix.
-  litellmRoles = import ../litellm-local/aliases.nix;
+  litellmRoles = routerAliases;
 
   litellmProfileAttrs = lib.genAttrs litellmRoles (role: {
     model = role;
@@ -329,6 +350,9 @@ in
             role: toml: lib.nameValuePair "${configDir}/${role}.config.toml" { source = toml; }
           ) litellmProfileTomls
         )
+        // lib.optionalAttrs (routerBaseUrl != "") {
+          "${configDir}/local.config.toml".source = localProfileToml;
+        }
         // lib.optionalAttrs (cfg.hooks.events != { }) {
           ".codex/hooks.json".source = pkgs.writers.writeJSON "codex-hooks.json" {
             hooks = cfg.hooks.events;
