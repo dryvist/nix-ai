@@ -76,7 +76,7 @@ let
     extraEnv = sandboxEnv;
     inheritedEnv = [
       "AGENT_ROUTER_BASE_URL"
-      "AGENT_ROUTER_KEY"
+      "AGENT_ROUTER_LOCAL_KEY"
     ];
   };
 
@@ -110,7 +110,7 @@ let
   # each resolves to is an upstream setting, so this list does not change when
   # the mapping does.
   litellmRoles = import ../litellm-local/aliases.nix;
-  localRouterAlias = "small";
+  localRouterAlias = "medium";
   localRouterAgent =
     assert builtins.elem localRouterAlias litellmRoles;
     {
@@ -132,7 +132,7 @@ let
         name = "router";
         options = {
           baseURL = "{env:AGENT_ROUTER_BASE_URL}";
-          apiKey = "{env:AGENT_ROUTER_KEY}";
+          apiKey = "{env:AGENT_ROUTER_LOCAL_KEY}";
         };
         models.${localRouterAlias}.name = localRouterAlias;
       };

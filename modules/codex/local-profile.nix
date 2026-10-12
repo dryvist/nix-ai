@@ -7,7 +7,7 @@
 let
   routerAliases = import ../litellm-local/aliases.nix;
   inherit (config.programs) litellmLocal;
-  localRouterAlias = "small";
+  localRouterAlias = "medium";
   routerBaseUrl = config.services.aiStack.llmRouterEndpoint;
 
   localProfileAttrs =
@@ -19,7 +19,8 @@ let
       model_providers.router = {
         name = "router";
         base_url = routerBaseUrl;
-        env_key = "AGENT_ROUTER_KEY";
+        # Local-only router key; never use a master key.
+        env_key = "AGENT_ROUTER_LOCAL_KEY";
         wire_api = "responses";
       };
     };

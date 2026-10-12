@@ -5,7 +5,7 @@ let
   cfg = hmConfig.config.programs.opencode;
   homeDir = hmConfig.config.home.homeDirectory;
   settingsFile = hmConfig.config.home.file."${cfg.configDir}/opencode.json".source;
-  localRouterAlias = "small";
+  localRouterAlias = "medium";
   routerAliases = import ../../modules/litellm-local/aliases.nix;
 in
 {
@@ -77,7 +77,7 @@ in
           .provider.router.name == "router" and
           .provider.router.options == {
             baseURL: "{env:AGENT_ROUTER_BASE_URL}",
-            apiKey: "{env:AGENT_ROUTER_KEY}"
+            apiKey: "{env:AGENT_ROUTER_LOCAL_KEY}"
           } and
           .provider.router.models[$alias].name == $alias and
           .agent.local.mode == "subagent" and

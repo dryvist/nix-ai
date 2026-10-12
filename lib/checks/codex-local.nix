@@ -1,7 +1,7 @@
 { pkgs, hmConfigRouter }:
 let
   routerProfile = hmConfigRouter.config.home.file.".codex/local.config.toml".source;
-  localRouterAlias = "small";
+  localRouterAlias = "medium";
   routerAliases = import ../../modules/litellm-local/aliases.nix;
 in
 {
@@ -20,13 +20,13 @@ in
         with open(profile_path, "rb") as f:
             cfg = tomllib.load(f)
 
-        assert cfg["model"] == "small", cfg.get("model")
+        assert cfg["model"] == "medium", cfg.get("model")
         assert cfg["model_provider"] == "router", cfg.get("model_provider")
         assert cfg["model_reasoning_effort"] == "low", cfg.get("model_reasoning_effort")
         provider = cfg["model_providers"]["router"]
         assert provider["name"] == "router", provider
         assert provider["base_url"] == expected_base_url, provider
-        assert provider["env_key"] == "AGENT_ROUTER_KEY", provider
+        assert provider["env_key"] == "AGENT_ROUTER_LOCAL_KEY", provider
         assert provider["wire_api"] == "responses", provider
 
         print("codex-local-router-profile: provider, alias, reasoning, endpoint, and scoped key name verified")
