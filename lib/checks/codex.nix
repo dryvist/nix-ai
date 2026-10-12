@@ -1,5 +1,8 @@
 # Codex module regression tests
-{ pkgs, hmConfig }:
+{
+  pkgs,
+  hmConfig,
+}:
 let
   helpers = import ./helpers.nix { inherit pkgs; };
   cfg = hmConfig.config.programs.codex;

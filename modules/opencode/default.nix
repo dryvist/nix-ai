@@ -74,6 +74,10 @@ let
     workRoot = cfg.sandbox.workRoot;
     localPorts = lib.optional litellmLocal.enable litellmLocal.port;
     extraEnv = sandboxEnv;
+    inheritedEnv = [
+      "AGENT_ROUTER_BASE_URL"
+      "AGENT_ROUTER_LOCAL_KEY"
+    ];
   };
 
   # opencode.json uses a local/remote-tagged MCP schema: local servers carry a
@@ -106,6 +110,14 @@ let
   # each resolves to is an upstream setting, so this list does not change when
   # the mapping does.
   litellmRoles = import ../litellm-local/aliases.nix;
+  localRouterAlias = "medium";
+  localRouterAgent =
+    assert builtins.elem localRouterAlias litellmRoles;
+    {
+      description = "Delegate to the router's `${localRouterAlias}` capability (resolved upstream, never a physical model)";
+      mode = "subagent";
+      model = "router/${localRouterAlias}";
+    };
 
   allLitellmModels = lib.unique (litellmRoles ++ cfg.extraModels);
 
@@ -114,6 +126,40 @@ let
     inherit permission;
     command = skillCommands;
     mcp = mcpServers;
+    provider = {
+      router = {
+        npm = "@ai-sdk/openai-compatible";
+        name = "router";
+        options = {
+          baseURL = "{env:AGENT_ROUTER_BASE_URL}";
+          apiKey = "{env:AGENT_ROUTER_LOCAL_KEY}";
+        };
+        models.${localRouterAlias}.name = localRouterAlias;
+      };
+    }
+    // lib.optionalAttrs litellmLocal.enable {
+      litellm = {
+        npm = "@ai-sdk/openai-compatible";
+        name = "LiteLLM (local)";
+        options = {
+          baseURL = litellmLocal.baseUrl;
+          apiKey = "{env:LITELLM_LOCAL_KEY}";
+        };
+        models = lib.genAttrs allLitellmModels (name: {
+          inherit name;
+        });
+      };
+    };
+    agent = {
+      local = localRouterAgent;
+    }
+    // lib.optionalAttrs litellmLocal.enable (
+      lib.genAttrs litellmRoles (role: {
+        description = "Delegate to the router's `${role}` capability (resolved upstream, never a physical model)";
+        mode = "subagent";
+        model = "litellm/${role}";
+      })
+    );
     # LSP integration is off by default upstream; this enables every built-in
     # server. A server only activates when its binary is on PATH, so the set
     # in use is whatever nix-home ships globally (see its core.nix "Language
@@ -126,27 +172,8 @@ let
   # router capabilities. The provider catalog and delegated agents share the
   # alias contract from modules/litellm-local/aliases.nix.
   // lib.optionalAttrs litellmLocal.enable {
-    provider.litellm = {
-      npm = "@ai-sdk/openai-compatible";
-      name = "LiteLLM (local)";
-      options = {
-        baseURL = litellmLocal.baseUrl;
-        apiKey = "{env:LITELLM_LOCAL_KEY}";
-      };
-      models = lib.genAttrs allLitellmModels (name: {
-        inherit name;
-      });
-    };
     model = "litellm/medium";
     small_model = "litellm/small";
-    # One subagent per router capability alias. Each is pinned to its own
-    # `litellm/<capability>` model rather than inheriting the caller's.
-    # Permissions stay the global defaults.
-    agent = lib.genAttrs litellmRoles (role: {
-      description = "Delegate to the router's `${role}` capability (resolved upstream, never a physical model)";
-      mode = "subagent";
-      model = "litellm/${role}";
-    });
   };
 
   # Pretty-printed via jq (same convention as copilot.nix / antigravity-cli):
