@@ -25,8 +25,9 @@ let
     ''(regex #"/\.git$")''
     ''/\.git[^/]*/((modules|worktrees)/[^/]+/)*(hooks|config(\.worktree)?)(/|$)''
     "(deny file-link)"
-    ''(\.envrc|\.mcp\.json|opencode\.json|CLAUDE\.md|AGENTS\.md|GEMINI\.md)''
-    ''(\.opencode|\.claude|\.vscode|\.cursor)''
+    "@PROJECT_CONFIG_FILE_REGEX@"
+    "@PROJECT_CONFIG_DIR_REGEX@"
+    ''\.claude|\.vscode|\.cursor''
   ];
 
   requiredLauncher = [
@@ -56,6 +57,12 @@ let
   leakedGrants = builtins.filter (needle: lib.hasInfix needle (profile + launcher)) forbiddenGrants;
   leakedEnv = builtins.filter (name: lib.hasInfix name launcher) forbiddenEnv;
   projectConfigOff = lib.hasInfix ''OPENCODE_DISABLE_PROJECT_CONFIG = "true";'' module;
+  openCodeDefaultsIntact =
+    lib.hasInfix ''projectConfigFileRegex ? "opencode\\.json"'' sandboxModule
+    && lib.hasInfix ''projectConfigDirRegex ? "\\.opencode"'' sandboxModule
+    && lib.hasInfix ".config/opencode" sandboxModule
+    && lib.hasInfix ".local/share/opencode" sandboxModule;
+  sandboxModule = builtins.readFile ../../modules/opencode/sandbox.nix;
 in
 {
   opencode-sandbox-regression =
@@ -73,5 +80,7 @@ in
     ) "scripts/launch.sh names credential variables: ${lib.concatStringsSep ", " leakedEnv}";
     assert lib.assertMsg projectConfigOff
       "the sandbox env no longer ignores a checkout's opencode.json";
+    assert lib.assertMsg openCodeDefaultsIntact
+      "the shared sandbox renderer changed OpenCode's app-specific grants";
     helpers.mkMarker "check-opencode-sandbox-regression" "OpenCode sandbox keeps its deny rules, guards, and env allowlist";
 }

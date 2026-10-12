@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Live probes for the OpenCode Seatbelt profile (modules/opencode/opencode.sb), run on
-# macOS, where sandbox-exec is the enforcement point. Elsewhere the script exits 2 and
+# Live probes for a rendered OpenCode or Qwen Code Seatbelt profile, run on macOS,
+# where sandbox-exec is the enforcement point. Elsewhere the script exits 2 and
 # reports nothing as passed.
 #
 # Each attack probe runs inside the profile in a fresh standalone clone under a temp
@@ -9,7 +9,7 @@
 # core.fsmonitor command ran. Control probes PASS when their write goes through. A
 # probe whose body never started is a FAIL, so a broken probe cannot read as a pass.
 #
-# Usage: OPENCODE_BIN=/path/to/opencode tests/test-opencode-sandbox-escape.sh [opencode.sb]
+# Usage: OPENCODE_BIN=/path/to/opencode tests/test-opencode-sandbox-escape.sh <rendered-profile> [opencode|qwen-code]
 #
 # OPENCODE_BIN is the real binary, for the FSEvents row. The launcher on PATH refuses
 # work roots outside its configured one, so it cannot run here.
@@ -20,14 +20,23 @@ if [ "$(uname -s)" != Darwin ]; then
   exit 2
 fi
 
-source_profile="${1:-$(dirname "$0")/../modules/opencode/opencode.sb}"
+source_profile="${1:?pass the rendered sandbox profile path}"
+tool="${2:-opencode}"
+case "$tool" in
+  opencode | qwen-code) ;;
+  *) echo "sandbox-escape: unknown tool: $tool" >&2; exit 2 ;;
+esac
 root="$(realpath "$(mktemp -d)")"
 trap 'rm -rf "$root"' EXIT
 mkdir -p "$root/tmp" "$root/work"
 
-# Render the profile as sandbox.nix does: the home directory, and no extra ports.
-profile="$root/opencode.sb"
-sed -e "s|@HOME@|$HOME|g" -e '/@LOCAL_PORTS@/d' "$source_profile" >"$profile"
+# The package renderer supplies the exact profile the installed launcher uses.
+profile="$root/$tool.sb"
+cp "$source_profile" "$profile"
+if grep -q '@[A-Z_]*@' "$profile"; then
+  echo "sandbox-escape: pass the rendered profile, not the source template" >&2
+  exit 2
+fi
 
 # Fixtures and sandboxed git share this identity and never read the user's git config,
 # so no commit here can reach the signing key (a signing prompt would stall the run).
@@ -85,6 +94,22 @@ attack() { # name body
   fi
 }
 
+# Read probes require the specific errno from Seatbelt, not just any failure.
+expect_blocked() { # name body
+  local clone
+  clone="$(fresh "$1")" || { report FAIL "$1" "clone failed"; return; }
+  sandboxed "$clone" "echo START; $2"
+  if ! grep -q '^START$' "$root/last.log"; then
+    report FAIL "$1" "probe did not run: $(head -c 120 "$root/last.log" | tr '\n' ' ')"
+  elif grep -q '^DENIED$' "$root/last.log"; then
+    report PASS "$1" "sandbox returned EACCES or EPERM"
+  elif grep -q '^ATTACK-OK$' "$root/last.log"; then
+    report FAIL "$1" "the protected path was accessible"
+  else
+    report FAIL "$1" "probe did not observe a Seatbelt denial: $(head -c 120 "$root/last.log" | tr '\n' ' ')"
+  fi
+}
+
 # Control: PASS only when the body reaches its OK line.
 expect_ok() { # name body
   local clone
@@ -97,8 +122,8 @@ expect_ok() { # name body
   fi
 }
 
-# The FSEvents row starts first, so its 60 seconds overlap the probes. It has its own
-# clone and log. perl's alarm ends the exact process it execs, which is $!.
+# The FSEvents row starts first, so its 60 seconds overlap the OpenCode probes. It has
+# its own clone and log. perl's alarm ends the exact process it execs, which is $!.
 fsevents_start() {
   if [ ! -x "${OPENCODE_BIN:-/nonexistent}" ]; then
     fsevents_skip="OPENCODE_BIN is not set to the real opencode binary"
@@ -136,9 +161,9 @@ fsevents_finish() {
   fi
 }
 
-payload='printf "[core]\n\tfsmonitor = /usr/bin/touch %s\n" "$MARK"'
+payload="printf \"[core]\\n\\tfsmonitor = /usr/bin/touch %s\\n\" \"\$MARK\""
 
-fsevents_start
+if [ "$tool" = opencode ]; then fsevents_start; fi
 
 # The .git entry itself: rename, remove, recreate, and nested creation.
 attack rename-git-dir "mv .git .gitx && echo ATTACK-OK"
@@ -165,13 +190,39 @@ for name in CLAUDE.md claude.md AGENTS.md GEMINI.md; do
 done
 attack write-cursor-dir "mkdir -p .cursor && printf 'x\n' >.cursor/rules && echo ATTACK-OK"
 attack write-CLAUDE-dir-case "mkdir -p .CLAUDE && printf '{}\n' >.CLAUDE/settings.json && echo ATTACK-OK"
+if [ "$tool" = qwen-code ]; then
+  attack write-qwen-project-settings "mkdir -p .qwen && printf '{}\n' >.qwen/settings.json && echo ATTACK-OK"
+
+  if [ -d "$HOME/.ssh" ]; then
+    # Only directory-entry names are enumerated, with output discarded; no file is opened.
+    expect_blocked read-home-ssh-names "if ls -A \"\$HOME/.ssh\" >/dev/null 2>\"\$TMPDIR/ssh-probe.err\"; then echo ATTACK-OK; elif grep -Eq \"Operation not permitted|Permission denied\" \"\$TMPDIR/ssh-probe.err\"; then echo DENIED; else echo PROBE-ERROR; fi"
+  else
+    report FAIL read-home-ssh-names "${HOME}/.ssh is absent; the deny could not be verified"
+  fi
+
+  proxy_socket="$HOME/.local/state/openbao-window/proxy.sock"
+  if [ -S "$proxy_socket" ]; then
+    # Connect and immediately close without sending or receiving socket data.
+    expect_blocked connect-openbao-proxy "python3 -c 'import errno,socket,sys
+s=socket.socket(socket.AF_UNIX)
+try:
+ s.connect(sys.argv[1])
+except OSError as e:
+ print(\"DENIED\" if e.errno in (errno.EACCES, errno.EPERM) else \"PROBE-ERROR\")
+else:
+ s.close()
+ print(\"ATTACK-OK\")' \"$proxy_socket\""
+  else
+    report FAIL connect-openbao-proxy "OpenBao window proxy socket is absent; access could not be verified"
+  fi
+fi
 
 # Controls: the work root stays writable, and a normal commit still works.
 expect_ok control-write-file "printf 'x\n' >ok.txt && echo OK"
 expect_ok control-git-status "git status --porcelain >/dev/null && echo OK"
 expect_ok control-commit-inside-clone "printf 'probe\n' >probe.txt && git add probe.txt && git commit -q -m probe && git log -1 --format=%s | grep -qx probe && echo OK"
 
-fsevents_finish
+if [ "$tool" = opencode ]; then fsevents_finish; fi
 
 echo "$total probes, $fails failed"
 [ "$fails" -eq 0 ]

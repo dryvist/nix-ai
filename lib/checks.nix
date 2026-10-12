@@ -167,6 +167,10 @@ in
   inherit pkgs;
   hmConfig = hmConfigUntrusted;
 })
+// (import ./checks/qwen-code-sandbox.nix {
+  inherit pkgs;
+  hmConfig = hmConfigUntrusted;
+})
 // (import ./checks/opencode.nix {
   inherit pkgs;
   hmConfig = hmConfigUntrusted;

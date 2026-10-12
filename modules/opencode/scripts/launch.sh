@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Launches OpenCode under the Seatbelt profile. sandbox.nix fills the placeholders.
+# Launches @BINARY_NAME@ under the Seatbelt profile. sandbox.nix fills the placeholders.
 
 refuse() {
-  echo "opencode: refusing to run: $1" >&2
+  echo @BINARY_NAME@: refusing to run: "$1" >&2
   exit 1
 }
 
@@ -35,7 +35,7 @@ fi
 
 # A private temp directory per run, removed when the run ends. The shared per-user
 # temp directory stays outside the sandbox.
-cache_dir="$home_dir/.cache/opencode"
+cache_dir="$home_dir/.cache/@BINARY_NAME@"
 mkdir -p "$cache_dir"
 tmpdir="$(realpath "$(mktemp -d "$cache_dir/tmp.XXXXXX")")"
 trap 'rm -rf "$tmpdir"' EXIT
@@ -43,7 +43,7 @@ trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-# Allowlist only. Credentials in the caller's shell never reach OpenCode.
+# Allowlist only. Credentials in the caller's shell never reach @BINARY_NAME@.
 envargs=("TMPDIR=$tmpdir")
 for name in HOME USER LOGNAME PATH TERM COLORTERM LANG SHELL; do
   if [ -n "${!name+x}" ]; then
@@ -56,7 +56,8 @@ while IFS= read -r entry; do
   esac
 done < <(/usr/bin/env)
 @EXTRA_ENV@
-# Not exec: the EXIT trap has to remove the temp directory after OpenCode returns.
+@INHERITED_ENV@
+# Not exec: the EXIT trap removes the temp directory after @BINARY_NAME@ returns.
 /usr/bin/env -i "${envargs[@]}" /usr/bin/sandbox-exec \
   -D WORKTREE="$worktree" -D TMPDIR="$tmpdir" \
-  -f @PROFILE@ @OPENCODE@ "$@"
+  -f @PROFILE@ @REAL_BINARY@ "$@"

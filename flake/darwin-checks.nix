@@ -1,0 +1,26 @@
+# Focused macOS module checks for the native Seatbelt sandbox launchers.
+# Kept separately so the full x86_64-linux regression suite remains Linux-only.
+{
+  nixpkgs,
+  home-manager,
+  aiModule,
+  src,
+}:
+let
+  system = "aarch64-darwin";
+  pkgs = import nixpkgs {
+    inherit system;
+    config.allowUnfree = true;
+  };
+  fixtures = import (src + "/lib/checks-fixtures.nix") {
+    inherit pkgs home-manager aiModule;
+  };
+  hmConfig = fixtures.mkHmConfig [ { programs.ai.untrustedClis.enable = true; } ];
+in
+{
+  ${system} =
+    (import (src + "/lib/checks/opencode.nix") { inherit pkgs hmConfig; })
+    // (import (src + "/lib/checks/qwen-code.nix") { inherit pkgs hmConfig; })
+    // (import (src + "/lib/checks/opencode-sandbox.nix") { inherit pkgs; })
+    // (import (src + "/lib/checks/qwen-code-sandbox.nix") { inherit pkgs hmConfig; });
+}

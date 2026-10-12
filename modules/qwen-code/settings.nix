@@ -29,7 +29,7 @@
 let
   cfg = config.programs.qwen-code;
   homeDir = config.home.homeDirectory;
-  inherit (config.services.aiStack) models resolvedLlmEndpoint llmEndpoint;
+  inherit (config.services.aiStack) models llmEndpoint;
 
   aiCommon = import ../common {
     inherit lib config nix-claude-code;
@@ -40,15 +40,14 @@ let
 
   # Endpoint + API-key source both follow services.aiStack.llmEndpoint. Local
   # (llama-swap) is an open loopback hop, so a dummy key satisfies the schema.
-  # The router is bearer-gated: point qwen-code's envKey at OPENAI_API_KEY,
-  # which ai-stack exports at shell init from llmEndpointTokenFile (never in
-  # the Nix store), and drop the literal so the real token is read from env.
+  # Both the bearer-gated router and litellm-local expose OPENAI_API_KEY to the
+  # client process; the sandbox forwards only that key and the optional base URL.
   inherit (config.programs) litellmLocal;
-  endpointBase = if litellmLocal.enable then litellmLocal.baseUrl else resolvedLlmEndpoint;
+  endpointBase = import ./endpoint.nix { inherit config; };
   isLocalEndpoint = llmEndpoint == "mlx_local" && !litellmLocal.enable;
   apiKeyEnvVar =
     if litellmLocal.enable then
-      "LITELLM_LOCAL_KEY"
+      "OPENAI_API_KEY"
     else if isLocalEndpoint then
       "QWEN_LOCAL_DUMMY_KEY"
     else

@@ -1,7 +1,12 @@
 #
 # Qwen Code Module — Option Declarations
 #
-{ lib, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 
 let
   mcpClient = import ../mcp/client.nix { inherit lib; };
@@ -39,6 +44,29 @@ in
         Neither Nix source ties this module to one platform — a brew formula
         did, which is what used to keep it macOS-only. "brew" installs nothing
         here and relies on nix-darwin's homebrew.brews.
+      '';
+    };
+
+    sandbox.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = pkgs.stdenv.hostPlatform.isDarwin;
+      defaultText = lib.literalExpression "pkgs.stdenv.hostPlatform.isDarwin";
+      description = ''
+        Launch Qwen Code through the deny-default Seatbelt profile with an
+        allowlisted environment. The profile is applied by
+        /usr/bin/sandbox-exec, so this is macOS only. When false, `qwen` runs
+        the package directly.
+      '';
+    };
+
+    sandbox.workRoot = lib.mkOption {
+      type = lib.types.str;
+      default = "${config.home.homeDirectory}/qwen-code-work";
+      defaultText = lib.literalExpression ''"''${config.home.homeDirectory}/qwen-code-work"'';
+      description = ''
+        Directory holding the standalone clones Qwen Code may open in the
+        sandbox; linked worktrees and checkouts elsewhere are refused. The
+        profile denies writes to project configuration and git metadata.
       '';
     };
 
