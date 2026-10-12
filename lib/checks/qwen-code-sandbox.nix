@@ -38,7 +38,8 @@ let
     ".qwen/tmp"
     "projectConfigFileRegex"
     "projectConfigDirRegex"
-    "appWriteExceptionRule = \"\";"
+    ".qwen/output-language.md"
+    "appWriteExceptionRule = ''"
     "OPENAI_API_KEY"
     "OPENAI_BASE_URL"
   ];
