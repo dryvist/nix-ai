@@ -1,4 +1,4 @@
-# Tier 5 — Niche, specialty, and synthetic marketplaces (superseded by all higher tiers).
+# Tier 5 — Niche, specialty, and generated plugin marketplaces (superseded by all higher tiers).
 #
 # Duplicate Resolution Rule:
 #   Plugins in this file are SUPERSEDED by ALL higher tiers (1, 2, 3, 4).

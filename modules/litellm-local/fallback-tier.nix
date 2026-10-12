@@ -2,8 +2,8 @@
 # homelab router as the single terminal rung.
 #
 # WHY A CHAIN AT ALL: a single hardcoded subagent model dies silently. On
-# 2026-08-28 the router's `subagent` alias still resolved to
-# `openrouter/stealth/ox-alpha` whose testing period had ended — every call
+# 2026-08-28 the router's `medium` capability still resolved to
+# an upstream model whose testing period had ended — every call
 # returned 404, and the router reported `Available Model Group Fallbacks=None`.
 # Nothing noticed until a call was made by hand. One name in one place is a
 # single point of failure. That lesson stands; what changed is WHERE the
@@ -14,7 +14,7 @@
 # ./tier-candidates.json and served each one THROUGH the shared router. That
 # encoded "which cloud model, in what order, at what price" in two places — here
 # and in the router's own registry, which already owns a cloud fallback chain.
-# A limit that exists twice will disagree, and this one did: ox-alpha above was
+# A limit that exists twice will disagree, and the selected upstream model was
 # exactly that disagreement. The router owns cloud policy now. This file names
 # no provider, no price, and no cloud model.
 #
@@ -33,9 +33,9 @@
 # declared here; what each router group resolves to, and the ladder behind the
 # terminal rung, is edited in the router's own admin UI without a rebuild.
 #
-# THE HEAD IS ALWAYS NAMED `subagent`. Consumers name that one string forever
+# THE HEAD IS ALWAYS NAMED `medium`. Consumers name that one string forever
 # and the ranking behind it can change without touching them. It also shadows
-# the upstream router's own `subagent` alias — an explicit model_list group
+# the upstream router's own `medium` capability — an explicit model_list group
 # beats the `*` wildcard — so a retired upstream alias cannot reach this host.
 #
 # CONTEXT IS WHY THE TERMINAL RUNG IS NOT OPTIONAL. Local models carry far
@@ -48,20 +48,20 @@
 # Overflow escapes to a bigger window rather than being silently cut.
 #
 # WHAT THIS FILE CANNOT PROVE: that a rung still answers. Catalog metadata is a
-# claim, not behaviour — ox-alpha resolved cleanly in /v1/model/info for days
+# claim, not behaviour — an upstream model resolved cleanly in /v1/model/info for days
 # after it stopped serving. `litellm-fallback-probe` sends a real completion to
 # every rung and is the only check that settles it.
 {
   lib,
   localModels ? [ ],
   localEndpointEnvVar ? "LOCAL_LLM_URL",
-  terminalName ? "subagent-homelab",
+  terminalName ? "medium-homelab",
   # The group the shared router serves. Null keeps the bare wildcard, which is
   # only correct when the terminal rung carries the name consumers already send
   # upstream (the localModels == [] case below).
   routerEntryModel ? null,
-  # Extra group names that resolve to the SAME chain as the head. `fast` is
-  # the router's own name for this tier (modules/litellm-local/aliases.nix),
+  # Extra group names that resolve to the SAME chain as the head. `small` is
+  # a router capability name (modules/litellm-local/aliases.nix),
   # so a client asking for it must get this host's chain, not the `*`
   # wildcard straight to the router — which would skip this host's own rung.
   headAliases ? [ ],
@@ -110,9 +110,9 @@ let
 
   # With no local models declared, the terminal rung IS the whole chain, so it
   # must carry the name consumers use. That makes the empty default exactly the
-  # previous behaviour — one `subagent` group pointing at the shared router —
+  # previous behaviour — one `medium` group pointing at the shared router —
   # and keeps this change inert for any host that has not opted in.
-  effectiveTerminalName = if localModels == [ ] then "subagent" else terminalName;
+  effectiveTerminalName = if localModels == [ ] then "medium" else terminalName;
 
   # The single terminal rung. It names the shared router and nothing else: no
   # provider, no model id, no price. Whatever the router decides to do behind
@@ -121,12 +121,12 @@ let
   # `openai/*` is a PASSTHROUGH: LiteLLM forwards whatever group name the
   # caller asked for. That is correct only while the rung's own name is a name
   # the router serves. The moment localModels is non-empty the rung is renamed
-  # to subagent-homelab, and forwarding THAT upstream 404s — the rung then
+  # to medium-homelab, and forwarding THAT upstream 404s — the rung then
   # fails when addressed directly, not merely as a fallback, so the chain ends
   # on something that cannot answer.
   #
   # Observed on a converged host 2026-09-01: a direct request to
-  # subagent-homelab returned "no router for requested model", and a fallback
+  # medium-homelab returned "no router for requested model", and a fallback
   # into it reported "Error doing the fallback: NotFoundError". Naming the
   # upstream group explicitly is what makes the last rung reachable.
   terminal = {

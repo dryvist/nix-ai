@@ -49,6 +49,7 @@ let
     hmConfigSessionSync
     hmConfigSessionArchive
     hmConfigLitellmLocal
+    hmConfigRouter
     hmConfigMcpLaunchPrefix
     ;
   mkHmConfigDarwin =
@@ -147,6 +148,8 @@ in
     pkgs
     hmConfig
     hmConfigUntrusted
+    hmConfigLitellmLocal
+    hmConfigRouter
     homebrewFor
     ;
 })
@@ -164,7 +167,7 @@ in
   hmConfig = hmConfigUntrusted;
 })
 // (import ./checks/qwen-code.nix {
-  inherit pkgs;
+  inherit pkgs hmConfigLitellmLocal hmConfigRouter;
   hmConfig = hmConfigUntrusted;
 })
 // (import ./checks/qwen-code-sandbox.nix {
@@ -244,6 +247,8 @@ in
     pkgs
     hmConfig
     hmConfigFabricServer
+    hmConfigLitellmLocal
+    hmConfigRouter
     src
     ;
 })

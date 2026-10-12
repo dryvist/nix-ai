@@ -17,7 +17,7 @@ lib.types.submodule {
     router = lib.mkOption {
       type = lib.types.nullOr lib.types.str;
       default = null;
-      example = "fast-gpu";
+      example = "small";
       description = ''
         A GROUP the shared router serves, used as this rung instead of a
         model this host serves itself. This is how a router tier sits

@@ -67,7 +67,7 @@ in
       # alike; nixpkgs does not carry it at all.
       package = lib.mkDefault agyPackage;
 
-      # Deliberately left unset. Selecting the router role here (`"subagent"`)
+      # Deliberately left unset. Selecting a router capability here
       # was tried and is now known to be rejected: the CLI validates `model`
       # against its own registry when it LOADS the settings file, and on a
       # miss discards the whole file — not just the model key — falling back
@@ -75,7 +75,7 @@ in
       # and every configured MCP server silently stop applying:
       #
       #   failed to load cli settings, using defaults: invalid settings:
-      #   model: invalid value { "name": "subagent" }
+      #   model: invalid value { "name": "<capability>" }
       #
       # This is schema validation, not routing, so no proxy alias or catch-all
       # route can satisfy it — the file is rejected before any request is made.

@@ -111,7 +111,7 @@ let
 
   # Every CLI that reads an OpenAI-compatible base URL points at the proxy.
   fabricBase = enabled.home.sessionVariables.OPENAI_API_BASE_URL == proxyBase;
-  fabricRole = enabled.home.sessionVariables.DEFAULT_MODEL == "cheap";
+  fabricRole = enabled.home.sessionVariables.DEFAULT_MODEL == "medium";
 
   # The Gemini-format client appends `/v1beta/...` itself, so it must get the
   # root URL, not the OpenAI-compatible `/v1` base.
@@ -180,7 +180,7 @@ in
       || throw "a Claude-shaped alias names a tier with no explicit model_list group, so it resolves through `*` and leaves for the router; got: ${builtins.toJSON claudeTierNames}";
     assert
       claudeHaikuUntouched
-      || throw "Claude Code's haiku tier must stay on Anthropic: the `cheap` role's local target cannot hold Claude Code's system prompt, so an override fails every background call";
+      || throw "Claude Code's haiku tier must stay on Anthropic: the `small` capability's local target cannot hold Claude Code's system prompt, so an override fails every background call";
     assert
       claudeHeaderIsMarker
       || throw "Claude Code's proxy wiring is all-or-nothing: claudeDirect=false needs ANTHROPIC_BASE_URL plus the constant marker header `x-litellm-api-key: Bearer ${clientToken}` (what makes LiteLLM forward the OAuth bearer) on every surface; claudeDirect=true needs neither. Got direct=${lib.boolToString claudeDirect}, url ${
@@ -199,7 +199,8 @@ in
       codexDefaultUntouched
       || throw "enabling the proxy must not change Codex's default model provider; a per-alias litellm profile file (--profile <alias>) is the opt-in";
     assert fabricBase || throw "fabric must read the proxy through OPENAI_API_BASE_URL";
-    assert fabricRole || throw "fabric's default model must be the `cheap` role via DEFAULT_MODEL";
+    assert
+      fabricRole || throw "fabric's default model must be the `medium` capability via DEFAULT_MODEL";
     assert
       agyGetsRoot
       || throw "the Gemini-format client must get the proxy root URL, not the /v1 OpenAI base: it appends /v1beta/models/<model>:generateContent itself; got: ${agyBase}";

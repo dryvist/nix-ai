@@ -203,8 +203,8 @@ in
       && limits.clients.ghGuard.url == "${limits.routerUrl}/chat/completions"
       && limits.clients.ghGuard.timeoutSeconds == mimo.timeoutSeconds
       && limits.clients.recorder.identity == "recorder"
-      && limits.clients.recorder.models.default == "default"
-      && limits.clients.recorder.models.fast == "fast"
+      && limits.clients.recorder.models.medium == "medium"
+      && limits.clients.recorder.models.small == "small"
       &&
         limits.clients.recorder.requestTimeoutSeconds == builtins.foldl' lib.max 0 (
           map (model: limits.models.${model}.timeoutSeconds) [

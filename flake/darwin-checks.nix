@@ -20,7 +20,10 @@ in
 {
   ${system} =
     (import (src + "/lib/checks/opencode.nix") { inherit pkgs hmConfig; })
-    // (import (src + "/lib/checks/qwen-code.nix") { inherit pkgs hmConfig; })
+    // (import (src + "/lib/checks/qwen-code.nix") {
+      inherit pkgs hmConfig;
+      inherit (fixtures) hmConfigLitellmLocal hmConfigRouter;
+    })
     // (import (src + "/lib/checks/opencode-sandbox.nix") { inherit pkgs; })
     // (import (src + "/lib/checks/qwen-code-sandbox.nix") { inherit pkgs hmConfig; });
 }

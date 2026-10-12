@@ -1,9 +1,9 @@
 # Local LiteLLM Proxy — Aggregator, Configuration, Runtime Wiring
 #
 # A loopback-only LiteLLM proxy that lets every CLI on this host name a stable
-# *role* (`lead`, `subagent`, `judge`, `cheap`, ...) instead of a physical
-# model id. Roles resolve upstream in the shared router, so changing which
-# model a role means is an upstream edit, not a change to this repo.
+# capability (`small`, `medium`, `large`) instead of a physical model id.
+# Capabilities resolve upstream in the shared router, so changing which model
+# a capability selects is an upstream edit, not a change to this repo.
 #
 # Two model groups, and the split between them is the whole point:
 #

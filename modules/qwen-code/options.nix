@@ -9,6 +9,8 @@
 }:
 
 let
+  usesRouterCapabilities =
+    config.programs.litellmLocal.enable || config.services.aiStack.llmEndpoint == "router";
   mcpClient = import ../mcp/client.nix { inherit lib; };
 in
 {
@@ -72,12 +74,10 @@ in
 
     model = lib.mkOption {
       type = lib.types.str;
-      default = "coding";
+      default = if usesRouterCapabilities then "medium" else "coding";
       description = ''
-        Default capability-class alias to start sessions with. Resolved
-        through services.aiStack.models — `coding` maps to the
-        Qwen3-Coder backend in the default registry, which is the most
-        natural fit for Qwen Code's intended workload.
+        Default model to start sessions with. Direct MLX uses a local role name;
+        the local proxy and homelab router use a capability alias.
       '';
     };
 

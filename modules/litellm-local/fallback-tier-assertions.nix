@@ -17,12 +17,12 @@
 }:
 [
   {
-    assertion = entryPoint == "subagent";
+    assertion = entryPoint == "medium";
     message =
       "litellm-local: the head of the fallback chain must be named "
-      + "`subagent` so consumers never change when the ranking does, and so "
-      + "it shadows the upstream router's alias of the same name. Name the "
-      + "FIRST entry of localModels `subagent`; with localModels empty the "
+      + "`medium` so consumers never change when the ranking does, and so "
+      + "it shadows the upstream router's capability of the same name. Name the "
+      + "FIRST entry of localModels `medium`; with localModels empty the "
       + "terminal rung takes that name automatically.";
   }
   {
@@ -96,7 +96,7 @@
   {
     # THE DRY GUARD. This is the assertion that keeps the duplication from
     # growing back: naming a cloud provider here re-creates the two-places
-    # problem that produced the ox-alpha outage.
+    # problem that left a configured model unavailable.
     assertion =
       !(lib.any (marker: lib.hasInfix marker (lib.toLower renderedLocalParams)) forbiddenProviderMarkers);
     message =
