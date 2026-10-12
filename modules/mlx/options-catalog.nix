@@ -108,6 +108,10 @@ let
   catalogContextWindows = lib.mapAttrs' (
     name: _: lib.nameValuePair (entryFor name).model ((entryFor name).contextWindowTokens or 32768)
   ) enabled;
+  # The width a worker actually serves: a host's modelConcurrencyLimits entry
+  # wins over the catalog default, so the timeouts and the admission below
+  # follow the worker's decode flags instead of a stale catalog number.
+  servedConcurrency = entry: cfg.modelConcurrencyLimits.${entry.model} or entry.concurrency;
   staticResidentContracts = lib.mapAttrs' (
     name: _sel:
     let
@@ -116,11 +120,11 @@ let
         inherit (entry)
           contextWindowTokens
           maxOutputTokens
-          concurrency
           queueSize
           prefillTokensPerSecond
           decodeTokensPerSecond
           ;
+        concurrency = servedConcurrency entry;
       };
       roles = lib.filterAttrs (_: model: model == entry.model) config.services.aiStack.models;
     in
@@ -130,9 +134,9 @@ let
         servicePort
         contextWindowTokens
         maxOutputTokens
-        concurrency
         queueSize
         ;
+      concurrency = servedConcurrency entry;
       catalogKey = name;
       launchdLabel = if roles ? default then "dev.mlx-model-server" else "dev.mlx-model-server.${name}";
       backend = cfg.modelBackends.${entry.model} or cfg.modelServerBackend;
@@ -203,9 +207,11 @@ in
         lib.nameValuePair (entryFor name).model (lib.mapAttrs (_: lib.mkDefault) (flagsFor name sel))
       ) enabled;
 
-      # Catalog concurrency configures active worker decode. Keep proxy
-      # admission separate: only entries with an explicit concurrencyLimit
-      # override the default derived from modelConcurrencyLimits.
+      # Catalog concurrency configures active worker decode. Proxy admission is
+      # the served width plus the bounded queue (queueSize entries), so a host
+      # that widens a worker admits the matching extra request instead of
+      # keeping the catalog's constant. Entries with no queueSize keep their
+      # explicit concurrencyLimit, else the served width.
       modelConcurrencyLimits = lib.mapAttrs' (
         name: _sel: lib.nameValuePair (entryFor name).model (lib.mkDefault (entryFor name).concurrency)
       ) (lib.filterAttrs (name: _sel: (entryFor name) ? concurrency) enabled);
@@ -219,7 +225,12 @@ in
               modelId = entry.model;
             in
             lib.nameValuePair modelId (
-              lib.mkDefault (entry.concurrencyLimit or cfg.modelConcurrencyLimits.${modelId})
+              lib.mkDefault (
+                if entry ? queueSize && cfg.modelConcurrencyLimits ? ${modelId} then
+                  cfg.modelConcurrencyLimits.${modelId} + entry.queueSize
+                else
+                  entry.concurrencyLimit or cfg.modelConcurrencyLimits.${modelId}
+              )
             )
           )
           (

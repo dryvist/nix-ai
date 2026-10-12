@@ -129,6 +129,36 @@ let
     }) (builtins.attrNames contract.roles)
   ) (builtins.attrNames staticResidentModels);
 
+  # Head aliases (`small`) keep a way out of a stopped resident: the same name
+  # goes to the shared router unchanged, after any of this host's other models
+  # that is a different model from the one the alias is resident on. Every
+  # other resident role stays a direct, single-deployment route. Each router
+  # rung is its own group (`<role>-homelab`) because a fallback target must be
+  # a named group; the wildcard cannot be one.
+  staticFallbackRoles = lib.optionals (staticResidentModels != { }) cfg.headAliases;
+  residentModelOf =
+    role:
+    lib.findFirst (modelId: staticResidentModels.${modelId}.roles ? ${role}) null (
+      builtins.attrNames staticResidentModels
+    );
+  staticRouterRung = role: "${role}-homelab";
+  staticRouterRungs = map (role: {
+    model_name = staticRouterRung role;
+    litellm_params = {
+      model = "openai/${role}";
+      api_base = "os.environ/LLM_ROUTER_URL";
+      api_key = "os.environ/OPENAI_API_KEY";
+    };
+  }) staticFallbackRoles;
+  staticFallbacks = map (role: {
+    ${role} =
+      map (m: m.name) (builtins.filter (m: m.id != residentModelOf role) resolvedLocalModels)
+      ++ [ (staticRouterRung role) ];
+  }) staticFallbackRoles;
+  staticContextWindowFallbacks = map (role: {
+    ${role} = [ (staticRouterRung role) ];
+  }) staticFallbackRoles;
+
   # Reuses the maintainer profile's single traces endpoint rather than adding a
   # second one: this proxy's spans belong on the same path as Claude Code's and
   # Codex's, and one endpoint is one thing to keep correct. Null (the default,
@@ -160,6 +190,9 @@ let
       isolatedTier
       telemetryTracesEndpoint
       staticResidentRoutes
+      staticRouterRungs
+      staticFallbacks
+      staticContextWindowFallbacks
       ;
   };
 
