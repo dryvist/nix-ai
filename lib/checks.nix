@@ -139,9 +139,8 @@ in
 // (import ./checks/agent-skills-monitoring.nix {
   inherit pkgs hmConfig ai-assistant-instructions;
 })
-// (import ./checks/codex.nix {
-  inherit pkgs hmConfig hmConfigRouter;
-})
+// (import ./checks/codex.nix { inherit pkgs hmConfig; })
+// (import ./checks/codex-local.nix { inherit pkgs hmConfigRouter; })
 // (import ./checks/fast-delegation.nix { inherit pkgs mkHmConfig; })
 // (import ./checks/codex-approvals.nix { inherit pkgs hmConfig mkHmConfig; })
 // (import ./checks/cli-ownership.nix { inherit pkgs hmConfig hmConfigUntrusted; })
