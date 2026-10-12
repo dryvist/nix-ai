@@ -53,7 +53,7 @@ let
         aliases = builtins.attrNames contract.roles;
       }
     ) contracts;
-    aliases = byRole;
+    aliases = byRole // recorderSourceRoles;
     clients = {
       ghGuard = lib.optionalAttrs (judgeModelId != null) {
         url = "${routerUrl}/chat/completions";
