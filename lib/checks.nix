@@ -243,6 +243,8 @@ in
     pkgs
     hmConfig
     hmConfigFabricServer
+    hmConfigLitellmLocal
+    hmConfigRouter
     src
     ;
 })
