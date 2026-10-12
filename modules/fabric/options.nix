@@ -4,6 +4,11 @@
 # All `options.programs.fabric` declarations live here.
 #
 { config, lib, ... }:
+let
+  inherit (config.services.aiStack) llmEndpoint;
+  inherit (config.programs) litellmLocal;
+  routed = litellmLocal.enable || llmEndpoint == "router";
+in
 {
   options.programs.fabric = {
     enable = lib.mkEnableOption "Daniel Miessler's Fabric AI prompt pattern framework";
@@ -31,13 +36,12 @@
 
     defaultModel = lib.mkOption {
       type = lib.types.str;
-      default = "small";
+      default = if routed then "medium" else "default";
       description = ''
         Default model fabric should use when no `--model` flag is specified.
 
-        Defaults to the `small` capability for quick prompt-pattern tasks.
-        The selected local endpoint or router resolves the alias to its
-        current model.
+        Direct MLX uses its `default` role alias. The local proxy and homelab
+        router use the `medium` capability.
 
         Override to a cloud provider model id (any Claude, Gemini, or GPT model
         your provider exposes) but be aware fabric needs API keys

@@ -66,7 +66,7 @@ credentials to per-host setup.
 | `enableServer` | bool | `false` | Run `fabric --serve` as a macOS LaunchAgent on port 8180 |
 | `host` | str | `"127.0.0.1"` | REST API server host |
 | `port` | port | `8180` | REST API server port |
-| `defaultModel` | str | `small` | Default model for `fabric --pattern X` |
+| `defaultModel` | str | `default` locally; `medium` via proxy/router | Default model for `fabric --pattern X` |
 | `customPatternsDir` | str or null | `~/.config/fabric/custom-patterns` | User-managed custom patterns directory |
 
 The read-only Nix-managed patterns directory always lives at
