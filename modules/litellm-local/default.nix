@@ -107,27 +107,13 @@ let
     chains = resolvedChains;
   };
 
-  staticResidentRoutes = lib.concatMap (
-    modelId:
-    let
-      contract = staticResidentModels.${modelId};
-    in
-    map (role: {
-      model_name = role;
-      litellm_params = {
-        model = "openai/${modelId}";
-        api_base = "http://127.0.0.1:${toString contract.servicePort}/v1";
-        api_key = "os.environ/OPENAI_API_KEY";
-        timeout = contract.timeoutSeconds;
-        stream_timeout = contract.timeoutSeconds;
-        max_parallel_requests = config.programs.mlx.modelAdmissionLimits.${modelId};
-      };
-      model_info = {
-        max_input_tokens = contract.maxInputTokens;
-        max_output_tokens = contract.maxOutputTokens;
-      };
-    }) (builtins.attrNames contract.roles)
-  ) (builtins.attrNames staticResidentModels);
+  # The resident routes, plus the router fallbacks of the head aliases.
+  staticTier = import ./static-tier.nix {
+    inherit lib staticResidentModels;
+    inherit (cfg) headAliases;
+    admissionLimits = config.programs.mlx.modelAdmissionLimits;
+    localModels = resolvedLocalModels;
+  };
 
   # Reuses the maintainer profile's single traces endpoint rather than adding a
   # second one: this proxy's spans belong on the same path as Claude Code's and
@@ -159,7 +145,7 @@ let
       fallbackTier
       isolatedTier
       telemetryTracesEndpoint
-      staticResidentRoutes
+      staticTier
       ;
   };
 
