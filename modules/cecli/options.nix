@@ -5,9 +5,11 @@
 # attrsOf bool. Drop-in API surface for muscle memory from the previous
 # programs.aider module — same option names where they make sense.
 #
-{ lib, ... }:
+{ config, lib, ... }:
 
 let
+  usesRouterCapabilities =
+    config.programs.litellmLocal.enable || config.services.aiStack.llmEndpoint == "router";
   hookType = lib.types.nullOr (lib.types.either lib.types.path lib.types.lines);
   editFormatType = lib.types.nullOr (
     lib.types.enum [
@@ -26,22 +28,22 @@ in
 
     model = lib.mkOption {
       type = lib.types.str;
-      default = "openai/default";
+      default = if usesRouterCapabilities then "openai/medium" else "openai/default";
       description = ''
-        Main model. Use openai/<role> names; the role is resolved by
-        llama-swap to the physical HF id (see services.aiStack.models).
+        Main model. Direct MLX uses an openai/<role> name; the local proxy and
+        homelab router use openai/<capability> names.
       '';
     };
 
     weakModel = lib.mkOption {
       type = lib.types.str;
-      default = "openai/fast";
+      default = if usesRouterCapabilities then "openai/small" else "openai/fast";
       description = "Cheap-task model used for commit messages and summaries.";
     };
 
     editorModel = lib.mkOption {
       type = lib.types.str;
-      default = "openai/coding";
+      default = if usesRouterCapabilities then "openai/medium" else "openai/coding";
       description = "Editor model used in architect/editor-pair mode.";
     };
 

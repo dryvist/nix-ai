@@ -60,8 +60,8 @@ let
   );
   targetsOf = e: lib.concatLists (builtins.attrValues e);
   terminalNames = [
-    "subagent"
-    "subagent-homelab"
+    "medium"
+    "medium-homelab"
   ];
   noTerminalInQwenLadders =
     qwenLadders != [ ]
@@ -112,7 +112,7 @@ in
       || throw "isolatedChains.qwen must render the context-window escape {qwen-local = [qwen-homelab];}, the next rung in the same chain; got ${builtins.toJSON contextFallbacks}";
     assert
       noTerminalInQwenLadders
-      || throw "no qwen-* ladder may name the shared router's terminal rung (subagent / subagent-homelab): that is the cloud escape the chain exists to remove; got ${builtins.toJSON qwenLadders}";
+      || throw "no qwen-* ladder may name the shared router's terminal rung (medium / medium-homelab): that is the cloud escape the chain exists to remove; got ${builtins.toJSON qwenLadders}";
     assert
       qwenLocalWindowDerived
       || throw "qwen-local declares no contextWindow, so it must inherit programs.mlx.modelContextWindows; without it the chain cannot escape an overflow; got ${builtins.toJSON qwenLocalEntry}";

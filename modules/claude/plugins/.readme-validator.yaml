@@ -2,5 +2,5 @@
 required_sections:
   - Marketplaces
 optional_sections:
-  - Synthetic Marketplaces
+  - Generated Plugin Marketplaces
   - Adding a Plugin

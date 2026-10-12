@@ -17,7 +17,7 @@ rec {
   # WITHOUT the `*` wildcard — either an Anthropic capability alias / model id
   # that lands in the `claude-*` group, or an explicit `model_name` in the
   # model_list. Naming an upstream ROLE is what caused the outage: the router
-  # served no `subagent` group, so the request fell through `*` and 404'd on
+  # served no `medium` group, so the request fell through `*` and 404'd on
   # every subagent spawn. `*` must never be what makes a Claude Code tier work.
   explicitGroups = map (d: d.model_name) rendered.model_list;
   claudeTierNames = lib.filter (n: n != null) [
@@ -68,7 +68,7 @@ rec {
   ) claudeShapedNames;
 
   # The haiku tier stays on Anthropic: Claude Code's background requests carry
-  # its full system prompt (~36k tokens), which the `cheap` role's 32k-window
+  # its full system prompt (~36k tokens), which the `small` capability's 32k-window
   # local target cannot hold, so an override fails every background call.
   claudeHaikuUntouched = !(claudeEnv ? ANTHROPIC_DEFAULT_HAIKU_MODEL);
 

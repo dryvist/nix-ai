@@ -1,5 +1,15 @@
 { mkHmConfig }:
 {
+  hmConfigRouter = mkHmConfig [
+    {
+      services.aiStack = {
+        llmEndpoint = "router";
+        llmRouterEndpoint = "https://router.example.invalid/v1";
+        llmEndpointTokenFile = "/tmp/test-router-token";
+      };
+    }
+  ];
+
   # Evaluation with the local LiteLLM proxy enabled. The module is off by
   # default, so without this fixture every lib.optionalAttrs
   # litellmLocal.enable branch across the client modules would go unevaluated
@@ -25,7 +35,7 @@
               # router's single-GPU group ahead of this host's own model.
               # Declared here so the fallback-tier check proves a router rung
               # renders against LLM_ROUTER_URL and carries no local window.
-              name = "subagent";
+              name = "medium";
               router = "test-gpu-group";
             }
             {

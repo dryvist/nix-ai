@@ -29,10 +29,14 @@ let
   judgeContract = if judgeModelId == null then { } else contracts.${judgeModelId};
   routerUrl = "http://127.0.0.1:${toString config.programs.litellmLocal.port}/v1";
   recorderModels = {
-    default = "default";
-    fast = "fast";
+    medium = "medium";
+    small = "small";
   };
-  recorderContracts = map (role: contracts.${byRole.${role}}) (builtins.attrValues recorderModels);
+  recorderSourceRoles = {
+    medium = byRole.default;
+    small = byRole.fast;
+  };
+  recorderContracts = map (modelId: contracts.${modelId}) (builtins.attrValues recorderSourceRoles);
   recorderRequestTimeoutSeconds = lib.foldl' lib.max 0 (
     map (contract: contract.timeoutSeconds) recorderContracts
   );
@@ -53,12 +57,12 @@ let
     clients = {
       ghGuard = lib.optionalAttrs (judgeModelId != null) {
         url = "${routerUrl}/chat/completions";
-        model = "judge";
+        model = "small";
         inherit (judgeContract) timeoutSeconds;
       };
       recorder = {
         baseUrl = routerUrl;
-        defaultModel = "fast";
+        defaultModel = "small";
         identity = "recorder";
         models = recorderModels;
         requestTimeoutSeconds = recorderRequestTimeoutSeconds;

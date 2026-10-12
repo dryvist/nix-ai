@@ -6,6 +6,8 @@
   pkgs,
   hmConfig,
   hmConfigFabricServer,
+  hmConfigLitellmLocal,
+  hmConfigRouter,
   src,
 }:
 let
@@ -81,6 +83,33 @@ in
         name = "fabric.env.DEFAULT_MODEL";
         actual = hmConfig.config.home.sessionVariables.DEFAULT_MODEL;
         expected = cfg.defaultModel;
+      }
+    ];
+  };
+
+  fabric-routed-defaults-regression = helpers.mkDefaultsRegression {
+    label = "Fabric routed model defaults";
+    checkName = "check-fabric-routed-defaults-regression";
+    checks = [
+      {
+        name = "fabric.defaultModel.local-proxy";
+        actual = hmConfigLitellmLocal.config.programs.fabric.defaultModel;
+        expected = "medium";
+      }
+      {
+        name = "fabric.env.DEFAULT_MODEL.local-proxy";
+        actual = hmConfigLitellmLocal.config.home.sessionVariables.DEFAULT_MODEL;
+        expected = "medium";
+      }
+      {
+        name = "fabric.defaultModel.router";
+        actual = hmConfigRouter.config.programs.fabric.defaultModel;
+        expected = "medium";
+      }
+      {
+        name = "fabric.env.DEFAULT_MODEL.router";
+        actual = hmConfigRouter.config.home.sessionVariables.DEFAULT_MODEL;
+        expected = "medium";
       }
     ];
   };

@@ -9,7 +9,6 @@
   lib,
   nix-claude-code,
   userConfig,
-  homelab-contracts,
   ...
 }:
 
@@ -165,9 +164,8 @@ let
     inherit features;
   }
   # Local LiteLLM proxy as an ADDITIONAL provider, not the default one: the
-  # top-level model/model_provider above stay as they are, so the lead model
-  # is unchanged. `codex --profile ox` is the opt-in that runs a job on the
-  # `subagent` role instead.
+  # top-level model/model_provider above stay as they are, so the primary model
+  # is unchanged. Capability profiles opt into the routed model names.
   #
   # wire_api = "responses" because Codex speaks only the Responses API; the
   # proxy translates /v1/responses to chat for backends that lack it.
@@ -187,12 +185,9 @@ let
   # `--profile <name>` failed to start rather than falling back. Each profile
   # now lives in its own `~/.codex/<name>.config.toml` with its keys at the
   # TOP level, selected the same way on the command line: `codex --profile
-  # judge`. One profile per router capability alias
-  # (every role in the role map, lib/role-map.nix) — replacing the single
-  # hardcoded `ox` profile this used to be.
-  litellmRoles =
-    builtins.attrNames
-      (import ../../lib/role-map.nix { src = homelab-contracts; }).roles;
+  # small`. One profile per router capability alias from
+  # modules/litellm-local/aliases.nix.
+  litellmRoles = import ../litellm-local/aliases.nix;
 
   litellmProfileAttrs = lib.genAttrs litellmRoles (role: {
     model = role;

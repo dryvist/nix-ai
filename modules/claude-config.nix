@@ -5,7 +5,7 @@
 # `nix-claude-code.homeModules.claude` in flake/home-manager-modules.nix);
 # this module just assigns user-specific values to the schema.
 #
-# Marketplaces, synthetic marketplace derivations, and the marketplace
+# Marketplaces, generated plugin marketplace derivations, and the marketplace
 # catalog are sourced from `nix-claude-code.lib.{marketplaceCatalog,
 # marketplaceOverrides}` so the canonical list stays in one repo.
 {

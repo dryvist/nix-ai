@@ -19,7 +19,7 @@ under `programs.cecli` to ease migration.
   `cecli`, `aider-ce`, `ce.cli`.
 - Three read-only generated config files — `~/.cecli.conf.yml`,
   `~/.cecli/cecli-meta.json`, `~/.cecli/cecli-settings.yml` — wired
-  to the local MLX endpoint and the capability-class registry.
+  to the selected endpoint using its local roles or router capabilities.
 
 ## Why a local derivation (and not uvx / homebrew)
 
@@ -57,15 +57,18 @@ closes the next time we bump nixpkgs.
 
 ## Routing
 
-Routes to local MLX via llama-swap (`http://127.0.0.1:11434/v1`),
-no API keys required.
+The default `mlx_local` endpoint uses local MLX role names. When
+`programs.litellmLocal.enable` is on or `services.aiStack.llmEndpoint` is
+`router`, cecli uses router capability names instead.
 
 ```nix
 programs.cecli = {
   enable = true;
-  model = "openai/default"; # capability-class alias from services.aiStack.models
+  model = "openai/default"; # direct local MLX role
 };
 ```
+
+For the local proxy or homelab router, use `openai/medium`.
 
 For cloud-provider sessions, run `cecli` with `OPENAI_API_KEY`,
 `OPENROUTER_API_KEY`, etc. in its environment, for example from `.env`.

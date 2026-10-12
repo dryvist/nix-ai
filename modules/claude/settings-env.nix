@@ -126,7 +126,7 @@
     # (claude-code-plugins ai-delegation). A role name from the committed
     # alias contract, never a physical id: what it resolves to is the
     # router's decision.
-    FAST_SUBAGENT_MODEL = "fast";
+    FAST_SUBAGENT_MODEL = "small";
   }
   // lib.optionalAttrs (aiStack.internalDomains != [ ]) {
     CLAUDE_SUBAGENT_INTERNAL_DOMAINS = lib.concatStringsSep " " aiStack.internalDomains;

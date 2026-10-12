@@ -1,9 +1,16 @@
 #
 # Qwen Code Module — Option Declarations
 #
-{ lib, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 
 let
+  usesRouterCapabilities =
+    config.programs.litellmLocal.enable || config.services.aiStack.llmEndpoint == "router";
   mcpClient = import ../mcp/client.nix { inherit lib; };
 in
 {
@@ -42,14 +49,35 @@ in
       '';
     };
 
+    sandbox.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = pkgs.stdenv.hostPlatform.isDarwin;
+      defaultText = lib.literalExpression "pkgs.stdenv.hostPlatform.isDarwin";
+      description = ''
+        Launch Qwen Code through the deny-default Seatbelt profile with an
+        allowlisted environment. The profile is applied by
+        /usr/bin/sandbox-exec, so this is macOS only. When false, `qwen` runs
+        the package directly.
+      '';
+    };
+
+    sandbox.workRoot = lib.mkOption {
+      type = lib.types.str;
+      default = "${config.home.homeDirectory}/qwen-code-work";
+      defaultText = lib.literalExpression ''"''${config.home.homeDirectory}/qwen-code-work"'';
+      description = ''
+        Directory holding the standalone clones Qwen Code may open in the
+        sandbox; linked worktrees and checkouts elsewhere are refused. The
+        profile denies writes to project configuration and git metadata.
+      '';
+    };
+
     model = lib.mkOption {
       type = lib.types.str;
-      default = "coding";
+      default = if usesRouterCapabilities then "medium" else "coding";
       description = ''
-        Default capability-class alias to start sessions with. Resolved
-        through services.aiStack.models — `coding` maps to the
-        Qwen3-Coder backend in the default registry, which is the most
-        natural fit for Qwen Code's intended workload.
+        Default model to start sessions with. Direct MLX uses a local role name;
+        the local proxy and homelab router use a capability alias.
       '';
     };
 

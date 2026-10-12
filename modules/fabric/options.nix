@@ -4,6 +4,11 @@
 # All `options.programs.fabric` declarations live here.
 #
 { config, lib, ... }:
+let
+  inherit (config.services.aiStack) llmEndpoint;
+  inherit (config.programs) litellmLocal;
+  routed = litellmLocal.enable || llmEndpoint == "router";
+in
 {
   options.programs.fabric = {
     enable = lib.mkEnableOption "Daniel Miessler's Fabric AI prompt pattern framework";
@@ -31,14 +36,12 @@
 
     defaultModel = lib.mkOption {
       type = lib.types.str;
-      default = "default";
+      default = if routed then "medium" else "default";
       description = ''
         Default model fabric should use when no `--model` flag is specified.
 
-        Defaults to the role name "default" so fabric, llama-swap, and the
-        rest of the AI stack share a single source of truth in
-        services.aiStack.models. Routes through the local MLX stack at
-        http://127.0.0.1:11434/v1.
+        Direct MLX uses its `default` role alias. The local proxy and homelab
+        router use the `medium` capability.
 
         Override to a cloud provider model id (any Claude, Gemini, or GPT model
         your provider exposes) but be aware fabric needs API keys

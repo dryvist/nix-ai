@@ -3,6 +3,7 @@
 let
   helpers = import ./helpers.nix { inherit pkgs; };
   cfg = hmConfig.config.programs.opencode;
+  homeDir = hmConfig.config.home.homeDirectory;
 in
 {
   # Verify all expected OpenCode option paths exist.
@@ -21,6 +22,7 @@ in
       "mcpServerNames"
       "otelPluginEntries"
       "package"
+      "sandbox"
     ];
   };
 
@@ -46,6 +48,16 @@ in
         name = "home.sessionVariables.OPENCODE_DISABLE_LSP_DOWNLOAD";
         actual = hmConfig.config.home.sessionVariables.OPENCODE_DISABLE_LSP_DOWNLOAD or null;
         expected = "true";
+      }
+      {
+        name = "opencode.sandbox.enable";
+        actual = cfg.sandbox.enable;
+        expected = pkgs.stdenv.hostPlatform.isDarwin;
+      }
+      {
+        name = "opencode.sandbox.workRoot";
+        actual = cfg.sandbox.workRoot;
+        expected = "${homeDir}/opencode-work";
       }
     ];
   };

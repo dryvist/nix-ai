@@ -1,6 +1,6 @@
-; OpenCode sandbox: deny-default Seatbelt profile.
+; @BINARY_NAME@ sandbox: deny-default Seatbelt profile.
 ;
-; OpenCode runs as the same macOS user as the trusted tier, so the boundary is
+; @BINARY_NAME@ runs as the same macOS user as the trusted tier, so the boundary is
 ; this profile, not the process identity. The launcher in default.nix runs
 ;   sandbox-exec -D WORKTREE=<realpath> -D TMPDIR=<realpath> -f <this file>
 ; and renders @HOME@ at build time, so no username is committed to the repo.
@@ -154,17 +154,14 @@
   (literal "@HOME@/.nix-profile")
   (subpath "@HOME@/.local/state/nix/profiles"))
 
-; OpenCode's own config (read-only: OpenCode never rewrites it, and Nix owns it),
-; and the agent skills it loads (read-only, nix-deployed instructions).
+; The tool's own config (read-only: Nix owns it) and the agent skills it loads
+; (read-only, nix-deployed instructions).
 (allow file-read*
-  (subpath "@HOME@/.config/opencode")
-  (subpath "@HOME@/.agents/skills"))
+@APP_READ_RULES@  (subpath "@HOME@/.agents/skills"))
 
-; OpenCode's own state and cache. Writes are limited to these three trees.
+; The tool's own state and cache. Writes are limited to these trees.
 (allow file-read* file-write*
-  (subpath "@HOME@/.local/share/opencode")
-  (subpath "@HOME@/.local/state/opencode")
-  (subpath "@HOME@/.cache/opencode"))
+@APP_STATE_RULES@)
 
 ; The worktree (a standalone clone, which holds its own .git) and the per-run temp
 ; directory. Protected paths inside the worktree are denied at the bottom.
@@ -231,15 +228,13 @@
 (deny file-write*
   (regex #"/\.git$")
   (regex #"/\.git[^/]*/((modules|worktrees)/[^/]+/)*(hooks|config(\.worktree)?)(/|$)")
-  (regex #"/(\.envrc|\.mcp\.json|opencode\.json|CLAUDE\.md|AGENTS\.md|GEMINI\.md)$")
-  (regex #"/(\.opencode|\.claude|\.vscode|\.cursor)(/|$)"))
+  (regex #"/(\.envrc|\.mcp\.json|@PROJECT_CONFIG_FILE_REGEX@|CLAUDE\.md|AGENTS\.md|GEMINI\.md)$")
+  (regex #"/(@PROJECT_CONFIG_DIR_REGEX@|\.claude|\.vscode|\.cursor)(/|$)"))
 
 ; A hard link to a protected file would bypass the path rules above, so links
 ; are denied outright.
 (deny file-link)
 
-; OpenCode writes .opencode/.gitignore when it starts in a project. That one
-; file is not code, and no subpath is allowed, so plugins, tools and node_modules
-; under .opencode stay closed.
-(allow file-write*
-  (regex #"/\.opencode/\.gitignore$"))
+; Narrow write exceptions inside a protected project directory. No subpath is
+; allowed, so plugins, tools and node_modules there stay closed.
+@APP_WRITE_EXCEPTION_RULE@

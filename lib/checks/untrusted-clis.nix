@@ -7,6 +7,8 @@
   pkgs,
   hmConfig,
   hmConfigUntrusted,
+  hmConfigLitellmLocal,
+  hmConfigRouter,
   homebrewFor,
 }:
 let
@@ -54,6 +56,51 @@ in
         name = "default: untrusted programs enabled";
         actual = enabledPrograms hmConfig;
         expected = [ ];
+      }
+      {
+        name = "default: cecli local model role";
+        actual = hmConfig.config.programs.cecli.model;
+        expected = "openai/default";
+      }
+      {
+        name = "default: cecli local weak model role";
+        actual = hmConfig.config.programs.cecli.weakModel;
+        expected = "openai/fast";
+      }
+      {
+        name = "default: cecli local editor model role";
+        actual = hmConfig.config.programs.cecli.editorModel;
+        expected = "openai/coding";
+      }
+      {
+        name = "local proxy: cecli model capability";
+        actual = hmConfigLitellmLocal.config.programs.cecli.model;
+        expected = "openai/medium";
+      }
+      {
+        name = "local proxy: cecli weak model capability";
+        actual = hmConfigLitellmLocal.config.programs.cecli.weakModel;
+        expected = "openai/small";
+      }
+      {
+        name = "local proxy: cecli editor model capability";
+        actual = hmConfigLitellmLocal.config.programs.cecli.editorModel;
+        expected = "openai/medium";
+      }
+      {
+        name = "router: cecli model capability";
+        actual = hmConfigRouter.config.programs.cecli.model;
+        expected = "openai/medium";
+      }
+      {
+        name = "router: cecli weak model capability";
+        actual = hmConfigRouter.config.programs.cecli.weakModel;
+        expected = "openai/small";
+      }
+      {
+        name = "router: cecli editor model capability";
+        actual = hmConfigRouter.config.programs.cecli.editorModel;
+        expected = "openai/medium";
       }
       {
         name = "default: copilot config rendered";

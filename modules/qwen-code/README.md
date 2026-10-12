@@ -11,9 +11,9 @@ OpenAI/Anthropic/Gemini-compatible endpoint. Apache-2.0.
   nix-darwin's `homebrew.brews`, sourced from nix-ai's
   capability-driven `lib.homebrewFor` flake output.
 - A generated `~/.qwen/settings.json` wired to local llama-swap with
-  one provider entry per capability-class alias from
-  `services.aiStack.models`. Default startup model is the `coding`
-  class.
+  one provider entry per router capability alias when routed. The default
+  startup model is `coding` for direct MLX and `medium` for the local proxy
+  or homelab router.
 - MCP servers rendered from the shared `programs.aiMcp.enabledServers`
   profile, with `programs.qwen-code.excludedMcpServers` reserved for
   Qwen-only compatibility gaps.
@@ -25,6 +25,12 @@ OpenAI/Anthropic/Gemini-compatible endpoint. Apache-2.0.
 - Shared skills linked from `~/.agents/skills` into `~/.qwen/skills`,
   matching Codex and Antigravity rather than maintaining a separate
   skill tree.
+- On macOS, Qwen Code runs through a deny-default Seatbelt profile by
+  default. It can read its Nix-managed settings and deployed skills, write
+  only its session-state directories and the configured worktree, and reach
+  the configured LiteLLM Local port plus the same outbound IP network as
+  OpenCode. Other files in `~/.qwen` and other agents' config directories
+  remain closed.
 - On non-darwin hosts the module short-circuits silently — no
   install, no warning. Linux users need brew (or Linuxbrew) to use
   qwen-code through this module.
@@ -45,18 +51,24 @@ optional-dep resolution properly.
 
 ## Routing
 
-Routes to local MLX via llama-swap (`http://127.0.0.1:11434/v1`).
+The default `mlx_local` endpoint uses local MLX role names. When
+`programs.litellmLocal.enable` is on or `services.aiStack.llmEndpoint` is
+`router`, Qwen Code uses router capability names.
 
 ```nix
 programs.qwen-code = {
   enable = true;
-  model = "coding";  # capability-class alias
+  model = "coding";  # direct local MLX role
 };
 ```
 
-For cloud-provider sessions, run `qwen` with the provider keys
-(`DASHSCOPE_API_KEY`, `OPENROUTER_API_KEY`, `OPENAI_API_KEY`) in its
-environment, for example from `.env`.
+For the local proxy or homelab router, use `medium`.
+
+With the sandbox enabled, only `OPENAI_API_KEY` and `OPENAI_BASE_URL` are
+forwarded from the launching shell. Other provider keys require explicitly
+disabling `programs.qwen-code.sandbox.enable`. The sandbox requires a Nix
+package so the launcher can name its executable; `installVia = "brew"` needs
+the sandbox disabled.
 
 ## Adding cloud providers
 

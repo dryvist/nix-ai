@@ -104,14 +104,12 @@ let
     output_cost_per_token = 0;
   };
 
-  # See the qwen-code module for why these live here and not in the
-  # shared registry: they resolve upstream, not on this host.
-  proxyOnlyRoles = lib.optionalAttrs litellmLocal.enable {
-    subagent = null;
-    fast = null;
-    cheap = null;
-  };
-  allRoles = models // proxyOnlyRoles;
+  routerAliases = import ../litellm-local/aliases.nix;
+  allRoles =
+    if litellmLocal.enable || llmEndpoint == "router" then
+      lib.genAttrs routerAliases (_: null)
+    else
+      models;
 
   modelMetadata = lib.mapAttrs' (
     role: model: lib.nameValuePair "openai/${role}" (metadataEntry model)
@@ -121,31 +119,21 @@ let
 
   # Per-model edit format and streaming overrides — one entry per role alias.
   #
-  # Roles that are NOT about writing code. This module owns this list, because
-  # "does this role write code" is a cecli decision; it does not own the role
-  # vocabulary, which is the role map's.
+  # Local roles and routed capabilities that are NOT about writing code. This
+  # module owns the edit-format decision, not either model-name vocabulary.
   nonCodeRoles = [
-    # Size/latency or non-code roles in the role map (lib/role-map.nix).
     "fast"
     "cheap"
-    "small"
     "judge"
     "recorder"
     "ocr"
+    "small"
+    "embed"
   ];
 
-  # Derived, never restated. The previous version listed the six code roles
-  # literally, which is a second copy of a vocabulary defined in
-  # the role map: rename a role there and this list keeps the dead name
-  # silently, add one and it is silently omitted — and the only symptom either
-  # way is the wrong edit format, which looks like a model being bad at editing
-  # rather than like config drift.
-  #
-  # Derived from `models` and NOT from `allRoles`, so proxy-only roles continue
-  # to take the weak format exactly as they do today. A role newly added to the
-  # registry becomes a code role unless it is named above, which is the safer
-  # default for an edit-format picker and forces the decision to be explicit.
-  codeRoles = lib.subtractLists nonCodeRoles (builtins.attrNames models);
+  # A selected model name is a code role unless it is explicitly classified
+  # above, so additions to either vocabulary receive the safer diff format.
+  codeRoles = lib.subtractLists nonCodeRoles (builtins.attrNames allRoles);
 
   makeSettingsEntry =
     name: role:

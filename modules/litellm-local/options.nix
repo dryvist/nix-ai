@@ -88,7 +88,7 @@ in
       default = [ ];
       description = ''
         Models THIS host serves itself, tried before the shared router. The
-        FIRST entry must be `subagent` — consumers name that string forever.
+        FIRST entry must be `medium` — consumers name that capability.
 
         Ordered: LiteLLM walks the list as written. The shared homelab router is
         appended automatically as the final rung, so the chain always ends
@@ -120,10 +120,10 @@ in
 
     headAliases = lib.mkOption {
       type = lib.types.listOf lib.types.str;
-      default = [ "fast" ];
+      default = [ "small" ];
       description = ''
-        Additional group names served by the SAME chain as the head (`subagent`).
-        `fast` is the router's own name for this tier, so a client that asks
+        Additional group names served by the SAME chain as the head (`medium`).
+        `small` is a router capability name, so a client that asks
         for it must traverse this host's chain rather than fall through the
         `*` wildcard straight to the router and skip this host's own rung.
         Empty disables the aliases.
@@ -133,7 +133,7 @@ in
     routerEntryModel = lib.mkOption {
       type = lib.types.nullOr lib.types.str;
       default = null;
-      example = "hermes-default";
+      example = "medium";
       description = ''
         The model group the SHARED ROUTER serves, that this host's terminal
         rung forwards to.
@@ -141,8 +141,8 @@ in
         Required once localModels is non-empty, and the reason is not obvious:
         the terminal rung is a wildcard passthrough, so LiteLLM forwards the
         REQUESTED group name upstream. With local models declared, the terminal
-        rung is named `subagent-homelab`, so a fallback forwards
-        `subagent-homelab` to the router — a name the router does not serve,
+        rung is named `medium-homelab`, so a fallback forwards
+        `medium-homelab` to the router — a name the router does not serve,
         which 404s. The rung then fails not only as a fallback but when
         addressed directly, so the chain has no working last rung at all.
 

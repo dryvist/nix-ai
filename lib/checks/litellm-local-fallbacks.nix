@@ -8,7 +8,7 @@
 let
   # ---- cost-ordered fallback tier ------------------------------------------
   # The property: no tier Claude Code uses may depend on a single model. A
-  # model can die with no config change at all (the router's `subagent` alias
+  # model can die with no config change at all (the router's `medium` capability
   # kept resolving in /v1/model/info for days after the model behind it stopped
   # answering), so "one name, one model" is the failure mode, not an
   # implementation detail.
@@ -85,21 +85,22 @@ let
   # The head rung is served by the ROUTER (fixture: `router = "test-gpu-group"`),
   # so it must forward that group name to the router endpoint and advertise
   # no local window; its overflow escape is the router's, not this host's.
-  headEntry = lib.findFirst (d: d.model_name == "subagent") { } renderedList;
+  headEntry = lib.findFirst (d: d.model_name == "medium") { } renderedList;
   headIsRouterRung =
     (headEntry.litellm_params.model or null) == "openai/test-gpu-group"
     && (headEntry.litellm_params.api_base or null) == "os.environ/LLM_ROUTER_URL"
     && !(headEntry ? model_info);
-  headNotInContextFallbacks = !(lib.any (e: e ? subagent) (settings.context_window_fallbacks or [ ]));
+  headNotInContextFallbacks = !(lib.any (e: e ? medium) (settings.context_window_fallbacks or [ ]));
 
-  # `fast` is the router's own name for this tier: it must be an explicit
-  # group on this proxy with the head's params and the head's whole chain
-  # behind it, or a client asking for `fast` skips this host's own rung via `*`.
-  fastEntry = lib.findFirst (d: d.model_name == "fast") null renderedList;
-  headChain = lib.concatLists (map (e: e.subagent or [ ]) fallbackEntries);
-  fastChain = lib.concatLists (map (e: e.fast or [ ]) fallbackEntries);
-  fastAliasMirrorsHead =
-    fastEntry != null && fastEntry.litellm_params == headEntry.litellm_params && fastChain == headChain;
+  # `small` is a router capability name for this tier: it must be an explicit
+  # group on this proxy with the head's params and chain behind it.
+  smallEntry = lib.findFirst (d: d.model_name == "small") null renderedList;
+  headChain = lib.concatLists (map (e: e.medium or [ ]) fallbackEntries);
+  smallChain = lib.concatLists (map (e: e.small or [ ]) fallbackEntries);
+  smallAliasMirrorsHead =
+    smallEntry != null
+    && smallEntry.litellm_params == headEntry.litellm_params
+    && smallChain == headChain;
 
   # `local-only` must be served on the host's loopback endpoint and must not
   # appear in any chain, or its one guarantee (never leaves the host) is gone.
@@ -129,8 +130,8 @@ let
       msg = "a router-served rung must not declare a context-window escape: its window is the router's to advertise";
     }
     {
-      ok = fastAliasMirrorsHead;
-      msg = "`fast` must be an explicit group mirroring the head's params and chain; got entry ${builtins.toJSON fastEntry}, chain ${builtins.toJSON fastChain} vs ${builtins.toJSON headChain}";
+      ok = smallAliasMirrorsHead;
+      msg = "`small` must be an explicit group mirroring the head's params and chain; got entry ${builtins.toJSON smallEntry}, chain ${builtins.toJSON smallChain} vs ${builtins.toJSON headChain}";
     }
     {
       ok = fallbackEntries != [ ];
@@ -173,7 +174,7 @@ let
     {
       # The terminal rung is a wildcard passthrough, so LiteLLM forwards the
       # REQUESTED group name upstream. While the rung is named
-      # `subagent-homelab`, forwarding that name reaches a router that does not
+      # `medium-homelab`, forwarding that name reaches a router that does not
       # serve it: the rung then 404s as a fallback AND when addressed directly,
       # so the chain ends on something that cannot answer. Observed live on a
       # converged host before this check existed.
@@ -184,7 +185,7 @@ let
       msg =
         "the terminal rung must forward a group the shared router serves, not "
         + "pass through its own name: with local rungs declared the rung is "
-        + "named `subagent-homelab`, and `openai/*` forwards THAT upstream, "
+        + "named `medium-homelab`, and `openai/*` forwards THAT upstream, "
         + "which 404s. Rendered terminal params: "
         + builtins.toJSON terminalParams;
     }
