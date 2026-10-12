@@ -65,10 +65,10 @@ The correct mechanism is:
 Commit `edba1ad` (2026-03-19) introduced an `updateClaudePlugins` activation script that violated
 this rule, causing intermittent hook failures in active sessions. It was removed in the subsequent fix.
 
-## Synthetic Marketplaces
+## Generated Plugin Marketplaces
 
 Repos with skills but no native `.claude-plugin/` structure (e.g., `browser-use/browser-use`)
-need a synthetic marketplace wrapper. The derivation in `claude-config.nix` must create:
+need a generated plugin marketplace wrapper. The derivation in `claude-config.nix` must create:
 
 1. **Marketplace manifest**: `.claude-plugin/marketplace.json` at the marketplace root
 2. **Per-plugin manifest**: `.claude-plugin/plugin.json` inside each plugin directory
@@ -80,7 +80,7 @@ even when the marketplace.json correctly declares the plugin.
 Additionally, Claude Code discovers marketplaces via `~/.claude/plugins/known_marketplaces.json`
 (its actual registry), NOT directly from `extraKnownMarketplaces` in `settings.json`. Entries
 propagate from `extraKnownMarketplaces` only when Claude Code can successfully fetch the
-marketplace from the declared GitHub source. Synthetic marketplaces fail this fetch (no upstream
+marketplace from the declared GitHub source. Generated plugin marketplaces fail this fetch (no upstream
 structure), so the `knownMarketplacesMerge` activation ensures the local `installLocation` is
 registered directly. That activation lives in the `nix-claude-code` flake input
 (`modules/settings.nix`), not in this repo — nix-ai only supplies the marketplace catalog and

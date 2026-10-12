@@ -141,7 +141,7 @@ plugins/
    with an inline comment pointing at the keeper.
 5. Run `nix flake check`.
 
-## Synthetic Marketplaces
+## Generated Plugin Marketplaces
 
 Some marketplaces lack native `.claude-plugin/` structure in their upstream repos.
 Nix wraps them via derivations (the marketplace-overrides derivation lives in the
