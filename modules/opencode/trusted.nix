@@ -2,12 +2,18 @@
 {
   package,
   launchPrefix ? [ ],
+  extraEnv ? { },
 }:
 let
+  envPrefix =
+    lib.optionalString (extraEnv != { })
+      "env ${lib.escapeShellArgs (lib.mapAttrsToList (name: value: "${name}=${value}") extraEnv)} ";
+  launchPrefixArgs = lib.escapeShellArgs launchPrefix;
   launcher = pkgs.writeShellApplication {
     name = "opencode";
+    runtimeInputs = [ pkgs.coreutils ];
     text = ''
-      exec ${lib.escapeShellArgs launchPrefix} ${lib.escapeShellArg "${package}/bin/opencode"} "$@"
+      exec ${envPrefix}${launchPrefixArgs} ${lib.escapeShellArg "${package}/bin/opencode"} "$@"
     '';
   };
 in

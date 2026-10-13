@@ -61,6 +61,9 @@ let
 
   trustedOpencode = import ./trusted.nix { inherit pkgs lib; } {
     inherit (cfg) package launchPrefix;
+    extraEnv = lib.optionalAttrs litellmLocal.enable {
+      LITELLM_LOCAL_KEY = litellmLocal.clientToken;
+    };
   };
 
   # Keep the Seatbelt launcher available as `opencode-wall`.

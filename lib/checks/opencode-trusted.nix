@@ -36,6 +36,7 @@ let
       "$LLM_ROUTER_URL" \
       "$AGENT_ROUTER_KEY" \
       "$OPENCODE_API_KEY" \
+      "$LITELLM_LOCAL_KEY" \
       "$@" > "$OPENCODE_TEST_OUTPUT"
   '';
   fakeCredentialPrefix = pkgs.writeShellScriptBin "opencode-test-credentials" ''
@@ -53,6 +54,9 @@ let
       {
         package = fakePackage;
         launchPrefix = [ "${fakeCredentialPrefix}/bin/opencode-test-credentials" ];
+        extraEnv = {
+          LITELLM_LOCAL_KEY = "local";
+        };
       };
   localConfig = mkHmConfig [
     {
@@ -140,6 +144,7 @@ in
       grep -Fx "https://router.example.invalid/v1" "$output" >/dev/null
       grep -Fx "router-test-key" "$output" >/dev/null
       grep -Fx "go-test-key" "$output" >/dev/null
+      grep -Fx "local" "$output" >/dev/null
       grep -Fx -- "--model" "$output" >/dev/null
       grep -Fx "litellm/medium" "$output" >/dev/null
       grep -Fx "hello world" "$output" >/dev/null
