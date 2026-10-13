@@ -2,7 +2,7 @@ name: Release Please
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
 
 permissions: {}
 
@@ -11,7 +11,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    uses: dryvist/.github/.github/workflows/_release-please.yml@1f09b25303a04bf276087348059671728ffea50a # v1.13.2
+    uses: dryvist/.github/.github/workflows/_release-please.yml@26e6933fbebcf11bfbe6d675f9ce7b322ffd7de9 # v1.17.0
     secrets:
       GH_ACTION_RELEASE_PLEASE_PRIVATE_KEY: ${{ secrets.GH_ACTION_RELEASE_PLEASE_PRIVATE_KEY }}
 
@@ -45,6 +45,7 @@ jobs:
         id: upload
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.release-please.outputs.tag_name }}
         run: |
           set -euo pipefail
           mapfile -t found < <(find -L result -type f -name '*.tar.xz' | sort)
@@ -56,10 +57,11 @@ jobs:
           # Releases are immutable once published, so release-please creates a
           # draft (release-please-config.json, with force-tag-creation so the
           # tag exists at once). Attach the asset to the draft THIS run created
-          # — matched by commit, never "the newest draft" — then publish it.
+          # — matched by the tag release-please reported, never "the newest
+          # draft" — then publish it.
           tag="$(gh api "repos/${GITHUB_REPOSITORY}/releases" \
-            --jq ".[] | select(.draft and .target_commitish == \"${GITHUB_SHA}\") | .tag_name")"
-          [ -n "$tag" ] || { echo "no draft release targets ${GITHUB_SHA}" >&2; exit 1; }
+            --jq ".[] | select(.draft and .tag_name == \"${RELEASE_TAG}\") | .tag_name")"
+          [ -n "$tag" ] || { echo "no draft release for tag '${RELEASE_TAG}'" >&2; exit 1; }
           # `file#label` only relabels; the download name is the file name.
           cp "${found[0]}" nixos-herdr-lxc.tar.xz
           sha256sum nixos-herdr-lxc.tar.xz
