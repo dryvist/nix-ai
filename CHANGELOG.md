@@ -1,5 +1,22 @@
 # Changelog
 
+## [7.15.0](https://github.com/dryvist/nix-ai/compare/v7.14.1...v7.15.0) (2026-10-13)
+
+
+### Features
+
+* **codex:** add a local profile on the small router alias ([ea84040](https://github.com/dryvist/nix-ai/commit/ea84040743ce97bc0808e4b3c651e306e4a72602))
+* **codex:** add local router profiles for Codex and OpenCode ([#2558](https://github.com/dryvist/nix-ai/issues/2558)) ([8576d06](https://github.com/dryvist/nix-ai/commit/8576d06087900e6f8962652e257ceeb6ea248f94))
+* **litellm-local:** router fallback for the small head alias; admission follows the served width ([9df6e72](https://github.com/dryvist/nix-ai/commit/9df6e7253c2438e4db6d9728f4cd18345f33d68d))
+* **litellm-local:** router fallback for the small head alias; admission follows the served width ([#2559](https://github.com/dryvist/nix-ai/issues/2559)) ([7ea312c](https://github.com/dryvist/nix-ai/commit/7ea312cf6bb41483dd3414c767ade3aa1d02fafd))
+* **opencode:** add a local agent on the small router alias ([0f45ae7](https://github.com/dryvist/nix-ai/commit/0f45ae714918351db8e1c4117930a6d551c9a74a))
+
+
+### Bug Fixes
+
+* **qwen-code:** let the sandboxed Qwen Code keep its language file and history ([0b03aab](https://github.com/dryvist/nix-ai/commit/0b03aab3fb3a079842f7ca81ecb34fdf41789deb))
+* **qwen-code:** let the sandboxed Qwen Code keep its language file and history ([#2561](https://github.com/dryvist/nix-ai/issues/2561)) ([264e53d](https://github.com/dryvist/nix-ai/commit/264e53d3bf8142a5c790a038d3a4c25a02a1614e))
+
 ## [7.14.1](https://github.com/dryvist/nix-ai/compare/v7.14.0...v7.14.1) (2026-10-12)
 
 
