@@ -16,6 +16,19 @@ let
   # `400 No connected db` — the outage's exact symptom.
   noMasterKey = !(rendered ? general_settings) || !(rendered.general_settings ? master_key);
 
+  # LiteLLM 1.105 refuses to boot with no master key unless this is set.
+  permitsUnsetMasterKey =
+    (rendered.general_settings.dangerously_permit_weak_or_unset_master_key or false) == true;
+
+  # The first violated master-key rule, or null.
+  masterKeyFailure =
+    if !noMasterKey then
+      "litellm-local must not set a master_key: a subscription Claude Code session cannot send a gateway credential, and settings.json cannot carry a secret, so a master key makes LiteLLM treat the OAuth bearer as a virtual key (400 No connected db)"
+    else if !permitsUnsetMasterKey then
+      "litellm-local must set general_settings.dangerously_permit_weak_or_unset_master_key: LiteLLM 1.105 refuses to boot with no master key, and this proxy takes none by design"
+    else
+      null;
+
   # The wildcard deployment must carry its own api_key, so it authenticates to
   # the router as itself rather than relying on whatever a client sent.
   wildcardDeployment = builtins.head (builtins.filter (m: m.model_name == "*") rendered.model_list);
@@ -41,7 +54,7 @@ in
 
   inherit
     noGlobalForwarding
-    noMasterKey
+    masterKeyFailure
     wildcardHasOwnKey
     claudeHasNoKey
     claudeKeepsPrefix
