@@ -38,6 +38,18 @@ let
     text = builtins.readFile ./codex-quota.sh;
   };
 
+  agentRoute = pkgs.writeShellApplication {
+    name = "agent-route";
+    runtimeInputs = [
+      pkgs.curl
+      pkgs.jq
+      codexQuota
+    ];
+    text = ''
+      AGENT_ROUTE_CONFIG=${./agent-route.json}
+    '' + builtins.readFile ./agent-route.sh;
+  };
+
   # One Claude PreToolUse slot carries every policy: each script exits early
   # for tools it does not own, and the first deny wins.
   claudePreToolUse = lib.concatStringsSep "\n" (
@@ -61,7 +73,7 @@ in
   config = lib.mkMerge [
     # `codex-quota` is the one quota check; the ai-delegation plugin's router
     # and judge call it to decide whether Codex answers.
-    { home.packages = [ codexQuota ]; }
+    { home.packages = [ codexQuota agentRoute ]; }
 
     # `programs.claude.hooks.preToolUse` only materializes a script file when
     # its value satisfies `builtins.isPath` (see nix-claude-code's

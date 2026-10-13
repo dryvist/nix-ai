@@ -1,0 +1,25 @@
+{
+  "owners": [
+    "dryvist",
+    "JacobPEvans",
+    "JacobPEvans-personal"
+  ],
+  "ladders": {
+    "code-review": [
+      "codex",
+      "zcode",
+      "opencode-go",
+      "haiku-high"
+    ],
+    "triage": [
+      "zcode-flash",
+      "codex",
+      "haiku-high"
+    ],
+    "private": [
+      "codex",
+      "opencode-go",
+      "haiku-high"
+    ]
+  }
+}
