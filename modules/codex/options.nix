@@ -58,6 +58,12 @@ in
       description = "Codex feature flags (maps to [features] in config.toml)";
     };
 
+    networkProxyDomains = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      description = "Additional exact hostnames allowed by Codex's network proxy.";
+    };
+
     model = lib.mkOption {
       type = nullableStr;
       default = null;

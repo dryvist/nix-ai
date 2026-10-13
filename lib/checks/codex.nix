@@ -26,6 +26,7 @@ in
       "modelReasoningEffort"
       "modelVerbosity"
       "mcpServerNames"
+      "networkProxyDomains"
       "otelExporterKinds"
       "planModeReasoningEffort"
       "projectDocFallbackFilenames"
