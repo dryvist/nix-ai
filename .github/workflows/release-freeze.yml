@@ -1,0 +1,15 @@
+name: Release Freeze
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review, labeled, unlabeled, closed]
+
+permissions: {}
+
+jobs:
+  release-freeze:
+    permissions:
+      contents: read
+      pull-requests: read
+      statuses: write
+    uses: dryvist/.github/.github/workflows/_release-freeze.yml@26e6933fbebcf11bfbe6d675f9ce7b322ffd7de9 # v1.17.0
