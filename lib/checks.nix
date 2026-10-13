@@ -140,6 +140,7 @@ in
   inherit pkgs hmConfig ai-assistant-instructions;
 })
 // (import ./checks/codex.nix { inherit pkgs hmConfig; })
+// (import ./checks/claude-router-launchers.nix { inherit pkgs; })
 // (import ./checks/codex-local.nix { inherit pkgs hmConfigRouter; })
 // (import ./checks/fast-delegation.nix { inherit pkgs mkHmConfig; })
 // (import ./checks/codex-approvals.nix { inherit pkgs hmConfig mkHmConfig; })
