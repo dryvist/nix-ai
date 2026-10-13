@@ -4,6 +4,7 @@ let
   hmConfig = mkHmConfig [
     {
       programs.agentSkills.root = "agents";
+      programs.codex.networkProxyDomains = [ "api.example.test" ];
       programs.litellmLocal.enable = true;
       services.aiStack = {
         llmEndpoint = "router";
@@ -33,16 +34,25 @@ in
           pkgs.yj
         ];
         activation = hmConfig.config.home.activation.codexConfigMerge.data;
-        inherit proxyHost;
+        allowedDomains = builtins.toJSON (
+          {
+            "${proxyHost}" = "allow";
+            "api.doppler.com" = "allow";
+            "cli.doppler.com" = "allow";
+            "api.github.com" = "allow";
+            "github.com" = "allow";
+          }
+          // pkgs.lib.genAttrs hmConfig.config.programs.codex.networkProxyDomains (_: "allow")
+        );
         passAsFile = [ "activation" ];
       }
       ''
         toml=$(grep -m1 -oE '/nix/store/[^"[:space:]]*codex-config\.toml' "$activationPath")
         yj -tj < "$toml" > config.json
-        jq -e --arg host "$proxyHost" '
+        jq -e --argjson allowedDomains "$allowedDomains" '
           .sandbox_workspace_write.network_access == true
           and .features.network_proxy.enabled == true
-          and .features.network_proxy.domains == {($host): "allow"}
+          and .features.network_proxy.domains == $allowedDomains
         ' config.json >/dev/null
         touch $out
       '';
