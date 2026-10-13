@@ -43,15 +43,19 @@ in
       description = "Attrs merged into the opencode config (~/.config/opencode/opencode.json; wins over module defaults).";
     };
 
+    launchPrefix = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      description = "Arguments prepended before the real OpenCode executable, for runtime credential helpers.";
+    };
+
     sandbox.enable = lib.mkOption {
       type = lib.types.bool;
       default = pkgs.stdenv.hostPlatform.isDarwin;
       defaultText = lib.literalExpression "pkgs.stdenv.hostPlatform.isDarwin";
       description = ''
-        Launch OpenCode through the deny-default Seatbelt profile (opencode.sb)
-        with an allowlisted environment. The profile is applied by
-        /usr/bin/sandbox-exec, so this is macOS only. When false, `opencode`
-        runs the package directly.
+        Install the deny-default Seatbelt launcher as `opencode-wall`.
+        The default `opencode` launcher runs directly and is not sandboxed.
       '';
     };
 

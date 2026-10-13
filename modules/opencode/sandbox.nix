@@ -12,6 +12,7 @@
   extraEnv ? { },
   inheritedEnv ? [ ],
   binaryName ? "opencode",
+  realBinaryName ? binaryName,
   readRules ? [
     {
       kind = "subpath";
@@ -95,7 +96,7 @@ let
           extraEnvLines
           inheritedEnvLines
           "${profile}"
-          "${package}/bin/${binaryName}"
+          "${package}/bin/${realBinaryName}"
         ]
         (builtins.readFile ./scripts/launch.sh);
   };

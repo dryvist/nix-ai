@@ -180,6 +180,10 @@ in
   inherit pkgs;
   hmConfig = hmConfigUntrusted;
 })
+// (import ./checks/opencode-trusted.nix {
+  inherit pkgs mkHmConfig;
+  hmConfig = hmConfigUntrusted;
+})
 // (import ./checks/antigravity-cli.nix { inherit pkgs hmConfig; })
 // (import ./checks/vct-cli.nix {
   inherit
