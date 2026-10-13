@@ -1,4 +1,4 @@
-# Focused macOS module checks for the native Seatbelt sandbox launchers.
+# Focused macOS module checks for native agent launchers.
 # Kept separately so the full x86_64-linux regression suite remains Linux-only.
 {
   nixpkgs,
@@ -20,6 +20,10 @@ in
 {
   ${system} =
     (import (src + "/lib/checks/opencode.nix") { inherit pkgs hmConfig; })
+    // (import (src + "/lib/checks/opencode-trusted.nix") {
+      inherit pkgs hmConfig;
+      inherit (fixtures) mkHmConfig;
+    })
     // (import (src + "/lib/checks/qwen-code.nix") {
       inherit pkgs hmConfig;
       inherit (fixtures) hmConfigLitellmLocal hmConfigRouter;
