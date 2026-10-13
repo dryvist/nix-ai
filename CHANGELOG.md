@@ -1,5 +1,21 @@
 # Changelog
 
+## [7.16.0](https://github.com/dryvist/nix-ai/compare/v7.15.0...v7.16.0) (2026-10-13)
+
+
+### Features
+
+* **claude:** add claude-llm and claude-ocg router launchers ([#2567](https://github.com/dryvist/nix-ai/issues/2567)) ([4ea1ca7](https://github.com/dryvist/nix-ai/commit/4ea1ca7d6e28290ec97354aa7157f5865bd060aa))
+* **claude:** add router launchers ([8244c91](https://github.com/dryvist/nix-ai/commit/8244c9109059c0fc221c9ef4d32d2e67130b5c7e))
+
+
+### Bug Fixes
+
+* **codex:** allow credential service network domains ([8d490a1](https://github.com/dryvist/nix-ai/commit/8d490a1151a739900f9489f855d94107ce8c1281))
+* **codex:** extend the network proxy allowlist ([#2570](https://github.com/dryvist/nix-ai/issues/2570)) ([54b7534](https://github.com/dryvist/nix-ai/commit/54b75349860c4e3e3799df7fc341b3a30323a073))
+* **litellm-local:** start the loopback proxy without a master key ([6579428](https://github.com/dryvist/nix-ai/commit/6579428dd0be494c95c236bf978ca4820da692fe))
+* **litellm-local:** start the loopback proxy without a master key ([#2565](https://github.com/dryvist/nix-ai/issues/2565)) ([e30fc61](https://github.com/dryvist/nix-ai/commit/e30fc61e15f95d0fa49b80f265263cda04fa0587))
+
 ## [7.15.0](https://github.com/dryvist/nix-ai/compare/v7.14.1...v7.15.0) (2026-10-13)
 
 
