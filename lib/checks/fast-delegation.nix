@@ -3,9 +3,11 @@
 let
   hmConfig = mkHmConfig [
     {
-      programs.agentSkills.root = "agents";
-      programs.codex.networkProxyDomains = [ "api.example.test" ];
-      programs.litellmLocal.enable = true;
+      programs = {
+        agentSkills.root = "agents";
+        codex.networkProxyDomains = [ "api.example.test" ];
+        litellmLocal.enable = true;
+      };
       services.aiStack = {
         llmEndpoint = "router";
         llmRouterEndpoint = "http://127.0.0.1/v1";
