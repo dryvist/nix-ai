@@ -105,7 +105,7 @@ in
       ''
         test -s ${sessionPlugin}
         jq -e '
-          .permission == "allow" and
+          .permission["*"] == "allow" and
           .model == "litellm/medium" and
           .small_model == "litellm/small" and
           .agent.local.model == "litellm/medium" and

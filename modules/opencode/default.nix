@@ -164,7 +164,10 @@ let
 
   settings = {
     "$schema" = "https://opencode.ai/config.json";
-    permission = "allow";
+    permission = {
+      "*" = "allow";
+      skill = lib.genAttrs (map (skill: skill.name) userInvokedSkills) (_: "deny");
+    };
     command = skillCommands;
     mcp = mcpServers;
     provider = {
