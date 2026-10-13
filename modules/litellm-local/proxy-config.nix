@@ -139,3 +139,9 @@
   # setting only when those routes are rendered.
   router_settings.disable_cooldowns = true;
 }
+# LiteLLM 1.105 refuses to boot without a master key. This proxy takes none by
+# design (see default.nix) and listens on loopback only, so set the switch
+# LiteLLM provides for exactly that.
+// {
+  general_settings.dangerously_permit_weak_or_unset_master_key = true;
+}

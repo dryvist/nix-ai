@@ -47,7 +47,7 @@ let
   inherit (keys) claudeTargetModel;
   inherit (keys)
     noGlobalForwarding
-    noMasterKey
+    masterKeyFailure
     wildcardHasOwnKey
     claudeHasNoKey
     claudeKeepsPrefix
@@ -151,9 +151,7 @@ in
     assert
       noGlobalForwarding
       || throw "litellm-local must not set general_settings.forward_client_headers_to_llm_api: that boolean forwards to every deployment, including the router leg";
-    assert
-      noMasterKey
-      || throw "litellm-local must not set a master_key: a subscription Claude Code session cannot send a gateway credential, and settings.json cannot carry a secret, so a master key makes LiteLLM treat the OAuth bearer as a virtual key (400 No connected db)";
+    assert masterKeyFailure == null || throw masterKeyFailure;
     assert
       claudeHasNoKey
       || throw "the litellm-local claude-* deployment must carry no api_key so the forwarded client credential is what authenticates it";
