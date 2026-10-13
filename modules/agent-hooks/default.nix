@@ -54,14 +54,51 @@ let
     ];
     text = ''
       AGENT_ROUTE_CONFIG=${./agent-route.json}
-    '' + builtins.readFile ./agent-route.sh;
+    ''
+    + builtins.readFile ./agent-route.sh;
   };
 
-  # One Claude PreToolUse slot carries every policy: each script exits early
+  agentSpawnGate = pkgs.writeShellApplication {
+    name = "agent-spawn-gate";
+    runtimeInputs = [
+      agentRoute
+      pkgs.coreutils
+      pkgs.gawk
+      pkgs.git
+      pkgs.gnugrep
+      pkgs.gnused
+      pkgs.jq
+    ];
+    text = builtins.readFile ./agent-spawn-gate.sh;
+  };
+
+  agentRoutingContext = pkgs.writeShellApplication {
+    name = "agent-routing-context";
+    runtimeInputs = [
+      agentRoute
+      pkgs.git
+      pkgs.jq
+    ];
+    text = builtins.readFile ./agent-routing-context.sh;
+  };
+
+  routingContextHook = {
+    matcher = "*";
+    hooks = [
+      {
+        type = "command";
+        command = cfg.subagentRoutingContext.command;
+        timeout = 30;
+      }
+    ];
+  };
+
+  # One Claude PreToolUse slot carries every policy; each script exits early
   # for tools it does not own, and the first deny wins.
   claudePreToolUse = lib.concatStringsSep "\n" (
     [ ''input="$(cat)"'' ]
     ++ lib.optional cfg.worktreeAddGuard.enable ''printf '%s' "$input" | ${guard}/bin/worktree-add-guard "$@"''
+    ++ lib.optional cfg.agentSpawnGate.enable ''printf '%s' "$input" | ${agentSpawnGate}/bin/agent-spawn-gate "$@"''
   );
 in
 {
@@ -77,10 +114,36 @@ in
     '';
   };
 
+  options.programs.agentHooks.agentSpawnGate.enable = lib.mkOption {
+    type = lib.types.bool;
+    default = true;
+    description = "Route Claude implementation subagent requests to the selected executor and enforce the agent roster.";
+  };
+
+  options.programs.agentHooks.subagentRoutingContext.enable = lib.mkOption {
+    type = lib.types.bool;
+    default = true;
+    description = "Inject the current delegation ladder and executor answers into each Claude and Codex subagent.";
+  };
+
+  options.programs.agentHooks.subagentRoutingContext.command = lib.mkOption {
+    type = lib.types.str;
+    default = "${agentRoutingContext}/bin/agent-routing-context";
+    description = "Command used to add the current routing context to a subagent.";
+  };
+
   config = lib.mkMerge [
     # `codex-quota` is the one quota check; the ai-delegation plugin's router
     # and judge call it to decide whether Codex answers.
-    { home.packages = [ codexQuota zaiQuota agentRoute ]; }
+    {
+      home.packages = [
+        codexQuota
+        zaiQuota
+        agentRoute
+      ]
+      ++ lib.optional cfg.agentSpawnGate.enable agentSpawnGate
+      ++ lib.optional cfg.subagentRoutingContext.enable agentRoutingContext;
+    }
 
     # `programs.claude.hooks.preToolUse` only materializes a script file when
     # its value satisfies `builtins.isPath` (see nix-claude-code's
@@ -91,9 +154,12 @@ in
     # `blockExternalSubagentsInPrivateWorkspace` toggles: enabling either of
     # those alongside this fails the build (two writers to one option) rather
     # than silently dropping a guard — neither is set in this repo today.
-    (lib.mkIf (config.programs.claude.enable && cfg.worktreeAddGuard.enable) {
-      programs.claude.hooks.preToolUse = lib.mkDefault claudePreToolUse;
-    })
+    (lib.mkIf
+      (config.programs.claude.enable && (cfg.worktreeAddGuard.enable || cfg.agentSpawnGate.enable))
+      {
+        programs.claude.hooks.preToolUse = lib.mkDefault claudePreToolUse;
+      }
+    )
 
     (lib.mkIf (cfg.worktreeAddGuard.enable && config.programs.codex.enable) {
       programs.codex.hooks.events.PreToolUse = [
@@ -108,6 +174,10 @@ in
           ];
         }
       ];
+    })
+
+    (lib.mkIf (config.programs.codex.enable && cfg.subagentRoutingContext.enable) {
+      programs.codex.hooks.events.SubagentStart = [ routingContextHook ];
     })
   ];
 }

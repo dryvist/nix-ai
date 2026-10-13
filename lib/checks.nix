@@ -62,7 +62,13 @@ let
     }).mkHmConfig;
 in
 (import ./checks/lint.nix { inherit pkgs src; })
-// (import ./checks/agent-route.nix { inherit pkgs src; })
+// (import ./checks/agent-route.nix {
+  inherit
+    pkgs
+    src
+    hmConfig
+    ;
+})
 // (import ./checks/agent-nofile.nix {
   inherit
     pkgs

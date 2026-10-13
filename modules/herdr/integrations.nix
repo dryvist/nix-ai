@@ -24,6 +24,8 @@ let
   cfg = config.programs.herdr;
   homeDir = config.home.homeDirectory;
   claudeCfg = config.programs.claude;
+  routingContextCfg = config.programs.agentHooks.subagentRoutingContext;
+  herdrEnabled = cfg.enable && cfg.package != null && cfg.integrations != [ ];
 
   wanted = target: lib.elem target cfg.integrations;
   payloads = "${cfg.package}/share/herdr/integrations";
@@ -40,20 +42,41 @@ let
 
   # nix-claude-code merges `settings.hooks` over its typed hooks with `//`, so
   # an entry for an event that also has a typed hook would drop it. Take the
-  # typed entries from that flake's own renderer and append herdr's, keeping
-  # both. Reusing the renderer rather than restating it keeps the matcher,
-  # async and timeout of each typed hook (the startup-only async marketplace
-  # refresh) correct when upstream changes them or adds an event.
+  # typed entries from that flake's own renderer and combine every contributor
+  # before writing the freeform settings attribute.
   typedClaudeHooks = import "${nix-claude-code}/lib/typed-hooks.nix" {
     inherit lib;
     cfg = claudeCfg;
   };
 
-  herdrClaudeHooks.SessionStart = [
-    {
-      matcher = "*";
-      hooks = [ (hookEntry claudeHookPath) ];
-    }
+  herdrClaudeHooks = lib.optionalAttrs (herdrEnabled && wanted "claude") {
+    SessionStart = [
+      {
+        matcher = "*";
+        hooks = [ (hookEntry claudeHookPath) ];
+      }
+    ];
+  };
+
+  routingContextClaudeHooks = lib.optionalAttrs routingContextCfg.enable {
+    SubagentStart = [
+      {
+        matcher = "*";
+        hooks = [
+          {
+            type = "command";
+            command = routingContextCfg.command;
+            timeout = 30;
+          }
+        ];
+      }
+    ];
+  };
+
+  claudeHooks = lib.zipAttrsWith (_event: lib.concatLists) [
+    typedClaudeHooks
+    herdrClaudeHooks
+    routingContextClaudeHooks
   ];
 
   opencodeTuiConfig = pkgs.writers.writeJSON "herdr-opencode-tui.jsonc" {
@@ -61,49 +84,38 @@ let
   };
 in
 {
-  config = lib.mkIf (cfg.enable && cfg.package != null && cfg.integrations != [ ]) (
-    lib.mkMerge [
-      {
-        home.file = lib.mkMerge [
-          (lib.mkIf (wanted "claude") {
-            ".claude/hooks/herdr-agent-state.sh" = {
-              source = "${payloads}/claude/herdr-agent-state.sh";
-              executable = true;
-            };
-          })
-          (lib.mkIf (wanted "codex") {
-            ".codex/herdr-agent-state.sh" = {
-              source = "${payloads}/codex/herdr-agent-state.sh";
-              executable = true;
-            };
-          })
-          (lib.mkIf (wanted "opencode") {
-            "${opencodeDir}/plugins/herdr-agent-state.js".source = "${payloads}/opencode/herdr-agent-state.js";
-            "${opencodeDir}/herdr-tui-session.js".source = "${payloads}/opencode/herdr-tui-session.js";
-            "${opencodeDir}/tui.jsonc".source = opencodeTuiConfig;
-          })
-        ];
-      }
+  config = lib.mkMerge [
+    (lib.mkIf herdrEnabled {
+      home.file = lib.mkMerge [
+        (lib.mkIf (wanted "claude") {
+          ".claude/hooks/herdr-agent-state.sh" = {
+            source = "${payloads}/claude/herdr-agent-state.sh";
+            executable = true;
+          };
+        })
+        (lib.mkIf (wanted "codex") {
+          ".codex/herdr-agent-state.sh" = {
+            source = "${payloads}/codex/herdr-agent-state.sh";
+            executable = true;
+          };
+        })
+        (lib.mkIf (wanted "opencode") {
+          "${opencodeDir}/plugins/herdr-agent-state.js".source = "${payloads}/opencode/herdr-agent-state.js";
+          "${opencodeDir}/herdr-tui-session.js".source = "${payloads}/opencode/herdr-tui-session.js";
+          "${opencodeDir}/tui.jsonc".source = opencodeTuiConfig;
+        })
+      ];
+    })
 
-      # `settings` is a freeform attrs submodule: a `lib.mkIf` on the VALUE is
-      # never resolved and reaches settings.json as a literal `_type = "if"`
-      # attrset. Wrapping the definition works, because the module system
-      # resolves that before the freeform value is read. `optionalAttrs` here
-      # would decide the config's shape from config itself, which recurses.
-      (lib.mkIf (wanted "claude") {
-        programs.claude.settings.hooks = lib.zipAttrsWith (_event: lib.concatLists) [
-          typedClaudeHooks
-          herdrClaudeHooks
-        ];
-      })
+    # `settings` is a freeform attrs submodule. Combine every event before
+    # defining it so the routing context keeps herdr and typed hooks intact.
+    (lib.mkIf (claudeCfg.enable && (herdrEnabled && wanted "claude" || routingContextCfg.enable)) {
+      programs.claude.settings.hooks = claudeHooks;
+    })
 
-      # Contributed through programs.codex.hooks.events rather than writing
-      # ~/.codex/hooks.json directly: modules/codex/settings.nix is the one
-      # renderer for that file (see its option, modules/codex/options.nix),
-      # and it also flips features.hooks on for us once events is non-empty.
-      (lib.mkIf (wanted "codex") {
-        programs.codex.hooks.events.SessionStart = [ { hooks = [ (hookEntry codexHookPath) ]; } ];
-      })
-    ]
-  );
+    # Codex hooks use the single hooks.json renderer in modules/codex/settings.nix.
+    (lib.mkIf (herdrEnabled && wanted "codex") {
+      programs.codex.hooks.events.SessionStart = [ { hooks = [ (hookEntry codexHookPath) ]; } ];
+    })
+  ];
 }
