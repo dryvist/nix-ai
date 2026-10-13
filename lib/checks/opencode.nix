@@ -21,6 +21,7 @@ in
       "excludedMcpServers"
       "extraModels"
       "extraSettings"
+      "launchPrefix"
       "lspEnabled"
       "mcpServerNames"
       "otelPluginEntries"

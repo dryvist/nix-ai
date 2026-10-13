@@ -10,7 +10,6 @@
   pkgs,
   config,
   lib,
-  nix-claude-code,
   llm-agents,
   userConfig,
   ...
@@ -27,7 +26,6 @@ let
     username = config.home.username;
   };
 
-  aiCommon = import ../common { inherit lib config nix-claude-code; };
   agentSkills = config.programs.agentSkills;
   skillRoot = ".${agentSkills.root}/skills";
   userInvokedSkills = builtins.filter (
@@ -51,29 +49,29 @@ let
       };
     }) userInvokedSkills
   );
-  permission = aiCommon.formatters.opencode.formatPermission aiCommon.permissions // {
-    skill = lib.genAttrs (map (skill: skill.name) userInvokedSkills) (_: "deny");
-  };
-
   mcpClient = import ../mcp/client.nix { inherit lib; };
 
-  # Variables OpenCode gets under the sandbox. The launcher drops everything
-  # else, so credentials in the shell never reach it. The LiteLLM key is a
-  # placeholder: the local proxy checks no credential (modules/litellm-local).
-  # A checkout's own opencode.json is ignored, so only the home config applies.
+  # The wall drops everything else, so credentials in the caller's shell never
+  # reach it. The local LiteLLM key is a placeholder; the proxy checks no key.
   sandboxEnv = {
     OPENCODE_DISABLE_LSP_DOWNLOAD = "true";
     OPENCODE_DISABLE_PROJECT_CONFIG = "true";
   }
   // lib.optionalAttrs litellmLocal.enable { LITELLM_LOCAL_KEY = litellmLocal.clientToken; };
 
-  # Loopback stays closed except the port OpenCode's provider talks to: the LiteLLM proxy.
+  trustedOpencode = import ./trusted.nix { inherit pkgs lib; } {
+    inherit (cfg) package launchPrefix;
+  };
+
+  # Keep the Seatbelt launcher available as `opencode-wall`.
   sandboxedOpencode = import ./sandbox.nix { inherit pkgs lib; } {
     inherit (cfg) package;
     home = config.home.homeDirectory;
     workRoot = cfg.sandbox.workRoot;
     localPorts = lib.optional litellmLocal.enable litellmLocal.port;
     extraEnv = sandboxEnv;
+    binaryName = "opencode-wall";
+    realBinaryName = "opencode";
     inheritedEnv = [
       "AGENT_ROUTER_BASE_URL"
       "AGENT_ROUTER_LOCAL_KEY"
@@ -106,10 +104,56 @@ let
     client = "opencode";
   };
 
-  # Router capability aliases the local proxy serves. Which physical model
-  # each resolves to is an upstream setting, so this list does not change when
-  # the mapping does.
+  # Router aliases are names only; the homelab router owns their mappings.
   litellmRoles = import ../litellm-local/aliases.nix;
+  goModels = [
+    {
+      alias = "go-mimo-flash";
+      id = "mimo-v2.6-flash";
+      protocol = "openai";
+    }
+    {
+      alias = "go-deepseek-flash";
+      id = "deepseek-v4.1-flash";
+      protocol = "openai";
+    }
+    {
+      alias = "go-glm-flash";
+      id = "glm-5.3-flash";
+      protocol = "openai";
+    }
+    {
+      alias = "go-kimi-k3";
+      id = "kimi-k3";
+      protocol = "openai";
+    }
+    {
+      alias = "go-qwen-plus";
+      id = "qwen3.7-plus";
+      protocol = "anthropic";
+    }
+    {
+      alias = "go-minimax-m3";
+      id = "minimax-m3";
+      protocol = "anthropic";
+    }
+  ];
+  goAliases = map (model: model.alias) goModels;
+  routerModels = lib.unique (litellmRoles ++ goAliases ++ cfg.extraModels);
+  localMlxModels = lib.unique (litellmRoles ++ cfg.extraModels);
+  goModelAttrs =
+    models:
+    lib.listToAttrs (
+      map (model: {
+        name = model.alias;
+        value = {
+          name = model.alias;
+          inherit (model) id;
+        };
+      }) models
+    );
+  goOpenAIModels = goModelAttrs (builtins.filter (model: model.protocol == "openai") goModels);
+  goAnthropicModels = goModelAttrs (builtins.filter (model: model.protocol == "anthropic") goModels);
   localRouterAlias = "medium";
   localRouterAgent =
     assert builtins.elem localRouterAlias litellmRoles;
@@ -119,11 +163,9 @@ let
       model = "router/${localRouterAlias}";
     };
 
-  allLitellmModels = lib.unique (litellmRoles ++ cfg.extraModels);
-
   settings = {
     "$schema" = "https://opencode.ai/config.json";
-    inherit permission;
+    permission = "allow";
     command = skillCommands;
     mcp = mcpServers;
     provider = {
@@ -136,16 +178,45 @@ let
         };
         models.${localRouterAlias}.name = localRouterAlias;
       };
-    }
-    // lib.optionalAttrs litellmLocal.enable {
       litellm = {
         npm = "@ai-sdk/openai-compatible";
-        name = "LiteLLM (local)";
+        name = "LiteLLM (router)";
+        options = {
+          baseURL = "{env:LLM_ROUTER_URL}";
+          apiKey = "{env:AGENT_ROUTER_KEY}";
+        };
+        models = lib.genAttrs routerModels (name: {
+          inherit name;
+        });
+      };
+      opencode-go = {
+        npm = "@ai-sdk/openai-compatible";
+        name = "OpenCode Go";
+        options = {
+          baseURL = "https://opencode.ai/zen/go/v1";
+          apiKey = "{env:OPENCODE_API_KEY}";
+        };
+        models = goOpenAIModels;
+      };
+      opencode-go-anthropic = {
+        npm = "@ai-sdk/anthropic";
+        name = "OpenCode Go (Anthropic)";
+        options = {
+          baseURL = "https://opencode.ai/zen/go/v1";
+          apiKey = "{env:OPENCODE_API_KEY}";
+        };
+        models = goAnthropicModels;
+      };
+    }
+    // lib.optionalAttrs litellmLocal.enable {
+      mlx = {
+        npm = "@ai-sdk/openai-compatible";
+        name = "MLX (local)";
         options = {
           baseURL = litellmLocal.baseUrl;
           apiKey = "{env:LITELLM_LOCAL_KEY}";
         };
-        models = lib.genAttrs allLitellmModels (name: {
+        models = lib.genAttrs localMlxModels (name: {
           inherit name;
         });
       };
@@ -153,13 +224,11 @@ let
     agent = {
       local = localRouterAgent;
     }
-    // lib.optionalAttrs litellmLocal.enable (
-      lib.genAttrs litellmRoles (role: {
-        description = "Delegate to the router's `${role}` capability (resolved upstream, never a physical model)";
-        mode = "subagent";
-        model = "litellm/${role}";
-      })
-    );
+    // (lib.genAttrs litellmRoles (role: {
+      description = "Delegate to the router's `${role}` capability (resolved upstream, never a physical model)";
+      mode = "subagent";
+      model = "litellm/${role}";
+    }));
     # LSP integration is off by default upstream; this enables every built-in
     # server. A server only activates when its binary is on PATH, so the set
     # in use is whatever nix-home ships globally (see its core.nix "Language
@@ -171,7 +240,7 @@ let
   # Route OpenCode's default and small background tier through the matching
   # router capabilities. The provider catalog and delegated agents share the
   # alias contract from modules/litellm-local/aliases.nix.
-  // lib.optionalAttrs litellmLocal.enable {
+  // {
     model = "litellm/medium";
     small_model = "litellm/small";
   };
@@ -242,9 +311,9 @@ in
       programs.opencode.package = lib.mkDefault llmAgents.opencode;
 
       home = {
-        packages = lib.optional (cfg.package != null) (
-          if cfg.sandbox.enable then sandboxedOpencode else cfg.package
-        );
+        packages =
+          lib.optional (cfg.package != null) trustedOpencode
+          ++ lib.optional (cfg.package != null && cfg.sandbox.enable) sandboxedOpencode;
 
         # Every language server OpenCode should use is Nix-provided on PATH
         # (modules/ai-tools.nix + per-repo devShells). Its built-ins
@@ -252,10 +321,18 @@ in
         # download prompt was declined twice (lsp-install-decisions.json), so
         # keep Nix the only source and let a missing server fail loudly
         # instead.
-        sessionVariables.OPENCODE_DISABLE_LSP_DOWNLOAD = "true";
+        sessionVariables = {
+          OPENCODE_DISABLE_LSP_DOWNLOAD = "true";
+        }
+        // lib.optionalAttrs (config.services.aiStack.llmRouterEndpoint != "") {
+          LLM_ROUTER_URL = config.services.aiStack.llmRouterEndpoint;
+        };
 
         file = {
           "${configDir}/opencode.json".source = settingsJson;
+          # The session hook sets OpenCode's current session ID on Go group
+          # calls routed through LiteLLM; direct Go providers use the same hook.
+          "${configDir}/plugins/go-session.js".source = ./plugins/go-session.js;
         }
         // lib.foldl' (acc: dir: acc // mkCommandLinks dir) { } cfg.commandDirs;
       };
