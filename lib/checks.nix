@@ -140,6 +140,7 @@ in
   inherit pkgs hmConfig ai-assistant-instructions;
 })
 // (import ./checks/codex.nix { inherit pkgs hmConfig; })
+// (import ./checks/codex-local.nix { inherit pkgs hmConfigRouter; })
 // (import ./checks/fast-delegation.nix { inherit pkgs mkHmConfig; })
 // (import ./checks/codex-approvals.nix { inherit pkgs hmConfig mkHmConfig; })
 // (import ./checks/cli-ownership.nix { inherit pkgs hmConfig hmConfigUntrusted; })
@@ -203,6 +204,7 @@ in
 // (import ./checks/mlx-model-admission.nix {
   inherit pkgs hmConfigStaticServing mkHmConfig;
 })
+// (import ./checks/mlx-static-fallback.nix { inherit pkgs hmConfigStaticServing; })
 // (import ./checks/mlx-catalog-vlm.nix { inherit pkgs src hmConfigCatalog; })
 // (import ./checks/mlx-mtp-reachable.nix { inherit pkgs mkHmConfig; })
 // (import ./checks/mlx-model-extra-args.nix { inherit pkgs; })

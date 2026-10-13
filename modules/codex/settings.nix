@@ -25,6 +25,14 @@ let
 
   mcpClient = import ../mcp/client.nix { inherit lib; };
   localProxyFeatures = import ./local-proxy-features.nix { inherit config lib; };
+  localProfile = import ./local-profile.nix {
+    inherit
+      config
+      configDir
+      lib
+      pkgs
+      ;
+  };
 
   # Mirror upstream home-manager programs.codex path logic so rules/config.toml stay co-located.
   packageVersion = if cfg.package != null then lib.getVersion cfg.package else "0.2.0";
@@ -45,7 +53,6 @@ let
   );
 
   features = cfg.features // localProxyFeatures;
-
   selectedOnDemandMcpServers = lib.filterAttrs (
     name: _: lib.elem name cfg.onDemandMcpServers
   ) config.programs.aiMcp.onDemandEnabledServers;
@@ -179,31 +186,6 @@ let
     };
   };
 
-  # A Codex profile is a FILE, not a table in the config above. Codex dropped
-  # the legacy `[profiles.<name>]` table (and the top-level `profile =`
-  # selector) in 0.134.0: a config still carrying one is refused outright, so
-  # `--profile <name>` failed to start rather than falling back. Each profile
-  # now lives in its own `~/.codex/<name>.config.toml` with its keys at the
-  # TOP level, selected the same way on the command line: `codex --profile
-  # small`. One profile per router capability alias from
-  # modules/litellm-local/aliases.nix.
-  litellmRoles = import ../litellm-local/aliases.nix;
-
-  litellmProfileAttrs = lib.genAttrs litellmRoles (role: {
-    model = role;
-    model_provider = "litellm";
-  });
-
-  litellmProfileTomls = lib.mapAttrs (
-    role: attrs:
-    let
-      json = pkgs.writeText "codex-${role}-profile.json" (builtins.toJSON attrs);
-    in
-    pkgs.runCommand "codex-${role}.config.toml" { nativeBuildInputs = [ pkgs.yj ]; } ''
-      yj -jt < ${json} > $out
-    ''
-  ) litellmProfileAttrs;
-
   zaiModelCatalog = {
     models = [
       {
@@ -280,7 +262,7 @@ in
       programs.codex = {
         projectDocFallbackFilenames = configAttrs.project_doc_fallback_filenames;
         mcpServerNames = lib.attrNames mcpServers;
-        litellmProfileNames = lib.attrNames litellmProfileTomls;
+        litellmProfileNames = localProfile.profileNames;
         otelExporterKinds = {
           logs = if logsEndpoint == null then "none" else "otlp-http";
           trace = if tracesEndpoint == null then "none" else "otlp-http";
@@ -324,11 +306,7 @@ in
           "${configDir}/zai-models.json".text = builtins.toJSON zaiModelCatalog;
           "${configDir}/zai.config.toml".source = zaiProfileToml;
         }
-        // lib.optionalAttrs litellmLocal.enable (
-          lib.mapAttrs' (
-            role: toml: lib.nameValuePair "${configDir}/${role}.config.toml" { source = toml; }
-          ) litellmProfileTomls
-        )
+        // localProfile.files
         // lib.optionalAttrs (cfg.hooks.events != { }) {
           ".codex/hooks.json".source = pkgs.writers.writeJSON "codex-hooks.json" {
             hooks = cfg.hooks.events;
