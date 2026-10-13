@@ -37,12 +37,19 @@ let
       "$AGENT_ROUTER_KEY" \
       "$OPENCODE_API_KEY" \
       "$LITELLM_LOCAL_KEY" \
-      "$@" > "$OPENCODE_TEST_OUTPUT"
+      "$@"
+  '';
+  fakeRouterKeyCommand = pkgs.writeShellScriptBin "opencode-test-router-key" ''
+    printf '%s\n' router-test-key
+  '';
+  fakeGoKeyCommand = pkgs.writeShellScriptBin "opencode-test-go-key" ''
+    printf '%s\n' go-test-key
   '';
   fakeCredentialPrefix = pkgs.writeShellScriptBin "opencode-test-credentials" ''
+    set -eu
     export LLM_ROUTER_URL=https://router.example.invalid/v1
-    export AGENT_ROUTER_KEY=router-test-key
-    export OPENCODE_API_KEY=go-test-key
+    export AGENT_ROUTER_KEY="$(${fakeRouterKeyCommand}/bin/opencode-test-router-key)"
+    export OPENCODE_API_KEY="$(${fakeGoKeyCommand}/bin/opencode-test-go-key)"
     exec "$@"
   '';
   launcher =
@@ -101,6 +108,7 @@ in
           .permission == "allow" and
           .model == "litellm/medium" and
           .small_model == "litellm/small" and
+          .agent.local.model == "litellm/medium" and
           .provider.litellm.options == {
             baseURL: "{env:LLM_ROUTER_URL}",
             apiKey: "{env:AGENT_ROUTER_KEY}"
@@ -138,16 +146,18 @@ in
         test ! -e "$workdir/.git"
       fi
       cd "$workdir"
-      output="$TMPDIR/opencode-output-$(basename "$workdir")"
-      OPENCODE_TEST_OUTPUT="$output" ${launcher}/bin/opencode --model litellm/medium "hello world"
-      grep -Fx "$PWD" "$output" >/dev/null
-      grep -Fx "https://router.example.invalid/v1" "$output" >/dev/null
-      grep -Fx "router-test-key" "$output" >/dev/null
-      grep -Fx "go-test-key" "$output" >/dev/null
-      grep -Fx "local" "$output" >/dev/null
-      grep -Fx -- "--model" "$output" >/dev/null
-      grep -Fx "litellm/medium" "$output" >/dev/null
-      grep -Fx "hello world" "$output" >/dev/null
+      before="$(find . -type f -print | sort)"
+      output="$(${launcher}/bin/opencode --model litellm/medium "hello world")"
+      after="$(find . -type f -print | sort)"
+      test "$before" = "$after"
+      printf '%s\n' "$output" | grep -Fx "$PWD" >/dev/null
+      printf '%s\n' "$output" | grep -Fx "https://router.example.invalid/v1" >/dev/null
+      printf '%s\n' "$output" | grep -Fx "router-test-key" >/dev/null
+      printf '%s\n' "$output" | grep -Fx "go-test-key" >/dev/null
+      printf '%s\n' "$output" | grep -Fx "local" >/dev/null
+      printf '%s\n' "$output" | grep -Fx -- "--model" >/dev/null
+      printf '%s\n' "$output" | grep -Fx "litellm/medium" >/dev/null
+      printf '%s\n' "$output" | grep -Fx "hello world" >/dev/null
     done
     touch $out
   '';

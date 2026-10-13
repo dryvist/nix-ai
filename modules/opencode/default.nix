@@ -75,10 +75,6 @@ let
     extraEnv = sandboxEnv;
     binaryName = "opencode-wall";
     realBinaryName = "opencode";
-    inheritedEnv = [
-      "AGENT_ROUTER_BASE_URL"
-      "AGENT_ROUTER_LOCAL_KEY"
-    ];
   };
 
   # opencode.json uses a local/remote-tagged MCP schema: local servers carry a
@@ -163,7 +159,7 @@ let
     {
       description = "Delegate to the router's `${localRouterAlias}` capability (resolved upstream, never a physical model)";
       mode = "subagent";
-      model = "router/${localRouterAlias}";
+      model = "litellm/${localRouterAlias}";
     };
 
   settings = {
@@ -172,15 +168,6 @@ let
     command = skillCommands;
     mcp = mcpServers;
     provider = {
-      router = {
-        npm = "@ai-sdk/openai-compatible";
-        name = "router";
-        options = {
-          baseURL = "{env:AGENT_ROUTER_BASE_URL}";
-          apiKey = "{env:AGENT_ROUTER_LOCAL_KEY}";
-        };
-        models.${localRouterAlias}.name = localRouterAlias;
-      };
       litellm = {
         npm = "@ai-sdk/openai-compatible";
         name = "LiteLLM (router)";

@@ -66,23 +66,24 @@ in
     ];
   };
 
-  opencode-router-local-agent =
+  opencode-router-agent =
     assert builtins.elem localRouterAlias routerAliases;
-    pkgs.runCommand "check-opencode-router-local-agent"
+    pkgs.runCommand "check-opencode-router-agent"
       {
         nativeBuildInputs = [ pkgs.jq ];
       }
       ''
         jq -e --arg alias "${localRouterAlias}" '
-          .provider.router.npm == "@ai-sdk/openai-compatible" and
-          .provider.router.name == "router" and
-          .provider.router.options == {
-            baseURL: "{env:AGENT_ROUTER_BASE_URL}",
-            apiKey: "{env:AGENT_ROUTER_LOCAL_KEY}"
+          .provider.litellm.npm == "@ai-sdk/openai-compatible" and
+          .provider.litellm.name == "LiteLLM (router)" and
+          .provider.litellm.options == {
+            baseURL: "{env:LLM_ROUTER_URL}",
+            apiKey: "{env:AGENT_ROUTER_KEY}"
           } and
-          .provider.router.models[$alias].name == $alias and
+          .provider.litellm.models[$alias].name == $alias and
           .agent.local.mode == "subagent" and
-          .agent.local.model == ("router/" + $alias)
+          .agent.local.model == ("litellm/" + $alias) and
+          (.provider | has("router") | not)
         ' ${settingsFile} >/dev/null
         touch $out
       '';
