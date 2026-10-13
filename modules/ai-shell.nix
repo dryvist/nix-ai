@@ -15,6 +15,7 @@
 
 let
   inherit (import ../vars/ai-stack.nix) zai;
+  claudeRouterPkgs = pkgs.callPackage ./claude-router-pkgs.nix { };
 in
 {
   config = {
@@ -33,11 +34,16 @@ in
     # A real PATH command, not a zsh function: a zsh-function claude-zai is
     # invisible to any non-interactive invocation (a login shell with no
     # tty aborts zsh's interactive init before the function is even
-    # defined) — exactly the failure mode the open-llm identity hit.
+    # defined).
     # Factored into claude-zai-pkg.nix so lib/checks/scripts/zai-launchers-test.sh
     # builds and tests this exact derivation, not a hand-kept copy of it.
-    # Installed only with programs.ai.untrustedClis.enable.
-    home.packages = lib.optional config.programs.ai.untrustedClis.enable (
+    # The router launchers are available to trusted Claude Code users; Z.ai
+    # remains gated with the other untrusted CLI tooling.
+    home.packages = [
+      claudeRouterPkgs.claudeLlm
+      claudeRouterPkgs.claudeOcg
+    ]
+    ++ lib.optional config.programs.ai.untrustedClis.enable (
       pkgs.callPackage ./claude-zai-pkg.nix { inherit zai; }
     );
   };
