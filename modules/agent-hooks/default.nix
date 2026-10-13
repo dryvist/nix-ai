@@ -38,12 +38,19 @@ let
     text = builtins.readFile ./codex-quota.sh;
   };
 
+  zaiQuota = pkgs.writeShellApplication {
+    name = "zai-quota";
+    runtimeInputs = [ pkgs.coreutils ];
+    text = builtins.readFile ./zai-quota.sh;
+  };
+
   agentRoute = pkgs.writeShellApplication {
     name = "agent-route";
     runtimeInputs = [
       pkgs.curl
       pkgs.jq
       codexQuota
+      zaiQuota
     ];
     text = ''
       AGENT_ROUTE_CONFIG=${./agent-route.json}
@@ -73,7 +80,7 @@ in
   config = lib.mkMerge [
     # `codex-quota` is the one quota check; the ai-delegation plugin's router
     # and judge call it to decide whether Codex answers.
-    { home.packages = [ codexQuota agentRoute ]; }
+    { home.packages = [ codexQuota zaiQuota agentRoute ]; }
 
     # `programs.claude.hooks.preToolUse` only materializes a script file when
     # its value satisfies `builtins.isPath` (see nix-claude-code's
