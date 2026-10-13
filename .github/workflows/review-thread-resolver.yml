@@ -24,6 +24,6 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    uses: dryvist/ai-workflows/.github/workflows/review-thread-resolver.yml@70d7a6ad0d566017d6c063c5786b997084f3f5c4 # v0.48.7
+    uses: dryvist/ai-workflows/.github/workflows/review-thread-resolver.yml@286459bf39f4c269e10d6b28e8c29ba225faed5e # v0.49.0
     secrets:
       GH_APP_CLAUDE_BOT_PRIVATE_KEY: ${{ secrets.GH_APP_CLAUDE_BOT_PRIVATE_KEY }}
