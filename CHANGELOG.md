@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.17.0](https://github.com/dryvist/nix-ai/compare/v7.16.0...v7.17.0) (2026-10-13)
+
+
+### Features
+
+* **opencode:** add trusted harness with homelab and Go providers ([#2568](https://github.com/dryvist/nix-ai/issues/2568)) ([6a0ec5b](https://github.com/dryvist/nix-ai/commit/6a0ec5bddff664a8e65ceaa534d60b0522680a09))
+
 ## [7.16.0](https://github.com/dryvist/nix-ai/compare/v7.15.0...v7.16.0) (2026-10-13)
 
 
