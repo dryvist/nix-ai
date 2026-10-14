@@ -19,7 +19,8 @@ graph TD
         HMOPT["programs.herdr\nmodules/herdr/options.nix"]
         CFG["~/.config/herdr/config.toml\n(read-only store symlink)"]
         WSOCK["$HOME/.config/herdr/herdr.sock"]
-        WSRV["herdr server\n(started on demand)"]
+        WSRV["herdr server\n(launchd user agent)"]
+        HAIL["herdr-hail\n(optional launchd user agent)"]
     end
 
     subgraph Guest["Linux guest — NixOS"]
@@ -29,16 +30,21 @@ graph TD
     end
 
     AGENTS["llm-agents.nix + nixpkgs\nthe same agent CLI builds"]
+    SLACK["private Slack channel"]
 
     HMOPT --> CFG --> WSRV --> WSOCK
+    HAIL --> WSOCK
+    HAIL --> SLACK
     NIXOPT --> UNIT --> GSOCK
     AGENTS --> WSRV
     AGENTS --> UNIT
     WSOCK -->|"herdr --remote <name>"| GSOCK
 ```
 
-Both halves take their binary from the same `llm-agents` input, so a pane on
-the guest runs the same build as a pane on the workstation.
+The server halves take their binary from the same `llm-agents` input, so a
+pane on the guest runs the same build as a pane on the workstation. The
+workstation LaunchAgent runs the headless server; the optional Hail LaunchAgent
+reads its generated configuration and connects to that same socket.
 
 The guest pins its socket at a fixed path, because a bridge forwards that
 socket over SSH and needs a predictable one. The pin is `HERDR_SOCKET_PATH`;
