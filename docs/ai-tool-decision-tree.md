@@ -81,9 +81,11 @@ Not for:
 
 Best for: **a single local model call over an OpenAI-compatible API**
 
-Point any OpenAI-compatible client at llama-swap (`http://127.0.0.1:11434/v1`);
+Point an OpenAI-compatible client at llama-swap (`http://127.0.0.1:11434/v1`);
 it routes capability-class aliases (`default`, `coding`, …) to the resident
-MLX model. Fabric, qwen-code, and cecli already do this.
+MLX model. Fabric and cecli use this endpoint. Qwen Code calls a selected
+Qwen catalog entry's static resident server when the host has one; otherwise
+it keeps the local role or router capability path.
 
 Use when:
 

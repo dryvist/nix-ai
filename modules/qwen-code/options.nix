@@ -9,6 +9,7 @@
 }:
 
 let
+  modelMode = import ./model-mode.nix { inherit config lib; };
   usesRouterCapabilities =
     config.programs.litellmLocal.enable || config.services.aiStack.llmEndpoint == "router";
   mcpClient = import ../mcp/client.nix { inherit lib; };
@@ -72,12 +73,28 @@ in
       '';
     };
 
+    models = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = if modelMode.bySize then [ modelMode.defaultModel ] else [ ];
+      description = ''
+        MLX catalog keys Qwen Code may select in by-size mode. Each entry must
+        name a Qwen model in the catalog and be statically resident on this
+        host. Router-only hosts use their existing capability aliases.
+      '';
+    };
+
     model = lib.mkOption {
       type = lib.types.str;
-      default = if usesRouterCapabilities then "medium" else "coding";
+      default =
+        if modelMode.bySize then
+          modelMode.defaultModel
+        else if usesRouterCapabilities then
+          "medium"
+        else
+          "coding";
       description = ''
-        Default model to start sessions with. Direct MLX uses a local role name;
-        the local proxy and homelab router use a capability alias.
+        Default model for Qwen Code. Hosts with a static Qwen resident use its
+        catalog key; other hosts use their existing local role or router alias.
       '';
     };
 
@@ -96,6 +113,20 @@ in
       readOnly = true;
       internal = true;
       description = "Context file names emitted to Qwen Code settings.json; read-only.";
+    };
+
+    generatedSettings = lib.mkOption {
+      type = lib.types.attrs;
+      readOnly = true;
+      internal = true;
+      description = "Rendered Qwen Code settings before writing settings.json.";
+    };
+
+    sandboxLocalPorts = lib.mkOption {
+      type = lib.types.listOf lib.types.ints.positive;
+      readOnly = true;
+      internal = true;
+      description = "Loopback ports passed to the Qwen Code sandbox profile.";
     };
 
   }

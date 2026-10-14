@@ -74,6 +74,11 @@ rec {
   # untrusted CLI's wiring read this fixture; the default one has none.
   hmConfigUntrusted = mkHmConfig [ { programs.ai.untrustedClis.enable = true; } ];
 
+  inherit (import ./checks/qwen-code-fixtures.nix { inherit mkHmConfig; })
+    hmConfigQwenRouter
+    hmConfigQwenMissingResident
+    ;
+
   # oh-my-openagent switched on (lib/checks/oh-my-openagent.nix): with and
   # without the untrusted CLI gate, since omo-senpi needs both and the plugin
   # entry needs only the first.
@@ -222,6 +227,7 @@ rec {
           }
         ];
       };
+      programs.qwen-code.enable = true;
       services.aiStack = {
         llmEndpoint = "router";
         llmRouterEndpoint = "https://router.example.invalid/v1";
