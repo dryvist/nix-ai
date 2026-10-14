@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.19.0](https://github.com/dryvist/nix-ai/compare/v7.18.0...v7.19.0) (2026-10-14)
+
+
+### Features
+
+* **herdr:** run the Hail Slack bridge as a Darwin LaunchAgent ([#2583](https://github.com/dryvist/nix-ai/issues/2583)) ([ae22181](https://github.com/dryvist/nix-ai/commit/ae2218108043c6d14887a689d2886b21000045c4))
+
 ## [7.18.0](https://github.com/dryvist/nix-ai/compare/v7.17.0...v7.18.0) (2026-10-14)
 
 

@@ -39,6 +39,8 @@ in
     ./options.nix
     ./settings.nix
     ./launchd.nix
+    ./hail-options.nix
+    ./launchd-hail.nix
     ./integrations.nix
   ];
 

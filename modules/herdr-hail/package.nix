@@ -6,10 +6,9 @@
 # hail/bridge`. That is an interactive workflow — the manifest declares no
 # `[[startup]]` hook, so registering the plugin does NOT make the bridge run.
 #
-# The guest wants it running unattended, so modules/herdr/nixos.nix runs
-# dist/index.js as its own unit rather than going through the plugin host. The
-# bridge needs exactly two things from herdr, and both are plain environment
-# variables a unit can set itself:
+# The workstation and guest run dist/index.js as a separate service rather
+# than through the plugin host. The bridge needs exactly two things from herdr,
+# and both are plain environment variables the service can set itself:
 #
 #   HERDR_SOCKET_PATH        the control socket        (src/herdr.ts)
 #   HERDR_PLUGIN_CONFIG_DIR  directory of config.json  (src/config.ts)

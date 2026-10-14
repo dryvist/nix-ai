@@ -17,7 +17,6 @@
   config,
   lib,
   pkgs,
-  herdr-hail-src,
   ...
 }:
 
@@ -53,50 +52,21 @@ let
   } hail.settings;
 in
 {
-  options.services.herdr.hail = {
-    enable = lib.mkEnableOption "the herdr-hail Slack/Discord bridge alongside the server";
+  imports = [ ./hail-options.nix ];
 
-    package = lib.mkOption {
-      type = lib.types.package;
-      default = pkgs.callPackage ../herdr-hail/package.nix { src = herdr-hail-src; };
-      defaultText = lib.literalExpression "pkgs.callPackage ../herdr-hail/package.nix { src = herdr-hail-src; }";
-      description = "herdr-hail package to run.";
-    };
+  options.services.herdr.hail.environmentFile = lib.mkOption {
+    type = lib.types.nullOr lib.types.path;
+    default = null;
+    example = "/var/lib/herdr/hail.env";
+    description = ''
+      systemd EnvironmentFile holding hail's tokens. Upstream fixes the
+      names, and they win over config.json: SLACK_BOT_TOKEN, SLACK_APP_TOKEN,
+      SLACK_CHANNEL, SLACK_ALLOWED_USERS, DISCORD_BOT_TOKEN,
+      DISCORD_CHANNEL_ID, DISCORD_ALLOWED_USERS.
 
-    settings = lib.mkOption {
-      type = lib.types.attrs;
-      default = { };
-      example = lib.literalExpression ''
-        {
-          slack = {
-            enabled = true;
-            channel = "C0123456789";
-            allowedUsers = [ "U0123456789" ];
-          };
-        }
-      '';
-      description = ''
-        Non-secret half of hail's config.json, rendered into /etc/herdr-hail
-        and merged over upstream's defaults, so only differing fields need
-        naming. Tokens do NOT belong here — this lands in the world-readable
-        Nix store. Use `environmentFile`.
-      '';
-    };
-
-    environmentFile = lib.mkOption {
-      type = lib.types.nullOr lib.types.path;
-      default = null;
-      example = "/var/lib/herdr/hail.env";
-      description = ''
-        systemd EnvironmentFile holding hail's tokens. Upstream fixes the
-        names, and they win over config.json: SLACK_BOT_TOKEN, SLACK_APP_TOKEN,
-        SLACK_CHANNEL, SLACK_ALLOWED_USERS, DISCORD_BOT_TOKEN,
-        DISCORD_CHANNEL_ID, DISCORD_ALLOWED_USERS.
-
-        There is no env override for the per-channel `enabled` flag, so an env
-        file alone cannot switch a channel on — see the assertion below.
-      '';
-    };
+      There is no env override for the per-channel `enabled` flag, so an env
+      file alone cannot switch a channel on — see the assertion below.
+    '';
   };
 
   config = lib.mkIf (cfg.enable && hail.enable) {
