@@ -5,7 +5,7 @@ let
   cfg = hmConfig.config.programs.opencode;
   homeDir = hmConfig.config.home.homeDirectory;
   settingsFile = hmConfig.config.home.file."${cfg.configDir}/opencode.json".source;
-  localRouterAlias = "medium";
+  routerAlias = "medium";
   routerAliases = import ../../modules/litellm-local/aliases.nix;
 in
 {
@@ -66,14 +66,14 @@ in
     ];
   };
 
-  opencode-router-agent =
-    assert builtins.elem localRouterAlias routerAliases;
-    pkgs.runCommand "check-opencode-router-agent"
+  opencode-router-provider =
+    assert builtins.elem routerAlias routerAliases;
+    pkgs.runCommand "check-opencode-router-provider"
       {
         nativeBuildInputs = [ pkgs.jq ];
       }
       ''
-        jq -e --arg alias "${localRouterAlias}" '
+        jq -e --arg alias "${routerAlias}" '
           .provider.litellm.npm == "@ai-sdk/openai-compatible" and
           .provider.litellm.name == "LiteLLM (router)" and
           .provider.litellm.options == {
@@ -81,8 +81,6 @@ in
             apiKey: "{env:AGENT_ROUTER_KEY}"
           } and
           .provider.litellm.models[$alias].name == $alias and
-          .agent.local.mode == "subagent" and
-          .agent.local.model == ("litellm/" + $alias) and
           (.provider | has("router") | not)
         ' ${settingsFile} >/dev/null
         touch $out
