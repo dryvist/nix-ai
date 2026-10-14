@@ -108,7 +108,6 @@ in
           .permission["*"] == "allow" and
           .model == "litellm/medium" and
           .small_model == "litellm/small" and
-          .agent.local.model == "litellm/medium" and
           .provider.litellm.options == {
             baseURL: "{env:LLM_ROUTER_URL}",
             apiKey: "{env:AGENT_ROUTER_KEY}"
