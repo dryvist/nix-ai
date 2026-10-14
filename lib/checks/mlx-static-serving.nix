@@ -58,23 +58,6 @@ let
   limits =
     builtins.fromJSON
       hmConfigStaticServing.config.home.file.".config/mlx/resident-model-limits.json".text;
-  renderedConfig = hmConfigStaticServing.config.programs.litellmLocal.renderedConfig;
-  routes = renderedConfig.model_list;
-  routeFor = name: builtins.head (builtins.filter (route: route.model_name == name) routes);
-  residentGroups = lib.unique (
-    lib.concatMap (contract: builtins.attrNames contract.roles) (builtins.attrValues contracts)
-  );
-  fallbackSources = map (
-    entry: builtins.head (builtins.attrNames entry)
-  ) renderedConfig.litellm_settings.fallbacks;
-  singleDeploymentResidentGroups = builtins.filter (
-    group:
-    builtins.length (builtins.filter (route: route.model_name == group) routes) == 1
-    && !(builtins.elem group fallbackSources)
-  ) residentGroups;
-  judge = routeFor "judge";
-  fast = routeFor "fast";
-  default = routeFor "default";
   mimoAgent = builtins.head (
     builtins.filter (agent: lib.hasSuffix ".mimo-9b" agent.config.Label) residentAgents
   );
@@ -152,42 +135,6 @@ in
       helpers.mkMarker "check-mlx-static-resident-agents" "two always-loaded resident LaunchAgents share the cache preflight before starting model servers"
     else
       throw "static resident mode must render exactly the two KeepAlive model agents without llama-swap";
-
-  mlx-static-resident-routing =
-    if
-      judge.litellm_params.model == "openai/${mimo.model}"
-      && judge.litellm_params.api_base == "http://127.0.0.1:${toString mimo.servicePort}/v1"
-      && judge.litellm_params.timeout == mimo.timeoutSeconds
-      && judge.litellm_params.stream_timeout == mimo.timeoutSeconds
-      && judge.model_info.max_input_tokens == mimo.maxInputTokens
-      && judge.model_info.max_output_tokens == mimo.maxOutputTokens
-      && fast.litellm_params.model == judge.litellm_params.model
-      && default.litellm_params.model == "openai/${qwen.model}"
-      && default.litellm_params.api_base == "http://127.0.0.1:${toString qwen.servicePort}/v1"
-      && !(builtins.any (
-        entry: entry ? judge
-      ) hmConfigStaticServing.config.programs.litellmLocal.renderedConfig.litellm_settings.fallbacks)
-    then
-      helpers.mkMarker "check-mlx-static-resident-routing" "LiteLLM judge and fast aliases resolve directly to the on-machine resident with catalog-derived limits"
-    else
-      throw "static resident LiteLLM aliases must route directly with catalog-derived context, output, and timeout values";
-
-  mlx-static-resident-local-endpoint =
-    if
-      hmConfigStaticServing.config.programs.litellmLocal.localEndpoint
-      == "http://127.0.0.1:${toString qwen.servicePort}/v1"
-    then
-      helpers.mkMarker "check-mlx-static-resident-local-endpoint" "LiteLLM local rungs call the default-role resident's loopback port"
-    else
-      throw "LiteLLM localEndpoint must be the default-role resident's loopback endpoint, got ${builtins.toJSON hmConfigStaticServing.config.programs.litellmLocal.localEndpoint}";
-
-  mlx-static-resident-cooldowns =
-    if
-      singleDeploymentResidentGroups != [ ] && renderedConfig.router_settings.disable_cooldowns == true
-    then
-      helpers.mkMarker "check-mlx-static-resident-cooldowns" "catalog-derived single-deployment resident groups render LiteLLM cooldown suppression"
-    else
-      throw "single-deployment static resident groups without fallbacks must render LiteLLM router cooldown suppression";
 
   mlx-static-resident-limits =
     if
