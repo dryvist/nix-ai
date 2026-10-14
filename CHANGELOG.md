@@ -1,5 +1,19 @@
 # Changelog
 
+## [7.20.0](https://github.com/dryvist/nix-ai/compare/v7.19.0...v7.20.0) (2026-10-14)
+
+
+### Features
+
+* **qwen-code:** target resident Qwen models by size ([db7594b](https://github.com/dryvist/nix-ai/commit/db7594babcb6f769b38fa33f2d7ad400b6b535b7))
+* **qwen-code:** target resident Qwen models by size ([#2587](https://github.com/dryvist/nix-ai/issues/2587)) ([bae46e5](https://github.com/dryvist/nix-ai/commit/bae46e54bb0dd79665abc79c0a76b9577300943a))
+
+
+### Bug Fixes
+
+* **deps:** update dependency mlx to v0.32.4 ([211ff2c](https://github.com/dryvist/nix-ai/commit/211ff2cde2f22aca49521c82a63ecf2784da6d33))
+* **deps:** update dependency mlx to v0.32.4 ([#2586](https://github.com/dryvist/nix-ai/issues/2586)) ([97f86e8](https://github.com/dryvist/nix-ai/commit/97f86e88ccb4b2f634f3368e21b20d36b5ea63bb))
+
 ## [7.19.0](https://github.com/dryvist/nix-ai/compare/v7.18.0...v7.19.0) (2026-10-14)
 
 
