@@ -12,7 +12,7 @@ OpenAI/Anthropic/Gemini-compatible endpoint. Apache-2.0.
   capability-driven `lib.homebrewFor` flake output.
 - A generated `~/.qwen/settings.json` wired to local llama-swap with
   one provider entry per router capability alias when routed. The default
-  startup model is `coding` for direct MLX and `medium` for the local proxy
+  startup model is `coding` for direct MLX and `small` for the local proxy
   or homelab router.
 - MCP servers rendered from the shared `programs.aiMcp.enabledServers`
   profile, with `programs.qwen-code.excludedMcpServers` reserved for
@@ -62,7 +62,8 @@ programs.qwen-code = {
 };
 ```
 
-For the local proxy or homelab router, use `medium`.
+For the local proxy or homelab router, `small` is the default. Select `medium`
+when a request needs that capability.
 
 With the sandbox enabled, only `OPENAI_API_KEY` and `OPENAI_BASE_URL` are
 forwarded from the launching shell. Other provider keys require explicitly

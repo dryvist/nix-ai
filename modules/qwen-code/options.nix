@@ -74,10 +74,11 @@ in
 
     model = lib.mkOption {
       type = lib.types.str;
-      default = if usesRouterCapabilities then "medium" else "coding";
+      default = if usesRouterCapabilities then "small" else "coding";
       description = ''
         Default model to start sessions with. Direct MLX uses a local role name;
-        the local proxy and homelab router use a capability alias.
+        the local proxy and homelab router use a capability alias, defaulting
+        to small.
       '';
     };
 

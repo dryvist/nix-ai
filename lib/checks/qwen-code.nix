@@ -68,12 +68,12 @@ in
       {
         name = "qwen-code.model.local-proxy";
         actual = hmConfigLitellmLocal.config.programs.qwen-code.model;
-        expected = "medium";
+        expected = "small";
       }
       {
         name = "qwen-code.model.router";
         actual = hmConfigRouter.config.programs.qwen-code.model;
-        expected = "medium";
+        expected = "small";
       }
     ];
   };
