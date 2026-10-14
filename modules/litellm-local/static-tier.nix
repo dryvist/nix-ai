@@ -1,10 +1,7 @@
-# The static resident host's routes and the router fallbacks of its head aliases.
+# Static resident routes and router fallbacks for the head aliases.
 #
-# A resident role routes straight to its loopback worker as a singleton group.
-# A head alias (`small`) instead keeps a way out of a stopped worker: this
-# host's other local models that are a different model from the one the alias
-# is resident on, then the same alias name on the shared router. Every other
-# resident role stays a direct single-deployment route.
+# Resident roles route locally unless `localModels` declares the same group.
+# Head aliases use their same-named router group as the sole fallback.
 #
 # Each router rung is its own group (`<alias>-homelab`) because a fallback
 # target must be a named group; the `*` wildcard cannot be one. A request too
@@ -18,12 +15,8 @@
 }:
 let
   roles = lib.optionals (staticResidentModels != { }) headAliases;
-  residentModelOf =
-    role:
-    lib.findFirst (modelId: staticResidentModels.${modelId}.roles ? ${role}) null (
-      builtins.attrNames staticResidentModels
-    );
   routerRung = role: "${role}-homelab";
+  localModelDefinesRole = role: builtins.any (model: model.name == role) localModels;
 in
 {
   routes = lib.concatMap (
@@ -45,7 +38,7 @@ in
         max_input_tokens = contract.maxInputTokens;
         max_output_tokens = contract.maxOutputTokens;
       };
-    }) (builtins.attrNames contract.roles)
+    }) (builtins.filter (role: !(localModelDefinesRole role)) (builtins.attrNames contract.roles))
   ) (builtins.attrNames staticResidentModels);
 
   routerRungs = map (role: {
@@ -58,9 +51,7 @@ in
   }) roles;
 
   fallbacks = map (role: {
-    ${role} = map (m: m.name) (builtins.filter (m: m.id != residentModelOf role) localModels) ++ [
-      (routerRung role)
-    ];
+    ${role} = [ (routerRung role) ];
   }) roles;
 
   contextWindowFallbacks = map (role: { ${role} = [ (routerRung role) ]; }) roles;
