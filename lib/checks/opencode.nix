@@ -74,6 +74,7 @@ in
       }
       ''
         jq -e --arg alias "${routerAlias}" '
+          .model == "litellm/small" and
           .provider.litellm.npm == "@ai-sdk/openai-compatible" and
           .provider.litellm.name == "LiteLLM (router)" and
           .provider.litellm.options == {

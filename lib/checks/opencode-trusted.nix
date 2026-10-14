@@ -106,7 +106,7 @@ in
         test -s ${sessionPlugin}
         jq -e '
           .permission["*"] == "allow" and
-          .model == "litellm/medium" and
+          .model == "litellm/small" and
           .small_model == "litellm/small" and
           .provider.litellm.options == {
             baseURL: "{env:LLM_ROUTER_URL}",

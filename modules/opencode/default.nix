@@ -223,7 +223,7 @@ let
   # router capabilities. The provider catalog and delegated agents share the
   # alias contract from modules/litellm-local/aliases.nix.
   // {
-    model = "litellm/medium";
+    model = "litellm/small";
     small_model = "litellm/small";
   };
 
