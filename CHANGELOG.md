@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.18.0](https://github.com/dryvist/nix-ai/compare/v7.17.0...v7.18.0) (2026-10-14)
+
+
+### Features
+
+* **litellm-local:** make the small fallback router-only and let localModels order medium ([#2578](https://github.com/dryvist/nix-ai/issues/2578)) ([74713bc](https://github.com/dryvist/nix-ai/commit/74713bc94e890996c4edc70cdb23e33c4f5a2a7f))
+
 ## [7.17.0](https://github.com/dryvist/nix-ai/compare/v7.16.0...v7.17.0) (2026-10-13)
 
 
