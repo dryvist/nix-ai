@@ -9,11 +9,22 @@ Two halves, one flake:
 
 | Output | File | Runs |
 | --- | --- | --- |
-| `homeManagerModules.herdr` | `default.nix`, `options.nix`, `settings.nix` | the workstation |
+| `homeManagerModules.herdr` | `default.nix`, `options.nix`, `settings.nix`, `hail-options.nix`, `launchd.nix`, `launchd-hail.nix` | the workstation |
 | `nixosModules.herdr` | `nixos.nix` | the Linux guest, as a systemd service |
 
 Both take their binary from the same `llm-agents` input, so a pane on the
 server runs the same build as a pane on the Mac.
+
+Hail is an optional companion process on either platform. On macOS, set
+`services.herdr.hail.enable = true` alongside `programs.herdr.enable`; its
+LaunchAgent reads a generated, non-secret `config.json` and connects to the
+server's socket. See [`docs/runbooks/herdr.md`](../../docs/runbooks/herdr.md)
+for setup and verification.
+
+Set `services.herdr.hail.launchPrefix` to a list of arguments for a runtime
+secret-injecting launcher; the default is empty and runs Hail directly. The
+launcher must provide Slack tokens as environment variables to Hail, while
+`settings` must contain only non-secret configuration.
 
 ## Where CLI binaries come from
 

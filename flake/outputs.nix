@@ -74,6 +74,7 @@ in
       mattpocock-skills
       nixpkgs-unstable
       llm-agents
+      herdr-hail-src
       dashmotion
       ponytail
       claude-channel-slack

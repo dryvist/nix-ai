@@ -29,6 +29,7 @@
   token-meter-src,
   homelab-contracts,
   nix-agent-sandbox-src,
+  herdr-hail-src,
 }:
 let
   # Marketplace flake inputs now live inside nix-claude-code. Surface the
@@ -127,6 +128,7 @@ in
         awesome-claude-skills
         marketplaceInputs
         llm-agents
+        herdr-hail-src
         vct-cribl-cli
         vct-splunk-cli
         token-meter-src
@@ -300,7 +302,7 @@ in
   herdr = {
     imports = [ ../modules/herdr ];
     _module.args = partialArgs {
-      inherit llm-agents;
+      inherit llm-agents herdr-hail-src;
     };
   };
 

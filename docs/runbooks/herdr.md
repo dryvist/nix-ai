@@ -17,10 +17,30 @@ pin that is not the problem.
 1. `herdr --version` — confirms the binary is on PATH from the current
    generation. If it is missing, check `enable` and `package` before assuming a
    stale pin.
-2. `herdr status` — reports client and server separately. The workstation half
-   starts no daemon of its own, so `server: not running` is normal until a
-   client or `herdr server` starts one. On a guest, the systemd unit owns it.
+2. `herdr status` — reports client and server separately. The workstation
+   LaunchAgent runs the server, so `server: not running` means the agent is
+   disabled or failed. On a guest, the systemd unit owns it.
 3. `herdr session list` — a running session and its socket path.
+
+## Enable Hail on macOS
+
+Hail is disabled by default. Set `services.herdr.hail.enable = true` and
+`programs.herdr.enable = true` in the host's Home Manager configuration. Set
+`services.herdr.hail.settings.slack` with `enabled = true`, the channel ID and
+an optional `allowedUsers` list. Set `services.herdr.hail.launchPrefix` to the
+host's runtime secret-injecting launcher; it must provide
+`SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN` to the child process. The generated
+`config.json` contains only non-secret settings. Apply the next generation to
+start Hail as a separate LaunchAgent against the herdr socket; it does not use
+the interactive plugin host.
+
+Check the service with
+`launchctl print gui/$(id -u)/dev.herdr.hail`, and read
+`~/Library/Logs/herdr/hail.log` and `~/Library/Logs/herdr/hail.error.log` for
+startup or connection errors. `herdr status server` confirms the socket owner.
+After the service connects, block an agent pane to verify a Slack message
+arrives; reply in its thread or tap a permission choice to send the answer back
+to the pane.
 
 ## Verify detection on a live pane
 
@@ -110,4 +130,4 @@ running agent does not.
 - [`docs/architecture/herdr.md`](../architecture/herdr.md) — topology, socket
   ownership, and detection precedence.
 - [`modules/herdr/README.md`](../../modules/herdr/README.md) — binary sources
-  and the declarative-config conflicts.
+  and the declarative-config conflicts, with the macOS Hail option summary.
