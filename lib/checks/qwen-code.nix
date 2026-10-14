@@ -9,7 +9,7 @@
 }:
 let
   helpers = import ./helpers.nix { inherit pkgs; };
-  lib = pkgs.lib;
+  inherit (pkgs) lib;
   routerAliases = import ../../modules/litellm-local/aliases.nix;
   routerCapabilities = routerAliases ++ [
     "embed"
@@ -18,13 +18,13 @@ let
   cfg = hmConfig.config.programs.qwen-code;
   homeDir = hmConfig.config.home.homeDirectory;
   untrustedMode = import ../../modules/qwen-code/model-mode.nix {
-    config = hmConfig.config;
+    inherit (hmConfig) config;
     inherit lib;
   };
   staticCfg = hmConfigStaticServing.config.programs.qwen-code;
   staticSettings = staticCfg.generatedSettings;
   staticMode = import ../../modules/qwen-code/model-mode.nix {
-    config = hmConfigStaticServing.config;
+    inherit (hmConfigStaticServing) config;
     inherit lib;
   };
   modelId = staticMode.modelId staticCfg.model;
@@ -38,7 +38,7 @@ let
   );
   missingResidentMessage = "programs.qwen-code.model names a Qwen catalog key without a static MLX resident on this host.";
   routerMode = import ../../modules/qwen-code/model-mode.nix {
-    config = hmConfigQwenRouter.config;
+    inherit (hmConfigQwenRouter) config;
     inherit lib;
   };
   localProxySettings = hmConfigLitellmLocal.config.programs.qwen-code.generatedSettings;

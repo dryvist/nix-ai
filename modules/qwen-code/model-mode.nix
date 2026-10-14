@@ -17,7 +17,7 @@ let
     && !(lib.elem entry.model routerCapabilities)
   ) (lib.attrNames modelCatalog);
   residentQwenCatalogKeys = lib.filter (
-    modelName: builtins.hasAttr (modelCatalog.${modelName}.model) residentContracts
+    modelName: builtins.hasAttr modelCatalog.${modelName}.model residentContracts
   ) qwenCatalogKeys;
   defaultModel =
     if lib.elem "qwen38-27b" residentQwenCatalogKeys then

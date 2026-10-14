@@ -171,63 +171,65 @@ rec {
   # entries, the stable role mapping, and no swap-class selection.
   hmConfigStaticServing = mkHmConfig [
     {
-      programs.mlx = {
-        enable = true;
-        staticResidentLocalProxyConsumers = true;
-        memoryHardLimitGb = 46;
-        roleMap = {
-          models = {
-            qwen38-27b = mkMlxRoleModel "qwen38-27b";
-            mimo-9b = mkMlxRoleModel "mimo-9b";
+      programs = {
+        mlx = {
+          enable = true;
+          staticResidentLocalProxyConsumers = true;
+          memoryHardLimitGb = 46;
+          roleMap = {
+            models = {
+              qwen38-27b = mkMlxRoleModel "qwen38-27b";
+              mimo-9b = mkMlxRoleModel "mimo-9b";
+            };
+            roles = {
+              default.model = "qwen38-27b";
+              fast.model = "mimo-9b";
+              judge.model = "mimo-9b";
+              recorder.model = "mimo-9b";
+              cheap.model = "mimo-9b";
+              small.model = "mimo-9b";
+            };
+            hosts.workstation = {
+              resident = [
+                "qwen38-27b"
+                "mimo-9b"
+              ];
+              swap = [ ];
+            };
           };
-          roles = {
-            default.model = "qwen38-27b";
-            fast.model = "mimo-9b";
-            judge.model = "mimo-9b";
-            recorder.model = "mimo-9b";
-            cheap.model = "mimo-9b";
-            small.model = "mimo-9b";
-          };
-          hosts.workstation = {
-            resident = [
-              "qwen38-27b"
-              "mimo-9b"
-            ];
-            swap = [ ];
+          catalog = {
+            qwen38-27b = {
+              class = "resident";
+              roles = [ "default" ];
+            };
+            mimo-9b = {
+              class = "resident";
+              roles = [
+                "fast"
+                "judge"
+                "recorder"
+                "cheap"
+                "small"
+              ];
+            };
           };
         };
-        catalog = {
-          qwen38-27b = {
-            class = "resident";
-            roles = [ "default" ];
-          };
-          mimo-9b = {
-            class = "resident";
-            roles = [
-              "fast"
-              "judge"
-              "recorder"
-              "cheap"
-              "small"
-            ];
-          };
+        litellmLocal = {
+          enable = true;
+          routerEntryModel = "medium";
+          localModels = [
+            {
+              name = "medium";
+              router = "medium";
+            }
+            {
+              name = "medium-local";
+              id = localMlxCatalog.qwen38-27b.model;
+            }
+          ];
         };
+        qwen-code.enable = true;
       };
-      programs.litellmLocal = {
-        enable = true;
-        routerEntryModel = "medium";
-        localModels = [
-          {
-            name = "medium";
-            router = "medium";
-          }
-          {
-            name = "medium-local";
-            id = localMlxCatalog.qwen38-27b.model;
-          }
-        ];
-      };
-      programs.qwen-code.enable = true;
       services.aiStack = {
         llmEndpoint = "router";
         llmRouterEndpoint = "https://router.example.invalid/v1";
