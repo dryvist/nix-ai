@@ -60,6 +60,20 @@ let
         config.allowUnfree = true;
       };
     }).mkHmConfig;
+  hmConfigDarwinHerdr = mkHmConfigDarwin [
+    {
+      programs.herdr.enable = true;
+      services.herdr.hail = {
+        enable = true;
+        launchPrefix = [
+          "runtime-secret-launcher"
+          "run"
+          "--"
+        ];
+        settings.slack.enabled = true;
+      };
+    }
+  ];
 in
 (import ./checks/lint.nix { inherit pkgs src; })
 // (import ./checks/agent-nofile.nix {
@@ -166,6 +180,7 @@ in
 // (import ./checks/herdr.nix {
   inherit pkgs;
   hmConfig = hmConfigUntrusted;
+  hmConfigDarwin = hmConfigDarwinHerdr;
 })
 // (import ./checks/qwen-code.nix {
   inherit pkgs hmConfigLitellmLocal hmConfigRouter;
