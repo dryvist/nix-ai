@@ -1,6 +1,11 @@
 # Qwen Code must use the shared deny-default Seatbelt boundary without inheriting
 # OpenCode's app grants or credentials from the caller's environment.
-{ pkgs, hmConfig }:
+{
+  pkgs,
+  hmConfig,
+  hmConfigLitellmLocal,
+  hmConfigQwenRouter,
+}:
 let
   inherit (pkgs) lib;
   helpers = import ./helpers.nix { inherit pkgs; };
@@ -13,6 +18,8 @@ let
   qwenOptions = builtins.readFile ../../modules/qwen-code/options.nix;
   qwenSettings = builtins.readFile ../../modules/qwen-code/settings.nix;
   cfg = hmConfig.config.programs.qwen-code;
+  routerCfg = hmConfigQwenRouter.config.programs.qwen-code;
+  localProxyCfg = hmConfigLitellmLocal.config.programs.qwen-code;
   homeDir = hmConfig.config.home.homeDirectory;
   installedQwen = builtins.filter (
     package: (package.pname or "") == "qwen-code"
@@ -62,11 +69,15 @@ let
   wiringIntact =
     lib.hasInfix "import ./endpoint.nix { inherit config; }" qwenModule
     && lib.hasInfix "import ./endpoint.nix { inherit config; }" qwenSettings
+    && lib.hasInfix "modelMode.endpoint modelName" qwenModule
+    && lib.hasInfix "modelMode.endpoint modelName" qwenSettings
+    && lib.hasInfix "sandboxLocalPorts = localPorts;" qwenModule
     && lib.hasInfix "lib.optional (loopbackEndpoint != null)" qwenModule
     && lib.hasInfix "if cfg.sandbox.enable then sandboxedQwen else cfg.package" qwenModule
     && lib.hasInfix "pkgs.stdenv.hostPlatform.isDarwin" qwenOptions
     && lib.hasInfix "cfg.package != null" qwenModule
     && lib.hasInfix "if litellmLocal.enable then" qwenSettings
+    && lib.hasInfix ''"QWEN_LOCAL_DUMMY_KEY"'' qwenSettings
     && lib.hasInfix ''"OPENAI_API_KEY"'' qwenSettings;
   qwenDoesNotGetOtherTools =
     !(lib.hasInfix ".config/opencode" qwenSandbox)
@@ -98,5 +109,9 @@ in
     assert cfg.sandbox.workRoot == "${homeDir}/qwen-code-work";
     assert cfg.package != null;
     assert !cfg.sandbox.enable || builtins.any (package: package ? sandboxProfile) installedQwen;
-    helpers.mkMarker "check-qwen-code-sandbox-regression" "Qwen Code uses the shared Seatbelt boundary and a narrow router environment";
+    assert cfg.sandboxLocalPorts == [ 11427 ];
+    assert routerCfg.sandboxLocalPorts == [ ];
+    assert
+      localProxyCfg.sandboxLocalPorts == [ hmConfigLitellmLocal.config.programs.litellmLocal.port ];
+    helpers.mkMarker "check-qwen-code-sandbox-regression" "Qwen Code sandbox ports follow each host's selected endpoint";
 }
