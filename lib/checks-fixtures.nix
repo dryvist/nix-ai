@@ -208,7 +208,20 @@ rec {
           };
         };
       };
-      programs.litellmLocal.enable = true;
+      programs.litellmLocal = {
+        enable = true;
+        routerEntryModel = "medium";
+        localModels = [
+          {
+            name = "medium";
+            router = "medium";
+          }
+          {
+            name = "medium-local";
+            id = localMlxCatalog.qwen38-27b.model;
+          }
+        ];
+      };
       services.aiStack = {
         llmEndpoint = "router";
         llmRouterEndpoint = "https://router.example.invalid/v1";

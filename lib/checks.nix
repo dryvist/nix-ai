@@ -205,6 +205,7 @@ in
     mkHmConfig
     ;
 })
+// (import ./checks/mlx-static-routing.nix { inherit pkgs hmConfigStaticServing; })
 // (import ./checks/mlx-model-admission.nix {
   inherit pkgs hmConfigStaticServing mkHmConfig;
 })
