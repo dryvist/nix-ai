@@ -79,10 +79,12 @@ Run `litellm-fallback-probe` after any refresh. Catalog metadata is a claim, not
 behaviour: a model can stop serving with no config change on either side, and
 only a real completion detects it.
 
-The other local nix-ai clients (qwen-code, cecli, Fabric) call llama-swap
-directly at `:11434` by default — no gateway hop. Setting
-`services.aiStack.llmEndpoint = "router"` repoints those OpenAI-compatible
-consumers at the cluster-hosted LiteLLM router instead (bearer-gated via
+Qwen Code uses the selected catalog key's static MLX resident server when the
+host has a resident Qwen catalog entry. Without one, it keeps the endpoint and
+capability or role names selected by `services.aiStack`. cecli and Fabric call
+llama-swap directly at `:11434` by default — no gateway hop. Setting
+`services.aiStack.llmEndpoint = "router"` repoints the router-capable
+OpenAI-compatible consumers at the cluster-hosted LiteLLM router (bearer-gated via
 `services.aiStack.llmEndpointTokenFile`). The chat UI is no longer local: the
 former on-host Open WebUI has been removed in favour of the single
 cluster-hosted Open WebUI.

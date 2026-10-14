@@ -50,6 +50,8 @@ let
     hmConfigSessionArchive
     hmConfigLitellmLocal
     hmConfigRouter
+    hmConfigQwenRouter
+    hmConfigQwenMissingResident
     hmConfigMcpLaunchPrefix
     ;
   mkHmConfigDarwin =
@@ -183,12 +185,18 @@ in
   hmConfigDarwin = hmConfigDarwinHerdr;
 })
 // (import ./checks/qwen-code.nix {
-  inherit pkgs hmConfigLitellmLocal hmConfigRouter;
+  inherit
+    pkgs
+    hmConfigLitellmLocal
+    hmConfigQwenRouter
+    hmConfigQwenMissingResident
+    hmConfigStaticServing
+    ;
   hmConfig = hmConfigUntrusted;
 })
 // (import ./checks/qwen-code-sandbox.nix {
-  inherit pkgs;
-  hmConfig = hmConfigUntrusted;
+  inherit pkgs hmConfigLitellmLocal hmConfigQwenRouter;
+  hmConfig = hmConfigStaticServing;
 })
 // (import ./checks/opencode.nix {
   inherit pkgs;

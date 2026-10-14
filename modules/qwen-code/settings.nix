@@ -7,15 +7,15 @@
 #   - modelProviders      `{ <authType> = [ model ]; }`, rendered from the
 #                         provider list below (baseUrl, protocol, models,
 #                         API-key env var) at write time.
-#   - env                 Fallback API-key store (lowest priority; we
-#                         leave empty and prefer .env files for secrets).
+#   - env                 Fallback API-key store (lowest priority; router
+#                         providers use the process environment).
 #   - security.auth       The active provider type (openai for our local
 #                         llama-swap routing).
 #   - model.name          Default model on startup.
 #
-# We declare a single `mlx-local-llama-swap` provider that points at the
-# selected local endpoint or router and lists the matching capability aliases.
-# Users can layer additional providers via
+# A host with a static Qwen resident gets a provider for its catalog keys.
+# Other hosts use the `mlx-local-llama-swap` provider and its role names or
+# router capability aliases. Users can layer providers via
 # programs.qwen-code.extraSettings.modelProviders.
 #
 {
@@ -29,6 +29,7 @@
 let
   cfg = config.programs.qwen-code;
   homeDir = config.home.homeDirectory;
+  modelMode = import ./model-mode.nix { inherit config lib; };
   inherit (config.services.aiStack) llmEndpoint;
 
   aiCommon = import ../common {
@@ -70,7 +71,26 @@ let
         name = role;
         description = "${role} → ${physical}";
       }) config.services.aiStack.models;
-
+  staticModelProviders = map (
+    modelName:
+    let
+      modelId = modelMode.modelId modelName;
+    in
+    {
+      name = "mlx-static-resident";
+      protocol = "openai";
+      baseUrl = modelMode.endpoint modelName;
+      # The static MLX server is an open loopback endpoint; Qwen Code still
+      # requires an environment variable name in the provider schema.
+      envKey = "QWEN_LOCAL_DUMMY_KEY";
+      models = [
+        {
+          name = modelId;
+          description = "${modelName} local MLX model";
+        }
+      ];
+    }
+  ) cfg.models;
   defaultModelName = cfg.model;
 
   normalizeMcpServer =
@@ -130,6 +150,13 @@ let
     security.auth.selectedType = "openai";
 
     model.name = defaultModelName;
+  }
+  // lib.optionalAttrs modelMode.bySize {
+    modelProviders = staticModelProviders;
+    env = {
+      QWEN_LOCAL_DUMMY_KEY = "dummy";
+    };
+    model.name = modelMode.modelId cfg.model;
   };
 
   # Deep merge user extras over our base. recursiveUpdate replaces leaf
@@ -176,6 +203,7 @@ in
       programs.qwen-code = {
         contextFileNames = baseSettings.context.fileName;
         mcpServerNames = lib.attrNames mcpServers;
+        generatedSettings = finalSettings;
       };
     }
     (lib.mkIf cfg.enable {
