@@ -98,6 +98,21 @@ in
       '';
     };
 
+    excludeTools = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [
+        "skill"
+        "todo_write"
+        "agent"
+        "ask_user_question"
+      ];
+      description = ''
+        Built-in tools to deny to reduce the first-session prompt size when
+        using a local model. Entries are bare tool names rendered into
+        `permissions.deny`; set to `[ ]` to re-enable all built-in tools.
+      '';
+    };
+
     extraSettings = lib.mkOption {
       type = lib.types.attrs;
       default = { };
