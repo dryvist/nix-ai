@@ -77,6 +77,8 @@ rec {
   inherit (import ./checks/qwen-code-fixtures.nix { inherit mkHmConfig; })
     hmConfigQwenRouter
     hmConfigQwenMissingResident
+    hmConfigQwenExcludeToolsEmpty
+    hmConfigQwenExcludeToolsCustom
     ;
 
   # oh-my-openagent switched on (lib/checks/oh-my-openagent.nix): with and

@@ -21,6 +21,9 @@ OpenAI/Anthropic/Gemini-compatible endpoint. Apache-2.0.
   Codex and Antigravity. Only Bash command rules map across — Qwen's
   builtin tool names and prefix-less `WebFetch(host)` syntax differ, so
   Claude-specific extras are skipped.
+- `programs.qwen-code.excludeTools` denies `skill`, `todo_write`, `agent`,
+  and `ask_user_question` by default to reduce local-model first-session prompt size;
+  set it to `[ ]` to re-enable them.
 - Shared skills linked from `~/.agents/skills` into `~/.qwen/skills`,
   matching Codex and Antigravity rather than maintaining a separate
   skill tree.
