@@ -7,7 +7,7 @@
     { nix-devenv, ... }:
     let
       shell = builtins.getFlake (
-        "github:dryvist/nix-devenv/" + nix-devenv.rev + "?dir=shells/mlx-server"
+        "git+https://github.com/dryvist/nix-devenv?ref=v0&rev=" + nix-devenv.rev + "&dir=shells/mlx-server"
       );
     in
     {
