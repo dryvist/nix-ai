@@ -14,6 +14,6 @@ dependencies = [
   "mlx-lm==0.32.0",
   # renovate: datasource=git-refs depName=mlx-vlm packageName=https://github.com/Blaizzy/mlx-vlm currentValue=pc/embeddinggemma-2
   "mlx-vlm @ https://github.com/Blaizzy/mlx-vlm/archive/30f177f03cbcb42bc2f65496458de79f51b80c28.zip",
-  "transformers==5.19.0",
+  "transformers==5.20.0",
   "huggingface-hub==1.33.0",
 ]
