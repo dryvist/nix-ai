@@ -36,7 +36,7 @@ jobs:
       # actions: write must be granted here or the run fails at graph
       # validation (startup_failure).
       actions: write
-    uses: dryvist/.github/.github/workflows/_ci-gate.yml@1f09b25303a04bf276087348059671728ffea50a # v1.13.2
+    uses: dryvist/.github/.github/workflows/_ci-gate.yml@41ca3a7c0f8853acbfa38ef905a6231cdddf968d # v1.19.0
     secrets:
       TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
     with:

@@ -35,7 +35,7 @@ permissions:
 
 jobs:
   sweep:
-    uses: dryvist/ai-workflows/.github/workflows/issue-backlog-sweep.yml@286459bf39f4c269e10d6b28e8c29ba225faed5e # v0.49.0
+    uses: dryvist/ai-workflows/.github/workflows/issue-backlog-sweep.yml@22d262fbeca2f783851dc0c2934d74edd9809893 # v0.49.1
     # Org-level secrets can only be forwarded to a reusable via `inherit` — GitHub
     # rejects explicit mapping (`NAME: ${{ secrets.NAME }}`) of org secrets at
     # instantiation (startup failure). zizmor's secrets-inherit audit is therefore

@@ -12,4 +12,4 @@ jobs:
       contents: read
       pull-requests: read
       statuses: write
-    uses: dryvist/.github/.github/workflows/_release-freeze.yml@26e6933fbebcf11bfbe6d675f9ce7b322ffd7de9 # v1.17.0
+    uses: dryvist/.github/.github/workflows/_release-freeze.yml@41ca3a7c0f8853acbfa38ef905a6231cdddf968d # v1.19.0
