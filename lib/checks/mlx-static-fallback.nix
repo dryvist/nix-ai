@@ -20,13 +20,13 @@ let
   small = routeFor "small";
   smallRouter = routeFor "small-homelab";
   contracts = hmConfigStaticServing.config.programs.mlx.staticResidentContracts;
-  mimo = contracts."mlx-community/MiMo-V2.6-Distill-Qwen-9B-OptiQ-4bit";
+  small9b = contracts."mlx-community/Qwen3.5-9B-OptiQ-4bit";
 in
 {
   mlx-static-resident-router-fallback =
     if
-      small.litellm_params.model == "openai/${mimo.model}"
-      && small.litellm_params.api_base == "http://127.0.0.1:${toString mimo.servicePort}/v1"
+      small.litellm_params.model == "openai/${small9b.model}"
+      && small.litellm_params.api_base == "http://127.0.0.1:${toString small9b.servicePort}/v1"
       && (fallbackFor "small").small == [ "small-homelab" ]
       && (windowFallbackFor "small").small == [ "small-homelab" ]
       && smallRouter.litellm_params.model == "openai/small"

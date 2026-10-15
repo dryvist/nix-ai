@@ -141,12 +141,15 @@ in
       {
         name = "qwen-code.model.static-resident";
         actual = staticCfg.model;
-        expected = "qwen38-27b";
+        expected = "qwen35-9b";
       }
       {
         name = "qwen-code.models.static-resident";
         actual = staticCfg.models;
-        expected = [ "qwen38-27b" ];
+        expected = [
+          "qwen35-9b"
+          "qwen38-27b"
+        ];
       }
       {
         name = "qwen-code.models.router-only";
@@ -282,7 +285,7 @@ in
       {
         name = "selected physical model id";
         actual = modelId;
-        expected = "mlx-community/Qwen3.8-27B-4bit";
+        expected = "mlx-community/Qwen3.5-9B-OptiQ-4bit";
       }
       {
         name = "selected model is statically resident";
@@ -292,7 +295,18 @@ in
       {
         name = "endpoint is the resident model server";
         actual = staticEndpoint;
-        expected = "http://127.0.0.1:11427/v1";
+        expected = "http://127.0.0.1:11409/v1";
+      }
+      {
+        name = "the larger resident stays selectable on its own endpoint";
+        actual = [
+          (staticMode.modelId "qwen38-27b")
+          (staticMode.endpoint "qwen38-27b")
+        ];
+        expected = [
+          "mlx-community/Qwen3.8-27B-4bit"
+          "http://127.0.0.1:11427/v1"
+        ];
       }
       {
         name = "rendered default names the physical model";
@@ -302,17 +316,26 @@ in
       {
         name = "rendered provider model names the physical model";
         actual = map (entry: entry.name) staticSettings.modelProviders.openai;
-        expected = [ modelId ];
+        expected = [
+          modelId
+          (staticMode.modelId "qwen38-27b")
+        ];
       }
       {
         name = "rendered provider points at the resident endpoint";
         actual = map (entry: entry.baseUrl) staticSettings.modelProviders.openai;
-        expected = [ staticEndpoint ];
+        expected = [
+          staticEndpoint
+          (staticMode.endpoint "qwen38-27b")
+        ];
       }
       {
         name = "rendered provider uses the local dummy key";
         actual = map (entry: entry.envKey) staticSettings.modelProviders.openai;
-        expected = [ "QWEN_LOCAL_DUMMY_KEY" ];
+        expected = [
+          "QWEN_LOCAL_DUMMY_KEY"
+          "QWEN_LOCAL_DUMMY_KEY"
+        ];
       }
     ];
   };

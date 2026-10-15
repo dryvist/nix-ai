@@ -109,7 +109,11 @@ in
     assert cfg.sandbox.workRoot == "${homeDir}/qwen-code-work";
     assert cfg.package != null;
     assert !cfg.sandbox.enable || builtins.any (package: package ? sandboxProfile) installedQwen;
-    assert cfg.sandboxLocalPorts == [ 11427 ];
+    assert
+      cfg.sandboxLocalPorts == [
+        11409
+        11427
+      ];
     assert routerCfg.sandboxLocalPorts == [ ];
     assert
       localProxyCfg.sandboxLocalPorts == [ hmConfigLitellmLocal.config.programs.litellmLocal.port ];
