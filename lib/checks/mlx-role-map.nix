@@ -16,6 +16,7 @@ let
   mlxRoleModels = [
     "qwen38-27b"
     "mimo-9b"
+    "qwen35-9b"
   ];
   fixtureModels = hmConfig: hmConfig.config.programs.mlx.roleMap.models;
   fixtureHasChatServingMetadata =
@@ -31,7 +32,7 @@ let
       && model.serving.backend == "mlx-lm"
       && model.serving.endpoint == "/v1/chat/completions"
       && model.mlxChat
-    ) mlxRoleModels;
+    ) (builtins.filter (key: models ? ${key}) mlxRoleModels);
   missingConcurrency = builtins.filter (key: !(roleMap.models.${key} ? concurrency)) (
     builtins.attrNames roleMap.models
   );

@@ -75,7 +75,7 @@ in
 
     models = lib.mkOption {
       type = lib.types.listOf lib.types.str;
-      default = if modelMode.bySize then [ modelMode.defaultModel ] else [ ];
+      default = if modelMode.bySize then modelMode.modelNames else [ ];
       description = ''
         MLX catalog keys Qwen Code may select in by-size mode. Each entry must
         name a Qwen model in the catalog and be statically resident on this

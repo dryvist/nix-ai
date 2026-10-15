@@ -58,13 +58,18 @@ When a host has a static resident for a Qwen catalog entry,
 `programs.qwen-code.models`. Each allowed entry must be a Qwen model selected
 as a static resident on the host. Qwen Code uses the catalog key as its
 default and the provider points directly to that resident's loopback service
-port. The default catalog key is `qwen38-27b` when that resident is available.
+port. When both the `qwen35-9b` and `qwen38-27b` residents are available, both
+are allowed and the default is `qwen35-9b`. Otherwise the default is
+`qwen38-27b` when that resident is available.
 
 ```nix
 programs.qwen-code = {
   enable = true;
-  model = "qwen38-27b";
-  models = [ "qwen38-27b" ];
+  model = "qwen35-9b";
+  models = [
+    "qwen35-9b"
+    "qwen38-27b"
+  ];
 };
 ```
 

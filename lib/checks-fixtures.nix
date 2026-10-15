@@ -181,20 +181,20 @@ rec {
           roleMap = {
             models = {
               qwen38-27b = mkMlxRoleModel "qwen38-27b";
-              mimo-9b = mkMlxRoleModel "mimo-9b";
+              qwen35-9b = mkMlxRoleModel "qwen35-9b";
             };
             roles = {
               default.model = "qwen38-27b";
-              fast.model = "mimo-9b";
-              judge.model = "mimo-9b";
-              recorder.model = "mimo-9b";
-              cheap.model = "mimo-9b";
-              small.model = "mimo-9b";
+              fast.model = "qwen35-9b";
+              judge.model = "qwen35-9b";
+              recorder.model = "qwen35-9b";
+              cheap.model = "qwen35-9b";
+              small.model = "qwen35-9b";
             };
             hosts.workstation = {
               resident = [
                 "qwen38-27b"
-                "mimo-9b"
+                "qwen35-9b"
               ];
               swap = [ ];
             };
@@ -204,7 +204,7 @@ rec {
               class = "resident";
               roles = [ "default" ];
             };
-            mimo-9b = {
+            qwen35-9b = {
               class = "resident";
               roles = [
                 "fast"
