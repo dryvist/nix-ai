@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.22.3](https://github.com/dryvist/nix-ai/compare/v7.22.2...v7.22.3) (2026-10-16)
+
+
+### Bug Fixes
+
+* **herdr-hail:** accept thread replies sent to the channel ([#2608](https://github.com/dryvist/nix-ai/issues/2608)) ([443531e](https://github.com/dryvist/nix-ai/commit/443531e1553c06a2fb129969d6940cf928020f13))
+
 ## [7.22.2](https://github.com/dryvist/nix-ai/compare/v7.22.1...v7.22.2) (2026-10-16)
 
 
