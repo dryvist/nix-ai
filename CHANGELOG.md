@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.22.2](https://github.com/dryvist/nix-ai/compare/v7.22.1...v7.22.2) (2026-10-16)
+
+
+### Bug Fixes
+
+* **herdr-hail:** adapt agent input to the herdr socket API ([#2601](https://github.com/dryvist/nix-ai/issues/2601)) ([eaef683](https://github.com/dryvist/nix-ai/commit/eaef683850740b7694ca8327b3711308b208258e))
+
 ## [7.22.1](https://github.com/dryvist/nix-ai/compare/v7.22.0...v7.22.1) (2026-10-16)
 
 
