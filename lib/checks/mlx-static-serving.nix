@@ -53,15 +53,15 @@ let
     versions = import ../../lib/versions.nix;
   };
   qwen = contracts."mlx-community/Qwen3.8-27B-4bit";
-  mimo = contracts."mlx-community/MiMo-V2.6-Distill-Qwen-9B-OptiQ-4bit";
+  small9b = contracts."mlx-community/Qwen3.5-9B-OptiQ-4bit";
   session = hmConfigStaticServing.config.home.sessionVariables;
   limits =
     builtins.fromJSON
       hmConfigStaticServing.config.home.file.".config/mlx/resident-model-limits.json".text;
-  mimoAgent = builtins.head (
-    builtins.filter (agent: lib.hasSuffix ".mimo-9b" agent.config.Label) residentAgents
+  small9bAgent = builtins.head (
+    builtins.filter (agent: lib.hasSuffix ".qwen35-9b" agent.config.Label) residentAgents
   );
-  preflightServer = builtins.head mimoAgent.config.ProgramArguments;
+  preflightServer = builtins.head small9bAgent.config.ProgramArguments;
   hasPair =
     args: first: second:
     if args == [ ] then
@@ -114,7 +114,7 @@ in
       &&
         builtins.sort builtins.lessThan labels == [
           "dev.mlx-model-server"
-          "dev.mlx-model-server.mimo-9b"
+          "dev.mlx-model-server.qwen35-9b"
         ]
       && lib.all (agent: agent.config.KeepAlive && agent.config.RunAtLoad) residentAgents
       && lib.all (
@@ -138,19 +138,19 @@ in
 
   mlx-static-resident-limits =
     if
-      mimo.concurrency == 4
-      && hasPair mimoAgent.config.ProgramArguments "--decode-concurrency" "4"
-      && hasPair mimoAgent.config.ProgramArguments "--prompt-concurrency" "4"
-      && mimoAgent.config.EnvironmentVariables.MLX_MAX_PENDING_REQUESTS == toString mimo.queueSize
-      && limits.aliases.judge == mimo.model
-      && limits.aliases.recorder == mimo.model
+      small9b.concurrency == 4
+      && hasPair small9bAgent.config.ProgramArguments "--decode-concurrency" "4"
+      && hasPair small9bAgent.config.ProgramArguments "--prompt-concurrency" "4"
+      && small9bAgent.config.EnvironmentVariables.MLX_MAX_PENDING_REQUESTS == toString small9b.queueSize
+      && limits.aliases.judge == small9b.model
+      && limits.aliases.recorder == small9b.model
       && limits.aliases.medium == qwen.model
-      && limits.aliases.small == mimo.model
+      && limits.aliases.small == small9b.model
       &&
         limits.routerUrl
         == "http://127.0.0.1:${toString hmConfigStaticServing.config.programs.litellmLocal.port}/v1"
       && limits.clients.ghGuard.url == "${limits.routerUrl}/chat/completions"
-      && limits.clients.ghGuard.timeoutSeconds == mimo.timeoutSeconds
+      && limits.clients.ghGuard.timeoutSeconds == small9b.timeoutSeconds
       && limits.clients.recorder.identity == "recorder"
       && limits.clients.recorder.models.medium == "medium"
       && limits.clients.recorder.models.small == "small"
@@ -158,20 +158,20 @@ in
         limits.clients.recorder.requestTimeoutSeconds == builtins.foldl' lib.max 0 (
           map (model: limits.models.${model}.timeoutSeconds) [
             qwen.model
-            mimo.model
+            small9b.model
           ]
         )
       &&
         limits.clients.recorder.pipeTimeoutSeconds == builtins.foldl' lib.max 0 (
           map (model: limits.models.${model}.pipeTimeoutSeconds) [
             qwen.model
-            mimo.model
+            small9b.model
           ]
         )
       && limits.clients.recorder.pipeTimeoutSeconds > limits.clients.recorder.requestTimeoutSeconds
-      && limits.models.${mimo.model}.timeoutSeconds == mimo.timeoutSeconds
-      && limits.models.${mimo.model}.pipeTimeoutSeconds > limits.models.${mimo.model}.timeoutSeconds
-      && limits.models.${mimo.model}.queueSize == mimo.queueSize
+      && limits.models.${small9b.model}.timeoutSeconds == small9b.timeoutSeconds
+      && limits.models.${small9b.model}.pipeTimeoutSeconds > limits.models.${small9b.model}.timeoutSeconds
+      && limits.models.${small9b.model}.queueSize == small9b.queueSize
       && limits.models.${qwen.model}.timeoutSeconds == qwen.timeoutSeconds
       && limits.models.${qwen.model}.pipeTimeoutSeconds > limits.models.${qwen.model}.timeoutSeconds
       &&
@@ -185,7 +185,7 @@ in
     then
       helpers.mkMarker "check-mlx-static-resident-limits" "resident limits file, LiteLLM, judge timeout, and server flags agree with the two catalog contracts; no swap or TTL is rendered"
     else
-      throw "static resident mode must derive MiMo concurrency and client limits from the resident catalog with no swap or TTL";
+      throw "static resident mode must derive Qwen3.5 concurrency and client limits from the resident catalog with no swap or TTL";
 
   mlx-static-resident-proxy-requirement =
     if

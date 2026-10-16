@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.21.0](https://github.com/dryvist/nix-ai/compare/v7.20.0...v7.21.0) (2026-10-15)
+
+
+### Features
+
+* **qwen-code:** deny the heavy built-in tools by default ([#2590](https://github.com/dryvist/nix-ai/issues/2590)) ([c051682](https://github.com/dryvist/nix-ai/commit/c051682bc4d1dfd8060ee3cf95a49484d94a5d04))
+
 ## [7.20.0](https://github.com/dryvist/nix-ai/compare/v7.19.0...v7.20.0) (2026-10-14)
 
 

@@ -75,7 +75,7 @@ in
 
     models = lib.mkOption {
       type = lib.types.listOf lib.types.str;
-      default = if modelMode.bySize then [ modelMode.defaultModel ] else [ ];
+      default = if modelMode.bySize then modelMode.modelNames else [ ];
       description = ''
         MLX catalog keys Qwen Code may select in by-size mode. Each entry must
         name a Qwen model in the catalog and be statically resident on this
@@ -95,6 +95,21 @@ in
       description = ''
         Default model for Qwen Code. Hosts with a static Qwen resident use its
         catalog key; other hosts use their existing local role or router alias.
+      '';
+    };
+
+    excludeTools = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [
+        "skill"
+        "todo_write"
+        "agent"
+        "ask_user_question"
+      ];
+      description = ''
+        Built-in tools to deny to reduce the first-session prompt size when
+        using a local model. Entries are bare tool names rendered into
+        `permissions.deny`; set to `[ ]` to re-enable all built-in tools.
       '';
     };
 

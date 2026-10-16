@@ -14,7 +14,7 @@ let
     group: lib.findFirst (entry: entry ? ${group}) null renderedConfig.litellm_settings.fallbacks;
   contracts = hmConfigStaticServing.config.programs.mlx.staticResidentContracts;
   qwen = contracts."mlx-community/Qwen3.8-27B-4bit";
-  mimo = contracts."mlx-community/MiMo-V2.6-Distill-Qwen-9B-OptiQ-4bit";
+  small9b = contracts."mlx-community/Qwen3.5-9B-OptiQ-4bit";
   residentGroups = lib.unique (
     lib.concatMap (contract: builtins.attrNames contract.roles) (builtins.attrValues contracts)
   );
@@ -35,12 +35,12 @@ in
 {
   mlx-static-resident-routing =
     if
-      judge.litellm_params.model == "openai/${mimo.model}"
-      && judge.litellm_params.api_base == "http://127.0.0.1:${toString mimo.servicePort}/v1"
-      && judge.litellm_params.timeout == mimo.timeoutSeconds
-      && judge.litellm_params.stream_timeout == mimo.timeoutSeconds
-      && judge.model_info.max_input_tokens == mimo.maxInputTokens
-      && judge.model_info.max_output_tokens == mimo.maxOutputTokens
+      judge.litellm_params.model == "openai/${small9b.model}"
+      && judge.litellm_params.api_base == "http://127.0.0.1:${toString small9b.servicePort}/v1"
+      && judge.litellm_params.timeout == small9b.timeoutSeconds
+      && judge.litellm_params.stream_timeout == small9b.timeoutSeconds
+      && judge.model_info.max_input_tokens == small9b.maxInputTokens
+      && judge.model_info.max_output_tokens == small9b.maxOutputTokens
       && fast.litellm_params.model == judge.litellm_params.model
       && default.litellm_params.model == "openai/${qwen.model}"
       && default.litellm_params.api_base == "http://127.0.0.1:${toString qwen.servicePort}/v1"

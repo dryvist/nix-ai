@@ -52,6 +52,8 @@ let
     hmConfigRouter
     hmConfigQwenRouter
     hmConfigQwenMissingResident
+    hmConfigQwenExcludeToolsEmpty
+    hmConfigQwenExcludeToolsCustom
     hmConfigMcpLaunchPrefix
     ;
   mkHmConfigDarwin =
@@ -197,6 +199,15 @@ in
 // (import ./checks/qwen-code-sandbox.nix {
   inherit pkgs hmConfigLitellmLocal hmConfigQwenRouter;
   hmConfig = hmConfigStaticServing;
+})
+// (import ./checks/qwen-code-exclude-tools.nix {
+  inherit
+    pkgs
+    hmConfigQwenRouter
+    hmConfigStaticServing
+    hmConfigQwenExcludeToolsEmpty
+    hmConfigQwenExcludeToolsCustom
+    ;
 })
 // (import ./checks/opencode.nix {
   inherit pkgs;

@@ -7,7 +7,9 @@
     { nix-devenv, ... }:
     let
       shell = builtins.getFlake (
-        "github:dryvist/nix-devenv/" + nix-devenv.rev + "?dir=shells/orchestrator"
+        "git+https://github.com/dryvist/nix-devenv?ref=v0&rev="
+        + nix-devenv.rev
+        + "&dir=shells/orchestrator"
       );
     in
     {

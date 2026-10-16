@@ -10,6 +10,8 @@ let
   mimo = modelCatalog."mlx-community/MiMo-V2.6-Distill-Qwen-9B-OptiQ-4bit";
   mimoProfile = mimo.profiles.mlx;
   mimoSwap = mimoProfile.swap;
+  qwen35 = modelCatalog."mlx-community/Qwen3.5-9B-OptiQ-4bit";
+  qwen35Profile = qwen35.profiles.mlx;
   mimoMaxOutputTokens = mimoProfile.max_output_tokens;
   mimoConcurrency = mimoProfile.max_parallel_requests;
   mimoSwapFlags = {
@@ -43,12 +45,41 @@ in
     };
   };
 
-  # The small/fast role model (role map: fast, cheap, small, judge, recorder).
+  # The workstation small/fast resident (fast, cheap, small, judge, recorder).
+  qwen35-9b = {
+    model = qwen35.name;
+    # Conservative bound from the 8.22 GB repository total (shards total about 7.1 GB).
+    weightGb = 8.3;
+    kv = {
+      kvLayers = 8;
+      kvHeads = 4;
+      headDim = 256;
+      kvDtypeBytes = 2;
+    };
+    contextWindowTokens = qwen35Profile.context_window;
+    maxOutputTokens = qwen35Profile.max_output_tokens;
+    concurrency = qwen35Profile.max_parallel_requests;
+    queueSize = qwen35Profile.queue_size;
+    concurrencyLimit = qwen35Profile.max_parallel_requests + qwen35Profile.queue_size;
+    prefillTokensPerSecond = qwen35Profile.prefill_tokens_per_second;
+    decodeTokensPerSecond = qwen35Profile.decode_tokens_per_second;
+    servicePort = 11409;
+    args = [
+      "--chat-template-args"
+      (builtins.toJSON {
+        enable_thinking = true;
+      })
+    ];
+    classes.resident = {
+      cacheProvisioning.concurrency = qwen35Profile.max_parallel_requests;
+      flags.maxTokens = qwen35Profile.max_output_tokens;
+    };
+  };
+
+  # The server-class small/fast role model (role map: fast, cheap, small, judge, recorder).
   # A Qwen3.5-9B distill with the qwen3_5_text HYBRID geometry (8
   # full-attention layers carry KV, 32 KiB/token). Served thinking-on.
-  # Four-way batching is sized against the measured 40,960-token request
-  # window; residency arithmetic in staticmbp-report.md shows the four
-  # concurrent KV streams fit below the MacBook wired ceiling.
+  # Four-way batching follows the model profile's 40,960-token request window.
   mimo-9b = {
     model = "mlx-community/MiMo-V2.6-Distill-Qwen-9B-OptiQ-4bit";
     weightGb = 7.1;

@@ -21,6 +21,9 @@ OpenAI/Anthropic/Gemini-compatible endpoint. Apache-2.0.
   Codex and Antigravity. Only Bash command rules map across — Qwen's
   builtin tool names and prefix-less `WebFetch(host)` syntax differ, so
   Claude-specific extras are skipped.
+- `programs.qwen-code.excludeTools` denies `skill`, `todo_write`, `agent`,
+  and `ask_user_question` by default to reduce local-model first-session prompt size;
+  set it to `[ ]` to re-enable them.
 - Shared skills linked from `~/.agents/skills` into `~/.qwen/skills`,
   matching Codex and Antigravity rather than maintaining a separate
   skill tree.
@@ -55,13 +58,18 @@ When a host has a static resident for a Qwen catalog entry,
 `programs.qwen-code.models`. Each allowed entry must be a Qwen model selected
 as a static resident on the host. Qwen Code uses the catalog key as its
 default and the provider points directly to that resident's loopback service
-port. The default catalog key is `qwen38-27b` when that resident is available.
+port. When both the `qwen35-9b` and `qwen38-27b` residents are available, both
+are allowed and the default is `qwen35-9b`. Otherwise the default is
+`qwen38-27b` when that resident is available.
 
 ```nix
 programs.qwen-code = {
   enable = true;
-  model = "qwen38-27b";
-  models = [ "qwen38-27b" ];
+  model = "qwen35-9b";
+  models = [
+    "qwen35-9b"
+    "qwen38-27b"
+  ];
 };
 ```
 

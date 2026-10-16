@@ -36,6 +36,12 @@ let
     inherit lib config nix-claude-code;
   };
   inherit (aiCommon) permissions formatters;
+  formattedPermissions = formatters.qwen.formatPermissions permissions;
+  qwenPermissions = formattedPermissions // {
+    deny =
+      formattedPermissions.deny
+      ++ lib.unique (lib.filter (tool: !(builtins.elem tool formattedPermissions.deny)) cfg.excludeTools);
+  };
 
   mcpClient = import ../mcp/client.nix { inherit lib; };
 
@@ -124,7 +130,7 @@ let
     inherit mcpServers;
 
     # Auto-approve / prompt / block rules from the shared permission engine.
-    permissions = formatters.qwen.formatPermissions permissions;
+    permissions = qwenPermissions;
 
     # Load repo AGENTS.md as instruction context, matching the other agents.
     context.fileName = [ "AGENTS.md" ];
