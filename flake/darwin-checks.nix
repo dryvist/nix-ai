@@ -26,8 +26,17 @@ in
     })
     // (import (src + "/lib/checks/qwen-code.nix") {
       inherit pkgs hmConfig;
-      inherit (fixtures) hmConfigLitellmLocal hmConfigRouter;
+      inherit (fixtures)
+        hmConfigLitellmLocal
+        hmConfigQwenRouter
+        hmConfigQwenMissingResident
+        hmConfigStaticServing
+        ;
     })
     // (import (src + "/lib/checks/opencode-sandbox.nix") { inherit pkgs; })
-    // (import (src + "/lib/checks/qwen-code-sandbox.nix") { inherit pkgs hmConfig; });
+    // (import (src + "/lib/checks/qwen-code-sandbox.nix") {
+      inherit pkgs;
+      inherit (fixtures) hmConfigLitellmLocal hmConfigQwenRouter;
+      hmConfig = fixtures.hmConfigStaticServing;
+    });
 }
