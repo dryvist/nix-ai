@@ -1,5 +1,13 @@
 # Changelog
 
+## [7.22.1](https://github.com/dryvist/nix-ai/compare/v7.22.0...v7.22.1) (2026-10-16)
+
+
+### Bug Fixes
+
+* **mlx:** fix the mlx-lm check phase inputs ([#2602](https://github.com/dryvist/nix-ai/issues/2602)) ([5a18c33](https://github.com/dryvist/nix-ai/commit/5a18c335b6f4dec292501dd8986757ea0ca30228))
+* **mlx:** give the mlx-lm check phase pillow and skip its Metal-only tests ([5a18c33](https://github.com/dryvist/nix-ai/commit/5a18c335b6f4dec292501dd8986757ea0ca30228))
+
 ## [7.22.0](https://github.com/dryvist/nix-ai/compare/v7.21.0...v7.22.0) (2026-10-16)
 
 
