@@ -72,11 +72,30 @@ index 19ddd78..56daa57 100644
  
    async ping(): Promise<boolean> {
 diff --git a/src/index.ts b/src/index.ts
-index ae4ff50..8e53652 100644
+index ae4ff50..1cf03d4 100644
 --- a/src/index.ts
 +++ b/src/index.ts
-@@ -55,8 +55,10 @@ async function main() {
+@@ -1,6 +1,7 @@
+ import { loadConfig } from "./config.js";
+ import { DiscordAdapter } from "./discord.js";
+ import { HerdrClient } from "./herdr.js";
++import { parseMenu } from "./menu.js";
+ import { ChannelAdapter, buildNotification } from "./notification.js";
+ import { SlackAdapter } from "./slack.js";
+ import { Transition, Watcher } from "./watcher.js";
+@@ -53,10 +54,21 @@ async function main() {
+   // Replies from any channel unblock the agent by sending text to its pane.
+   const onReply = async (paneId: string, text: string) => {
      try {
++      // A typed reply to a numbered menu first opens the menu's free-text row.
++      if (!/^\d+$/.test(text)) {
++        const menu = parseMenu(await herdr.agentRead(paneId, cfg.contextSource).catch(() => ""));
++        const free = menu?.find((c) => /^type something/i.test(c.label));
++        if (free && !free.highlighted) {
++          await herdr.agentSend(paneId, free.number);
++          await new Promise((resolve) => setTimeout(resolve, 300));
++        }
++      }
        await herdr.agentSend(paneId, text);
        console.log(`↩︎ sent reply to ${paneId}: ${text.slice(0, 60)}`);
 +      return true;
