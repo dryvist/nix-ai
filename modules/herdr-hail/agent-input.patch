@@ -1,0 +1,162 @@
+diff --git a/src/discord.ts b/src/discord.ts
+index 6183ec5..e8bb181 100644
+--- a/src/discord.ts
++++ b/src/discord.ts
+@@ -37,7 +37,9 @@ export class DiscordAdapter implements ChannelAdapter {
+   readonly name = "discord";
+   private client: Client;
+   private threadToPane = new Map<string, string>(); // threadId -> pane_id
+-  private replyHandler: ((paneId: string, text: string) => void) | null = null;
++  private replyHandler:
++    | ((paneId: string, text: string) => Promise<boolean> | boolean | void)
++    | null = null;
+   private ready: Promise<void>;
+ 
+   constructor(private readonly cfg: DiscordConfig) {
+@@ -73,8 +75,14 @@ export class DiscordAdapter implements ChannelAdapter {
+         await btn.reply({ content: "⛔ You are not authorized to control this agent.", ephemeral: true });
+         return;
+       }
+-      this.replyHandler?.(paneId, number);
+-      await btn.update({ content: `✅ sent choice **${number}** to the agent`, components: [] });
++      const delivered = (await this.replyHandler?.(paneId, number)) === true;
++      const confirmation = delivered
++        ? `✅ sent choice **${number}** to the agent\nReply in this thread to type an answer.`
++        : `⚠️ choice **${number}** was not delivered; answer in the terminal`;
++      await btn.update({
++        content: [btn.message.content, confirmation].filter(Boolean).join("\n"),
++        components: [],
++      });
+     });
+   }
+ 
+@@ -121,7 +129,9 @@ export class DiscordAdapter implements ChannelAdapter {
+     }
+   }
+ 
+-  onReply(handler: (paneId: string, text: string) => void): void {
++  onReply(
++    handler: (paneId: string, text: string) => Promise<boolean> | boolean | void,
++  ): void {
+     this.replyHandler = handler;
+   }
+ 
+diff --git a/src/herdr.ts b/src/herdr.ts
+index 19ddd78..56daa57 100644
+--- a/src/herdr.ts
++++ b/src/herdr.ts
+@@ -14,7 +14,7 @@ export interface Agent {
+   agent_status: AgentStatus;
+   workspace_id: string;
+   tab_id: string;
+-  pane_id: string; // selector used as `target` for agent.send / agent.read (e.g. "w1:p1")
++  pane_id: string; // selector used as `target` for agent.send_keys / agent.read (e.g. "w1:p1")
+   focused: boolean;
+   cwd: string;
+   foreground_cwd: string;
+@@ -105,9 +105,14 @@ export class HerdrClient {
+     return res.read?.text ?? "";
+   }
+ 
+-  /** Send text to an agent — this is what unblocks it from a chat reply. */
++  /** Send keys or text to an agent — this is what unblocks it from a chat reply. */
+   async agentSend(target: string, text: string): Promise<void> {
+-    await this.request("agent.send", { target, text });
++    if (/^\d+$/.test(text)) {
++      await this.request("agent.send_keys", { target, keys: [...text] });
++      return;
++    }
++    await this.request("pane.send_text", { pane_id: target, text });
++    await this.request("agent.send_keys", { target, keys: ["Enter"] });
+   }
+ 
+   async ping(): Promise<boolean> {
+diff --git a/src/index.ts b/src/index.ts
+index ae4ff50..8e53652 100644
+--- a/src/index.ts
++++ b/src/index.ts
+@@ -55,8 +55,10 @@ async function main() {
+     try {
+       await herdr.agentSend(paneId, text);
+       console.log(`↩︎ sent reply to ${paneId}: ${text.slice(0, 60)}`);
++      return true;
+     } catch (e) {
+       console.error(`failed to send reply to ${paneId}:`, (e as Error).message);
++      return false;
+     }
+   };
+ 
+diff --git a/src/notification.ts b/src/notification.ts
+index ec7ce7e..02c5405 100644
+--- a/src/notification.ts
++++ b/src/notification.ts
+@@ -21,7 +21,9 @@ export interface ChannelAdapter {
+    * Register the handler that unblocks an agent. `text` is either a free-text
+    * reply or, for a menu, the number of the chosen option.
+    */
+-  onReply(handler: (paneId: string, text: string) => void): void;
++  onReply(
++    handler: (paneId: string, text: string) => Promise<boolean> | boolean | void,
++  ): void;
+   stop(): Promise<void>;
+ }
+ 
+diff --git a/src/slack.ts b/src/slack.ts
+index 800cf2d..63c41a9 100644
+--- a/src/slack.ts
++++ b/src/slack.ts
+@@ -28,7 +28,9 @@ export class SlackAdapter implements ChannelAdapter {
+   readonly name = "slack";
+   private app: bolt.App;
+   private threadToPane = new Map<string, string>(); // thread_ts -> pane_id
+-  private replyHandler: ((paneId: string, text: string) => void) | null = null;
++  private replyHandler:
++    | ((paneId: string, text: string) => Promise<boolean> | boolean | void)
++    | null = null;
+ 
+   constructor(private readonly cfg: SlackConfig) {
+     this.app = new bolt.App({
+@@ -63,20 +65,28 @@ export class SlackAdapter implements ChannelAdapter {
+       const action = (body as { actions?: { value?: string }[] }).actions?.[0];
+       const [paneId, number] = (action?.value ?? "").split("|");
+       if (!paneId || !number) return;
+-      this.replyHandler?.(paneId, number);
++      const delivered = (await this.replyHandler?.(paneId, number)) === true;
+ 
+-      // Replace the buttons with a confirmation so it can't be clicked twice.
++      // Remove the buttons and append a confirmation so they can't be clicked twice.
+       const container = (body as { container?: { message_ts?: string } }).container;
+       const channel = (body as { channel?: { id?: string } }).channel?.id;
+       if (container?.message_ts && channel) {
++        const confirmation = delivered
++          ? `✅ sent choice ${number} to the agent`
++          : `⚠️ choice ${number} was not delivered; answer in the terminal`;
++        const blockText = delivered
++          ? `✅ sent choice *${number}* to the agent\nReply in this thread to type an answer.`
++          : `⚠️ choice *${number}* was not delivered; answer in the terminal`;
++        const originalBlocks = (body as { message?: { blocks?: KnownBlock[] } }).message?.blocks;
+         await client.chat.update({
+           channel,
+           ts: container.message_ts,
+-          text: `✅ sent choice ${number} to the agent`,
++          text: confirmation,
+           blocks: [
++            ...(originalBlocks?.filter((block) => block.type !== "actions") ?? []),
+             {
+               type: "section",
+-              text: { type: "mrkdwn", text: `✅ sent choice *${number}* to the agent` },
++              text: { type: "mrkdwn", text: blockText },
+             },
+           ],
+         });
+@@ -120,7 +130,9 @@ export class SlackAdapter implements ChannelAdapter {
+     if (n.status === "blocked" && res.ts) this.threadToPane.set(res.ts, n.paneId);
+   }
+ 
+-  onReply(handler: (paneId: string, text: string) => void): void {
++  onReply(
++    handler: (paneId: string, text: string) => Promise<boolean> | boolean | void,
++  ): void {
+     this.replyHandler = handler;
+   }
+ 
