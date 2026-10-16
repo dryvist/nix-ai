@@ -106,7 +106,7 @@ index ae4ff50..1cf03d4 100644
    };
  
 diff --git a/src/notification.ts b/src/notification.ts
-index ec7ce7e..02c5405 100644
+index ec7ce7e..6e85642 100644
 --- a/src/notification.ts
 +++ b/src/notification.ts
 @@ -21,7 +21,9 @@ export interface ChannelAdapter {
@@ -118,6 +118,32 @@ index ec7ce7e..02c5405 100644
 +    handler: (paneId: string, text: string) => Promise<boolean> | boolean | void,
 +  ): void;
    stop(): Promise<void>;
+ }
+ 
+@@ -36,15 +38,23 @@ export function statusEmoji(status: AgentStatus): string {
+   return EMOJI[status] ?? "🔔";
+ }
+ 
++// The "Chat about this" menu row ends the question without an answer; it gets no button or excerpt line.
++const CHAT_ROW = /^\s*[❯>›▶]?\s*\d{1,2}[.)]\s+chat about this\s*$/iu;
++
+ export function buildNotification(agent: Agent, context: string): Notification {
++  const choices = agent.agent_status === "blocked" ? parseMenu(context) : null;
+   return {
+     paneId: agent.pane_id,
+     status: agent.agent_status,
+     title: agent.terminal_title_stripped || agent.terminal_title || agent.pane_id,
+     cwd: agent.cwd,
+     agentKind: agent.agent,
+-    context: context.trim(),
+-    choices: agent.agent_status === "blocked" ? parseMenu(context) : null,
++    context: context
++      .split("\n")
++      .filter((line) => !CHAT_ROW.test(line))
++      .join("\n")
++      .trim(),
++    choices: choices?.filter((c) => !/^chat about this$/i.test(c.label)) ?? null,
+   };
  }
  
 diff --git a/src/slack.ts b/src/slack.ts
