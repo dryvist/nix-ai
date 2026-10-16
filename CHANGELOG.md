@@ -1,5 +1,18 @@
 # Changelog
 
+## [7.22.0](https://github.com/dryvist/nix-ai/compare/v7.21.0...v7.22.0) (2026-10-16)
+
+
+### Features
+
+* **mlx:** add the Qwen3.5-9B workstation resident and default Qwen Code to it ([#2593](https://github.com/dryvist/nix-ai/issues/2593)) ([70e7ae6](https://github.com/dryvist/nix-ai/commit/70e7ae68d5e182ea30dd2dc7506acff86b43a971))
+
+
+### Bug Fixes
+
+* **deps:** update dependency mlx-lm to v0.32.2 ([#2597](https://github.com/dryvist/nix-ai/issues/2597)) ([005cbe4](https://github.com/dryvist/nix-ai/commit/005cbe40331ebfa9caf13e73bc9a6d685a2a2bd1))
+* **deps:** update dependency transformers to v5.20.0 ([#2594](https://github.com/dryvist/nix-ai/issues/2594)) ([503ef01](https://github.com/dryvist/nix-ai/commit/503ef01e0bdc74182aa5d91193eeb837365d097e))
+
 ## [7.21.0](https://github.com/dryvist/nix-ai/compare/v7.20.0...v7.21.0) (2026-10-15)
 
 
