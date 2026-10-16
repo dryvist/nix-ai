@@ -1,5 +1,13 @@
 # Changelog
 
+## [7.23.1](https://github.com/dryvist/nix-ai/compare/v7.23.0...v7.23.1) (2026-10-16)
+
+
+### Bug Fixes
+
+* **herdr-hail:** leave the Chat about this row out of menu posts ([#2616](https://github.com/dryvist/nix-ai/issues/2616)) ([3a284ed](https://github.com/dryvist/nix-ai/commit/3a284ede8f0fe329b81903334064919653f628d2))
+* **herdr-hail:** open the free-text row before typing a menu reply ([#2614](https://github.com/dryvist/nix-ai/issues/2614)) ([343c36c](https://github.com/dryvist/nix-ai/commit/343c36c497b295112093a6e51e8d6fcefeab0022))
+
 ## [7.23.0](https://github.com/dryvist/nix-ai/compare/v7.22.3...v7.23.0) (2026-10-16)
 
 
