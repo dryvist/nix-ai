@@ -12,8 +12,8 @@ dependencies = [
   # The CPU backend the Linux CI build of the serving env installs.
   "mlx[cpu]==0.32.4; sys_platform == 'linux'",
   "mlx-lm==0.32.2",
-  # renovate: datasource=git-refs depName=mlx-vlm packageName=https://github.com/Blaizzy/mlx-vlm currentValue=pc/embeddinggemma-2
-  "mlx-vlm @ https://github.com/Blaizzy/mlx-vlm/archive/30f177f03cbcb42bc2f65496458de79f51b80c28.zip",
+  # renovate: datasource=git-refs depName=mlx-vlm packageName=https://github.com/Blaizzy/mlx-vlm currentValue=9790231827a890eade1a626643a6bc94a1317c72
+  "mlx-vlm @ https://github.com/Blaizzy/mlx-vlm/archive/9790231827a890eade1a626643a6bc94a1317c72.zip",
   "transformers==5.20.1",
   "huggingface-hub==1.33.0",
 ]
