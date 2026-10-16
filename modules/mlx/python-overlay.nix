@@ -190,6 +190,11 @@ py.override {
         src = pkgs.fetchurl (uvLock.sdist "mlx-lm");
         # The sdist declares setuptools-scm as a build requirement (0.32.0+).
         build-system = (old.build-system or [ ]) ++ [ super.setuptools-scm ];
+        # 0.32.2's muse_spark input tests import PIL.
+        nativeCheckInputs = (old.nativeCheckInputs or [ ]) ++ [ super.pillow ];
+        # Its muse_spark model tests launch Metal kernels, which no Nix build
+        # sandbox exposes (Linux has no Metal back-end at all).
+        disabledTestPaths = (old.disabledTestPaths or [ ]) ++ [ "tests/test_muse_spark.py" ];
       });
 
       # lm-eval is a test input of mlx-lm; accelerate and peft are test inputs
