@@ -1,5 +1,17 @@
 # Changelog
 
+## [7.23.0](https://github.com/dryvist/nix-ai/compare/v7.22.3...v7.23.0) (2026-10-16)
+
+
+### Features
+
+* pin optional MLX serving tools ([#2611](https://github.com/dryvist/nix-ai/issues/2611)) ([aec0539](https://github.com/dryvist/nix-ai/commit/aec053969c20b6ce7b5783977b1b2098a79a707b))
+
+
+### Bug Fixes
+
+* **checks:** wire Qwen fixtures into Darwin checks ([3c9f59d](https://github.com/dryvist/nix-ai/commit/3c9f59d9772353172e3216786254800c8ca82934))
+
 ## [7.22.3](https://github.com/dryvist/nix-ai/compare/v7.22.2...v7.22.3) (2026-10-16)
 
 

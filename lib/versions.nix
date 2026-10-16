@@ -122,6 +122,9 @@ in
   mlx = uvLock.version "mlx";
   mlxLm = uvLock.version "mlx-lm";
   transformers = uvLock.version "transformers";
+  # Optional Apple-Silicon benchmark CLI; it does not select or enable a serving backend.
+  # renovate: datasource=pypi depName=vllm-mlx
+  vllmMlx = "0.5.0";
   # renovate: datasource=pypi depName=lm-eval
   lmEval = "0.4.12";
 

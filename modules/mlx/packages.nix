@@ -16,6 +16,7 @@ let
     ;
   versions = import ../../lib/versions.nix;
   mlxLmVersion = versions.mlxLm;
+  vllmMlxVersion = versions.vllmMlx;
   lmEvalVersion = versions.lmEval;
 in
 {
@@ -88,6 +89,10 @@ in
 
         (pkgs.writeShellScriptBin "mlx-vlm-generate" ''
           exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} --from "${mlxVlmInstallSpec}" mlx_vlm.generate "$@"
+        '')
+
+        (pkgs.writeShellScriptBin "vllm-mlx" ''
+          exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} --from "vllm-mlx==${vllmMlxVersion}" vllm-mlx "$@"
         '')
       ];
     };
