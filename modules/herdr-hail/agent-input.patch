@@ -102,7 +102,7 @@ index ec7ce7e..02c5405 100644
  }
  
 diff --git a/src/slack.ts b/src/slack.ts
-index 800cf2d..63c41a9 100644
+index 800cf2d..0cca79a 100644
 --- a/src/slack.ts
 +++ b/src/slack.ts
 @@ -28,7 +28,9 @@ export class SlackAdapter implements ChannelAdapter {
@@ -116,6 +116,15 @@ index 800cf2d..63c41a9 100644
  
    constructor(private readonly cfg: SlackConfig) {
      this.app = new bolt.App({
+@@ -46,7 +48,7 @@ export class SlackAdapter implements ChannelAdapter {
+         thread_ts?: string;
+         text?: string;
+       };
+-      if (e.bot_id || e.subtype || !e.thread_ts || !e.text) return;
++      if (e.bot_id || (e.subtype && e.subtype !== "thread_broadcast") || !e.thread_ts || !e.text) return;
+       if (!this.isAllowed(e.user)) return;
+       const paneId = this.threadToPane.get(e.thread_ts);
+       if (paneId) this.replyHandler?.(paneId, e.text);
 @@ -63,20 +65,28 @@ export class SlackAdapter implements ChannelAdapter {
        const action = (body as { actions?: { value?: string }[] }).actions?.[0];
        const [paneId, number] = (action?.value ?? "").split("|");
