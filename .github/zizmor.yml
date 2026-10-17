@@ -7,14 +7,15 @@
 # To run a full audit: zizmor --persona=auditor .github/workflows/
 
 rules:
-  # Trusted first-party reusable workflows follow the organization policy and
-  # use reviewed refs. Other unpinned action references remain findings.
+  # Trusted first-party and central reusable workflows follow their owners'
+  # reviewed release tags. Other unpinned action references remain findings.
   unpinned-uses:
     config:
       policies:
         dryvist/*: ref-pin
+        JacobPEvans/*: ref-pin
 
-  # IGNORED: These workflows use reusable workflows from ai-workflows that require
+# IGNORED: These workflows use reusable workflows from JacobPEvans/.github-ai that require
   # secrets for authentication (API keys, tokens). secrets: inherit is intentional
   # as the reusable workflows are owned by the same org and need these secrets.
   # TODO: Audit and enumerate explicit secrets instead of inheriting all
@@ -22,4 +23,3 @@ rules:
     ignore:
       - ai-all.yml
       - ai-merge-gate.yml
-      - dispatch-to-nix-darwin.yml
