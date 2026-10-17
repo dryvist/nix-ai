@@ -345,11 +345,11 @@
         "treefmt-nix": "treefmt-nix_2"
       },
       "locked": {
-        "lastModified": 1791678987,
-        "narHash": "sha256-1chIoLmAZ6tqIhezMAbeVn2NGo6JezkcjZmXJzki7rw=",
+        "lastModified": 1791734834,
+        "narHash": "sha256-/m7psD07g9vfTMYqoUZbwR/xLKxTg6cytbscQnsl+rQ=",
         "owner": "dryvist",
         "repo": "nix-devenv",
-        "rev": "8c8b629c67b80dc634c98e2aca8af2db35e4892e",
+        "rev": "185a11a9de795c64b2fab855e0290acb3fe739be",
         "type": "github"
       },
       "original": {
