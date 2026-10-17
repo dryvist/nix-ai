@@ -64,7 +64,7 @@
     # this is a third-party repo and a branch ref would silently redeploy
     # whatever landed upstream between converges.
     herdr-remote-src = {
-      url = "github:dcolinmorgan/herdr-remote/1f5bd32b5121af92c21c9a3b123b10d508f29365";
+      url = "github:dcolinmorgan/herdr-remote/6843636df54386781de122211d8a8d354fac2dbd";
       flake = false;
     };
 
