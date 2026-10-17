@@ -1,5 +1,5 @@
 # Token budgets for AI-read prose, enforced by the shared tiktoken counter
-# (dryvist/.github -> _token-limits.yml, wired in .github/workflows/ci-gate.yml).
+# (JacobPEvans/.github -> _token-limits.yml, wired in .github/workflows/ci-gate.yml).
 # First matching glob wins, so list specific patterns before general ones.
 # Patterns use Python fnmatch, where '*' also crosses '/' — so 'docs/*.md'
 # covers docs/ AND every subdirectory (architecture/, adr/, runbooks/), and

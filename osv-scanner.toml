@@ -1,6 +1,6 @@
 # OSV Scanner config — local override for dryvist/nix-ai.
 #
-# The ci-gate and scheduled OSV workflows pass this file to the dryvist/.github
+# The ci-gate and scheduled OSV workflows pass this file to the JacobPEvans/.github
 # reusable workflow with `config_file: osv-scanner.toml`, which applies these
 # exceptions to every recursively scanned lockfile.
 #

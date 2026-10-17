@@ -7,7 +7,7 @@ on:
         description: "Commit SHA to review (leave blank for latest main)"
         required: false
         type: string
-  # STATUS: Disabled — automatic triggers replaced by workflow_dispatch-only until ai-workflows stabilizes
+  # STATUS: Disabled — automatic triggers replaced by workflow_dispatch-only until JacobPEvans/.github-ai stabilizes
   # --- DISABLED AUTOMATIC TRIGGERS (restore by uncommenting) ---
   # pull_request:
   #   types: [opened, synchronize]
@@ -57,9 +57,8 @@ jobs:
       id-token: write
       issues: write
       pull-requests: write
-    uses: dryvist/ai-workflows/.github/workflows/suite-all.yml@22d262fbeca2f783851dc0c2934d74edd9809893 # v0.49.1
+    uses: JacobPEvans/.github-ai/.github/workflows/suite-all.yml@v1
     with:
       caller_event: ${{ github.event_name }}
-      review_prompt: "Focus on Nix flake patterns, home-manager module structure, AI tool configuration best practices"
       commit_sha: ${{ inputs.commit_sha || github.sha }}
     secrets: inherit

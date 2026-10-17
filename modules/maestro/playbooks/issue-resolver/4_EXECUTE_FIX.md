@@ -26,7 +26,7 @@ Target repository: $MAESTRO_CURRENT_REPO
 - [ ] Run linting and tests: repository-specific commands
 - [ ] Commit with message: `fix: <description>\n\nFixes #$ISSUE_NUMBER`
 - [ ] Push branch to origin
-- [ ] Create draft PR: `gh pr create --fill --draft --body "Fixes #$ISSUE_NUMBER"`
+- [ ] Create the PR for human review: `gh pr create --fill --label human:review --body "Fixes #$ISSUE_NUMBER"`
 - [ ] Write PR details to `pr-created.json`
 
 ## Commit Message Format
