@@ -1,7 +1,7 @@
 # Autonomous issue resolution. New/reopened issue -> Claude triage labels it
 # (type/size/priority, and ai:ready when auto-resolvable) -> if ai:ready, Claude (Opus)
 # opens a PR that fully resolves it. A human adding ai:ready, or workflow_dispatch with an
-# issue_number, are the manual paths. Canonical caller: dryvist/ai-workflows
+# issue_number, are the manual paths. Canonical caller: JacobPEvans/.github-ai
 # examples/issue-auto-resolve-caller.yml.
 
 name: Issue Auto-Resolve (Claude)
@@ -31,7 +31,7 @@ jobs:
     if: >-
       github.event_name == 'issues' &&
       (github.event.action == 'opened' || github.event.action == 'reopened')
-    uses: dryvist/ai-workflows/.github/workflows/issue-triage.yml@22d262fbeca2f783851dc0c2934d74edd9809893 # v0.49.1
+    uses: JacobPEvans/.github-ai/.github/workflows/issue-triage.yml@v1
     secrets:
       LLM_ROUTER_BASE_URL: ${{ secrets.LLM_ROUTER_BASE_URL }}
       LLM_ROUTER_API_KEY: ${{ secrets.LLM_ROUTER_API_KEY }}
@@ -52,7 +52,7 @@ jobs:
       !(github.event_name == 'issues' &&
         github.event.action == 'labeled' &&
         github.event.label.name != 'ai:ready')
-    uses: dryvist/ai-workflows/.github/workflows/cc-issue-resolver.yml@22d262fbeca2f783851dc0c2934d74edd9809893 # v0.49.1
+    uses: JacobPEvans/.github-ai/.github/workflows/cc-issue-resolver.yml@v1
     secrets:
       LLM_ROUTER_BASE_URL: ${{ secrets.LLM_ROUTER_BASE_URL }}
       LLM_ROUTER_API_KEY: ${{ secrets.LLM_ROUTER_API_KEY }}

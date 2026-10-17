@@ -2,7 +2,7 @@
 #
 # `shared-gate` runs nix flake check (skipped for dependency-only bot PRs
 # unless flake.lock moved), markdown lint, file size, token limits, pip-audit
-# and the OSV differential scan from dryvist/.github. The local `gate` job
+# and the OSV differential scan from JacobPEvans/.github. The local `gate` job
 # keeps the bare `Merge Gate` context this repo's ruleset requires.
 #
 # Fork-PR security guard: nix-ai is a PUBLIC repository. The org gate routes
@@ -36,7 +36,7 @@ jobs:
       # actions: write must be granted here or the run fails at graph
       # validation (startup_failure).
       actions: write
-    uses: dryvist/.github/.github/workflows/_ci-gate.yml@41ca3a7c0f8853acbfa38ef905a6231cdddf968d # v1.19.0
+    uses: JacobPEvans/.github/.github/workflows/_ci-gate.yml@v1
     secrets:
       TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
     with:

@@ -1,5 +1,5 @@
 {
-  // Canonical org-wide config: .markdownlint-cli2.yaml at the root of dryvist/.github.
+  // Canonical org-wide config: .markdownlint-cli2.yaml at the root of JacobPEvans/.github.
   // This file deliberately diverges from it; local overrides below document each delta.
   "config": {
     "default": true,

@@ -1,27 +1,30 @@
-name: Release Please
+name: Release
 
 on:
   push:
     branches: [main, develop]
+  pull_request:
 
 permissions: {}
 
 jobs:
-  release-please:
+  release:
+    uses: JacobPEvans/.github/.github/workflows/_release.yml@v1
+    secrets:
+      GH_ACTION_RELEASE_PLEASE_PRIVATE_KEY: ${{ secrets.GH_ACTION_RELEASE_PLEASE_PRIVATE_KEY }}
     permissions:
       contents: write
       pull-requests: write
-    uses: dryvist/.github/.github/workflows/_release-please.yml@41ca3a7c0f8853acbfa38ef905a6231cdddf968d # v1.19.0
-    secrets:
-      GH_ACTION_RELEASE_PLEASE_PRIVATE_KEY: ${{ secrets.GH_ACTION_RELEASE_PLEASE_PRIVATE_KEY }}
+      statuses: write
+      checks: read
 
   # The LXC template tofu-proxmox's `nixos_ct_template_url` points at. Built
   # here rather than in CI because a release is the only thing that gives the
   # tarball a stable URL and a publishable sha256; nothing else consumes it.
   publish-lxc-template:
     name: Publish herdr LXC template
-    needs: release-please
-    if: needs.release-please.outputs.release_created == 'true'
+    needs: release
+    if: needs.release.outputs.release_created == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
@@ -45,7 +48,7 @@ jobs:
         id: upload
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ needs.release-please.outputs.tag_name }}
+          RELEASE_TAG: ${{ needs.release.outputs.tag_name }}
         run: |
           set -euo pipefail
           mapfile -t found < <(find -L result -type f -name '*.tar.xz' | sort)
@@ -68,15 +71,13 @@ jobs:
           gh release upload "$tag" nixos-herdr-lxc.tar.xz --clobber
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
+
   # Publishing the draft is a separate job because it must NOT use GITHUB_TOKEN.
-  # A release published by a run's own token emits no `release: published`
-  # event, so dispatch-to-nix-darwin.yml never fires and consumers silently
-  # stop receiving lock updates — measured across v5.0.0 through v5.3.2.
-  # Uploading the asset above is unaffected: an upload emits no event.
+  # Publishing is separate from asset upload so the draft gets all assets first.
   publish-release:
     name: Publish the release
-    needs: [release-please, publish-lxc-template]
-    uses: dryvist/.github/.github/workflows/_publish-draft-release.yml@41ca3a7c0f8853acbfa38ef905a6231cdddf968d # v1.19.0
+    needs: [release, publish-lxc-template]
+    uses: JacobPEvans/.github/.github/workflows/_publish-draft-release.yml@v1
     with:
       tag: ${{ needs.publish-lxc-template.outputs.tag }}
       latest: true
