@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.24.0](https://github.com/dryvist/nix-ai/compare/v7.23.1...v7.24.0) (2026-10-17)
+
+
+### Features
+
+* **maestro:** open issue-resolver PRs ready with human:review instead of as drafts ([#2618](https://github.com/dryvist/nix-ai/issues/2618)) ([46d4abb](https://github.com/dryvist/nix-ai/commit/46d4abba7446977b133a9b0abffb4f59ee808fc4))
+
 ## [7.23.1](https://github.com/dryvist/nix-ai/compare/v7.23.0...v7.23.1) (2026-10-16)
 
 
