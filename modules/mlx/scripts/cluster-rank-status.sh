@@ -2,7 +2,7 @@
 # Locating THE CLUSTER RANK PROCESS — the one process that owns an RDMA
 # protection domain — and answering three-valued questions about it.
 #
-# Concatenated by the link watcher, cluster-join and cluster-detach. The SIGTERM
+# Concatenated by cluster-join and cluster-detach. The SIGTERM
 # reap built on these lives in ./cluster-rank-reap.sh, which only the two
 # consumers that stop ranks are given.
 #

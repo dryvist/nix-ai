@@ -2,11 +2,20 @@
   config,
   lib,
   pkgs,
+  nixAiRev,
   ...
 }:
 let
   cfg = config.programs.mlx;
   versions = import ../../lib/versions.nix;
+  clusterSoftwareJson = builtins.toJSON {
+    nix_ai = nixAiRev;
+    inherit (versions) mlx;
+    mlx_lm = versions.mlxLm;
+    macos = "";
+    model = cfg.clusterMode.model;
+    model_revision = "";
+  };
   parakeetMlxVersion = versions.parakeetMlx;
   inherit (versions) mlxVlmInstallSpec;
   uvPythonVersion = (import ../../lib/python.nix { inherit pkgs; }).pythonVersion;
@@ -73,6 +82,7 @@ in
       residentAgentLabels
       watchdogAgentLabel
       modelServerProcessPattern
+      clusterSoftwareJson
       ;
   };
 }

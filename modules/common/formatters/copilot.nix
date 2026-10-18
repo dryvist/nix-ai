@@ -1,6 +1,6 @@
 # Copilot CLI Formatter
 # Format: shell(cmd) patterns for --allow-tool and --deny-tool flags
-{ lib, flattenCommands }:
+{ flattenCommands }:
 
 {
   # Format a single shell command for Copilot

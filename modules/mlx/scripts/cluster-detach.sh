@@ -1,418 +1,154 @@
 # shellcheck shell=bash
-# cluster-detach -- the daily safe-unplug front-end over the watcher teardown.
-#
-# Takes the Thunderbolt link admin-down so both watchers observe peer loss and
-# run their up->down teardown (stop rank, clear markers, restore standalone ceiling and
-# standalone serving), then VERIFIES each postcondition against live state rather than
-# trusting the watcher logs. Ends the node in a state that is safe to unplug,
-# sleep, or reboot, and ready to rejoin.
-#
-# Consumed environment (baked by the launchd/module wiring):
-#   CLUSTER_ROLE                coordinator | worker
-#   CLUSTER_STATIC_SELF_IP      this node's static link address (locates the port)
-#   CLUSTER_STATE_FILE          watcher link-state file (locates the marker dir)
-#   CLUSTER_RANK_PLIST          the rank agent's plist. Detach boots that job out
-#                             before it signals anything (so a watcher kickstart
-#                             cannot race the teardown) and bootstraps it back
-#                             idle at the end; without the plist it could only
-#                             do the first half.
-#   CLUSTER_WIRED_LIMIT_MB      optional: set => a standalone-ceiling restore is expected
-#   CLUSTER_STANDALONE_WIRED_LIMIT_MB  standalone ceiling the watcher restores (default 0)
-#   CLUSTER_DETACH_SWAP_THRESHOLD_MB  warn+exit-3 above this vm.swapusage used (MB)
-#   CLUSTER_DETACH_TIMEOUT_SECS bound on the teardown/restore waits
-#   CLUSTER_STANDALONE_PROBE_URL       normal-mode proxy /v1 base URL
-#   CLUSTER_STANDALONE_PROBE_MODEL     primary resident model id (real-completion probe)
-#   coordinator only:
-#   CLUSTER_SERVER_LABELS       space-separated resident server launchd labels
-#   CLUSTER_LAUNCH_AGENTS_DIR   directory containing those agents' plists
-#   CLUSTER_WATCHDOG_LABEL      serving watchdog launchd label — carried so
-#                             restore_normal_serving (step 2) can bootstrap it
-#                             back if cluster-join booted it out
-#   CLUSTER_WATCHDOG_PLIST      path to the watchdog agent plist (for bootstrap)
-#   worker only:
-#   CLUSTER_RESTORE_CMD         cluster-restore — bootstraps back exactly the
-#                             agents cluster-quiesce recorded booting out
-#
-# Grants used (nix-darwin sudoers, cluster-ops): `ifconfig en[0-9]* down` to drop
-# the link. launchctl verbs run in the caller's own gui/$uid domain (no sudo).
-#
-# Exit codes: 0 = OK; 3 = OK but reboot REQUIRED before the next join (stale
-# swap, or the rank had to be SIGKILL'd — which leaks its RDMA protection domain
-# as well as its wired shard memory, and is recorded as PD debt); 1 = a
-# postcondition failed.
+# cluster-detach -- stop this rank, restore standalone serving and verify it.
 
-uid="$(id -u)"
-state_dir="$(dirname "$CLUSTER_STATE_FILE")"
-timeout="${CLUSTER_DETACH_TIMEOUT_SECS:-300}"
-failed=0
-
-note_fail() {
-  echo "cluster-detach: FAIL: $*" >&2
-  failed=1
-}
-
-# --- step 0: record the standalone lease (RULE 1: plugged in means clustered) --
-# A detach is a bounded EXCEPTION, never a state. A machine can sit detached with
-# the cable in — serving nothing clustered and running no benchmark — because
-# nothing recorded that the standalone window was over. So every detach now
-# writes a lease: `<expiry-epoch>\t<created>\t<reason>`, one line. The watcher honours it while it is unexpired and resumes driving the
-# pair back to clustered the moment it expires; cluster-join ends it early.
-# There is deliberately NO indefinite form — an opt-out that cannot expire
-# recreates the exact failure the rule targets.
-#
-# Usage: cluster-detach [lease-secs [reason]]
-lease_secs="${1:-${CLUSTER_STANDALONE_LEASE_SECS:-7200}}"
-case "$lease_secs" in
-  '' | *[!0-9]*)
-    echo "cluster-detach: FAIL: lease duration '$lease_secs' is not a number of seconds (usage: cluster-detach [lease-secs [reason]])" >&2
+cluster_detach_main() {
+  local timeout deadline failed=0 peer_detach_rc=0 used swap_threshold stale_swap=false
+  local current link_state serve_ok=false body held="?" worker_invocation=false
+  local session_arg="" current_session peer_pid
+  state_dir="${CLUSTER_STATE_DIR:-$(dirname "$CLUSTER_STATE_FILE")}"
+  mkdir -p "$state_dir"
+  export CLUSTER_LIFECYCLE_COMPONENT=cluster-detach
+  cluster_lifecycle_log_start
+  trap 'cluster_lifecycle_lock_release' EXIT
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --worker)
+        [ "$worker_invocation" = false ] || { lifecycle_refuse usage "cluster-detach [--worker [--session ID]]"; exit 1; }
+        worker_invocation=true
+        shift
+        ;;
+      --session)
+        [ -z "$session_arg" ] && [ "$#" -ge 2 ] || { lifecycle_refuse usage "cluster-detach [--worker [--session ID]]"; exit 1; }
+        session_arg="$2"
+        shift 2
+        ;;
+      *) lifecycle_refuse usage "cluster-detach [--worker [--session ID]]"; exit 1 ;;
+    esac
+  done
+  if [ -n "$session_arg" ] && {
+    [ "$worker_invocation" = true ] &&
+      [[ "$session_arg" =~ ^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$ ]]
+  }; then
+    :
+  elif [ -n "$session_arg" ]; then
+    lifecycle_refuse usage "--session requires --worker and a valid session id"
     exit 1
-    ;;
-esac
-lease_reason="${2:-cluster-detach}"
-lease_until=$(($(date +%s) + lease_secs))
-mkdir -p "$state_dir"
-printf '%s\t%s\t%s\n' "$lease_until" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$lease_reason" \
-  > "$state_dir/standalone-lease"
-echo "cluster-detach: standalone lease for ${lease_secs}s (reason: $lease_reason). While the cable is in, the watcher auto-rejoins when it expires; cluster-join ends it early."
-
-# --- step 1: take the link admin-down ---------------------------------------
-# iface_holding_self_ip comes from scripts/cluster-link-locate.sh, concatenated
-# ahead of this body by cluster-cli-builder.nix and shared with cluster-join and
-# the link watcher.
-port="$(iface_holding_self_ip)"
-if [ -n "$port" ] && [ "$port" != "bridge0" ]; then
-  echo "cluster-detach: taking $port ($CLUSTER_STATIC_SELF_IP) admin-down"
-  sudo -n /sbin/ifconfig "$port" down > /dev/null 2>&1 ||
-    note_fail "could not down $port (ifconfig en[0-9]* down grant missing?)"
-else
-  echo "cluster-detach: no port holds $CLUSTER_STATIC_SELF_IP (link already down?)"
-fi
-
-# --- wait for the watcher's up->down teardown, verified against live state ---
-# The up->down edge clears these markers, stops the rank, and restores the
-# standalone ceiling. Poll until ALL hold (or time out) -- never trust the log.
-# rank-halt-latched is included because a leftover latch makes the NEXT session's
-# first rank start re-verify (and possibly re-halt) instead of simply starting:
-# "safe to rejoin" has to mean the halt state is gone, not just the halt marker.
-markers=(
-  rank-halted rank-halt-latched rank-kickstarts
-  rank-first-running rank-ready rank-warmed
-)
-
-markers_clear() {
-  local m
-  for m in "${markers[@]}"; do
-    [ -e "$state_dir/$m" ] && return 1
-  done
-  return 0
-}
-# rank_process_absent comes from scripts/cluster-rank-proc.sh and matches on
-# CLUSTER_RANK_PROCESS_PATTERN — one definition (modules/mlx/cluster-rank-pattern.nix),
-# derived from the same entry-point string that builds the rank argv. Two inline
-# copies of '/mlx_lm\.server' used to live in this file.
-#
-# It is a POSITIVE proof of absence, not `! pgrep`: pgrep exits 1 for "no match"
-# and 2/127 for "I could not answer", and collapsing those is how an unusable
-# probe reports a node as safe to unplug while a rank still holds its RDMA
-# protection domain.
-rank_gone() { rank_process_absent; }
-ceiling_restored() {
-  [ -z "${CLUSTER_WIRED_LIMIT_MB:-}" ] && return 0
-  [ "$(/usr/sbin/sysctl -n iogpu.wired_limit_mb 2>/dev/null || echo '')" = "${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}" ]
-}
-
-# UNLOAD THE JOB BEFORE SIGNALLING THE PROCESS, or the teardown races its own
-# restarter. The watcher converges every tick and it is not told a detach is
-# under way: the link probe still reads up until the down-strikes accumulate, so
-# during that window the watcher sees "no rank running" and kickstarts one — a
-# detach still executing can be raced exactly that way, spending protection
-# domains on rank attempts nobody asked for.
-#
-# `launchctl kickstart` on a service that is not loaded fails, so booting the
-# job out is what actually closes the window — stopping the process alone cannot,
-# because the process is not what starts the next one. It is bootstrapped back
-# at the end of this script (step 5); the agent is RunAtLoad=false
-# KeepAlive=false, so that leaves it loaded and idle, exactly as a rebuild does.
-#
-# KNOWN WINDOW, stated rather than hidden: bootout of a RUNNING job SIGTERMs it
-# and escalates to SIGKILL after launchd's exit timeout, and that escalation is
-# outside this script's audited SIGKILL path. The ladder below is unchanged and
-# still runs, so a survivor is still reaped gracefully and still pays the ledger
-# if it has to be killed.
-# RELEASING WHAT THIS SCRIPT TOOK IS AN EXIT TRAP, NOT A LAST STEP. The bootout
-# below and the kickstart counter both outlive this process, and this script
-# runs under errexit: an unguarded failure anywhere after the bootout would exit
-# with the rank job still unloaded, so every later watcher kickstart fails and
-# nothing but a darwin-rebuild loads it again. Same reasoning as cluster-join's
-# restore trap, for the same class of miss.
-#
-# BOTH ON SUCCESS AND ON FAILURE, which is the point. A detach that failed a
-# postcondition still booted the job out and still leaves whatever the counter
-# held; leaving either behind poisons the NEXT session — the counter would start
-# it part-spent for attempts belonging to this one.
-#
-# The counter is SETTLED, never deleted. The layers file gave detach the ledger
-# write side and withheld the counter-settle because detach reset no counter; it
-# resets one now, and a bare `rm` would discard attempts whose leaked domains are
-# not yet on the ledger — the exact laundering pd_debt_settle_counter exists to
-# stop. Nothing is vindicated: this path has no evidence any attempt succeeded.
-#
-# The CAUSE is read from the halt latch rather than named after this command,
-# for the reason the watcher's link-cycle settle reads it: this settle only ever
-# catches attempts no other path settled, so the latch is usually still there
-# holding the real reason, and billing them to a "cluster-detach" bucket no halt
-# cause ever names would leave the cross-boot cause budget reading zero forever.
-#
-# teardown_started gates it: the usage error above exits before anything has
-# been taken away, and settling a counter that belongs to a live watcher session
-# there would be this script laundering someone else's debt.
-teardown_started=false
-
-release_session() {
-  [ "$teardown_started" = true ] || return 0
-  local cause
-  cause="$(cat "$state_dir/rank-halt-latched" 2> /dev/null || echo '')"
-  cause="${cause%%[[:space:]]*}"
-  # $7/$8: same run-start byte-offset marker the watcher wrote — see
-  # cluster-join.sh's identical settle call for why this needs no writer here.
-  pd_debt_settle_counter "${CLUSTER_PD_DEBT_FILE:-}" "$state_dir/rank-kickstarts" 0 \
-    "cluster-detach" "attempts outstanding when cluster-detach ended the session" \
-    "${cause:-cluster-detach}" "${CLUSTER_RANK_ERROR_LOG:-}" \
-    "$state_dir/rank-error-log-session-offset"
-
-  if /bin/launchctl print "gui/$uid/${CLUSTER_RANK_LABEL}" > /dev/null 2>&1; then
-    echo "cluster-detach: $CLUSTER_RANK_LABEL already loaded (idle); nothing to bootstrap"
-  elif [ -f "${CLUSTER_RANK_PLIST:-}" ] &&
-    /bin/launchctl bootstrap "gui/$uid" "$CLUSTER_RANK_PLIST" > /dev/null 2>&1; then
-    echo "cluster-detach: bootstrapped $CLUSTER_RANK_LABEL back (idle — RunAtLoad and KeepAlive are both false), so the next join can start a rank"
-  else
-    echo "cluster-detach: WARN could not bootstrap $CLUSTER_RANK_LABEL back from '${CLUSTER_RANK_PLIST:-unset}'; the watcher cannot kickstart a rank until it is loaded — run darwin-rebuild switch, or bootstrap it by hand, before the next join" >&2
   fi
-}
-trap release_session EXIT
-
-teardown_started=true
-if /bin/launchctl bootout "gui/$uid/${CLUSTER_RANK_LABEL}" > /dev/null 2>&1; then
-  echo "cluster-detach: booted out $CLUSTER_RANK_LABEL so the watcher cannot kickstart a rank mid-teardown"
-else
-  echo "cluster-detach: $CLUSTER_RANK_LABEL was not loaded (nothing to bootout); the watcher cannot kickstart it either"
-fi
-
-# Stop the rank directly, not only via the watcher. The watcher's up->down
-# teardown stops the rank, but on a DEADLOCKED rank the watcher can be stuck in
-# its own blocking warm-generation curl and never reach the teardown, so the
-# rank would survive the whole wait. A SIGTERM in our own gui/$uid domain lets
-# MLX release its GPU buffers cleanly (a SIGKILL'd rank leaks its wired shard
-# memory -- reboot-only recovery), so try SIGTERM first and escalate only if it
-# does not land.
-if ! rank_gone; then
-  /bin/launchctl kill SIGTERM "gui/$uid/${CLUSTER_RANK_LABEL}" > /dev/null 2>&1 || true
-fi
-
-echo "cluster-detach: waiting up to ${timeout}s for the watcher teardown"
-deadline=$(($(date +%s) + timeout))
-while [ "$(date +%s)" -lt "$deadline" ]; do
-  if markers_clear && rank_gone && ceiling_restored; then
-    break
+  [ "$worker_invocation" = false ] || [ "${CLUSTER_ROLE:-}" = worker ] || {
+    lifecycle_refuse usage "--worker is only valid on the worker role"
+    exit 1
+  }
+  if ! cluster_lifecycle_lock_acquire; then
+    lifecycle_refuse lifecycle-locked "another cluster lifecycle transaction owns $state_dir"
+    exit 1
   fi
-  sleep 5
-done
-
-# GRACEFUL FIRST, AND AT THE PROCESS, NOT THE JOB. The SIGTERM above went to the
-# launchd label; an engine that has been re-parented is no longer part of that
-# job, so that signal reached nothing while the process kept its protection
-# domain. rank_reap_verified signals the pids directly and then PROVES they are
-# gone, using the same implementation the link watcher runs before every start —
-# one definition, so the daily unplug and the unattended restart cannot drift
-# into two different ideas of "the rank is gone".
-if ! rank_gone; then
-  rank_reap_verified "$timeout" || true
-fi
-
-# LAST RESORT, AND THE ONE AUDITED EXCEPTION. A rank still up here ignored
-# SIGTERM twice (deep native/RDMA wedge). SIGKILL leaves the node serving-safe,
-# but a SIGKILLed rank never runs its RDMA teardown, so it takes TWO things with
-# it:
-#
-#   wired shard memory      — the loss this warning used to name
-#   its protection domain   — the more expensive one, and the reason a reboot
-#                             stops being "recommended" and becomes required
-#
-# So the kill is WRITTEN DOWN, in a boot-scoped ledger, before anything else
-# happens. From that moment this host is one protection domain poorer for the
-# rest of the boot, cluster-join refuses at the cap, and the link watcher halts
-# rank starts BEFORE the kernel runs out instead of after errno 96 proves it did.
-# An unaudited SIGKILL is exactly how the debt used to accumulate invisibly
-# across sessions.
-if ! rank_gone; then
-  echo "cluster-detach: rank ignored SIGTERM; escalating to SIGKILL — this LEAKS its RDMA protection domain (reboot-only recovery) as well as its wired shard memory" >&2
-  pd_debt_record "${CLUSTER_PD_DEBT_FILE:-}" 1 "detach-sigkill" \
-    "rank $CLUSTER_RANK_LABEL ignored SIGTERM for ${timeout}s and was SIGKILLed"
-  /bin/launchctl kill SIGKILL "gui/$uid/${CLUSTER_RANK_LABEL}" > /dev/null 2>&1 || true
-  # NEVER pkill on an empty pattern: `pkill -f ''` matches every process on the
-  # machine. An unset pattern is a configuration failure, not a licence to kill
-  # the session.
-  if [ -n "${CLUSTER_RANK_PROCESS_PATTERN:-}" ]; then
-    /usr/bin/pkill -9 -f "$CLUSTER_RANK_PROCESS_PATTERN" > /dev/null 2>&1 || true
-  else
-    echo "cluster-detach: WARN CLUSTER_RANK_PROCESS_PATTERN unset; skipped the pattern-based kill (an empty pattern would match every process)" >&2
-  fi
-  sleep 3
-  rank_gone && sigkilled_rank=1
-fi
-
-# SETTLE AFTER THE RANK IS ACTUALLY GONE, BEFORE JUDGING THE OTHER TWO ROWS.
-# Only the rank's exit is this script's to force. Clearing the markers and
-# restoring the standalone ceiling belong to the watcher's up->down teardown,
-# which cannot start until the rank is gone -- so both the wait above (which
-# ends the moment its combined condition holds) and every escalation branch
-# below it can leave those two rows read while that teardown has not begun.
-#
-# That is a FALSE failure, and it looks exactly like a real one: detach can
-# exit 1 reporting markers present and the ceiling not reverted, and an
-# UNCHANGED re-run converges, because the second invocation reads the state
-# the first one had already set in motion. A teardown that needs to be run
-# twice to report the truth trains the operator to ignore its exit code.
-#
-# Bounded by the same CLUSTER_DETACH_TIMEOUT_SECS that bounds the wait above,
-# and it breaks the instant both hold, so the ordinary unplug pays nothing.
-if rank_gone; then
-  settle_deadline=$(($(date +%s) + timeout))
-  while [ "$(date +%s)" -lt "$settle_deadline" ]; do
-    if markers_clear && ceiling_restored; then
-      break
+  if [ -n "$session_arg" ]; then
+    current_session="$(jq -r '.session // ""' "$CLUSTER_PEER_STATE_FILE" 2> /dev/null || true)"
+    if [ "$current_session" != "$session_arg" ]; then
+      lifecycle_refuse peer-session-mismatch "requested cleanup session $session_arg is not current"
+      exit 1
     fi
-    sleep 5
-  done
-fi
+  fi
+  timeout="${CLUSTER_DETACH_TIMEOUT_SECS:-300}"
+  [ "$worker_invocation" = false ] || echo "cluster-detach: peer worker invocation accepted"
 
-markers_clear || note_fail "PD-guard/readiness markers still present in $state_dir"
-rank_gone || note_fail "rank process still running (pattern ${CLUSTER_RANK_PROCESS_PATTERN:-unset})"
-ceiling_restored ||
-  note_fail "iogpu.wired_limit_mb=$(/usr/sbin/sysctl -n iogpu.wired_limit_mb 2>/dev/null) != standalone ${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0}"
-# Deliberately NOT called "teardown verified" any more. That wording was true and
-# read as false: it could print on a worker that was serving NOTHING, and exit 0
-# said the node was fine. Naming exactly the three postconditions it covers —
-# and nothing about serving — is what stops the next reader making the same jump.
-[ "$failed" -eq 0 ] && echo "cluster-detach: rank teardown verified (markers clear, rank gone, standalone ceiling restored); serving NOT yet restored — step 2"
+  echo "cluster-detach: D1 local teardown"
+  if cluster_teardown "$session_arg"; then
+    echo "cluster-detach: teardown complete"
+  else
+    lifecycle_refuse teardown-failed "cluster teardown reported a failure"
+    failed=1
+  fi
 
-# --- step 2: BOTH ROLES -- put standalone serving back and prove it serves ---
-# THE 86-HOUR DEFECT. This step used to be coordinator-only. On a worker,
-# cluster-detach downed the link, verified markers/rank/ceiling, printed
-# "teardown verified" and exited 0 — while the seven agents cluster-quiesce had
-# booted out (dev.mlx-model-server and its warmup among them) stayed booted out
-# and the host answered connection-refused. The teardown really was verified. The
-# machine really was serving nothing. Both at once, exit 0.
-#
-# Two changes make that unreachable:
-#   1. restore_normal_serving is the SHARED function the watcher and cluster-join
-#      call (scripts/cluster-serving-restore.sh), so every path that claims to
-#      restore serving runs the same code. On a
-#      worker it invokes cluster-restore, which bootstraps back EXACTLY the set
-#      cluster-quiesce recorded — never a hardcoded list.
-#   2. The real-completion probe runs for BOTH roles. A restore that cannot be
-#      demonstrated with a generated token is not a restore.
-if ! restore_normal_serving; then
-  note_fail "standalone serving restore failed (role=$CLUSTER_ROLE)"
-fi
-
-serve_ok=false
-if [ -n "${CLUSTER_STANDALONE_PROBE_URL:-}" ]; then
-  echo "cluster-detach: waiting up to ${timeout}s for standalone serving to answer a real completion"
-  deadline=$(($(date +%s) + timeout))
-  while [ "$(date +%s)" -lt "$deadline" ]; do
-    if curl -fsS -m 5 "${CLUSTER_STANDALONE_PROBE_URL}/models" > /dev/null 2>&1; then
-      body="$(curl -fsS -m 240 -X POST "${CLUSTER_STANDALONE_PROBE_URL}/chat/completions" \
-        -H 'Content-Type: application/json' \
-        -d "$(jq -nc --arg m "${CLUSTER_STANDALONE_PROBE_MODEL:-}" \
-          '{model:$m,messages:[{role:"user",content:"ping"}],max_tokens:4}')" \
-        2> /dev/null)" || { sleep 10; continue; }
-      if jq -e '(.usage.completion_tokens // 0) >= 1' > /dev/null 2>&1 <<< "$body"; then
-        serve_ok=true
-        break
+  if [ "${CLUSTER_ROLE:-}" = coordinator ] && [ -n "${CLUSTER_PEER_SSH:-}" ]; then
+    echo "cluster-detach: peer-ssh detaching worker"
+    "${CLUSTER_SSH_BIN:-/usr/bin/ssh}" -o BatchMode=yes -o ConnectTimeout=10 \
+      "$CLUSTER_PEER_SSH" cluster-detach --worker \
+      > >(while IFS= read -r line || [ -n "$line" ]; do printf 'worker: %s\n' "$line"; done) 2>&1 &
+    peer_pid=$!
+    if cluster_peer_ssh_wait "$peer_pid" "$((timeout + 30))" peer-detach-timeout; then
+      if [ "${CLUSTER_PEER_SSH_RC:-1}" -eq 0 ]; then
+        echo "cluster-detach: peer-ssh peer-detach-succeeded"
+      else
+        peer_detach_rc="$CLUSTER_PEER_SSH_RC"
+        lifecycle_refuse peer-detach-failed "worker detach failed (rc=$peer_detach_rc)"
+      fi
+    else
+      peer_detach_rc="${CLUSTER_PEER_SSH_RC:-1}"
+      if [ "$peer_detach_rc" -ne 124 ]; then
+        lifecycle_refuse peer-detach-failed "worker detach could not be confirmed (rc=$peer_detach_rc)"
       fi
     fi
-    sleep 10
-  done
-  if "$serve_ok"; then
-    echo "cluster-detach: standalone serving restored (real completion from $CLUSTER_STANDALONE_PROBE_MODEL)"
-  else
-    note_fail "standalone serving did not return a real completion within ${timeout}s"
   fi
-else
-  # No probe URL is a CONFIGURATION gap, not a pass. Reporting it as a failure is
-  # the point: an unverifiable restore is exactly the state this whole step
-  # exists to stop being reported as success.
-  note_fail "no CLUSTER_STANDALONE_PROBE_URL configured; standalone serving CANNOT be verified on this node"
-fi
 
-# --- step 3: swap check (distinct exit so a wrapper can chain a reboot) ------
-swap_used_mb() {
-  /usr/sbin/sysctl -n vm.swapusage 2>/dev/null | /usr/bin/sed -n 's/.*used = \([0-9][0-9]*\).*/\1/p'
+  echo "cluster-detach: D2 standalone real-completion probe"
+  if [ -n "${CLUSTER_STANDALONE_PROBE_URL:-}" ]; then
+    deadline=$(($(date +%s) + timeout))
+    while [ "$(date +%s)" -lt "$deadline" ]; do
+      if curl -fsS -m 5 "${CLUSTER_STANDALONE_PROBE_URL}/models" > /dev/null 2>&1; then
+        body="$(curl -fsS -m 240 -X POST "${CLUSTER_STANDALONE_PROBE_URL}/chat/completions" \
+          -H 'Content-Type: application/json' \
+          -d "$(jq -nc --arg m "${CLUSTER_STANDALONE_PROBE_MODEL:-}" \
+            '{model:$m,messages:[{role:"user",content:"ping"}],max_tokens:4}')" 2> /dev/null)" || body=""
+        if jq -e '(.usage.completion_tokens // 0) >= 1' > /dev/null 2>&1 <<< "$body"; then
+          serve_ok=true
+          break
+        fi
+      fi
+      sleep 10
+    done
+    if [ "$serve_ok" = true ]; then
+      echo "cluster-detach: standalone serving restored (real completion verified)"
+    else
+      lifecycle_refuse serving-not-restored "standalone serving did not return a real completion within ${timeout}s"
+      failed=1
+    fi
+  else
+    lifecycle_refuse serving-probe-unconfigured "no standalone probe URL; serving cannot be verified"
+    failed=1
+  fi
+
+  echo "cluster-detach: D3 swap check"
+  used="$("${CLUSTER_SYSCTL_BIN:-/usr/sbin/sysctl}" -n vm.swapusage 2> /dev/null | "${CLUSTER_SED_BIN:-/usr/bin/sed}" -n 's/.*used = \([0-9][0-9]*\).*/\1/p' || true)"
+  used="${used:-0}"
+  swap_threshold="${CLUSTER_DETACH_SWAP_THRESHOLD_MB:-20000}"
+  if [ "$used" -gt "$swap_threshold" ]; then
+    stale_swap=true
+    lifecycle_refuse stale-swap "used=${used}M exceeds threshold=${swap_threshold}M"
+  fi
+
+  echo "cluster-detach: D4 summary"
+  current="$("${CLUSTER_SYSCTL_BIN:-/usr/sbin/sysctl}" -n iogpu.wired_limit_mb 2> /dev/null || echo '?')"
+  link_state="$(cat "$CLUSTER_STATE_FILE" 2> /dev/null || echo unknown)"
+  if pd_held_count; then
+    held="$PD_HELD"
+  else
+    lifecycle_refuse pd-count-unreadable "held PD count is unknown: ${PD_COUNT_DETAIL:-unreadable}"
+    failed=1
+  fi
+  echo "cluster-detach $([ "$failed" -eq 0 ] && echo OK || echo FAIL) ($CLUSTER_ROLE)"
+  echo "  link-state : $link_state"
+  echo "  rank       : $(rank_process_absent && echo stopped || echo present-or-unknown)"
+  echo "  wired ceil : $current (standalone ${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0})"
+  echo "  held PDs   : $held of ${CLUSTER_PD_DEVICE_BUDGET:-?}"
+  echo "  serving    : $([ "$serve_ok" = true ] && echo restored || echo NOT-VERIFIED)"
+  echo "  swap used  : ${used}M (threshold ${swap_threshold}M)"
+
+  cluster_detach_finish "$failed" "$peer_detach_rc" "${TEARDOWN_REBOOT:-0}" "$stale_swap"
 }
-used="$(swap_used_mb)"
-used="${used:-0}"
-swap_threshold="${CLUSTER_DETACH_SWAP_THRESHOLD_MB:-20000}"
-stale_swap=false
-[ "$used" -gt "$swap_threshold" ] && stale_swap=true
 
-# --- step 4: state summary --------------------------------------------------
-ceiling="$(/usr/sbin/sysctl -n iogpu.wired_limit_mb 2>/dev/null || echo '?')"
+cluster_detach_finish() {
+  local failed="$1" peer_detach_rc="$2" reboot="$3" stale_swap="$4"
+  if [ "$peer_detach_rc" -ne 0 ]; then
+    [ "$peer_detach_rc" -eq 3 ] && exit 3
+    exit 1
+  fi
+  if [ "$reboot" -eq 1 ] || [ "$stale_swap" = true ]; then
+    exit 3
+  fi
+  [ "$failed" -eq 0 ] || exit 1
+}
 
-if [ -n "$port" ]; then link_state="$port down"; else link_state="already down"; fi
-if markers_clear; then markers_state="clear"; else markers_state="PRESENT"; fi
-# Three states, because "not proven gone" and "definitely still up" are
-# different operator actions and collapsing them is how an unusable pgrep gets
-# read as safe-to-unplug.
-if rank_gone; then
-  rank_state="stopped"
-elif rank_process_running; then
-  rank_state="RUNNING"
-else
-  rank_state="UNKNOWN (process probe could not answer)"
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+  cluster_detach_main "$@"
 fi
-
-echo "======================================================================"
-if [ "$failed" -eq 0 ]; then
-  echo "cluster-detach OK ($CLUSTER_ROLE)"
-else
-  echo "cluster-detach FAIL ($CLUSTER_ROLE)"
-fi
-echo "  link       : $link_state"
-echo "  markers    : $markers_state"
-echo "  rank       : $rank_state"
-echo "  wired ceil : iogpu.wired_limit_mb=$ceiling (standalone ${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0})"
-# The number that decides whether this node may join again without a reboot.
-# Reported unconditionally, including when it is 0/N: a debt line that only
-# appears once there is debt is a line nobody learns to look for.
-pd_debt_now="$(pd_debt_count "${CLUSTER_PD_DEBT_FILE:-}")"
-echo "  PD debt    : $(pd_debt_phrase "${pd_debt_now:-0}" "${CLUSTER_PD_DEBT_MAX:-?}")"
-if [ "$serve_ok" = true ]; then standalone_state="restored"; else standalone_state="NOT-RESTORED"; fi
-echo "  standalone serving: $standalone_state"
-echo "  lease      : ${lease_secs}s ($lease_reason) — the watcher auto-rejoins at expiry while plugged in"
-echo "  swap used  : ${used}M (threshold ${swap_threshold}M)"
-echo "======================================================================"
-
-if [ "$failed" -ne 0 ]; then
-  exit 1
-fi
-if [ "${sigkilled_rank:-0}" -eq 1 ]; then
-  echo "cluster-detach: WARNING rank was SIGKILL'd -- it leaked its RDMA protection domain" >&2
-  echo "                AND its wired shard memory. Recorded: $(pd_debt_phrase "${pd_debt_now:-?}" "${CLUSTER_PD_DEBT_MAX:-?}")" >&2
-  echo "                in ${CLUSTER_PD_DEBT_FILE:-unset}. Reboot this node before the next join:" >&2
-  echo "                a protection domain is returned by nothing else, and leaked wired" >&2
-  echo "                memory is a panic risk. At the cap, cluster-join refuses" >&2
-  echo "                and the link watcher halts rank starts on its own." >&2
-  exit 3
-fi
-if [ "$stale_swap" = true ]; then
-  echo "cluster-detach: WARNING stale swap -- reboot this node before the next join (or now):" >&2
-  echo "                vm.swapusage used ${used}M > ${swap_threshold}M (spiral risk)" >&2
-  exit 3
-fi
-# NO TERMINAL `exit 0`, AND THAT IS DELIBERATE. Falling off the end exits with
-# the preceding `if`'s status, which is 0 when its test was false — identical
-# behaviour. A terminal `exit` costs the EXIT trap above its only visible
-# invocation: shellcheck stops crediting `trap release_session EXIT` as a call
-# and fails the build with SC2329 on a function that runs on every exit. Do not
-# re-add it.

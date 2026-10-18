@@ -1,6 +1,6 @@
 # Gemini CLI / Antigravity CLI Formatter
 # Policy Engine TOML rules (Gemini CLI v0.36+)
-{ lib, flattenCommands }:
+{ flattenCommands }:
 
 let
   # Gemini Policy Engine: deny message for blocked commands

@@ -28,7 +28,7 @@ let
   # Same operator-seeded pager the mlx watchdog uses. Deliberately the SAME
   # file: a host with a pager configured should not have to seed a second one
   # to learn that its fallback chain died.
-  alertUrlFile = "${config.home.homeDirectory}/.config/mlx-cluster/alert-url";
+  litellmAlertUrlFile = "${config.home.homeDirectory}/.config/mlx-cluster/alert-url";
 in
 {
   litellm-local = {
@@ -102,7 +102,7 @@ in
       EnvironmentVariables = {
         HOME = config.home.homeDirectory;
         LITELLM_LOCAL_URL = "http://127.0.0.1:${toString cfg.port}";
-        LITELLM_ALERT_URL_FILE = alertUrlFile;
+        LITELLM_ALERT_URL_FILE = litellmAlertUrlFile;
       };
       StandardOutPath = "${logDir}/fallback-watch.log";
       StandardErrorPath = "${logDir}/fallback-watch.error.log";

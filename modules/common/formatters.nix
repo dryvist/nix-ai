@@ -10,13 +10,13 @@ let
   inherit (utils) flattenCommands;
 
   # Import tool-specific formatters
-  claude = import ./formatters/claude.nix { inherit lib flattenCommands; };
-  gemini = import ./formatters/gemini.nix { inherit lib flattenCommands; };
-  antigravity-ide = import ./formatters/antigravity-ide.nix { inherit lib flattenCommands; };
-  copilot = import ./formatters/copilot.nix { inherit lib flattenCommands; };
+  claude = import ./formatters/claude.nix { inherit flattenCommands; };
+  gemini = import ./formatters/gemini.nix { inherit flattenCommands; };
+  antigravity-ide = import ./formatters/antigravity-ide.nix { inherit flattenCommands; };
+  copilot = import ./formatters/copilot.nix { inherit flattenCommands; };
   codex = import ./formatters/codex.nix { inherit lib flattenCommands; };
   opencode = import ./formatters/opencode.nix { inherit lib flattenCommands; };
-  qwen = import ./formatters/qwen.nix { inherit lib flattenCommands; };
+  qwen = import ./formatters/qwen.nix { inherit flattenCommands; };
 in
 {
   inherit

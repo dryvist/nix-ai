@@ -140,8 +140,7 @@ in
   # must render its own name — the one value the shared catalog cannot hold.
   # Only Claude's rendered servers are reachable as an option; every other
   # client folds its MCP block into an internal configAttrs, so their wiring is
-  # asserted at the call site instead — the same split as
-  # mlx-cluster-pd-callsites.nix. A seventh client added without a `client`
+  # asserted at the call site instead. A seventh client added without a `client`
   # argument renders token-meter unlabelled, and no other check would catch it.
   token-meter-mcp-caller =
     let

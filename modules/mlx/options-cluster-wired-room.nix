@@ -17,7 +17,7 @@
       description = ''
         GPU-wired memory (MB) held back from the rank-start budget for
         WindowServer and the rest of the compositor. wired_ceiling_room_ok
-        (cluster-link-guards.sh) refuses a rank start unless
+        (cluster-room.sh) refuses a rank start unless
 
           current wired + shardMemoryMb <= iogpu.wired_limit_mb - this
 

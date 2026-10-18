@@ -186,7 +186,6 @@ in
         residentWeightGb
         selectedRoles
         residents
-        swaps
         ;
     };
 

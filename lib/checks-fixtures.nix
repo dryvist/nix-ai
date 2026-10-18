@@ -324,6 +324,7 @@ rec {
           # glm4_moe is pipeline-only; the clusterMode assertions now reject
           # tensor-parallel on it, so this fixture must name the real mode.
           shardingMode = "pipeline";
+          shardMemoryMb = 1;
           wiredLimitMb = 90000;
           standaloneWiredLimitMb = 118000;
         };

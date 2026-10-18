@@ -1,10 +1,6 @@
-# Lifecycle-command environment contract (cluster-join / cluster-detach).
-#
-# Split out of cluster-mode.nix for the per-file size cap. The whole CLUSTER_*
-# env is baked at eval so the commands need no shell environment and behave
-# identically on both nodes; this file owns only the attrsets, while
-# cluster-mode.nix owns the packages that consume them.
+# Environment shared by the explicit cluster lifecycle commands.
 {
+  config,
   lib,
   ncfg,
   cfg,
@@ -12,58 +8,55 @@
   staticSelfIp,
   staticPeerIp,
   rankLabel,
-  watcherLabel,
   launchAgentsDir,
   residentAgentLabels,
   watchdogAgentLabel,
   stateFile,
-  pdDebtFile,
+  stateDir,
+  clusterSoftwareJson,
   apiUrl,
   modelServerProcessPattern,
-  rankErrorLog,
 }:
 let
-  # The CLUSTER RANK process pattern — a different fact from
-  # modelServerProcessPattern above, which names the STANDALONE worker. Imported
-  # here rather than threaded through cluster-mode.nix so the single definition
-  # reaches its consumers without another hop that could pass the wrong one.
   inherit (import ./cluster-rank-pattern.nix { inherit lib; }) clusterRankProcessPattern;
-
-  # Env common to both commands and both roles.
   clusterCommonEnv = {
     CLUSTER_ROLE = ncfg.role;
     CLUSTER_STATIC_SELF_IP = staticSelfIp;
     CLUSTER_STATIC_PEER_IP = staticPeerIp;
     CLUSTER_RANK_LABEL = rankLabel;
-    CLUSTER_WATCHER_LABEL = watcherLabel;
-    CLUSTER_WATCHER_PLIST = "${launchAgentsDir}/${watcherLabel}.plist";
-    CLUSTER_STATE_FILE = stateFile;
-    CLUSTER_STANDALONE_WIRED_LIMIT_MB = toString ncfg.standaloneWiredLimitMb;
     CLUSTER_RANK_PROCESS_PATTERN = clusterRankProcessPattern;
-    # RDMA protection-domain ledger. join REFUSES at the cap, detach WRITES to it
-    # when it has to SIGKILL. Both need the same path, from one definition — a
-    # writer and a reader that each derive it are a writer and a reader on
-    # different files.
-    CLUSTER_PD_DEBT_FILE = pdDebtFile;
-    CLUSTER_PD_DEBT_MAX = toString ncfg.maxKickstarts;
-    # The rank's own StandardErrorPath — same file the watcher carries (see
-    # cluster-watcher-env.nix). pd_debt_settle_counter (cluster-pd-settle.sh)
-    # reads it via rank_failure_stage to tell a Stage-A TCP-bootstrap death,
-    # which cannot have leaked a protection domain, from a Stage-B one, which
-    # already has, before billing either command's counter-reset to the ledger.
-    CLUSTER_RANK_ERROR_LOG = rankErrorLog;
-    # Measured device max_pd (11 here). Both commands report debt as a fraction
-    # of it — "2 of 11 device protection domains consumed until reboot" — since
-    # a bare count hides how small the pool actually is.
-    CLUSTER_PD_DEVICE_BUDGET = toString ncfg.devicePdBudget;
-    # Fallback device name for active_rdma_device (cluster-join-preflight.sh)
-    # when no carrier-active Thunderbolt port has a matching rdma_<dev> — same
-    # config the rank launcher falls back to (cluster-mode.nix). Already
-    # carries the "rdma_" prefix (rdmaDevice's own default).
-    CLUSTER_RDMA_DEVICE = ncfg.rdmaDevice;
-    # /usr/bin is not on a writeShellApplication PATH; absolute, and a test seam,
-    # exactly like CLUSTER_NETSTAT_BIN.
+    CLUSTER_STATE_FILE = stateFile;
+    CLUSTER_STATE_DIR = stateDir;
+    CLUSTER_PEER_STATE_FILE = ncfg.peerStateFile;
+    CLUSTER_PEER_STATE_PORT = toString ncfg.peerStatePort;
+    CLUSTER_PEER_STATE_TIMEOUT_SECS = toString ncfg.peerStateTimeoutSecs;
+    CLUSTER_PEER_SSH = ncfg.peerSsh;
+    CLUSTER_SOFTWARE_JSON = clusterSoftwareJson;
+    CLUSTER_LIFECYCLE_LOG = "${config.home.homeDirectory}/Library/Logs/mlx-cluster/cluster-lifecycle.log";
+    CLUSTER_LAUNCHCTL_BIN = "/bin/launchctl";
+    CLUSTER_SYSCTL_BIN = "/usr/sbin/sysctl";
+    CLUSTER_SUDO_BIN = "/usr/bin/sudo";
+    CLUSTER_SW_VERS_BIN = "/usr/bin/sw_vers";
     CLUSTER_PGREP_BIN = "/usr/bin/pgrep";
+    CLUSTER_PKILL_BIN = "/usr/bin/pkill";
+    CLUSTER_KILL_BIN = "/bin/kill";
+    CLUSTER_PS_BIN = "/bin/ps";
+    CLUSTER_GREP_BIN = "/usr/bin/grep";
+    CLUSTER_SH_BIN = "/bin/sh";
+    CLUSTER_IOCLASSCOUNT_BIN = "/usr/sbin/ioclasscount";
+    CLUSTER_IBV_DEVINFO_BIN = "/usr/bin/ibv_devinfo";
+    CLUSTER_PD_DEVICE_BUDGET = toString ncfg.devicePdBudget;
+    CLUSTER_PD_RESERVE = toString ncfg.pdReserve;
+    CLUSTER_MODEL = ncfg.model;
+    CLUSTER_SHARDING_MODE = if ncfg.shardingMode == "pipeline" then "pipeline" else "tensor";
+    CLUSTER_SHARD_MEMORY_MB = toString ncfg.shardMemoryMb;
+    CLUSTER_COMPOSITOR_RESERVE_MB = toString ncfg.compositorReserveMb;
+    HF_HOME = cfg.huggingFaceHome;
+    CLUSTER_RDMA_DEVICE = ncfg.rdmaDevice;
+    CLUSTER_JOIN_TIMEOUT_SECS = toString ncfg.joinTimeoutSecs;
+    CLUSTER_DETACH_TIMEOUT_SECS = toString ncfg.detachTimeoutSecs;
+    CLUSTER_QUIESCE_GRACE_SECS = toString ncfg.quiesceGraceSecs;
+    CLUSTER_STANDALONE_WIRED_LIMIT_MB = toString ncfg.standaloneWiredLimitMb;
   }
   // lib.optionalAttrs (ncfg.wiredLimitMb != null) {
     CLUSTER_WIRED_LIMIT_MB = toString ncfg.wiredLimitMb;
@@ -72,43 +65,25 @@ let
   clusterJoinEnv =
     clusterCommonEnv
     // {
-      CLUSTER_GENERATION_REPO = ncfg.generationRepo;
       CLUSTER_JOIN_SWAP_THRESHOLD_MB = toString ncfg.joinSwapThresholdMb;
-      CLUSTER_JOIN_TIMEOUT_SECS = toString ncfg.joinTimeoutSecs;
-      # Peer preflight: fail fast and NAME the unprepared side rather than
-      # spending joinTimeoutSecs on a rank that cannot connect and then
-      # surfacing jaccl's errno 60, which cannot say which machine was wrong.
-      CLUSTER_PEER_READY_TIMEOUT_SECS = toString ncfg.peerReadyTimeoutSecs;
-      CLUSTER_QUIESCE_GRACE_SECS = toString ncfg.quiesceGraceSecs;
       CLUSTER_WORKER_STABLE_SECS = toString ncfg.workerStableSecs;
     }
     // lib.optionalAttrs isCoordinator {
-      # join consumes the watcher's rank-warmed marker (zero completions issued
-      # by join itself), so it needs no cluster endpoint URL/model.
+      CLUSTER_QUIESCE_APPS = lib.concatStringsSep " " ncfg.quiesce.apps;
+      CLUSTER_QUIESCE_LAUNCHD = lib.concatStringsSep " " ncfg.quiesce.launchdLabels;
       CLUSTER_NORMAL_PROXY = "http://127.0.0.1:${toString cfg.port}";
       CLUSTER_SERVER_LABELS = lib.concatStringsSep " " residentAgentLabels;
       CLUSTER_LAUNCH_AGENTS_DIR = launchAgentsDir;
-      # join also boots this agent out (it would otherwise run its escalation
-      # ladder against a coordinator it sees as "up but not serving" for the
-      # whole cluster window and reload the standalone stack mid-window,
-      # reclaiming the memory the quiesce just freed). restore_normal_serving
-      # needs the watchdog plist to bootstrap it back on the failure path.
       CLUSTER_WATCHDOG_LABEL = watchdogAgentLabel;
       CLUSTER_WATCHDOG_PLIST = "${launchAgentsDir}/${watchdogAgentLabel}.plist";
       CLUSTER_STANDALONE_PROCESS_PATTERN = modelServerProcessPattern;
-      # Newline-separated substrings of standalone-serving engines to spare from the
-      # quiesce reap (standalone keep-resident backends). Empty by default.
       CLUSTER_KEEP_RESIDENT = lib.concatStringsSep "\n" ncfg.keepResidentBackends;
+      CLUSTER_HTTP_PORT = toString ncfg.httpPort;
     }
     // lib.optionalAttrs (!isCoordinator && ncfg.quiesceCommand != null) {
       CLUSTER_QUIESCE_CMD = ncfg.quiesceCommand;
     }
     // lib.optionalAttrs (!isCoordinator && ncfg.restoreCommand != null) {
-      # The worker half of the failure-path restore. Without it a worker join
-      # that quiesced and then failed lands in restore_normal_serving's "this
-      # host takes serving away and cannot give it back" branch — which is the
-      # honest report, but the wrong one when the hook exists and was simply
-      # never handed to join.
       CLUSTER_RESTORE_CMD = ncfg.restoreCommand;
     };
 
@@ -116,48 +91,21 @@ let
     clusterCommonEnv
     // {
       CLUSTER_DETACH_SWAP_THRESHOLD_MB = toString ncfg.detachSwapThresholdMb;
-      CLUSTER_DETACH_TIMEOUT_SECS = toString ncfg.detachTimeoutSecs;
-      # RULE 1: every detach records a self-expiring standalone lease; the
-      # watcher auto-rejoins at expiry while the cable is in. Default duration
-      # only — a per-call override is the command's first argument.
-      CLUSTER_STANDALONE_LEASE_SECS = toString ncfg.standaloneLeaseSecs;
-      # BOTH ROLES. These were coordinator-only, which is why cluster-detach on a
-      # worker could restore nothing, verify nothing, and still exit 0 with
-      # "teardown verified" over a host serving connection-refused. Every node
-      # that can be quiesced must be able to prove it came back.
       CLUSTER_STANDALONE_PROBE_URL = apiUrl;
       CLUSTER_STANDALONE_PROBE_MODEL = cfg.defaultModel;
-      # detach BOOTS THE RANK AGENT OUT before it signals anything, so that a
-      # half-executed teardown cannot be raced by a watcher kickstart — and must
-      # therefore bootstrap it back before it exits. Without the plist the agent
-      # would stay unloaded until the next activation, every later kickstart
-      # would fail, and the cluster could not re-form. RunAtLoad and KeepAlive
-      # are both false on that agent, so bootstrapping it loads it IDLE.
-      CLUSTER_RANK_PLIST = "${launchAgentsDir}/${rankLabel}.plist";
     }
     // lib.optionalAttrs isCoordinator {
       CLUSTER_SERVER_LABELS = lib.concatStringsSep " " residentAgentLabels;
       CLUSTER_LAUNCH_AGENTS_DIR = launchAgentsDir;
-      # Detach never boots this out itself — it only feeds restore_normal_serving.
-      # Carried so a detach that follows a join which did boot the watchdog out
-      # can still bootstrap it back.
       CLUSTER_WATCHDOG_LABEL = watchdogAgentLabel;
       CLUSTER_WATCHDOG_PLIST = "${launchAgentsDir}/${watchdogAgentLabel}.plist";
     }
     // lib.optionalAttrs (!isCoordinator && ncfg.restoreCommand != null) {
-      # The worker's restore hook — cluster-restore, which bootstraps back
-      # exactly the agent set cluster-quiesce recorded. The watcher and detach
-      # both need it to restore serving.
       CLUSTER_RESTORE_CMD = ncfg.restoreCommand;
     }
     // lib.optionalAttrs (!isCoordinator && ncfg.quiesceCommand != null) {
-      # Carried so restore_normal_serving can tell "this host never quiesces
-      # anything, so there is nothing to restore" (a pass) from "this host takes
-      # serving away and cannot give it back" (a failure). Collapsing those two
-      # into one silent success is the defect.
       CLUSTER_QUIESCE_CMD = ncfg.quiesceCommand;
     };
-
 in
 {
   inherit clusterJoinEnv clusterDetachEnv;

@@ -1,11 +1,10 @@
 # shellcheck shell=bash
 # The graceful rank reap — SIGTERM, then PROVE it worked.
+
+export TEARDOWN_SIGKILLED TEARDOWN_REBOOT
 #
-# Concatenated after ./cluster-rank-status.sh into the two consumers that stop
-# ranks: the link watcher (as a hard precondition before any start) and
-# cluster-detach (as the phase that must fail before SIGKILL is even considered).
-# One implementation, so the daily unplug path and the unattended restart path
-# cannot drift into two different ideas of "the rank is gone".
+# Concatenated after ./cluster-rank-status.sh for the shared join-failure and
+# detach teardown. Both paths use the same process-level proof of rank absence.
 #
 # WHY A PROCESS-LEVEL SIGTERM AND NOT JUST `launchctl kill`. launchd signals the
 # JOB. An engine that has been re-parented — orphaned by a killed supervisor, or
@@ -14,26 +13,19 @@
 # survivor still owns its protection domain. Signalling the pid directly is what
 # actually reaches it.
 #
-# WHY THIS PROVES ANYTHING. A protection domain is held by a PROCESS, not by
-# damaged kernel state. Measured: reaping two leaked worker processes changed the
-# next rank start's failure from errno 96 (protection domains exhausted) to
-# errno 60 (couldn't connect) — the domains came back the moment their owners
-# died. So "no rank process is alive" is a sufficient condition for the domains
-# being available, and enforcing it before every start is what makes accumulation
-# impossible rather than merely unlikely.
+# The process probe is a separate precondition from the kernel PD count. Once no
+# rank is alive, the gate reads the system-wide count and refuses if any domains
+# remain held.
 #
-# SIGTERM ONLY, DELIBERATELY. A SIGKILL here would leak the very domain the
-# function exists to protect, so a survivor that ignores SIGTERM is reported and
-# the caller refuses. Refusing costs nothing — no distributed init runs, so no
-# domain is spent — and is retried on the next tick. Escalating costs a reboot.
-# cluster-detach is the one caller allowed to escalate afterwards, and it pays
-# for it by writing the loss to the ledger.
+# rank_reap_verified uses SIGTERM only. rank_stop_verified owns the audited
+# SIGKILL fallback for an operator teardown; it marks the host reboot-required
+# and the kernel count confirms whether any domains remain held.
 #
 # $1 optional grace seconds (default CLUSTER_RANK_REAP_GRACE_SECS, then 30).
 rank_reap_verified() {
   local grace="${1:-${CLUSTER_RANK_REAP_GRACE_SECS:-30}}" pids pid deadline
   if [ -z "${CLUSTER_RANK_PROCESS_PATTERN:-}" ]; then
-    echo "cluster: CLUSTER_RANK_PROCESS_PATTERN is unset — refusing to assume no previous rank survives" >&2
+    lifecycle_refuse rank-probe-unanswerable "CLUSTER_RANK_PROCESS_PATTERN is unset; refusing to assume no rank survives"
     return 1
   fi
   if rank_process_absent; then
@@ -42,10 +34,12 @@ rank_reap_verified() {
   pids="$(rank_process_pids || true)"
   if [ -z "$pids" ]; then
     # Not proven absent, yet no pids came back: pgrep itself could not answer.
-    echo "cluster: could not determine whether a rank process survives (${CLUSTER_PGREP_BIN:-/usr/bin/pgrep} unusable) — refusing to treat that as 'nothing to clean up'" >&2
+    lifecycle_refuse rank-probe-unanswerable \
+      "could not determine whether a rank process survives (${CLUSTER_PGREP_BIN:-/usr/bin/pgrep} unusable)"
     return 1
   fi
-  echo "cluster: a rank process is STILL RUNNING ($(printf '%s' "$pids" | tr '\n' ' ')) and still owns its RDMA protection domain; SIGTERM, then re-verify" >&2
+  lifecycle_refuse rank-survivor \
+    "rank process is running ($(printf '%s' "$pids" | tr '\n' ' ')); SIGTERM, then re-verify"
   while IFS= read -r pid; do
     [ -n "$pid" ] || continue
     "${CLUSTER_KILL_BIN:-/bin/kill}" -TERM "$pid" > /dev/null 2>&1 || true
@@ -54,10 +48,45 @@ rank_reap_verified() {
   while [ "$(date +%s)" -lt "$deadline" ]; do
     sleep 2
     if rank_process_absent; then
-      echo "cluster: rank exited on SIGTERM and released its protection domain"
+      echo "cluster: rank exited on SIGTERM; the kernel PD count will verify availability"
       return 0
     fi
   done
-  echo "cluster: rank survived SIGTERM for ${grace}s and still holds its protection domain" >&2
+  lifecycle_refuse rank-survivor "rank survived SIGTERM for ${grace}s and still holds its protection domain"
+  return 1
+}
+
+# Stop a rank for an operator teardown. SIGKILL is the audited last resort and
+# makes a reboot mandatory even when the process is subsequently absent.
+rank_stop_verified() {
+  local uid pkill_bin="${CLUSTER_PKILL_BIN:-/usr/bin/pkill}"
+  uid="$(id -u)"
+  TEARDOWN_SIGKILLED=0
+  if rank_process_absent; then
+    echo "cluster-teardown: rank already absent"
+    return 0
+  fi
+  "${CLUSTER_LAUNCHCTL_BIN:-/bin/launchctl}" kill SIGTERM \
+    "gui/$uid/${CLUSTER_RANK_LABEL}" > /dev/null 2>&1 || true
+  if rank_reap_verified "${CLUSTER_DETACH_TIMEOUT_SECS:-300}"; then
+    return 0
+  fi
+  echo "cluster-teardown: rank survived SIGTERM; escalating to SIGKILL" >&2
+  "${CLUSTER_LAUNCHCTL_BIN:-/bin/launchctl}" kill SIGKILL \
+    "gui/$uid/${CLUSTER_RANK_LABEL}" > /dev/null 2>&1 || true
+  if [ -n "${CLUSTER_RANK_PROCESS_PATTERN:-}" ]; then
+    "$pkill_bin" -9 -f "$CLUSTER_RANK_PROCESS_PATTERN" > /dev/null 2>&1 || true
+  else
+    echo "cluster-teardown: CLUSTER_RANK_PROCESS_PATTERN unset; skipped pattern kill" >&2
+  fi
+  sleep 3
+  if rank_process_absent; then
+    TEARDOWN_SIGKILLED=1
+    TEARDOWN_REBOOT=1
+    return 0
+  fi
+  lifecycle_refuse rank-survivor "rank remains after SIGKILL"
+  TEARDOWN_SIGKILLED=1
+  TEARDOWN_REBOOT=1
   return 1
 }

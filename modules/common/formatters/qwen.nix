@@ -5,7 +5,7 @@
 # rule per shared command; qwen enforces deny > ask > allow precedence itself.
 # Only Bash command rules are mapped — qwen's builtin tool names and its
 # prefix-less WebFetch(host) syntax differ from Claude, so those are skipped.
-{ lib, flattenCommands }:
+{ flattenCommands }:
 {
   formatPermissions =
     permissions:

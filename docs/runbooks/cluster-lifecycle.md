@@ -1,177 +1,98 @@
-# Cluster lifecycle: `cluster-join` / `cluster-detach`
+# Cluster lifecycle: manual join and detach
 
-> Link will not come up? Read [cluster-link-truths.md](cluster-link-truths.md)
-> first — the authoritative page on what each observable state means.
+`cluster-join` and `cluster-detach` are explicit operator commands for the two-node MLX cluster.
+They write their decisions to `~/Library/Logs/mlx-cluster/cluster-lifecycle.log`; no cable event starts or stops a rank.
 
-Two `pkgs.writeShellApplication` commands (shipped on PATH on both nodes when
-`programs.mlx.clusterMode.enable = true`) that make two-Mac JACCL cluster
-bring-up and safe-unplug a single, verifiable step each. They are supervised
-front-ends over the link watcher (`modules/mlx/scripts/cluster-link-watcher.sh`)
-— they never start a rank themselves; the launchd-owned watcher does that. A
-plain-shell rank lacks the macOS Local Network entitlement launchd grants and
-dies in JACCL rendezvous with errno 60.
+## Before joining
 
-Both commands are idempotent and safe to re-run. All `CLUSTER_*` configuration
-is baked at eval from `programs.mlx.clusterMode`, so the commands need no shell
-environment and behave identically on the coordinator and the worker.
+- Plug in the Thunderbolt cable.
+- Ensure both nodes use matching software and cluster configuration, and that the selected model is cached on both nodes.
+- Configure `peerSsh` on the coordinator. The coordinator starts the worker's `cluster-join --worker` over SSH.
+- If a model is selected on the command line, pass the same `--model` and optional `--pipeline` choice to the coordinator command;
+  it forwards those values to the worker.
 
-## Prerequisites
+## Bring the cluster up
 
-Before joining, download the selected model on both nodes with
-`hf download <model repo>`.
+Run `cluster-join` on the coordinator. It checks the local node, starts the worker join,
+publishes the coordinator's armed state, and waits for both ranks to form.
+The worker command runs through the coordinator's configured SSH connection.
+The coordinator's result is the cluster result.
 
-## `cluster-join` — bring the cluster up
+Each join runs the gates in this order. J1 also runs again at J9 immediately before a rank can start.
 
-1. Verify/repair link prep on the local node (own static link IP on a
-   carrier-active port that is not enslaved in `bridge0`). Repair is a bounded
-   `sudo /nix/var/nix/profiles/system/activate` first (re-runs cluster-link-prep
-   idempotently), then a direct granted fallback (`bridge0 deletem` + alias-up on
-   the carrier port) if activation does not restore prep — both use only the
-   cluster-ops sudoers grants. The activation is time-bounded so an
-   unrelated hung activation step cannot wedge bring-up.
-2. Pin the cluster wired ceiling **before anything loads**
-   (`sysctl -w iogpu.wired_limit_mb=<clusterWiredLimitMb>`). This is the one
-   non-negotiable step and hard-fails on error: a shard loaded over a standalone-sized
-   ceiling wires out the GUI working set and triggers a WindowServer watchdog
-   kill / panic.
-3. Coordinator only: refuse to proceed if `vm.swapusage` used exceeds
-   `joinSwapThresholdMb` (default 8000 MB) — loading against stale swap spirals
-   to a panic — then quiesce standalone serving (bootout the server +
-   warmup agents, wait for zero MLX model-server processes, reap orphans after a
-   grace).
-4. Clear a stale `rank-halted` PD-guard latch and any standalone lease, ensure
-   the watcher agent is loaded (bootstrap in the caller's own `gui/$uid` domain
-   if not), then let the watcher kickstart the rank.
-5. Block (bounded by `joinTimeoutSecs`, default 600 s) until the cluster is
-   serving. The coordinator issues **no completion of its own**: the link
-   watcher fires exactly one warm generation (request #1) at bring-up and records
-   success by creating the `rank-warmed` marker, and join gates on the rank
-   process being up **and** that marker present. So the total post-formation
-   request count is exactly one, issued by one component — a
-   second post-formation request wedges the pipeline. Note the
-   contract: the `rank-warmed` marker means "the single warm generation succeeded
-   at formation", not "serving is healthy now"; a join re-run against a wedged
-   same-session cluster passes on the existing marker by design (zero-probe
-   contract), so use `cluster-detach` + rejoin to force a fresh formation. Worker
-   role blocks until its rank process is running and stable for `workerStableSecs`
-   (60 s).
-6. Print a state summary (link, ceiling, rank pid, generation) and exit 0 only
-   if every check passed.
+- **Before J1.** Refusal tokens: `model-not-cached` or `model-too-large`.
+  Operator action: cache the selected model on both nodes, or choose a model whose shard fits the configured wired budget.
+- **J1, PD start gate.** Refusal tokens: `pd-gate-unconfigured`, `rank-alive`,
+  `rank-probe-unanswerable`, `device-budget-unverified`, `pd-count-unreadable`, or `pd-reserve`.
+  Operator action: correct the budget or reserve configuration; prove no rank remains;
+  restore the device/count probe; or reboot this Mac when `pd-reserve` returns exit 3.
+- **J2, link preparation.** Refusal tokens: `link-prep-not-ready`. The check is read-only.
+  Operator action: run `sudo /nix/var/nix/profiles/system/activate`,
+  then retry after the link address is present on a carrier-active port outside `bridge0`.
+- **J3, wired ceiling.** Refusal tokens: `wired-ceiling-set-failed`.
+  Operator action: check `programs.mlx.clusterMode.wiredLimitMb` and the configured exact-value privilege grant, then retry.
+- **J4, swap and quiesce.** The coordinator refuses with `stale-swap` when used swap exceeds `joinSwapThresholdMb`.
+  Otherwise it quiesces standalone serving and configured launchd agents.
+  Operator action: reboot this Mac before joining when stale swap is reported.
+  If a quiesce hook warns, inspect the log and let J5 decide whether resources are available.
+- **J5, start room.** Refusal tokens: `rank-start-room-unavailable`; details identify the free-memory or wired-ceiling measurement.
+  Operator action: correct shard sizing or the wired ceiling and compositor reserve,
+  or free the reported memory. If the detail identifies unreclaimed Metal memory, reboot this Mac before retrying; the command returns 3.
+- **J6, arm.** Refusal tokens: `armed-state-write-failed` if the peer state or link state cannot be published.
+  Operator action: check the state directory and configured paths,
+  then run `cluster-detach` to restore a known down state before retrying.
+- **J7, peer poll.** Refusal tokens: `peer-state-unreachable`, `local-software-unavailable`,
+  `peer-not-armed`, `generation-mismatch`, `clock-unavailable`, `peer-arm-stale`, or `peer-never-armed`.
+  Operator action: restore the SSH and peer-state path, match software and model revisions, and check both clocks.
+  Retry only after both nodes can publish a fresh armed state.
+- **J8, shared start time.** Refusal tokens: `missed-start-window`.
+  Operator action: start a fresh coordinator join after both nodes are ready; do not kickstart either rank by hand.
+- **J9, final peer and PD gates.** The J1 PD refusal tokens can recur.
+  Peer checks can return the J7 tokens or `peer-armed-at-changed`;
+  the timing and launch steps can return `missed-start-window`, `rank-model-write`, or `rank-kickstart-failed`.
+  Operator action: resolve the logged reason and retry from J1.
+  If the PD gate returns `pd-reserve`, reboot this Mac before retrying.
+- **J10, formation.** Refusal tokens: `rank-exited-during-formation`, `coordinator-endpoint-not-formed`,
+  `worker-rank-exited-during-formation`, or `worker-rank-not-stable`.
+  Operator action: read the lifecycle log on both nodes.
+  The failed join runs teardown recovery; resolve the reported rank or endpoint failure before retrying.
+- **J11, summary.** `decision=formed` records the link state, wired ceiling, rank process ID,
+  and measured PD count. Operator action: exit 0 means formation passed.
 
-## `cluster-detach` — the daily safe-unplug
+`cluster-join` checks model availability before J1.
+At J1 and J9 it requires a provable absent rank, a verified device budget, and a readable kernel PD count that leaves the configured reserve.
+J4 quiesces before J5 measures room.
+J6 arms the node; J7 waits up to `joinTimeoutSecs` for a fresh peer arm;
+J8 and J9 align and recheck the shared start; J10 checks the coordinator endpoint or worker rank stability.
+Formation sends no completion request.
 
-0. Record the **standalone lease** (`cluster-detach [secs [reason]]`, default
-   `standaloneLeaseSecs`). The watcher holds off while it is unexpired, then
-   auto-rejoins with the cable in — plugged in means clustered, and the lease
-   is the one self-expiring exception (cluster-link-truths.md §1).
-1. Take the Thunderbolt link admin-down (`ifconfig <port> down`) so both watchers
-   observe peer loss and run their up→down teardown, then **verify against live
-   state** (bounded by `detachTimeoutSecs`, default 300 s): PD-guard/readiness
-   markers actually absent, no `mlx_lm.server` process, and
-   `iogpu.wired_limit_mb` equal to the standalone value — never trust the logs.
-2. Coordinator only: verify standalone serving actually restored — the proxy answers
-   **and** a real completion returns from the primary resident. The watcher's
-   restore assumes the standalone agents are still loaded and silently no-ops otherwise,
-   so this bootstraps the server agent if needed before probing.
-3. If `vm.swapusage` used exceeds `detachSwapThresholdMb` (default 20000 MB),
-   print a prominent "stale swap — reboot before next join" warning and exit
-   with distinct code **3** so a wrapper can chain a reboot.
-4. Print an OK/FAIL summary; nonzero exit on any failed postcondition.
+## Detach the cluster
 
-## Zero-click flow: what the watcher does with no human at all
+Run `cluster-detach` on the coordinator.
+It tears down the local rank, then runs `cluster-detach --worker` over SSH,
+verifies standalone serving with a real completion, checks swap, and prints the measured PD count.
+If the coordinator cannot reach the worker, the command logs `REFUSE reason=peer-detach-failed rc=<n>`
+and exits 1 for every peer return code except 3.
+A worker detach that returns 3 propagates exit 3.
+A local swap level above `detachSwapThresholdMb` logs `stale-swap` and exits 3.
+Run `cluster-detach` locally on the worker if SSH cannot complete its teardown.
 
-`cluster-join` / `cluster-detach` are the *supervised* front-ends. Plugging or
-unplugging the cable is meant to be sufficient on its own, and since 2026-07-25
-the watcher enforces the parts a human used to have to get right.
+The worker-join result follows the same mapping: the coordinator logs `REFUSE reason=peer-join-failed rc=<n>`
+and returns 1 for any nonzero worker result except 3, which is propagated as 3.
 
-**Start order no longer matters.** A worker whose coordinator had no rank yet
-used to kickstart into a nonexistent rendezvous, leaking a **reboot-only**
-RDMA protection domain per failed attempt. Both
-ranks now hold for a shared wall-clock boundary and reach distributed init
-together, inside jaccl's ~15 s connect budget. Domains lost anyway are still
-counted in a boot-scoped ledger, capped against the device's 11 — see
-[rdma-protection-domains.md](rdma-protection-domains.md).
+Exit 0 means all local teardown checks passed.
+Exit 1 means a gate, probe, restore step, or peer operation failed.
+Exit 3 means the failed local operation or peer result requires a reboot before retrying; reboot the Mac named by the lifecycle log.
+A propagated worker exit 3 identifies the worker as the node that requested reboot.
 
-**A boot does not produce a usable link.** cluster-link prep runs in root
-`postActivation`, before Thunderbolt carrier settles, so it used to find no
-carrier-active port and leave a rank to die with `Couldn't bind socket (error:
-49)` (EADDRNOTAVAIL). The watcher now requires this host to hold its own link
-address before starting a rank, and repairs it in place when it does not
-(`linkRepair`; direct granted alias first, bounded `activate` second).
+The teardown order is disarm peer state, stop and verify the rank, read the kernel PD count,
+restore the standalone wired ceiling and serving, then write link state `down`.
+If the rank cannot be proven absent, teardown leaves serving and link state unchanged.
+A nonzero PD count after the rank stops requires a reboot before the next join.
 
-**The halt is not just a file.** The marker records *why* (`cause=...`) beside
-a sticky `rank-halt-latched`; deleting `rank-halted` by hand is only a
-*request* — the watcher re-verifies preconditions first, clears on pass, or
-**re-halts** with `cause=manual-clear-rejected` naming what still fails.
-Sanctioned resets: a real link cycle, or `cluster-join`.
+## Links
 
-**Unplug is debounced in seconds, not probes.** `linkDownSettleSecs` (default
-60 s) converts to consecutive failed probes against `tickIntervalSecs` (default
-30 s), rounded up, floor of one, so window and tick cannot drift apart. The
-debounce is asymmetric on purpose: "up" is believed at the first reply, "down"
-must be earned, because a false down tears the rank down *and* resets the PD
-guard — a flapping link could otherwise never accumulate toward a halt.
-
-**Alerting matches the non-load-bearing doctrine in
-[cluster-link-truths.md](cluster-link-truths.md) §5:** a failed page still
-logs its full text to `alerts-undelivered.log`.
-
-**Detached-while-plugged self-corrects.** Once no standalone lease holds, the
-watcher re-admin-ups the port cluster-detach downed and rejoins. Generation
-drift is a separate, harder stop: it is detected and refused before any rank
-start (hard gate), and it does NOT self-heal — the watcher pages once per
-deploy revision and waits for a human to run `darwin-rebuild switch`. Both
-in [cluster-link-truths.md](cluster-link-truths.md) §1–§2.
-
-Tunables — all under `programs.mlx.clusterMode`, each documented at its
-declaration in `modules/mlx/options-cluster-resilience.nix`:
-`tickIntervalSecs`, `linkDownSettleSecs`, `peerRendezvousProbeTimeoutSecs`,
-`linkRepair`, `linkRepairActivateTimeoutSecs`, `warmRecheckSecs`.
-
-## One-click flow
-
-```text
-# coordinator and worker, in either order (each blocks on its own postconditions)
-cluster-join       # -> cluster serving a frontier model over Thunderbolt
-# ... run the window ...
-cluster-detach     # -> standalone serving restored, node safe to unplug/sleep/reboot
-                   #    exit 3 => reboot before the next cluster-join
-```
-
-## Local end-to-end testing before the module ships
-
-These are per-host home-manager packages, not flake apps — `nix run
-.#cluster-join` does NOT work. Build the exact per-node binary straight from
-the consuming nix-darwin host config with this branch pinned, then run the
-store path on that node:
-
-```bash
-# in the nix-darwin repo; HOST is the coordinator or worker host attr
-nix build --print-out-paths \
-  "$(nix eval --raw ".#darwinConfigurations.$HOST.config.home-manager.users.$USER.home.packages" \
-    --apply 'ps: (builtins.head (builtins.filter (x: (x.name or "") == "cluster-join") ps)).drvPath' \
-    --override-input nix-ai path:/abs/path/to/this/worktree)^*"
-# then run <out>/bin/cluster-join on that node (nix copy the closure to the
-# coordinator if /nix/store is not shared).
-```
-
-The commands only mutate live state on a host with `clusterMode` enabled and a
-cable present; on any other host the link-prep check fails fast and nothing is
-started.
-
-## Grants (nix-darwin `sudoers.d/cluster-ops`)
-
-Used by these commands and already granted: exact-value
-`sysctl -w iogpu.wired_limit_mb=<value>`, `/nix/var/nix/profiles/system/activate`,
-`ifconfig bridge0 deletem *`, and `ifconfig en[0-9]* up` / `en[0-9]* down`. All
-`launchctl` verbs run in the caller's own `gui/$uid` domain and need no sudo.
-
-**Link repair is fully granted and auto-run** by `cluster-join` and the
-watcher. The alias form rides the `ifconfig en[0-9]* up` grant — the sudoers
-`*` glob spans its spaces (verified 2026-07-19). Details:
-[cluster-link-truths.md](cluster-link-truths.md).
-
-## Related
-
-- Issues: nix-ai #1284 (this work), #1283 (watcher state-machine defects),
-  #1281 (resident streaming defect).
+- [Cluster link truths](cluster-link-truths.md)
+- [RDMA protection-domain gate](rdma-protection-domains.md)
+- [Cluster observation traps](cluster-observation-traps.md)
+- [Manual cleanup after a converge](../../REMOVAL.md)
