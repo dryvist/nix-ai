@@ -263,7 +263,7 @@ if cluster_final_rank_start 100 995 > "$tmp/disarm.log" 2>&1; then
   echo '  FAIL disarmed peer reached kickstart'
   fail=1
 else
-  contains 'disarm is logged' 'peer-state REFUSE reason=peer-not-armed' "$(cat "$tmp/disarm.log")"
+  contains 'disarm is logged' 'REFUSE reason=peer-not-armed' "$(cat "$tmp/disarm.log")"
 fi
 check 'disarm issued no kickstart' 0 "$(grep -c 'kickstart' "$FAKE_LAUNCHCTL_LOG" || true)"
 
@@ -273,7 +273,7 @@ if cluster_final_rank_start 100 995 > "$tmp/window.log" 2>&1; then
   echo '  FAIL missed window reached kickstart'
   fail=1
 else
-  contains 'missed window is refused' 'REFUSE missed start window' "$(cat "$tmp/window.log")"
+  contains 'missed window is refused' 'REFUSE reason=missed-start-window' "$(cat "$tmp/window.log")"
 fi
 check 'missed window issued no kickstart' 0 "$(grep -c 'kickstart' "$FAKE_LAUNCHCTL_LOG" || true)"
 
@@ -378,6 +378,25 @@ check 'failed worker ssh called once' 1 "$(wc -l < "$FAKE_SSH_LOG" | tr -d ' ')"
 contains 'worker failure rc is logged' 'cluster-join: REFUSE reason=peer-join-failed rc=42' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
 contains 'local join formed before remote failure handling' 'decision=formed' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
 check 'worker failure runs coordinator teardown' yes "$(grep -qx teardown "$EVENTS" && echo yes || echo no)"
+
+echo 'a worker reboot-required result propagates as 3; other ssh errors stay 1:'
+for pair in '255 1' '3 3'; do
+  read -r FAKE_SSH_RC expected_rc <<< "$pair"
+  export FAKE_SSH_RC
+  : > "$FAKE_SSH_LOG"
+  : > "$CLUSTER_LIFECYCLE_LOG"
+  : > "$EVENTS"
+  setup_local_pass
+  if (cluster_join_main) > /dev/null 2>&1; then
+    join_rc=0
+  else
+    join_rc=$?
+  fi
+  check "worker join rc=$FAKE_SSH_RC maps to coordinator rc=$expected_rc" "$expected_rc" "$join_rc"
+  contains 'worker failure rc is logged' \
+    "cluster-join: REFUSE reason=peer-join-failed rc=$FAKE_SSH_RC" "$(cat "$CLUSTER_LIFECYCLE_LOG")"
+  check 'failed worker join tears down the coordinator' yes "$(grep -qx teardown "$EVENTS" && echo yes || echo no)"
+done
 
 echo 'a worker ssh exceeding the bound is terminated and reaped on local exit:'
 CLUSTER_JOIN_TIMEOUT_SECS=0

@@ -2,7 +2,7 @@
 # cluster-detach -- stop this rank, restore standalone serving and verify it.
 
 cluster_detach_main() {
-  local timeout deadline failed=0 peer_detach_failed=false used swap_threshold stale_swap=false
+  local timeout deadline failed=0 peer_detach_rc=0 used swap_threshold stale_swap=false
   local current link_state serve_ok=false body held="?" rc worker_invocation=false
   case "${1:-}" in
     "") ;;
@@ -25,14 +25,14 @@ cluster_detach_main() {
   fi
 
   if [ "${CLUSTER_ROLE:-}" = coordinator ] && [ -n "${CLUSTER_PEER_SSH:-}" ]; then
-    echo "cluster-join: peer-ssh detaching worker"
+    echo "cluster-detach: peer-ssh detaching worker"
     if "${CLUSTER_SSH_BIN:-/usr/bin/ssh}" -o BatchMode=yes -o ConnectTimeout=10 \
       "$CLUSTER_PEER_SSH" cluster-detach --worker; then
-      echo "cluster-join: peer-ssh peer-detach-succeeded"
+      echo "cluster-detach: peer-ssh peer-detach-succeeded"
     else
       rc=$?
-      echo "cluster-join: peer-ssh peer-detach-failed rc=$rc" >&2
-      peer_detach_failed=true
+      peer_detach_rc=$rc
+      echo "cluster-detach: REFUSE reason=peer-detach-failed rc=$rc" >&2
     fi
   fi
 
@@ -67,7 +67,10 @@ cluster_detach_main() {
   used="$("${CLUSTER_SYSCTL_BIN:-/usr/sbin/sysctl}" -n vm.swapusage 2> /dev/null | /usr/bin/sed -n 's/.*used = \([0-9][0-9]*\).*/\1/p' || true)"
   used="${used:-0}"
   swap_threshold="${CLUSTER_DETACH_SWAP_THRESHOLD_MB:-20000}"
-  [ "$used" -gt "$swap_threshold" ] && stale_swap=true
+  if [ "$used" -gt "$swap_threshold" ]; then
+    stale_swap=true
+    echo "cluster-detach: REFUSE reason=stale-swap used=${used}M threshold=${swap_threshold}M" >&2
+  fi
 
   echo "cluster-detach: D4 summary"
   current="$("${CLUSTER_SYSCTL_BIN:-/usr/sbin/sysctl}" -n iogpu.wired_limit_mb 2> /dev/null || echo '?')"
@@ -86,12 +89,15 @@ cluster_detach_main() {
   echo "  serving    : $([ "$serve_ok" = true ] && echo restored || echo NOT-VERIFIED)"
   echo "  swap used  : ${used}M (threshold ${swap_threshold}M)"
 
-  cluster_detach_finish "$failed" "$peer_detach_failed" "${TEARDOWN_REBOOT:-0}" "$stale_swap"
+  cluster_detach_finish "$failed" "$peer_detach_rc" "${TEARDOWN_REBOOT:-0}" "$stale_swap"
 }
 
 cluster_detach_finish() {
-  local failed="$1" peer_detach_failed="$2" reboot="$3" stale_swap="$4"
-  [ "$peer_detach_failed" = false ] || exit 3
+  local failed="$1" peer_detach_rc="$2" reboot="$3" stale_swap="$4"
+  if [ "$peer_detach_rc" -ne 0 ]; then
+    [ "$peer_detach_rc" -eq 3 ] && exit 3
+    exit 1
+  fi
   [ "$failed" -eq 0 ] || exit 1
   [ "$reboot" -eq 1 ] && exit 3
   [ "$stale_swap" = false ] || exit 3

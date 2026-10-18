@@ -168,12 +168,17 @@ else
 fi
 check 'SIGKILL sets the reboot-required flag' 1 "$TEARDOWN_REBOOT"
 set +e
-(cluster_detach_finish 0 false "$TEARDOWN_REBOOT" false)
+(cluster_detach_finish 0 0 "$TEARDOWN_REBOOT" false)
 detach_rc=$?
 set -e
 check 'SIGKILL teardown exits with reboot code' 3 "$detach_rc"
+set +e
+(cluster_detach_finish 0 0 0 true)
+detach_rc=$?
+set -e
+check 'stale swap exits with reboot code' 3 "$detach_rc"
 
-echo 'coordinator detaches the worker only after local teardown and returns 3 on remote failure:'
+echo 'coordinator maps worker detach results to the documented exit contract:'
 : > "$EVENTS"
 : > "$FAKE_SSH_LOG"
 : > "$CLUSTER_LIFECYCLE_LOG"
@@ -183,17 +188,24 @@ export CLUSTER_STANDALONE_PROBE_URL=http://127.0.0.1:1
 export CLUSTER_STANDALONE_PROBE_MODEL=test
 export CLUSTER_DETACH_SWAP_THRESHOLD_MB=20000
 export CLUSTER_DETACH_TIMEOUT_SECS=10
-export FAKE_SSH_RC=42
 cluster_teardown() { printf 'local-teardown\n' >> "$EVENTS"; TEARDOWN_REBOOT=0; return 0; }
 cluster_lifecycle_log_start() { exec > "$CLUSTER_LIFECYCLE_LOG" 2>&1; }
-set +e
-(cluster_detach_main)
-detach_rc=$?
-set -e
-check 'remote detach failure exits with code 3' 3 "$detach_rc"
-check 'coordinator issued one worker detach' 1 "$(wc -l < "$FAKE_SSH_LOG" | tr -d ' ')"
-check 'worker detach arguments' '-o BatchMode=yes -o ConnectTimeout=10 user@worker cluster-detach --worker' "$(cat "$FAKE_SSH_LOG")"
-contains 'remote failure is logged' 'peer-detach-failed rc=42' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
+for pair in '42 1' '255 1' '3 3'; do
+  read -r FAKE_SSH_RC expected_rc <<< "$pair"
+  export FAKE_SSH_RC
+  : > "$EVENTS"
+  : > "$FAKE_SSH_LOG"
+  : > "$CLUSTER_LIFECYCLE_LOG"
+  set +e
+  (cluster_detach_main)
+  detach_rc=$?
+  set -e
+  check "worker detach rc=$FAKE_SSH_RC maps to coordinator rc=$expected_rc" "$expected_rc" "$detach_rc"
+  check 'coordinator issued one worker detach' 1 "$(wc -l < "$FAKE_SSH_LOG" | tr -d ' ')"
+  check 'worker detach arguments' '-o BatchMode=yes -o ConnectTimeout=10 user@worker cluster-detach --worker' "$(cat "$FAKE_SSH_LOG")"
+  contains 'peer failure reason and raw rc are logged' \
+    "REFUSE reason=peer-detach-failed rc=$FAKE_SSH_RC" "$(cat "$CLUSTER_LIFECYCLE_LOG")"
+done
 first_local="$(grep -n '^local-teardown$' "$EVENTS" | cut -d: -f1)"
 first_ssh="$(grep -n '^ssh ' "$EVENTS" | cut -d: -f1)"
 check 'local teardown precedes remote detach' yes "$([ "$first_local" -lt "$first_ssh" ] && echo yes || echo no)"

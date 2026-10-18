@@ -1,52 +1,15 @@
 # Cluster observation traps
 
-Split out of [cluster-link-truths.md](cluster-link-truths.md) — that page
-holds the state-machine rules the automation enforces; this page holds the
-diagnostic gotchas that produced a confident wrong reading of the machine at
-least once each. Read this before trusting any manual observation over what
-the watcher itself reports.
+Use these checks with the manual [cluster lifecycle](cluster-lifecycle.md). The lifecycle log records the gate and measured result; a single interface flag or state file does not establish the state of the whole cluster.
 
-- **`RUNNING` in ifconfig flags is NOT carrier.** It is set on an admin-up
-  port with nothing plugged in. Carrier is the per-port `status:` line —
-  `active`/`inactive`, read on `en1`/`en2`/`en3` individually. `bridge0`'s own
-  status is irrelevant. The facts line renders this per port.
-- **A missing link address means link prep did not run.** It says *nothing*
-  about the cable — fully compatible with a seated cable and `status: active`.
-  Only the cluster tooling aliases it, never DHCP or the bridge service.
-  Enforced: carrier present + address absent self-repairs, bounded
-  (`linkPrepMaxRepairs`).
-- **A disabled Thunderbolt Bridge with zero members is the CORRECT state.**
-  The tooling deliberately frees TB ports *from* `bridge0`; `member: enX`
-  reappearing is the classic prep loss, undone by `repair_link_direct`. Do not
-  "fix" it in System Settings.
-- **macOS Local Network Privacy has a distinct signature and never removes an
-  address**: same-subnet `EHOSTUNREACH` (**errno 65**) for a gated process
-  while `/usr/bin/curl` succeeds in the same second. Both agents launch
-  through Apple's interpreter (`programs.mlx.appleInterpreter`) for this
-  reason. **Discriminator: errno 65 = gate blocked; errno 61
-  (`ECONNREFUSED`) = reached the peer, gate clear.** The gate CAN be prompted
-  from launchd; a grant persists on disk at
-  `/Library/Preferences/com.apple.networkextension.plist` (`DenyAll = false`),
-  not the (empty, here) TCC.db table. If `nehelper` can't resolve the
-  identity's display metadata (no alert ever attempted), the resulting
-  connect failures classify as ordinary Stage-A rank-start failures and drive
-  the same kickstart-cap → `rank-start-failures` halt and alert. A human reboot
-  is required to clear the leaked protection domains.
-- **Never read halt state by file existence.** `[ -f rank-halted ]` reports
-  the automation's own self-healing as an outage: post-reboot the marker
-  legitimately exists for a tick before `halt_drop_if_pre_boot` drops it. Test
-  the marker's `boot=` field against `sysctl -n kern.boottime`. Same family: a
-  `quiesced-agents` marker is not evidence the agents are quiesced — observe
-  the processes, never trust a marker over the machine.
-- **Read a failure burst from the FIRST error, not the last.** 2026-08-02: the
-  first rank failure was a Metal OOM
-  (`kIOGPUCommandBufferCallbackErrorOutOfMemory`); every later attempt died
-  `[jaccl] Couldn't connect (error: 60)` — a downstream symptom pointing at
-  the network. The last error names the aftermath; the first names the cause.
-- **`errno 60` never names the machine that is wrong.** It is `ETIMEDOUT`.
-  Enforced: `cluster-join` probes the peer (`peerReadyTimeoutSecs`) before the
-  long wait and refuses naming which side is unverified; the watcher's peer
-  rung refuses a start against an absent peer — no rank, no domain spent.
-- **A worker rank can die SIGSEGV (exit 139) when its peer vanishes.**
-  `launchctl list`'s second column is the last exit status; a bare
-  running/not-running check hides it.
+- **`RUNNING` is not carrier.** An admin-up interface can show `RUNNING` with no cable attached. Read `status: active` or `status: inactive` on the individual Thunderbolt interface; the bridge status does not report per-port carrier.
+- **A missing link address does not identify the cable state.** It can occur while a cable is seated and the port reports active. `cluster-join` checks the address and refuses with `link-prep-not-ready`; it does not repair the interface. Run `sudo /nix/var/nix/profiles/system/activate`, then retry the join.
+- **An empty Thunderbolt Bridge is expected.** The cluster link address belongs on the selected Thunderbolt interface. If it is absent or assigned to the bridge, run system activation and repeat the read-only join check; do not add bridge members by hand.
+- **Local Network Privacy errors differ from link-preparation failures.** `errno 65` (`EHOSTUNREACH`) can indicate a process is blocked from local-network access; `errno 61` (`ECONNREFUSED`) means the connection reached a host with no listener. Compare the lifecycle log with a read-only `/usr/bin/curl` probe from the same user before changing link configuration.
+- **A state file is not a process probe.** `link-state` and `peer-state.json` describe the last published lifecycle state. Use the `cluster-detach` rank summary and the kernel PD count to verify teardown; do not infer rank absence from `down`, a missing marker, or a launchd listing alone.
+- **Read the earliest failure in a join log.** A later peer timeout or formation refusal can follow an earlier gate failure. Start with the first `REFUSE` or `FAIL` line in `~/Library/Logs/mlx-cluster/cluster-lifecycle.log` and resolve that reason before retrying.
+- **`errno 60` does not identify which node needs attention.** `cluster-join` requires a fresh peer arm and matching software and model revisions before it starts a rank. Use the logged peer-state reason to check the responder, configuration, revision, or clock; there is no timed peer-readiness option to adjust.
+- **A rank exit status is not a PD count.** `launchctl list`'s second column is the last exit status. Check current process state and run `ioclasscount AppleThunderboltRDMAProtectionDomain` separately before concluding whether the rank released its kernel resources.
+- **Exit 3 requests an operator reboot.** No join or detach path reboots a node automatically. Reboot the Mac identified by the lifecycle log before retrying, then let J1 read the current kernel count again.
+
+For the gate sequence and refusal actions, see [cluster-lifecycle.md](cluster-lifecycle.md). For the PD arithmetic, see [rdma-protection-domains.md](rdma-protection-domains.md).

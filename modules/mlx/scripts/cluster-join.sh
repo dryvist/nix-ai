@@ -6,6 +6,13 @@ join_fail() {
   exit 1
 }
 
+join_refuse() {
+  local reason="$1" detail="$2"
+  detail="${detail//$'\n'/ }"
+  detail="${detail//$'\r'/ }"
+  printf 'cluster-join: REFUSE reason=%s detail=%s\n' "$reason" "$detail" >&2
+}
+
 cluster_model_refuse() {
   local detail="$1"
   detail="${detail//$'\n'/ }"
@@ -318,7 +325,8 @@ cluster_join_quiesce() {
     used="${used:-0}"
     threshold="${CLUSTER_JOIN_SWAP_THRESHOLD_MB:-8000}"
     if [ "$used" -gt "$threshold" ]; then
-      join_fail "stale swap (${used}M > ${threshold}M); reboot before joining"
+      join_refuse stale-swap "${used}M used exceeds ${threshold}M; reboot this Mac before joining"
+      exit 1
     fi
     echo "cluster-join: swap PASS used=${used}M threshold=${threshold}M"
     cluster_quiesce_coordinator_serving
@@ -348,17 +356,18 @@ cluster_join_exit() {
     cluster_peer_ssh_wait
     peer_rc=$CLUSTER_PEER_SSH_RC
   fi
-  if [ "$rc" -eq 0 ] && [ "$peer_started" = true ] && [ "$peer_rc" -ne 0 ]; then
+  if [ "${JOIN_SIGNAL_RC:-0}" -ne 0 ]; then
+    rc=$JOIN_SIGNAL_RC
+  elif [ "$peer_started" = true ] && [ "$peer_rc" -ne 0 ]; then
     echo "cluster-join: REFUSE reason=peer-join-failed rc=$peer_rc" >&2
-    teardown_rc=0
-    cluster_teardown || teardown_rc=$?
-    if [ "$peer_rc" -eq 3 ] || [ "$teardown_rc" -eq 3 ] || [ "${TEARDOWN_REBOOT:-0}" -eq 1 ]; then
+    if [ "$formed" = true ]; then
+      cluster_teardown || teardown_rc=$?
+    fi
+    if [ "$peer_rc" -eq 3 ]; then
       rc=3
-    else
+    elif [ "$rc" -eq 0 ]; then
       rc=1
     fi
-  elif [ "$rc" -eq 0 ] && [ "${JOIN_SIGNAL_RC:-0}" -ne 0 ]; then
-    rc=$JOIN_SIGNAL_RC
   fi
   trap - INT TERM
   exit "$rc"
@@ -407,11 +416,11 @@ cluster_final_rank_start() {
   local start_at="$1" expected_peer_armed_at="$2" now
   echo "cluster-join: J9 final peer and PD gates"
   if ! peer_armed_read; then
-    echo "cluster-join: peer-state REFUSE reason=${PEER_GATE_REASON:-unknown}"
+    join_refuse "${PEER_GATE_REASON%% *}" "${PEER_GATE_REASON:-unknown}"
     return 1
   fi
   [ "$PEER_ARMED_AT" = "$expected_peer_armed_at" ] || {
-    echo "cluster-join: peer-state REFUSE reason=peer-armed-at-changed" >&2
+    join_refuse peer-armed-at-changed "peer armed_at changed before J9"
     return 1
   }
   if ! pd_start_gate; then
@@ -419,11 +428,11 @@ cluster_final_rank_start() {
   fi
   now="$(date +%s)"
   if [ "$now" -gt "$start_at" ]; then
-    echo "cluster-join: REFUSE missed start window after final gates (now=$now start_at=$start_at)" >&2
+    join_refuse missed-start-window "final gates ended after start_at=$start_at (now=$now)"
     return 1
   fi
   cluster_sleep_until "$start_at" || {
-    echo "cluster-join: REFUSE missed start window at kickstart" >&2
+    join_refuse missed-start-window "clock passed start_at=$start_at before kickstart"
     return 1
   }
   cluster_rank_model_write || {
@@ -431,7 +440,7 @@ cluster_final_rank_start() {
     return 1
   }
   "${CLUSTER_LAUNCHCTL_BIN:-/bin/launchctl}" kickstart "gui/$uid/${CLUSTER_RANK_LABEL}" || {
-    echo "cluster-join: FAIL launchctl kickstart for ${CLUSTER_RANK_LABEL}" >&2
+    join_refuse rank-kickstart-failed "launchctl kickstart failed for the configured rank label"
     return 1
   }
   echo "cluster-join: kickstart issued at $(date +%s)"
@@ -503,14 +512,16 @@ cluster_join_main() {
   if link_prep_ok; then
     echo "cluster-join: link-prep PASS"
   else
-    join_fail "link prep is not ready; run sudo /nix/var/nix/profiles/system/activate"
+    join_refuse link-prep-not-ready "run sudo /nix/var/nix/profiles/system/activate"
+    exit 1
   fi
 
   echo "cluster-join: J3 wired-ceiling"
   if set_wired_limit "${CLUSTER_WIRED_LIMIT_MB:-}"; then
     echo "cluster-join: wired-ceiling PASS"
   else
-    join_fail "could not set the cluster wired ceiling"
+    join_refuse wired-ceiling-set-failed "could not set the configured cluster wired ceiling"
+    exit 1
   fi
 
   echo "cluster-join: J4 quiesce"
@@ -523,7 +534,7 @@ cluster_join_main() {
   if rank_start_room_ok; then
     echo "cluster-join: room PASS"
   else
-    echo "cluster-join: room REFUSE detail=${MEM_HEADROOM_DETAIL:-unknown}" >&2
+    join_refuse rank-start-room-unavailable "${MEM_HEADROOM_DETAIL:-unknown}"
     case "${MEM_HEADROOM_DETAIL:-}" in *unreclaimed-Metal*) JOIN_REBOOT=1 ;; esac
     exit "$((JOIN_REBOOT == 1 ? 3 : 1))"
   fi
@@ -533,7 +544,8 @@ cluster_join_main() {
   echo "cluster-join: J6 arm"
   armed_at="$(date +%s)"
   if ! peer_state_write true "$armed_at" || ! link_state_write up; then
-    join_fail "could not publish armed state"
+    join_refuse armed-state-write-failed "could not publish peer or link armed state"
+    exit 1
   fi
   echo "cluster-join: decision=armed armed_at=$armed_at"
 
@@ -548,18 +560,28 @@ cluster_join_main() {
     else
       poll_rc=$?
     fi
-    [ "$poll_rc" -eq 2 ] && join_fail "$PEER_GATE_REASON"
+    if [ "$poll_rc" -eq 2 ]; then
+      join_refuse "${PEER_GATE_REASON%% *}" "$PEER_GATE_REASON"
+      exit 1
+    fi
     sleep 5
   done
-  [ -n "${peer_armed_at:-}" ] || join_fail "peer never armed before join timeout"
+  if [ -z "${peer_armed_at:-}" ]; then
+    join_refuse peer-never-armed "peer did not arm before the join timeout"
+    exit 1
+  fi
 
   start_at="$(cluster_start_at "$armed_at" "$peer_armed_at")"
   echo "cluster-join: J8 start_at=$start_at"
   now="$(date +%s)"
   if [ "$now" -gt "$((start_at - 3))" ]; then
-    join_fail "missed start window (now=$now start_at=$start_at)"
+    join_refuse missed-start-window "now=$now start_at=$start_at"
+    exit 1
   fi
-  cluster_sleep_until "$((start_at - 3))" || join_fail "missed start window before J9"
+  if ! cluster_sleep_until "$((start_at - 3))"; then
+    join_refuse missed-start-window "the J9 window began before the final gates"
+    exit 1
+  fi
 
   if ! cluster_final_rank_start "$start_at" "$peer_armed_at"; then
     [ "${PD_REBOOT:-0}" -eq 1 ] && JOIN_REBOOT=1
@@ -578,11 +600,15 @@ cluster_join_main() {
       fi
       now="$(date +%s)"
       if ! rank_process_running && [ "$((now - stable_since))" -ge 15 ]; then
-        join_fail "rank exited during formation"
+        join_refuse rank-exited-during-formation "coordinator rank exited before the endpoint formed"
+        exit 1
       fi
       sleep 5
     done
-    [ "$warm_ok" = true ] || join_fail "coordinator endpoint did not form within ${timeout}s"
+    if [ "$warm_ok" != true ]; then
+      join_refuse coordinator-endpoint-not-formed "endpoint did not form within ${timeout}s"
+      exit 1
+    fi
   else
     stable_required="${CLUSTER_WORKER_STABLE_SECS:-60}"
     stable_since=0
@@ -599,12 +625,16 @@ cluster_join_main() {
         stable_since=0
         now="$(date +%s)"
         if [ "$now" -ge "$((deadline - timeout + 15))" ] && ! rank_process_running; then
-          join_fail "worker rank exited during formation"
+          join_refuse worker-rank-exited-during-formation "worker rank exited during the stability window"
+          exit 1
         fi
       fi
       sleep 5
     done
-    [ "$warm_ok" = true ] || join_fail "worker rank did not stay up for ${stable_required}s"
+    if [ "$warm_ok" != true ]; then
+      join_refuse worker-rank-not-stable "rank did not stay up for ${stable_required}s"
+      exit 1
+    fi
   fi
 
   rank_pid="$(rank_process_pids 2> /dev/null | head -n 1 || true)"
