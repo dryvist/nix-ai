@@ -1,6 +1,6 @@
 # Claude Code Formatter
 # Format: Bash(cmd *) for shell commands
-{ lib, flattenCommands }:
+{ flattenCommands }:
 
 let
   # Claude-specific helper: Get all tool-specific permissions (non-shell)

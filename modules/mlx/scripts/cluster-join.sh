@@ -1,511 +1,452 @@
 # shellcheck shell=bash
-# cluster-join -- one-shot, idempotent cluster bring-up front-end.
-#
-# The link watcher already owns the mechanics of forming the cluster (kickstart,
-# readiness probe, warm generation). cluster-join is the supervised operator
-# entry point that makes bring-up safe and verifiable in one command: it repairs
-# link prep, pins the wired ceiling BEFORE any load, quiesces standalone serving on the
-# coordinator, then hands the actual rank start to the watcher and BLOCKS until a
-# real generation proves the cluster is serving. Safe to re-run at any point.
-#
-# Ranks are NEVER started here directly: a plain-shell rank lacks the macOS Local
-# Network entitlement that launchd grants, so JACCL rendezvous dies with errno 60.
-# Only the launchd-owned rank agent may run the rank; this command
-# just ensures the watcher is loaded and lets it do the kickstart.
-#
-# Consumed environment (baked by the launchd/module wiring, mirrors the watcher):
-#   CLUSTER_ROLE                coordinator | worker
-#   CLUSTER_STATIC_SELF_IP      this node's static link address
-#   CLUSTER_STATIC_PEER_IP      peer's static link address
-#   CLUSTER_RANK_LABEL          launchd label of the cluster rank agent
-#   CLUSTER_WATCHER_LABEL       launchd label of the link watcher agent
-#   CLUSTER_WATCHER_PLIST       path to the watcher agent plist (for bootstrap)
-#   CLUSTER_STATE_FILE          watcher link-state file (locates the marker dir)
-#   CLUSTER_WIRED_LIMIT_MB      optional cluster wired ceiling (exact-value grant)
-#   CLUSTER_STANDALONE_WIRED_LIMIT_MB  standalone ceiling (unused here; carried for symmetry)
-#   CLUSTER_GENERATION_REPO     GitHub owner/repo whose origin/main is the
-#                             deploy source of truth for generation parity
-#                             (step 0); drift rebuilds from the remote flake
-#                             ref directly; empty disables the preflight
-#   CLUSTER_JOIN_SWAP_THRESHOLD_MB  refuse to load above this vm.swapusage used (MB)
-#   CLUSTER_JOIN_TIMEOUT_SECS   bound on the block-until-serving wait
-#   CLUSTER_QUIESCE_GRACE_SECS  grace before reaping orphaned standalone-serve engines
-#   CLUSTER_WORKER_STABLE_SECS  worker: seconds the rank must stay up to pass
-#   coordinator only:
-#   CLUSTER_NORMAL_PROXY        normal-mode llama-swap base URL (graceful unload)
-#   CLUSTER_SERVER_LABELS       space-separated resident server launchd labels
-#   CLUSTER_LAUNCH_AGENTS_DIR   directory containing those agents' plists
-#   CLUSTER_WATCHDOG_LABEL      serving watchdog launchd label — join boots this
-#                             out too, or it sees the coordinator as "up but not
-#                             serving" for the whole cluster window and reloads
-#                             the standalone stack mid-window
-#   CLUSTER_WATCHDOG_PLIST      that agent's plist, for bootstrap on restore
-#   CLUSTER_KEEP_RESIDENT       newline-separated command-line substrings; a
-#                             `vllm-mlx serve` engine matching any is left
-#                             running through the quiesce (standalone keep-
-#                             resident backend). Empty = reap every engine.
-#   (join consumes the watcher's rank-warmed marker; it issues NO completion of
-#    its own, so it needs no cluster endpoint URL or model id)
-#   worker only:
-#   CLUSTER_QUIESCE_CMD         optional worker-side quiesce hook (run via sh -c)
-#   CLUSTER_RESTORE_CMD         cluster-restore — the failure-path restore's
-#                             worker half, bootstrapping back exactly what
-#                             cluster-quiesce recorded booting out
-#
-# Grants used (nix-darwin sudoers, cluster-ops): exact-value
-# `sysctl -w iogpu.wired_limit_mb=<value>`, `/nix/var/nix/profiles/system/activate`,
-# `ifconfig bridge0 deletem *`, and `ifconfig en[0-9]* up` / `en[0-9]* down`.
-# All launchctl verbs run in the caller's own gui/$uid domain and need no sudo.
-# Link repair uses activation FIRST (idempotent, persistent), then a direct
-# fallback (bridge0 deletem + alias-up on the carrier port). The fallback IS
-# granted: the `ifconfig en[0-9]* up` glob spans the alias form's spaces --
-# `ifconfig <port> alias <ip> <mask> up` matches it (verified 2026-07-19 rc=0).
+# cluster-join -- guarded, one-shot cluster bring-up.
 
-uid="$(id -u)"
-state_dir="$(dirname "$CLUSTER_STATE_FILE")"
-mkdir -p "$state_dir"
-# RULE 1: a join ends any standalone lease — the deliberate standalone window
-# cluster-detach recorded is over the moment a human asks for the cluster back.
-if [ -f "$state_dir/standalone-lease" ]; then
-  rm -f "$state_dir/standalone-lease"
-  echo "cluster-join: cleared the standalone lease (joining ends the standalone window)"
-fi
-halt_file="$state_dir/rank-halted"
-# Sticky companion the watcher writes beside the halt marker; see step 4.
-halt_latch_file="$state_dir/rank-halt-latched"
-kicks_file="$state_dir/rank-kickstarts"
-
-fail() {
+join_fail() {
   echo "cluster-join: FAIL: $*" >&2
   exit 1
 }
 
-# A JOIN THAT DOES NOT FINISH MUST NOT LEAVE THE HOST SERVING NOTHING.
-#
-# Step 3 boots standalone serving out so the shard gets the whole machine. Every
-# exit after that point which is not a formed cluster used to leave it booted
-# out: the watcher only restores on the up->down edge (an edge a healthy cable
-# never produces) or from one of its own halt paths, so when join itself timed
-# out with no halt recorded, nothing on the host restored anything.
-#
-# An EXIT trap rather than a line inside fail(): writeShellApplication runs with
-# errexit, so an abort that never reaches fail() is exactly the case a bare
-# fail() edit would still miss.
-#
-# It defers to the watcher whenever the watcher owns the outcome, because a
-# restore issued over a live rank would bootstrap the standalone stack into the
-# shard's memory:
-#   rank running   — the cluster formed (or is forming); the watcher's teardown
-#                    paths restore serving when that ends.
-#   halt recorded  — the watcher halted, and every halt path already restores.
-# Both checks and the restore itself log, so which branch fired is never a
-# guess. quiesced is false until step 3 actually takes serving away, so an early
-# refusal (parity, link prep, absent peer, PD debt) restores nothing — it never
-# removed anything.
-quiesced=false
-
-restore_serving_if_join_left_it_down() {
-  if [ "$quiesced" != true ]; then
-    echo "cluster-join: standalone serving was never quiesced; nothing to restore"
-    return 0
-  fi
-  if rank_process_running; then
-    echo "cluster-join: standalone serving stays quiesced — a rank process is running, so the watcher owns this host's serving state"
-    return 0
-  fi
-  if [ -f "$halt_file" ]; then
-    echo "cluster-join: standalone serving left to the watcher — a halt is recorded ($(cat "$halt_file" 2> /dev/null)), and every halt path restores serving itself"
-    return 0
-  fi
-  echo "cluster-join: no rank and no halt after the quiesce; restoring standalone serving so this host is not left serving nothing" >&2
-  if restore_normal_serving; then
-    echo "cluster-join: standalone serving restore issued"
-  else
-    echo "cluster-join: WARN standalone serving restore FAILED; this host is serving nothing and needs cluster-restore by hand" >&2
-  fi
-}
-trap restore_serving_if_join_left_it_down EXIT
-
-# --- gate: RDMA protection-domain debt --------------------------------------
-# Runs FIRST, before anything destructive. Every later step tears something down —
-# standalone serving is booted out, the wired ceiling is repinned — and a join
-# that gets all the way to a rank start it cannot afford has already cost the
-# host its inference. A leaked protection domain is returned by nothing short of
-# a reboot, so at the cap the honest answer is "reboot", delivered before the
-# damage rather than after errno 96.
-#
-# This ledger is NEVER cleared here. Step 4 below clears the halt latch because a
-# fresh session resets a process-state verdict; it must not touch the ledger,
-# because no amount of restarting returns a kernel resource.
-pd_debt_max="${CLUSTER_PD_DEBT_MAX:-0}"
-case "$pd_debt_max" in
-  '' | *[!0-9]*) pd_debt_max=0 ;;
-esac
-if [ "$pd_debt_max" -gt 0 ]; then
-  pd_debt="$(pd_debt_count "${CLUSTER_PD_DEBT_FILE:-}")"
-  pd_debt="${pd_debt:-0}"
-  if [ "$pd_debt" -ge "$pd_debt_max" ]; then
-    fail "$(pd_debt_phrase "$pd_debt" "$pd_debt_max"). \
-Reboot this host before joining — a leaked domain is not recoverable any other way, and \
-the cap exists to RESERVE what is left for a session that can succeed, not to mark the \
-distance to exhaustion. Ledger: ${CLUSTER_PD_DEBT_FILE:-unset}"
-  fi
-  echo "cluster-join: PD debt $(pd_debt_phrase "$pd_debt" "$pd_debt_max")"
-fi
-
-# --- step 0: nix generation parity preflight --------------------------------
-# Every node must run the exact same committed system generation before any
-# clustering config begins: mixed generations mean mismatched mlx/JACCL stacks
-# on the two ranks — the untestable config-parity variable behind a class of
-# deadlocks.
-#
-# Drift is a GATE, never a repair. This script reports it and stops; deploying
-# a host is a deliberate `darwin-rebuild switch`, run by whoever owns that
-# host's flake.
-#
-# It must not rebuild, because it cannot know what to rebuild INTO. Parity is
-# judged against one repo's origin/main, so a host deployed from any other
-# flake — a private wrapper extending this one, say — reports drift on every
-# single invocation, forever. A rebuild there does not heal anything: it
-# replaces the host's correct configuration with a different repo's. Making it
-# fail instead bounds the worst case to "refuses to cluster, and says why".
-#
-# The COMPARISON comes from scripts/cluster-generation-parity.sh, shared with
-# the link watcher — which reads it on a timer so drift is found without anyone
-# running this command. Two copies of the comparison would be two answers.
-parity="$(generation_parity_fact)"
-parity_state="${parity#state=}"
-parity_state="${parity_state%% *}"
-local_rev="${parity#*local=}"
-local_rev="${local_rev%% *}"
-remote_rev="${parity##*deploy=}"
-case "$parity_state" in
-  disabled) ;;
-  unstamped)
-    fail "system generation carries no configurationRevision (dirty or unstamped build) — darwin-rebuild switch from a committed revision before clustering"
-    ;;
-  unverified)
-    echo "cluster-join: WARN generation parity unverified (deploy branch unreachable)" >&2
-    ;;
-  drift)
-    fail "generation drift: local ${local_rev:0:12} != deploy ${remote_rev:0:12}. \
-Deploy this host, then re-run: darwin-rebuild switch --flake <this host's flake>"
-    ;;
-  ok)
-    echo "cluster-join: generation parity OK (${local_rev:0:12} = deploy HEAD)"
-    ;;
-  *)
-    fail "generation parity check returned an unrecognised state ($parity) — refusing to cluster on an answer nothing here knows how to read"
-    ;;
-esac
-
-# --- step 1: verify/repair link prep on THIS node --------------------------
-# Prep is healthy when the node's own static link IP is aliased on a physical
-# port that is NOT enslaved in the Thunderbolt bridge (bridge0). Repair is a
-# bounded system activation FIRST (re-runs cluster-link-prep idempotently), and
-# only if that does not restore prep, a direct granted fallback (see
-# repair_link_direct) -- both use nothing but the cluster-ops sudoers grants.
-#
-# iface_holding_self_ip / link_prep_ok / tb_devices / repair_link_direct come from
-# scripts/cluster-link-locate.sh and scripts/cluster-link-repair.sh, concatenated
-# ahead of this body by cluster-cli-builder.nix and shared with cluster-detach
-# and the link watcher.
-if link_prep_ok; then
-  echo "cluster-join: link prep OK ($CLUSTER_STATIC_SELF_IP on $(iface_holding_self_ip))"
-else
-  echo "cluster-join: link prep missing ($CLUSTER_STATIC_SELF_IP not aliased on a free port); repairing via activation"
-  # Bound the activation: a full system activation can wedge on an unrelated
-  # step (e.g. a home-manager symlink hanging on a stale mount), which must
-  # not block cluster bring-up forever.
-  timeout 150 sudo -n /nix/var/nix/profiles/system/activate > /dev/null 2>&1 || true
-  if ! link_prep_ok; then
-    echo "cluster-join: activation did not restore link prep; trying direct granted repair"
-    repair_link_direct || true
-  fi
-  if ! link_prep_ok; then
-    fail "link prep still broken after activation and direct repair. Is the Thunderbolt cable seated? \
-Expected $CLUSTER_STATIC_SELF_IP aliased on a carrier-active Thunderbolt port outside bridge0."
-  fi
-  echo "cluster-join: link prep repaired ($CLUSTER_STATIC_SELF_IP on $(iface_holding_self_ip))"
-fi
-
-# --- step 1b: is there a prepared peer to rendezvous with? ------------------
-# Fails FAST and names the side, instead of spending the 600s block-until-serving
-# wait on a rank that cannot possibly connect and then surfacing jaccl's errno 60
-# (which says only "did not connect", never "and it was the other machine").
-# Rationale in scripts/cluster-join-preflight.sh.
-echo "cluster-join: probing the peer on the link (up to ${CLUSTER_PEER_READY_TIMEOUT_SECS:-120}s)"
-if peer_link_preflight; then
-  echo "cluster-join: peer $CLUSTER_STATIC_PEER_IP answers on the link"
-else
-  fail "peer unreachable at the rendezvous address $CLUSTER_STATIC_PEER_IP after \
-${CLUSTER_PEER_READY_TIMEOUT_SECS:-120}s — ITS link prep is UNVERIFIED. THIS side is prepared \
-($CLUSTER_STATIC_SELF_IP on $(iface_holding_self_ip), carrier active), so nothing here needs fixing. \
-On the peer, absence of a link address means link prep did not run and says NOTHING about the cable; \
-its watcher self-heals that within a tick or two, and cluster-join there repairs generation drift. \
-No rank was started, so no RDMA protection domain was spent."
-fi
-
-# --- step 1c: verify the device PD budget (#1442) ---------------------------
-# devicePdBudget (CLUSTER_PD_DEVICE_BUDGET) was measured by hand on two hosts
-# and frozen into Nix; ibv_devinfo cannot run in the Nix sandbox, so nothing
-# before this point has ever checked it against the machine actually running.
-# The reserve invariant enforced at build time (2 * maxKickstarts <=
-# devicePdBudget) is arithmetic over that number — a wrong one silently makes
-# the invariant meaningless in either direction. pd_device_budget_ok and
-# active_rdma_device come from the shared cluster-pd-gate.sh layer.
-if pd_device_budget_ok; then
-  echo "cluster-join: device PD budget verified (configured=${CLUSTER_PD_DEVICE_BUDGET:-0})"
-else
-  fail "$PD_BUDGET_DETAIL"
-fi
-
-# --- step 2: pin the wired ceiling BEFORE anything loads (non-negotiable) ---
-# Skipping this step risks a WindowServer watchdog kill.
-# A shard loaded over a standalone-sized ceiling wires out the GUI working set and
-# panics the host, so a failed apply is a HARD stop, not a warning.
-if [ -n "${CLUSTER_WIRED_LIMIT_MB:-}" ]; then
-  target="$CLUSTER_WIRED_LIMIT_MB"
-  current="$(/usr/sbin/sysctl -n iogpu.wired_limit_mb 2>/dev/null || echo '')"
-  if [ "$current" = "$target" ]; then
-    echo "cluster-join: iogpu.wired_limit_mb already $target"
-  elif sudo -n /usr/sbin/sysctl -w "iogpu.wired_limit_mb=$target" > /dev/null 2>&1 &&
-    [ "$(/usr/sbin/sysctl -n iogpu.wired_limit_mb 2>/dev/null)" = "$target" ]; then
-    echo "cluster-join: iogpu.wired_limit_mb=$target"
-  else
-    fail "could not set iogpu.wired_limit_mb=$target (exact-value sudoers grant missing?). \
-Refusing to load a shard over a standalone-sized ceiling."
-  fi
-fi
-
-# --- step 3: coordinator -- swap guard, then quiesce standalone serving -------------
-swap_used_mb() {
-  /usr/sbin/sysctl -n vm.swapusage 2>/dev/null | /usr/bin/sed -n 's/.*used = \([0-9][0-9]*\).*/\1/p'
+cluster_peer_ssh_start() {
+  [ "${CLUSTER_ROLE:-}" = coordinator ] || return 0
+  [ -n "${CLUSTER_PEER_SSH:-}" ] || return 0
+  "${CLUSTER_SSH_BIN:-/usr/bin/ssh}" -o BatchMode=yes -o ConnectTimeout=10 \
+    "$CLUSTER_PEER_SSH" cluster-join --worker \
+    > >(while IFS= read -r line || [ -n "$line" ]; do printf 'worker: %s\n' "$line"; done) 2>&1 &
+  CLUSTER_PEER_SSH_PID=$!
+  echo "cluster-join: peer-ssh started pid=$CLUSTER_PEER_SSH_PID"
 }
 
-if [ "$CLUSTER_ROLE" = "coordinator" ]; then
-  used="$(swap_used_mb)"
-  used="${used:-0}"
-  threshold="${CLUSTER_JOIN_SWAP_THRESHOLD_MB:-8000}"
-  if [ "$used" -gt "$threshold" ]; then
-    fail "stale swap, reboot recommended (vm.swapusage used ${used}M > ${threshold}M). \
-Loading a shard against stale swap spirals to a panic."
-  fi
-  echo "cluster-join: swap OK (${used}M used <= ${threshold}M)"
+cluster_peer_ssh_running() {
+  local pid
+  while IFS= read -r pid; do
+    [ "$pid" = "${CLUSTER_PEER_SSH_PID:-}" ] && return 0
+  done < <(jobs -pr)
+  return 1
+}
 
-  # Graceful unload first (best effort), then bootout the standalone agents entirely so
-  # the shard gets the full machine. The proxy grandchildren can survive a
-  # bootout (re-parented, still holding memory), so reap them after a grace.
-  # The whole-llama-swap bootout below is unchanged — it IS the panic guard.
-  # keep-resident engines (CLUSTER_KEEP_RESIDENT) are standalone agents outside
-  # llama-swap, so the bootout and the proxy unload never touch them; only the
-  # reap of leftover model-server engines must skip them (see standalone_serve_pids).
-  # Armed BEFORE the first destructive verb, not after the step succeeds: the
-  # reap below can fail() with the agents already booted out, which is precisely
-  # a host left serving nothing.
-  quiesced=true
-  curl -fsS -m 30 -X POST "${CLUSTER_NORMAL_PROXY:-}/api/models/unload" > /dev/null 2>&1 || true
-  IFS=' ' read -r -a resident_server_labels <<< "${CLUSTER_SERVER_LABELS:-}"
-  for resident_server_label in "${resident_server_labels[@]}"; do
-    /bin/launchctl bootout "gui/$uid/$resident_server_label" > /dev/null 2>&1 || true
+cluster_peer_ssh_wait() {
+  local deadline term_deadline rc timed_out=false
+  [ -n "${CLUSTER_PEER_SSH_PID:-}" ] || return 0
+  deadline=$((SECONDS + ${CLUSTER_JOIN_TIMEOUT_SECS:-600} + 30))
+  while cluster_peer_ssh_running; do
+    if [ "${JOIN_SIGNAL_RC:-0}" -ne 0 ]; then
+      echo "cluster-join: peer-ssh stopping after signal rc=$JOIN_SIGNAL_RC" >&2
+      break
+    fi
+    if [ "$SECONDS" -ge "$deadline" ]; then
+      timed_out=true
+      echo "cluster-join: peer-ssh timeout" >&2
+      break
+    fi
+    sleep 1
   done
-  echo "cluster-join: booted out standalone serving (${CLUSTER_SERVER_LABELS:-})"
-  # The watchdog probes the standalone proxy on its own 60s timer, independent
-  # of the resident agents above. Left running through the cluster window it finds
-  # the coordinator "up but not serving" like a real outage and climbs its
-  # escalation ladder -- rung 2 is a full bootstrap of the standalone stack,
-  # which would reload it mid-window and reclaim the memory this quiesce just
-  # freed. Boot it out too, with the same graceful-degrade shape as the pair
-  # above: an unset label is a config gap on an older generation, not a fault,
-  # so it is logged and skipped rather than treated as a failure.
-  if [ -n "${CLUSTER_WATCHDOG_LABEL:-}" ]; then
-    /bin/launchctl bootout "gui/$uid/${CLUSTER_WATCHDOG_LABEL}" > /dev/null 2>&1 || true
-    echo "cluster-join: booted out the serving watchdog ($CLUSTER_WATCHDOG_LABEL)"
-  else
-    echo "cluster-join: no CLUSTER_WATCHDOG_LABEL configured; nothing to boot out for the watchdog"
+  if cluster_peer_ssh_running; then
+    kill -TERM "$CLUSTER_PEER_SSH_PID" 2> /dev/null || true
+    term_deadline=$((SECONDS + 5))
+    while cluster_peer_ssh_running && [ "$SECONDS" -lt "$term_deadline" ]; do sleep 1; done
+    if cluster_peer_ssh_running; then kill -KILL "$CLUSTER_PEER_SSH_PID" 2> /dev/null || true; fi
   fi
+  while cluster_peer_ssh_running; do sleep 1; done
+  if wait "$CLUSTER_PEER_SSH_PID"; then rc=0; else rc=$?; fi
+  CLUSTER_PEER_SSH_RC=$rc
+  CLUSTER_PEER_SSH_PID=""
+  echo "cluster-join: peer-ssh exit rc=$rc"
+  [ "$timed_out" = false ] || return 0
+}
 
-  # PIDs of standalone model-server engines that are NOT keep-resident exempt. An engine
-  # whose command line contains any CLUSTER_KEEP_RESIDENT substring is left up.
+cluster_quiesce_wait() {
+  local label="$1" deadline
+  deadline=$(($(date +%s) + ${CLUSTER_QUIESCE_GRACE_SECS:-30}))
+  while "${CLUSTER_LAUNCHCTL_BIN:-/bin/launchctl}" print "gui/$uid/$label" > /dev/null 2>&1; do
+    if [ "$(date +%s)" -ge "$deadline" ]; then
+      echo "cluster-join: quiesce wait timed out for $label" >&2
+      return 0
+    fi
+    sleep 1
+  done
+  return 0
+}
+
+cluster_quiesce_record() {
+  local label="$1" file="${CLUSTER_STATE_DIR:-$state_dir}/quiesced-agents"
+  mkdir -p "$(dirname "$file")"
+  touch "$file"
+  "${CLUSTER_GREP_BIN:-/usr/bin/grep}" -Fqx "$label" "$file" || printf '%s\n' "$label" >> "$file"
+}
+
+cluster_quiesce_launchd_label() {
+  local kind="$1" label="$2" rc=0
+  if [ "$kind" = launchd ]; then
+    if ! cluster_quiesce_record "$label"; then
+      echo "cluster-join: quiesce record $label rc=1" >&2
+    fi
+  fi
+  "${CLUSTER_LAUNCHCTL_BIN:-/bin/launchctl}" bootout "gui/$uid/$label" > /dev/null 2>&1 || rc=$?
+  echo "cluster-join: quiesce $kind $label rc=$rc"
+  cluster_quiesce_wait "$label" || true
+}
+
+cluster_application_labels() {
+  local bundle="$1" prefix listing rc=0 label suffix count first second
+  local -a parts=()
+  prefix="application.$bundle."
+  listing="$("${CLUSTER_LAUNCHCTL_BIN:-/bin/launchctl}" list 2> /dev/null)" || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    echo "cluster-join: quiesce app-discovery $bundle rc=$rc" >&2
+    return 0
+  fi
+  while read -r label; do
+    [ -n "$label" ] || continue
+    case "$label" in "$prefix"*)
+      suffix="${label#"$prefix"}"
+      IFS='.' read -r -a parts <<< "$suffix"
+      count="${#parts[@]}"
+      [ "$count" -eq 2 ] || continue
+      first="${parts[0]}"
+      second="${parts[1]}"
+      case "$first" in '' | *[!0-9]*) continue ;; esac
+      case "$second" in '' | *[!0-9]*) continue ;; esac
+      printf '%s\n' "$label"
+      ;;
+    esac
+  done < <(printf '%s\n' "$listing" | "${CLUSTER_AWK_BIN:-/usr/bin/awk}" -v prefix="$prefix" "index(\$3, prefix) == 1 {print \$3}")
+}
+
+cluster_quiesce_apps() {
+  local bundle label
+  local -a bundles=()
+  IFS=' ' read -r -a bundles <<< "${CLUSTER_QUIESCE_APPS:-}"
+  for bundle in "${bundles[@]}"; do
+    [ -n "$bundle" ] || continue
+    while IFS= read -r label; do
+      [ -n "$label" ] || continue
+      cluster_quiesce_launchd_label app "$label"
+    done < <(cluster_application_labels "$bundle")
+  done
+}
+
+cluster_quiesce_configured_launchd() {
+  local label
+  local -a labels=()
+  IFS=' ' read -r -a labels <<< "${CLUSTER_QUIESCE_LAUNCHD:-}"
+  for label in "${labels[@]}"; do
+    [ -n "$label" ] || continue
+    cluster_quiesce_launchd_label launchd "$label"
+  done
+}
+
+cluster_quiesce_coordinator_serving() {
+  local label grace deadline
+  local -a labels=()
+  curl -fsS -m 30 -X POST "${CLUSTER_NORMAL_PROXY:-}/api/models/unload" > /dev/null 2>&1 || true
+  IFS=' ' read -r -a labels <<< "${CLUSTER_SERVER_LABELS:-}"
+  for label in "${labels[@]}"; do
+    [ -n "$label" ] || continue
+    local rc=0
+    "${CLUSTER_LAUNCHCTL_BIN:-/bin/launchctl}" bootout "gui/$uid/$label" > /dev/null 2>&1 || rc=$?
+    echo "cluster-join: quiesce serving $label rc=$rc"
+  done
+  if [ -n "${CLUSTER_WATCHDOG_LABEL:-}" ]; then
+    local rc=0
+    "${CLUSTER_LAUNCHCTL_BIN:-/bin/launchctl}" bootout "gui/$uid/$CLUSTER_WATCHDOG_LABEL" > /dev/null 2>&1 || rc=$?
+    echo "cluster-join: quiesce watchdog $CLUSTER_WATCHDOG_LABEL rc=$rc"
+  fi
   standalone_serve_pids() {
     local pid cmd pat exempt
-    /usr/bin/pgrep -f "${CLUSTER_STANDALONE_PROCESS_PATTERN:-vllm-mlx serve}" 2> /dev/null | while read -r pid; do
-      cmd="$(/bin/ps -ww -p "$pid" -o command= 2> /dev/null)"
-      exempt=false
-      if [ -n "${CLUSTER_KEEP_RESIDENT:-}" ]; then
-        while IFS= read -r pat; do
-          [ -n "$pat" ] || continue
-          case "$cmd" in *"$pat"*)
-            exempt=true
-            break
-            ;;
-          esac
-        done <<< "$CLUSTER_KEEP_RESIDENT"
-      fi
-      [ "$exempt" = true ] || printf '%s\n' "$pid"
-    done
+    "${CLUSTER_PGREP_BIN:-/usr/bin/pgrep}" -f "${CLUSTER_STANDALONE_PROCESS_PATTERN:-vllm-mlx serve}" 2> /dev/null |
+      while read -r pid; do
+        cmd="$("${CLUSTER_PS_BIN:-/bin/ps}" -ww -p "$pid" -o command= 2> /dev/null)"
+        exempt=false
+        if [ -n "${CLUSTER_KEEP_RESIDENT:-}" ]; then
+          while IFS= read -r pat; do
+            [ -n "$pat" ] || continue
+            case "$cmd" in *"$pat"*) exempt=true; break ;; esac
+          done <<< "$CLUSTER_KEEP_RESIDENT"
+        fi
+        [ "$exempt" = true ] || printf '%s\n' "$pid"
+      done
   }
-
   grace="${CLUSTER_QUIESCE_GRACE_SECS:-30}"
   deadline=$(($(date +%s) + grace))
-  while [ -n "$(standalone_serve_pids)" ]; do
-    if [ "$(date +%s)" -ge "$deadline" ]; then
-      echo "cluster-join: standalone-serve engines still up after ${grace}s; reaping orphans (keep-resident spared)"
-      standalone_serve_pids | while read -r pid; do /bin/kill "$pid" > /dev/null 2>&1 || true; done
-      sleep 3
-      break
-    fi
-    sleep 2
-  done
+  while [ -n "$(standalone_serve_pids)" ] && [ "$(date +%s)" -lt "$deadline" ]; do sleep 2; done
   if [ -n "$(standalone_serve_pids)" ]; then
-    fail "standalone-serve engines still running after reap; memory not freed for the shard"
+    echo "cluster-join: standalone-serve engines remain after ${grace}s; requesting TERM"
+    standalone_serve_pids | while read -r pid; do "${CLUSTER_KILL_BIN:-/bin/kill}" -TERM "$pid" > /dev/null 2>&1 || true; done
+    sleep 3
   fi
-  echo "cluster-join: standalone serving quiesced (only keep-resident engines remain)"
-elif [ -n "${CLUSTER_QUIESCE_CMD:-}" ]; then
+  if [ -n "$(standalone_serve_pids)" ]; then
+    echo "cluster-join: WARN standalone-serve engines remain after quiesce; the room check will decide whether to continue" >&2
+  fi
+}
+
+cluster_join_quiesce() {
+  local used threshold
   quiesced=true
-  sh -c "$CLUSTER_QUIESCE_CMD" || true
-  echo "cluster-join: ran worker quiesce hook"
-fi
-
-# --- step 4: clear a stale halt latch, ensure the watcher is loaded ---------
-# The watcher (not this command) starts the rank on its next tick. Clear a stale
-# PD-guard halt so it is free to kickstart; a fresh session resets the budget.
-#
-# This is the SANCTIONED reset, which is why it also drops rank-halt-latched.
-# A bare `rm rank-halted` is not: the watcher keeps that latch precisely so a
-# by-hand clear has its cause re-verified before the first retry (and is
-# re-halted if the cause still holds — see halt_clear_accepted). Getting here
-# means steps 1-3 just repaired link prep and pinned the ceiling under
-# supervision, i.e. the causes this command owns are actually addressed, so the
-# worker returns to the ordinary "wait for rank 0, spend no attempts" path
-# instead of being re-halted for a coordinator that has not started yet.
-#
-# The KICKSTART budget, and nothing else — but the budget is SETTLED into the
-# ledger, not discarded.
-#
-# This paragraph used to say the ledger is "deliberately untouched" because
-# failed starts belong to the session while a leaked domain belongs to the boot.
-# The first half was right and the second half is exactly why the old behaviour
-# was wrong: those attempts leaked BOOT-scoped domains, so deleting the
-# session-scoped counter that was still holding them wrote a boot-scoped loss
-# off against a session-scoped reset. Re-running cluster-join then reopened a
-# full budget over a kernel that was already poorer, without a single line of
-# evidence that it had happened. Transferring the count keeps the session reset
-# (which is this command's job) while the domains stay on the boot's books
-# (which is the ledger's).
-#
-# The gate at the top of this script already refused if the ledger is at its
-# cap, so this clear cannot smuggle a start past it — and if the settle below
-# pushes the ledger TO the cap, the watcher halts a tick later with cause
-# pd-debt-exhausted. That is the ledger working, not a stale marker.
-if [ -f "$halt_file" ] || [ -f "$halt_latch_file" ]; then
-  # $7/$8: the same run-start byte-offset marker the watcher wrote at the
-  # outstanding run's first kickstart (state_dir is derived identically here
-  # and there — one path, one writer, one reader per run). Lets the settle
-  # skip billing a run whose every attempt was provably Stage-A-only (jaccl
-  # TCP bootstrap, no protection domain could have been allocated) — see
-  # pd_debt_settle_counter and rank_failure_stage (./cluster-pd-stage.sh).
-  pd_debt_settle_counter "${CLUSTER_PD_DEBT_FILE:-}" "$kicks_file" 0 "cluster-join" \
-    "attempts outstanding when cluster-join reset the session" "" \
-    "${CLUSTER_RANK_ERROR_LOG:-}" "$state_dir/rank-error-log-session-offset"
-  rm -f "$halt_file" "$halt_latch_file"
-  echo "cluster-join: cleared stale rank-halted latch"
-fi
-
-if /bin/launchctl print "gui/$uid/${CLUSTER_WATCHER_LABEL}" > /dev/null 2>&1; then
-  echo "cluster-join: watcher already loaded"
-else
-  if [ -f "${CLUSTER_WATCHER_PLIST:-}" ]; then
-    /bin/launchctl bootstrap "gui/$uid" "$CLUSTER_WATCHER_PLIST" > /dev/null 2>&1 || true
-  fi
-  /bin/launchctl print "gui/$uid/${CLUSTER_WATCHER_LABEL}" > /dev/null 2>&1 ||
-    fail "watcher agent not loaded and could not be bootstrapped ($CLUSTER_WATCHER_PLIST)"
-  echo "cluster-join: watcher bootstrapped"
-fi
-
-# --- step 5: block until the cluster is actually serving --------------------
-timeout="${CLUSTER_JOIN_TIMEOUT_SECS:-600}"
-deadline=$(($(date +%s) + timeout))
-
-# The rank pattern arrives as CLUSTER_RANK_PROCESS_PATTERN — one definition, in
-# modules/mlx/cluster-rank-pattern.nix, derived from the same entry-point string
-# that builds the rank argv. Three inline copies of '/mlx_lm\.server' used to
-# live in this file; a pattern that stops matching is indistinguishable from
-# "the rank is not up yet", so a stale one turns this wait into a guaranteed
-# timeout and every reap built on it into a silent no-op.
-rank_pid() { rank_process_pids 2> /dev/null | head -n1; }
-
-if [ "$CLUSTER_ROLE" = "coordinator" ]; then
-  # Zero completions from join. The watcher fires exactly ONE warm generation
-  # (request #1) as part of bring-up and records success by creating the
-  # rank-warmed marker; join CONSUMES that marker instead of issuing its own
-  # probe. A second post-formation request -- join's old probe, request #2 --
-  # wedges the pipeline, so the total post-formation request count must be
-  # exactly one, issued by exactly one component. Gate on
-  # the rank process being up AND the marker present so a stale marker from a
-  # prior session (rank not yet restarted) cannot pass early; the watcher clears
-  # rank-warmed on every (re)start, so a fresh formation only trips this once its
-  # own warm generation lands.
-  warm_marker="$state_dir/rank-warmed"
-  echo "cluster-join: waiting up to ${timeout}s for the watcher warm generation (rank-warmed)"
-  warm_ok=false
-  while [ "$(date +%s)" -lt "$deadline" ]; do
-    if rank_process_running && [ -e "$warm_marker" ]; then
-      warm_ok=true
-      break
+  if [ "$CLUSTER_ROLE" = coordinator ]; then
+    used="$("${CLUSTER_SYSCTL_BIN:-/usr/sbin/sysctl}" -n vm.swapusage 2> /dev/null |
+      "${CLUSTER_SED_BIN:-/usr/bin/sed}" -n 's/.*used = \([0-9][0-9]*\).*/\1/p' || true)"
+    used="${used:-0}"
+    threshold="${CLUSTER_JOIN_SWAP_THRESHOLD_MB:-8000}"
+    if [ "$used" -gt "$threshold" ]; then
+      join_fail "stale swap (${used}M > ${threshold}M); reboot before joining"
     fi
+    echo "cluster-join: swap PASS used=${used}M threshold=${threshold}M"
+    cluster_quiesce_coordinator_serving
+    cluster_quiesce_apps
+    cluster_quiesce_configured_launchd
+  elif [ -n "${CLUSTER_QUIESCE_CMD:-}" ]; then
+    "${CLUSTER_SH_BIN:-/bin/sh}" -c "$CLUSTER_QUIESCE_CMD" || echo "cluster-join: WARN worker quiesce hook failed"
+  fi
+}
+
+cluster_join_exit() {
+  local rc=$? teardown_rc=0 peer_rc=0 peer_started=false
+  JOIN_EXIT_ACTIVE=true
+  trap - EXIT
+  trap 'cluster_join_signal 130' INT
+  trap 'cluster_join_signal 143' TERM
+  if [ "$formed" != true ] && [ "$quiesced" = true ]; then
+    cluster_teardown || teardown_rc=$?
+    if [ "${JOIN_REBOOT:-0}" -eq 1 ] || [ "${TEARDOWN_REBOOT:-0}" -eq 1 ]; then
+      rc=3
+    elif [ "$rc" -eq 0 ] || [ "$teardown_rc" -ne 0 ]; then
+      rc=1
+    fi
+  fi
+  if [ -n "${CLUSTER_PEER_SSH_PID:-}" ]; then
+    peer_started=true
+    cluster_peer_ssh_wait
+    peer_rc=$CLUSTER_PEER_SSH_RC
+  fi
+  if [ "$rc" -eq 0 ] && [ "$peer_started" = true ] && [ "$peer_rc" -ne 0 ]; then
+    echo "cluster-join: REFUSE reason=peer-join-failed rc=$peer_rc" >&2
+    teardown_rc=0
+    cluster_teardown || teardown_rc=$?
+    if [ "$peer_rc" -eq 3 ] || [ "$teardown_rc" -eq 3 ] || [ "${TEARDOWN_REBOOT:-0}" -eq 1 ]; then
+      rc=3
+    else
+      rc=1
+    fi
+  elif [ "$rc" -eq 0 ] && [ "${JOIN_SIGNAL_RC:-0}" -ne 0 ]; then
+    rc=$JOIN_SIGNAL_RC
+  fi
+  trap - INT TERM
+  exit "$rc"
+}
+
+cluster_join_signal() {
+  local signal_rc="$1"
+  if [ "${JOIN_EXIT_ACTIVE:-false}" = true ]; then
+    JOIN_SIGNAL_RC="$signal_rc"
+  else
+    exit "$signal_rc"
+  fi
+}
+
+cluster_join_peer_poll() {
+  if peer_armed_read; then
+    JOIN_PEER_ARMED_AT="$PEER_ARMED_AT"
+    return 0
+  fi
+  echo "cluster-join: peer-state REFUSE reason=${PEER_GATE_REASON:-unknown}"
+  case "${PEER_GATE_REASON:-}" in
+    generation-mismatch*) return 2 ;;
+  esac
+  return 1
+}
+
+cluster_start_at() {
+  local own="$1" peer="$2" latest
+  latest="$own"
+  [ "$peer" -le "$own" ] || latest="$peer"
+  printf '%s\n' "$((latest + 20))"
+}
+
+cluster_sleep_until() {
+  local target="$1" now remaining
+  now="$(date +%s)"
+  while [ "$now" -lt "$target" ]; do
+    remaining=$((target - now))
+    sleep "$remaining"
+    now="$(date +%s)"
+  done
+  [ "$now" -eq "$target" ]
+}
+
+cluster_final_rank_start() {
+  local start_at="$1" expected_peer_armed_at="$2" now
+  echo "cluster-join: J9 final peer and PD gates"
+  if ! peer_armed_read; then
+    echo "cluster-join: peer-state REFUSE reason=${PEER_GATE_REASON:-unknown}"
+    return 1
+  fi
+  [ "$PEER_ARMED_AT" = "$expected_peer_armed_at" ] || {
+    echo "cluster-join: peer-state REFUSE reason=peer-armed-at-changed" >&2
+    return 1
+  }
+  if ! pd_start_gate; then
+    return 1
+  fi
+  now="$(date +%s)"
+  if [ "$now" -gt "$start_at" ]; then
+    echo "cluster-join: REFUSE missed start window after final gates (now=$now start_at=$start_at)" >&2
+    return 1
+  fi
+  cluster_sleep_until "$start_at" || {
+    echo "cluster-join: REFUSE missed start window at kickstart" >&2
+    return 1
+  }
+  "${CLUSTER_LAUNCHCTL_BIN:-/bin/launchctl}" kickstart "gui/$uid/${CLUSTER_RANK_LABEL}" || {
+    echo "cluster-join: FAIL launchctl kickstart for ${CLUSTER_RANK_LABEL}" >&2
+    return 1
+  }
+  echo "cluster-join: kickstart issued at $(date +%s)"
+}
+
+cluster_join_main() {
+  local timeout deadline armed_at peer_armed_at start_at now poll_rc
+  local launchctl_bin="${CLUSTER_LAUNCHCTL_BIN:-/bin/launchctl}"
+  local rank_pid warm_ok=false stable_since=0 stable_required worker_invocation=false
+  local PEER_ARMED_AT=""
+  case "${1:-}" in
+    "") ;;
+    --worker) worker_invocation=true ;;
+    *) join_fail "usage: cluster-join [--worker]" ;;
+  esac
+  [ "$#" -le 1 ] || join_fail "usage: cluster-join [--worker]"
+  uid="$(id -u)"
+  state_dir="${CLUSTER_STATE_DIR:-$(dirname "$CLUSTER_STATE_FILE")}"
+  mkdir -p "$state_dir"
+  cluster_lifecycle_log_start
+  [ "$worker_invocation" = false ] || echo "cluster-join: peer worker invocation accepted"
+  formed=false
+  quiesced=false
+  JOIN_REBOOT=0
+  JOIN_EXIT_ACTIVE=false
+  JOIN_SIGNAL_RC=0
+  CLUSTER_PEER_SSH_PID=""
+  CLUSTER_PEER_SSH_RC=0
+  trap cluster_join_exit EXIT
+  trap 'cluster_join_signal 130' INT
+  trap 'cluster_join_signal 143' TERM
+
+  echo "cluster-join: J1 pd-start-gate"
+  if ! pd_start_gate; then
+    [ "${PD_REBOOT:-0}" -eq 1 ] && JOIN_REBOOT=1
+    exit "$((JOIN_REBOOT == 1 ? 3 : 1))"
+  fi
+
+  echo "cluster-join: J2 link-prep check"
+  if link_prep_ok; then
+    echo "cluster-join: link-prep PASS"
+  else
+    join_fail "link prep is not ready; run sudo /nix/var/nix/profiles/system/activate"
+  fi
+
+  echo "cluster-join: J3 wired-ceiling"
+  if set_wired_limit "${CLUSTER_WIRED_LIMIT_MB:-}"; then
+    echo "cluster-join: wired-ceiling PASS"
+  else
+    join_fail "could not set the cluster wired ceiling"
+  fi
+
+  echo "cluster-join: J4 quiesce"
+  cluster_join_quiesce
+
+  echo "cluster-join: J5 room check"
+  if rank_start_room_ok; then
+    echo "cluster-join: room PASS"
+  else
+    echo "cluster-join: room REFUSE detail=${MEM_HEADROOM_DETAIL:-unknown}" >&2
+    case "${MEM_HEADROOM_DETAIL:-}" in *unreclaimed-Metal*) JOIN_REBOOT=1 ;; esac
+    exit "$((JOIN_REBOOT == 1 ? 3 : 1))"
+  fi
+
+  cluster_peer_ssh_start
+
+  echo "cluster-join: J6 arm"
+  armed_at="$(date +%s)"
+  if ! peer_state_write true "$armed_at" || ! link_state_write up; then
+    join_fail "could not publish armed state"
+  fi
+  echo "cluster-join: decision=armed armed_at=$armed_at"
+
+  timeout="${CLUSTER_JOIN_TIMEOUT_SECS:-600}"
+  deadline=$(($(date +%s) + timeout))
+  echo "cluster-join: J7 peer poll timeout=${timeout}s"
+  while [ "$(date +%s)" -lt "$deadline" ]; do
+    if cluster_join_peer_poll; then
+      peer_armed_at="$JOIN_PEER_ARMED_AT"
+      echo "cluster-join: peer-state PASS armed_at=$peer_armed_at"
+      break
+    else
+      poll_rc=$?
+    fi
+    [ "$poll_rc" -eq 2 ] && join_fail "$PEER_GATE_REASON"
     sleep 5
   done
-  "$warm_ok" || fail "watcher warm generation did not complete within ${timeout}s \
-(rank-warmed marker absent); cluster not serving. join issues no probe of its own by design."
-  echo "cluster-join: watcher warm generation confirmed (rank-warmed present); join issued no completion"
-else
-  # Worker has no endpoint: require the rank process running and STABLE.
-  stable="${CLUSTER_WORKER_STABLE_SECS:-60}"
-  echo "cluster-join: waiting up to ${timeout}s for the rank to run and stay up ${stable}s"
-  running_since=0
-  stable_ok=false
-  while [ "$(date +%s)" -lt "$deadline" ]; do
-    if /bin/launchctl print "gui/$uid/${CLUSTER_RANK_LABEL}" 2> /dev/null | /usr/bin/grep -q "state = running" &&
-      rank_process_running; then
-      [ "$running_since" -eq 0 ] && running_since="$(date +%s)"
-      if [ $(($(date +%s) - running_since)) -ge "$stable" ]; then
-        stable_ok=true
+  [ -n "${peer_armed_at:-}" ] || join_fail "peer never armed before join timeout"
+
+  start_at="$(cluster_start_at "$armed_at" "$peer_armed_at")"
+  echo "cluster-join: J8 start_at=$start_at"
+  now="$(date +%s)"
+  if [ "$now" -gt "$((start_at - 3))" ]; then
+    join_fail "missed start window (now=$now start_at=$start_at)"
+  fi
+  cluster_sleep_until "$((start_at - 3))" || join_fail "missed start window before J9"
+
+  if ! cluster_final_rank_start "$start_at" "$peer_armed_at"; then
+    [ "${PD_REBOOT:-0}" -eq 1 ] && JOIN_REBOOT=1
+    exit "$((JOIN_REBOOT == 1 ? 3 : 1))"
+  fi
+
+  echo "cluster-join: J10 formation check"
+  timeout="${CLUSTER_JOIN_TIMEOUT_SECS:-600}"
+  deadline=$(($(date +%s) + timeout))
+  if [ "$CLUSTER_ROLE" = coordinator ]; then
+    stable_since="$(date +%s)"
+    while [ "$(date +%s)" -lt "$deadline" ]; do
+      if curl -fsS -m 5 "http://127.0.0.1:${CLUSTER_HTTP_PORT}/v1/models" > /dev/null 2>&1; then
+        warm_ok=true
         break
       fi
-    else
-      running_since=0
-    fi
-    sleep 5
-  done
-  "$stable_ok" || fail "rank did not run and stay up for ${stable}s within ${timeout}s"
-  echo "cluster-join: rank stable for ${stable}s"
-fi
+      now="$(date +%s)"
+      if ! rank_process_running && [ "$((now - stable_since))" -ge 15 ]; then
+        join_fail "rank exited during formation"
+      fi
+      sleep 5
+    done
+    [ "$warm_ok" = true ] || join_fail "coordinator endpoint did not form within ${timeout}s"
+  else
+    stable_required="${CLUSTER_WORKER_STABLE_SECS:-60}"
+    stable_since=0
+    while [ "$(date +%s)" -lt "$deadline" ]; do
+      if "$launchctl_bin" print "gui/$uid/${CLUSTER_RANK_LABEL}" 2> /dev/null |
+        "${CLUSTER_GREP_BIN:-/usr/bin/grep}" -q 'state = running' && rank_process_running; then
+        [ "$stable_since" -gt 0 ] || stable_since="$(date +%s)"
+        now="$(date +%s)"
+        if [ "$((now - stable_since))" -ge "$stable_required" ]; then
+          warm_ok=true
+          break
+        fi
+      else
+        stable_since=0
+        now="$(date +%s)"
+        if [ "$now" -ge "$((deadline - timeout + 15))" ] && ! rank_process_running; then
+          join_fail "worker rank exited during formation"
+        fi
+      fi
+      sleep 5
+    done
+    [ "$warm_ok" = true ] || join_fail "worker rank did not stay up for ${stable_required}s"
+  fi
 
-# --- step 6: state summary --------------------------------------------------
-ceiling="$(/usr/sbin/sysctl -n iogpu.wired_limit_mb 2>/dev/null || echo '?')"
-rp="$(rank_pid)"
-# Three states, not two: "no pid" is reported differently depending on whether
-# the probe actually answered. A probe that could not run must never render as
-# the same word as a rank that genuinely is not there.
-if rank_process_absent; then
-  rank_state="none running"
-else
-  rank_state="pid ${rp:-UNKNOWN (process probe could not answer)}"
+  rank_pid="$(rank_process_pids 2> /dev/null | head -n 1 || true)"
+  if pd_held_count; then held="$PD_HELD"; else held="?"; fi
+  echo "cluster-join: J11 link=$CLUSTER_STATIC_SELF_IP ceiling=${CLUSTER_WIRED_LIMIT_MB:-unset} rank_pid=${rank_pid:-unknown} held_pd=$held decision=formed"
+  formed=true
+}
+
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+  cluster_join_main "$@"
 fi
-echo "======================================================================"
-echo "cluster-join OK ($CLUSTER_ROLE)"
-echo "  link       : $CLUSTER_STATIC_SELF_IP on $(iface_holding_self_ip) (peer $CLUSTER_STATIC_PEER_IP)"
-echo "  wired ceil : iogpu.wired_limit_mb=$ceiling"
-echo "  rank       : $rank_state"
-if [ "$CLUSTER_ROLE" = "coordinator" ]; then
-  echo "  generation : ok (watcher warm-gen consumed; rank-warmed present, no probe by join)"
-else
-  echo "  generation : n/a (worker rank stable)"
-fi
-echo "======================================================================"
-# NO TERMINAL `exit 0`, AND THAT IS DELIBERATE. The final `echo` above already
-# exits 0, so behaviour is identical. A terminal `exit` costs the EXIT trap at
-# the top of this script its only visible invocation: shellcheck stops crediting
-# `trap restore_serving_if_join_left_it_down EXIT` as a call and fails the build
-# with SC2329 — on the trap AND on the restore it reaches. Do not re-add it.

@@ -1,4 +1,5 @@
 {
+  self,
   lib,
   ai-llm-prompts,
   browser-use-skills,
@@ -114,6 +115,7 @@ in
       )
     ];
     _module.args = {
+      nixAiRev = self.rev or "dirty";
       inherit
         ai-llm-prompts
         nix-claude-code

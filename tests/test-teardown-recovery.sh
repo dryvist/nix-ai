@@ -1,128 +1,40 @@
 #!/usr/bin/env bash
-# THE CHECK THAT FAILS IF A LIFECYCLE COMMAND CAN LEAVE THE HOST WORSE THAN IT
-# FOUND IT.
-#
-# Two 2026-08-08 defects, one shape: a command that takes something away and
-# then exits without giving it back.
-#
-#   cluster-join  — quiesced standalone serving, failed to form a cluster, and
-#                   exited. The watcher restores only on the up->down edge (an
-#                   edge a healthy cable never produces) or from one of its own
-#                   halt paths, so with no halt recorded nothing restored
-#                   anything: 20+ minutes serving NOTHING, ended by an operator
-#                   running cluster-restore by hand.
-#   cluster-detach — SIGTERMed the rank process while the watcher, which is not
-#                   told a detach is under way, kept converging and kickstarted
-#                   ranks into the middle of the teardown. Three protection
-#                   domains, 01:58Z.
-#
-# WHAT IS REAL AND WHAT IS NOT:
-#   REAL   — restore_serving_if_join_left_it_down is EXTRACTED FROM THE SHIPPED
-#            cluster-join.sh (awk, by function name) and executed, so a drift in
-#            the shipped branch logic fails here. restore_normal_serving,
-#            rank_process_running/_absent and pd_debt_settle_counter are sourced
-#            from their shipped layers and called as the commands call them.
-#   STUB   — launchctl, as a fake on PATH recording every verb.
-#   PIN    — the cluster-detach call sites and their ORDER, as source. detach
-#            reaches macOS-only absolute paths (/bin/launchctl, /usr/sbin/sysctl)
-#            that no PATH fake can intercept, so it is pinned the same way
-#            tests/test-serving-restore.sh and tests/test-plugged-means-clustered.sh
-#            already pin it rather than executed. Order is the property that
-#            matters here: a bootout AFTER the signal closes no window at all.
-#
-# Usage:
-#   BOOT_SCOPE=… RESTORE=… STATUS=… LEDGER=… RECORD=… STAGE=… SETTLE=… JOIN=… \
-#     DETACH=… LAYERS=… bash test-teardown-recovery.sh
-set -o errexit -o nounset -o pipefail
+set -euo pipefail
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
+mkdir -p "$tmp/bin" "$tmp/state" "$tmp/home/Library/LaunchAgents"
 
-# `#!/usr/bin/env bash` does not resolve in a Linux nix build sandbox; $BASH is
-# the running interpreter's own absolute path.
-shebang="#!$BASH"
-
-mkdir -p "$tmp/bin"
-{
-  printf '%s\n' "$shebang"
-  cat << 'FAKE'
-printf '%s\n' "$*" >> "$FAKE_DIR/launchctl.log"
-case "${1:-}" in
-  print)
-    label="${2##*/}"
-    [ -f "$FAKE_DIR/$label.loaded" ]
-    ;;
-  bootstrap)
-    if [ "${FAKE_BOOTSTRAP_FAILS:-0}" = 1 ]; then
-      exit 1
-    fi
-    label="${3##*/}"
-    touch "$FAKE_DIR/${label%.plist}.loaded"
-    ;;
-  *) exit 0 ;;
+cat > "$tmp/bin/launchctl" <<'LAUNCHCTL'
+#!/usr/bin/env bash
+printf 'launchctl %s\n' "$*" >> "$EVENTS"
+if [ "${1:-}" = kill ] && [ "${2:-}" = SIGKILL ]; then touch "$SIGKILL_MARKER"; fi
+LAUNCHCTL
+cat > "$tmp/bin/curl" <<'CURL'
+#!/usr/bin/env bash
+case " $* " in
+  *' -X POST '*) printf '{"usage":{"completion_tokens":1}}' ;;
 esac
-FAKE
-} > "$tmp/bin/launchctl"
-chmod +x "$tmp/bin/launchctl"
-PATH="$tmp/bin:$PATH"
-export PATH
-export FAKE_DIR="$tmp"
+CURL
+cat > "$tmp/bin/ssh" <<'SSH'
+#!/usr/bin/env bash
+printf 'ssh %s\n' "$*" >> "$EVENTS"
+printf '%s\n' "$*" >> "$FAKE_SSH_LOG"
+exit "${FAKE_SSH_RC:-0}"
+SSH
+cat > "$tmp/bin/sysctl" <<'SYSCTL'
+#!/usr/bin/env bash
+case "${1:-}" in
+  *swapusage*) printf 'vm.swapusage: total = 0M used = 0M free = 1M\n' ;;
+  *) printf '0\n' ;;
+esac
+SYSCTL
+chmod +x "$tmp/bin/launchctl" "$tmp/bin/curl" "$tmp/bin/ssh" "$tmp/bin/sysctl"
 
-state_dir="$tmp/state"
-mkdir -p "$state_dir"
-halt_file="$state_dir/rank-halted"
-kicks_file="$state_dir/rank-kickstarts"
-debt_file="$state_dir/pd-debt"
-
-export CLUSTER_ROLE=coordinator
-export CLUSTER_SERVER_LABELS="dev.mlx.server dev.mlx.server.mimo"
-export CLUSTER_LAUNCH_AGENTS_DIR="$tmp/LaunchAgents"
-export CLUSTER_RANK_PROCESS_PATTERN='/mlx_lm\.server'
-export CLUSTER_PD_DEBT_MAX=5
-export CLUSTER_PD_DEVICE_BUDGET=11
-mkdir -p "$CLUSTER_LAUNCH_AGENTS_DIR"
-: > "$CLUSTER_LAUNCH_AGENTS_DIR/dev.mlx.server.plist"
-: > "$CLUSTER_LAUNCH_AGENTS_DIR/dev.mlx.server.mimo.plist"
-
-# shellcheck disable=SC1090
-source "${BOOT_SCOPE:?set BOOT_SCOPE to cluster-boot-scope.sh}"
-# shellcheck disable=SC1090
-source "${LEDGER:?set LEDGER to cluster-pd-ledger.sh}"
-# shellcheck disable=SC1090
-source "${RECORD:?set RECORD to cluster-pd-record.sh}"
-# shellcheck disable=SC1090
-source "${STAGE:?set STAGE to cluster-pd-stage.sh}"
-# shellcheck disable=SC1090
-source "${SETTLE:?set SETTLE to cluster-pd-settle.sh}"
-# shellcheck disable=SC1090
-source "${STATUS:?set STATUS to cluster-rank-status.sh}"
-# shellcheck disable=SC1090
-source "${RESTORE:?set RESTORE to cluster-serving-restore.sh}"
-
-join="${JOIN:?set JOIN to cluster-join.sh}"
-detach="${DETACH:?set DETACH to cluster-detach.sh}"
-layers="${LAYERS:?set LAYERS to cluster-script-layers.nix}"
-
-# The shipped function itself, not a copy of it. Extracted by name so a rename
-# fails loudly rather than silently testing nothing.
-join_fn="$(awk '/^restore_serving_if_join_left_it_down\(\) \{/,/^\}/' "$join")"
-if [ -z "$join_fn" ]; then
-  echo "FAIL cluster-join.sh no longer defines restore_serving_if_join_left_it_down" >&2
-  exit 1
-fi
-eval "$join_fn"
-
-# pgrep seam, as a generated executable: the shipped code invokes it through a
-# variable holding a path, so a shell function would not exercise the same call
-# (same reasoning as tests/test-pd-debt.sh).
-cat > "$tmp/bin/fake-pgrep" << PGREP
-#!$BASH
-exit "\$(cat '$tmp/pgrep-rc' 2>/dev/null || echo 1)"
-PGREP
-chmod +x "$tmp/bin/fake-pgrep"
-export CLUSTER_PGREP_BIN="$tmp/bin/fake-pgrep"
-rank_absent() { printf '1\n' > "$tmp/pgrep-rc"; }
-rank_running() { printf '0\n' > "$tmp/pgrep-rc"; }
+source modules/mlx/scripts/cluster-teardown.sh
+source modules/mlx/scripts/cluster-detach.sh
+source modules/mlx/scripts/cluster-rank-status.sh
+source modules/mlx/scripts/cluster-rank-reap.sh
 
 fail=0
 check() {
@@ -138,152 +50,166 @@ contains() {
   local label="$1" needle="$2" hay="$3"
   case "$hay" in
     *"$needle"*) echo "  ok   $label" ;;
-    *)
-      echo "  FAIL $label -> '$needle' not in: $hay"
-      fail=1
-      ;;
+    *) echo "  FAIL $label -> '$needle' missing from '$hay'"; fail=1 ;;
   esac
 }
-reset() {
-  rm -f "$tmp/launchctl.log" "$tmp"/*.loaded "$halt_file" "$kicks_file" "$debt_file"
-  export FAKE_BOOTSTRAP_FAILS=0
-  rank_absent
+
+export PATH="$tmp/bin:$PATH"
+export EVENTS="$tmp/events"
+export HOME="$tmp/home"
+export CLUSTER_STATE_DIR="$tmp/state"
+export CLUSTER_STATE_FILE="$tmp/state/link-state"
+export CLUSTER_PEER_STATE_FILE="$tmp/state/peer-state.json"
+export CLUSTER_LAUNCH_AGENTS_DIR="$tmp/home/Library/LaunchAgents"
+export CLUSTER_LAUNCHCTL_BIN="$tmp/bin/launchctl"
+export CLUSTER_SYSCTL_BIN="$tmp/bin/sysctl"
+export CLUSTER_LIFECYCLE_LOG="$tmp/lifecycle.log"
+export FAKE_SSH_LOG="$tmp/ssh.log"
+export CLUSTER_SSH_BIN="$tmp/bin/ssh"
+export CLUSTER_ROLE=worker
+export CLUSTER_PD_DEVICE_BUDGET=11
+export CLUSTER_STANDALONE_WIRED_LIMIT_MB=0
+export CLUSTER_RANK_LABEL=dev.test.rank
+export CLUSTER_RANK_PROCESS_PATTERN=/fake-rank
+export CLUSTER_DETACH_TIMEOUT_SECS=0
+export CLUSTER_STANDALONE_PROBE_URL=http://127.0.0.1:1
+export CLUSTER_STANDALONE_PROBE_MODEL=test
+export CLUSTER_DETACH_SWAP_THRESHOLD_MB=20000
+export CLUSTER_PEER_STATE_FILE="$tmp/state/peer-state.json"
+export CLUSTER_SOFTWARE_JSON='{"nix_ai":"a","nix_darwin":"b","mlx":"c","mlx_lm":"d","macos":"e"}'
+export CLUSTER_SW_VERS_BIN=/usr/bin/true
+export CLUSTER_DARWIN_VERSION_BIN=/usr/bin/false
+export CLUSTER_IOCLASSCOUNT_BIN="$tmp/bin/ioclasscount"
+cat > "$CLUSTER_IOCLASSCOUNT_BIN" <<'IOCLASS'
+#!/usr/bin/env bash
+printf '%s = 0\n' "$1"
+IOCLASS
+chmod +x "$CLUSTER_IOCLASSCOUNT_BIN"
+export CLUSTER_PGREP_BIN="$tmp/bin/pgrep"
+cat > "$CLUSTER_PGREP_BIN" <<'PGREP'
+#!/usr/bin/env bash
+[ -f "$SIGKILL_MARKER" ] && exit 1
+printf '123\n'
+PGREP
+export CLUSTER_KILL_BIN="$tmp/bin/kill"
+cat > "$CLUSTER_KILL_BIN" <<'KILL'
+#!/usr/bin/env bash
+exit 0
+KILL
+export CLUSTER_PKILL_BIN="$tmp/bin/pkill"
+cat > "$CLUSTER_PKILL_BIN" <<'PKILL'
+#!/usr/bin/env bash
+exit 0
+PKILL
+chmod +x "$CLUSTER_PGREP_BIN" "$CLUSTER_KILL_BIN" "$CLUSTER_PKILL_BIN"
+
+: > "$EVENTS"
+printf 'label-a\nlabel-b\n' > "$tmp/state/quiesced-agents"
+touch "$tmp/home/Library/LaunchAgents/label-a.plist"
+peer_state_write() { printf 'disarm\n' >> "$EVENTS"; }
+rank_process_absent_calls=0
+rank_process_absent() {
+  rank_process_absent_calls=$((rank_process_absent_calls + 1))
+  [ "$rank_process_absent_calls" -gt 1 ]
 }
-resident_agents_restored() {
-  local label
-  local -a labels=()
-  read -r -a labels <<< "$CLUSTER_SERVER_LABELS"
-  for label in "${labels[@]}"; do
-    grep -qF "bootstrap gui/$(id -u) $CLUSTER_LAUNCH_AGENTS_DIR/$label.plist" "$tmp/launchctl.log" 2> /dev/null || return 1
-  done
-  echo yes
-}
+rank_stop_verified() { printf 'stop\n' >> "$EVENTS"; return 0; }
+pd_held_count() { printf 'count\n' >> "$EVENTS"; PD_HELD=0; return 0; }
+set_wired_limit() { printf 'ceiling\n' >> "$EVENTS"; return 0; }
+restore_normal_serving() { printf 'restore-serving\n' >> "$EVENTS"; return 0; }
+link_state_write() { printf '%s\n' "$1" > "$CLUSTER_STATE_FILE"; printf 'link-%s\n' "$1" >> "$EVENTS"; }
 
-echo "cluster-join's failure path restores standalone serving:"
+rank_process_absent_calls=0
+rank_process_absent || true
+rank_process_absent_calls=0
+rank_stop_verified
+pd_held_count
+check 'PD count fixture reports zero' 0 "$PD_HELD"
+: > "$EVENTS"
 
-reset
-quiesced=false
-out="$(restore_serving_if_join_left_it_down 2>&1)"
-check "an early refusal restores nothing (serving was never taken away)" no "$(resident_agents_restored || echo no)"
-contains "and says so" "never quiesced" "$out"
-
-reset
-quiesced=true
-out="$(restore_serving_if_join_left_it_down 2>&1)"
-check "quiesced + no rank + no halt -> every resident is restored" yes "$(resident_agents_restored || echo no)"
-contains "the branch that fired is named" "restoring standalone serving" "$out"
-check "each booted-out resident agent is bootstrapped back" yes "$(resident_agents_restored || echo no)"
-
-reset
-rank_running
-quiesced=true
-out="$(restore_serving_if_join_left_it_down 2>&1)"
-check "a running rank means the watcher owns serving -> no restore" no "$(resident_agents_restored || echo no)"
-contains "and the deferral is logged, not silent" "rank process is running" "$out"
-
-reset
-quiesced=true
-printf 'cause=peer-absent\tdetail\n' > "$halt_file"
-out="$(restore_serving_if_join_left_it_down 2>&1)"
-check "a recorded halt means the watcher's halt path restores -> no restore" no "$(resident_agents_restored || echo no)"
-contains "and the deferral names the halt" "halt is recorded" "$out"
-
-# The failure the whole trap exists to make visible: a restore that could not
-# run must SAY the host is serving nothing, never exit quiet.
-reset
-# shellcheck disable=SC2034  # read by the extracted shipped function
-quiesced=true
-export FAKE_BOOTSTRAP_FAILS=1
-out="$(restore_serving_if_join_left_it_down 2>&1)"
-contains "a failed restore is reported as serving nothing" "serving nothing" "$out"
-
-echo
-echo "cluster-join is WIRED to be able to restore (a function nobody can call fixes nothing):"
-
-pin() {
-  local label="$1" file="$2" pattern="$3" body
-  # Comment-stripped before matching, and materialised first: under pipefail a
-  # `grep -v … | grep -q` that matches early takes SIGPIPE on the producer and
-  # reports a hit as a miss (GNU grep only — invisible on macOS).
-  body="$(grep -v '^[[:space:]]*#' "$file")"
-  if grep -Eq "$pattern" <<< "$body"; then
-    echo "  ok   $label"
-  else
-    echo "  FAIL $label -> no code line matching /$pattern/ in $file"
-    fail=1
-  fi
-}
-
-pin "the restore runs on EVERY exit after the quiesce, via a trap" "$join" \
-  'trap restore_serving_if_join_left_it_down EXIT'
-pin "the coordinator arms it before the first destructive verb" "$join" \
-  'quiesced=true'
-pin "join is given the single restore definition" "$layers" \
-  'cluster-serving-restore\.sh'
-
-echo
-echo "cluster-detach unloads the rank JOB before signalling the process:"
-
-bootout_line="$(grep -n 'launchctl bootout "gui/\$uid/\${CLUSTER_RANK_LABEL}"' "$detach" | head -n1 | cut -d: -f1)"
-signal_line="$(grep -n 'launchctl kill SIGTERM' "$detach" | head -n1 | cut -d: -f1)"
-if [ -n "$bootout_line" ] && [ -n "$signal_line" ] && [ "$bootout_line" -lt "$signal_line" ]; then
-  echo "  ok   the rank job is booted out (line $bootout_line) before any signal (line $signal_line)"
+if cluster_teardown > "$tmp/teardown.log" 2>&1; then
+  check 'normal teardown returns success' 0 "$?"
 else
-  echo "  FAIL bootout (line ${bootout_line:-none}) must precede the first signal (line ${signal_line:-none}) — a later bootout closes no window"
-  fail=1
+  echo '  FAIL normal teardown returned failure'; fail=1
 fi
+ordered="$(tr '\n' ' ' < "$EVENTS")"
+contains 'teardown order' 'disarm stop count ceiling restore-serving launchctl bootstrap gui/'"$(id -u)"' '"$tmp/home/Library/LaunchAgents/label-a.plist"' launchctl kickstart gui/'"$(id -u)"'/label-b link-down' "$ordered"
+check 'quiesced label file truncated' 0 "$(wc -c < "$tmp/state/quiesced-agents" | tr -d ' ')"
+check 'link state down after teardown' down "$(cat "$CLUSTER_STATE_FILE")"
 
-pin "and is bootstrapped back, or the next join could never start a rank" "$detach" \
-  'launchctl bootstrap "gui/\$uid" "\$CLUSTER_RANK_PLIST"'
-pin "a failed bootstrap-back is reported, never silent" "$detach" \
-  'could not bootstrap .*back'
-pin "the kickstart counter is SETTLED, not deleted" "$detach" \
-  'pd_debt_settle_counter .* "\$state_dir/rank-kickstarts"'
-pin "and billed to the halt latch's cause, not to this command's name" "$detach" \
-  'rank-halt-latched'
-pin "detach is given the counter-settle layer" "$layers" \
-  'cluster-pd-settle\.sh'
+: > "$EVENTS"
+printf 'up\n' > "$CLUSTER_STATE_FILE"
+rank_process_absent() { return 1; }
+rank_stop_verified() { printf 'stop-survivor\n' >> "$EVENTS"; return 1; }
+if rank_process_absent; then
+  echo '  FAIL survivor fixture reported the rank absent'; fail=1
+fi
+if rank_stop_verified; then
+  echo '  FAIL survivor stop fixture reported success'; fail=1
+fi
+: > "$EVENTS"
+if cluster_teardown > "$tmp/survivor.log" 2>&1; then
+  echo '  FAIL surviving rank teardown returned success'; fail=1
+fi
+survivor_events="$(cat "$EVENTS")"
+check 'surviving rank leaves state up' up "$(cat "$CLUSTER_STATE_FILE")"
+check 'surviving rank stops before count/restore' 'disarm
+stop-survivor' "$survivor_events"
 
-# The release must run on EVERY exit, including one errexit takes before the end
-# of the script: an abort after the bootout would otherwise leave the rank job
-# unloaded, and nothing but a darwin-rebuild loads it again.
-pin "the release runs on every exit, via a trap" "$detach" \
-  'trap release_session EXIT'
-pin "gated so an exit BEFORE the teardown settles nothing" "$detach" \
-  'teardown_started'
-# ...and ONLY via the trap. A mid-script call would clear rank-kickstarts before
-# markers_clear is judged, satisfying that postcondition by deletion rather than
-# by the watcher's teardown having actually run.
-calls="$(grep -c 'release_session' <<< "$(grep -v '^[[:space:]]*#' "$detach")")"
-check "release_session is defined and trapped, never called inline" 2 "$calls"
+unset -f rank_process_absent rank_process_pids rank_reap_verified rank_stop_verified
+source modules/mlx/scripts/cluster-rank-status.sh
+source modules/mlx/scripts/cluster-rank-reap.sh
+SIGKILL_MARKER="$tmp/sigkill.marker"
+export SIGKILL_MARKER
+sleep() { :; }
+if rank_stop_verified; then
+  check 'rank_stop_verified completes after fake SIGKILL' 0 "$?"
+else
+  echo '  FAIL fake SIGKILL did not prove rank absence'; fail=1
+fi
+check 'SIGKILL sets the reboot-required flag' 1 "$TEARDOWN_REBOOT"
+set +e
+(cluster_detach_finish 0 false "$TEARDOWN_REBOOT" false)
+detach_rc=$?
+set -e
+check 'SIGKILL teardown exits with reboot code' 3 "$detach_rc"
 
-# NEITHER SCRIPT MAY END IN A TERMINAL `exit`. Falling off the end returns the
-# same status, so this costs nothing — but a terminal exit costs each EXIT trap
-# its only visible invocation: shellcheck stops crediting `trap … EXIT` as a
-# call and writeShellApplication fails the build with SC2329 on functions that
-# run on every exit. That failure names the function, not the exit, so it is
-# pinned here where the cause is written down.
-for f in "$join" "$detach"; do
-  if grep -Eq '^exit [0-9]+$' "$f"; then
-    echo "  FAIL $f ends in a terminal exit; the EXIT trap loses its only visible invocation (SC2329)"
-    fail=1
-  else
-    echo "  ok   $(basename "$f") has no terminal exit, so its EXIT trap stays visible to shellcheck"
-  fi
-done
+echo 'coordinator detaches the worker only after local teardown and returns 3 on remote failure:'
+: > "$EVENTS"
+: > "$FAKE_SSH_LOG"
+: > "$CLUSTER_LIFECYCLE_LOG"
+export CLUSTER_ROLE=coordinator
+export CLUSTER_PEER_SSH=user@worker
+export CLUSTER_STANDALONE_PROBE_URL=http://127.0.0.1:1
+export CLUSTER_STANDALONE_PROBE_MODEL=test
+export CLUSTER_DETACH_SWAP_THRESHOLD_MB=20000
+export CLUSTER_DETACH_TIMEOUT_SECS=10
+export FAKE_SSH_RC=42
+cluster_teardown() { printf 'local-teardown\n' >> "$EVENTS"; TEARDOWN_REBOOT=0; return 0; }
+cluster_lifecycle_log_start() { exec > "$CLUSTER_LIFECYCLE_LOG" 2>&1; }
+set +e
+(cluster_detach_main)
+detach_rc=$?
+set -e
+check 'remote detach failure exits with code 3' 3 "$detach_rc"
+check 'coordinator issued one worker detach' 1 "$(wc -l < "$FAKE_SSH_LOG" | tr -d ' ')"
+check 'worker detach arguments' '-o BatchMode=yes -o ConnectTimeout=10 user@worker cluster-detach --worker' "$(cat "$FAKE_SSH_LOG")"
+contains 'remote failure is logged' 'peer-detach-failed rc=42' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
+first_local="$(grep -n '^local-teardown$' "$EVENTS" | cut -d: -f1)"
+first_ssh="$(grep -n '^ssh ' "$EVENTS" | cut -d: -f1)"
+check 'local teardown precedes remote detach' yes "$([ "$first_local" -lt "$first_ssh" ] && echo yes || echo no)"
 
-echo
-echo "...and clearing that counter charges the ledger rather than laundering it:"
+: > "$EVENTS"
+: > "$FAKE_SSH_LOG"
+export CLUSTER_ROLE=worker
+set +e
+(cluster_detach_main)
+detach_rc=$?
+set -e
+check 'worker detach succeeds without initiating ssh' 0 "$detach_rc"
+check 'worker issued no ssh' 0 "$(wc -l < "$FAKE_SSH_LOG" | tr -d ' ')"
 
-reset
-printf '2\n' > "$kicks_file"
-pd_debt_settle_counter "$debt_file" "$kicks_file" 0 "cluster-detach" "test" 2> /dev/null
-check "the counter is gone, so the next session starts whole" absent \
-  "$([ -f "$kicks_file" ] && echo present || echo absent)"
-check "and its outstanding attempts are on the boot-scoped ledger" 2 "$(pd_debt_count "$debt_file")"
-
-reset
-pd_debt_settle_counter "$debt_file" "$kicks_file" 0 "cluster-detach" "test" 2> /dev/null
-check "an already-clear counter charges nothing (safe on every exit)" 0 "$(pd_debt_count "$debt_file")"
-
-exit "$fail"
+if [ "$fail" -ne 0 ]; then
+  echo 'teardown recovery checks FAILED' >&2
+  exit 1
+fi
+echo 'teardown recovery checks passed'

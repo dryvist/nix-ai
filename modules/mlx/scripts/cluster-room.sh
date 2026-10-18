@@ -113,31 +113,13 @@ mem_headroom_ok() {
   return 1
 }
 
-# THE MEMORY CHECK THAT MUST RUN AFTER QUIESCE, NOT INSIDE
-# rank_start_preconditions_ok.
+# J5 runs this after J1 proved no rank survives and J4 quiesced the host's
+# standalone serving. Measuring before those steps would count memory that the
+# join is about to free, and could refuse a shard that fits once serving stops.
 #
-# mem_headroom_ok used to run as a rung of rank_start_preconditions_ok, ahead
-# of quiesce_normal_serving — which the watcher only ever calls AFTER every
-# precondition passes, right before the kickstart. So the memory precondition
-# could only ever measure memory still held by standalone serving: the exact
-# memory quiescing exists to return. It only ever passed because free memory
-# happened to clear the threshold anyway — luck, not correctness; the gate was
-# unsatisfiable by design the moment serving footprint ate that margin.
-#
-# QUIESCING CANNOT MOVE INTO THE GUARD FUNCTION EITHER. quiesce_normal_serving
-# is role-conditional — a coordinator POSTs to $CLUSTER_NORMAL_PROXY, which is
-# real production config but is NOT part of the guard contract every rank-guard
-# test pins (tests/test-rank-start-guards.sh runs CLUSTER_ROLE=coordinator
-# without it, by design — see that file's own stub contract). Calling it from
-# inside rank_start_preconditions_ok made an unrelated env var load-bearing for
-# every guard test and crashed one outright under `set -o nounset`. So the
-# quiesce step stays exactly where it already was — the watcher's call site —
-# and this function is what the watcher calls immediately afterward, so the
-# measurement sees what quiescing actually freed.
-#
-# Same "no attempt consumed" contract as every rung above: nothing is
-# launched, so a refusal here costs nothing. Sets MEM_HEADROOM_DETAIL on
-# refusal, same as mem_headroom_ok itself, since callers log it the same way.
+# This gate runs before J6 arms either peer and before J9 can launch a rank, so a
+# refusal consumes no protection domain. MEM_HEADROOM_DETAIL is returned for
+# the lifecycle log.
 #
 # TWO QUESTIONS, NOT ONE. mem_headroom_ok asks "is there enough FREE memory for
 # the shard's ordinary resident pages". wired_ceiling_room_ok below asks the
@@ -168,7 +150,7 @@ rank_start_room_ok() {
 # shard (measured: ~9 GiB of MLX-attributable wired against 7.6 GiB of
 # resident standalone model weights). No absolute wired
 # threshold below the ceiling separates legitimate load from a leak, which is
-# why nix-darwin's runtime wiredCeiling watcher is deliberately left disabled.
+# why nix-darwin's separate runtime wired-ceiling automation is left disabled.
 # This rung is not a threshold on wired: it is arithmetic on the HEADROOM
 # REMAINING once this specific shard is added.
 #
@@ -180,38 +162,17 @@ rank_start_room_ok() {
 # reserves it nothing (osReserveGb reserves ordinary RAM, not GPU-wired
 # pages). So the budget is the ceiling MINUS a compositor reserve.
 #
-# FAILS CLOSED, DELIBERATELY THE INVERSE OF THE RUNNING-RANK WATCHER. An
-# unreadable probe here refuses the start. The running-rank watcher fails open
-# because tearing down a healthy serving rank on a bad read is expensive and
-# self-inflicted; refusing a START is cheap and recoverable — the next tick
-# retries, nothing is launched, no protection domain leaks. Starting blind is
-# what takes the host down. Do not "fix" this into a fail-open default.
+# FAILS CLOSED. An unreadable probe refuses the start because no rank is
+# running yet and refusing costs no protection domain. A later join repeats the
+# same gate after the source of the unreadable result is fixed.
 #
-# NO DWELL ESCALATION HERE, AND THAT IS A DECISION, NOT AN OVERSIGHT. This rung
-# deliberately does NOT feed mem_headroom_halt_if_persistent. Two reasons:
-#
-# 1. THAT HELPER RUNS PRE-QUIESCE, EVERY TICK. A host legitimately serving a
-#    shard-sized standalone model would refuse structurally — and the free
-#    rung's pass-decrement would cancel this rung's increment on the shared
-#    counter, so the dwell would oscillate 0<->1 and never fire anyway.
-#
-# 2. A PER-TICK REFUSAL SELF-CLEARS; A DWELL-HALT LATCHES. If the wired reading
-#    is ever a false positive, refusing this tick costs one start attempt and
-#    the next tick recovers unaided. A dwell that escalates to
-#    insufficient-memory-persistent latches and needs a manual clear, turning a
-#    self-healing refusal into a stuck host. compositorReserveMb is admittedly
-#    provisional, so "slightly too strict" is a live failure mode — the
-#    non-latching behaviour is what makes a provisional threshold safe to ship.
-#
-# WHAT THIS RUNG DOES NOT COVER AT ALL: a leak that accumulates DURING a
-# session and starves the compositor mid-serve. That is the running-rank
-# watcher's territory and is uncovered today. This closes only "start onto an
-# already-poisoned host" — do not read its existence as broader coverage.
+# This check is scoped to the room available at J5. It does not monitor wired
+# memory during a formed session; detach verifies the rank and measured PD count
+# during teardown.
 #
 # $1 = required shard size in MB; 0/unset disables the rung with no probe at
-# all, same convention as mem_headroom_ok. CLUSTER_COMPOSITOR_RESERVE_MB=0
-# disables it independently. Sets MEM_HEADROOM_DETAIL on refusal so the
-# watcher's existing room-check log line carries it unchanged.
+# all, and CLUSTER_COMPOSITOR_RESERVE_MB=0 disables it independently.
+# MEM_HEADROOM_DETAIL carries refusal detail to cluster-join's lifecycle log.
 wired_ceiling_room_ok() {
   local required="$1" reserve ceiling stat_out free wired budget
   case "$required" in

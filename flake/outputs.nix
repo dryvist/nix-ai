@@ -59,6 +59,7 @@ in
 {
   homeManagerModules = import ./home-manager-modules.nix {
     inherit (nixpkgs) lib;
+    inherit self;
     inherit
       ai-llm-prompts
       jacobpevans-cc-plugins

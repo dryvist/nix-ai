@@ -1,16 +1,12 @@
 # shellcheck shell=bash
-# Where is this host's Thunderbolt link address? — the one question all three
-# cluster scripts ask.
+# Locate this host's Thunderbolt link address for cluster-join's J2 check.
 #
-# Function definitions ONLY (no top-level statements), so cluster-join,
-# cluster-detach and the link watcher can each concatenate it ahead of their own
-# body and have every CLUSTER_* read resolve at call time.
+# Function definitions ONLY (no top-level statements), so the join command can
+# concatenate this ahead of its body and resolve CLUSTER_* values at call time.
 #
 # Split this finely on purpose: writeShellApplication runs shellcheck at default
 # severity, so a function shipped to a consumer that never calls it fails the
-# build with SC2329. Each consumer therefore gets exactly the layer it uses —
-# detach only locates the port, join and the watcher also repair it
-# (cluster-link-repair.sh).
+# build with SC2329. The layer is therefore only included in cluster-join.
 #
 # Consumed environment:
 #   CLUSTER_STATIC_SELF_IP  this host's static link address

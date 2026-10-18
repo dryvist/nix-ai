@@ -5,7 +5,8 @@
 export PD_HELD PD_COUNT_DETAIL
 
 pd_count_info() {
-  local class="$1" output rc=0 display LC_ALL=C
+  local class="$1" output rc=0 display prefix=cluster-join LC_ALL=C
+  [ "${0##*/}" != cluster-detach ] || prefix=cluster-detach
   if output="$("${CLUSTER_IOCLASSCOUNT_BIN:-/usr/sbin/ioclasscount}" "$class" 2>&1)"; then
     rc=0
   else
@@ -14,7 +15,7 @@ pd_count_info() {
   display="${output//$'\n'/ }"
   display="${display//$'\r'/ }"
   display="${display:0:200}"
-  printf 'cluster-join: pd-count info class=%s rc=%s raw=%s\n' \
+  printf '%s: pd-count info class=%s rc=%s raw=%s\n' "$prefix" \
     "$class" "$rc" "${display:-<empty>}" >&2
 }
 

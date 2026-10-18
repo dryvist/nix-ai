@@ -98,18 +98,8 @@
     peerReadyTimeoutSecs = lib.mkOption {
       type = lib.types.ints.positive;
       default = 120;
-      description = ''
-        How long cluster-join waits for the peer to answer on the link before
-        refusing, naming which side is unprepared.
-
-        Without it, a peer that held no link address cost the full
-        joinTimeoutSecs (600s) and then surfaced `[jaccl] Couldn't connect
-        (error: 60)` — ETIMEDOUT, which reports that a connection did not
-        complete and is structurally incapable of saying which machine was
-        wrong. Short on purpose: both watchers now self-heal their own link prep
-        unattended, so a peer that is merely slow answers within a tick or two,
-        and one still silent after this window is unprepared rather than late.
-      '';
+      description = "Legacy peer-readiness timeout retained for consumer configuration compatibility.";
     };
+
   };
 }
