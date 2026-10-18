@@ -79,13 +79,15 @@ inputs.nix-ai.inputs.home-manager.follows = "home-manager";
 ### Instruction delivery (single pipe)
 
 home-manager is the single canonical delivery pipe for agent instructions from
-`ai-assistant-instructions`. It delivers the always-on core (`soul.md`) plus the
+the `ai-llm-prompts` catalog's `instructions` package. It delivers the always-on
+core (`soul.md`) plus the
 path-scoped tier rules flat to `~/.claude/rules/`; Claude Code's native loader
 then honors each file's `paths:` frontmatter (present = path-scoped, absent =
 always-on). The `on-demand/` tier is a subdir that discovery skips by design —
 read by path when needed, never delivered. The one sanctioned fallback for a
-non-Nix machine is cloning `ai-assistant-instructions` and reading `AGENTS.md` +
-`agentsmd/rules/` directly (as that repo's own CLAUDE.md instructs). The
+non-Nix machine is cloning the `ai-llm-prompts` catalog and reading
+`auto-ai-agent/instructions/AGENTS.md` + `auto-ai-agent/instructions/agentsmd/rules/`
+(the source tree exported by its `instructions` package). The
 CI-sparse-checkout, Obsidian-submodule, and copy-paste "pipes" are not sync
 mechanisms and do not exist — do not add a second delivery path.
 
@@ -94,7 +96,7 @@ mechanisms and do not exist — do not add a second delivery path.
 `nix-claude-code` = the Claude Code option schema, settings/permission renderer,
 permission data, and marketplace catalog (the "what the config looks like").
 `nix-ai` = discovery, consumption, MCP, plugin tiers, MLX, and the glue that
-feeds `ai-assistant-instructions` content through nix-claude-code's options (the
+feeds the catalog's `instructions` package content through nix-claude-code's options (the
 "what content flows and how"). Tiered rule delivery (top-level delivered,
 `on-demand/` not) is a property of nix-ai's `discoverMarkdownFiles`, using
 nix-claude-code's `rules` option verbatim. Mirror in
@@ -121,11 +123,8 @@ this one.
 
 ### Package placement
 
-The `nix-package-placement` rule lives in
-[ai-assistant-instructions/agentsmd/rules/nix-package-placement.md](https://github.com/JacobPEvans/ai-assistant-instructions/blob/main/agentsmd/rules/nix-package-placement.md)
-and auto-loads via path-scoping when `.nix` / `flake.*` files are in context.
-It contains the full decision matrix for the nix repos, including homebrew
-constraints and on-demand patterns.
+Package placement guidance is documented in
+[`docs/architecture/per-agent-flakes.md`](docs/architecture/per-agent-flakes.md).
 
 ## Architecture Documentation
 
