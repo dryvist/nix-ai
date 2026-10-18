@@ -38,7 +38,9 @@ exit 0
 CURL
 chmod +x "$tmp/bin/launchctl" "$tmp/bin/sysctl" "$tmp/bin/curl" "$tmp/bin/pgrep"
 
+# shellcheck source=modules/mlx/scripts/cluster-join.sh
 source modules/mlx/scripts/cluster-join.sh
+# shellcheck source=modules/mlx/scripts/cluster-room.sh
 source modules/mlx/scripts/cluster-room.sh
 
 fail=0
@@ -65,6 +67,12 @@ export CLUSTER_PEER_SSH=''
 export CLUSTER_STATE_DIR="$tmp/state"
 export CLUSTER_STATE_FILE="$tmp/state/link-state"
 export CLUSTER_PEER_STATE_FILE="$tmp/state/peer-state.json"
+export HF_HOME="$tmp/hf"
+export CLUSTER_MODEL=org/default
+export CLUSTER_SHARDING_MODE=tensor
+export CLUSTER_SHARD_MEMORY_MB=0
+export CLUSTER_WIRED_LIMIT_MB=2000
+export CLUSTER_COMPOSITOR_RESERVE_MB=100
 export CLUSTER_LAUNCHCTL_BIN="$tmp/bin/launchctl"
 export CLUSTER_SYSCTL_BIN="$tmp/bin/sysctl"
 export CLUSTER_PGREP_BIN="$tmp/bin/pgrep"
@@ -80,6 +88,12 @@ export CLUSTER_SERVER_LABELS=''
 export CLUSTER_WATCHDOG_LABEL=''
 export CLUSTER_RANK_PROCESS_PATTERN=/fake-rank
 export FAKE_LAUNCHCTL_LOG="$tmp/launchctl.log"
+model_cache="$HF_HOME/hub/models--org--default"
+model_revision=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+mkdir -p "$model_cache/refs" "$model_cache/snapshots/$model_revision"
+printf '%s\n' "$model_revision" > "$model_cache/refs/main"
+printf '{}\n' > "$model_cache/snapshots/$model_revision/config.json"
+: > "$model_cache/snapshots/$model_revision/weights.safetensors"
 uid="$(id -u)"
 mkdir -p "$tmp/home/Library/LaunchAgents"
 touch "$tmp/home/Library/LaunchAgents/org.example.agent.plist"

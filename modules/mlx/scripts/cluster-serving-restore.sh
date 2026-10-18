@@ -1,7 +1,7 @@
 # shellcheck shell=bash
 # Bring standalone (non-clustered) serving back — the ONE definition.
 #
-# Split out of ./cluster-link-helpers.sh so cluster-detach can call it too.
+# Shared by cluster-join recovery and cluster-detach.
 # Before that split, detach carried a coordinator-only copy of half of it and no
 # worker path at all: on a worker it downed the link, verified markers/rank/
 # ceiling, printed "teardown verified", exited 0 — and left every agent

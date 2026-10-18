@@ -22,16 +22,5 @@
       description = "Timeout for a single peer-state fetch.";
     };
 
-    peerStateStaleTicks = lib.mkOption {
-      type = lib.types.int;
-      default = 8;
-      description = "Legacy watcher setting retained for consumer configuration compatibility.";
-    };
-
-    pdCauseBudget = lib.mkOption {
-      type = lib.types.int;
-      default = 3;
-      description = "Legacy watcher setting retained for consumer configuration compatibility.";
-    };
   };
 }

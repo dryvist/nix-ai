@@ -119,9 +119,8 @@ let
 
   # Both lifecycle commands consume the shared link-prep primitives (each used to
   # carry its own copy of iface_holding_self_ip), so each is built from the layers
-  # it uses plus its own body. Those layer sets, and the privilege boundary they
-  # encode between the PD ledger's read and write sides, live in
-  # ./cluster-script-layers.nix.
+  # it uses plus its own body. Those layer sets, including the kernel PD count
+  # and teardown helpers, live in ./cluster-script-layers.nix.
   clusterJoinPkg = mkClusterCli "cluster-join" scriptLayers.join clusterCliEnv.clusterJoinEnv;
   clusterDetachPkg = mkClusterCli "cluster-detach" scriptLayers.detach clusterCliEnv.clusterDetachEnv;
 

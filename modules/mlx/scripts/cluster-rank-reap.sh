@@ -13,13 +13,9 @@ export TEARDOWN_SIGKILLED TEARDOWN_REBOOT
 # survivor still owns its protection domain. Signalling the pid directly is what
 # actually reaches it.
 #
-# WHY THIS PROVES ANYTHING. A protection domain is held by a PROCESS, not by
-# damaged kernel state. Measured: reaping two leaked worker processes changed the
-# next rank start's failure from errno 96 (protection domains exhausted) to
-# errno 60 (couldn't connect) — the domains came back the moment their owners
-# died. So "no rank process is alive" is a sufficient condition for the domains
-# being available, and enforcing it before every start is what makes accumulation
-# impossible rather than merely unlikely.
+# The process probe is a separate precondition from the kernel PD count. Once no
+# rank is alive, the gate reads the system-wide count and refuses if any domains
+# remain held.
 #
 # rank_reap_verified uses SIGTERM only. rank_stop_verified owns the audited
 # SIGKILL fallback for an operator teardown; it marks the host reboot-required
@@ -50,7 +46,7 @@ rank_reap_verified() {
   while [ "$(date +%s)" -lt "$deadline" ]; do
     sleep 2
     if rank_process_absent; then
-      echo "cluster: rank exited on SIGTERM and released its protection domain"
+      echo "cluster: rank exited on SIGTERM; the kernel PD count will verify availability"
       return 0
     fi
   done

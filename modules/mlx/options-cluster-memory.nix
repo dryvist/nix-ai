@@ -1,85 +1,20 @@
-#
-# MLX Module — clustered-mode memory-headroom tunables (does this shard FIT?)
-#
-# Split out of ./options-cluster-rank-health.nix purely to keep each file under
-# the repo per-file size cap. The option paths are UNCHANGED
-# (programs.mlx.clusterMode.*): the module system merges this block with the
-# ones in options-cluster.nix, options-cluster-resilience.nix,
-# options-cluster-rank-health.nix and cluster-mode.nix. Only `lib` is
-# referenced.
-#
+# The free-memory budget checked by cluster-join at J5.
 { lib, ... }:
 {
-  options.programs.mlx.clusterMode = {
-    shardMemoryMb = lib.mkOption {
-      type = lib.types.int;
-      default = 0;
-      description = ''
-        Expected per-rank working set (MB) once the cluster shard is loaded.
-        rank_start_preconditions_ok refuses a rank start unless free +
-        reclaimable memory (vm_stat "Pages free" + "Pages inactive" +
-        "Pages speculative") reports at least this much.
+  options.programs.mlx.clusterMode.shardMemoryMb = lib.mkOption {
+    type = lib.types.int;
+    default = 0;
+    description = ''
+      Expected per-rank working set (MB) once the cluster shard is loaded.
+      At J5, cluster-join requires vm_stat free, inactive, and speculative
+      pages to report at least this much available memory. J1 first verifies
+      that no rank process is alive. Unowned wired memory is reported for the
+      operator; the kernel PD count is checked separately at J1 and J9.
 
-        THIS IS THE FREE-MEMORY HALF ONLY. It asks whether the shard's ordinary
-        resident pages fit; it says nothing about the GPU wired ceiling, which
-        is a separate budget — see compositorReserveMb below.
-
-        CORRECTED. This text used to claim MLX holds a shard's weights in
-        ordinary resident memory and wires only ~3.5 GiB of it. That is false,
-        and it argued against the wired rung below. Measured on a 128 GiB host:
-        ~9 GiB of MLX-attributable `Pages wired down` against 7.6 GiB of
-        resident model weights, and a serving rank accounts for essentially its
-        whole footprint in wired. Size a wired budget for the WHOLE shard.
-
-        0 (default) disables the rung cleanly: no vm_stat read, no refusal.
-        There is no safe universal default — the right value is the deployed
-        model's shard size on THIS host — so it is opt-in per cluster config,
-        same as wiredLimitMb above.
-
-        WHY THIS RUNG EXISTS. On 2026-08-01 a rank started while ~72 GiB of
-        unreclaimed wired Metal memory sat on the host from previously-crashed
-        rank processes, left only ~25 GiB free against a ~49 GiB shard, and
-        died `[METAL] Command buffer execution failed: Insufficient Memory`.
-        That failed distributed init still leaked an RDMA protection domain —
-        the same reboot-only resource devicePdBudget/maxKickstarts protect —
-        and the same chain then repeated four more times and hit the cap. This
-        rung stops it before the first attempt: a precondition that is not yet
-        met costs no attempt (see rank_start_preconditions_ok), so refusing
-        here is free in the currency that guard actually protects.
-      '';
-    };
-
-    memHeadroomHaltSecs = lib.mkOption {
-      type = lib.types.int;
-      default = 300;
-      description = ''
-        How long the memory-headroom rung must refuse CONSECUTIVELY before the
-        watcher escalates from a per-tick skip to a HALT (converted to
-        CLUSTER_MEM_HEADROOM_DWELL_TICKS against tickIntervalSecs, same ceil
-        derivation as linkDownSettleSecs). Ignored when shardMemoryMb is 0.
-
-        WHY A HALT AT ALL, RATHER THAN SKIPPING FOREVER. A precondition skip
-        is deliberately free and silent — see shardMemoryMb above — which is
-        correct for a shortfall that clears on its own. But the 2026-08-01
-        shortfall was unreclaimed wired Metal memory, which is boot-scoped and
-        does NOT clear on its own; left as a bare skip that shape is
-        invisible, and the host never clusters even with the Thunderbolt cable
-        plugged in the whole time — the "plugged in but not clustered" state
-        the operator's chaos-monkey doctrine rules out. So a shortfall that
-        holds this long escalates to a halt, which keeps the watcher from
-        retrying indefinitely (see cluster-link-guards.sh).
-
-        A HALT IS NOT A GUARANTEE THE REBOOT FIXES IT. Unlike the PD ledger,
-        a low-memory shortfall is not always the boot-scoped leak signature —
-        it could be some other process legitimately holding memory, which a
-        reboot may or may not resolve. The dwell exists to tell "genuinely
-        stuck" from "transient" apart.
-
-        300s (5 min at the 30s default tick) is a starting guess, not a
-        measurement: long enough that an ordinary transient (another process
-        briefly busy) clears on its own, short enough that a genuinely stuck
-        host does not sit refusing for hours before anything escalates.
-      '';
-    };
+      This is the free-memory budget only. GPU wired headroom is checked
+      separately using compositorReserveMb. Zero disables this memory check.
+      There is no safe universal default, so set it to the deployed model's
+      expected per-rank working set.
+    '';
   };
 }
