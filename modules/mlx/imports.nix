@@ -12,7 +12,6 @@
 # not care, but a reader does), then the config-producing modules that consume
 # them.
 [
-  ./options-renamed.nix
   ./options-proxy.nix
   ./options-proxy-response-header-timeout.nix
   ./options-server.nix
