@@ -29,7 +29,6 @@
   ./options-model-backends.nix
   ./options-residency.nix
   ./options-cluster.nix
-  ./options-cluster-pd-reboot.nix
   ./options-cluster-lifecycle.nix
   ./options-cluster-resilience.nix
   ./options-cluster-selfheal.nix

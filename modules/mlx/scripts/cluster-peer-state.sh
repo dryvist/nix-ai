@@ -43,9 +43,8 @@
 #   CLUSTER_CURL_BIN                  curl path (test seam, like CLUSTER_PING_BIN)
 
 # Is the channel configured at all? 0 or unset disables every gate here, the
-# same "0 = off" convention CLUSTER_WARM_RECHECK_SECS and
-# CLUSTER_PD_AUTO_REBOOT_WINDOW_SECS already use — so a deployment that has not
-# rolled the responder out yet behaves exactly as it did before.
+# same "0 = off" convention as CLUSTER_WARM_RECHECK_SECS — so a deployment that
+# has not rolled the responder out yet behaves exactly as it did before.
 peer_state_enabled() {
   case "${CLUSTER_PEER_STATE_PORT:-0}" in
     '' | 0 | *[!0-9]*) return 1 ;;

@@ -113,25 +113,6 @@ in
     // guardLayers
   ) "bash ${src}/tests/test-fast-fail-standdown.sh && touch $out";
 
-  # THE CHECK THAT FAILS IF A PD-EXHAUSTION HALT CAN SIT WAITING FOR A HUMAN
-  # AGAIN. A host can halt and page correctly, then sit for hours
-  # with nothing issuing the reboot its own alert says is required. Asserts:
-  # only the two PD-exhaustion causes reboot, never while the link is down,
-  # the rate-limit marker survives across calls, and a FileVault host refuses
-  # — pages instead — rather than stranding itself at the unlock screen.
-  mlx-cluster-pd-auto-reboot = pkgs.runCommand "check-mlx-cluster-pd-auto-reboot" (
-    {
-      nativeBuildInputs = [
-        pkgs.coreutils
-        pkgs.gnugrep
-        pkgs.gnused
-        pkgs.gawk
-        pkgs.jq
-      ];
-    }
-    // guardLayers
-  ) "bash ${src}/tests/test-pd-auto-reboot.sh && touch $out";
-
   # Boot scoping of the halt marker, split out of the rank-guards test at the 12KB
   # file cap. Unit-tests the halt helpers directly: a halt from a previous boot is
   # dropped (else a cold boot can never form the cluster), a halt from THIS boot

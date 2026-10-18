@@ -30,10 +30,6 @@
 #   CLUSTER_QUIESCE_CMD     optional worker-side quiesce hook (run via sh -c)
 #   CLUSTER_RESTORE_CMD     optional worker-side restore hook (run via sh -c)
 #   CLUSTER_MAX_KICKSTARTS  consecutive failed rank starts before halting
-#   CLUSTER_PD_AUTO_REBOOT_WINDOW_SECS  minimum seconds between unattended
-#                         reboots issued to clear a PD-exhaustion halt (0
-#                         disables auto-reboot; see cluster-link-guards.sh
-#                         pd_auto_reboot_if_warranted)
 #   CLUSTER_LINK_DOWN_STRIKES  consecutive failed link probes before the link
 #                         is declared down (default 2). Debounce only applies
 #                         to down; up is believed on the first reply.
@@ -72,8 +68,7 @@
 #                         the memory-headroom rung with no vm_stat read at all
 #                         (see mem_headroom_ok in cluster-link-guards.sh)
 #   CLUSTER_MEM_HEADROOM_DWELL_TICKS  consecutive refused ticks before the
-#                         memory rung escalates to a HALT that
-#                         pd_auto_reboot_if_warranted can act on
+#                         memory rung escalates to a HALT
 #   CLUSTER_PEER_STATE_FILE  where this host publishes the JSON line its peer
 #                         reads before starting a rank (cluster-peer-state.sh)
 #   CLUSTER_PEER_STATE_PORT / _TIMEOUT_SECS / _STALE_SECS  the peer end of that
@@ -169,12 +164,6 @@ lease_file="$state_dir/standalone-lease"
 port_reup_file="$state_dir/port-reups"
 # RULE 2 — the detached generation-heal's attempts ledger (`<rev> <count>`).
 heal_attempts_file="$state_dir/generation-heal-attempts"
-# Wall-clock rate-limit marker for the PD-exhaustion auto-reboot (see
-# pd_auto_reboot_if_warranted in cluster-link-guards.sh). Lives in state_dir
-# like every OTHER marker here — unlike pd_debt_file, this one is watcher-only
-# (cluster-join and cluster-detach never read or write it), so it does not need
-# the module-derived single-definition treatment the ledger path gets.
-pd_auto_reboot_marker_file="$state_dir/pd-auto-reboot-last"
 # Consecutive ticks the memory-headroom rung has refused a start. Session-
 # scoped like the other strike counters above (down_strikes_file, peer_
 # session_strikes_file) — a shortfall is not a leaked kernel resource, so a
@@ -749,11 +738,11 @@ if [ "$cur" = "up" ]; then
     pd_debt_halt_if_exhausted "$halt_file" "$halt_latch_file" "$pd_debt_file" &&
     mem_headroom_halt_if_persistent "$halt_file" "$halt_latch_file" "$mem_dwell_file" &&
     [ -f "$halt_file" ]; then
-    # SAY SO, EVERY TICK. This branch used to be entirely silent: the three
-    # helpers above always return 0 and the body only reboots, so a halted
-    # watcher exited 0 every tick writing nothing to stdout OR stderr, which
-    # can hide a live halt for a long time while every health signal reads
-    # green — the same failure the already-down probe branch was fixed for.
+    # SAY SO, EVERY TICK. The three helpers above always return 0, so this
+    # branch logs explicitly or a halted watcher exits 0 every tick writing
+    # nothing to stdout OR stderr, which can hide a live halt for a long time
+    # while every health signal reads green — the same failure the already-down
+    # probe branch was fixed for.
     # Cheap and unconditional beats a cadence: one line per tick
     # is the whole cost, and the operator needs the CLEAR CONDITION, not just
     # the cause, because a boot-scoped verdict and a link-scoped one look
@@ -773,15 +762,6 @@ if [ "$cur" = "up" ]; then
     # still persisting. All three run every tick and always return 0, so
     # `[ -f "$halt_file" ]` is the actual gate.
     #
-    # ...and a reboot is exactly what this next line can now issue itself: a
-    # PD-exhaustion halt (pd-debt-exhausted or rank-start-failures) or a
-    # persistent memory shortfall (insufficient-memory-persistent) is a
-    # verdict whose own doctrine is "only a reboot clears this", so waiting on
-    # a human to notice the alert is a manual interlock, not a design choice.
-    # No-ops for every other halt cause, is its own rate limiter, and refuses
-    # outright on a FileVault host with no credential to answer an unattended
-    # authenticated restart — see pd_auto_reboot_if_warranted for all three.
-    pd_auto_reboot_if_warranted "$halt_file" "$pd_auto_reboot_marker_file" "$cur"
   elif [ -f "$halt_latch_file" ] &&
     ! halt_clear_accepted "$halt_file" "$halt_latch_file" "$kicks_file"; then
     : # cleared by hand while the cause persists — re-halted, logged, no retry
@@ -828,7 +808,7 @@ if [ "$cur" = "up" ]; then
       # Report the cost as a fraction of the device's own budget, not as a bare
       # count of failed starts: the operator needs to know how much of an
       # eleven-domain pool this just spent, not only that a counter hit its cap.
-      alert "$(hostname -s): cluster rank failed $kicks consecutive starts; $(pd_debt_phrase "$(pd_debt_count "$pd_debt_file")" "${CLUSTER_MAX_KICKSTARTS:-?}"). Kickstarts halted and the host restored to standalone serving. This cause (rank-start-failures) is errno-agnostic — an ETIMEDOUT peer-not-there is the common case, but the same 3-strike halt also catches a near-instant EHOSTUNREACH from a Local Network Privacy block (macOS 'nehelper' failing to resolve the rank identity's display metadata), which only a reboot clears. Replug the link to reset, or clear the rank-halted marker — the watcher re-verifies the cause before retrying and will re-halt if it persists. On a FileVault-off host this halt auto-reboots itself; see pd_auto_reboot_if_warranted." \
+      alert "$(hostname -s): cluster rank failed $kicks consecutive starts; $(pd_debt_phrase "$(pd_debt_count "$pd_debt_file")" "${CLUSTER_MAX_KICKSTARTS:-?}"). Kickstarts halted and the host restored to standalone serving. This cause (rank-start-failures) is errno-agnostic — an ETIMEDOUT peer-not-there is the common case, but the same 3-strike halt also catches a near-instant EHOSTUNREACH from a Local Network Privacy block (macOS 'nehelper' failing to resolve the rank identity's display metadata), which only a reboot clears. Reboot this host by hand to return the leaked domains; the watcher remains halted until the new boot." \
         "mlx-cluster rank halted (PD guard)"
     elif fast_fail_standdown "$halt_file" "$halt_latch_file" \
       "$fast_fail_strikes_file" "$kicks" "$started_file" "$rank_log_offset_file"; then
@@ -938,11 +918,11 @@ if [ "$cur" = "up" ]; then
         # protection-domain cost is not yet on the ledger", and every reset path
         # settles it into the ledger as one leaked domain each. So counting a
         # kickstart that did not launch anything FABRICATES debt, which is as
-        # damaging as losing it: enough of them reach the cap, halt the host and
-        # can hand pd_auto_reboot_if_warranted a reboot to issue for domains that
-        # were never spent. The case is real now that cluster-detach boots the
-        # rank job out for the length of a teardown — kickstart against an
-        # unloaded service fails, launches nothing, and leaks nothing.
+        # damaging as losing it: enough of them reach the cap and halt the host
+        # with debt recorded for domains that were never spent. The case is real
+        # now that cluster-detach boots the rank job out for the length of a
+        # teardown — kickstart against an unloaded service fails, launches
+        # nothing, and leaks nothing.
         if launchctl kickstart "gui/$uid/$CLUSTER_RANK_LABEL"; then
           printf '%s\n' "$((kicks + 1))" > "$kicks_file"
         else

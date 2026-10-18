@@ -15,7 +15,7 @@
   # property that makes the 2026-08-01 chain impossible: a refusal here costs
   # no kickstart attempt and charges nothing to the PD ledger, real page-size
   # parsing (not a hardcoded 16384), and that a sustained refusal escalates to
-  # a halt pd_auto_reboot_if_warranted actually recognizes.
+  # a halt that remains latched while the shortfall persists.
   mlx-cluster-mem-headroom = pkgs.runCommand "check-mlx-cluster-mem-headroom" {
     nativeBuildInputs = [
       pkgs.coreutils

@@ -302,19 +302,6 @@ check "a page went out" 1 "$(alerts)"
 check "still no attempt consumed anywhere in this" absent "$(kicks_now)"
 check "still nothing charged to the PD ledger" 0 "$(pd_debt_count "$debt_file")"
 
-echo "   ...and composes with the auto-reboot cause gate:"
-# pd_auto_reboot_if_warranted must recognize this cause the same way it
-# already recognizes pd-debt-exhausted and rank-start-failures — this is the
-# seam the memory rung was asked to compose with, not a reimplementation of it.
-reboot_log="$state_dir/reboot-log"
-sudo() {
-  printf '%s\n' "$*" >> "$reboot_log"
-}
-fdesetup() { [ "$1" = status ] && echo "FileVault is Off."; }
-export CLUSTER_PD_AUTO_REBOOT_WINDOW_SECS=21600
-pd_auto_reboot_if_warranted "$halt_file" "$state_dir/pd-auto-reboot-last" up
-check "the memory halt is accepted by the reboot gate" 1 "$(wc -l < "$reboot_log" | tr -d ' ')"
-
 echo "6b. every refused tick BELOW the dwell says so, with the counter:"
 # A guard that accumulates toward an escalation in silence is the shape of every
 # incident in this subsystem that took hours to notice: the dwell is the whole
