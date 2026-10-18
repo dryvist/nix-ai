@@ -17,11 +17,15 @@
 }:
 let
   instructions = import ../../lib/catalog-instructions.nix { inherit ai-llm-prompts pkgs; };
+  claudeInstructions = pkgs.runCommand "claude-instructions" { } ''
+    printf '@~/.agents/AGENTS.md\n\n' > "$out"
+    cat "${instructions.pkg}/agentsmd/claude-code.md" >> "$out"
+  '';
 in
 {
   config = lib.mkIf config.programs.claude.enable {
     home.file.".claude/CLAUDE.md" = {
-      text = "@~/.agents/AGENTS.md\n\n" + builtins.readFile "${instructions}/agentsmd/claude-code.md";
+      source = claudeInstructions;
       # Replaces the hand-written file that predates this module.
       force = true;
     };

@@ -1,2 +1,5 @@
 { ai-llm-prompts, pkgs }:
-ai-llm-prompts.packages.${pkgs.stdenv.hostPlatform.system}.instructions
+{
+  src = ai-llm-prompts + "/auto-ai-agent/instructions";
+  pkg = ai-llm-prompts.packages.${pkgs.stdenv.hostPlatform.system}.instructions;
+}

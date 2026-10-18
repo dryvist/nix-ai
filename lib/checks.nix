@@ -81,6 +81,10 @@ let
   catalogInstructions = import ./catalog-instructions.nix { inherit ai-llm-prompts pkgs; };
 in
 (import ./checks/lint.nix { inherit pkgs src; })
+// (import ./checks/catalog-instructions.nix {
+  inherit pkgs;
+  instructions = catalogInstructions;
+})
 // (import ./checks/agent-nofile.nix {
   inherit
     pkgs

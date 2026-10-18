@@ -61,7 +61,8 @@ let
       mkSourceEntries
       ;
   };
-  aiRules = discoverMarkdownFiles "${instructions}/agentsmd/rules";
+  aiRules = discoverMarkdownFiles "${instructions.src}/agentsmd/rules";
+  skillOverridesFile = "${instructions.src}/agentsmd/settings/skill-overrides.json";
 
   # Plugin tier files (per-user enablement) stay in nix-ai. The catalog of
   # marketplaces themselves now lives in nix-claude-code.
@@ -197,7 +198,7 @@ in
         fromFlakeInputs = mkSourceEntries "${claude-cookbooks}/.claude/commands" cbCommands;
       };
 
-      # The subagent roster (haiku-xhigh, opus-medium) comes from the prompt catalog.
+      # The subagent definitions (executor) come from the prompt catalog.
       agents.fromFlakeInputs = promptCatalog.agents;
 
       # home-manager is the single canonical delivery pipe for agent instructions.
@@ -207,7 +208,7 @@ in
       # `agentsmd/rules/on-demand/` tier lives in a subdir that discovery skips on
       # purpose — it is read by path, never delivered. Do not make discovery recurse.
       rules.fromFlakeInputs =
-        mkSourceEntries "${instructions}/agentsmd/rules" aiRules ++ promptCatalog.rules;
+        mkSourceEntries "${instructions.pkg}/agentsmd/rules" aiRules ++ promptCatalog.rules;
 
       settings = {
         # advisorModel left unset (null = advisor tool off; it forwards the
@@ -242,11 +243,12 @@ in
         # ./claude/permissions.nix to keep this file under the file-size limit.
         permissions = import ./claude/permissions.nix { inherit formatters permissions; };
 
+        # Plain JSON, copied unchanged by the package, so the source tree read is byte-identical.
         skillOverrides =
-          let
-            file = "${instructions}/agentsmd/settings/skill-overrides.json";
-          in
-          if builtins.pathExists file then (lib.importJSON file).skillOverrides or { } else { };
+          if builtins.pathExists skillOverridesFile then
+            (lib.importJSON skillOverridesFile).skillOverrides or { }
+          else
+            { };
 
         additionalDirectories =
           (import ./claude/settings-paths.nix) ++ (userConfig.extraTrustedPaths or [ ]);

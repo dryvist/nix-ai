@@ -19,23 +19,21 @@
 
 let
   instructions = import ../lib/catalog-instructions.nix { inherit ai-llm-prompts pkgs; };
-  # Generated from canonical AGENTS.md plus the one always-on rule that names
-  # the shared monitoring skill. Harness-native AGENTS.md paths link to this
-  # single output; instructions and the rule remain owned by their source files.
+  # Build-time output combines package AGENTS.md with its single monitoring rule.
   sharedAgentsMd = import ../lib/shared-agent-instructions.nix {
-    inherit lib instructions;
+    inherit pkgs instructions;
   };
   agentsMdFiles = {
     ".agents/CLAUDE.md" = {
-      source = "${instructions}/CLAUDE.md";
+      source = "${instructions.pkg}/CLAUDE.md";
       force = true;
     };
     ".agents/AGENTS.md" = {
-      text = sharedAgentsMd;
+      source = sharedAgentsMd;
       force = true;
     };
     ".agents/agentsmd" = {
-      source = "${instructions}/agentsmd";
+      source = "${instructions.pkg}/agentsmd";
       force = true;
     };
   };

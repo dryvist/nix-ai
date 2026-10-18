@@ -20,6 +20,9 @@
 let
   cfg = config.programs.codex;
   instructions = import ../../lib/catalog-instructions.nix { inherit ai-llm-prompts pkgs; };
+  sharedAgentInstructions = import ../../lib/shared-agent-instructions.nix {
+    inherit pkgs instructions;
+  };
 in
 {
   imports = [
@@ -59,26 +62,39 @@ in
         else
           llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.codex
       );
-      context = lib.mkDefault (
-        import ../../lib/shared-agent-instructions.nix {
-          inherit lib instructions;
-        }
-      );
       # config.toml is managed via home.activation — do NOT set settings here.
     };
 
-    # Ensure directory structure exists
-    home.file.".codex/.keep".text = ''
-      # Managed by Nix - programs.codex module
-    '';
+    home = {
+      file = {
+        # Ensure directory structure exists
+        ".codex/.keep".text = ''
+          # Managed by Nix - programs.codex module
+        '';
 
-    # Codex accepts exact model slugs only, so the slug is read from Codex's own
-    # model cache at activation instead of being written (or versioned) here.
-    home.activation.codexFamilyModel = lib.mkIf (cfg.model == null && cfg.modelFamily != null) (
-      lib.hm.dag.entryAfter [ "codexConfigMerge" ] ''
-        export PATH="${pkgs.jq}/bin:${pkgs.yj}/bin:$PATH"
-        $DRY_RUN_CMD ${../scripts/codex-family-model.sh} "${cfg.modelFamily}" "${config.home.homeDirectory}/.codex"
-      ''
-    );
+        # Not `programs.codex.context`: that option merges strings at evaluation time,
+        # which would read the built shared file.
+        ".codex/AGENTS.md" = {
+          source =
+            if cfg.extraContext == "" then
+              sharedAgentInstructions
+            else
+              pkgs.concatText "codex-agents-md" [
+                sharedAgentInstructions
+                (pkgs.writeText "codex-extra-context" cfg.extraContext)
+              ];
+          force = true;
+        };
+      };
+
+      # Codex accepts exact model slugs only, so the slug is read from Codex's own
+      # model cache at activation instead of being written (or versioned) here.
+      activation.codexFamilyModel = lib.mkIf (cfg.model == null && cfg.modelFamily != null) (
+        lib.hm.dag.entryAfter [ "codexConfigMerge" ] ''
+          export PATH="${pkgs.jq}/bin:${pkgs.yj}/bin:$PATH"
+          $DRY_RUN_CMD ${../scripts/codex-family-model.sh} "${cfg.modelFamily}" "${config.home.homeDirectory}/.codex"
+        ''
+      );
+    };
   };
 }

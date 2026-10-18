@@ -28,6 +28,15 @@ let
 in
 {
   options.programs.codex = {
+    extraContext = lib.mkOption {
+      type = lib.types.lines;
+      default = "";
+      description = ''
+        Sections appended to the shared agent instructions in
+        {file}`CODEX_HOME/AGENTS.md`. The shared file is built from the catalog
+        package, so it cannot be merged as an option value at evaluation time.
+      '';
+    };
     # Hooks
     hooks = {
       notification = lib.mkOption {
