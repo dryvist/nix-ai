@@ -1,12 +1,16 @@
 # Manual cleanup after the converge
 
-A Nix converge updates declared configuration, but it cannot guarantee that old user launchd jobs are unloaded, legacy state and logs are deleted, old peer-state is rewritten, or a Thunderbolt interface is administratively up. Run these read-only checks after the converge and use only the listed user-level fixes.
+A Nix converge updates declared configuration. It cannot guarantee that old user launchd jobs are unloaded, legacy state and logs
+are deleted, old peer-state is rewritten, or a Thunderbolt interface is administratively up. Run these read-only checks after the
+converge and use only the listed user-level fixes.
 
 ## 1. Removed launchd jobs
 
-**What:** `dev.mlx-cluster.watcher`, `dev.mlx-cluster.peer-liveness`, `dev.mlx-cluster.prefetch`, and `dev.mlx-cluster.maintenance-window` must be absent. Only the rank and peer-state jobs remain.
+**What:** `dev.mlx-cluster.watcher`, `dev.mlx-cluster.peer-liveness`, `dev.mlx-cluster.prefetch`, and
+`dev.mlx-cluster.maintenance-window` must be absent. Only the rank and peer-state jobs remain.
 
-**Why a converge leaves it:** The jobs are owned by separate home-manager and nix-darwin configurations. A converge may remove their declarations without proving that launchd unloaded a job or that its old plist disappeared.
+**Why a converge leaves it:** The jobs are owned by separate home-manager and nix-darwin configurations. A converge may remove
+their declarations without proving that launchd unloaded a job or that its old plist disappeared.
 
 **Verify:**
 
@@ -30,18 +34,31 @@ done
 
 ## 2. Legacy state files
 
-**What:** Remove `pd-debt`, old `rank-*` files except the kept `rank-model`, `last-halt-cause`, `standalone-lease`, `link-down-*`, `link-facts-last`, `link-prep-repairs`, `port-reups`, `generation-*`, `health-gate`, `heartbeat-ticks`, `mem-headroom-refused`, `pd-auto-reboot-last`, `peer-*` except `peer-state.json`, `serving-quiesced`, `soak-busy-skips`, `alerts-undelivered.log`, and `*.tmp` from the cluster state directory. The keep set is `bin/`, `ibv-matrix.json`, `link-state`, `maintenance-window-task`, `peer-state.json`, `quiesced-agents`, and `rank-model`.
+**What:** Remove these from the cluster state directory: `pd-debt`, old `rank-*` files except the kept `rank-model`,
+`last-halt-cause`, `standalone-lease`, `link-down-*`, `link-facts-last`, `link-prep-repairs`, `port-reups`, `generation-*`,
+`health-gate`, `heartbeat-ticks`, `mem-headroom-refused`, `pd-auto-reboot-last`, `peer-*` except `peer-state.json`,
+`serving-quiesced`, `soak-busy-skips`, `maintenance-window-task`, `alerts-undelivered.log`, and `*.tmp`.
 
-**Why a converge leaves it:** These are files in the user's application-support directory, not declared Nix store paths. Convergence does not delete them.
+The keep set is `bin/` and `signing/` (the signing identity), `ibv-matrix.json`, `link-state`, `peer-state.json`,
+`quiesced-agents`, and `rank-model`.
+
+**Why a converge leaves it:** These are files in the user's application-support directory, not declared Nix store paths.
+Convergence does not delete them.
 
 **Verify:**
 
 ```sh
 state="$HOME/Library/Application Support/mlx-cluster"
-test -d "$state" || { printf 'MISSING state-dir\n'; exit 1; }
-find "$state" -mindepth 1 -maxdepth 1 -print |
-  sed "s#^$state/##" |
-  awk 'BEGIN { split("bin ibv-matrix.json link-state maintenance-window-task peer-state.json quiesced-agents rank-model", names); for (i in names) keep[names[i]]=1 } !($0 in keep) { print "STALE " $0; stale=1 } END { if (!stale) print "CLEAN"; exit stale }'
+if [ -d "$state" ]; then
+  find "$state" -mindepth 1 -maxdepth 1 -print |
+    sed "s#^$state/##" |
+    awk 'BEGIN { split("bin ibv-matrix.json link-state peer-state.json quiesced-agents rank-model signing", names)
+                 for (i in names) keep[names[i]] = 1 }
+         !($0 in keep) { print "STALE " $0; stale = 1 }
+         END { if (!stale) print "CLEAN" }'
+else
+  printf 'MISSING state-dir\n'
+fi
 ```
 
 Expected output: `CLEAN`.
@@ -67,6 +84,7 @@ find "$state" -mindepth 1 -maxdepth 1 \( \
   -o \( -name 'peer-*' ! -name 'peer-state.json' \) \
   -o -name 'serving-quiesced' \
   -o -name 'soak-busy-skips' \
+  -o -name 'maintenance-window-task' \
   -o -name 'alerts-undelivered.log' \
   -o -name '*.tmp' \
 \) -exec rm -rf {} +
@@ -76,7 +94,8 @@ find "$state" -mindepth 1 -maxdepth 1 \( \
 
 **What:** After the first post-converge detach, the peer-state record must be disarmed and the link state must be down.
 
-**Why a converge leaves it:** The record is runtime state. A Nix change does not rewrite the existing file until the lifecycle command or responder boot check writes it.
+**Why a converge leaves it:** The record is runtime state. A Nix change does not rewrite the existing file until the lifecycle
+command or the responder's boot check writes it.
 
 **Verify:**
 
@@ -93,11 +112,12 @@ Expected output:
 down
 ```
 
-**Fix:** Run `cluster-detach` on each node after convergence. A coordinator detach also asks the worker to detach over SSH.
+**Fix:** Run `cluster-detach` on the coordinator after convergence. It detaches the worker over SSH after its own teardown.
 
 ## 4. Thunderbolt interface admin state
 
-**What:** A previously detached Thunderbolt interface must be administratively up and report active carrier when the cable is connected.
+**What:** A previously detached Thunderbolt interface must be administratively up and report active carrier when the cable is
+connected.
 
 **Why a converge leaves it:** Administrative interface state is runtime state and is not reset by Nix convergence.
 
@@ -117,7 +137,8 @@ sudo -n /sbin/ifconfig enX up
 
 ## 5. Old cluster logs
 
-**What:** Remove `cluster-watcher*.log`, `cluster-peer-liveness*.log`, and `cluster-prefetch*.log`. Keep `~/.config/mlx-cluster/alert-url`.
+**What:** Remove `cluster-watcher*.log`, `cluster-peer-liveness*.log`, and `cluster-prefetch*.log`. Keep
+`~/.config/mlx-cluster/alert-url`.
 
 **Why a converge leaves it:** Logs and the operator-seeded alert URL are user data outside the Nix configuration tree.
 
@@ -142,7 +163,8 @@ rm -f "$logs"/cluster-watcher*.log "$logs"/cluster-peer-liveness*.log "$logs"/cl
 
 ## Whole-system check
 
-Run this when no rank is running. The launchd listing must contain only the rank and peer-state labels, and the kernel PD count must be zero.
+Run this when no rank is running. The launchd listing must contain only the rank and peer-state labels, and the kernel PD count
+must be zero.
 
 ```sh
 launchctl list | awk '$3 ~ /mlx-cluster/ {print $3}'
