@@ -36,7 +36,7 @@ kill_log="$state_dir/kill.log"
 : > "$kill_log"
 
 # $BASH, not /usr/bin/env: a Linux nix build sandbox has no /usr/bin/env, only
-# /bin/sh — see tests/test-peer-liveness.sh for the same fix.
+# /bin/sh.
 shebang="#!$BASH"
 
 {

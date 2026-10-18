@@ -27,7 +27,7 @@
 #                                  IS the coordinator, which is why the
 #                                  rendezvous probe needs no second address
 #   CLUSTER_RENDEZVOUS_PORT          JACCL rendezvous port (MLX_JACCL_COORDINATOR)
-#   CLUSTER_PEER_PROBE_TIMEOUT_SECS  bound on the rendezvous TCP connect
+#   CLUSTER_PEER_RENDEZVOUS_PROBE_TIMEOUT_SECS  bound on the rendezvous TCP connect
 #   CLUSTER_LINK_REPAIR              1 = attempt link-prep repair when this
 #                                  host holds no link address
 #   CLUSTER_LINK_ACTIVATE_TIMEOUT_SECS  bound on the activation repair fallback
@@ -1080,9 +1080,8 @@ halt_clear_accepted() {
     #
     #   - a cap-halt settles at the cap, which records the debt AND zeroes the
     #     counter, so an accepted clear finds nothing outstanding;
-    #   - the wedge detector and the peer-liveness supervisor only halt a rank
-    #     that had already reached readiness, and a rank that settles zeroes the
-    #     counter on the same tick.
+    #   - the wedge detector only halts a rank that had already reached
+    #     readiness, and a rank that settles zeroes the counter on the same tick.
     #
     # Settling here anyway was tried and is wrong in the one direction that
     # matters: it re-records the capped attempts, pushes the ledger back to the

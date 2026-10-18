@@ -72,7 +72,7 @@
         endpoint they probe. A worker whose coordinator halts while its own rank
         process and TCP session survive otherwise waits inside an all-reduce its
         peer has abandoned. Read on the soak cadence, and only a positive read
-        counts — an unreadable peer is peer-liveness's verdict, not this one's.
+        counts — an unreadable peer state is inconclusive and does not count.
       '';
     };
 

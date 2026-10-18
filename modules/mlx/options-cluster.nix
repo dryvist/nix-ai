@@ -100,7 +100,7 @@ in
 
         Free domains are not observable either: ibv_devinfo reports the maximum,
         never the current allocation, and unrelated processes (model server,
-        prefetch, peer-liveness) may hold some. Remaining budget is unknown, at
+        prefetch) may hold some. Remaining budget is unknown, at
         most (11 minus leaked) — another reason to reserve rather than to walk
         up to the edge.
 

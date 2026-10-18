@@ -305,9 +305,9 @@ ceiling_restored ||
 # machine really was serving nothing. Both at once, exit 0.
 #
 # Two changes make that unreachable:
-#   1. restore_normal_serving is now the SHARED function the watcher and the
-#      peer-liveness supervisor already call (scripts/cluster-serving-restore.sh),
-#      so every path that claims to restore serving runs the same code. On a
+#   1. restore_normal_serving is the SHARED function the watcher and cluster-join
+#      call (scripts/cluster-serving-restore.sh), so every path that claims to
+#      restore serving runs the same code. On a
 #      worker it invokes cluster-restore, which bootstraps back EXACTLY the set
 #      cluster-quiesce recorded — never a hardcoded list.
 #   2. The real-completion probe runs for BOTH roles. A restore that cannot be

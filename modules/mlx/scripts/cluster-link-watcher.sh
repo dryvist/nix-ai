@@ -16,7 +16,7 @@
 #                         carrier-active Thunderbolt port before a rank starts)
 #   CLUSTER_RENDEZVOUS_PORT  JACCL rendezvous port — the worker confirms rank 0
 #                         is listening there before spending a start attempt
-#   CLUSTER_PEER_PROBE_TIMEOUT_SECS  bound on that TCP connect probe
+#   CLUSTER_PEER_RENDEZVOUS_PROBE_TIMEOUT_SECS  bound on that TCP connect probe
 #   CLUSTER_LINK_REPAIR     1 = repair a missing local link address in place
 #   CLUSTER_LINK_ACTIVATE_TIMEOUT_SECS  bound on the activation repair fallback
 #   CLUSTER_RANK_LABEL      launchd label of the cluster rank agent
@@ -65,7 +65,6 @@
 #   CLUSTER_RANK_PROGRESS_LOG  the rank's own log, tailed for real generation
 #                         progress (new_progress_lines, cluster-peer-observe.sh)
 #                         before the soak probe fires; empty skips the check
-#   CLUSTER_PEER_PROGRESS_PATTERN  ERE marking token progress in that log
 #   CLUSTER_STAT_BIN         stat path/seam for the soak marker's mtime read
 #                         (BSD `-f %m` syntax); production absolute path,
 #                         since the Linux Nix sandbox has no /usr/bin/stat
@@ -538,8 +537,7 @@ if [ "$cur" = "up" ]; then
         [ "$(($(date +%s) - warmed_at))" -ge "${CLUSTER_WARM_RECHECK_SECS:-600}" ]; then
         echo "cluster-link: soak re-check (warm marker older than ${CLUSTER_WARM_RECHECK_SECS:-600}s)"
         # REAL GENERATION PROGRESS BEATS EVERY OTHER SIGNAL. new_progress_lines
-        # (cluster-peer-observe.sh, the same predicate cluster-peer-liveness.sh's
-        # coordinator_tick checks first) counts token/prompt lines the rank's own
+        # (cluster-peer-observe.sh) counts token/prompt lines the rank's own
         # log emitted since the last read. endpoint_busy only sees an ESTABLISHED
         # connection — which vanishes the moment a client disconnects on its own
         # timeout, even while the backend is still doing real work. A soak probe
@@ -636,9 +634,9 @@ if [ "$cur" = "up" ]; then
     # read of .halted_cause on this side.
     #
     # STRIKES, AND ONLY ON A POSITIVE READ. A fetch that fails is NOT a strike:
-    # unreachability is peer-liveness's verdict to reach, not this detector's,
-    # and counting a network blip here would tear down healthy pairs. A clean
-    # read clears the count, so only a halt the coordinator keeps reporting
+    # an unreadable state is inconclusive, and counting a network blip here
+    # would tear down healthy pairs. A clean read clears the count, so only a
+    # halt the coordinator keeps reporting
     # across CLUSTER_PEER_HALT_STRIKES consecutive checks stands this rank down.
     #
     # On the soak's cadence (CLUSTER_WARM_RECHECK_SECS), not the 30s tick: the
@@ -660,7 +658,7 @@ if [ "$cur" = "up" ]; then
         [ "$(($(date +%s) - last_check))" -ge "${CLUSTER_WARM_RECHECK_SECS:-600}" ]; then
         touch "$peer_halt_check_file"
         if ! peer_state_fetch; then
-          echo "cluster-link: peer-halt check: peer state unreadable — NO strike (an unreachable peer is peer-liveness's verdict, not this one's)"
+          echo "cluster-link: peer-halt check: peer state unreadable — NO strike (only a fetched halted state counts)"
         else
           peer_cause="$(printf '%s' "$PEER_STATE_RAW" | jq -r '.halted_cause // "null"' 2> /dev/null || echo null)"
           if [ -z "$peer_cause" ] || [ "$peer_cause" = null ]; then

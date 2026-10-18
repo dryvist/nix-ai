@@ -1,9 +1,9 @@
 # shellcheck shell=bash
 # Is the peer host answering on the cluster link at all?
 #
-# ONE definition, three consumers: the link watcher's start guards, the
-# peer-liveness supervisor, and cluster-join's peer preflight. It lived in
-# ./cluster-link-helpers.sh until cluster-join needed it too — and join gets none
+# ONE definition, two consumers: the link watcher's start guards and
+# cluster-join's peer preflight. It lived in ./cluster-link-helpers.sh until
+# cluster-join needed it too — and join gets none
 # of the serving helpers around it, so a shared function had to become its own
 # layer rather than a second copy. writeShellApplication runs shellcheck at
 # default severity, where a function shipped to a consumer that never calls it is

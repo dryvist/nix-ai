@@ -96,7 +96,7 @@ peer_state_generation() {
 # its own start forever, which is the "detached while plugged in" state
 # docs/runbooks/cluster-link-truths.md §1 rules out. So peer-derived causes are
 # EXEMPT from disarming, while true local incapacities (pd-debt-exhausted,
-# insufficient-memory-persistent, health-gate-*, no-token-progress,
+# insufficient-memory-persistent, health-gate-*,
 # manual-clear-rejected, and anything unrecognised) still disarm. The exemption
 # is an allowlist, never a denylist: a cause nobody has classified must fail
 # closed. `halted_cause` is published unchanged either way — the exemption
