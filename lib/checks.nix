@@ -18,7 +18,7 @@
   pkgs,
   src,
   home-manager,
-  ai-assistant-instructions,
+  ai-llm-prompts,
   aiModule,
   renderAutonomous,
   roleMap,
@@ -78,8 +78,13 @@ let
       };
     }
   ];
+  catalogInstructions = import ./catalog-instructions.nix { inherit ai-llm-prompts pkgs; };
 in
 (import ./checks/lint.nix { inherit pkgs src; })
+// (import ./checks/catalog-instructions.nix {
+  inherit pkgs;
+  instructions = catalogInstructions;
+})
 // (import ./checks/agent-nofile.nix {
   inherit
     pkgs
@@ -155,7 +160,8 @@ in
     ;
 })
 // (import ./checks/agent-skills-monitoring.nix {
-  inherit pkgs hmConfig ai-assistant-instructions;
+  inherit pkgs hmConfig;
+  instructions = catalogInstructions;
 })
 // (import ./checks/codex.nix { inherit pkgs hmConfig; })
 // (import ./checks/claude-router-launchers.nix { inherit pkgs; })

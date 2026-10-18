@@ -8,10 +8,7 @@
 #
 # Claude Code is intentionally absent: it consumes skills through its
 # plugin/marketplace system, not through ~/.agents/skills.
-# Codex and OpenCode are absent from the skills registry: both discover
-# ~/.agents/skills natively, and programs.codex.context already bakes AGENTS.md
-# inline to ~/.codex/AGENTS.md. Creating a Codex symlink would make it scan the
-# selected skill tree twice.
+# Codex gets a separate shared AGENTS.md source; Codex and OpenCode discover skills natively.
 rec {
   # Skills directory fan-out — each entry is a directory path (relative to
   # $HOME) that gets symlinked to the selected canonical skill root.

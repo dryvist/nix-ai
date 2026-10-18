@@ -77,12 +77,6 @@
       flake = false;
     };
 
-    # AI Assistant Instructions - source of truth for AI agent configuration.
-    ai-assistant-instructions = {
-      url = "github:dryvist/ai-assistant-instructions?ref=v1";
-      flake = false;
-    };
-
     # Canonical dryvist plugin and cross-tool skill source. Retain the input
     # name for compatibility; non-Claude harnesses consume it directly.
     jacobpevans-cc-plugins = {
@@ -104,7 +98,6 @@
       inputs = {
         nixpkgs.follows = "nixpkgs";
         home-manager.follows = "home-manager";
-        ai-assistant-instructions.follows = "ai-assistant-instructions";
         claude-code-plugins.follows = "claude-code-plugins";
         jacobpevans-cc-plugins.follows = "jacobpevans-cc-plugins";
         browser-use-skills.follows = "browser-use-skills";

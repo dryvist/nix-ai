@@ -5,7 +5,8 @@
 {
   config,
   lib,
-  ai-assistant-instructions,
+  pkgs,
+  ai-llm-prompts,
   ...
 }:
 
@@ -37,76 +38,60 @@ let
     ) locals;
 
   # ── Auto-generated commands from shared Markdown definitions ───────
-  # Reads from ai-assistant-instructions/agentsmd/commands/*.md
-  # and generates Antigravity TOML command files.
+  # Generates Antigravity TOML command files from the catalog's command Markdown.
 
-  commandsDir = "${ai-assistant-instructions}/agentsmd/commands";
+  instructions = import ../../lib/catalog-instructions.nix { inherit ai-llm-prompts pkgs; };
+  commandsDir = "${instructions.src}/agentsmd/commands";
 
   processCommandFile =
     fileName:
     let
-      filePath = "${commandsDir}/${fileName}";
-      fileContent = builtins.readFile filePath;
-
-      lines = lib.splitString "\n" fileContent;
-      lineCount = builtins.length lines;
-
-      secondDelimIndex =
-        let
-          find =
-            idx:
-            if idx >= lineCount then
-              null
-            else if lib.trim (builtins.elemAt lines idx) == "---" then
-              idx
-            else
-              find (idx + 1);
-        in
-        find 1;
-
-      hasFrontmatter =
-        lineCount >= 3 && lib.trim (builtins.elemAt lines 0) == "---" && secondDelimIndex != null;
-
-      frontmatterRaw =
-        if hasFrontmatter then
-          lib.concatStringsSep "\n" (lib.sublist 1 (secondDelimIndex - 1) lines)
-        else
-          "";
-
-      contentRaw =
-        if hasFrontmatter then
-          lib.concatStringsSep "\n" (
-            lib.sublist (secondDelimIndex + 1) (lineCount - secondDelimIndex - 1) lines
-          )
-        else
-          fileContent;
-
-      descLine = lib.findFirst (l: lib.hasPrefix "description:" (lib.trim l)) null (
-        lib.splitString "\n" frontmatterRaw
-      );
-
-      description =
-        if descLine != null then
-          lib.trim (lib.removePrefix "description:" (lib.trim descLine))
-        else
-          "Custom command generated from ${fileName}";
-
-      safeDescription = lib.replaceStrings [ "\\" "\"" ] [ "\\\\" "\\\"" ] description;
-      safeContent = lib.replaceStrings [ "\"\"\"" ] [ "\"\"\\\"" ] (lib.trim contentRaw);
-
-      tomlContent = ''
-        description = "${safeDescription}"
-        prompt = """
-        ${safeContent}
-        """
-      '';
-
       outName = lib.replaceStrings [ ".md" ] [ ".toml" ] fileName;
+      commandFile = "${instructions.pkg}/agentsmd/commands/${fileName}";
+      generatedCommand =
+        pkgs.runCommand "antigravity-command-${outName}"
+          {
+            nativeBuildInputs = [ pkgs.python3 ];
+          }
+          ''
+            ${pkgs.python3}/bin/python - \
+              ${lib.escapeShellArg commandFile} \
+              "$out" \
+              ${lib.escapeShellArg fileName} <<'PY'
+            import sys
+
+            source, destination, file_name = sys.argv[1:]
+            with open(source, encoding="utf-8") as command_file:
+                file_content = command_file.read()
+
+            lines = file_content.split("\n")
+            second_delimiter = next(
+                (index for index, line in enumerate(lines[1:], start=1) if line.strip() == "---"),
+                None,
+            )
+            has_frontmatter = len(lines) >= 3 and lines[0].strip() == "---" and second_delimiter is not None
+            if has_frontmatter:
+                frontmatter = lines[1:second_delimiter]
+                content = "\n".join(lines[second_delimiter + 1 :])
+            else:
+                frontmatter = []
+                content = file_content
+
+            description = next(
+                (line.strip()[len("description:") :].strip() for line in frontmatter if line.strip().startswith("description:")),
+                f"Custom command generated from {file_name}",
+            )
+            safe_description = description.replace("\\", "\\\\").replace('"', '\\"')
+            safe_content = content.strip().replace('"""', '""\\"')
+            with open(destination, "w", encoding="utf-8") as output:
+                output.write(f'description = "{safe_description}"\nprompt = """\n{safe_content}\n"""\n')
+            PY
+          '';
     in
     {
       name = ".gemini/antigravity-cli/commands/${outName}";
       value = {
-        text = tomlContent;
+        source = generatedCommand;
         force = true;
       };
     };

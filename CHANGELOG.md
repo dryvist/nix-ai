@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.25.0](https://github.com/dryvist/nix-ai/compare/v7.24.0...v7.25.0) (2026-10-18)
+
+
+### Features
+
+* **instructions:** read the shared instructions from the catalog package ([#2642](https://github.com/dryvist/nix-ai/issues/2642)) ([8f10c06](https://github.com/dryvist/nix-ai/commit/8f10c063558caa3617838002ff39080239bffefc))
+
 ## [7.24.0](https://github.com/dryvist/nix-ai/compare/v7.23.1...v7.24.0) (2026-10-17)
 
 

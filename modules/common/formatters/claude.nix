@@ -8,7 +8,7 @@ let
     permissions:
     let
       claudePerms = permissions.toolSpecific.claude or { };
-      # WebFetch domains from ai-assistant-instructions
+      # WebFetch domains from shared permission data
       webfetchDomains = permissions.webfetchDomains or [ ];
       webfetchPerms = map (d: "WebFetch(domain:${d})") webfetchDomains;
     in

@@ -49,7 +49,7 @@ let
   #   error: path '...-mlx-lm-server.sh.drv' is not valid
   # while evaluating MLX_LM_SERVER_EXE in
   # lib/checks/mlx-worker-reap.nix. That broke the only path by which an
-  # ai-assistant-instructions release reaches a machine, silently, because the
+  # catalog instructions package release reaches a machine, silently, because
   # dispatch job that triggers the relock still reports success.
   #
   # `builtins.readFile` on the SOURCE PATH is pure and needs no build.
