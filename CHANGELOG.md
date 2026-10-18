@@ -1,5 +1,13 @@
 # Changelog
 
+## [7.26.1](https://github.com/dryvist/nix-ai/compare/v7.26.0...v7.26.1) (2026-10-18)
+
+
+### Bug Fixes
+
+* **deps:** bump the prompt catalog and the sandbox client ([#2653](https://github.com/dryvist/nix-ai/issues/2653)) ([aa769df](https://github.com/dryvist/nix-ai/commit/aa769df697a3fc9e962f437930137ac3cbb8c12d))
+* **deps:** move nix-claude-code to the release without the ai-assistant-instructions input ([#2651](https://github.com/dryvist/nix-ai/issues/2651)) ([e47c4f5](https://github.com/dryvist/nix-ai/commit/e47c4f565c1e1756977b57f80f2130fa94e96c06))
+
 ## [7.26.0](https://github.com/dryvist/nix-ai/compare/v7.25.0...v7.26.0) (2026-10-18)
 
 
