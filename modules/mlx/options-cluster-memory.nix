@@ -5,8 +5,8 @@
 # the repo per-file size cap. The option paths are UNCHANGED
 # (programs.mlx.clusterMode.*): the module system merges this block with the
 # ones in options-cluster.nix, options-cluster-resilience.nix,
-# options-cluster-rank-health.nix, cluster-mode.nix and
-# cluster-mode-maintenance.nix. Only `lib` is referenced.
+# options-cluster-rank-health.nix and cluster-mode.nix. Only `lib` is
+# referenced.
 #
 { lib, ... }:
 {

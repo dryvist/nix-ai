@@ -270,6 +270,5 @@ in
         };
       };
     };
-    # Prefetch + log rotation live in ./cluster-mode-maintenance.nix.
   };
 }

@@ -41,7 +41,6 @@
   ./packages.nix
   ./static-residents.nix
   ./cluster-mode.nix
-  ./cluster-mode-maintenance.nix
   ./cluster-peer-state.nix
   ./uv-cache-prune.nix
 ]
