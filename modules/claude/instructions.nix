@@ -2,7 +2,7 @@
 #
 # ~/.claude/CLAUDE.md imports the shared ~/.agents/AGENTS.md (built in
 # ../default.nix from lib/shared-agent-instructions.nix) and appends the
-# Claude-only section from ai-assistant-instructions, so Claude loads the same
+# Claude-only section from the catalog instructions package, so Claude loads the same
 # core instructions as Codex.
 #
 # modelSettings pins per-model effort so a runtime /effort pick cannot leave a
@@ -11,15 +11,17 @@
 {
   config,
   lib,
-  ai-assistant-instructions,
+  pkgs,
+  ai-llm-prompts,
   ...
 }:
+let
+  instructions = import ../../lib/catalog-instructions.nix { inherit ai-llm-prompts pkgs; };
+in
 {
   config = lib.mkIf config.programs.claude.enable {
     home.file.".claude/CLAUDE.md" = {
-      text =
-        "@~/.agents/AGENTS.md\n\n"
-        + builtins.readFile "${ai-assistant-instructions}/agentsmd/claude-code.md";
+      text = "@~/.agents/AGENTS.md\n\n" + builtins.readFile "${instructions}/agentsmd/claude-code.md";
       # Replaces the hand-written file that predates this module.
       force = true;
     };

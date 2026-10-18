@@ -5,7 +5,8 @@
 {
   config,
   lib,
-  ai-assistant-instructions,
+  pkgs,
+  ai-llm-prompts,
   ...
 }:
 
@@ -37,10 +38,11 @@ let
     ) locals;
 
   # ── Auto-generated commands from shared Markdown definitions ───────
-  # Reads from ai-assistant-instructions/agentsmd/commands/*.md
+  # Reads from the catalog instructions package's agentsmd/commands/*.md
   # and generates Antigravity TOML command files.
 
-  commandsDir = "${ai-assistant-instructions}/agentsmd/commands";
+  instructions = import ../../lib/catalog-instructions.nix { inherit ai-llm-prompts pkgs; };
+  commandsDir = "${instructions}/agentsmd/commands";
 
   processCommandFile =
     fileName:

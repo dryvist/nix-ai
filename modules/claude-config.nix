@@ -12,7 +12,6 @@
   config,
   pkgs,
   lib,
-  ai-assistant-instructions,
   ai-llm-prompts,
   nix-claude-code,
   marketplaceInputs,
@@ -39,6 +38,7 @@ let
   };
   inherit (aiCommon) permissions;
   inherit (aiCommon) formatters;
+  instructions = import ../lib/catalog-instructions.nix { inherit ai-llm-prompts pkgs; };
 
   # Dynamic discovery helper — finds all .md files in a directory.
   # Non-recursive by design: the `type == "regular"` filter skips subdirectories,
@@ -61,7 +61,7 @@ let
       mkSourceEntries
       ;
   };
-  aiRules = discoverMarkdownFiles "${ai-assistant-instructions}/agentsmd/rules";
+  aiRules = discoverMarkdownFiles "${instructions}/agentsmd/rules";
 
   # Plugin tier files (per-user enablement) stay in nix-ai. The catalog of
   # marketplaces themselves now lives in nix-claude-code.
@@ -207,7 +207,7 @@ in
       # `agentsmd/rules/on-demand/` tier lives in a subdir that discovery skips on
       # purpose — it is read by path, never delivered. Do not make discovery recurse.
       rules.fromFlakeInputs =
-        mkSourceEntries "${ai-assistant-instructions}/agentsmd/rules" aiRules ++ promptCatalog.rules;
+        mkSourceEntries "${instructions}/agentsmd/rules" aiRules ++ promptCatalog.rules;
 
       settings = {
         # advisorModel left unset (null = advisor tool off; it forwards the
@@ -244,7 +244,7 @@ in
 
         skillOverrides =
           let
-            file = "${ai-assistant-instructions}/agentsmd/settings/skill-overrides.json";
+            file = "${instructions}/agentsmd/settings/skill-overrides.json";
           in
           if builtins.pathExists file then (lib.importJSON file).skillOverrides or { } else { };
 

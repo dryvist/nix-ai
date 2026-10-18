@@ -12,13 +12,14 @@
   config,
   lib,
   pkgs,
-  ai-assistant-instructions,
+  ai-llm-prompts,
   llm-agents,
   ...
 }:
 
 let
   cfg = config.programs.codex;
+  instructions = import ../../lib/catalog-instructions.nix { inherit ai-llm-prompts pkgs; };
 in
 {
   imports = [
@@ -60,7 +61,7 @@ in
       );
       context = lib.mkDefault (
         import ../../lib/shared-agent-instructions.nix {
-          inherit lib ai-assistant-instructions;
+          inherit lib instructions;
         }
       );
       # config.toml is managed via home.activation — do NOT set settings here.

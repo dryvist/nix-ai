@@ -34,37 +34,19 @@
         "type": "github"
       }
     },
-    "ai-assistant-instructions_2": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1791599289,
-        "narHash": "sha256-HrfsbTRLKJQ8AV3wBm8gQQfytWZ4hz7Moh7KMeQ6b8s=",
-        "owner": "dryvist",
-        "repo": "ai-assistant-instructions",
-        "rev": "8726293d4189159500e8814ccc7e3afbec8ec859",
-        "type": "github"
-      },
-      "original": {
-        "owner": "dryvist",
-        "ref": "v1",
-        "repo": "ai-assistant-instructions",
-        "type": "github"
-      }
-    },
     "ai-llm-prompts": {
       "inputs": {
-        "ai-assistant-instructions": "ai-assistant-instructions_2",
         "claude-code-plugins": "claude-code-plugins",
         "nixpkgs": [
           "nixpkgs"
         ]
       },
       "locked": {
-        "lastModified": 1792202218,
-        "narHash": "sha256-27D+pPZvp0g0W20g8/pNCInHK3oM3yJKes5dtIr2ow0=",
+        "lastModified": 1792329133,
+        "narHash": "sha256-00nwi2650AaR089xMTG6WwH4RZuz2q++1/J4x2lJAxc=",
         "owner": "dryvist",
         "repo": "ai-llm-prompts",
-        "rev": "8219a761625487134ff5f945679e0d1480390e8b",
+        "rev": "529dc4570a2f8c9cc0a8b0af57fe8b4812fa93d0",
         "type": "github"
       },
       "original": {
@@ -889,9 +871,7 @@
     },
     "nix-claude-code": {
       "inputs": {
-        "ai-assistant-instructions": [
-          "ai-assistant-instructions"
-        ],
+        "ai-assistant-instructions": "ai-assistant-instructions",
         "anthropic-agent-skills": "anthropic-agent-skills",
         "axton-obsidian-visual-skills": "axton-obsidian-visual-skills",
         "bills-claude-skills": "bills-claude-skills",
@@ -1102,7 +1082,6 @@
     "root": {
       "inputs": {
         "agent-limits-src": "agent-limits-src",
-        "ai-assistant-instructions": "ai-assistant-instructions",
         "ai-llm-prompts": "ai-llm-prompts",
         "autoresearch": "autoresearch",
         "awesome-claude-skills": "awesome-claude-skills",

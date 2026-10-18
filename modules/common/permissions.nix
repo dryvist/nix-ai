@@ -33,7 +33,7 @@ let
 
   # Permission data vendored in nix-claude-code (data/permissions/*.nix,
   # exposed as lib.permissions). Verified meaning-equivalent to the legacy
-  # ai-assistant-instructions/agentsmd/permissions JSON in
+  # permissions originally shipped in the catalog instructions package, before
   # dryvist/nix-claude-code#50 (Checkpoint 3, step 1).
   sourcePermissions = nix-claude-code.lib.permissions;
 

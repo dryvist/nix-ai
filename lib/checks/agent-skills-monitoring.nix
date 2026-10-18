@@ -2,7 +2,7 @@
 {
   pkgs,
   hmConfig,
-  ai-assistant-instructions,
+  instructions,
 }:
 let
   helpers = import ./helpers.nix { inherit pkgs; };
@@ -13,7 +13,7 @@ let
   homeFileNames = builtins.attrNames home.file;
   harnesses = import ../../modules/agent-skills/harnesses.nix;
   sharedInstructionLinks = builtins.attrValues harnesses.agentsMd;
-  operatingCore = builtins.readFile "${ai-assistant-instructions}/agentsmd/rules/operating-core.md";
+  operatingCore = builtins.readFile "${instructions}/agentsmd/rules/operating-core.md";
   monitoringRules = builtins.filter (line: lib.hasInfix "monitoring-first" line) (
     lib.splitString "\n" operatingCore
   );

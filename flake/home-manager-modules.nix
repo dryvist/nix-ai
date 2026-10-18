@@ -1,6 +1,5 @@
 {
   lib,
-  ai-assistant-instructions,
   ai-llm-prompts,
   browser-use-skills,
   jacobpevans-cc-plugins,
@@ -91,7 +90,7 @@ in
       # are wired, which would otherwise cause infinite recursion.
       #
       # nix-claude-code wraps its homeModules with its own marketplaceArgs
-      # (ai-assistant-instructions, claude-cookbooks, claude-code-plugins,
+      # (claude-cookbooks, claude-code-plugins,
       # fabric-src, plus the 20 marketplace inputs). Those args are
       # transitively available to nix-ai modules — we only set args
       # unique to nix-ai here.
@@ -140,8 +139,8 @@ in
   claude = {
     imports = [
       # Delegate the option set and settings.json renderer to nix-claude-code.
-      # nix-claude-code already injects ai-assistant-instructions,
-      # claude-code-plugins, claude-cookbooks, and fabric-src as module
+      # nix-claude-code already injects claude-code-plugins, claude-cookbooks,
+      # and fabric-src as module
       # args — don't re-set them here or home-manager errors on "defined
       # multiple times".
       nix-claude-code.homeModules.claude
@@ -160,6 +159,7 @@ in
     ];
     _module.args = partialArgs {
       inherit
+        ai-llm-prompts
         nix-claude-code
         nix-codex
         nix-agy
@@ -194,7 +194,6 @@ in
     ];
     _module.args = partialArgs {
       inherit
-        ai-assistant-instructions
         ai-llm-prompts
         nix-claude-code
         nix-codex
@@ -219,7 +218,7 @@ in
     ];
     _module.args = partialArgs {
       inherit
-        ai-assistant-instructions
+        ai-llm-prompts
         nix-claude-code
         nix-codex
         nix-agy
@@ -253,7 +252,7 @@ in
       ../modules/cecli
     ];
     _module.args = partialArgs {
-      inherit ai-assistant-instructions homelab-contracts;
+      inherit homelab-contracts;
     };
   };
 
@@ -267,7 +266,6 @@ in
     ];
     _module.args = partialArgs {
       inherit
-        ai-assistant-instructions
         nix-claude-code
         marketplaceInputs
         homelab-contracts
