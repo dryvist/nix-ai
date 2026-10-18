@@ -61,14 +61,17 @@ reset_state() {
   write_vmstat 16384 0 0 0 0
 }
 room_verdict() { rank_start_room_ok && echo pass || echo refuse; }
+room_config_verdict() {
+  rank_start_room_ok && echo pass || echo "${MEM_HEADROOM_DETAIL%%:*}"
+}
 
 printf '102400\n' > "$sysctl_fixture"
-echo '0. unset or zero shard memory disables the gate without reading vm_stat:'
+echo '0. unset or zero shard memory refuses with room-unconfigured:'
 reset_state
 export CLUSTER_SHARD_MEMORY_MB=0
-check 'zero disables the room gate' pass "$(room_verdict)"
+check 'zero shard size refuses with room-unconfigured' room-unconfigured "$(room_config_verdict)"
 unset CLUSTER_SHARD_MEMORY_MB
-check 'unset disables the room gate' pass "$(room_verdict)"
+check 'unset shard size refuses with room-unconfigured' room-unconfigured "$(room_config_verdict)"
 
 echo '1. free, inactive, and speculative pages count toward shard room:'
 reset_state

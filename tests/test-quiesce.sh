@@ -5,8 +5,12 @@ tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 mkdir -p "$tmp/bin" "$tmp/state"
 
-cat > "$tmp/bin/launchctl" <<'LAUNCHCTL'
-#!/usr/bin/env bash
+write_stub() {
+  printf '#!%s\n' "$BASH" > "$1"
+  cat >> "$1"
+}
+
+write_stub "$tmp/bin/launchctl" <<'LAUNCHCTL'
 case "$1" in
   list)
     printf 'PID Status Label\n'
@@ -20,26 +24,29 @@ case "$1" in
   print) exit 1 ;;
 esac
 LAUNCHCTL
-cat > "$tmp/bin/sysctl" <<'SYSCTL'
-#!/usr/bin/env bash
-printf 'vm.swapusage: total = 0M used = 0M free = 1M\n'
+write_stub "$tmp/bin/sysctl" <<'SYSCTL'
+case "${2:-}" in
+  kern.boottime) printf '{ sec = 100, usec = 0 }\n' ;;
+  *) printf 'vm.swapusage: total = 0M used = 0M free = 1M\n' ;;
+esac
 SYSCTL
-cat > "$tmp/bin/curl" <<'CURL'
-#!/usr/bin/env bash
+write_stub "$tmp/bin/curl" <<'CURL'
 exit 0
 CURL
-cat > "$tmp/bin/pgrep" <<'PGREP'
-#!/usr/bin/env bash
+write_stub "$tmp/bin/pgrep" <<'PGREP'
 exit 0
 PGREP
-cat > "$tmp/bin/curl" <<'CURL'
-#!/usr/bin/env bash
+write_stub "$tmp/bin/curl" <<'CURL'
 exit 0
 CURL
 chmod +x "$tmp/bin/launchctl" "$tmp/bin/sysctl" "$tmp/bin/curl" "$tmp/bin/pgrep"
 
 # shellcheck source=modules/mlx/scripts/cluster-join.sh
 source modules/mlx/scripts/cluster-join.sh
+# shellcheck source=modules/mlx/scripts/cluster-boot-scope.sh
+source modules/mlx/scripts/cluster-boot-scope.sh
+# shellcheck source=modules/mlx/scripts/cluster-teardown.sh
+source modules/mlx/scripts/cluster-teardown.sh
 # shellcheck source=modules/mlx/scripts/cluster-room.sh
 source modules/mlx/scripts/cluster-room.sh
 
@@ -76,6 +83,7 @@ export CLUSTER_COMPOSITOR_RESERVE_MB=100
 export CLUSTER_LAUNCHCTL_BIN="$tmp/bin/launchctl"
 export CLUSTER_SYSCTL_BIN="$tmp/bin/sysctl"
 export CLUSTER_PGREP_BIN="$tmp/bin/pgrep"
+export CLUSTER_CURL_BIN="$tmp/bin/curl"
 export CLUSTER_AWK_BIN=awk
 export CLUSTER_SED_BIN=sed
 export CLUSTER_GREP_BIN=grep
@@ -128,9 +136,10 @@ output="$(cat "$tmp/output.log")"
 contains 'app action logged' 'cluster-join: quiesce app application.com.example.one.1.2 rc=0' "$output"
 contains 'agent action logged' 'cluster-join: quiesce launchd org.example.agent rc=0' "$output"
 contains 'bootout failure logged' 'cluster-join: quiesce app application.com.example.two.3.4 rc=17' "$output"
-contains 'room check continued after bootout failure' 'cluster-join: room PASS' "$output"
+contains 'room gate refused its unconfigured shard after bootout failure' \
+  'cluster-join: REFUSE reason=room-unconfigured' "$output"
 failure_line="$(grep -n 'quiesce app application.com.example.two.3.4 rc=17' "$tmp/output.log" | cut -d: -f1)"
-room_line="$(grep -n 'cluster-join: room PASS' "$tmp/output.log" | cut -d: -f1)"
+room_line="$(grep -n 'REFUSE reason=room-unconfigured' "$tmp/output.log" | cut -d: -f1)"
 check 'room check follows the logged bootout failure' yes "$([ "$failure_line" -lt "$room_line" ] && echo yes || echo no)"
 check 'only configured agent recorded for restore' org.example.agent "$(cat "$tmp/state/quiesced-agents")"
 

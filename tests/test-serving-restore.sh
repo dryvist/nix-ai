@@ -5,8 +5,12 @@ set -euo pipefail
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 mkdir -p "$tmp/bin" "$tmp/LaunchAgents"
-cat > "$tmp/bin/launchctl" <<'LAUNCHCTL'
-#!/usr/bin/env bash
+write_stub() {
+  printf '#!%s\n' "$BASH" > "$1"
+  cat >> "$1"
+}
+
+write_stub "$tmp/bin/launchctl" <<'LAUNCHCTL'
 printf '%s\n' "$*" >> "$FAKE_LAUNCHCTL_LOG"
 case "$1" in
   print) [ -f "$FAKE_DIR/${2##*/}.loaded" ] ;;
@@ -32,6 +36,7 @@ check() {
 }
 
 export CLUSTER_LAUNCHCTL_BIN="$tmp/bin/launchctl"
+export CLUSTER_SH_BIN="$BASH"
 export CLUSTER_LAUNCH_AGENTS_DIR="$tmp/LaunchAgents"
 export CLUSTER_SERVER_LABELS='dev.test.api dev.test.worker'
 export CLUSTER_WATCHDOG_LABEL=dev.test.watchdog

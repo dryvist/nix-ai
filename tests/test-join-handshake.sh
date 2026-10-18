@@ -8,8 +8,12 @@ mkdir -p "$tmp/bin" "$tmp/state" "$tmp/hf/hub/models--org--default/refs" \
   "$tmp/hf/hub/models--user--override/refs" \
   "$tmp/hf/hub/models--user--override/snapshots/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 
-cat > "$tmp/bin/curl" <<'CURL'
-#!/usr/bin/env bash
+write_stub() {
+  printf '#!%s\n' "$BASH" > "$1"
+  cat >> "$1"
+}
+
+write_stub "$tmp/bin/curl" <<'CURL'
 case "$*" in
   *"http://$CLUSTER_STATIC_PEER_IP:"*)
     [ -f "$FAKE_PEER_STATE_FILE" ] || exit 7
@@ -19,31 +23,25 @@ case "$*" in
   *) exit 1 ;;
 esac
 CURL
-cat > "$tmp/bin/launchctl" <<'LAUNCHCTL'
-#!/usr/bin/env bash
+write_stub "$tmp/bin/launchctl" <<'LAUNCHCTL'
 printf '%s\n' "$*" >> "$FAKE_LAUNCHCTL_LOG"
 if [ "${1:-}" = print ]; then printf 'state = running\n'; fi
 if [ "${1:-}" = kickstart ]; then exit "${FAKE_KICKSTART_RC:-${FAKE_LAUNCHCTL_RC:-0}}"; fi
 exit "${FAKE_LAUNCHCTL_RC:-0}"
 LAUNCHCTL
-cat > "$tmp/bin/stat" <<'STAT'
-#!/usr/bin/env bash
+write_stub "$tmp/bin/stat" <<'STAT'
 printf '%s\n' "$FAKE_MTIME"
 STAT
-cat > "$tmp/bin/sw-vers" <<'SWVERS'
-#!/usr/bin/env bash
+write_stub "$tmp/bin/sw-vers" <<'SWVERS'
 printf 'build-a\n'
 SWVERS
-cat > "$tmp/bin/darwin-version" <<'DARWINVERSION'
-#!/usr/bin/env bash
+write_stub "$tmp/bin/darwin-version" <<'DARWINVERSION'
 printf '{"configurationRevision":"%s"}\n' "${FAKE_CONFIG_REV:-config-a}"
 DARWINVERSION
-cat > "$tmp/bin/model-stat" <<'MODELSTAT'
-#!/usr/bin/env bash
+write_stub "$tmp/bin/model-stat" <<'MODELSTAT'
 printf '%s\n' "${FAKE_MODEL_SIZE:-1}"
 MODELSTAT
-cat > "$tmp/bin/pgrep" <<'PGREP'
-#!/usr/bin/env bash
+write_stub "$tmp/bin/pgrep" <<'PGREP'
 if [ -n "${FAKE_PGREP_SEQUENCE:-}" ]; then
   n="$(cat "$FAKE_PGREP_COUNT_FILE" 2>/dev/null || printf '0')"
   n=$((n + 1))
@@ -58,21 +56,19 @@ case "$state" in
   *) exit 2 ;;
 esac
 PGREP
-cat > "$tmp/bin/ibv-devinfo" <<'IBV'
-#!/usr/bin/env bash
+write_stub "$tmp/bin/ibv-devinfo" <<'IBV'
 printf 'hca_id: rdma_test\nmax_pd: 11\n'
 IBV
-cat > "$tmp/bin/ioclasscount" <<'IOCLASS'
-#!/usr/bin/env bash
+write_stub "$tmp/bin/ioclasscount" <<'IOCLASS'
 printf '%s = %s\n' "$1" "${FAKE_PD_HELD:-0}"
 IOCLASS
-cat > "$tmp/bin/sysctl" <<'SYSCTL'
-#!/usr/bin/env bash
+write_stub "$tmp/bin/sysctl" <<'SYSCTL'
 case "${1:-}" in
   -n)
     case "${2:-}" in
       vm.swapusage) printf 'vm.swapusage: total = 0M used = 0M free = 1M\n' ;;
       iogpu.wired_limit_mb) cat "$FAKE_WIRED_FILE" ;;
+      kern.boottime) printf '{ sec = 100, usec = 0 }\n' ;;
       *) exit 1 ;;
     esac
     ;;
@@ -83,19 +79,17 @@ case "${1:-}" in
   *) exit 1 ;;
 esac
 SYSCTL
-cat > "$tmp/bin/sudo" <<'SUDO'
-#!/usr/bin/env bash
+write_stub "$tmp/bin/sudo" <<'SUDO'
 [ "${1:-}" = -n ] && shift
 "$@"
 rc=$?
 if [ -n "${SIGNAL_JOIN_PID:-}" ] && [ ! -e "$SIGNAL_SENT_FILE" ]; then
   : > "$SIGNAL_SENT_FILE"
-  /bin/kill -TERM "$SIGNAL_JOIN_PID"
+  kill -TERM "$SIGNAL_JOIN_PID"
 fi
 exit "$rc"
 SUDO
-cat > "$tmp/bin/vm-stat" <<'VMSTAT'
-#!/usr/bin/env bash
+write_stub "$tmp/bin/vm-stat" <<'VMSTAT'
 cat <<'OUT'
 Mach Virtual Memory Statistics: (page size of 4096 bytes)
 Pages free: 100000.
@@ -104,8 +98,7 @@ Pages speculative: 100000.
 Pages wired down: 1000.
 OUT
 VMSTAT
-cat > "$tmp/bin/ssh" <<'SSH'
-#!/usr/bin/env bash
+write_stub "$tmp/bin/ssh" <<'SSH'
 printf '%s\n' "$*" >> "$FAKE_SSH_LOG"
 printf 'remote stdout\n'
 printf 'remote stderr\n' >&2
@@ -149,6 +142,7 @@ export CLUSTER_DARWIN_VERSION_BIN="$tmp/bin/darwin-version"
 export CLUSTER_STAT_BIN="$tmp/bin/stat"
 export CLUSTER_MODEL_STAT_BIN="$tmp/bin/model-stat"
 export CLUSTER_SYSCTL_BIN="$tmp/bin/sysctl"
+export CLUSTER_SED_BIN=sed
 export CLUSTER_SUDO_BIN="$tmp/bin/sudo"
 export CLUSTER_VMSTAT_BIN="$tmp/bin/vm-stat"
 export CLUSTER_LAUNCH_AGENTS_DIR="$tmp/home/Library/LaunchAgents"
@@ -221,7 +215,7 @@ date() {
 }
 sleep() {
   local duration="${1:-1}"
-  /bin/sleep 0.01
+  command sleep 0.01
   FAKE_NOW=$((FAKE_NOW + duration))
   SECONDS=$((SECONDS + duration))
   if [ "${WITHDRAW_ON_SLEEP:-false}" = true ]; then
@@ -907,10 +901,10 @@ if (
   cluster_lifecycle_log_start
   kill() { return 0; }
   sleep() { SECONDS=$((SECONDS + 1)); }
-  /bin/sleep 60 &
+  command sleep 60 &
   CLUSTER_PEER_SSH_PID=$!
   if cluster_peer_ssh_wait; then exit 0; else rc=$?; fi
-  /bin/kill -KILL "$CLUSTER_PEER_SSH_PID" 2> /dev/null || true
+  builtin kill -KILL "$CLUSTER_PEER_SSH_PID" 2> /dev/null || true
   wait "$CLUSTER_PEER_SSH_PID" 2> /dev/null || true
   exit "$rc"
 ) > /dev/null 2>&1; then

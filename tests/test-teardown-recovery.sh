@@ -5,26 +5,28 @@ tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 mkdir -p "$tmp/bin" "$tmp/state" "$tmp/home/Library/LaunchAgents"
 
-cat > "$tmp/bin/launchctl" <<'LAUNCHCTL'
-#!/usr/bin/env bash
+real_mv="$(command -v mv)"
+write_stub() {
+  printf '#!%s\n' "$BASH" > "$1"
+  cat >> "$1"
+}
+
+write_stub "$tmp/bin/launchctl" <<'LAUNCHCTL'
 printf 'launchctl %s\n' "$*" >> "$EVENTS"
 if [ "${1:-}" = kill ] && [ "${2:-}" = SIGKILL ]; then touch "$SIGKILL_MARKER"; fi
 LAUNCHCTL
-cat > "$tmp/bin/curl" <<'CURL'
-#!/usr/bin/env bash
+write_stub "$tmp/bin/curl" <<'CURL'
 case " $* " in
   *' -X POST '*) printf '{"usage":{"completion_tokens":1}}' ;;
 esac
 CURL
-cat > "$tmp/bin/ssh" <<'SSH'
-#!/usr/bin/env bash
+write_stub "$tmp/bin/ssh" <<'SSH'
 printf 'ssh %s\n' "$*" >> "$EVENTS"
 printf '%s\n' "$*" >> "$FAKE_SSH_LOG"
-if [ "${FAKE_SSH_HANG:-false}" = true ]; then exec /bin/sleep 60; fi
+if [ "${FAKE_SSH_HANG:-false}" = true ]; then exec sleep 60; fi
 exit "${FAKE_SSH_RC:-0}"
 SSH
-cat > "$tmp/bin/sysctl" <<'SYSCTL'
-#!/usr/bin/env bash
+write_stub "$tmp/bin/sysctl" <<'SYSCTL'
 case "${1:-}" in
   -n)
     case "${2:-}" in
@@ -40,9 +42,28 @@ case "${1:-}" in
   *) printf '0\n' ;;
 esac
 SYSCTL
+write_stub "$tmp/bin/sw-vers" <<'SWVERS'
+exit 0
+SWVERS
+write_stub "$tmp/bin/darwin-version" <<'DARWINVERSION'
+exit 1
+DARWINVERSION
+write_stub "$tmp/bin/stat" <<'STAT'
+printf '%s\n' "$FAKE_MTIME"
+STAT
+write_stub "$tmp/bin/sed" <<'SED'
+while IFS= read -r line; do
+  if [[ "$line" =~ ^\{[[:space:]]*sec[[:space:]]*=[[:space:]]*([0-9]+) ]]; then
+    printf '%s\n' "${BASH_REMATCH[1]}"
+  elif [[ "$line" == *'used = '* ]]; then
+    value="${line#*used = }"
+    printf '%s\n' "${value%%M*}"
+  fi
+done
+SED
 chmod +x "$tmp/bin/launchctl" "$tmp/bin/curl" "$tmp/bin/ssh" "$tmp/bin/sysctl"
-cat > "$tmp/bin/sudo" <<'SUDO'
-#!/usr/bin/env bash
+chmod +x "$tmp/bin/sw-vers" "$tmp/bin/darwin-version" "$tmp/bin/stat" "$tmp/bin/sed"
+write_stub "$tmp/bin/sudo" <<'SUDO'
 [ "${1:-}" = -n ] && shift
 "$@"
 SUDO
@@ -82,7 +103,12 @@ export CLUSTER_PEER_STATE_FILE="$tmp/state/peer-state.json"
 export CLUSTER_LAUNCH_AGENTS_DIR="$tmp/home/Library/LaunchAgents"
 export CLUSTER_LAUNCHCTL_BIN="$tmp/bin/launchctl"
 export CLUSTER_SYSCTL_BIN="$tmp/bin/sysctl"
+export CLUSTER_SED_BIN="$tmp/bin/sed"
+export CLUSTER_STAT_BIN="$tmp/bin/stat"
 export CLUSTER_SUDO_BIN="$tmp/bin/sudo"
+export CLUSTER_SW_VERS_BIN="$tmp/bin/sw-vers"
+export CLUSTER_DARWIN_VERSION_BIN="$tmp/bin/darwin-version"
+export TEST_MV_BIN="$real_mv"
 export FAKE_WIRED_FILE="$tmp/wired-limit"
 printf '0\n' > "$FAKE_WIRED_FILE"
 export CLUSTER_LIFECYCLE_LOG="$tmp/lifecycle.log"
@@ -99,39 +125,32 @@ export CLUSTER_STANDALONE_PROBE_MODEL=test
 export CLUSTER_DETACH_SWAP_THRESHOLD_MB=20000
 export CLUSTER_PEER_STATE_FILE="$tmp/state/peer-state.json"
 export CLUSTER_SOFTWARE_JSON='{"nix_ai":"a","mlx":"c","mlx_lm":"d","macos":"e"}'
-export CLUSTER_SW_VERS_BIN=/usr/bin/true
-export CLUSTER_DARWIN_VERSION_BIN=/usr/bin/false
 export CLUSTER_IOCLASSCOUNT_BIN="$tmp/bin/ioclasscount"
-cat > "$CLUSTER_IOCLASSCOUNT_BIN" <<'IOCLASS'
-#!/usr/bin/env bash
+write_stub "$CLUSTER_IOCLASSCOUNT_BIN" <<'IOCLASS'
 printf '%s = 0\n' "$1"
 IOCLASS
 chmod +x "$CLUSTER_IOCLASSCOUNT_BIN"
 export CLUSTER_PGREP_BIN="$tmp/bin/pgrep"
-cat > "$CLUSTER_PGREP_BIN" <<'PGREP'
-#!/usr/bin/env bash
+write_stub "$CLUSTER_PGREP_BIN" <<'PGREP'
 [ -f "$SIGKILL_MARKER" ] && exit 1
 [ "${FAKE_PGREP_STATE:-absent}" = running ] || exit 1
 printf '123\n'
 PGREP
 export CLUSTER_KILL_BIN="$tmp/bin/kill"
-cat > "$CLUSTER_KILL_BIN" <<'KILL'
-#!/usr/bin/env bash
+write_stub "$CLUSTER_KILL_BIN" <<'KILL'
 exit 0
 KILL
 export CLUSTER_PKILL_BIN="$tmp/bin/pkill"
-cat > "$CLUSTER_PKILL_BIN" <<'PKILL'
-#!/usr/bin/env bash
+write_stub "$CLUSTER_PKILL_BIN" <<'PKILL'
 exit 0
 PKILL
 chmod +x "$CLUSTER_PGREP_BIN" "$CLUSTER_KILL_BIN" "$CLUSTER_PKILL_BIN"
-cat > "$tmp/bin/mv" <<'MV'
-#!/usr/bin/env bash
+write_stub "$tmp/bin/mv" <<'MV'
 last="${@: -1}"
 if [ "${FAIL_PEER_WRITE:-false}" = true ] && [ "$last" = "$CLUSTER_PEER_STATE_FILE" ]; then
   exit 1
 fi
-exec /bin/mv "$@"
+exec "$TEST_MV_BIN" "$@"
 MV
 chmod +x "$tmp/bin/mv"
 
@@ -194,7 +213,7 @@ SIGKILL_MARKER="$tmp/sigkill.marker"
 export SIGKILL_MARKER
 export FAKE_PGREP_STATE=running
 sleep() {
-  /bin/sleep 0.01
+  command sleep 0.01
   SECONDS=$((SECONDS + ${1:-1}))
 }
 if rank_stop_verified; then

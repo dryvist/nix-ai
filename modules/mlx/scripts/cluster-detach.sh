@@ -109,7 +109,7 @@ cluster_detach_main() {
   fi
 
   echo "cluster-detach: D3 swap check"
-  used="$("${CLUSTER_SYSCTL_BIN:-/usr/sbin/sysctl}" -n vm.swapusage 2> /dev/null | /usr/bin/sed -n 's/.*used = \([0-9][0-9]*\).*/\1/p' || true)"
+  used="$("${CLUSTER_SYSCTL_BIN:-/usr/sbin/sysctl}" -n vm.swapusage 2> /dev/null | "${CLUSTER_SED_BIN:-/usr/bin/sed}" -n 's/.*used = \([0-9][0-9]*\).*/\1/p' || true)"
   used="${used:-0}"
   swap_threshold="${CLUSTER_DETACH_SWAP_THRESHOLD_MB:-20000}"
   if [ "$used" -gt "$swap_threshold" ]; then

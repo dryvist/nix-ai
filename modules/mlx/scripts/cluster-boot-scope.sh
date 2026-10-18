@@ -35,5 +35,5 @@ current_boot_epoch() {
   # writeShellApplication's `set -o errexit -o pipefail`, abort whichever caller
   # assigned the result before it could record the unavailable boot value.
   # The join handshake test covers the stamped peer-state path.
-  "$sysctl_bin" -n kern.boottime 2> /dev/null | sed -n 's/^{ *sec *= *\([0-9]*\).*/\1/p' || true
+  "$sysctl_bin" -n kern.boottime 2> /dev/null | "${CLUSTER_SED_BIN:-/usr/bin/sed}" -n 's/^{ *sec *= *\([0-9]*\).*/\1/p' || true
 }
