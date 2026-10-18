@@ -47,6 +47,11 @@ let
     CLUSTER_IBV_DEVINFO_BIN = "/usr/bin/ibv_devinfo";
     CLUSTER_PD_DEVICE_BUDGET = toString ncfg.devicePdBudget;
     CLUSTER_PD_RESERVE = toString ncfg.pdReserve;
+    CLUSTER_MODEL = ncfg.model;
+    CLUSTER_SHARDING_MODE = if ncfg.shardingMode == "pipeline" then "pipeline" else "tensor";
+    CLUSTER_SHARD_MEMORY_MB = toString ncfg.shardMemoryMb;
+    CLUSTER_COMPOSITOR_RESERVE_MB = toString ncfg.compositorReserveMb;
+    HF_HOME = cfg.huggingFaceHome;
     CLUSTER_RDMA_DEVICE = ncfg.rdmaDevice;
     CLUSTER_JOIN_TIMEOUT_SECS = toString ncfg.joinTimeoutSecs;
     CLUSTER_DETACH_TIMEOUT_SECS = toString ncfg.detachTimeoutSecs;

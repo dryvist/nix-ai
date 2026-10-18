@@ -81,6 +81,12 @@ let
   # ibv matrix, execs clusterRankArgs. Everything else stays baked at eval.
   clusterRankLaunchPkg = pkgs.writeShellApplication {
     name = "mlx-cluster-rank-launch";
+    runtimeInputs = with pkgs; [
+      coreutils
+      gawk
+      gnugrep
+      gnused
+    ];
     text = builtins.readFile ./scripts/cluster-rank-launch.sh;
   };
 
@@ -184,6 +190,7 @@ in
             # visible and gives mlx a valid path if the launcher is bypassed.
             MLX_IBV_DEVICES = ibvMatrixFile;
             CLUSTER_IBV_MATRIX_FILE = ibvMatrixFile;
+            CLUSTER_STATE_DIR = stateDir;
             CLUSTER_RDMA_DEVICE = ncfg.rdmaDevice;
           }
           // lib.optionalAttrs ncfg.fastMetalSync {

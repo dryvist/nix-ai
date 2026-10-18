@@ -36,29 +36,51 @@ active_rdma_device() {
 # passing, because "silently inert while reporting success" is the exact defect
 # class this guard exists to catch (see file header).
 pd_device_budget_ok() {
-  local configured="${CLUSTER_PD_DEVICE_BUDGET:-0}" log_prefix=cluster-link
+  local configured="${CLUSTER_PD_DEVICE_BUDGET:-}" log_prefix=cluster-link
   [ "${0##*/}" != cluster-join ] || log_prefix=cluster-join
-  local device reported
-  case "$configured" in
-    '' | *[!0-9]*) return 0 ;;
-  esac
-  [ "$configured" -gt 0 ] || return 0
+  local device output rc=0 reported LC_ALL=C
+  [[ "$configured" =~ ^[0-9]{1,4}$ ]] || {
+    PD_BUDGET_DETAIL="configured devicePdBudget is not a bounded decimal"
+    return 1
+  }
+  [ "$((10#$configured))" -gt 0 ] || {
+    PD_BUDGET_DETAIL="configured devicePdBudget must be positive"
+    return 1
+  }
   if ! device="$(active_rdma_device)"; then
     PD_BUDGET_DETAIL="no carrier-active RDMA device found to verify max_pd against"
     return 1
   fi
-  reported="$("${CLUSTER_IBV_DEVINFO_BIN:-/usr/bin/ibv_devinfo}" -d "$device" -v 2>/dev/null | /usr/bin/awk '$1 == "max_pd:" { print $2; exit }')"
-  case "$reported" in
-    '' | *[!0-9]*)
-      PD_BUDGET_DETAIL="ibv_devinfo -d $device -v did not report a readable max_pd; budget unverified"
-      return 1
-      ;;
-  esac
-  if [ "$reported" -lt "$configured" ]; then
+  if output="$("${CLUSTER_IBV_DEVINFO_BIN:-/usr/bin/ibv_devinfo}" -d "$device" -v 2>&1)"; then
+    rc=0
+  else
+    rc=$?
+  fi
+  if [ "$rc" -ne 0 ]; then
+    PD_BUDGET_DETAIL="ibv_devinfo -d $device -v rc=$rc; max_pd budget unverified"
+    return 1
+  fi
+  if ! reported="$(LC_ALL=C awk '
+    $1 == "max_pd:" {
+      records++
+      if (NF != 2 || $2 !~ /^[0-9]+$/ || length($2) > 4) {
+        invalid = 1
+        next
+      }
+      value = $2 + 0
+      if (records == 1) first = value
+      else if (value != first) invalid = 1
+    }
+    END { if (records > 0 && !invalid) printf "%d\n", first; else exit 1 }
+  ' <<< "$output")"; then
+    PD_BUDGET_DETAIL="ibv_devinfo -d $device -v has missing, inconsistent, or unbounded max_pd records"
+    return 1
+  fi
+  if [ "$reported" -lt "$((10#$configured))" ]; then
     PD_BUDGET_DETAIL="$device reports max_pd=$reported, below the configured devicePdBudget=$configured — the reserve invariant would be evaluated against a budget the device does not have"
     return 1
   fi
-  if [ "$reported" -gt "$configured" ]; then
+  if [ "$reported" -gt "$((10#$configured))" ]; then
     echo "$log_prefix: $device reports max_pd=$reported, above the configured devicePdBudget=$configured (conservative; not refusing)" >&2
   fi
   return 0
@@ -92,13 +114,13 @@ pd_start_gate() {
   PD_HELD="?"
   PD_REBOOT=0
 
-  case "$budget" in
-    '' | *[!0-9]*) pd_gate_refuse pd-gate-unconfigured 'budget and reserve must be integers with 0 < reserve < budget'; return 1 ;;
-  esac
-  case "$reserve" in
-    '' | *[!0-9]*) pd_gate_refuse pd-gate-unconfigured 'budget and reserve must be integers with 0 < reserve < budget'; return 1 ;;
-  esac
-  if [ "$budget" -le 0 ] || [ "$reserve" -le 0 ] || [ "$reserve" -ge "$budget" ]; then
+  if ! [[ "$budget" =~ ^[0-9]{1,4}$ ]] || ! [[ "$reserve" =~ ^[0-9]{1,4}$ ]]; then
+    pd_gate_refuse pd-gate-unconfigured 'budget and reserve must be bounded decimals with 0 < reserve < budget'
+    return 1
+  fi
+  budget_num=$((10#$budget))
+  reserve_num=$((10#$reserve))
+  if [ "$budget_num" -le 0 ] || [ "$reserve_num" -le 0 ] || [ "$reserve_num" -ge "$budget_num" ]; then
     pd_gate_refuse pd-gate-unconfigured 'budget and reserve must be integers with 0 < reserve < budget'
     return 1
   fi
@@ -134,9 +156,16 @@ pd_start_gate() {
     return 1
   fi
 
-  budget_num=$((10#$budget))
-  reserve_num=$((10#$reserve))
+  if ! [[ "${PD_HELD:-}" =~ ^[0-9]{1,4}$ ]]; then
+    PD_HELD="?"
+    pd_gate_refuse pd-count-unreadable 'held PD count is not a bounded decimal'
+    return 1
+  fi
   held_num=$((10#$PD_HELD))
+  if [ "$held_num" -gt "$budget_num" ]; then
+    pd_gate_refuse pd-count-unreadable "held PD count $PD_HELD exceeds the configured budget $budget"
+    return 1
+  fi
   available_num=$((budget_num - reserve_num))
   if [ $((held_num + 1)) -ge "$available_num" ]; then
     PD_REBOOT=1

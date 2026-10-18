@@ -43,6 +43,10 @@ cluster_teardown() {
     echo "cluster-teardown: FAIL could not disarm peer state" >&2
     TEARDOWN_FAILED=1
   fi
+  if ! rm -f "${CLUSTER_STATE_DIR:-$(dirname "$CLUSTER_PEER_STATE_FILE")}/rank-model"; then
+    echo "cluster-teardown: FAIL could not remove rank-model state" >&2
+    TEARDOWN_FAILED=1
+  fi
   if ! rank_process_absent; then
     if ! rank_stop_verified || ! rank_process_absent; then
       echo "cluster-teardown: FAIL rank absence is unverified; serving and link-state stay unchanged" >&2

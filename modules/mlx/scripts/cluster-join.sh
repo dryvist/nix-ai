@@ -6,11 +6,141 @@ join_fail() {
   exit 1
 }
 
+cluster_model_refuse() {
+  local detail="$1"
+  detail="${detail//$'\n'/ }"
+  detail="${detail//$'\r'/ }"
+  printf 'cluster-join: REFUSE reason=model-not-cached detail=%s\n' "$detail" >&2
+  return 1
+}
+
+cluster_model_file_size() {
+  local file="$1" size stat_bin="${CLUSTER_MODEL_STAT_BIN:-stat}"
+  if size="$("$stat_bin" -L -f %z "$file" 2> /dev/null)" && [[ "$size" =~ ^[0-9]+$ ]]; then
+    printf '%s\n' "$size"
+    return 0
+  fi
+  if size="$("$stat_bin" -L -c %s "$file" 2> /dev/null)" && [[ "$size" =~ ^[0-9]+$ ]]; then
+    printf '%s\n' "$size"
+    return 0
+  fi
+  return 1
+}
+
+cluster_join_model_select() {
+  local model="$1" explicit="$2" pipeline_requested="$3"
+  local org repo cache_dir ref revision snapshot_dir file size total_bytes=0 total_mb shard_mb ceiling reserve limit found_safetensors=false
+  local LC_ALL=C
+  if ! [[ "$model" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]]; then
+    cluster_model_refuse invalid-model-id
+    return 1
+  fi
+  org="${model%%/*}"
+  repo="${model#*/}"
+  cache_dir="${HF_HOME:-$HOME/.cache/huggingface}/hub/models--$org--$repo"
+  ref="$cache_dir/refs/main"
+  if [ ! -f "$ref" ]; then
+    cluster_model_refuse "$ref"
+    return 1
+  fi
+  revision="$(cat "$ref")"
+  if ! [[ "$revision" =~ ^[A-Fa-f0-9]{40}$ ]]; then
+    cluster_model_refuse "$ref"
+    return 1
+  fi
+  snapshot_dir="$cache_dir/snapshots/$revision"
+  if [ ! -d "$snapshot_dir" ] || [ ! -f "$snapshot_dir/config.json" ]; then
+    cluster_model_refuse "$snapshot_dir"
+    return 1
+  fi
+  JOIN_MODEL_ID="$model"
+  JOIN_MODEL_REVISION="$revision"
+  if [ "$explicit" = true ]; then
+    JOIN_SHARDING=tensor
+  else
+    case "${CLUSTER_SHARDING_MODE:-tensor}" in
+      tensor | tensor-parallel) JOIN_SHARDING=tensor ;;
+      pipeline) JOIN_SHARDING=pipeline ;;
+      *)
+        cluster_model_refuse 'invalid configured sharding mode'
+        return 1
+        ;;
+    esac
+  fi
+  [ "$pipeline_requested" = false ] || JOIN_SHARDING=pipeline
+  JOIN_SHARD_MEMORY_MB="${CLUSTER_SHARD_MEMORY_MB:-0}"
+  JOIN_MODEL_EXPLICIT="$explicit"
+  JOIN_PIPELINE_EXPLICIT="$pipeline_requested"
+  for file in "$snapshot_dir"/*.safetensors; do
+    [ -f "$file" ] || continue
+    found_safetensors=true
+    if [ "$explicit" = true ]; then
+      if ! size="$(cluster_model_file_size "$file")" || ! [[ "$size" =~ ^[0-9]{1,16}$ ]]; then
+        cluster_model_refuse "$file"
+        return 1
+      fi
+      size=$((10#$size))
+      if [ "$size" -gt 9007199254740991 ] || [ "$total_bytes" -gt $((9007199254740991 - size)) ]; then
+        printf 'cluster-join: REFUSE reason=model-too-large detail=snapshot size exceeds safe measurement range\n' >&2
+        return 1
+      fi
+      total_bytes=$((total_bytes + size))
+    fi
+  done
+  [ "$found_safetensors" = true ] || {
+    cluster_model_refuse "$snapshot_dir"
+    return 1
+  }
+  if [ "$explicit" = true ]; then
+    if [ "$total_bytes" -le 0 ]; then
+      cluster_model_refuse "$snapshot_dir"
+      return 1
+    fi
+    total_mb=$(((total_bytes + 1048575) / 1048576))
+    shard_mb=$(((total_mb * 11 + 19) / 20))
+    JOIN_SHARD_MEMORY_MB="$shard_mb"
+    ceiling="${CLUSTER_WIRED_LIMIT_MB:-}"
+    reserve="${CLUSTER_COMPOSITOR_RESERVE_MB:-}"
+    if ! [[ "$ceiling" =~ ^[0-9]{1,8}$ ]] || ! [[ "$reserve" =~ ^[0-9]{1,8}$ ]]; then
+      printf 'cluster-join: REFUSE reason=model-too-large detail=local wired ceiling is unconfigured\n' >&2
+      return 1
+    fi
+    limit=$((10#$ceiling - 10#$reserve))
+    if [ "$shard_mb" -gt "$limit" ]; then
+      printf 'cluster-join: REFUSE reason=model-too-large shard_mb=%s ceiling_mb=%s\n' "$shard_mb" "$limit" >&2
+      return 1
+    fi
+    printf 'cluster-join: model id=%s rev=%s total_mb=%s shard_mb=%s sharding=%s\n' \
+      "$JOIN_MODEL_ID" "$JOIN_MODEL_REVISION" "$total_mb" "$shard_mb" "$JOIN_SHARDING"
+  fi
+  return 0
+}
+
+cluster_rank_model_write() {
+  local dir="${CLUSTER_STATE_DIR:-$state_dir}" file tmp
+  case "${JOIN_SHARDING:-}" in tensor | pipeline) ;; *) return 1 ;; esac
+  [[ "${JOIN_MODEL_ID:-}" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] || return 1
+  mkdir -p "$dir" || return 1
+  file="$dir/rank-model"
+  tmp="$file.tmp.$$"
+  if ! printf '%s\n%s\n' "$JOIN_MODEL_ID" "$JOIN_SHARDING" > "$tmp" || ! mv -f "$tmp" "$file"; then
+    rm -f "$tmp"
+    return 1
+  fi
+}
+
 cluster_peer_ssh_start() {
   [ "${CLUSTER_ROLE:-}" = coordinator ] || return 0
   [ -n "${CLUSTER_PEER_SSH:-}" ] || return 0
+  local -a join_args=(cluster-join --worker)
+  if [ "${JOIN_MODEL_EXPLICIT:-false}" = true ]; then
+    join_args+=(--model "$JOIN_MODEL_ID")
+  fi
+  if [ "${JOIN_PIPELINE_EXPLICIT:-false}" = true ]; then
+    join_args+=(--pipeline)
+  fi
   "${CLUSTER_SSH_BIN:-/usr/bin/ssh}" -o BatchMode=yes -o ConnectTimeout=10 \
-    "$CLUSTER_PEER_SSH" cluster-join --worker \
+    "$CLUSTER_PEER_SSH" "${join_args[@]}" \
     > >(while IFS= read -r line || [ -n "$line" ]; do printf 'worker: %s\n' "$line"; done) 2>&1 &
   CLUSTER_PEER_SSH_PID=$!
   echo "cluster-join: peer-ssh started pid=$CLUSTER_PEER_SSH_PID"
@@ -296,6 +426,10 @@ cluster_final_rank_start() {
     echo "cluster-join: REFUSE missed start window at kickstart" >&2
     return 1
   }
+  cluster_rank_model_write || {
+    echo "cluster-join: REFUSE reason=rank-model-write" >&2
+    return 1
+  }
   "${CLUSTER_LAUNCHCTL_BIN:-/bin/launchctl}" kickstart "gui/$uid/${CLUSTER_RANK_LABEL}" || {
     echo "cluster-join: FAIL launchctl kickstart for ${CLUSTER_RANK_LABEL}" >&2
     return 1
@@ -307,13 +441,31 @@ cluster_join_main() {
   local timeout deadline armed_at peer_armed_at start_at now poll_rc
   local launchctl_bin="${CLUSTER_LAUNCHCTL_BIN:-/bin/launchctl}"
   local rank_pid warm_ok=false stable_since=0 stable_required worker_invocation=false
+  local model_explicit=false pipeline_requested=false model_arg="" selected_model
   local PEER_ARMED_AT=""
-  case "${1:-}" in
-    "") ;;
-    --worker) worker_invocation=true ;;
-    *) join_fail "usage: cluster-join [--worker]" ;;
-  esac
-  [ "$#" -le 1 ] || join_fail "usage: cluster-join [--worker]"
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --worker)
+        [ "$worker_invocation" = false ] || join_fail "usage: cluster-join [--worker] [--model org/repo] [--pipeline]"
+        worker_invocation=true
+        shift
+        ;;
+      --model)
+        [ "$model_explicit" = false ] && [ "$#" -ge 2 ] || join_fail "usage: cluster-join [--worker] [--model org/repo] [--pipeline]"
+        model_arg="$2"
+        model_explicit=true
+        shift 2
+        ;;
+      --pipeline)
+        [ "$pipeline_requested" = false ] || join_fail "usage: cluster-join [--worker] [--model org/repo] [--pipeline]"
+        pipeline_requested=true
+        shift
+        ;;
+      *) join_fail "usage: cluster-join [--worker] [--model org/repo] [--pipeline]" ;;
+    esac
+  done
+  [ "$pipeline_requested" = false ] || [ "$model_explicit" = true ] ||
+    join_fail "usage: --pipeline requires --model"
   uid="$(id -u)"
   state_dir="${CLUSTER_STATE_DIR:-$(dirname "$CLUSTER_STATE_FILE")}"
   mkdir -p "$state_dir"
@@ -330,10 +482,21 @@ cluster_join_main() {
   trap 'cluster_join_signal 130' INT
   trap 'cluster_join_signal 143' TERM
 
+  selected_model="${CLUSTER_MODEL:-}"
+  [ "$model_explicit" = false ] || selected_model="$model_arg"
+  if ! cluster_join_model_select "$selected_model" "$model_explicit" "$pipeline_requested"; then
+    exit 1
+  fi
+
   echo "cluster-join: J1 pd-start-gate"
-  if ! pd_start_gate; then
-    [ "${PD_REBOOT:-0}" -eq 1 ] && JOIN_REBOOT=1
-    exit "$((JOIN_REBOOT == 1 ? 3 : 1))"
+  if pd_start_gate; then
+    :
+  else
+    if [ "${PD_REBOOT:-0}" = 1 ]; then
+      JOIN_REBOOT=1
+      exit 3
+    fi
+    exit 1
   fi
 
   echo "cluster-join: J2 link-prep check"
@@ -354,6 +517,9 @@ cluster_join_main() {
   cluster_join_quiesce
 
   echo "cluster-join: J5 room check"
+  if [ "$JOIN_MODEL_EXPLICIT" = true ]; then
+    CLUSTER_SHARD_MEMORY_MB="$JOIN_SHARD_MEMORY_MB"
+  fi
   if rank_start_room_ok; then
     echo "cluster-join: room PASS"
   else

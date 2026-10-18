@@ -7,12 +7,17 @@ generation_local_rev() {
 }
 
 peer_state_software_json() {
-  local macos
+  local macos model model_revision
   macos="$("${CLUSTER_SW_VERS_BIN:-/usr/bin/sw_vers}" -buildVersion 2> /dev/null)" || return 1
   [ -n "$macos" ] || return 1
-  jq -ce --arg macos "$macos" '
+  model="$(jq -r '.model // ""' <<< "${CLUSTER_SOFTWARE_JSON:-}")"
+  model_revision="$(jq -r '.model_revision // ""' <<< "${CLUSTER_SOFTWARE_JSON:-}")"
+  model="${JOIN_MODEL_ID:-$model}"
+  model_revision="${JOIN_MODEL_REVISION:-$model_revision}"
+  jq -ce --arg macos "$macos" --arg model "$model" --arg model_revision "$model_revision" '
     if type != "object" then empty else
-      {nix_ai: .nix_ai, nix_darwin: .nix_darwin, mlx: .mlx, mlx_lm: .mlx_lm, macos: $macos}
+      {nix_ai: .nix_ai, nix_darwin: .nix_darwin, mlx: .mlx, mlx_lm: .mlx_lm, macos: $macos,
+       model: $model, model_revision: $model_revision}
       | select(all(.[]; type == "string"))
     end
   ' <<< "${CLUSTER_SOFTWARE_JSON:-}"

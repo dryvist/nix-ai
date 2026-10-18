@@ -15,7 +15,7 @@ peer_state_fetch() {
 
 peer_armed_read() {
   local armed armed_at now age peer_value local_value key local_software peer_generation local_generation
-  local keys=(nix_ai nix_darwin mlx mlx_lm macos)
+  local keys=(nix_ai nix_darwin mlx mlx_lm macos model model_revision)
   PEER_GATE_REASON=""
   PEER_ARMED_AT=""
   if ! peer_state_fetch; then
@@ -26,6 +26,13 @@ peer_armed_read() {
     PEER_GATE_REASON="local-software-unavailable"
     return 1
   }
+  armed="$(jq -r '.armed // false' <<< "$PEER_STATE_RAW")"
+  armed_at="$(jq -r '.armed_at // 0' <<< "$PEER_STATE_RAW")"
+  case "$armed_at" in '' | *[!0-9]*) armed_at=0 ;; esac
+  if [ "$armed" != true ] || [ "$armed_at" -le 0 ]; then
+    PEER_GATE_REASON="peer-not-armed"
+    return 1
+  fi
   for key in "${keys[@]}"; do
     local_value="$(jq -r --arg key "$key" '.[$key] // ""' <<< "$local_software")"
     peer_value="$(jq -r --arg key "$key" '.software[$key] // ""' <<< "$PEER_STATE_RAW")"
@@ -38,13 +45,6 @@ peer_armed_read() {
   peer_generation="$(jq -r '.generation // ""' <<< "$PEER_STATE_RAW")"
   if [ "$local_generation" != "$peer_generation" ]; then
     PEER_GATE_REASON="generation-mismatch key=generation local=$local_generation peer=$peer_generation"
-    return 1
-  fi
-  armed="$(jq -r '.armed // false' <<< "$PEER_STATE_RAW")"
-  armed_at="$(jq -r '.armed_at // 0' <<< "$PEER_STATE_RAW")"
-  case "$armed_at" in '' | *[!0-9]*) armed_at=0 ;; esac
-  if [ "$armed" != true ] || [ "$armed_at" -le 0 ]; then
-    PEER_GATE_REASON="peer-not-armed"
     return 1
   fi
   now="$(date +%s)"

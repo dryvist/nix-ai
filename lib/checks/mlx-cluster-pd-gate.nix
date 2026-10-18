@@ -6,6 +6,7 @@
   mlx-cluster-pd-gate = pkgs.runCommand "check-mlx-cluster-pd-gate" {
     nativeBuildInputs = [
       pkgs.coreutils
+      pkgs.gawk
       pkgs.gnugrep
     ];
     STATUS = "${src}/modules/mlx/scripts/cluster-rank-status.sh";

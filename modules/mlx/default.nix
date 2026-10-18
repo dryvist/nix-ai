@@ -14,6 +14,8 @@ let
     inherit (versions) mlx;
     mlx_lm = versions.mlxLm;
     macos = "";
+    model = cfg.clusterMode.model;
+    model_revision = "";
   };
   parakeetMlxVersion = versions.parakeetMlx;
   inherit (versions) mlxVlmInstallSpec;

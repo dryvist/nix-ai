@@ -28,6 +28,11 @@ in
       && pkgs.lib.hasInfix "CLUSTER_PD_DEVICE_BUDGET = toString ncfg.devicePdBudget" envSource
       || throw "cluster: lifecycle commands must receive the configured PD budget and reserve";
     assert
+      pkgs.lib.hasInfix "CLUSTER_MODEL = ncfg.model" envSource
+      && pkgs.lib.hasInfix "CLUSTER_SHARDING_MODE" envSource
+      && pkgs.lib.hasInfix "HF_HOME = cfg.huggingFaceHome" envSource
+      || throw "cluster: cluster-join must receive the model id, sharding mode, and HF cache root";
+    assert
       pkgs.lib.hasInfix "rank_process_pids" rankSource
       || throw "cluster: rank absence must use the configured absolute pgrep path";
     assert

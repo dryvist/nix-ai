@@ -17,8 +17,12 @@ in
   mlx-cluster-peer-armed = pkgs.runCommand "check-mlx-cluster-peer-armed" {
     nativeBuildInputs = [
       pkgs.coreutils
+      pkgs.gawk
+      pkgs.gnugrep
+      pkgs.gnused
       pkgs.jq
     ];
+    RANK_LAUNCH = "${src}/modules/mlx/scripts/cluster-rank-launch.sh";
   } "cd ${src} && bash tests/test-join-handshake.sh && touch $out";
 
   mlx-cluster-peer-armed-env =
@@ -41,10 +45,14 @@ in
         "macos"
         "mlx"
         "mlx_lm"
+        "model"
+        "model_revision"
         "nix_ai"
         "nix_darwin"
       ]
       && builtins.all (key: builtins.isString softwareContract.${key}) [
+        "model"
+        "model_revision"
         "nix_ai"
         "nix_darwin"
         "mlx"
@@ -58,6 +66,8 @@ in
       && softwareContract.mlx != ""
       && softwareContract.mlx_lm != ""
       && softwareContract.macos == ""
+      && softwareContract.model == ncfg.model
+      && softwareContract.model_revision == ""
       || throw "cluster: software versions must use the consumer generation, flake revision, and pinned MLX versions";
     assert
       ncfg.peerSsh == ""

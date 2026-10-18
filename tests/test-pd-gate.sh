@@ -17,7 +17,12 @@ chmod +x "$tmp/bin/fake-pgrep"
 {
   printf '#!%s\n' "$BASH"
   cat <<'IBV'
+if [ "${FAKE_IBV_CUSTOM:-0}" = 1 ]; then
+  printf '%s' "$FAKE_IBV_OUTPUT"
+else
 printf 'hca_id: rdma_test\nmax_pd: %s\n' "${FAKE_MAX_PD:-11}"
+fi
+exit "${FAKE_IBV_RC:-0}"
 IBV
 } > "$tmp/bin/fake-ibv-devinfo"
 chmod +x "$tmp/bin/fake-ibv-devinfo"
@@ -27,6 +32,10 @@ chmod +x "$tmp/bin/fake-ibv-devinfo"
   cat <<'IOCLASSCOUNT'
 case "$1" in
   AppleThunderboltRDMAProtectionDomain)
+    if [ "${FAKE_PD_NUL:-0}" -eq 1 ]; then
+      printf 'AppleThunderboltRDMAProtectionDomain = \0000\n'
+      exit "${FAKE_PD_RC:-0}"
+    fi
     printf '%s\n' "${FAKE_PD_OUTPUT:-AppleThunderboltRDMAProtectionDomain = 0}"
     exit "${FAKE_PD_RC:-0}"
     ;;
@@ -58,6 +67,7 @@ source "${STATUS:?set STATUS to cluster-rank-status.sh}"
 source "${PD_COUNT:?set PD_COUNT to cluster-pd-count.sh}"
 # shellcheck disable=SC1090
 source "${PD_GATE:?set PD_GATE to cluster-pd-gate.sh}"
+active_rdma_device() { printf 'rdma_test\n'; }
 
 fail=0
 check() {
@@ -87,8 +97,12 @@ reset() {
   export FAKE_PGREP_RC=1
   export FAKE_PGREP_OUTPUT=4242
   export FAKE_MAX_PD=11
+  export FAKE_IBV_CUSTOM=0
+  export FAKE_IBV_OUTPUT=''
+  export FAKE_IBV_RC=0
   export FAKE_PD_OUTPUT='AppleThunderboltRDMAProtectionDomain = 0'
   export FAKE_PD_RC=0
+  export FAKE_PD_NUL=0
   export FAKE_QP_OUTPUT='AppleThunderboltRDMAQueuePair = 0'
   export FAKE_QP_RC=0
   export FAKE_UC_OUTPUT='IORDMAFamilyUC = 0'
@@ -111,6 +125,10 @@ assert_gate() {
   lines="$(grep -c '^cluster-join: pd-gate ' "$tmp/gate.log" || true)"
   check "$label writes one decision line" 1 "$lines"
   contains "$label logs decision" "cluster-join: pd-gate $verdict reason=$want_reason" "$GATE_LOG"
+  if [ "$verdict" = REFUSE ]; then
+    lines="$(grep -c "^cluster-join: pd-gate REFUSE reason=$want_reason " "$tmp/gate.log" || true)"
+    check "$label writes one matching REFUSE line" 1 "$lines"
+  fi
 }
 
 echo 'valid kernel counts and non-rank PD classes:'
@@ -153,6 +171,18 @@ assert_gate 'unanswerable rank probe refuses' 1 rank-probe-unanswerable '?' 0 RE
 contains 'rank probe refusal logs rc' 'detail=pgrep rc=2' "$GATE_LOG"
 
 reset
+export FAKE_PGREP_RC=3
+run_gate
+assert_gate 'pgrep rc 3 refuses' 1 rank-probe-unanswerable '?' 0 REFUSE
+contains 'pgrep rc 3 is logged' 'detail=pgrep rc=3' "$GATE_LOG"
+
+reset
+export FAKE_PGREP_RC=127
+run_gate
+assert_gate 'pgrep rc 127 refuses' 1 rank-probe-unanswerable '?' 0 REFUSE
+contains 'pgrep rc 127 is logged' 'detail=pgrep rc=127' "$GATE_LOG"
+
+reset
 unset CLUSTER_RANK_PROCESS_PATTERN
 run_gate
 assert_gate 'missing rank pattern refuses' 1 rank-probe-unanswerable '?' 0 REFUSE
@@ -168,7 +198,27 @@ reset
 export FAKE_MAX_PD=unknown
 run_gate
 assert_gate 'unreadable max_pd refuses' 1 device-budget-unverified '?' 0 REFUSE
-contains 'unreadable max_pd logs measured detail' 'did not report a readable max_pd' "$GATE_LOG"
+contains 'unreadable max_pd logs measured detail' 'missing, inconsistent, or unbounded max_pd records' "$GATE_LOG"
+
+reset
+export FAKE_IBV_CUSTOM=1
+export FAKE_IBV_OUTPUT=$'hca_id: rdma_test\nmax_pd: 11\n'
+export FAKE_IBV_RC=1
+run_gate
+assert_gate 'valid-looking max_pd with rc 1 refuses' 1 device-budget-unverified '?' 0 REFUSE
+contains 'ibv_devinfo failure rc is logged' 'ibv_devinfo -d rdma_test -v rc=1' "$GATE_LOG"
+
+reset
+export FAKE_IBV_CUSTOM=1
+export FAKE_IBV_OUTPUT=$'hca_id: rdma_test\nmax_pd: 11\nmax_pd: 12\n'
+run_gate
+assert_gate 'differing max_pd records refuse' 1 device-budget-unverified '?' 0 REFUSE
+
+reset
+export FAKE_IBV_CUSTOM=1
+export FAKE_IBV_OUTPUT=$'hca_id: rdma_test\nmax_pd: 10000\n'
+run_gate
+assert_gate 'five-digit max_pd refuses' 1 device-budget-unverified '?' 0 REFUSE
 
 reset
 export FAKE_MAX_PD=12
@@ -199,6 +249,11 @@ assert_gate 'multi-line budget refuses' 1 pd-gate-unconfigured '?' 0 REFUSE
 contains 'multi-line budget remains one decision line' 'budget=eleven 11' "$GATE_LOG"
 
 reset
+export CLUSTER_PD_DEVICE_BUDGET=''
+run_gate
+assert_gate 'empty budget refuses' 1 pd-gate-unconfigured '?' 0 REFUSE
+
+reset
 unset CLUSTER_PD_RESERVE
 run_gate
 assert_gate 'missing reserve refuses' 1 pd-gate-unconfigured '?' 0 REFUSE
@@ -217,6 +272,16 @@ reset
 export CLUSTER_PD_RESERVE=11
 run_gate
 assert_gate 'reserve equal to budget refuses' 1 pd-gate-unconfigured '?' 0 REFUSE
+
+reset
+export CLUSTER_PD_RESERVE=''
+run_gate
+assert_gate 'empty reserve refuses' 1 pd-gate-unconfigured '?' 0 REFUSE
+
+reset
+export CLUSTER_RANK_PROCESS_PATTERN=''
+run_gate
+assert_gate 'empty rank pattern refuses' 1 rank-probe-unanswerable '?' 0 REFUSE
 
 echo 'malformed kernel counts refuse and retain bounded evidence:'
 reset
@@ -237,6 +302,17 @@ run_gate
 assert_gate 'non-numeric count refuses' 1 pd-count-unreadable '?' 0 REFUSE
 
 reset
+export FAKE_PD_OUTPUT='AppleThunderboltRDMAProtectionDomain = 12345'
+run_gate
+assert_gate 'five-digit count refuses' 1 pd-count-unreadable '?' 0 REFUSE
+
+reset
+export FAKE_PD_NUL=1
+run_gate
+assert_gate 'NUL byte in count refuses' 1 pd-count-unreadable '?' 0 REFUSE
+contains 'NUL byte is escaped in count detail' 'raw=AppleThunderboltRDMAProtectionDomain = ?0' "$GATE_LOG"
+
+reset
 export FAKE_PD_OUTPUT=$'AppleThunderboltRDMAProtectionDomain = 1\nAppleThunderboltRDMAProtectionDomain = 2'
 run_gate
 assert_gate 'multiple count lines refuse' 1 pd-count-unreadable '?' 0 REFUSE
@@ -251,6 +327,20 @@ export FAKE_PD_RC=1
 run_gate
 assert_gate 'nonzero count rc refuses' 1 pd-count-unreadable '?' 0 REFUSE
 contains 'nonzero count rc is logged' 'ioclasscount rc=1' "$GATE_LOG"
+
+reset
+export FAKE_PD_OUTPUT='AppleThunderboltRDMAProtectionDomain = 0003'
+export CLUSTER_PD_DEVICE_BUDGET=0011
+export CLUSTER_PD_RESERVE=0005
+export FAKE_MAX_PD=0011
+run_gate
+assert_gate 'leading-zero decimals pass as decimal values' 0 pd-reserve-available 0003 0 PASS
+
+reset
+export FAKE_PD_OUTPUT='AppleThunderboltRDMAProtectionDomain = 0012'
+export CLUSTER_PD_DEVICE_BUDGET=0011
+run_gate
+assert_gate 'held greater than budget is unreadable' 1 pd-count-unreadable 0012 0 REFUSE
 
 reset
 long_raw="$(printf '%0201d' 0)"
