@@ -7,6 +7,7 @@
   mlx-cluster-teardown-recovery = pkgs.runCommand "check-mlx-cluster-teardown-recovery" {
     nativeBuildInputs = [
       pkgs.coreutils
+      pkgs.gawk
       pkgs.gnugrep
       pkgs.jq
     ];

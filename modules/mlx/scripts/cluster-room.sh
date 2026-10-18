@@ -127,8 +127,12 @@ mem_headroom_ok() {
 # still fit under the GPU wired ceiling, with the compositor's own draw left
 # standing". Both must hold; either alone is a false green.
 rank_start_room_ok() {
-  mem_headroom_ok "${CLUSTER_SHARD_MEMORY_MB:-0}" &&
-    wired_ceiling_room_ok "${CLUSTER_SHARD_MEMORY_MB:-0}"
+  local required="${CLUSTER_SHARD_MEMORY_MB:-}"
+  if ! [[ "$required" =~ ^[0-9]{1,8}$ ]] || [ "$((10#${required:-0}))" -le 0 ]; then
+    MEM_HEADROOM_DETAIL="room-unconfigured: CLUSTER_SHARD_MEMORY_MB must be a positive integer"
+    return 1
+  fi
+  mem_headroom_ok "$required" && wired_ceiling_room_ok "$required"
 }
 
 # THE RUNG THAT REFUSES A START ONTO AN ALREADY-POISONED HOST.

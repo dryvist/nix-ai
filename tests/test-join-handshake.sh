@@ -3,49 +3,193 @@ set -euo pipefail
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
-mkdir -p "$tmp/bin" "$tmp/state"
-export CLUSTER_STATE_DIR="$tmp/state"
-export HF_HOME="$tmp/hf"
-export CLUSTER_MODEL=org/default
-export CLUSTER_SHARDING_MODE=tensor
-export CLUSTER_SHARD_MEMORY_MB=128
-export CLUSTER_WIRED_LIMIT_MB=2000
-export CLUSTER_COMPOSITOR_RESERVE_MB=100
+mkdir -p "$tmp/bin" "$tmp/state" "$tmp/hf/hub/models--org--default/refs" \
+  "$tmp/hf/hub/models--org--default/snapshots/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" \
+  "$tmp/hf/hub/models--user--override/refs" \
+  "$tmp/hf/hub/models--user--override/snapshots/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 
-cat > "$tmp/bin/sw-vers" <<'SWVERS'
+cat > "$tmp/bin/curl" <<'CURL'
 #!/usr/bin/env bash
-printf 'build-a\n'
-SWVERS
-cat > "$tmp/bin/ssh" <<'SSH'
-#!/usr/bin/env bash
-printf '%s\n' "$*" >> "$FAKE_SSH_LOG"
-[ -z "${FAKE_SSH_PID_FILE:-}" ] || printf '%s\n' "$$" > "$FAKE_SSH_PID_FILE"
-printf 'remote stdout\n'
-printf 'remote stderr\n' >&2
-[ -n "${FAKE_SSH_SLEEP:-}" ] && exec /bin/sleep "$FAKE_SSH_SLEEP"
-exit "${FAKE_SSH_RC:-0}"
-SSH
+case "$*" in
+  *"http://$CLUSTER_STATIC_PEER_IP:"*)
+    [ -f "$FAKE_PEER_STATE_FILE" ] || exit 7
+    cat "$FAKE_PEER_STATE_FILE"
+    ;;
+  *http://127.0.0.1:*) exit "${FAKE_HTTP_RC:-7}" ;;
+  *) exit 1 ;;
+esac
+CURL
 cat > "$tmp/bin/launchctl" <<'LAUNCHCTL'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$FAKE_LAUNCHCTL_LOG"
-[ "${1:-}" = print ] && printf 'state = running\n'
+if [ "${1:-}" = print ]; then printf 'state = running\n'; fi
+exit "${FAKE_LAUNCHCTL_RC:-0}"
 LAUNCHCTL
 cat > "$tmp/bin/stat" <<'STAT'
 #!/usr/bin/env bash
 printf '%s\n' "$FAKE_MTIME"
 STAT
+cat > "$tmp/bin/sw-vers" <<'SWVERS'
+#!/usr/bin/env bash
+printf 'build-a\n'
+SWVERS
+cat > "$tmp/bin/darwin-version" <<'DARWINVERSION'
+#!/usr/bin/env bash
+printf '{"configurationRevision":"%s"}\n' "${FAKE_CONFIG_REV:-config-a}"
+DARWINVERSION
 cat > "$tmp/bin/model-stat" <<'MODELSTAT'
 #!/usr/bin/env bash
 printf '%s\n' "${FAKE_MODEL_SIZE:-1}"
 MODELSTAT
-chmod +x "$tmp/bin/sw-vers" "$tmp/bin/ssh" "$tmp/bin/launchctl" "$tmp/bin/stat" "$tmp/bin/model-stat"
+cat > "$tmp/bin/pgrep" <<'PGREP'
+#!/usr/bin/env bash
+if [ -n "${FAKE_PGREP_SEQUENCE:-}" ]; then
+  n="$(cat "$FAKE_PGREP_COUNT_FILE" 2>/dev/null || printf '0')"
+  n=$((n + 1))
+  printf '%s\n' "$n" > "$FAKE_PGREP_COUNT_FILE"
+  state="$(sed -n "${n}p" "$FAKE_PGREP_SEQUENCE")"
+else
+  state="${FAKE_PGREP_STATE:-absent}"
+fi
+case "$state" in
+  running) printf '123\n'; exit 0 ;;
+  absent) exit 1 ;;
+  *) exit 2 ;;
+esac
+PGREP
+cat > "$tmp/bin/ibv-devinfo" <<'IBV'
+#!/usr/bin/env bash
+printf 'hca_id: rdma_test\nmax_pd: 11\n'
+IBV
+cat > "$tmp/bin/ioclasscount" <<'IOCLASS'
+#!/usr/bin/env bash
+printf '%s = %s\n' "$1" "${FAKE_PD_HELD:-0}"
+IOCLASS
+cat > "$tmp/bin/sysctl" <<'SYSCTL'
+#!/usr/bin/env bash
+case "${1:-}" in
+  -n)
+    case "${2:-}" in
+      vm.swapusage) printf 'vm.swapusage: total = 0M used = 0M free = 1M\n' ;;
+      iogpu.wired_limit_mb) cat "$FAKE_WIRED_FILE" ;;
+      *) exit 1 ;;
+    esac
+    ;;
+  -w)
+    value="${2#iogpu.wired_limit_mb=}"
+    printf '%s\n' "$value" > "$FAKE_WIRED_FILE"
+    ;;
+  *) exit 1 ;;
+esac
+SYSCTL
+cat > "$tmp/bin/sudo" <<'SUDO'
+#!/usr/bin/env bash
+[ "${1:-}" = -n ] && shift
+"$@"
+rc=$?
+if [ -n "${SIGNAL_JOIN_PID:-}" ] && [ ! -e "$SIGNAL_SENT_FILE" ]; then
+  : > "$SIGNAL_SENT_FILE"
+  /bin/kill -TERM "$SIGNAL_JOIN_PID"
+fi
+exit "$rc"
+SUDO
+cat > "$tmp/bin/vm-stat" <<'VMSTAT'
+#!/usr/bin/env bash
+cat <<'OUT'
+Mach Virtual Memory Statistics: (page size of 4096 bytes)
+Pages free: 100000.
+Pages inactive: 100000.
+Pages speculative: 100000.
+Pages wired down: 1000.
+OUT
+VMSTAT
+cat > "$tmp/bin/ssh" <<'SSH'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$FAKE_SSH_LOG"
+printf 'remote stdout\n'
+printf 'remote stderr\n' >&2
+rc="${FAKE_SSH_RC:-0}"
+if [ -n "${FAKE_SSH_SEQUENCE:-}" ]; then
+  n="$(cat "$FAKE_SSH_COUNT_FILE" 2>/dev/null || printf '0')"
+  n=$((n + 1))
+  printf '%s\n' "$n" > "$FAKE_SSH_COUNT_FILE"
+  rc="$(sed -n "${n}p" "$FAKE_SSH_SEQUENCE")"
+fi
+exit "$rc"
+SSH
+chmod +x "$tmp/bin/"*
+
+export PATH="$tmp/bin:$PATH"
+export HOME="$tmp/home"
+export CLUSTER_STATE_DIR="$tmp/state"
+export CLUSTER_STATE_FILE="$tmp/state/link-state"
+export CLUSTER_PEER_STATE_FILE="$tmp/state/local-peer-state.json"
+export CLUSTER_LIFECYCLE_LOG="$tmp/lifecycle.log"
+export CLUSTER_STATIC_SELF_IP=link-self
+export CLUSTER_STATIC_PEER_IP=link-peer
+export CLUSTER_PEER_STATE_PORT=11442
+export CLUSTER_PEER_STATE_TIMEOUT_SECS=2
+export CLUSTER_JOIN_TIMEOUT_SECS=20
+export CLUSTER_ROLE=coordinator
+export CLUSTER_RANK_LABEL=dev.test.rank
+export CLUSTER_RANK_PROCESS_PATTERN=/fake-rank
+export CLUSTER_RDMA_DEVICE=rdma_test
+export CLUSTER_PD_DEVICE_BUDGET=11
+export CLUSTER_PD_RESERVE=5
+export CLUSTER_IOCLASSCOUNT_BIN="$tmp/bin/ioclasscount"
+export CLUSTER_IBV_DEVINFO_BIN="$tmp/bin/ibv-devinfo"
+export CLUSTER_PGREP_BIN="$tmp/bin/pgrep"
+export CLUSTER_CURL_BIN="$tmp/bin/curl"
+export CLUSTER_LAUNCHCTL_BIN="$tmp/bin/launchctl"
+export CLUSTER_SSH_BIN="$tmp/bin/ssh"
+export CLUSTER_SW_VERS_BIN="$tmp/bin/sw-vers"
+export CLUSTER_DARWIN_VERSION_BIN="$tmp/bin/darwin-version"
+export CLUSTER_STAT_BIN="$tmp/bin/stat"
+export CLUSTER_MODEL_STAT_BIN="$tmp/bin/model-stat"
+export CLUSTER_SYSCTL_BIN="$tmp/bin/sysctl"
+export CLUSTER_SUDO_BIN="$tmp/bin/sudo"
+export CLUSTER_VMSTAT_BIN="$tmp/bin/vm-stat"
+export CLUSTER_LAUNCH_AGENTS_DIR="$tmp/home/Library/LaunchAgents"
+export CLUSTER_STANDALONE_WIRED_LIMIT_MB=1000
+export CLUSTER_WIRED_LIMIT_MB=2000
+export CLUSTER_COMPOSITOR_RESERVE_MB=100
+export CLUSTER_SHARD_MEMORY_MB=128
+export CLUSTER_MODEL=org/default
+export CLUSTER_SHARDING_MODE=tensor
+export HF_HOME="$tmp/hf"
+export CLUSTER_SOFTWARE_JSON='{"nix_ai":"rev-a","mlx":"0.26","mlx_lm":"0.29","macos":"","model":"org/default","model_revision":""}'
+export FAKE_PEER_STATE_FILE="$tmp/state/remote-peer-state.json"
+export FAKE_LAUNCHCTL_LOG="$tmp/launchctl.log"
+export FAKE_SSH_LOG="$tmp/ssh.log"
+export FAKE_MTIME=99
+export FAKE_NOW=1000
+export FAKE_CONFIG_REV=config-a
+export FAKE_PGREP_STATE=absent
+export FAKE_HTTP_RC=0
+export FAKE_WIRED_FILE="$tmp/wired-limit"
+printf '1000\n' > "$FAKE_WIRED_FILE"
+printf 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n' > "$HF_HOME/hub/models--org--default/refs/main"
+printf '{}\n' > "$HF_HOME/hub/models--org--default/snapshots/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/config.json"
+printf x > "$HF_HOME/hub/models--org--default/snapshots/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/weights.safetensors"
+printf 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n' > "$HF_HOME/hub/models--user--override/refs/main"
+printf '{}\n' > "$HF_HOME/hub/models--user--override/snapshots/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/config.json"
+printf x > "$HF_HOME/hub/models--user--override/snapshots/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/weights.safetensors"
 
 source modules/mlx/scripts/cluster-boot-scope.sh
 source modules/mlx/scripts/cluster-peer-state-write.sh
 source modules/mlx/scripts/cluster-peer-state.sh
+source modules/mlx/scripts/cluster-link-locate.sh
+source modules/mlx/scripts/cluster-link-repair.sh
+source modules/mlx/scripts/cluster-rank-status.sh
+source modules/mlx/scripts/cluster-rank-reap.sh
+source modules/mlx/scripts/cluster-pd-count.sh
+source modules/mlx/scripts/cluster-pd-gate.sh
+source modules/mlx/scripts/cluster-room.sh
+source modules/mlx/scripts/cluster-wired-limit.sh
+source modules/mlx/scripts/cluster-serving-restore.sh
+source modules/mlx/scripts/cluster-teardown.sh
 source modules/mlx/scripts/cluster-join.sh
 source modules/mlx/scripts/cluster-peer-state-serve.sh
-source modules/mlx/scripts/cluster-teardown.sh
 
 fail=0
 check() {
@@ -64,519 +208,410 @@ contains() {
     *) echo "  FAIL $label -> '$needle' missing from '$hay'"; fail=1 ;;
   esac
 }
-make_cached_model() {
-  local model="$1" revision="$2" org repo cache snapshot
-  org="${model%%/*}"
-  repo="${model#*/}"
-  cache="$HF_HOME/hub/models--$org--$repo"
-  snapshot="$cache/snapshots/$revision"
-  mkdir -p "$cache/refs" "$snapshot"
-  printf '%s\n' "$revision" > "$cache/refs/main"
-  printf '{}\n' > "$snapshot/config.json"
-  printf x > "$snapshot/weights.safetensors"
-}
-
 date() {
   if [ "${1:-}" = +%s ]; then
     printf '%s\n' "$FAKE_NOW"
+  elif [ "${1:-}" = -u ]; then
+    printf '20261018T120000Z\n'
   else
     command date "$@"
   fi
 }
+sleep() {
+  local duration="${1:-1}"
+  FAKE_NOW=$((FAKE_NOW + duration))
+  SECONDS=$((SECONDS + duration))
+  if [ "${WITHDRAW_ON_SLEEP:-false}" = true ]; then
+    local saved="$CLUSTER_PEER_STATE_FILE"
+    CLUSTER_PEER_STATE_FILE="$FAKE_PEER_STATE_FILE"
+    peer_state_write false 0 "$JOIN_SESSION_ID" abort
+    CLUSTER_PEER_STATE_FILE="$saved"
+    WITHDRAW_ON_SLEEP=false
+  fi
+}
 current_boot_epoch() { printf '100\n'; }
-generation_local_rev() { printf 'gen-a\n'; }
-export CLUSTER_PEER_STATE_FILE="$tmp/state/peer-state.json"
-export CLUSTER_STATE_FILE="$tmp/state/link-state"
-model_revision_default=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-export CLUSTER_SOFTWARE_JSON="{\"nix_ai\":\"rev-a\",\"nix_darwin\":\"\",\"mlx\":\"0.26\",\"mlx_lm\":\"0.29\",\"macos\":\"\",\"model\":\"org/default\",\"model_revision\":\"\"}"
-make_cached_model org/default "$model_revision_default"
-make_cached_model user/override bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
-make_cached_model user/huge cccccccccccccccccccccccccccccccccccccccc
-export CLUSTER_SW_VERS_BIN="$tmp/bin/sw-vers"
-export CLUSTER_STAT_BIN="$tmp/bin/stat"
-export CLUSTER_DARWIN_VERSION_BIN="$tmp/bin/darwin-version"
-export CLUSTER_STATIC_PEER_IP=peer
-export CLUSTER_STATIC_SELF_IP=self
-export CLUSTER_PEER_STATE_PORT=11442
-export CLUSTER_PEER_STATE_TIMEOUT_SECS=2
-export CLUSTER_JOIN_TIMEOUT_SECS=100
-export CLUSTER_HTTP_PORT=8000
-export EVENTS="$tmp/events"
-export CLUSTER_SSH_BIN="$tmp/bin/ssh"
-export CLUSTER_MODEL_STAT_BIN="$tmp/bin/model-stat"
-export FAKE_SSH_LOG="$tmp/ssh.log"
-export FAKE_LAUNCHCTL_LOG="$tmp/launchctl.log"
-: > "$FAKE_LAUNCHCTL_LOG"
-export CLUSTER_LAUNCHCTL_BIN="$tmp/bin/launchctl"
-export FAKE_MTIME=99
-export CLUSTER_RANK_LABEL=dev.test.rank
-export CLUSTER_LIFECYCLE_LOG="$tmp/lifecycle.log"
-FAKE_NOW=1000
-check 'boot epoch fixture' 100 "$(current_boot_epoch)"
-echo 'the responder resets stale or missing state and keeps current-boot state:'
-export CLUSTER_STAT_BIN="$tmp/bin/stat"
-export CLUSTER_STATE_FILE="$tmp/state/link-state"
-export CLUSTER_PEER_STATE_FILE="$tmp/state/peer-state.json"
+link_prep_ok() { return 0; }
+write_state() {
+  local file="$1" armed="$2" armed_at="$3" session="$4" phase="$5" start_at="${6:-0}"
+  local saved="$CLUSTER_PEER_STATE_FILE"
+  CLUSTER_PEER_STATE_FILE="$file"
+  peer_state_write "$armed" "$armed_at" "$session" "$phase" "$start_at"
+  local rc=$?
+  CLUSTER_PEER_STATE_FILE="$saved"
+  return "$rc"
+}
+
+echo 'the responder resets old and missing state, and preserves current-boot state:'
 printf 'up\n' > "$CLUSTER_STATE_FILE"
 printf '{"armed":true}\n' > "$CLUSTER_PEER_STATE_FILE"
-FAKE_MTIME=99
 if peer_state_reset_if_needed > "$tmp/reset-old.log"; then
-  check 'old peer state disarmed' false "$(jq -r '.armed' "$CLUSTER_PEER_STATE_FILE")"
-  check 'old peer state link down' down "$(cat "$CLUSTER_STATE_FILE")"
-  contains 'old peer state reset logged' 'reason=peer-state-from-previous-boot' "$(cat "$tmp/reset-old.log")"
+  check 'old peer state is disarmed' false "$(jq -r '.armed' "$CLUSTER_PEER_STATE_FILE")"
+  check 'old peer state resets session phase' abort "$(jq -r '.phase' "$CLUSTER_PEER_STATE_FILE")"
+  check 'old peer state takes link down' down "$(cat "$CLUSTER_STATE_FILE")"
 else
-  echo '  FAIL old peer state reset failed'
-  fail=1
+  echo '  FAIL old peer-state reset failed'; fail=1
 fi
 printf 'up\n' > "$CLUSTER_STATE_FILE"
 printf '{"armed":true}\n' > "$CLUSTER_PEER_STATE_FILE"
 FAKE_MTIME=100
 if peer_state_reset_if_needed > "$tmp/reset-current.log"; then
-  check 'current-boot peer state retained' true "$(jq -r '.armed' "$CLUSTER_PEER_STATE_FILE")"
+  check 'current-boot state retained' true "$(jq -r '.armed' "$CLUSTER_PEER_STATE_FILE")"
   check 'current-boot link state retained' up "$(cat "$CLUSTER_STATE_FILE")"
-  check 'current-boot reset is silent' 0 "$(wc -c < "$tmp/reset-current.log" | tr -d ' ')"
 else
-  echo '  FAIL current-boot state was reset'
-  fail=1
-fi
-current_boot_epoch() { :; }
-if peer_state_reset_if_needed > "$tmp/reset-unknown-boot.log"; then
-  check 'unreadable boot time disarms peer state' false "$(jq -r '.armed' "$CLUSTER_PEER_STATE_FILE")"
-  check 'unreadable boot time takes link down' down "$(cat "$CLUSTER_STATE_FILE")"
-  contains 'unreadable boot time reset logged' 'reason=boot-time-unreadable' "$(cat "$tmp/reset-unknown-boot.log")"
-else
-  echo '  FAIL unreadable boot time did not fail closed'
-  fail=1
+  echo '  FAIL current-boot state was reset'; fail=1
 fi
 rm -f "$CLUSTER_PEER_STATE_FILE"
-printf 'up\n' > "$CLUSTER_STATE_FILE"
 if peer_state_reset_if_needed > "$tmp/reset-missing.log"; then
   check 'missing peer state recreated disarmed' false "$(jq -r '.armed' "$CLUSTER_PEER_STATE_FILE")"
-  contains 'missing peer state reset logged' 'reason=peer-state-missing' "$(cat "$tmp/reset-missing.log")"
 else
-  echo '  FAIL missing peer state reset failed'
-  fail=1
+  echo '  FAIL missing peer-state reset failed'; fail=1
 fi
+FAKE_MTIME=99
 
-FAKE_NOW=1000
-echo 'peer state writer includes the current software contract:'
-if peer_state_write true 1000; then
-  check 'writer armed' true "$(jq -r '.armed' "$CLUSTER_PEER_STATE_FILE")"
-  check 'writer armed_at' 1000 "$(jq -r '.armed_at' "$CLUSTER_PEER_STATE_FILE")"
-  check 'writer macOS build' build-a "$(jq -r '.software.macos' "$CLUSTER_PEER_STATE_FILE")"
-  check 'writer mlx_lm key' 0.29 "$(jq -r '.software.mlx_lm' "$CLUSTER_PEER_STATE_FILE")"
-  check 'writer model key' org/default "$(jq -r '.software.model' "$CLUSTER_PEER_STATE_FILE")"
-  check 'writer model revision key' '' "$(jq -r '.software.model_revision' "$CLUSTER_PEER_STATE_FILE")"
-else
-  echo '  FAIL peer_state_write refused valid software data'
-  fail=1
-fi
-JOIN_MODEL_ID=user/override
-JOIN_MODEL_REVISION=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
-if peer_state_write true 1000; then
-  check 'writer publishes selected model id' user/override "$(jq -r '.software.model' "$CLUSTER_PEER_STATE_FILE")"
-  check 'writer publishes selected model revision' "$JOIN_MODEL_REVISION" "$(jq -r '.software.model_revision' "$CLUSTER_PEER_STATE_FILE")"
-else
-  echo '  FAIL peer_state_write refused selected model data'
-  fail=1
-fi
-unset JOIN_MODEL_ID JOIN_MODEL_REVISION
-
-peer_state_software_json() {
-  jq -cn --arg model "${JOIN_MODEL_ID:-org/default}" \
-    --arg model_revision "${JOIN_MODEL_REVISION:-$model_revision_default}" \
-    '{nix_ai:"rev-a",nix_darwin:"",mlx:"0.26",mlx_lm:"0.29",macos:"build-a",model:$model,model_revision:$model_revision}'
-}
-PEER_JSON=''
-peer_state_fetch() { PEER_STATE_RAW="$PEER_JSON"; }
-make_peer_json() {
-  local armed_at="$1" software="$2"
-  PEER_JSON="$(jq -nc --argjson armed_at "$armed_at" --argjson software "$software" \
-    '{armed:true,armed_at:$armed_at,generation:"gen-a",software:$software}')"
-}
-
-echo 'peer poll requires a fresh arm and exact version match:'
-local_software="$(peer_state_software_json)"
-make_peer_json 995 "$local_software"
-peer_state_fetch
-check 'fake peer fetch returns the fixture' "$PEER_JSON" "$PEER_STATE_RAW"
-if peer_armed_read; then
-  check 'matched peer armed_at' 995 "$PEER_ARMED_AT"
-else
-  echo "  FAIL matching peer refused: $PEER_GATE_REASON"
-  fail=1
-fi
-
-FAKE_NOW=1000
-make_peer_json 899 "$local_software"
-if peer_armed_read; then
-  echo '  FAIL stale peer arm passed'
-  fail=1
-else
-  contains 'stale arm refusal' 'peer-arm-stale' "$PEER_GATE_REASON"
-fi
-
-mismatched_software='{"nix_ai":"rev-b","nix_darwin":"","mlx":"0.26","mlx_lm":"0.29","macos":"build-a","model":"org/default","model_revision":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}'
-make_peer_json 995 "$mismatched_software"
-if cluster_join_peer_poll > "$tmp/mismatch.log" 2>&1; then
-  echo '  FAIL generation mismatch poll passed'
-  fail=1
-else
-  mismatch_rc=$?
-  check 'generation mismatch poll is a hard refusal' 2 "$mismatch_rc"
-  contains 'generation mismatch reason names the differing key' 'generation-mismatch key=nix_ai local=rev-a peer=rev-b' "$PEER_GATE_REASON"
-  contains 'generation mismatch is logged as REFUSE' 'cluster-join: peer-state REFUSE reason=generation-mismatch' "$(cat "$tmp/mismatch.log")"
-fi
-
+echo 'the writer publishes session, phase, and runtime configuration revision:'
+JOIN_SESSION_ID=20261018T120000Z-0123abcd
 JOIN_MODEL_ID=org/default
-JOIN_MODEL_REVISION="$model_revision_default"
-export JOIN_MODEL_ID JOIN_MODEL_REVISION
-local_software="$(peer_state_software_json)"
-mismatched_software="$(jq -cn --argjson software "$local_software" \
-  '$software | .model_revision = "dddddddddddddddddddddddddddddddddddddddd"')"
-make_peer_json 995 "$mismatched_software"
-if cluster_join_peer_poll > "$tmp/model-mismatch.log" 2>&1; then
-  echo '  FAIL model revision mismatch poll passed'
-  fail=1
+JOIN_MODEL_REVISION=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+export JOIN_SESSION_ID JOIN_MODEL_ID JOIN_MODEL_REVISION
+if peer_state_write false 0 "$JOIN_SESSION_ID" preparing; then
+  check 'preparing invalidates prior arm' false "$(jq -r '.armed' "$CLUSTER_PEER_STATE_FILE")"
+  check 'preparing session is recorded' "$JOIN_SESSION_ID" "$(jq -r '.session' "$CLUSTER_PEER_STATE_FILE")"
+  check 'preparing phase is recorded' preparing "$(jq -r '.phase' "$CLUSTER_PEER_STATE_FILE")"
+  check 'writer configuration revision' config-a "$(jq -r '.configuration_revision' "$CLUSTER_PEER_STATE_FILE")"
+  check 'writer publishes only the runtime version keys' '["macos","mlx","mlx_lm","model","model_revision","nix_ai"]' \
+    "$(jq -c '.software | keys' "$CLUSTER_PEER_STATE_FILE")"
 else
-  mismatch_rc=$?
-  check 'model revision mismatch is a hard refusal' 2 "$mismatch_rc"
-  contains 'model revision mismatch names the key' \
-    "generation-mismatch key=model_revision local=$model_revision_default peer=dddddddddddddddddddddddddddddddddddddddd" "$PEER_GATE_REASON"
+  echo '  FAIL preparing state write failed'; fail=1
+fi
+if peer_state_write true 1000 "$JOIN_SESSION_ID" ready; then
+  check 'ready is armed' true "$(jq -r '.armed' "$CLUSTER_PEER_STATE_FILE")"
+  check 'ready model revision' "$JOIN_MODEL_REVISION" "$(jq -r '.software.model_revision' "$CLUSTER_PEER_STATE_FILE")"
+else
+  echo "  FAIL ready state write refused: ${PEER_GATE_REASON:-unknown}"; fail=1
 fi
 
-echo 'aligned starts use the same boundary in either arm order:'
-check 'coordinator arms first' 220 "$(cluster_start_at 100 200)"
-check 'worker arms first' 220 "$(cluster_start_at 200 100)"
-
-echo 'a disarm or missed window never kickstarts a rank:'
-peer_armed_read() { PEER_GATE_REASON='peer-not-armed'; return 1; }
-pd_start_gate() { return 0; }
+echo 'the peer accepts only a fresh matching session with known versions:'
+FAKE_PEER_STATE_FILE="$tmp/state/remote-peer-state.json"
+export FAKE_PEER_STATE_FILE
+if write_state "$FAKE_PEER_STATE_FILE" true 995 "$JOIN_SESSION_ID" ready; then
+  :
+else
+  echo '  FAIL could not create ready peer fixture'; fail=1
+fi
 if peer_armed_read; then
-  echo '  FAIL disarm fixture unexpectedly passed'
-  fail=1
+  check 'matching ready peer armed_at' 995 "$PEER_ARMED_AT"
 else
-  contains 'disarm fixture reason' peer-not-armed "$PEER_GATE_REASON"
+  echo "  FAIL matching peer refused: $PEER_GATE_REASON"; fail=1
 fi
-check 'PD gate fixture is healthy' 0 "$(pd_start_gate && echo 0 || echo 1)"
-if cluster_final_rank_start 100 995 > "$tmp/disarm.log" 2>&1; then
-  echo '  FAIL disarmed peer reached kickstart'
-  fail=1
+old_session=20261018T120000Z-deadbeef
+write_state "$FAKE_PEER_STATE_FILE" true 995 "$old_session" ready
+if peer_armed_read; then
+  echo '  FAIL stale prior session arm passed'; fail=1
 else
-  contains 'disarm is logged' 'REFUSE reason=peer-not-armed' "$(cat "$tmp/disarm.log")"
+  contains 'stale prior session is refused' peer-session-mismatch "$PEER_GATE_REASON"
 fi
-check 'disarm issued no kickstart' 0 "$(grep -c 'kickstart' "$FAKE_LAUNCHCTL_LOG" || true)"
-
-peer_armed_read() { PEER_ARMED_AT=995; return 0; }
-FAKE_NOW=101
-if cluster_final_rank_start 100 995 > "$tmp/window.log" 2>&1; then
-  echo '  FAIL missed window reached kickstart'
-  fail=1
+write_state "$FAKE_PEER_STATE_FILE" true 899 "$JOIN_SESSION_ID" ready
+if peer_armed_read; then
+  echo '  FAIL expired ready state passed'; fail=1
 else
-  contains 'missed window is refused' 'REFUSE reason=missed-start-window' "$(cat "$tmp/window.log")"
+  contains 'expired ready state is refused' peer-arm-stale "$PEER_GATE_REASON"
 fi
-check 'missed window issued no kickstart' 0 "$(grep -c 'kickstart' "$FAKE_LAUNCHCTL_LOG" || true)"
+write_state "$FAKE_PEER_STATE_FILE" true 1010 "$JOIN_SESSION_ID" ready
+if peer_armed_read; then
+  echo '  FAIL future peer timestamp passed'; fail=1
+else
+  contains 'future peer timestamp is refused' peer-arm-future "$PEER_GATE_REASON"
+fi
 
-setup_local_pass() {
-  rm -f "$CLUSTER_STATE_DIR/rank-model"
-  pd_start_gate() { printf 'J1\n' >> "$EVENTS"; return 0; }
-  link_prep_ok() { printf 'J2\n' >> "$EVENTS"; return 0; }
-  set_wired_limit() { printf 'J3\n' >> "$EVENTS"; return 0; }
-  cluster_join_quiesce() { quiesced=true; printf 'J4\n' >> "$EVENTS"; }
-  rank_start_room_ok() { printf 'J5 shard=%s\n' "${CLUSTER_SHARD_MEMORY_MB:-unset}" >> "$EVENTS"; return 0; }
-  peer_state_write() { printf 'arm\n' >> "$EVENTS"; return "${FAKE_ARM_RC:-0}"; }
-  link_state_write() { printf 'link-%s\n' "$1" >> "$EVENTS"; return 0; }
-  cluster_join_peer_poll() { JOIN_PEER_ARMED_AT=1000; return 0; }
-  cluster_final_rank_start() { cluster_rank_model_write || return 1; printf 'J9\n' >> "$EVENTS"; return 0; }
-  cluster_sleep_until() { return 0; }
-  cluster_teardown() { printf 'teardown\n' >> "$EVENTS"; TEARDOWN_REBOOT=0; return "${FAKE_TEARDOWN_RC:-0}"; }
-  curl() { return 0; }
-  rank_process_running() { return 0; }
-  rank_process_pids() { printf '123\n'; }
-  pd_held_count() { PD_HELD=0; return 0; }
-  cluster_lifecycle_log_start() { exec > "$CLUSTER_LIFECYCLE_LOG" 2>&1; }
-  FAKE_NOW=1000
-}
+echo 'empty version values refuse even when both sides agree:'
+old_software="$CLUSTER_SOFTWARE_JSON"
+CLUSTER_SOFTWARE_JSON='{"nix_ai":"rev-a","mlx":"","mlx_lm":"0.29","macos":"","model":"org/default","model_revision":""}'
+write_state "$FAKE_PEER_STATE_FILE" false 0 "$JOIN_SESSION_ID" preparing
+jq '.armed = true | .armed_at = 995 | .phase = "ready" | .software.mlx = ""' \
+  "$FAKE_PEER_STATE_FILE" > "$tmp/empty-version.json"
+mv "$tmp/empty-version.json" "$FAKE_PEER_STATE_FILE"
+if peer_armed_read; then
+  echo '  FAIL matching empty version values passed'; fail=1
+else
+  contains 'matching empty mlx is unknown' 'version-unknown key=mlx' "$PEER_GATE_REASON"
+fi
+CLUSTER_SOFTWARE_JSON="$old_software"
+FAKE_CONFIG_REV=unknown
+if peer_armed_read; then
+  echo '  FAIL unknown configuration revision passed'; fail=1
+else
+  contains 'unknown configuration revision is refused' 'version-unknown key=configuration_revision' "$PEER_GATE_REASON"
+fi
+FAKE_CONFIG_REV=config-a
+write_state "$FAKE_PEER_STATE_FILE" true 995 "$JOIN_SESSION_ID" ready
+jq '.software.nix_ai = "rev-b"' "$FAKE_PEER_STATE_FILE" > "$tmp/version-mismatch.json"
+mv "$tmp/version-mismatch.json" "$FAKE_PEER_STATE_FILE"
+if peer_armed_read; then
+  echo '  FAIL version mismatch passed'; fail=1
+else
+  contains 'version mismatch identifies key' 'version-mismatch key=nix_ai' "$PEER_GATE_REASON"
+fi
+write_state "$FAKE_PEER_STATE_FILE" true 1000 "$JOIN_SESSION_ID" commit 1020
+jq '.software.model = ""' "$FAKE_PEER_STATE_FILE" > "$tmp/peer-empty-version.json"
+mv "$tmp/peer-empty-version.json" "$FAKE_PEER_STATE_FILE"
+CLUSTER_ROLE=worker
+CLUSTER_PEER_STATE_FILE="$tmp/state/worker-peer-state.json"
+if cluster_worker_wait_commit > "$tmp/peer-empty-version.log" 2>&1; then
+  echo '  FAIL unknown peer version passed the commit wait'; fail=1
+else
+  contains 'unknown peer version refuses with its key' 'REFUSE reason=version-unknown detail=version-unknown key=model' \
+    "$(cat "$tmp/peer-empty-version.log")"
+fi
 
-echo 'the coordinator completes J1-J5 before starting its worker, then arms at J6:'
+echo 'the coordinator commits only after the worker READY for the same session:'
+CLUSTER_PEER_STATE_FILE="$tmp/state/local-peer-state.json"
+CLUSTER_ROLE=coordinator
+JOIN_READY_AT=1000
+FAKE_NOW=1000
+write_state "$FAKE_PEER_STATE_FILE" true 1000 "$JOIN_SESSION_ID" ready
+if cluster_join_wait_worker_ready && cluster_join_publish_commit; then
+  check 'coordinator phase is commit' commit "$(jq -r '.phase' "$CLUSTER_PEER_STATE_FILE")"
+  check 'coordinator start_at is published' 1020 "$(jq -r '.start_at' "$CLUSTER_PEER_STATE_FILE")"
+else
+  echo "  FAIL coordinator commit refused: ${PEER_GATE_REASON:-unknown}"; fail=1
+fi
+
+echo 'an abort after worker READY becomes commit-withdrawn and launches nothing:'
+CLUSTER_ROLE=worker
+CLUSTER_PEER_STATE_FILE="$tmp/state/worker-peer-state.json"
+write_state "$CLUSTER_PEER_STATE_FILE" true 1000 "$JOIN_SESSION_ID" ready
+CLUSTER_PEER_STATE_FILE="$tmp/state/coordinator-peer-state.json"
+write_state "$CLUSTER_PEER_STATE_FILE" false 0 "$JOIN_SESSION_ID" abort
+CLUSTER_PEER_STATE_FILE="$tmp/state/worker-peer-state.json"
+FAKE_PEER_STATE_FILE="$tmp/state/coordinator-peer-state.json"
+: > "$FAKE_LAUNCHCTL_LOG"
+if cluster_worker_wait_commit > "$tmp/abort.log" 2>&1; then
+  echo '  FAIL worker accepted coordinator abort'; fail=1
+else
+  contains 'worker refuses with commit-withdrawn' 'REFUSE reason=commit-withdrawn' "$(cat "$tmp/abort.log")"
+fi
+check 'coordinator refusal issued no worker kickstart' 0 "$(grep -c 'kickstart' "$FAKE_LAUNCHCTL_LOG" || true)"
+
+echo 'a worker reports formed only after coordinator formation is published:'
+CLUSTER_ROLE=worker
+CLUSTER_PEER_STATE_FILE="$tmp/state/worker-peer-state.json"
+CLUSTER_PEER_STATE_FILE="$tmp/state/coordinator-peer-state.json"
+write_state "$CLUSTER_PEER_STATE_FILE" false 0 "$JOIN_SESSION_ID" abort
+FAKE_PEER_STATE_FILE="$CLUSTER_PEER_STATE_FILE"
+if cluster_join_wait_coordinator_formed > "$tmp/coordinator-abort.log" 2>&1; then
+  echo '  FAIL worker accepted coordinator abort during formation'; fail=1
+else
+  contains 'worker rejects coordinator abort during formation' \
+    'REFUSE reason=coordinator-aborted' "$(cat "$tmp/coordinator-abort.log")"
+fi
+write_state "$CLUSTER_PEER_STATE_FILE" true 1000 "$JOIN_SESSION_ID" formed
+if cluster_join_wait_coordinator_formed; then
+  echo '  ok   worker accepts coordinator formed for the matching session'
+else
+  echo "  FAIL coordinator formed was refused: ${PEER_GATE_REASON:-unknown}"; fail=1
+fi
+CLUSTER_PEER_STATE_FILE="$tmp/state/worker-peer-state.json"
+
+echo 'a withdrawn COMMIT between sleep and kickstart is re-read and refused:'
+write_state "$CLUSTER_PEER_STATE_FILE" true 1000 "$JOIN_SESSION_ID" ready
+CLUSTER_PEER_STATE_FILE="$FAKE_PEER_STATE_FILE"
+write_state "$CLUSTER_PEER_STATE_FILE" true 1000 "$JOIN_SESSION_ID" commit 1002
+CLUSTER_PEER_STATE_FILE="$tmp/state/worker-peer-state.json"
+JOIN_START_AT=1002
+JOIN_SHARDING=tensor
+FAKE_NOW=1000
+WITHDRAW_ON_SLEEP=true
+: > "$FAKE_LAUNCHCTL_LOG"
+if cluster_final_rank_start 1002 > "$tmp/withdrawn-commit.log" 2>&1; then
+  echo '  FAIL withdrawn commit reached kickstart'; fail=1
+else
+  contains 'withdrawn commit is refused' 'REFUSE reason=commit-withdrawn' "$(cat "$tmp/withdrawn-commit.log")"
+fi
+check 'withdrawn commit issued no kickstart' 0 "$(grep -c 'kickstart' "$FAKE_LAUNCHCTL_LOG" || true)"
+
+echo 'room refuses missing shard size and the session id is required for workers:'
+unset CLUSTER_SHARD_MEMORY_MB
+if rank_start_room_ok; then
+  echo '  FAIL missing shard size passed'; fail=1
+else
+  contains 'missing shard size sets room-unconfigured' room-unconfigured "$MEM_HEADROOM_DETAIL"
+fi
+CLUSTER_SHARD_MEMORY_MB=128
+: > "$CLUSTER_LIFECYCLE_LOG"
+if (cluster_join_main --worker) > /dev/null 2>&1; then
+  echo '  FAIL worker without session passed'; fail=1
+else
+  check 'worker without session exits nonzero' 1 "$?"
+fi
+contains 'missing worker session is logged' 'REFUSE reason=no-session' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
+
+echo 'a coordinator requires both HTTP readiness and a live rank:'
+CLUSTER_ROLE=coordinator
+CLUSTER_HTTP_PORT=8000
+CLUSTER_JOIN_TIMEOUT_SECS=1
+FAKE_HTTP_RC=0
+FAKE_PGREP_STATE=absent
+SECONDS=0
+if cluster_join_wait_coordinator_formed_local > "$tmp/no-rank-formed.log" 2>&1; then
+  echo '  FAIL coordinator formed without a live rank'; fail=1
+else
+  contains 'HTTP success without a rank is refused' 'REFUSE reason=coordinator-endpoint-not-formed' "$(cat "$tmp/no-rank-formed.log")"
+fi
+FAKE_PGREP_STATE=running
+if cluster_join_wait_coordinator_formed_local; then
+  echo '  ok   coordinator HTTP plus live rank passes'
+else
+  echo '  FAIL coordinator HTTP plus live rank refused'; fail=1
+fi
+FAKE_PGREP_SEQUENCE="$tmp/pgrep.sequence"
+FAKE_PGREP_COUNT_FILE="$tmp/pgrep.count"
+printf 'running\nabsent\n' > "$FAKE_PGREP_SEQUENCE"
+export FAKE_PGREP_SEQUENCE FAKE_PGREP_COUNT_FILE
+JOIN_READY_AT=1000
+FAKE_NOW=1000
+if cluster_join_publish_formed > "$tmp/rank-exit-formed.log" 2>&1; then
+  echo '  FAIL rank exit during formed publication passed'; fail=1
+else
+  contains 'formed publication rechecks rank' 'REFUSE reason=rank-not-running-at-formation' "$(cat "$tmp/rank-exit-formed.log")"
+fi
+unset FAKE_PGREP_SEQUENCE FAKE_PGREP_COUNT_FILE
+
+echo 'the coordinator sends the worker its session and SSH reap has a hard deadline:'
 CLUSTER_ROLE=coordinator
 CLUSTER_PEER_SSH=user@peer
-CLUSTER_JOIN_TIMEOUT_SECS=10
-CLUSTER_SHARDING_MODE=pipeline
+CLUSTER_JOIN_TIMEOUT_SECS=20
+JOIN_SESSION_ID=20261018T120000Z-0123abcd
+export CLUSTER_PEER_SSH
+unset -f sleep
+: > "$FAKE_SSH_LOG"
+cluster_peer_ssh_start
+cluster_peer_ssh_wait || { echo '  FAIL short worker ssh did not reap'; fail=1; }
+contains 'worker ssh includes the session id' \
+  'user@peer cluster-join --worker --session 20261018T120000Z-0123abcd' "$(cat "$FAKE_SSH_LOG")"
+: > "$FAKE_SSH_LOG"
 FAKE_SSH_RC=0
-unset FAKE_SSH_SLEEP FAKE_SSH_PID_FILE
-export CLUSTER_ROLE CLUSTER_PEER_SSH CLUSTER_JOIN_TIMEOUT_SECS CLUSTER_SHARDING_MODE FAKE_SSH_RC
+export FAKE_SSH_RC
+if cluster_peer_remote_detach; then
+  contains 'coordinator requests a session-scoped remote detach' \
+    'user@peer cluster-detach --worker --session 20261018T120000Z-0123abcd' "$(cat "$FAKE_SSH_LOG")"
+else
+  echo '  FAIL session-scoped remote detach was not acknowledged'; fail=1
+fi
 : > "$FAKE_SSH_LOG"
-: > "$CLUSTER_LIFECYCLE_LOG"
-: > "$EVENTS"
-setup_local_pass
-if (cluster_join_main) > /dev/null 2>&1; then
-  check 'local and worker join both pass' 0 "$?"
+FAKE_SSH_RC=255
+if cluster_peer_remote_detach > "$tmp/remote-detach-failure.log" 2>&1; then
+  echo '  FAIL remote detach transport failure was acknowledged'; fail=1
 else
-  echo '  FAIL coordinator join failed when both sides passed'; fail=1
+  contains 'unconfirmed remote cleanup is refused' 'REFUSE reason=peer-cleanup-unconfirmed' \
+    "$(cat "$tmp/remote-detach-failure.log")"
 fi
-check 'worker join called ssh once' 1 "$(wc -l < "$FAKE_SSH_LOG" | tr -d ' ')"
-check 'worker join arguments' '-o BatchMode=yes -o ConnectTimeout=10 user@peer cluster-join --worker' "$(cat "$FAKE_SSH_LOG")"
-contains 'default model keeps configured shard memory' 'J5 shard=128' "$(cat "$EVENTS")"
-check 'default model keeps configured model id' org/default "$(sed -n '1p' "$CLUSTER_STATE_DIR/rank-model")"
-check 'default model keeps configured sharding mode' pipeline "$(sed -n '2p' "$CLUSTER_STATE_DIR/rank-model")"
-j5_line="$(grep -n 'cluster-join: room PASS' "$CLUSTER_LIFECYCLE_LOG" | cut -d: -f1)"
-start_line="$(grep -n 'cluster-join: peer-ssh started pid=' "$CLUSTER_LIFECYCLE_LOG" | cut -d: -f1)"
-j6_line="$(grep -n 'cluster-join: J6 arm' "$CLUSTER_LIFECYCLE_LOG" | cut -d: -f1)"
-check 'worker ssh starts between J5 and J6' yes "$([ "$j5_line" -lt "$start_line" ] && [ "$start_line" -lt "$j6_line" ] && echo yes || echo no)"
-contains 'worker stdout is prefixed' 'worker: remote stdout' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
-contains 'worker stderr is prefixed' 'worker: remote stderr' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
-
-echo 'a coordinator J1 refusal does not contact the worker:'
-: > "$FAKE_SSH_LOG"
-: > "$CLUSTER_LIFECYCLE_LOG"
-pd_start_gate() { return 1; }
-if (cluster_join_main) > /dev/null 2>&1; then
-  echo '  FAIL coordinator J1 refusal returned success'; fail=1
-else
-  check 'J1 refusal exits 1' 1 "$?"
-fi
-check 'J1 refusal did not call ssh' 0 "$(wc -l < "$FAKE_SSH_LOG" | tr -d ' ')"
-contains 'J1 refusal is logged before any worker start' 'cluster-join: J1 pd-start-gate' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
-if grep -q 'peer-ssh started\|J5 room PASS\|J6 arm' "$CLUSTER_LIFECYCLE_LOG"; then
-  echo '  FAIL a J1 refusal passed its pre-spend gate'; fail=1
-else
-  echo '  ok   J1 refusal stops before J5 and ssh'
-fi
-
-echo 'a worker invocation never starts another ssh:'
-CLUSTER_ROLE=worker
-CLUSTER_WORKER_STABLE_SECS=0
-export CLUSTER_ROLE CLUSTER_WORKER_STABLE_SECS
-: > "$FAKE_SSH_LOG"
-setup_local_pass
-if (cluster_join_main --worker --model user/override --pipeline) > /dev/null 2>&1; then
-  check 'worker join accepts its invocation and passes' 0 "$?"
-else
-  echo '  FAIL worker join failed'; fail=1
-fi
-contains 'worker invocation intent is logged' 'peer worker invocation accepted' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
-contains 'worker parses model and pipeline flags' \
-  'cluster-join: model id=user/override rev=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb total_mb=1 shard_mb=1 sharding=pipeline' \
-  "$(cat "$CLUSTER_LIFECYCLE_LOG")"
-check 'worker with peerSsh configured never calls ssh' 0 "$(wc -l < "$FAKE_SSH_LOG" | tr -d ' ')"
-
-echo 'a failed worker join after local formation tears down the coordinator:'
-CLUSTER_ROLE=coordinator
-FAKE_SSH_RC=42
-export CLUSTER_ROLE FAKE_SSH_RC
-: > "$FAKE_SSH_LOG"
-: > "$CLUSTER_LIFECYCLE_LOG"
-: > "$EVENTS"
-setup_local_pass
-if (cluster_join_main) > /dev/null 2>&1; then
-  echo '  FAIL coordinator accepted a failed worker join'; fail=1
-else
-  check 'failed worker join exits nonzero' 1 "$?"
-fi
-check 'failed worker ssh called once' 1 "$(wc -l < "$FAKE_SSH_LOG" | tr -d ' ')"
-contains 'worker failure rc is logged' 'cluster-join: REFUSE reason=peer-join-failed rc=42' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
-contains 'local join formed before remote failure handling' 'decision=formed' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
-check 'worker failure runs coordinator teardown' yes "$(grep -qx teardown "$EVENTS" && echo yes || echo no)"
-
-echo 'a worker reboot-required result propagates as 3; other ssh errors stay 1:'
-for pair in '255 1' '3 3'; do
-  read -r FAKE_SSH_RC expected_rc <<< "$pair"
-  export FAKE_SSH_RC
-  : > "$FAKE_SSH_LOG"
-  : > "$CLUSTER_LIFECYCLE_LOG"
-  : > "$EVENTS"
-  setup_local_pass
-  if (cluster_join_main) > /dev/null 2>&1; then
-    join_rc=0
-  else
-    join_rc=$?
-  fi
-  check "worker join rc=$FAKE_SSH_RC maps to coordinator rc=$expected_rc" "$expected_rc" "$join_rc"
-  contains 'worker failure rc is logged' \
-    "cluster-join: REFUSE reason=peer-join-failed rc=$FAKE_SSH_RC" "$(cat "$CLUSTER_LIFECYCLE_LOG")"
-  check 'failed worker join tears down the coordinator' yes "$(grep -qx teardown "$EVENTS" && echo yes || echo no)"
-done
-
-echo 'a worker ssh exceeding the bound is terminated and reaped on local exit:'
-CLUSTER_JOIN_TIMEOUT_SECS=0
 FAKE_SSH_RC=0
-FAKE_SSH_SLEEP=60
-FAKE_SSH_PID_FILE="$tmp/ssh.pid"
-export CLUSTER_JOIN_TIMEOUT_SECS FAKE_SSH_RC FAKE_SSH_SLEEP FAKE_SSH_PID_FILE
 : > "$FAKE_SSH_LOG"
-: > "$CLUSTER_LIFECYCLE_LOG"
-: > "$EVENTS"
-setup_local_pass
-peer_state_write() { return 1; }
-sleep() { SECONDS=$((SECONDS + 31)); }
-if (cluster_join_main) > /dev/null 2>&1; then
-  echo '  FAIL local J6 failure returned success'; fail=1
-else
-  check 'local J6 failure keeps its exit code' 1 "$?"
-fi
-contains 'peer ssh timeout is logged' 'cluster-join: peer-ssh timeout' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
-contains 'timeout sends TERM to the worker ssh' 'cluster-join: peer-ssh exit rc=143' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
-if [ -s "$FAKE_SSH_PID_FILE" ] && kill -0 "$(cat "$FAKE_SSH_PID_FILE")" 2> /dev/null; then
-  echo '  FAIL timed-out worker ssh remains alive'; fail=1
-else
-  echo '  ok   timed-out worker ssh was reaped'
-fi
-
-echo 'a TERM exit trap also reaps a started worker ssh:'
-: > "$FAKE_SSH_LOG"
+printf '255\n0\n' > "$tmp/ssh-results"
+export FAKE_SSH_SEQUENCE="$tmp/ssh-results"
+export FAKE_SSH_COUNT_FILE="$tmp/ssh-count"
+: > "$FAKE_SSH_COUNT_FILE"
 : > "$CLUSTER_LIFECYCLE_LOG"
 if (
-  CLUSTER_ROLE=coordinator
-  CLUSTER_PEER_SSH=user@peer
-  CLUSTER_JOIN_TIMEOUT_SECS=0
-  FAKE_SSH_SLEEP=60
-  formed=true
-  quiesced=false
-  JOIN_EXIT_ACTIVE=false
-  JOIN_SIGNAL_RC=0
+  export CLUSTER_LIFECYCLE_COMPONENT=cluster-join
+  cluster_lifecycle_log_start
+  cluster_lifecycle_lock_acquire || exit 2
+  FAKE_PGREP_STATE=absent
+  JOIN_SESSION_ID=20261018T120000Z-0123abcd
+  JOIN_MODEL_EXPLICIT=false
   CLUSTER_PEER_SSH_PID=
   CLUSTER_PEER_SSH_RC=0
-  cluster_lifecycle_log_start
-  trap cluster_join_exit EXIT
-  trap 'cluster_join_signal 143' TERM
-  cluster_peer_ssh_start
-  while [ ! -s "$FAKE_SSH_PID_FILE" ]; do /bin/sleep 0.01; done
-  kill -TERM "$BASHPID"
+  JOIN_EXIT_ACTIVE=false
+  JOIN_SIGNAL_RC=0
+  JOIN_IGNORE_SIGNAL=false
+  formed=false
+  ceiling_attempted=true
+  quiesced=false
+  cluster_peer_ssh_start || exit 2
+  set +e
+  false
+  cluster_join_exit
 ) > /dev/null 2>&1; then
-  echo '  FAIL TERM test command returned success'; fail=1
+  echo '  FAIL coordinator peer failure was reported as success'; fail=1
 else
-  check 'TERM handler preserves its exit code' 143 "$?"
+  check 'coordinator peer failure exits nonzero' 1 "$?"
 fi
-contains 'TERM exit reaped the peer ssh' 'cluster-join: peer-ssh exit rc=143' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
-if kill -0 "$(cat "$FAKE_SSH_PID_FILE")" 2> /dev/null; then
-  echo '  FAIL worker ssh remains alive after TERM'; fail=1
-else
-  echo '  ok   worker ssh was reaped by the TERM exit trap'
-fi
-
-setup_local_pass
-cluster_teardown
-check 'teardown fixture is directly callable' yes "$(grep -qx teardown "$EVENTS" && echo yes || echo no)"
-: > "$EVENTS"
-
-echo 'model validation and fit refuse before J1 and before worker ssh:'
-CLUSTER_ROLE=coordinator
-CLUSTER_PEER_SSH=user@peer
-export CLUSTER_ROLE CLUSTER_PEER_SSH
-setup_local_pass
-: > "$FAKE_SSH_LOG"
-: > "$CLUSTER_LIFECYCLE_LOG"
-if (cluster_join_main --model user/missing) > /dev/null 2>&1; then
-  echo '  FAIL missing model cache passed'
-  fail=1
-else
-  check 'missing model cache exits 1' 1 "$?"
-fi
-contains 'missing cache refusal includes refs path' \
-  "$HF_HOME/hub/models--user--missing/refs/main" "$(cat "$CLUSTER_LIFECYCLE_LOG")"
-if grep -q 'J1 pd-start-gate' "$CLUSTER_LIFECYCLE_LOG"; then
-  echo '  FAIL missing cache reached J1'; fail=1
-else
-  echo '  ok   missing cache refuses before J1'
-fi
-check 'missing cache does not start worker ssh' 0 "$(wc -l < "$FAKE_SSH_LOG" | tr -d ' ')"
-
-setup_local_pass
-: > "$FAKE_SSH_LOG"
-: > "$CLUSTER_LIFECYCLE_LOG"
-if (cluster_join_main --model 'user/bad?model') > /dev/null 2>&1; then
-  echo '  FAIL invalid model id passed'
-  fail=1
-else
-  check 'invalid model id exits 1' 1 "$?"
-fi
-contains 'invalid model id is refused' 'REFUSE reason=model-not-cached detail=invalid-model-id' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
-if grep -q 'J1 pd-start-gate' "$CLUSTER_LIFECYCLE_LOG"; then
-  echo '  FAIL invalid model id reached J1'; fail=1
-else
-  echo '  ok   invalid model id refuses before J1'
-fi
-check 'invalid model id does not start worker ssh' 0 "$(wc -l < "$FAKE_SSH_LOG" | tr -d ' ')"
-
-setup_local_pass
-CLUSTER_JOIN_TIMEOUT_SECS=10
-unset FAKE_SSH_SLEEP FAKE_SSH_PID_FILE
-FAKE_SSH_RC=0
-export CLUSTER_JOIN_TIMEOUT_SECS FAKE_SSH_RC
-export FAKE_MODEL_SIZE=104857600 CLUSTER_WIRED_LIMIT_MB=50 CLUSTER_COMPOSITOR_RESERVE_MB=20
-: > "$FAKE_SSH_LOG"
-: > "$CLUSTER_LIFECYCLE_LOG"
-if (cluster_join_main --model user/huge) > /dev/null 2>&1; then
-  echo '  FAIL oversized model passed'
-  fail=1
-else
-  check 'oversized model exits 1' 1 "$?"
-fi
-contains 'oversized model refusal is logged' 'REFUSE reason=model-too-large shard_mb=55 ceiling_mb=30' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
-if grep -q 'J1 pd-start-gate' "$CLUSTER_LIFECYCLE_LOG"; then
-  echo '  FAIL oversized model reached J1'; fail=1
-else
-  echo '  ok   oversized model refuses before J1'
-fi
-check 'oversized model does not start worker ssh' 0 "$(wc -l < "$FAKE_SSH_LOG" | tr -d ' ')"
-
-echo 'a cached model override is logged, persisted, and forwarded to the worker:'
-export FAKE_MODEL_SIZE=20971520 CLUSTER_WIRED_LIMIT_MB=2000 CLUSTER_COMPOSITOR_RESERVE_MB=100
-setup_local_pass
-CLUSTER_JOIN_TIMEOUT_SECS=10
-unset FAKE_SSH_SLEEP FAKE_SSH_PID_FILE
-FAKE_SSH_RC=0
-export CLUSTER_JOIN_TIMEOUT_SECS FAKE_SSH_RC
-: > "$FAKE_SSH_LOG"
-: > "$CLUSTER_LIFECYCLE_LOG"
-if (cluster_join_main --model user/override --pipeline) > /dev/null 2>&1; then
-  check 'cached model override join passes' 0 "$?"
-else
-  echo '  FAIL cached model override join failed'; fail=1
-fi
-contains 'model fit and selection are logged' \
-  'cluster-join: model id=user/override rev=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb total_mb=20 shard_mb=11 sharding=pipeline' \
+contains 'coordinator failure invokes session-scoped worker cleanup' \
+  'user@peer cluster-detach --worker --session 20261018T120000Z-0123abcd' "$(cat "$FAKE_SSH_LOG")"
+contains 'coordinator logs remote cleanup acknowledgment' 'worker detach acknowledged session=20261018T120000Z-0123abcd' \
   "$(cat "$CLUSTER_LIFECYCLE_LOG")"
-contains 'J5 receives computed shard memory' 'J5 shard=11' "$(cat "$EVENTS")"
-check 'rank-model first line is the selected id' user/override "$(sed -n '1p' "$CLUSTER_STATE_DIR/rank-model")"
-check 'rank-model second line is the selected mode' pipeline "$(sed -n '2p' "$CLUSTER_STATE_DIR/rank-model")"
-check 'worker ssh receives model and pipeline flags' \
-  '-o BatchMode=yes -o ConnectTimeout=10 user@peer cluster-join --worker --model user/override --pipeline' \
-  "$(cat "$FAKE_SSH_LOG")"
-
-echo 'rank launcher applies the saved model and sharding mode:'
-rank_args_out="$(CLUSTER_IBV_MATRIX_FILE="$tmp/state/ibv-matrix.json" \
-  CLUSTER_RDMA_DEVICE=rdma_test bash "${RANK_LAUNCH:?set RANK_LAUNCH to cluster-rank-launch.sh}" \
-  /bin/echo --model org/default 2> "$tmp/rank-launch.log")"
-check 'pipeline state replaces model and adds flag' '--model user/override --pipeline' "$rank_args_out"
-contains 'rank model override log is exact' 'cluster-rank: model override id=user/override sharding=pipeline' "$(cat "$tmp/rank-launch.log")"
-rm -f "$CLUSTER_STATE_DIR/rank-model"
-rank_args_out="$(CLUSTER_IBV_MATRIX_FILE="$tmp/state/ibv-matrix.json" \
-  CLUSTER_RDMA_DEVICE=rdma_test bash "$RANK_LAUNCH" /bin/echo --model org/default --pipeline)"
-check 'missing state leaves argv unchanged' '--model org/default --pipeline' "$rank_args_out"
-printf 'user/tensor\ntensor\n' > "$CLUSTER_STATE_DIR/rank-model"
-rank_args_out="$(CLUSTER_IBV_MATRIX_FILE="$tmp/state/ibv-matrix.json" \
-  CLUSTER_RDMA_DEVICE=rdma_test bash "$RANK_LAUNCH" /bin/echo --model org/default --pipeline)"
-check 'tensor state replaces model and removes flag' '--model user/tensor' "$rank_args_out"
-
-echo 'teardown deletes the saved rank model:'
-source modules/mlx/scripts/cluster-teardown.sh
-peer_state_write() { return 0; }
-rank_process_absent() { return 0; }
-pd_held_count() { PD_HELD=0; return 0; }
-set_wired_limit() { return 0; }
-restore_normal_serving() { return 0; }
-link_state_write() { return 0; }
-printf 'user/tensor\ntensor\n' > "$CLUSTER_STATE_DIR/rank-model"
-if cluster_teardown > "$tmp/teardown-model.log" 2>&1; then
-  if [ ! -e "$CLUSTER_STATE_DIR/rank-model" ]; then
-    echo '  ok   teardown removes rank-model'
-  else
-    echo '  FAIL teardown left rank-model'; fail=1
-  fi
+unset FAKE_SSH_SEQUENCE FAKE_SSH_COUNT_FILE
+: > "$CLUSTER_LIFECYCLE_LOG"
+if (
+  CLUSTER_JOIN_TIMEOUT_SECS=0
+  cluster_lifecycle_log_start
+  kill() { return 0; }
+  sleep() { SECONDS=$((SECONDS + 1)); }
+  /bin/sleep 60 &
+  CLUSTER_PEER_SSH_PID=$!
+  if cluster_peer_ssh_wait; then exit 0; else rc=$?; fi
+  /bin/kill -KILL "$CLUSTER_PEER_SSH_PID" 2> /dev/null || true
+  wait "$CLUSTER_PEER_SSH_PID" 2> /dev/null || true
+  exit "$rc"
+) > /dev/null 2>&1; then
+  echo '  FAIL unreaped ssh uncertainty passed'; fail=1
 else
-  echo '  FAIL teardown failed before removing rank-model'; fail=1
+  contains 'ssh reap uncertainty is a refusal' 'REFUSE reason=peer-ssh-reap-uncertain' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
+fi
+
+echo 'a second lifecycle command refuses before gates when the lock is held:'
+CLUSTER_LIFECYCLE_COMPONENT=cluster-join
+cluster_lifecycle_lock_acquire
+: > "$CLUSTER_LIFECYCLE_LOG"
+if (cluster_join_main) > /dev/null 2>&1; then
+  echo '  FAIL overlapping join passed'; fail=1
+else
+  check 'overlapping join exits nonzero' 1 "$?"
+fi
+contains 'overlapping join reports the lock' 'REFUSE reason=lifecycle-locked' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
+cluster_lifecycle_lock_release
+
+echo 'a signal between J3 and J4 restores the wired ceiling:'
+CLUSTER_ROLE=coordinator
+CLUSTER_PEER_SSH=
+CLUSTER_JOIN_TIMEOUT_SECS=20
+FAKE_PGREP_STATE=absent
+FAKE_NOW=1000
+printf '1000\n' > "$FAKE_WIRED_FILE"
+rm -f "$tmp/signal-sent"
+: > "$CLUSTER_LIFECYCLE_LOG"
+set +e
+(
+  SIGNAL_JOIN_PID="$BASHPID"
+  SIGNAL_SENT_FILE="$tmp/signal-sent"
+  export SIGNAL_JOIN_PID SIGNAL_SENT_FILE
+  cluster_join_main
+) > /dev/null 2>&1
+join_rc=$?
+set -e
+check 'J3 TERM preserves signal result' 143 "$join_rc"
+check 'ceiling restored after J3 signal' 1000 "$(cat "$FAKE_WIRED_FILE")"
+check 'link is down after J3 recovery' down "$(cat "$CLUSTER_STATE_FILE")"
+contains 'J3 was attempted before recovery' 'cluster-join: J3 wired-ceiling' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
+if grep -q 'cluster-join: J4 quiesce' "$CLUSTER_LIFECYCLE_LOG"; then
+  echo '  FAIL signal was delivered after J4'; fail=1
+else
+  echo '  ok   signal was delivered between J3 and J4'
+fi
+
+echo 'model selection retains its cached-model override contract:'
+CLUSTER_MODEL=org/default
+CLUSTER_SHARDING_MODE=tensor
+CLUSTER_WIRED_LIMIT_MB=2000
+CLUSTER_COMPOSITOR_RESERVE_MB=100
+export FAKE_MODEL_SIZE=20971520
+if cluster_join_model_select user/override true true; then
+  check 'model override id selected' user/override "$JOIN_MODEL_ID"
+  check 'model override revision selected' bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb "$JOIN_MODEL_REVISION"
+  check 'explicit shard size computed' 11 "$JOIN_SHARD_MEMORY_MB"
+  check 'pipeline sharding selected' pipeline "$JOIN_SHARDING"
+else
+  echo '  FAIL cached model override refused'; fail=1
 fi
 
 if [ "$fail" -ne 0 ]; then

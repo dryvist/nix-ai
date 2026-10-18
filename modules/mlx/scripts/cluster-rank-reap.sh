@@ -25,7 +25,7 @@ export TEARDOWN_SIGKILLED TEARDOWN_REBOOT
 rank_reap_verified() {
   local grace="${1:-${CLUSTER_RANK_REAP_GRACE_SECS:-30}}" pids pid deadline
   if [ -z "${CLUSTER_RANK_PROCESS_PATTERN:-}" ]; then
-    echo "cluster: CLUSTER_RANK_PROCESS_PATTERN is unset — refusing to assume no previous rank survives" >&2
+    lifecycle_refuse rank-probe-unanswerable "CLUSTER_RANK_PROCESS_PATTERN is unset; refusing to assume no rank survives"
     return 1
   fi
   if rank_process_absent; then
@@ -34,10 +34,12 @@ rank_reap_verified() {
   pids="$(rank_process_pids || true)"
   if [ -z "$pids" ]; then
     # Not proven absent, yet no pids came back: pgrep itself could not answer.
-    echo "cluster: could not determine whether a rank process survives (${CLUSTER_PGREP_BIN:-/usr/bin/pgrep} unusable) — refusing to treat that as 'nothing to clean up'" >&2
+    lifecycle_refuse rank-probe-unanswerable \
+      "could not determine whether a rank process survives (${CLUSTER_PGREP_BIN:-/usr/bin/pgrep} unusable)"
     return 1
   fi
-  echo "cluster: a rank process is STILL RUNNING ($(printf '%s' "$pids" | tr '\n' ' ')) and still owns its RDMA protection domain; SIGTERM, then re-verify" >&2
+  lifecycle_refuse rank-survivor \
+    "rank process is running ($(printf '%s' "$pids" | tr '\n' ' ')); SIGTERM, then re-verify"
   while IFS= read -r pid; do
     [ -n "$pid" ] || continue
     "${CLUSTER_KILL_BIN:-/bin/kill}" -TERM "$pid" > /dev/null 2>&1 || true
@@ -50,7 +52,7 @@ rank_reap_verified() {
       return 0
     fi
   done
-  echo "cluster: rank survived SIGTERM for ${grace}s and still holds its protection domain" >&2
+  lifecycle_refuse rank-survivor "rank survived SIGTERM for ${grace}s and still holds its protection domain"
   return 1
 }
 
@@ -83,7 +85,7 @@ rank_stop_verified() {
     TEARDOWN_REBOOT=1
     return 0
   fi
-  echo "cluster-teardown: FAIL rank remains after SIGKILL" >&2
+  lifecycle_refuse rank-survivor "rank remains after SIGKILL"
   TEARDOWN_SIGKILLED=1
   TEARDOWN_REBOOT=1
   return 1

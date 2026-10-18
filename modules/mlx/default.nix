@@ -10,7 +10,6 @@ let
   versions = import ../../lib/versions.nix;
   clusterSoftwareJson = builtins.toJSON {
     nix_ai = nixAiRev;
-    nix_darwin = cfg.clusterMode.hostGeneration;
     inherit (versions) mlx;
     mlx_lm = versions.mlxLm;
     macos = "";

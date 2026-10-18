@@ -48,27 +48,27 @@ in
         "model"
         "model_revision"
         "nix_ai"
-        "nix_darwin"
       ]
       && builtins.all (key: builtins.isString softwareContract.${key}) [
         "model"
         "model_revision"
         "nix_ai"
-        "nix_darwin"
         "mlx"
         "mlx_lm"
         "macos"
       ]
-      || throw "cluster: software-version contract must publish all five string keys";
+      || throw "cluster: software-version contract must publish the six runtime-compared string keys";
     assert
-      softwareContract.nix_darwin == ncfg.hostGeneration
-      && softwareContract.nix_ai != ""
+      softwareContract.nix_ai != ""
       && softwareContract.mlx != ""
       && softwareContract.mlx_lm != ""
       && softwareContract.macos == ""
       && softwareContract.model == ncfg.model
       && softwareContract.model_revision == ""
-      || throw "cluster: software versions must use the consumer generation, flake revision, and pinned MLX versions";
+      && pkgs.lib.hasInfix ".configurationRevision" (
+        builtins.readFile ../../modules/mlx/scripts/cluster-peer-state-write.sh
+      )
+      || throw "cluster: software versions must use the runtime configuration revision, flake revision, and pinned MLX versions";
     assert
       ncfg.peerSsh == ""
       && builtins.any (

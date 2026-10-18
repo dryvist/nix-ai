@@ -2,22 +2,17 @@
 # cluster-join -- guarded, one-shot cluster bring-up.
 
 join_fail() {
-  echo "cluster-join: FAIL: $*" >&2
+  lifecycle_refuse usage "$*"
   exit 1
 }
 
 join_refuse() {
-  local reason="$1" detail="$2"
-  detail="${detail//$'\n'/ }"
-  detail="${detail//$'\r'/ }"
-  printf 'cluster-join: REFUSE reason=%s detail=%s\n' "$reason" "$detail" >&2
+  lifecycle_refuse "$1" "$2"
 }
 
 cluster_model_refuse() {
   local detail="$1"
-  detail="${detail//$'\n'/ }"
-  detail="${detail//$'\r'/ }"
-  printf 'cluster-join: REFUSE reason=model-not-cached detail=%s\n' "$detail" >&2
+  lifecycle_refuse model-not-cached "$detail"
   return 1
 }
 
@@ -88,7 +83,7 @@ cluster_join_model_select() {
       fi
       size=$((10#$size))
       if [ "$size" -gt 9007199254740991 ] || [ "$total_bytes" -gt $((9007199254740991 - size)) ]; then
-        printf 'cluster-join: REFUSE reason=model-too-large detail=snapshot size exceeds safe measurement range\n' >&2
+        lifecycle_refuse model-too-large "snapshot size exceeds safe measurement range"
         return 1
       fi
       total_bytes=$((total_bytes + size))
@@ -109,12 +104,12 @@ cluster_join_model_select() {
     ceiling="${CLUSTER_WIRED_LIMIT_MB:-}"
     reserve="${CLUSTER_COMPOSITOR_RESERVE_MB:-}"
     if ! [[ "$ceiling" =~ ^[0-9]{1,8}$ ]] || ! [[ "$reserve" =~ ^[0-9]{1,8}$ ]]; then
-      printf 'cluster-join: REFUSE reason=model-too-large detail=local wired ceiling is unconfigured\n' >&2
+      lifecycle_refuse model-too-large "local wired ceiling is unconfigured"
       return 1
     fi
     limit=$((10#$ceiling - 10#$reserve))
     if [ "$shard_mb" -gt "$limit" ]; then
-      printf 'cluster-join: REFUSE reason=model-too-large shard_mb=%s ceiling_mb=%s\n' "$shard_mb" "$limit" >&2
+      lifecycle_refuse model-too-large "shard_mb=$shard_mb ceiling_mb=$limit"
       return 1
     fi
     printf 'cluster-join: model id=%s rev=%s total_mb=%s shard_mb=%s sharding=%s\n' \
@@ -139,7 +134,7 @@ cluster_rank_model_write() {
 cluster_peer_ssh_start() {
   [ "${CLUSTER_ROLE:-}" = coordinator ] || return 0
   [ -n "${CLUSTER_PEER_SSH:-}" ] || return 0
-  local -a join_args=(cluster-join --worker)
+  local -a join_args=(cluster-join --worker --session "$JOIN_SESSION_ID")
   if [ "${JOIN_MODEL_EXPLICIT:-false}" = true ]; then
     join_args+=(--model "$JOIN_MODEL_ID")
   fi
@@ -154,19 +149,21 @@ cluster_peer_ssh_start() {
 }
 
 cluster_peer_ssh_running() {
-  local pid
+  local pid expected="${1:-${CLUSTER_PEER_SSH_PID:-}}"
+  [ -n "$expected" ] || return 1
   while IFS= read -r pid; do
-    [ "$pid" = "${CLUSTER_PEER_SSH_PID:-}" ] && return 0
+    [ "$pid" = "$expected" ] && return 0
   done < <(jobs -pr)
   return 1
 }
 
 cluster_peer_ssh_wait() {
-  local deadline term_deadline rc timed_out=false
-  [ -n "${CLUSTER_PEER_SSH_PID:-}" ] || return 0
-  deadline=$((SECONDS + ${CLUSTER_JOIN_TIMEOUT_SECS:-600} + 30))
-  while cluster_peer_ssh_running; do
-    if [ "${JOIN_SIGNAL_RC:-0}" -ne 0 ]; then
+  local pid="${1:-${CLUSTER_PEER_SSH_PID:-}}"
+  local deadline term_deadline reap_deadline rc timed_out=false
+  [ -n "$pid" ] || return 0
+  deadline=$((SECONDS + ${CLUSTER_JOIN_TIMEOUT_SECS:-600}))
+  while cluster_peer_ssh_running "$pid"; do
+    if [ "${JOIN_SIGNAL_RC:-0}" -ne 0 ] && [ "${JOIN_IGNORE_SIGNAL:-false}" != true ]; then
       echo "cluster-join: peer-ssh stopping after signal rc=$JOIN_SIGNAL_RC" >&2
       break
     fi
@@ -177,18 +174,31 @@ cluster_peer_ssh_wait() {
     fi
     sleep 1
   done
-  if cluster_peer_ssh_running; then
-    kill -TERM "$CLUSTER_PEER_SSH_PID" 2> /dev/null || true
+  if cluster_peer_ssh_running "$pid"; then
+    kill -TERM "$pid" 2> /dev/null || true
     term_deadline=$((SECONDS + 5))
-    while cluster_peer_ssh_running && [ "$SECONDS" -lt "$term_deadline" ]; do sleep 1; done
-    if cluster_peer_ssh_running; then kill -KILL "$CLUSTER_PEER_SSH_PID" 2> /dev/null || true; fi
+    while cluster_peer_ssh_running "$pid" && [ "$SECONDS" -lt "$term_deadline" ]; do sleep 1; done
+    if cluster_peer_ssh_running "$pid"; then
+      kill -KILL "$pid" 2> /dev/null || true
+      reap_deadline=$((SECONDS + 10))
+      while cluster_peer_ssh_running "$pid" && [ "$SECONDS" -lt "$reap_deadline" ]; do sleep 1; done
+      if cluster_peer_ssh_running "$pid"; then
+        CLUSTER_PEER_SSH_RC=1
+        lifecycle_refuse peer-ssh-reap-uncertain \
+          "could not confirm worker ssh pid=$pid exited within 10s after SIGKILL"
+        return 1
+      fi
+    fi
   fi
-  while cluster_peer_ssh_running; do sleep 1; done
-  if wait "$CLUSTER_PEER_SSH_PID"; then rc=0; else rc=$?; fi
+  if wait "$pid"; then rc=0; else rc=$?; fi
   CLUSTER_PEER_SSH_RC=$rc
-  CLUSTER_PEER_SSH_PID=""
+  if [ "${CLUSTER_PEER_SSH_PID:-}" = "$pid" ]; then CLUSTER_PEER_SSH_PID=""; fi
   echo "cluster-join: peer-ssh exit rc=$rc"
-  [ "$timed_out" = false ] || return 0
+  if [ "$timed_out" = true ]; then
+    CLUSTER_PEER_SSH_RC=124
+    lifecycle_refuse peer-ssh-timeout "worker ssh exceeded the ${CLUSTER_JOIN_TIMEOUT_SECS:-600}s join deadline"
+    return 1
+  fi
 }
 
 cluster_quiesce_wait() {
@@ -338,39 +348,94 @@ cluster_join_quiesce() {
 }
 
 cluster_join_exit() {
-  local rc=$? teardown_rc=0 peer_rc=0 peer_started=false
+  local rc=$? teardown_rc=0 peer_rc=0 peer_started=false peer_wait_rc=0 teardown_done=false cleanup_rc=0
   JOIN_EXIT_ACTIVE=true
   trap - EXIT
   trap 'cluster_join_signal 130' INT
   trap 'cluster_join_signal 143' TERM
-  if [ "$formed" != true ] && [ "$quiesced" = true ]; then
-    cluster_teardown || teardown_rc=$?
+  if [ "${formed:-false}" != true ] && {
+    [ "${ceiling_attempted:-false}" = true ] || [ "${quiesced:-false}" = true ] ||
+      [ -n "${JOIN_SESSION_ID:-}" ];
+  }; then
+    cluster_teardown "${JOIN_SESSION_ID:-}" || teardown_rc=$?
+    teardown_done=true
     if [ "${JOIN_REBOOT:-0}" -eq 1 ] || [ "${TEARDOWN_REBOOT:-0}" -eq 1 ]; then
       rc=3
-    elif [ "$rc" -eq 0 ] || [ "$teardown_rc" -ne 0 ]; then
+    elif [ "$rc" -eq 0 ] || [ "$teardown_rc" -ne 0 ] || [ "${TEARDOWN_FAILED:-0}" -ne 0 ]; then
       rc=1
     fi
   fi
   if [ -n "${CLUSTER_PEER_SSH_PID:-}" ]; then
     peer_started=true
-    cluster_peer_ssh_wait
-    peer_rc=$CLUSTER_PEER_SSH_RC
+    cluster_peer_ssh_wait || peer_wait_rc=$?
+    peer_rc="${CLUSTER_PEER_SSH_RC:-$peer_wait_rc}"
   fi
   if [ "${JOIN_SIGNAL_RC:-0}" -ne 0 ]; then
     rc=$JOIN_SIGNAL_RC
   elif [ "$peer_started" = true ] && [ "$peer_rc" -ne 0 ]; then
-    echo "cluster-join: REFUSE reason=peer-join-failed rc=$peer_rc" >&2
-    if [ "$formed" = true ]; then
-      cluster_teardown || teardown_rc=$?
+    lifecycle_refuse peer-join-failed "worker join failed or could not be reaped (rc=$peer_rc)"
+    if [ "$teardown_done" = false ]; then
+      cluster_teardown "${JOIN_SESSION_ID:-}" || teardown_rc=$?
+      teardown_done=true
     fi
     if [ "$peer_rc" -eq 3 ]; then
       rc=3
-    elif [ "$rc" -eq 0 ]; then
+    elif [ "$rc" -eq 0 ] || [ "$teardown_rc" -ne 0 ] || [ "${TEARDOWN_FAILED:-0}" -ne 0 ]; then
       rc=1
     fi
   fi
+  if [ "$peer_started" = true ] && {
+    [ "$rc" -ne 0 ] || [ "${JOIN_SIGNAL_RC:-0}" -ne 0 ] ||
+      [ "${TEARDOWN_FAILED:-0}" -ne 0 ];
+  }; then
+    if cluster_peer_remote_detach; then
+      :
+    else
+      cleanup_rc=$?
+      if [ "${JOIN_SIGNAL_RC:-0}" -eq 0 ]; then
+        if [ "$cleanup_rc" -eq 3 ]; then rc=3; elif [ "$rc" -ne 3 ]; then rc=1; fi
+      fi
+    fi
+  fi
+  [ "${JOIN_SIGNAL_RC:-0}" -eq 0 ] || rc=$JOIN_SIGNAL_RC
   trap - INT TERM
+  cluster_lifecycle_lock_release
   exit "$rc"
+}
+
+cluster_peer_remote_detach() {
+  local cleanup_pid
+  [ "${CLUSTER_ROLE:-}" = coordinator ] || return 0
+  [ -n "${CLUSTER_PEER_SSH:-}" ] &&
+    [[ "${JOIN_SESSION_ID:-}" =~ ^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$ ]] || {
+    lifecycle_refuse peer-cleanup-unconfirmed "worker session is unavailable for remote cleanup"
+    return 1
+  }
+  echo "cluster-join: peer-ssh requesting session-scoped worker detach"
+  "${CLUSTER_SSH_BIN:-/usr/bin/ssh}" -o BatchMode=yes -o ConnectTimeout=10 \
+    "$CLUSTER_PEER_SSH" cluster-detach --worker --session "$JOIN_SESSION_ID" \
+    > >(while IFS= read -r line || [ -n "$line" ]; do printf 'worker-cleanup: %s\n' "$line"; done) 2>&1 &
+  cleanup_pid=$!
+  JOIN_IGNORE_SIGNAL=true
+  if cluster_peer_ssh_wait "$cleanup_pid"; then
+    case "${CLUSTER_PEER_SSH_RC:-1}" in
+      0)
+        JOIN_IGNORE_SIGNAL=false
+        echo "cluster-join: peer-ssh worker detach acknowledged session=$JOIN_SESSION_ID"
+        return 0
+        ;;
+      3)
+        JOIN_IGNORE_SIGNAL=false
+        lifecycle_refuse peer-cleanup-reboot-required \
+          "worker detached session $JOIN_SESSION_ID but requires reboot before another join"
+        return 3
+        ;;
+    esac
+  fi
+  JOIN_IGNORE_SIGNAL=false
+  lifecycle_refuse peer-cleanup-unconfirmed \
+    "remote detach for session $JOIN_SESSION_ID failed or could not be confirmed (rc=${CLUSTER_PEER_SSH_RC:-unknown})"
+  return 1
 }
 
 cluster_join_signal() {
@@ -382,114 +447,369 @@ cluster_join_signal() {
   fi
 }
 
-cluster_join_peer_poll() {
-  if peer_armed_read; then
-    JOIN_PEER_ARMED_AT="$PEER_ARMED_AT"
-    return 0
+cluster_sleep_until() {
+  local target="$1" deadline="${2:-$((SECONDS + ${CLUSTER_JOIN_TIMEOUT_SECS:-600}))}" now remaining monotonic_left
+  while :; do
+    now="$(date +%s)"
+    case "$now" in '' | *[!0-9]*) return 1 ;; esac
+    [ "$now" -lt "$target" ] || break
+    monotonic_left=$((deadline - SECONDS))
+    [ "$monotonic_left" -gt 0 ] || return 1
+    remaining=$((target - now))
+    [ "$remaining" -le "$monotonic_left" ] || remaining="$monotonic_left"
+    sleep "$remaining"
+  done
+  [ "$now" -eq "$target" ] && [ "$SECONDS" -le "$deadline" ]
+}
+
+cluster_join_new_session() {
+  local stamp random
+  stamp="$(date -u +%Y%m%dT%H%M%SZ)" || return 1
+  random="$(od -An -N4 -tx1 /dev/urandom | tr -d ' \n')" || return 1
+  [[ "$stamp" =~ ^[0-9]{8}T[0-9]{6}Z$ && "$random" =~ ^[0-9a-f]{8}$ ]] || return 1
+  printf '%s-%s\n' "$stamp" "$random"
+}
+
+cluster_join_publish_preparing() {
+  if ! peer_state_write false 0 "$JOIN_SESSION_ID" preparing; then
+    lifecycle_refuse preparing-state-write-failed "could not publish the current session before the worker launch"
+    return 1
   fi
-  echo "cluster-join: peer-state REFUSE reason=${PEER_GATE_REASON:-unknown}"
-  case "${PEER_GATE_REASON:-}" in
-    generation-mismatch*) return 2 ;;
+  if ! link_state_write down; then
+    lifecycle_refuse link-state-write-failed "could not keep link-state down while preparing session $JOIN_SESSION_ID"
+    return 1
+  fi
+}
+
+cluster_join_final_gates() {
+  echo "cluster-join: J9 final local gates"
+  if ! pd_start_gate; then
+    lifecycle_refuse "${PD_GATE_REASON:-pd-gate-refused}" "${PD_COUNT_DETAIL:-${PD_BUDGET_DETAIL:-protection-domain gate refused}}"
+    return 1
+  fi
+  if ! set_wired_limit "${CLUSTER_WIRED_LIMIT_MB:-}"; then
+    lifecycle_refuse wired-ceiling-set-failed "could not verify the configured cluster wired ceiling"
+    return 1
+  fi
+  if ! rank_start_room_ok; then
+    local reason=rank-start-room-unavailable
+    case "${MEM_HEADROOM_DETAIL:-}" in room-unconfigured*) reason=room-unconfigured ;; esac
+    lifecycle_refuse "$reason" "${MEM_HEADROOM_DETAIL:-unknown}"
+    case "${MEM_HEADROOM_DETAIL:-}" in *unreclaimed-Metal*) JOIN_REBOOT=1 ;; esac
+    return 1
+  fi
+  if ! peer_state_versions_validate; then
+    lifecycle_refuse "${PEER_GATE_REASON%% *}" "$PEER_GATE_REASON"
+    return 1
+  fi
+}
+
+cluster_join_publish_ready() {
+  JOIN_READY_AT="$(date +%s)"
+  case "$JOIN_READY_AT" in '' | *[!0-9]*)
+    lifecycle_refuse clock-unavailable "could not timestamp local READY state"
+    return 1
+    ;;
+  esac
+  if ! peer_state_write true "$JOIN_READY_AT" "$JOIN_SESSION_ID" ready; then
+    lifecycle_refuse "${PEER_GATE_REASON%% *}" "${PEER_GATE_REASON:-could not publish local READY state}"
+    return 1
+  fi
+  if ! link_state_write up; then
+    lifecycle_refuse link-state-write-failed "could not write link-state up for READY session $JOIN_SESSION_ID"
+    return 1
+  fi
+  echo "cluster-join: phase=ready session=$JOIN_SESSION_ID armed_at=$JOIN_READY_AT"
+}
+
+cluster_join_wait_worker_ready() {
+  local timeout="${CLUSTER_JOIN_TIMEOUT_SECS:-600}" deadline remaining
+  deadline=$((SECONDS + timeout))
+  while [ "$SECONDS" -lt "$deadline" ]; do
+    if peer_armed_read; then
+      echo "cluster-join: peer phase=ready session=$JOIN_SESSION_ID"
+      return 0
+    fi
+    case "${PEER_GATE_REASON:-}" in
+      peer-session-mismatch* | version-unknown* | version-mismatch* | peer-arm-stale* | peer-arm-future* | peer-not-armed)
+        lifecycle_refuse "${PEER_GATE_REASON%% *}" "$PEER_GATE_REASON"
+        return 1
+        ;;
+      'peer-not-ready phase=abort')
+        lifecycle_refuse peer-aborted "worker published abort for session $JOIN_SESSION_ID"
+        return 1
+        ;;
+    esac
+    echo "cluster-join: peer phase WAIT reason=${PEER_GATE_REASON:-unknown}"
+    remaining=$((deadline - SECONDS))
+    [ "$remaining" -le 5 ] || remaining=5
+    sleep "$remaining"
+  done
+  lifecycle_refuse peer-ready-timeout "worker did not publish READY within ${timeout}s"
+  return 1
+}
+
+cluster_join_publish_commit() {
+  local now
+  now="$(date +%s)"
+  case "$now" in '' | *[!0-9]*)
+    lifecycle_refuse clock-unavailable "could not timestamp the session commit"
+    return 1
+    ;;
+  esac
+  JOIN_START_AT=$((now + 20))
+  if ! peer_state_write true "$JOIN_READY_AT" "$JOIN_SESSION_ID" commit "$JOIN_START_AT"; then
+    lifecycle_refuse commit-state-write-failed "could not publish COMMIT for session $JOIN_SESSION_ID"
+    return 1
+  fi
+  echo "cluster-join: phase=commit session=$JOIN_SESSION_ID start_at=$JOIN_START_AT"
+}
+
+cluster_join_peer_gate_refuse() {
+  local reason="${PEER_GATE_REASON:-}"
+  case "$reason" in
+    peer-session-mismatch* | version-unknown* | version-mismatch*)
+      lifecycle_refuse "${reason%% *}" "$reason"
+      return 0
+      ;;
   esac
   return 1
 }
 
-cluster_start_at() {
-  local own="$1" peer="$2" latest
-  latest="$own"
-  [ "$peer" -le "$own" ] || latest="$peer"
-  printf '%s\n' "$((latest + 20))"
+cluster_worker_wait_commit() {
+  local timeout="${CLUSTER_JOIN_TIMEOUT_SECS:-600}" deadline remaining
+  deadline=$((SECONDS + timeout))
+  while [ "$SECONDS" -lt "$deadline" ]; do
+    if peer_state_session_read; then
+      case "$PEER_PHASE" in
+        commit)
+          [ "$PEER_START_AT" -gt 0 ] || {
+            lifecycle_refuse commit-withdrawn "coordinator COMMIT has no start_at for session $JOIN_SESSION_ID"
+            return 1
+          }
+          JOIN_START_AT="$PEER_START_AT"
+          echo "cluster-join: peer phase=commit session=$JOIN_SESSION_ID start_at=$JOIN_START_AT"
+          return 0
+          ;;
+        abort)
+          lifecycle_refuse commit-withdrawn "coordinator aborted session $JOIN_SESSION_ID before COMMIT"
+          return 1
+          ;;
+      esac
+    elif cluster_join_peer_gate_refuse; then
+      return 1
+    fi
+    echo "cluster-join: peer COMMIT WAIT reason=${PEER_GATE_REASON:-phase=$PEER_PHASE}"
+    remaining=$((deadline - SECONDS))
+    [ "$remaining" -le 5 ] || remaining=5
+    sleep "$remaining"
+  done
+  lifecycle_refuse commit-timeout "coordinator did not publish COMMIT within ${timeout}s"
+  return 1
 }
 
-cluster_sleep_until() {
-  local target="$1" now remaining
-  now="$(date +%s)"
-  while [ "$now" -lt "$target" ]; do
-    remaining=$((target - now))
+cluster_join_wait_coordinator_formed() {
+  local timeout="${CLUSTER_JOIN_TIMEOUT_SECS:-600}" deadline remaining
+  deadline=$((SECONDS + timeout))
+  while [ "$SECONDS" -lt "$deadline" ]; do
+    if peer_state_session_read; then
+      case "$PEER_PHASE" in
+        formed) return 0 ;;
+        abort)
+          lifecycle_refuse coordinator-aborted "coordinator aborted session $JOIN_SESSION_ID during formation"
+          return 1
+          ;;
+      esac
+    elif cluster_join_peer_gate_refuse; then
+      return 1
+    fi
+    remaining=$((deadline - SECONDS))
+    [ "$remaining" -le 5 ] || remaining=5
     sleep "$remaining"
-    now="$(date +%s)"
   done
-  [ "$now" -eq "$target" ]
+  lifecycle_refuse coordinator-formation-timeout "coordinator did not confirm formation within ${timeout}s"
+  return 1
+}
+
+cluster_join_wait_coordinator_session() {
+  local timeout="${CLUSTER_JOIN_TIMEOUT_SECS:-600}" deadline remaining
+  deadline=$((SECONDS + timeout))
+  while [ "$SECONDS" -lt "$deadline" ]; do
+    if peer_state_session_read; then
+      case "$PEER_PHASE" in
+        preparing | ready) return 0 ;;
+        abort)
+          lifecycle_refuse no-session "coordinator aborted session $JOIN_SESSION_ID before worker READY"
+          return 1
+          ;;
+      esac
+    elif cluster_join_peer_gate_refuse; then
+      return 1
+    fi
+    remaining=$((deadline - SECONDS))
+    [ "$remaining" -le 5 ] || remaining=5
+    sleep "$remaining"
+  done
+  lifecycle_refuse peer-session-timeout "coordinator did not publish session $JOIN_SESSION_ID within ${timeout}s"
+  return 1
+}
+
+cluster_join_wait_coordinator_formed_local() {
+  local timeout="${CLUSTER_JOIN_TIMEOUT_SECS:-600}" deadline stable_since remaining
+  deadline=$((SECONDS + timeout))
+  stable_since="$SECONDS"
+  while [ "$SECONDS" -lt "$deadline" ]; do
+    if curl -fsS -m 5 "http://127.0.0.1:${CLUSTER_HTTP_PORT}/v1/models" > /dev/null 2>&1 && rank_process_running; then
+      return 0
+    fi
+    if ! rank_process_running && [ "$((SECONDS - stable_since))" -ge 15 ]; then
+      lifecycle_refuse rank-exited-during-formation "coordinator rank exited before the endpoint formed"
+      return 1
+    fi
+    remaining=$((deadline - SECONDS))
+    [ "$remaining" -le 5 ] || remaining=5
+    sleep "$remaining"
+  done
+  lifecycle_refuse coordinator-endpoint-not-formed "endpoint and live coordinator rank did not form within ${timeout}s"
+  return 1
+}
+
+cluster_join_publish_formed() {
+  if ! rank_process_running; then
+    lifecycle_refuse rank-not-running-at-formation "rank process is not live before phase formed"
+    return 1
+  fi
+  if ! peer_state_write true "$JOIN_READY_AT" "$JOIN_SESSION_ID" formed; then
+    lifecycle_refuse formed-state-write-failed "could not publish formation for session $JOIN_SESSION_ID"
+    return 1
+  fi
+  if ! rank_process_running; then
+    lifecycle_refuse rank-not-running-at-formation "rank process exited immediately before decision=formed"
+    return 1
+  fi
 }
 
 cluster_final_rank_start() {
-  local start_at="$1" expected_peer_armed_at="$2" now
-  echo "cluster-join: J9 final peer and PD gates"
-  if ! peer_armed_read; then
-    join_refuse "${PEER_GATE_REASON%% *}" "${PEER_GATE_REASON:-unknown}"
-    return 1
-  fi
-  [ "$PEER_ARMED_AT" = "$expected_peer_armed_at" ] || {
-    join_refuse peer-armed-at-changed "peer armed_at changed before J9"
+  local start_at="$1" now local_phase local_session deadline
+  cluster_rank_model_write || {
+    lifecycle_refuse rank-model-write-failed "could not persist the selected rank model"
     return 1
   }
-  if ! pd_start_gate; then
+  deadline=$((SECONDS + ${CLUSTER_JOIN_TIMEOUT_SECS:-600}))
+  cluster_sleep_until "$start_at" "$deadline" || {
+    lifecycle_refuse missed-start-window "start_at=$start_at was missed or exceeded the join timeout"
     return 1
+  }
+  local_session="$(jq -r '.session // ""' "$CLUSTER_PEER_STATE_FILE" 2> /dev/null || true)"
+  local_phase="$(jq -r '.phase // ""' "$CLUSTER_PEER_STATE_FILE" 2> /dev/null || true)"
+  if [ "$local_session" != "$JOIN_SESSION_ID" ]; then
+    lifecycle_refuse local-session-withdrawn "local state no longer names session $JOIN_SESSION_ID"
+    return 1
+  fi
+  if [ "$CLUSTER_ROLE" = worker ] && [ "$local_phase" != ready ]; then
+    lifecycle_refuse commit-withdrawn "local READY state was withdrawn before kickstart"
+    return 1
+  fi
+  if [ "$CLUSTER_ROLE" = coordinator ]; then
+    if ! peer_armed_read; then
+      lifecycle_refuse "${PEER_GATE_REASON%% *}" "${PEER_GATE_REASON:-worker READY state was withdrawn before kickstart}"
+      return 1
+    fi
+  else
+    if ! peer_state_session_read; then
+      if cluster_join_peer_gate_refuse; then return 1; fi
+      lifecycle_refuse commit-withdrawn \
+        "coordinator COMMIT for session $JOIN_SESSION_ID was withdrawn before kickstart"
+      return 1
+    fi
+    if [ "$PEER_PHASE" != commit ] || [ "$PEER_START_AT" != "$start_at" ]; then
+      lifecycle_refuse commit-withdrawn "coordinator COMMIT for session $JOIN_SESSION_ID was withdrawn or changed before kickstart"
+      return 1
+    fi
   fi
   now="$(date +%s)"
-  if [ "$now" -gt "$start_at" ]; then
-    join_refuse missed-start-window "final gates ended after start_at=$start_at (now=$now)"
+  if [ "$now" -ne "$start_at" ]; then
+    lifecycle_refuse missed-start-window "kickstart at $now did not match start_at=$start_at"
     return 1
   fi
-  cluster_sleep_until "$start_at" || {
-    join_refuse missed-start-window "clock passed start_at=$start_at before kickstart"
-    return 1
-  }
-  cluster_rank_model_write || {
-    echo "cluster-join: REFUSE reason=rank-model-write" >&2
-    return 1
-  }
   "${CLUSTER_LAUNCHCTL_BIN:-/bin/launchctl}" kickstart "gui/$uid/${CLUSTER_RANK_LABEL}" || {
-    join_refuse rank-kickstart-failed "launchctl kickstart failed for the configured rank label"
+    lifecycle_refuse rank-kickstart-failed "launchctl kickstart failed for the configured rank label"
     return 1
   }
-  echo "cluster-join: kickstart issued at $(date +%s)"
+  echo "cluster-join: kickstart issued at $now"
 }
 
 cluster_join_main() {
-  local timeout deadline armed_at peer_armed_at start_at now poll_rc
+  local timeout deadline now session_arg=""
   local launchctl_bin="${CLUSTER_LAUNCHCTL_BIN:-/bin/launchctl}"
   local rank_pid warm_ok=false stable_since=0 stable_required worker_invocation=false
   local model_explicit=false pipeline_requested=false model_arg="" selected_model
-  local PEER_ARMED_AT=""
+  local held="?"
+  state_dir="${CLUSTER_STATE_DIR:-$(dirname "$CLUSTER_STATE_FILE")}"
+  mkdir -p "$state_dir"
+  export CLUSTER_LIFECYCLE_COMPONENT=cluster-join
+  cluster_lifecycle_log_start
+  formed=false
+  quiesced=false
+  ceiling_attempted=false
+  JOIN_REBOOT=0
+  JOIN_EXIT_ACTIVE=false
+  JOIN_SIGNAL_RC=0
+  JOIN_IGNORE_SIGNAL=false
+  JOIN_SESSION_ID=""
+  JOIN_READY_AT=0
+  JOIN_START_AT=0
+  CLUSTER_PEER_SSH_PID=""
+  CLUSTER_PEER_SSH_RC=0
+  TEARDOWN_FAILED=0
+  TEARDOWN_REBOOT=0
+  trap cluster_join_exit EXIT
+  trap 'cluster_join_signal 130' INT
+  trap 'cluster_join_signal 143' TERM
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --worker)
-        [ "$worker_invocation" = false ] || join_fail "usage: cluster-join [--worker] [--model org/repo] [--pipeline]"
+        [ "$worker_invocation" = false ] || join_fail "cluster-join [--worker --session ID] [--model org/repo] [--pipeline]"
         worker_invocation=true
         shift
         ;;
+      --session)
+        [ -z "$session_arg" ] && [ "$#" -ge 2 ] || join_fail "cluster-join [--worker --session ID] [--model org/repo] [--pipeline]"
+        session_arg="$2"
+        shift 2
+        ;;
       --model)
-        [ "$model_explicit" = false ] && [ "$#" -ge 2 ] || join_fail "usage: cluster-join [--worker] [--model org/repo] [--pipeline]"
+        [ "$model_explicit" = false ] && [ "$#" -ge 2 ] || join_fail "cluster-join [--worker --session ID] [--model org/repo] [--pipeline]"
         model_arg="$2"
         model_explicit=true
         shift 2
         ;;
       --pipeline)
-        [ "$pipeline_requested" = false ] || join_fail "usage: cluster-join [--worker] [--model org/repo] [--pipeline]"
+        [ "$pipeline_requested" = false ] || join_fail "cluster-join [--worker --session ID] [--model org/repo] [--pipeline]"
         pipeline_requested=true
         shift
         ;;
-      *) join_fail "usage: cluster-join [--worker] [--model org/repo] [--pipeline]" ;;
+      *) join_fail "cluster-join [--worker --session ID] [--model org/repo] [--pipeline]" ;;
     esac
   done
   [ "$pipeline_requested" = false ] || [ "$model_explicit" = true ] ||
-    join_fail "usage: --pipeline requires --model"
+    join_fail "--pipeline requires --model"
+  if [ "$worker_invocation" = true ]; then
+    [[ "$session_arg" =~ ^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$ ]] || {
+      lifecycle_refuse no-session "worker invocation requires --session with the coordinator's join id"
+      exit 1
+    }
+    [ "${CLUSTER_ROLE:-}" = worker ] || join_fail "--worker is only valid on the worker role"
+    JOIN_SESSION_ID="$session_arg"
+  elif [ -n "$session_arg" ]; then
+    join_fail "--session is only valid with --worker"
+  fi
+  if ! cluster_lifecycle_lock_acquire; then
+    lifecycle_refuse lifecycle-locked "another cluster lifecycle transaction owns $state_dir"
+    exit 1
+  fi
   uid="$(id -u)"
-  state_dir="${CLUSTER_STATE_DIR:-$(dirname "$CLUSTER_STATE_FILE")}"
-  mkdir -p "$state_dir"
-  cluster_lifecycle_log_start
   [ "$worker_invocation" = false ] || echo "cluster-join: peer worker invocation accepted"
-  formed=false
-  quiesced=false
-  JOIN_REBOOT=0
-  JOIN_EXIT_ACTIVE=false
-  JOIN_SIGNAL_RC=0
-  CLUSTER_PEER_SSH_PID=""
-  CLUSTER_PEER_SSH_RC=0
-  trap cluster_join_exit EXIT
-  trap 'cluster_join_signal 130' INT
-  trap 'cluster_join_signal 143' TERM
 
   selected_model="${CLUSTER_MODEL:-}"
   [ "$model_explicit" = false ] || selected_model="$model_arg"
@@ -501,6 +821,7 @@ cluster_join_main() {
   if pd_start_gate; then
     :
   else
+    lifecycle_refuse "${PD_GATE_REASON:-pd-gate-refused}" "${PD_COUNT_DETAIL:-${PD_BUDGET_DETAIL:-protection-domain gate refused}}"
     if [ "${PD_REBOOT:-0}" = 1 ]; then
       JOIN_REBOOT=1
       exit 3
@@ -517,6 +838,7 @@ cluster_join_main() {
   fi
 
   echo "cluster-join: J3 wired-ceiling"
+  ceiling_attempted=true
   if set_wired_limit "${CLUSTER_WIRED_LIMIT_MB:-}"; then
     echo "cluster-join: wired-ceiling PASS"
   else
@@ -534,112 +856,107 @@ cluster_join_main() {
   if rank_start_room_ok; then
     echo "cluster-join: room PASS"
   else
-    join_refuse rank-start-room-unavailable "${MEM_HEADROOM_DETAIL:-unknown}"
+    local reason=rank-start-room-unavailable
+    case "${MEM_HEADROOM_DETAIL:-}" in room-unconfigured*) reason=room-unconfigured ;; esac
+    lifecycle_refuse "$reason" "${MEM_HEADROOM_DETAIL:-unknown}"
     case "${MEM_HEADROOM_DETAIL:-}" in *unreclaimed-Metal*) JOIN_REBOOT=1 ;; esac
     exit "$((JOIN_REBOOT == 1 ? 3 : 1))"
   fi
 
-  cluster_peer_ssh_start
-
-  echo "cluster-join: J6 arm"
-  armed_at="$(date +%s)"
-  if ! peer_state_write true "$armed_at" || ! link_state_write up; then
-    join_refuse armed-state-write-failed "could not publish peer or link armed state"
-    exit 1
-  fi
-  echo "cluster-join: decision=armed armed_at=$armed_at"
-
-  timeout="${CLUSTER_JOIN_TIMEOUT_SECS:-600}"
-  deadline=$(($(date +%s) + timeout))
-  echo "cluster-join: J7 peer poll timeout=${timeout}s"
-  while [ "$(date +%s)" -lt "$deadline" ]; do
-    if cluster_join_peer_poll; then
-      peer_armed_at="$JOIN_PEER_ARMED_AT"
-      echo "cluster-join: peer-state PASS armed_at=$peer_armed_at"
-      break
-    else
-      poll_rc=$?
-    fi
-    if [ "$poll_rc" -eq 2 ]; then
-      join_refuse "${PEER_GATE_REASON%% *}" "$PEER_GATE_REASON"
+  echo "cluster-join: J6 prepare session"
+  if [ "$worker_invocation" = false ]; then
+    if ! JOIN_SESSION_ID="$(cluster_join_new_session)"; then
+      lifecycle_refuse no-session "could not mint a session id"
       exit 1
     fi
-    sleep 5
-  done
-  if [ -z "${peer_armed_at:-}" ]; then
-    join_refuse peer-never-armed "peer did not arm before the join timeout"
+  fi
+  if ! cluster_join_publish_preparing; then
     exit 1
+  fi
+  if [ "$worker_invocation" = false ]; then
+    cluster_peer_ssh_start || {
+      lifecycle_refuse peer-ssh-start-failed "could not start the worker join command"
+      exit 1
+    }
+  else
+    echo "cluster-join: session accepted id=$JOIN_SESSION_ID"
+    if ! cluster_join_wait_coordinator_session; then
+      exit 1
+    fi
   fi
 
-  start_at="$(cluster_start_at "$armed_at" "$peer_armed_at")"
-  echo "cluster-join: J8 start_at=$start_at"
-  now="$(date +%s)"
-  if [ "$now" -gt "$((start_at - 3))" ]; then
-    join_refuse missed-start-window "now=$now start_at=$start_at"
-    exit 1
-  fi
-  if ! cluster_sleep_until "$((start_at - 3))"; then
-    join_refuse missed-start-window "the J9 window began before the final gates"
-    exit 1
+  if ! cluster_join_final_gates || ! cluster_join_publish_ready; then
+    [ "${PD_REBOOT:-0}" -eq 1 ] && JOIN_REBOOT=1
+    exit "$((JOIN_REBOOT == 1 ? 3 : 1))"
   fi
 
-  if ! cluster_final_rank_start "$start_at" "$peer_armed_at"; then
+  if [ "$CLUSTER_ROLE" = coordinator ]; then
+    echo "cluster-join: J8 wait worker READY"
+    if ! cluster_join_wait_worker_ready || ! cluster_join_publish_commit; then
+      exit 1
+    fi
+  else
+    echo "cluster-join: J8 wait coordinator COMMIT"
+    if ! cluster_worker_wait_commit; then
+      exit 1
+    fi
+  fi
+
+  echo "cluster-join: J9 start_at=$JOIN_START_AT"
+  if ! cluster_final_rank_start "$JOIN_START_AT"; then
     [ "${PD_REBOOT:-0}" -eq 1 ] && JOIN_REBOOT=1
     exit "$((JOIN_REBOOT == 1 ? 3 : 1))"
   fi
 
   echo "cluster-join: J10 formation check"
   timeout="${CLUSTER_JOIN_TIMEOUT_SECS:-600}"
-  deadline=$(($(date +%s) + timeout))
+  deadline=$((SECONDS + timeout))
   if [ "$CLUSTER_ROLE" = coordinator ]; then
-    stable_since="$(date +%s)"
-    while [ "$(date +%s)" -lt "$deadline" ]; do
-      if curl -fsS -m 5 "http://127.0.0.1:${CLUSTER_HTTP_PORT}/v1/models" > /dev/null 2>&1; then
-        warm_ok=true
-        break
-      fi
-      now="$(date +%s)"
-      if ! rank_process_running && [ "$((now - stable_since))" -ge 15 ]; then
-        join_refuse rank-exited-during-formation "coordinator rank exited before the endpoint formed"
-        exit 1
-      fi
-      sleep 5
-    done
-    if [ "$warm_ok" != true ]; then
-      join_refuse coordinator-endpoint-not-formed "endpoint did not form within ${timeout}s"
+    if ! cluster_join_wait_coordinator_formed_local; then
       exit 1
     fi
   else
     stable_required="${CLUSTER_WORKER_STABLE_SECS:-60}"
     stable_since=0
-    while [ "$(date +%s)" -lt "$deadline" ]; do
+    while [ "$SECONDS" -lt "$deadline" ]; do
       if "$launchctl_bin" print "gui/$uid/${CLUSTER_RANK_LABEL}" 2> /dev/null |
         "${CLUSTER_GREP_BIN:-/usr/bin/grep}" -q 'state = running' && rank_process_running; then
-        [ "$stable_since" -gt 0 ] || stable_since="$(date +%s)"
-        now="$(date +%s)"
-        if [ "$((now - stable_since))" -ge "$stable_required" ]; then
+        [ "$stable_since" -gt 0 ] || stable_since="$SECONDS"
+        if [ "$((SECONDS - stable_since))" -ge "$stable_required" ]; then
           warm_ok=true
           break
         fi
       else
         stable_since=0
-        now="$(date +%s)"
-        if [ "$now" -ge "$((deadline - timeout + 15))" ] && ! rank_process_running; then
-          join_refuse worker-rank-exited-during-formation "worker rank exited during the stability window"
+        if [ "$((SECONDS - (deadline - timeout)))" -ge 15 ] && ! rank_process_running; then
+          lifecycle_refuse worker-rank-exited-during-formation "worker rank exited during the stability window"
           exit 1
         fi
       fi
-      sleep 5
+      local remaining=$((deadline - SECONDS))
+      [ "$remaining" -le 5 ] || remaining=5
+      sleep "$remaining"
     done
     if [ "$warm_ok" != true ]; then
-      join_refuse worker-rank-not-stable "rank did not stay up for ${stable_required}s"
+      lifecycle_refuse worker-rank-not-stable "rank did not stay up for ${stable_required}s"
+      exit 1
+    fi
+    if ! cluster_join_wait_coordinator_formed; then
       exit 1
     fi
   fi
 
+  if ! cluster_join_publish_formed; then
+    exit 1
+  fi
+
   rank_pid="$(rank_process_pids 2> /dev/null | head -n 1 || true)"
   if pd_held_count; then held="$PD_HELD"; else held="?"; fi
-  echo "cluster-join: J11 link=$CLUSTER_STATIC_SELF_IP ceiling=${CLUSTER_WIRED_LIMIT_MB:-unset} rank_pid=${rank_pid:-unknown} held_pd=$held decision=formed"
+  if ! rank_process_running; then
+    lifecycle_refuse rank-not-running-at-formation "rank process exited immediately before decision=formed"
+    exit 1
+  fi
+  echo "cluster-join: J11 link=$CLUSTER_STATIC_SELF_IP ceiling=${CLUSTER_WIRED_LIMIT_MB:-unset} rank_pid=${rank_pid:-unknown} held_pd=$held session=$JOIN_SESSION_ID decision=formed"
   formed=true
 }
 

@@ -69,6 +69,10 @@ in
     message = "programs.mlx.clusterMode: pdReserve (${toString ncfg.pdReserve}) must satisfy 0 < pdReserve < devicePdBudget (${toString ncfg.devicePdBudget}).";
   }
   {
+    assertion = !ncfg.enable || ncfg.shardMemoryMb > 0;
+    message = "programs.mlx.clusterMode: shardMemoryMb must be greater than zero when clustered mode is enabled.";
+  }
+  {
     assertion = ncfg.peerSsh == "" || ncfg.role == "coordinator";
     message = "programs.mlx.clusterMode: peerSsh is set on the coordinator only.";
   }

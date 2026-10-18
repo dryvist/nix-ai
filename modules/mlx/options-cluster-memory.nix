@@ -12,9 +12,10 @@
       operator; the kernel PD count is checked separately at J1 and J9.
 
       This is the free-memory budget only. GPU wired headroom is checked
-      separately using compositorReserveMb. Zero disables this memory check.
-      There is no safe universal default, so set it to the deployed model's
-      expected per-rank working set.
+      separately using compositorReserveMb. Clustered mode requires a positive
+      value; there is no safe universal default, so set it to the deployed
+      model's expected per-rank working set. An explicit --model join may
+      replace it with the selected model's measured shard size.
     '';
   };
 }

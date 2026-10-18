@@ -1,7 +1,7 @@
 # shellcheck shell=bash
-# Fetch the peer state and require a fresh, armed, matching software generation.
+# Fetch peer state and require the current session and a complete version match.
 
-export PEER_GATE_REASON PEER_ARMED_AT
+export PEER_GATE_REASON PEER_ARMED_AT PEER_PHASE PEER_START_AT
 
 peer_state_fetch() {
   PEER_STATE_RAW=""
@@ -13,38 +13,78 @@ peer_state_fetch() {
   PEER_STATE_RAW="$body"
 }
 
-peer_armed_read() {
-  local armed armed_at now age peer_value local_value key local_software peer_generation local_generation
-  local keys=(nix_ai nix_darwin mlx mlx_lm macos model model_revision)
+peer_state_session_read() {
+  local session
   PEER_GATE_REASON=""
-  PEER_ARMED_AT=""
+  PEER_PHASE=""
+  PEER_START_AT=""
+  [ -n "${JOIN_SESSION_ID:-}" ] || {
+    PEER_GATE_REASON="no-session"
+    return 1
+  }
   if ! peer_state_fetch; then
     PEER_GATE_REASON="peer-state-unreachable"
     return 1
   fi
-  local_software="$(peer_state_software_json)" || {
-    PEER_GATE_REASON="local-software-unavailable"
+  session="$(jq -r '.session // ""' <<< "$PEER_STATE_RAW")"
+  if [ "$session" != "$JOIN_SESSION_ID" ]; then
+    PEER_GATE_REASON="peer-session-mismatch expected=$JOIN_SESSION_ID peer=${session:-empty}"
     return 1
-  }
+  fi
+  if ! peer_state_versions_match; then
+    return 1
+  fi
+  PEER_PHASE="$(jq -r '.phase // ""' <<< "$PEER_STATE_RAW")"
+  PEER_START_AT="$(jq -r '.start_at // 0' <<< "$PEER_STATE_RAW")"
+  case "$PEER_START_AT" in '' | *[!0-9]*) PEER_START_AT=0 ;; esac
+}
+
+peer_state_versions_match() {
+  local key local_value peer_value local_software local_revision peer_revision
+  local keys=(nix_ai mlx mlx_lm macos model model_revision)
+  if ! peer_state_versions_validate; then
+    return 1
+  fi
+  local_software="$PEER_SOFTWARE_JSON"
+  local_revision="$PEER_CONFIGURATION_REVISION"
+  for key in "${keys[@]}"; do
+    local_value="$(jq -r --arg key "$key" '.[$key] // ""' <<< "$local_software")"
+    peer_value="$(jq -r --arg key "$key" '.software[$key] // ""' <<< "$PEER_STATE_RAW")"
+    if ! peer_version_value_known "$peer_value"; then
+      PEER_GATE_REASON="version-unknown key=$key"
+      return 1
+    fi
+    if [ "$local_value" != "$peer_value" ]; then
+      PEER_GATE_REASON="version-mismatch key=$key local=$local_value peer=$peer_value"
+      return 1
+    fi
+  done
+  peer_revision="$(jq -r '.configuration_revision // ""' <<< "$PEER_STATE_RAW")"
+  if ! peer_version_value_known "$peer_revision"; then
+    PEER_GATE_REASON="version-unknown key=configuration_revision"
+    return 1
+  fi
+  if [ "$local_revision" != "$peer_revision" ]; then
+    PEER_GATE_REASON="version-mismatch key=configuration_revision local=$local_revision peer=$peer_revision"
+    return 1
+  fi
+}
+
+peer_armed_read() {
+  local armed armed_at now age
+  PEER_ARMED_AT=""
+  if ! peer_state_session_read; then
+    return 1
+  fi
+  if [ "$PEER_PHASE" != ready ]; then
+    PEER_GATE_REASON="peer-not-ready phase=${PEER_PHASE:-unknown}"
+    return 1
+  fi
   armed="$(jq -r '.armed // false' <<< "$PEER_STATE_RAW")"
   armed_at="$(jq -r '.armed_at // 0' <<< "$PEER_STATE_RAW")"
   case "$armed_at" in '' | *[!0-9]*) armed_at=0 ;; esac
   if [ "$armed" != true ] || [ "$armed_at" -le 0 ]; then
     PEER_GATE_REASON="peer-not-armed"
-    return 1
-  fi
-  for key in "${keys[@]}"; do
-    local_value="$(jq -r --arg key "$key" '.[$key] // ""' <<< "$local_software")"
-    peer_value="$(jq -r --arg key "$key" '.software[$key] // ""' <<< "$PEER_STATE_RAW")"
-    if [ "$local_value" != "$peer_value" ]; then
-      PEER_GATE_REASON="generation-mismatch key=$key local=$local_value peer=$peer_value"
-      return 1
-    fi
-  done
-  local_generation="$(generation_local_rev)"
-  peer_generation="$(jq -r '.generation // ""' <<< "$PEER_STATE_RAW")"
-  if [ "$local_generation" != "$peer_generation" ]; then
-    PEER_GATE_REASON="generation-mismatch key=generation local=$local_generation peer=$peer_generation"
     return 1
   fi
   now="$(date +%s)"
@@ -54,6 +94,10 @@ peer_armed_read() {
     ;;
   esac
   age=$((now - armed_at))
+  if [ "$age" -lt -5 ]; then
+    PEER_GATE_REASON="peer-arm-future age=$age"
+    return 1
+  fi
   if [ "$age" -gt "${CLUSTER_JOIN_TIMEOUT_SECS:-600}" ]; then
     PEER_GATE_REASON="peer-arm-stale age=$age timeout=${CLUSTER_JOIN_TIMEOUT_SECS:-600}"
     return 1

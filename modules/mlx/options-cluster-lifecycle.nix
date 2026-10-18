@@ -17,12 +17,6 @@
       description = "Removed compatibility shim; ignored by cluster lifecycle commands.";
     };
 
-    hostGeneration = lib.mkOption {
-      type = lib.types.str;
-      default = "";
-      description = "Consumer's nix-darwin revision, compared with the peer before either rank starts.";
-    };
-
     peerSsh = lib.mkOption {
       type = lib.types.str;
       default = "";
