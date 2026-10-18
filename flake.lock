@@ -25,11 +25,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1792341054,
-        "narHash": "sha256-2WW/9qoKNylPjGc6VZ44Ff394ZJLDYBPvHcK3zRcTR8=",
+        "lastModified": 1792347348,
+        "narHash": "sha256-qOlNjjhlcm/fm+e2iQFIyrgEJq8n7u/YqYAsyz1c6nE=",
         "owner": "dryvist",
         "repo": "ai-llm-prompts",
-        "rev": "2f8358fcdd9e602430783eebd5ae4314c7f68be5",
+        "rev": "838f8de75b4872375fae65534866dfe64d7f1cbc",
         "type": "github"
       },
       "original": {
@@ -665,11 +665,11 @@
     "jacobpevans-cc-plugins": {
       "flake": false,
       "locked": {
-        "lastModified": 1792226969,
-        "narHash": "sha256-Q/yv1C4NKt9CgqgARK/yALnAXMLdrNBQqZotjMmGuuo=",
+        "lastModified": 1792347322,
+        "narHash": "sha256-IUGecoMvGuqw0wsX5b8GCROk6o+bZb90lBjVCZCfZto=",
         "owner": "dryvist",
         "repo": "claude-code-plugins",
-        "rev": "a91e8766e83505503053ab34c9164abf82d27bb6",
+        "rev": "fe622c40cdec4b54a7a419d806ef0ae32f322f8b",
         "type": "github"
       },
       "original": {
@@ -816,11 +816,11 @@
     "nix-agent-sandbox-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1792335280,
-        "narHash": "sha256-DsaLvfGIByjFZYpLbmtVk0I5OXgXAV5b1qeGIhV+TXs=",
+        "lastModified": 1792343051,
+        "narHash": "sha256-nErHZpfTVJAjhac6vV39z8IDauzzPbx6fwPcNZTwSQ4=",
         "owner": "dryvist",
         "repo": "nix-agent-sandbox",
-        "rev": "2c1443e07660b9a06bb338948b02661fa2e2122b",
+        "rev": "2d13afd9422c5ea815e42ffcad4bd04e2a1e7ea3",
         "type": "github"
       },
       "original": {
@@ -896,11 +896,11 @@
         "visual-explainer-marketplace": "visual-explainer-marketplace"
       },
       "locked": {
-        "lastModified": 1792336876,
-        "narHash": "sha256-BfD/qT8R/mV3esCJxKnpnDjtBnMPLKJ1mPsVmI6ePpo=",
+        "lastModified": 1792347866,
+        "narHash": "sha256-p+4IhQTC0XRuffgiboFfc4+RghHhvLTmRVwo9dH2rbo=",
         "owner": "dryvist",
         "repo": "nix-claude-code",
-        "rev": "a6866b8639e7119b8f51f86e78cfc27feebe3ff2",
+        "rev": "ebe99fb88ed4d9dc7d368a2013a491b97f49bc30",
         "type": "github"
       },
       "original": {
@@ -913,11 +913,11 @@
     "nix-claude-code-launcher-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1791747161,
-        "narHash": "sha256-ePkZrrRC7pfMCSdwUqylplZtCwe94A0LQpeiqvebNSM=",
+        "lastModified": 1792347866,
+        "narHash": "sha256-p+4IhQTC0XRuffgiboFfc4+RghHhvLTmRVwo9dH2rbo=",
         "owner": "dryvist",
         "repo": "nix-claude-code",
-        "rev": "1fc43ea089c165eda28a7d108d25e7ef315f6b66",
+        "rev": "ebe99fb88ed4d9dc7d368a2013a491b97f49bc30",
         "type": "github"
       },
       "original": {
