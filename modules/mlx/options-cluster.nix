@@ -76,75 +76,6 @@ in
       '';
     };
 
-    maxKickstarts = lib.mkOption {
-      type = lib.types.int;
-      default = 5;
-      description = ''
-        Protection-domain-leaking events tolerated in one boot before this host
-        refuses to start a rank — consecutive failed rank starts (the kickstart
-        counter) and cumulative leaks (the boot-scoped PD ledger) draw on the
-        same budget. Every failed distributed init leaks one kernel RDMA
-        protection domain, a SIGKILLed rank leaks one, and exhaustion is
-        reboot-only (ml-explore/mlx#3207).
-
-        WHY 5 — IT IS A RESERVE, NOT A DISTANCE FROM EXHAUSTION. The device
-        budget is 11 (devicePdBudget above, measured via ibv_devinfo -v; the
-        ~60 sessions upstream reports are other hardware). The question is not
-        "how close to 11 dare we walk" but "how much of 11 may be burned on
-        failure while still leaving enough to succeed". A working cluster
-        session must itself allocate protection domains, and max_qp and max_cq
-        are 11 as well — a live session draws on three equally scarce pools at
-        once. Burn 10 of 11 proving the peer absent, and the attempt actually
-        wanted may have nothing left to allocate.
-
-        Free domains are not observable either: ibv_devinfo reports the maximum,
-        never the current allocation, and unrelated processes (the model server)
-        may hold some. Remaining budget is unknown, at
-        most (11 minus leaked) — another reason to reserve rather than to walk
-        up to the edge.
-
-        Hence 5: after five failed attempts six domains remain, comfortably a
-        working session plus margin. Three was over-cautious, spending a halt
-        on a recoverable "peer not up yet" with eight domains still unused. Ten
-        satisfies "not yet exhausted" and leaves no room to succeed.
-
-        Only a reboot returns a leaked domain. Clearing the halt marker does
-        not — the guard re-verifies the ledger and re-halts on its evidence.
-      '';
-    };
-
-    maxWarmFailures = lib.mkOption {
-      type = lib.types.int;
-      default = 3;
-      description = ''
-        Consecutive post-readiness automated-health-gate failures before the
-        watcher declares the rank wedged, halts it, and restores standalone
-        serving. Readiness is a one-shot latch — once the endpoint answers a
-        /v1/models probe it is never re-verified, because mlx_lm.server blocks
-        HTTP during long generations and a timed probe would kill healthy
-        ranks. A rank that serves the probe but hangs on real generation
-        would otherwise retry forever with nothing escalating.
-      '';
-    };
-
-    alertUrlFile = lib.mkOption {
-      type = lib.types.str;
-      default = "${config.home.homeDirectory}/.config/mlx-cluster/alert-url";
-      description = ''
-        Untracked local file holding a Slack incoming-webhook URL for the halt
-        page. A webhook URL is a write capability for its channel, so it is
-        seeded out-of-band (mode 600) and never committed. Missing file = no
-        page.
-
-        Was an ntfy publish URL until 2026-07-24; ntfy is internal-only and
-        nothing subscribed to it, so an armed pager rang in an empty room.
-        Slack is the channel that is actually read. The alerters POST
-        `{"text": ...}` as application/json — a raw body is rejected as
-        invalid_payload, so the contents of this file are not interchangeable
-        with an ntfy URL.
-      '';
-    };
-
     shardingMode = lib.mkOption {
       type = lib.types.enum [
         "tensor-parallel"
@@ -222,7 +153,7 @@ in
       default = null;
       example = 90000;
       description = ''
-        iogpu.wired_limit_mb the watcher applies (sudo, exact-value grant
+        iogpu.wired_limit_mb cluster-join applies (sudo, exact-value grant
         from nix-darwin clusterLinkPrep) before starting the rank — sized for
         this node's pipeline shard, leaving the GUI working set unwirable.
         null = never touch the sysctl. When set, a failed apply SKIPS the
@@ -235,7 +166,7 @@ in
       type = lib.types.int;
       default = 0;
       description = ''
-        iogpu.wired_limit_mb the watcher restores at link-down (0 = macOS
+        iogpu.wired_limit_mb cluster-detach restores (0 = macOS
         default ceiling). Must equal the value nix-darwin grants
         (appleSiliconTunables.wiredLimitMb, else 0).
       '';

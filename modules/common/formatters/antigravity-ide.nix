@@ -1,5 +1,5 @@
 # Antigravity IDE Formatter
-{ lib, flattenCommands }:
+{ flattenCommands }:
 
 {
   formatAllowed =

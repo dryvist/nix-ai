@@ -29,6 +29,48 @@ fallback_device="${CLUSTER_RDMA_DEVICE:?CLUSTER_RDMA_DEVICE is required}"
 
 log() { printf '[cluster-rank-launch] %s\n' "$*" >&2; }
 
+rank_model_file="${CLUSTER_STATE_DIR:-$(dirname "$matrix_file")}/rank-model"
+rank_args=("$@")
+if [ -f "$rank_model_file" ]; then
+  override_model="$(sed -n '1p' "$rank_model_file")"
+  override_sharding="$(sed -n '2p' "$rank_model_file")"
+  line_count="$(wc -l < "$rank_model_file" | tr -d ' ')"
+  [[ "$override_model" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] &&
+    [ "$line_count" = 2 ] || {
+      log "invalid rank-model state"
+      exit 1
+    }
+  case "$override_sharding" in
+    tensor | pipeline) ;;
+    *)
+      log "invalid rank-model sharding"
+      exit 1
+      ;;
+  esac
+  found_model=false
+  for ((i = 0; i < ${#rank_args[@]}; i += 1)); do
+    if [ "${rank_args[$i]}" = --model ]; then
+      [ "$((i + 1))" -lt "${#rank_args[@]}" ] || {
+        log "rank argv has no value after --model"
+        exit 1
+      }
+      rank_args[i + 1]="$override_model"
+      found_model=true
+    fi
+  done
+  [ "$found_model" = true ] || {
+    log "rank argv has no --model option"
+    exit 1
+  }
+  filtered_args=()
+  for arg in "${rank_args[@]}"; do
+    [ "$arg" = --pipeline ] || filtered_args+=("$arg")
+  done
+  rank_args=("${filtered_args[@]}")
+  [ "$override_sharding" != pipeline ] || rank_args+=(--pipeline)
+  printf 'cluster-rank: model override id=%s sharding=%s\n' "$override_model" "$override_sharding" >&2
+fi
+
 # First Thunderbolt port with carrier whose rdma_<dev> exists in ibv_devices.
 discover_rdma_device() {
   local dev
@@ -62,4 +104,4 @@ mkdir -p "$(dirname "$matrix_file")"
 printf '[[null, "%s"], ["%s", null]]\n' "$device" "$device" >"$matrix_file"
 export MLX_IBV_DEVICES="$matrix_file"
 
-exec "$@"
+exec "${rank_args[@]}"

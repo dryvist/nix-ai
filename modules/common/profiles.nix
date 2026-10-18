@@ -21,7 +21,7 @@
 # render them onto a host filesystem. Renderers live in
 # each per-CLI leaf repo, composed into the flake's lib for image
 # builds, not via the home-manager module.
-{ lib }:
+_:
 
 let
   # Commands denied even in bypass mode. These cross the container boundary

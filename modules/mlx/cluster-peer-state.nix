@@ -4,14 +4,11 @@
 # Companion to ./cluster-mode.nix. Kept separate because it owns a distinct
 # resident agent and failure domain.
 #
-# The watcher publishes whether this host is ready to rendezvous; this agent
-# serves the state so the peer's start guard can read it before spending an RDMA
-# protection domain on an attempt that would fail.
+# cluster-join publishes whether this host is ready to rendezvous; this agent
+# serves the state so the peer can coordinate its rank start.
 #
-# It is the responder half of the peer-armed handshake. The watcher writes one
-# JSON line per tick (peer_state_write in ./scripts/cluster-peer-state.sh); this
-# agent serves that line on the link address. Rationale in full at the top of
-# ./scripts/cluster-peer-state-serve.sh.
+# It is the responder half of the peer-armed handshake. cluster-join writes
+# peer-state.json; this agent serves that line on the link address.
 #
 {
   config,
@@ -21,10 +18,10 @@
   ...
 }:
 let
-  inherit (mlxShared) cfg;
+  inherit (mlxShared) cfg clusterSoftwareJson;
   ncfg = cfg.clusterMode;
   # Cluster override if set, else the module-wide convention
-  # (./options-launch.nix). Resolved the same way the watcher and rank agents
+  # (./options-launch.nix). Resolved the same way the rank agent
   # resolve it, so all three are launched alike.
   appleInterp = if ncfg.appleInterpreter != null then ncfg.appleInterpreter else cfg.appleInterpreter;
 
@@ -33,18 +30,19 @@ let
   staticSelfIp = if isCoordinator then ncfg.staticLinkIps.coordinator else ncfg.staticLinkIps.worker;
   peerStatePkg = pkgs.writeShellApplication {
     name = "mlx-cluster-peer-state";
-    # coreutils only: the loop cats a file, formats a response and sleeps. nc is
+    # The responder resets stale state before listening. nc is
     # /usr/bin/nc by absolute path, because /usr/bin is not on a
     # writeShellApplication PATH — the same trap that once disabled the PD guard
     # by putting sysctl out of reach.
-    runtimeInputs = [ pkgs.coreutils ];
-    # No shared layers, deliberately. See the peerState entry in
-    # ./cluster-script-layers.nix for why the responder computes nothing.
+    runtimeInputs = [
+      pkgs.coreutils
+      pkgs.jq
+    ];
     text = lib.concatStrings (map builtins.readFile (import ./cluster-script-layers.nix).peerState);
   };
 in
 {
-  config = lib.mkIf (cfg.enable && ncfg.enable && ncfg.peerStatePort != 0) {
+  config = lib.mkIf (cfg.enable && ncfg.enable) {
     launchd.agents.mlx-cluster-peer-state = {
       enable = true;
       config = {
@@ -65,22 +63,18 @@ in
         KeepAlive = true;
         ProcessType = "Background";
         EnvironmentVariables = {
-          # The one definition lives on the option (see
-          # ./options-cluster-peer-state.nix): the watcher writes this exact
-          # path through ./cluster-watcher-env.nix, and a second derivation here
-          # is how a writer and a reader end up on different files.
+          # The same paths reach cluster-join through cluster-cli-env.nix.
           CLUSTER_PEER_STATE_FILE = ncfg.peerStateFile;
+          CLUSTER_STATE_FILE = "${config.home.homeDirectory}/Library/Application Support/mlx-cluster/link-state";
           CLUSTER_PEER_STATE_PORT = toString ncfg.peerStatePort;
           CLUSTER_STATIC_SELF_IP = staticSelfIp;
+          CLUSTER_SOFTWARE_JSON = clusterSoftwareJson;
+          CLUSTER_SW_VERS_BIN = "/usr/bin/sw_vers";
           # Reuses the fetch timeout as the listener's idle bound: the two
           # describe the same conversation from either end, so one number keeps
           # a client that gives up and a server that waits from disagreeing.
           CLUSTER_PEER_STATE_TIMEOUT_SECS = toString ncfg.peerStateTimeoutSecs;
-          # Pause after a failed bind. The link address does not exist while the
-          # cable is out, so this is the steady state of an unplugged machine —
-          # one tick of the watcher, so a replug is picked up within the same
-          # quantum everything else in this subsystem converges on.
-          CLUSTER_PEER_STATE_RETRY_SECS = toString ncfg.tickIntervalSecs;
+          CLUSTER_PEER_STATE_RETRY_SECS = "5";
           CLUSTER_NC_BIN = "/usr/bin/nc";
         };
         StandardOutPath = "${logDir}/cluster-peer-state.log";

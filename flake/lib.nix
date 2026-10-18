@@ -162,7 +162,7 @@ in
 
   # Autonomy profiles (interactive / autonomous / ci) — tool-agnostic
   # deployment postures. See modules/common/profiles.nix for the model.
-  profiles = import ../modules/common/profiles.nix { inherit (nixpkgs) lib; };
+  profiles = import ../modules/common/profiles.nix { };
 
   # Autonomous-profile config renderers for agent container images
   # (dryvist/nix-agent-sandbox). Pure strings, never written to a host
@@ -188,7 +188,7 @@ in
       # Imported here rather than reusing the `profiles` attribute below:
       # that is a sibling in this (non-recursive) attrset, so it is not in
       # scope. Same pure import, same value.
-      inherit (import ../modules/common/profiles.nix { inherit (nixpkgs) lib; })
+      inherit (import ../modules/common/profiles.nix { })
         residualDeny
         ;
       args = {

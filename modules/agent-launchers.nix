@@ -2,8 +2,6 @@
   config,
   lib,
   pkgs,
-  nix-claude-code,
-  nix-codex,
   nix-claude-code-launcher-src,
   nix-codex-launcher-src,
   nix-agy,

@@ -2,9 +2,8 @@
 #
 # In clustered mode, one Thunderbolt 5 cable turns two Macs into a single MLX
 # pipeline-parallel cluster serving a frontier-class model that neither
-# machine can hold alone. Each host runs its own rank from launchd (no SSH
-# orchestration): a link watcher detects the cable, quiesces normal serving,
-# and starts the rank; unplugging reverses it unattended.
+# machine can hold alone. Operators use cluster-join and cluster-detach; the
+# rank itself remains launchd-owned.
 #
 # Serving stack is first-party mlx-lm: `mlx_lm.server` on every rank — rank 0
 # (coordinator) binds the OpenAI-compatible HTTP endpoint, all ranks
@@ -49,15 +48,9 @@ let
   versions = import ../../lib/versions.nix;
 
   rankLabel = "dev.mlx-cluster.rank";
-  watcherLabel = "dev.mlx-cluster.watcher";
   logDir = "${config.home.homeDirectory}/Library/Logs/mlx-cluster";
   stateFile = "${config.home.homeDirectory}/Library/Application Support/mlx-cluster/link-state";
-  # Ledger of RDMA protection domains leaked during the current boot: written by
-  # cluster-detach when it must SIGKILL, read by the watcher's start guard and by
-  # cluster-join. Defined ONCE, here — a writer and a reader that each derive the
-  # path are a writer and a reader on different files. Boot-scoped: only a
-  # reboot clears it (see cluster-pd-ledger.sh for why).
-  pdDebtFile = "${config.home.homeDirectory}/Library/Application Support/mlx-cluster/pd-debt";
+  stateDir = "${config.home.homeDirectory}/Library/Application Support/mlx-cluster";
   # Written by the rank launcher at start (not a nix-managed file — its content
   # depends on which physical Thunderbolt port has the cable).
   ibvMatrixFile = "${config.home.homeDirectory}/Library/Application Support/mlx-cluster/ibv-matrix.json";
@@ -88,29 +81,13 @@ let
   # ibv matrix, execs clusterRankArgs. Everything else stays baked at eval.
   clusterRankLaunchPkg = pkgs.writeShellApplication {
     name = "mlx-cluster-rank-launch";
-    text = builtins.readFile ./scripts/cluster-rank-launch.sh;
-  };
-
-  clusterWatcherPkg = pkgs.writeShellApplication {
-    name = "mlx-cluster-link-watcher";
-    # jq: the Slack alert payload is JSON-encoded, never string-interpolated.
-    # coreutils: `timeout` bounds the rendezvous probe, the activation repair
-    # pass and the parity ls-remote, and macOS ships no timeout(1).
-    # git: the periodic generation-parity check reads the deploy branch HEAD with
-    # `ls-remote` — the drift that disarmed link prep for 86 hours was invisible
-    # because nothing on a timer ever asked.
-    runtimeInputs = [
-      pkgs.curl
-      pkgs.jq
-      pkgs.coreutils
-      pkgs.git
+    runtimeInputs = with pkgs; [
+      coreutils
+      gawk
+      gnugrep
+      gnused
     ];
-    # Function definitions first, then the state machine. Concatenation, not
-    # sourcing: the helper bodies read `uid` and the CLUSTER_* env from the
-    # watcher's own scope, resolved at call time. The layer list — and why each
-    # consumer gets exactly the layers it calls — lives in
-    # ./cluster-script-layers.nix.
-    text = lib.concatStrings (map builtins.readFile scriptLayers.watcher);
+    text = builtins.readFile ./scripts/cluster-rank-launch.sh;
   };
 
   # Lifecycle-command builder lives in ./cluster-cli-builder.nix (split out for
@@ -121,6 +98,7 @@ let
   # for the per-file size cap); the packages that consume it stay here.
   clusterCliEnv = import ./cluster-cli-env.nix {
     inherit
+      config
       lib
       ncfg
       cfg
@@ -128,46 +106,24 @@ let
       staticSelfIp
       staticPeerIp
       rankLabel
-      watcherLabel
       launchAgentsDir
       residentAgentLabels
       watchdogAgentLabel
       stateFile
-      pdDebtFile
+      stateDir
       apiUrl
       modelServerProcessPattern
-      rankErrorLog
       ;
+    inherit (mlxShared) clusterSoftwareJson;
   };
 
   # Both lifecycle commands consume the shared link-prep primitives (each used to
   # carry its own copy of iface_holding_self_ip), so each is built from the layers
-  # it uses plus its own body. Those layer sets, and the privilege boundary they
-  # encode between the PD ledger's read and write sides, live in
-  # ./cluster-script-layers.nix.
+  # it uses plus its own body. Those layer sets, including the kernel PD count
+  # and teardown helpers, live in ./cluster-script-layers.nix.
   clusterJoinPkg = mkClusterCli "cluster-join" scriptLayers.join clusterCliEnv.clusterJoinEnv;
   clusterDetachPkg = mkClusterCli "cluster-detach" scriptLayers.detach clusterCliEnv.clusterDetachEnv;
 
-  # Watcher env contract lives in ./cluster-watcher-env.nix (split out for the
-  # per-file size cap, same as ./cluster-cli-env.nix); it also derives the
-  # link-down settle window into probe strikes.
-  clusterWatcherEnv = import ./cluster-watcher-env.nix {
-    inherit
-      lib
-      ncfg
-      cfg
-      isCoordinator
-      staticSelfIp
-      staticPeerIp
-      rankLabel
-      residentAgentLabels
-      watchdogAgentLabel
-      launchAgentsDir
-      stateFile
-      pdDebtFile
-      rankErrorLog
-      ;
-  };
 in
 {
   # Clustered-mode option DECLARATIONS live in ./options-cluster.nix (split out
@@ -194,15 +150,15 @@ in
     # Invariants live in ./cluster-assertions.nix (split out for the byte cap).
     assertions = import ./cluster-assertions.nix { inherit ncfg cfg; };
 
-    # Lifecycle commands on PATH on both nodes (one-click cluster bring-up /
-    # safe-unplug over the watcher). Shipped only when clusterMode is enabled.
+    # Lifecycle commands on PATH on both nodes. Shipped only when clusterMode
+    # is enabled.
     home.packages = [
       clusterJoinPkg
       clusterDetachPkg
     ];
 
     launchd.agents = {
-      # The rank itself. Started/stopped exclusively by the link watcher —
+      # The rank itself. Started/stopped exclusively by cluster-join/detach —
       # RunAtLoad=false + KeepAlive=false means an unplugged cable and
       # rebuilds leave it idle. Interactive QoS: Background clamps Metal
       # decode throughput (same lesson as the normal-mode server agent).
@@ -210,7 +166,7 @@ in
         enable = true;
         config = {
           Label = rankLabel;
-          # Apple's interpreter, like the watcher beside it: a Nix binary's
+          # Apple's interpreter, like the peer-state responder: a Nix binary's
           # signing identity is its content hash, so
           # a Local Network grant dies on the next rebuild. Worst here — the
           # rank alone opens the jaccl rendezvous, and each denied start burns
@@ -233,6 +189,7 @@ in
             # visible and gives mlx a valid path if the launcher is bypassed.
             MLX_IBV_DEVICES = ibvMatrixFile;
             CLUSTER_IBV_MATRIX_FILE = ibvMatrixFile;
+            CLUSTER_STATE_DIR = stateDir;
             CLUSTER_RDMA_DEVICE = ncfg.rdmaDevice;
           }
           // lib.optionalAttrs ncfg.fastMetalSync {
@@ -245,30 +202,6 @@ in
         };
       };
 
-      # Link watcher: one state-machine tick per interval (see the script for
-      # the transition table).
-      mlx-cluster-watcher = {
-        enable = true;
-        config = {
-          Label = watcherLabel;
-          # Launched through Apple's interpreter, not the script's Nix shebang,
-          # so the whole chain is Apple-signed and macOS grants it Local Network
-          # unconditionally. See programs.mlx.appleInterpreter for why a Nix
-          # shebang here made the cluster unable to self-form.
-          ProgramArguments = lib.optional (appleInterp != null) appleInterp ++ [
-            (lib.getExe clusterWatcherPkg)
-          ];
-          RunAtLoad = true;
-          # The convergence quantum. Every seconds-valued watcher threshold is
-          # converted into ticks against this one number (see
-          # ./cluster-watcher-env.nix), so none of them can drift from it.
-          StartInterval = ncfg.tickIntervalSecs;
-          ProcessType = "Background";
-          EnvironmentVariables = clusterWatcherEnv;
-          StandardOutPath = "${logDir}/cluster-watcher.log";
-          StandardErrorPath = "${logDir}/cluster-watcher.error.log";
-        };
-      };
     };
   };
 }

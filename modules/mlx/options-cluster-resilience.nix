@@ -1,157 +1,16 @@
-#
-# MLX Module — clustered-mode resilience tunables (unattended bring-up/teardown)
-#
-# Split out of ./options-cluster.nix (itself split out of ./cluster-mode.nix)
-# purely to keep each file under the repo per-file size cap. The option paths are
-# UNCHANGED (programs.mlx.clusterMode.*): the module system merges this block
-# with the ones in options-cluster.nix, options-cluster-lifecycle.nix and
-# cluster-mode.nix. Only `lib` is referenced.
-#
-# Everything here exists so that plugging or unplugging the cable is the ONLY
-# human action a cluster bring-up requires. Each value is a threshold the
-# watcher previously carried as a script default, i.e. a number nobody could see
-# or change from configuration.
-#
+# The per-cluster interpreter override used by lifecycle commands.
 { lib, ... }:
 {
-  options.programs.mlx.clusterMode = {
-    tickIntervalSecs = lib.mkOption {
-      type = lib.types.int;
-      default = 30;
-      description = ''
-        Link-watcher StartInterval. This is the cluster's convergence quantum:
-        every threshold below that is expressed in seconds is converted into
-        ticks against THIS value, so the two can never drift apart.
-      '';
-    };
+  options.programs.mlx.clusterMode.appleInterpreter = lib.mkOption {
+    type = lib.types.nullOr lib.types.str;
+    default = null;
+    description = ''
+      Per-cluster override for programs.mlx.appleInterpreter. null (the
+      default) inherits the module-wide value, which is where the convention
+      and its rationale live — see ./options-launch.nix.
 
-    linkDownSettleSecs = lib.mkOption {
-      type = lib.types.int;
-      default = 60;
-      description = ''
-        How long the link must stay unreachable before the watcher declares it
-        down and tears the rank down. Converted to consecutive failed probes
-        (CLUSTER_LINK_DOWN_STRIKES) against tickIntervalSecs, rounded up, floor
-        of one — it does not add a second debounce, it gives the existing one a
-        unit an operator can reason about.
-
-        Debounce is deliberately ASYMMETRIC: a false "down" is destructive (it
-        stops the rank AND resets the RDMA PD guard, so a flapping link could
-        never accumulate toward a halt — seen 2026-07-19), while a false "up"
-        only attempts a start the guard already caps. So "up" is believed on the
-        first reply and "down" must be earned over this window.
-      '';
-    };
-
-    peerSessionStrikes = lib.mkOption {
-      type = lib.types.ints.positive;
-      default = 3;
-      description = ''
-        Consecutive ticks the peer's JACCL rendezvous session must be absent,
-        while this rank is running and settled, before this rank is stood down
-        so the pair re-arms together (exported as CLUSTER_PEER_SESSION_STRIKES).
-
-        A jaccl group cannot re-admit a rank, so a rank whose peer has gone can
-        never generate again — it must not be left running. Absence is an
-        accepted trigger because session persistence across a full generation is
-        measured, not assumed; see peer_rendezvous_session. Strikes rather than a
-        single tick so one missed sample cannot tear down a healthy pair.
-      '';
-    };
-
-    peerHaltStrikes = lib.mkOption {
-      type = lib.types.ints.positive;
-      default = 2;
-      description = ''
-        Consecutive peer-state reads in which the PEER must report a halt, while
-        this host's own rank is running and settled, before this rank is stood
-        down so the pair re-arms together (exported as CLUSTER_PEER_HALT_STRIKES).
-
-        Worker-side counterpart to the coordinator's readiness, health-gate and
-        soak teardowns, none of which a worker can run: only rank 0 binds the
-        endpoint they probe. A worker whose coordinator halts while its own rank
-        process and TCP session survive otherwise waits inside an all-reduce its
-        peer has abandoned. Read on the soak cadence, and only a positive read
-        counts — an unreadable peer state is inconclusive and does not count.
-      '';
-    };
-
-    rankStartAlignMultiple = lib.mkOption {
-      type = lib.types.int;
-      default = 2;
-      description = ''
-        Multiple of tickIntervalSecs giving the shared wall-clock start boundary
-        for BOTH ranks, exported as CLUSTER_RANK_START_ALIGN_SECS. Must be at
-        least 2; see the cluster-link-guards notes for why the period must
-        exceed the tick and why both ranks start together instead of the worker
-        waiting for rank 0.
-      '';
-    };
-
-    peerRendezvousProbeTimeoutSecs = lib.mkOption {
-      type = lib.types.int;
-      default = 2;
-      description = ''
-        Bound on the worker's "is rank 0 listening?" TCP connect probe, which
-        gates every worker rank start. Must stay well under tickIntervalSecs: a
-        probe that outlives the tick is not a probe.
-
-        A blackholed SYN is the case that needs bounding — measured 2026-07-25,
-        macOS nc with `-w 2` still took 75s because Apple's nc applies -w to
-        idle reads and not to connect setup, so the probe is wrapped in
-        coreutils `timeout` instead.
-      '';
-    };
-
-    linkRepair = lib.mkOption {
-      type = lib.types.bool;
-      default = true;
-      description = ''
-        Let the watcher repair a MISSING local link address in place instead of
-        starting a rank that cannot bind.
-
-        A boot does not produce a usable link: nix-darwin's cluster-link prep
-        runs in root postActivation, which fires before Thunderbolt carrier
-        settles, so the pass can find no carrier-active port and address
-        nothing. Observed 2026-07-24 — carrier present on the cabled port,
-        activation completed, no interface holding the link address, and the
-        rank died with `[jaccl] Couldn't bind socket (error: 49)` (errno 49 =
-        EADDRNOTAVAIL). Repair uses only the existing cluster-ops sudoers
-        grants and is the same idempotent aliasing the prep pass performs.
-
-        Turning this off does NOT make the watcher start such a rank: the
-        missing address remains a hard precondition. It only stops the watcher
-        from fixing it.
-      '';
-    };
-
-    appleInterpreter = lib.mkOption {
-      type = lib.types.nullOr lib.types.str;
-      default = null;
-      description = ''
-        Per-cluster override for programs.mlx.appleInterpreter. null (the
-        default) inherits the module-wide value, which is where the convention
-        and its rationale live — see ./options-launch.nix.
-
-        Present only so a single host can opt one cluster agent out without
-        changing the estate default. Almost nothing should set this.
-      '';
-    };
-
-    linkRepairActivateTimeoutSecs = lib.mkOption {
-      type = lib.types.int;
-      default = 150;
-      description = ''
-        Bound on the fallback `system/activate` pass used when the direct
-        granted repair does not restore the link address. 0 = never activate
-        from the watcher (direct repair only).
-
-        A full activation can wedge on an unrelated step (2026-07-19: a
-        home-manager symlink hung on a stale mount), so it is bounded and tried
-        second — the direct alias is the same change with a far smaller blast
-        radius, which matters on a 30s tick.
-      '';
-    };
-
+      Present only so a single host can opt one cluster agent out without
+      changing the estate default. Almost nothing should set this.
+    '';
   };
 }
