@@ -303,7 +303,7 @@ set -e
 check 'worker detach succeeds without initiating ssh' 0 "$detach_rc"
 check 'worker issued no ssh' 0 "$(wc -l < "$FAKE_SSH_LOG" | tr -d ' ')"
 
-echo 'lifecycle lock recording preserves the first claimant and fresh acquisition:'
+echo 'lifecycle lock record keeps the first owner and fresh acquisition:'
 lock="$CLUSTER_STATE_DIR/cluster-lifecycle.lock"
 rm -rf "$lock"
 mkdir -p "$lock"
