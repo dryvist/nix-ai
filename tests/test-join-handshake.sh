@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# The sourced cluster-join and cluster-teardown functions read these; shellcheck cannot see that from this file.
+export JOIN_REBOOT JOIN_MODEL_EXPLICIT JOIN_EXIT_ACTIVE JOIN_SIGNAL_RC CLUSTER_PEER_SSH_RC \
+  CLUSTER_COORDINATOR_LEASE_SECS COORDINATOR_LEASE_TS formed ceiling_attempted quiesced
+
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 mkdir -p "$tmp/bin" "$tmp/state" "$tmp/hf/hub/models--org--default/refs" \
