@@ -26,12 +26,7 @@ in
       agents = names cfg.agents.fromFlakeInputs;
       rules = names cfg.rules.fromFlakeInputs;
     in
-    assert
-      builtins.all (a: builtins.elem a agents) [
-        "haiku-xhigh"
-        "opus-medium"
-      ]
-      || throw "prompt catalog agents haiku-xhigh and opus-medium must be delivered";
+    assert builtins.elem "executor" agents || throw "prompt catalog agent executor must be delivered";
     assert
       builtins.elem "brief-delegates" rules
       || throw "prompt catalog rule brief-delegates must be delivered";

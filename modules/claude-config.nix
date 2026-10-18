@@ -12,7 +12,6 @@
   config,
   pkgs,
   lib,
-  ai-assistant-instructions,
   ai-llm-prompts,
   nix-claude-code,
   marketplaceInputs,
@@ -39,6 +38,7 @@ let
   };
   inherit (aiCommon) permissions;
   inherit (aiCommon) formatters;
+  instructions = import ../lib/catalog-instructions.nix { inherit ai-llm-prompts pkgs; };
 
   # Dynamic discovery helper — finds all .md files in a directory.
   # Non-recursive by design: the `type == "regular"` filter skips subdirectories,
@@ -61,7 +61,8 @@ let
       mkSourceEntries
       ;
   };
-  aiRules = discoverMarkdownFiles "${ai-assistant-instructions}/agentsmd/rules";
+  aiRules = discoverMarkdownFiles "${instructions.src}/agentsmd/rules";
+  skillOverridesFile = "${instructions.src}/agentsmd/settings/skill-overrides.json";
 
   # Plugin tier files (per-user enablement) stay in nix-ai. The catalog of
   # marketplaces themselves now lives in nix-claude-code.
@@ -197,7 +198,7 @@ in
         fromFlakeInputs = mkSourceEntries "${claude-cookbooks}/.claude/commands" cbCommands;
       };
 
-      # The subagent roster (haiku-xhigh, opus-medium) comes from the prompt catalog.
+      # The subagent definitions (executor) come from the prompt catalog.
       agents.fromFlakeInputs = promptCatalog.agents;
 
       # home-manager is the single canonical delivery pipe for agent instructions.
@@ -207,7 +208,7 @@ in
       # `agentsmd/rules/on-demand/` tier lives in a subdir that discovery skips on
       # purpose — it is read by path, never delivered. Do not make discovery recurse.
       rules.fromFlakeInputs =
-        mkSourceEntries "${ai-assistant-instructions}/agentsmd/rules" aiRules ++ promptCatalog.rules;
+        mkSourceEntries "${instructions.pkg}/agentsmd/rules" aiRules ++ promptCatalog.rules;
 
       settings = {
         # advisorModel left unset (null = advisor tool off; it forwards the
@@ -243,10 +244,10 @@ in
         permissions = import ./claude/permissions.nix { inherit formatters permissions; };
 
         skillOverrides =
-          let
-            file = "${ai-assistant-instructions}/agentsmd/settings/skill-overrides.json";
-          in
-          if builtins.pathExists file then (lib.importJSON file).skillOverrides or { } else { };
+          if builtins.pathExists skillOverridesFile then
+            (lib.importJSON skillOverridesFile).skillOverrides or { }
+          else
+            { };
 
         additionalDirectories =
           (import ./claude/settings-paths.nix) ++ (userConfig.extraTrustedPaths or [ ]);

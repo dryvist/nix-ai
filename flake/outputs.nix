@@ -5,7 +5,6 @@
   llm-agents,
   home-manager,
   ai-llm-prompts,
-  ai-assistant-instructions,
   jacobpevans-cc-plugins,
   browser-use-skills,
   nix-claude-code,
@@ -61,7 +60,6 @@ in
   homeManagerModules = import ./home-manager-modules.nix {
     inherit (nixpkgs) lib;
     inherit
-      ai-assistant-instructions
       ai-llm-prompts
       jacobpevans-cc-plugins
       browser-use-skills
@@ -122,7 +120,6 @@ in
       self
       nixpkgs
       home-manager
-      ai-assistant-instructions
       nixAiLib
       ai-llm-prompts
       herdr-remote-src

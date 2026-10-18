@@ -1,13 +1,14 @@
-{ lib, ai-assistant-instructions }:
+{ pkgs, instructions }:
 
-let
-  operatingCore = builtins.readFile "${ai-assistant-instructions}/agentsmd/rules/operating-core.md";
-  monitoringRule = builtins.filter (
-    line: lib.hasInfix "Check system state with monitoring first;" line
-  ) (lib.splitString "\n" operatingCore);
-in
-assert builtins.length monitoringRule == 1;
-builtins.readFile "${ai-assistant-instructions}/AGENTS.md"
-+ "\n"
-+ builtins.head monitoringRule
-+ "\n"
+pkgs.runCommand "shared-agent-instructions" { } ''
+  set -e
+  operating_core="${instructions.pkg}/agentsmd/rules/operating-core.md"
+  rule_count=$(grep -Fc 'Check system state with monitoring first;' "$operating_core" || true)
+  if [ "$rule_count" -ne 1 ]; then
+    echo "expected exactly one monitoring-first line in operating-core.md, found $rule_count" >&2
+    exit 1
+  fi
+  cat "${instructions.pkg}/AGENTS.md" > "$out"
+  printf '\n' >> "$out"
+  grep -F 'Check system state with monitoring first;' "$operating_core" >> "$out"
+''

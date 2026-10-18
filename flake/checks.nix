@@ -11,7 +11,6 @@
   self,
   nixpkgs,
   home-manager,
-  ai-assistant-instructions,
   nixAiLib,
   ai-llm-prompts,
   herdr-remote-src,
@@ -40,7 +39,7 @@ in
       inherit
         pkgs
         home-manager
-        ai-assistant-instructions
+        ai-llm-prompts
         src
         ;
       roleMap = import (src + "/lib/role-map.nix") {

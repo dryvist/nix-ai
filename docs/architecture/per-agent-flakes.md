@@ -53,7 +53,7 @@ separately.
 
 ## Install-order rule
 
-Per the repo's `nix-package-placement` rule:
+Package placement follows this install-order rule:
 
 1. **nixpkgs** if available (deterministic, GC-safe, cached binary)
 2. **Local Nix derivation** (`modules/<agent>/package.nix`) when
