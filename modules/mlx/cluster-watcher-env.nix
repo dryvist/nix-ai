@@ -121,11 +121,6 @@ in
   # cumulative-per-boot because nothing short of a reboot returns a domain.
   CLUSTER_PD_DEBT_FILE = pdDebtFile;
   CLUSTER_PD_DEBT_MAX = toString ncfg.maxKickstarts;
-  # Unattended-reboot rate limit for a PD-exhaustion halt (pd-debt-exhausted or
-  # rank-start-failures). 0 disables auto-reboot outright. See
-  # pd_auto_reboot_if_warranted in cluster-link-guards.sh and the option's own
-  # doc comment for the FileVault caveat.
-  CLUSTER_PD_AUTO_REBOOT_WINDOW_SECS = toString ncfg.pdAutoRebootWindowSecs;
   # The device's own budget — measured max_pd, 11 on this hardware. Carried so
   # every operator-facing message can state the debt as a FRACTION of what the
   # device has ("3 of 11 consumed until reboot") rather than a bare count. A
@@ -145,7 +140,7 @@ in
   # in cluster-link-guards.sh for the rung itself.
   CLUSTER_SHARD_MEMORY_MB = toString ncfg.shardMemoryMb;
   # Consecutive ticks the rung may refuse before the watcher escalates from a
-  # free per-tick skip to a HALT that pd_auto_reboot_if_warranted can act on.
+  # free per-tick skip to a HALT.
   CLUSTER_MEM_HEADROOM_DWELL_TICKS = toString memHeadroomDwellTicks;
   # vm_stat is not on a writeShellApplication PATH; test seam, like
   # CLUSTER_NETSTAT_BIN / CLUSTER_PGREP_BIN / CLUSTER_KILL_BIN above.

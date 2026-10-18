@@ -32,12 +32,9 @@
 #                                  host holds no link address
 #   CLUSTER_LINK_ACTIVATE_TIMEOUT_SECS  bound on the activation repair fallback
 #   CLUSTER_WIRED_LIMIT_MB           optional cluster wired ceiling
-#   CLUSTER_PD_AUTO_REBOOT_WINDOW_SECS  minimum seconds between unattended
-#                                  reboots issued to clear a PD-exhaustion halt
-#                                  (0 disables auto-reboot)
 #   CLUSTER_PD_DEBT_FILE / CLUSTER_PD_DEBT_MAX / CLUSTER_PD_DEVICE_BUDGET
-#                                  read by pd_auto_reboot_if_warranted to phrase
-#                                  its alert; see cluster-pd-ledger.sh
+#                                  used by the PD guards and debt phrase;
+#                                  see cluster-pd-ledger.sh
 #   CLUSTER_SHARD_MEMORY_MB          expected per-rank working set in MB; 0
 #                                  disables the memory-headroom rung with no
 #                                  vm_stat read at all
@@ -260,7 +257,7 @@ mem_stat_mb() {
 
 # Precondition wrapper over mem_stat_mb. $1 = required shard size in MB.
 # 0/unset disables the rung cleanly — no vm_stat read at all, same "0 = off"
-# convention as CLUSTER_WARM_RECHECK_SECS and CLUSTER_PD_AUTO_REBOOT_WINDOW_SECS.
+# convention as CLUSTER_WARM_RECHECK_SECS.
 # Sets MEM_HEADROOM_DETAIL on refusal (and on an unreadable probe), for the
 # caller's log line.
 mem_headroom_ok() {
@@ -603,12 +600,6 @@ rank_start_room_ok() {
 #    provisional, so "slightly too strict" is a live failure mode — the
 #    non-latching behaviour is what makes a provisional threshold safe to ship.
 #
-# SCOPED TO THIS HOST CLASS, NOT UNIVERSAL. On a host that boots unattended and
-# has auto-reboot sanctioned, the leak is a reboot-only-clearable latch and an
-# escalation dwell would be the automated path that keeps it from being reached
-# — the estate rule wants one. That case is a tracked automation gap, not
-# considered-and-rejected. Do not read this comment as covering it.
-#
 # WHAT THIS RUNG DOES NOT COVER AT ALL: a leak that accumulates DURING a
 # session and starves the compositor mid-serve. That is the running-rank
 # watcher's territory and is uncovered today. This closes only "start onto an
@@ -849,11 +840,9 @@ pd_debt_halt_if_exhausted() {
 # state the operator's chaos-monkey doctrine rules out.
 #
 # So a shortfall that holds for CLUSTER_MEM_HEADROOM_DWELL_TICKS consecutive
-# ticks escalates from a skip to a HALT, putting it in front of
-# pd_auto_reboot_if_warranted exactly as pd-debt-exhausted and
-# rank-start-failures already are — see that function's cause gate below. A
-# halt here is not a promise the reboot fixes it (see that function's own
-# note); the dwell only tells "stuck" from "transient" apart.
+# ticks escalates from a skip to a HALT, keeping the watcher from retrying
+# indefinitely. A halt here is not a promise a reboot fixes it; the dwell only
+# tells "stuck" from "transient" apart.
 #
 # Always returns 0, same composition contract as pd_debt_halt_if_exhausted: it
 # slots into the watcher's `... && [ -f "$halt_file" ]` chain without a new
@@ -924,133 +913,6 @@ mem_headroom_halt_if_persistent() {
   alert "$(hostname -s): insufficient memory for the cluster shard has persisted $dwell consecutive ticks ($MEM_HEADROOM_DETAIL). Rank starts are halted rather than left refusing forever with the link up." \
     "mlx-cluster halted (insufficient memory)"
   return 0
-}
-
-# AUTO-REBOOT ON PD EXHAUSTION — AND ON A MEMORY SHORTFALL THAT WON'T CLEAR.
-#
-# Every prior guard in this file stops SHORT of the actual fix: they halt the
-# rank-start loop and page, then wait for a human to notice the alert and
-# reboot by hand. That wait can cost hours of cluster downtime with the
-# Thunderbolt cable plugged in the whole time — a manual interlock the
-# operator's chaos-monkey doctrine explicitly bans ("cables plugged in means
-# clustered, unattended, no exceptions"). This closes that gap: the watcher
-# reboots itself once the doctrine ("only a reboot returns a leaked domain")
-# is actually true of the halt standing in front of it.
-#
-# Called from the watcher's halted branch, so it runs once per tick for as
-# long as a halt marker stands — cheap by necessity, and its own rate limiter
-# by necessity, because the same standing halt is seen again and again until
-# either a reboot or a link cycle clears it.
-#
-# GATED TO THE CAUSES A REBOOT ACTUALLY ADDRESSES: pd-debt-exhausted and
-# rank-start-failures (both this file's own PD-exhaustion halts — see above),
-# plus insufficient-memory-persistent (mem_headroom_halt_if_persistent, above)
-# — a shortfall that survived its own dwell window rather than clearing on its
-# own, the same shape a leaked-and-never-freed RDMA domain has. Every one of
-# these already states in its own alert text that only a reboot clears it. A
-# wedged warm generation or a rejected manual clear is a different problem a
-# reboot does not fix, so every other cause is a deliberate no-op here.
-#
-# UNLIKE THE PD LEDGER, A MEMORY HALT IS NOT A GUARANTEE THE REBOOT HELPS. The
-# ledger's cause is always the same kernel resource; a memory shortfall could
-# instead be some other process legitimately holding it, which a reboot may
-# not touch. If it does not, the guard halts again on the next occurrence and
-# this function's own rate limit below (not a retry loop) is what keeps that
-# from repeating unbounded — the same safety net every other cause here already
-# relies on.
-#
-# $1 halt marker (read for cause=, never written here), $2 rate-limit marker.
-# The rate-limit marker MUST survive the reboot it gates, so it lives in
-# state_dir beside the watcher's other markers — never in the boot-scoped PD
-# ledger, which resets on the very reboot this is limiting the frequency of.
-# $3 link state ("up" | anything else). Explicit rather than assumed from call
-# position: the cluster is only expected to form with the cable in, so a link
-# that is down has nothing to reclaim a domain FOR, and a caller mistake here
-# must fail closed rather than reboot a host with no peer to rejoin.
-pd_auto_reboot_if_warranted() {
-  local halt_file="$1" marker_file="$2" link="$3"
-  local cause window now last elapsed budget_phrase
-
-  [ "$link" = "up" ] || return 0
-
-  cause="$(awk -F'\t' '{for (i = 1; i <= NF; i++) if ($i ~ /^cause=/) { sub(/^cause=/, "", $i); print $i; exit }}' "$halt_file" 2> /dev/null)"
-  case "$cause" in
-    pd-debt-exhausted | rank-start-failures | insufficient-memory-persistent) ;;
-    *) return 0 ;;
-  esac
-
-  # 0 disables auto-reboot outright — same "0 = off" convention as
-  # CLUSTER_WARM_RECHECK_SECS.
-  window="${CLUSTER_PD_AUTO_REBOOT_WINDOW_SECS:-0}"
-  case "$window" in
-    '' | *[!0-9]*) window=0 ;;
-  esac
-  [ "$window" -gt 0 ] || return 0
-
-  now="$(date +%s)"
-  last=0
-  [ -f "$marker_file" ] && last="$(cat "$marker_file" 2> /dev/null || echo 0)"
-  case "$last" in
-    '' | *[!0-9]*) last=0 ;;
-  esac
-  elapsed=$((now - last))
-  if [ "$last" -gt 0 ] && [ "$elapsed" -lt "$window" ]; then
-    echo "cluster-link: PD-exhaustion auto-reboot already used ${elapsed}s ago (< ${window}s window); staying halted rather than rebooting again" >&2
-    return 0
-  fi
-
-  # The memory cause has no protection-domain budget to phrase as a fraction —
-  # its own halt-marker detail (written by mem_headroom_halt_if_persistent)
-  # already states the free-vs-required numbers, so that is read back verbatim
-  # rather than reusing a PD phrase that would not describe it.
-  if [ "$cause" = "insufficient-memory-persistent" ]; then
-    budget_phrase="$(awk -F'\t' '{print $NF}' "$halt_file" 2> /dev/null)"
-  else
-    budget_phrase="$(pd_debt_phrase "$(pd_debt_count "${CLUSTER_PD_DEBT_FILE:-}")" "${CLUSTER_PD_DEBT_MAX:-?}")"
-  fi
-
-  # FILEVAULT CAVEAT. fdesetup(8)'s authrestart verb itself PROMPTS for the
-  # FileVault password — it is not a passwordless pre-authorization by design.
-  # nix-darwin's cluster-ops sudoers grant (security.nix) documents exactly
-  # this and deliberately stores no credential to answer that prompt
-  # unattended, leaving it "a separate security decision left to the user". So
-  # there is no safe unattended path on a FileVault host today: a plain reboot
-  # would instead strand it at the pre-boot unlock screen with no SSH, which is
-  # worse than staying halted. Fail closed.
-  # ponytail: refuse rather than attempt authrestart non-interactively — with
-  # no stored credential to answer its password prompt it can only hang or
-  # fail, and building a safe non-interactive path means deciding how to store
-  # a FileVault credential, which is exactly the decision nix-darwin's own
-  # sudoers grant declines to make. Upgrade path: a securely-stored recovery
-  # key fed via `fdesetup authrestart -inputplist`, if the operator ever wants
-  # that trade-off.
-  if ! pd_reboot_filevault_off; then
-    echo "cluster-link: WARN FileVault is on; NOT auto-rebooting — a plain reboot strands this host at the pre-boot unlock screen with no SSH, and no credential is stored for an unattended fdesetup authrestart. Staying halted; reboot by hand and the watcher resumes on the new boot." >&2
-    alert "$(hostname -s): $budget_phrase. Auto-reboot was NOT attempted: FileVault is on and this host stores no credential for an unattended authenticated restart. Reboot it by hand." \
-      "mlx-cluster $cause — FileVault blocks auto-reboot"
-    return 0
-  fi
-
-  printf '%s\n' "$now" > "$marker_file"
-  echo "cluster-link: $cause halt standing ($budget_phrase); FileVault off and auto-reboot last used $([ "$last" -gt 0 ] && echo "${elapsed}s ago" || echo never) — auto-rebooting, which this halt's own cause says is the fix"
-  alert "$(hostname -s): $budget_phrase. Auto-rebooting now — this is the automatic recovery path, no human action needed." \
-    "mlx-cluster auto-reboot ($cause)"
-  quiesce_normal_serving || true
-  sudo -n /sbin/reboot || echo "cluster-link: WARN auto-reboot command failed; host remains halted for manual recovery" >&2
-}
-
-# FileVault status, resolved through PATH first (so a test can stub it) with
-# the absolute OS path as the production fallback — same idiom
-# current_boot_epoch uses for sysctl, and for the same reason: this script's
-# PATH is restricted to writeShellApplication's runtimeInputs, which do not
-# include /usr/bin.
-pd_reboot_filevault_off() {
-  local fdesetup_bin
-  fdesetup_bin="$(command -v fdesetup 2> /dev/null || echo /usr/bin/fdesetup)"
-  case "$("$fdesetup_bin" status 2> /dev/null)" in
-    "FileVault is Off."*) return 0 ;;
-    *) return 1 ;;
-  esac
 }
 
 # Decide whether a by-hand clear of the halt marker may stand.

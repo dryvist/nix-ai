@@ -114,9 +114,6 @@ in
       '';
     };
 
-    # pdAutoRebootWindowSecs moved to ./options-cluster-pd-reboot.nix (12KB
-    # file-size split; option path unchanged).
-
     maxWarmFailures = lib.mkOption {
       type = lib.types.int;
       default = 3;
