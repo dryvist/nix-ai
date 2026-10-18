@@ -57,7 +57,7 @@ in
   # coordinator, so the probe needs no second address.
   CLUSTER_STATIC_SELF_IP = staticSelfIp;
   CLUSTER_RENDEZVOUS_PORT = toString ncfg.rendezvousPort;
-  CLUSTER_PEER_PROBE_TIMEOUT_SECS = toString ncfg.peerRendezvousProbeTimeoutSecs;
+  CLUSTER_PEER_RENDEZVOUS_PROBE_TIMEOUT_SECS = toString ncfg.peerRendezvousProbeTimeoutSecs;
   CLUSTER_LINK_REPAIR = if ncfg.linkRepair then "1" else "0";
   CLUSTER_LINK_ACTIVATE_TIMEOUT_SECS = toString ncfg.linkRepairActivateTimeoutSecs;
   CLUSTER_LINK_DOWN_STRIKES = toString downStrikes;
@@ -175,11 +175,9 @@ in
   # its connections open the same way, so the deferral is bounded here.
   CLUSTER_SOAK_BUSY_SKIP_MAX = toString ncfg.soakBusySkipMax;
   CLUSTER_WARM_RECHECK_SECS = toString ncfg.warmRecheckSecs;
-  # Real generation progress, checked ahead of endpoint_busy in the soak probe —
-  # same log and pattern cluster-peer-liveness.sh's coordinator_tick already
-  # reads, reused rather than re-derived (see cluster-peer-observe.sh).
+  # Real generation progress, checked ahead of endpoint_busy in the soak probe
+  # (see cluster-peer-observe.sh).
   CLUSTER_RANK_PROGRESS_LOG = rankErrorLog;
-  CLUSTER_PEER_PROGRESS_PATTERN = ncfg.peerLiveness.progressPattern;
   # vk1188 automated health gate + soak.
   CLUSTER_HEALTH_GATE_TIMEOUT_SECS = toString ncfg.healthGateTimeoutSecs;
   CLUSTER_HEALTH_GATE_CONCURRENCY = toString ncfg.healthGateConcurrency;

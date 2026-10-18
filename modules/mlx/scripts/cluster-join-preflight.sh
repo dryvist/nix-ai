@@ -24,8 +24,8 @@
 # is still enough to send someone to the right machine.
 #
 # Function definitions ONLY; concatenated into cluster-join with
-# ./cluster-peer-probe.sh, which owns peer_reachable (shared with the watcher and
-# the peer-liveness supervisor — one definition of "is the peer there").
+# ./cluster-peer-probe.sh, which owns peer_reachable (shared with the watcher —
+# one definition of "is the peer there").
 #
 # Consumed environment:
 #   CLUSTER_STATIC_PEER_IP        peer's link address

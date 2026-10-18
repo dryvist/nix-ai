@@ -146,9 +146,8 @@ let
     }
     // lib.optionalAttrs (!isCoordinator && ncfg.restoreCommand != null) {
       # The worker's restore hook — cluster-restore, which bootstraps back
-      # exactly the agent set cluster-quiesce recorded. The watcher and the
-      # peer-liveness supervisor have always carried this; detach never did, so
-      # the daily unplug was the one teardown path that could not restore.
+      # exactly the agent set cluster-quiesce recorded. The watcher and detach
+      # both need it to restore serving.
       CLUSTER_RESTORE_CMD = ncfg.restoreCommand;
     }
     // lib.optionalAttrs (!isCoordinator && ncfg.quiesceCommand != null) {

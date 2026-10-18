@@ -11,7 +11,7 @@
 # function on every path that claims it.
 #
 # Consumers: the link watcher (up->down edge, PD-guard halt, wedge teardown),
-# the peer-liveness supervisor, and cluster-detach.
+# cluster-join's failure path, and cluster-detach.
 #
 # Returns nonzero if it could not restore, so the caller can decline to consume
 # a link-state edge, or fail its own postcondition, and retry.

@@ -147,11 +147,6 @@ reset_state
 write_halt manual-clear-rejected
 pd_auto_reboot_if_warranted "$halt_file" "$marker_file" up
 check "no reboot for a rejected manual clear" 0 "$(reboots)"
-reset_state
-write_halt no-token-progress
-pd_auto_reboot_if_warranted "$halt_file" "$marker_file" up
-check "no reboot for a peer-liveness halt" 0 "$(reboots)"
-
 echo "3. a PD-exhaustion cause, link up, FileVault off -- reboots and pages:"
 reset_state
 write_halt pd-debt-exhausted

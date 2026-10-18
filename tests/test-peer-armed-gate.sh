@@ -132,7 +132,7 @@ for exempt_cause in rank-start-failures peer-absent peer-halted; do
 done
 
 # A halt on a LOCAL incapacity still disarms — this host genuinely cannot join.
-for local_cause in pd-debt-exhausted manual-clear-rejected no-token-progress; do
+for local_cause in pd-debt-exhausted manual-clear-rejected; do
   printf '%s\tcause=%s\tboot=1785031601\tdetail\n' "2026-08-08T00:00:00Z" "$local_cause" > "$halt_file"
   log="$(peer_state_write "$published" "$ok_parity" "$halt_file" "$debt_file" 2>&1)"
   [ "$(jq -r '.armed' "$published")" = "false" ] \

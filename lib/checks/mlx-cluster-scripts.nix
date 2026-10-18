@@ -193,8 +193,6 @@ in
       # must build is the SCRIPT.
       agentExes = map (a: pkgs.lib.last agents.${a}.config.ProgramArguments) [
         "mlx-cluster-watcher"
-        # Concatenates the same helpers, so a helper change must build here too.
-        "mlx-cluster-peer-liveness"
       ];
       cliExes = map pkgs.lib.getExe (
         builtins.filter (
@@ -215,21 +213,6 @@ in
       done
       touch $out
     '';
-
-  # Peer-liveness state machine, assembling and running the REAL script with
-  # launchctl/curl/netstat/ping faked (see the test header for what its fakes
-  # still assume about live behaviour). Shipped with #1398 but never wired as a
-  # check, so nothing ran it — including when the shared alert()/halt_write
-  # helpers it concatenates changed underneath it.
-  mlx-cluster-peer-liveness = pkgs.runCommand "check-mlx-cluster-peer-liveness" {
-    nativeBuildInputs = [
-      pkgs.coreutils
-      pkgs.gnugrep
-      pkgs.gnused
-      pkgs.gawk
-      pkgs.jq
-    ];
-  } "bash ${src}/tests/test-peer-liveness.sh && touch $out";
 
   # Link-probe debounce: down is earned over the settle window, up is believed at
   # once. Mirror-style by necessity (see the test header).

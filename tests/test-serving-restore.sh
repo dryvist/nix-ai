@@ -38,7 +38,7 @@ trap 'rm -rf "$tmp"' EXIT
 
 # `#!/usr/bin/env bash` does not resolve in a Linux nix build sandbox; $BASH is
 # the running interpreter's own absolute path, correct there and on a
-# workstation alike (same fix as tests/test-peer-liveness.sh).
+# workstation alike.
 shebang="#!$BASH"
 
 mkdir -p "$tmp/bin"

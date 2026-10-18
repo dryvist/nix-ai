@@ -100,7 +100,7 @@ alert() { printf '%s\n' "$1" >> "$pages"; }
 # /usr/bin/env, so an env shebang fails to exec, every port reads as inactive,
 # and the assertions that expect the code to ACT read as "nothing happened".
 # That is why this test would pass on a workstation and fail only once wired up
-# as a check (same fix as tests/test-peer-liveness.sh).
+# as a check.
 {
   printf '%s\n' "#!$BASH"
   cat << 'FAKE'

@@ -1,9 +1,8 @@
 # Clustered-mode compile regression tests — the RANK's env contract.
 #
 # Split from a single file at the repo per-file size cap: the watcher's own
-# contract lives in ./mlx-cluster-watcher-env.nix, the peer-liveness
-# supervisor's in ./mlx-cluster-peer-env.nix. Same fixture (hmConfigCluster)
-# throughout.
+# contract lives in ./mlx-cluster-watcher-env.nix. Same fixture
+# (hmConfigCluster) throughout.
 {
   pkgs,
   hmConfigCluster,
@@ -86,7 +85,7 @@ in
     # The coordinator watcher's own env contract (link timing, standalone-serving
     # restore wiring, readiness probe, derived settle-window strikes) lives in
     # ./mlx-cluster-watcher-env.nix — same fixture, split for the per-file size
-    # cap. The peer-liveness supervisor's is ./mlx-cluster-peer-env.nix.
+    # cap.
     assert
       agents ? mlx-cluster-prefetch
       && agents.mlx-cluster-prefetch.config.KeepAlive.SuccessfulExit == false

@@ -41,7 +41,7 @@ Two properties of that number drive everything below:
 
 - **It is a maximum, not a free count.** `ibv_devinfo` reports what a device
   *can* allocate, never what is allocated right now. Other processes — the
-  standalone model server, prefetch, peer-liveness — may hold some. So the
+  standalone model server and prefetch — may hold some. So the
   domains actually available are **unknown**, and at most `11 - leaked`.
 - **A live session spends from three of these pools at once.** `max_qp` and
   `max_cq` are 11 as well, and a working rank allocates queue pairs and

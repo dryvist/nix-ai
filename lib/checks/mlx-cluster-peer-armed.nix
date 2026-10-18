@@ -83,7 +83,7 @@ in
     assert
       responder.RunAtLoad == true && responder.KeepAlive == true
       || throw "cluster: the peer-state responder must run at load and be kept alive — a peer that cannot read it suppresses its own rank starts";
-    # Same convention as the watcher, rank and peer-liveness agents: Apple's
+    # Same convention as the watcher, rank and peer-state agents: Apple's
     # interpreter, because a Nix binary's signing identity is its content hash
     # and a macOS Local Network grant dies on the next rebuild. This agent's
     # entire job is being reachable from the other Mac on this Mac's own subnet.

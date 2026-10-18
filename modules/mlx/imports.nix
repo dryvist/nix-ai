@@ -42,7 +42,6 @@
   ./static-residents.nix
   ./cluster-mode.nix
   ./cluster-mode-maintenance.nix
-  ./peer-liveness.nix
   ./cluster-peer-state.nix
   ./uv-cache-prune.nix
 ]

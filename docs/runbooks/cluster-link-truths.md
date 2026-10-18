@@ -90,7 +90,7 @@ first-vs-last error in a burst, and `errno 60`/SIGSEGV misattribution.
 - **Acceptance is a real completion returning coherent text — never a
   `/v1/models` 200.** The readiness latch is one-shot (nix-ai#1275): a 200 can
   persist over a rank that generates nothing. Enforced: the watcher's warm generation and re-check
-  (`warmRecheckSecs`), the peer-liveness probe and `cluster-detach`'s restore
+  (`warmRecheckSecs`) and `cluster-detach`'s restore
   check all require a generated token. Any monitor treating a 200 as health is
   wrong.
 - **`cluster-join` on the coordinator boots out standalone serving.** Anything
