@@ -27,6 +27,9 @@
 #   BOOT_SCOPE=/path/to/cluster-boot-scope.sh \
 #   LEDGER=/path/to/cluster-pd-ledger.sh \
 #   HELPERS=/path/to/cluster-link-helpers.sh \
+#   STATUS=/path/to/cluster-rank-status.sh \
+#   PD_COUNT=/path/to/cluster-pd-count.sh \
+#   PD_GATE=/path/to/cluster-pd-gate.sh \
 #   GUARDS=/path/to/cluster-link-guards.sh bash test-rank-start-guards.sh
 #
 # The RDMA protection-domain rungs the guards gained (ledger cap, reap-before-
@@ -63,6 +66,12 @@ source "${BOOT_SCOPE:?set BOOT_SCOPE to the path of cluster-boot-scope.sh}"
 source "${LEDGER:?set LEDGER to the path of cluster-pd-ledger.sh}"
 # shellcheck disable=SC1090
 source "${HELPERS:?set HELPERS to the path of cluster-link-helpers.sh}"
+# shellcheck disable=SC1090
+source "${STATUS:?set STATUS to the path of cluster-rank-status.sh}"
+# shellcheck disable=SC1090
+source "${PD_COUNT:?set PD_COUNT to the path of cluster-pd-count.sh}"
+# shellcheck disable=SC1090
+source "${PD_GATE:?set PD_GATE to the path of cluster-pd-gate.sh}"
 # shellcheck disable=SC1090
 source "${GUARDS:?set GUARDS to the path of cluster-link-guards.sh}"
 # The two layers the shipped watcher concatenates AROUND the guards: the
@@ -163,6 +172,13 @@ check() {
     fail=1
   fi
 }
+# The real precondition reaches these stubs through dynamic layer sources.
+# Check the fixtures directly too, so shellcheck can verify each override is
+# intentionally part of this test's call graph.
+check "rank reap fixture is healthy" 0 "$(rank_reap_verified && echo 0 || echo 1)"
+check "generation parity fixture is healthy" 'state=ok local=aaaa deploy=aaaa' "$(generation_parity_cached)"
+check "device budget fixture allows starts" 0 "$(pd_device_budget_ok && echo 0 || echo 1)"
+
 reset_state() {
   rm -f "$halt_file" "$latch_file" "$kicks_file" "$CLUSTER_PD_DEBT_FILE"
   link_ok=1

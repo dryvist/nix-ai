@@ -252,9 +252,8 @@ fi
 # before this point has ever checked it against the machine actually running.
 # The reserve invariant enforced at build time (2 * maxKickstarts <=
 # devicePdBudget) is arithmetic over that number — a wrong one silently makes
-# the invariant meaningless in either direction. pd_device_budget_ok /
-# active_rdma_device come from cluster-join-preflight.sh (this layer's copy;
-# the watcher's is in cluster-link-guards.sh — see cluster-script-layers.nix).
+# the invariant meaningless in either direction. pd_device_budget_ok and
+# active_rdma_device come from the shared cluster-pd-gate.sh layer.
 if pd_device_budget_ok; then
   echo "cluster-join: device PD budget verified (configured=${CLUSTER_PD_DEVICE_BUDGET:-0})"
 else

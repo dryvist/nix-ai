@@ -66,7 +66,7 @@
 #                         since the Linux Nix sandbox has no /usr/bin/stat
 #   CLUSTER_SHARD_MEMORY_MB  expected per-rank working set in MB; 0 disables
 #                         the memory-headroom rung with no vm_stat read at all
-#                         (see mem_headroom_ok in cluster-link-guards.sh)
+#                         (see mem_headroom_ok in cluster-room.sh)
 #   CLUSTER_MEM_HEADROOM_DWELL_TICKS  consecutive refused ticks before the
 #                         memory rung escalates to a HALT
 #   CLUSTER_PEER_STATE_FILE  where this host publishes the JSON line its peer
@@ -1027,7 +1027,7 @@ if [ "$heartbeat_every" -gt 0 ] && [ "$((heartbeat_ticks % heartbeat_every))" -e
   fi
   # Wired, not free: it is the number that says whether a previous rank leaked
   # its shard, and the one a reader needs before believing the rank column.
-  # mem_stat_mb prints "<free_mb> <wired_mb>" (cluster-link-guards.sh).
+  # mem_stat_mb prints "<free_mb> <wired_mb>" (cluster-room.sh).
   if heartbeat_mem="$(mem_stat_mb)"; then
     heartbeat_wired="$((${heartbeat_mem#* } / 1024))GiB"
   else

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Exercises the memory-headroom rung (mem_stat_mb / mem_headroom_ok /
-# mem_headroom_halt_if_persistent, all in modules/mlx/scripts/cluster-link-guards.sh)
-# — the precondition that stops a rank starting into a shard that will not fit.
+# mem_headroom_halt_if_persistent in cluster-link-guards.sh and the room gates
+# in cluster-room.sh) — the precondition that stops a rank starting into a
+# shard that will not fit.
 #
 # WHY THIS EXISTS. A rank can start while unreclaimed wired Metal memory from
 # previously-crashed rank processes still sits on the host, leaving too little
@@ -14,9 +15,9 @@
 # exact property that makes the rest of the chain impossible.
 #
 # WHAT IS REAL AND WHAT IS NOT:
-#   REAL  — mem_stat_mb, mem_headroom_ok, mem_headroom_halt_if_persistent and
-#           rank_start_preconditions_ok are all sourced from the shipped
-#           script and called as the watcher calls them.
+#   REAL  — mem_stat_mb, mem_headroom_ok and rank_start_room_ok come from the
+#           shared room layer; mem_headroom_halt_if_persistent and
+#           rank_start_preconditions_ok come from the shipped guard layer.
 #   STUB  — vm_stat, as a generated executable (not a shell function) on
 #           CLUSTER_VMSTAT_BIN, the same reason test-pd-debt.sh generates
 #           pgrep/kill rather than shadowing them: the shipped code invokes it
@@ -27,7 +28,7 @@
 #           mirrors alert-payload-test.sh).
 #
 # Usage:
-#   BOOT_SCOPE=… LEDGER=… HELPERS=… GUARDS=… bash test-mem-headroom.sh
+#   BOOT_SCOPE=… LEDGER=… HELPERS=… PD_GATE=… ROOM=… GUARDS=… bash test-mem-headroom.sh
 set -o errexit -o nounset -o pipefail
 
 state_dir="$(mktemp -d)"
@@ -56,6 +57,14 @@ source "${BOOT_SCOPE:?set BOOT_SCOPE to cluster-boot-scope.sh}"
 source "${LEDGER:?set LEDGER to cluster-pd-ledger.sh}"
 # shellcheck disable=SC1090
 source "${HELPERS:?set HELPERS to cluster-link-helpers.sh}"
+# shellcheck disable=SC1090
+source "${STATUS:?set STATUS to cluster-rank-status.sh}"
+# shellcheck disable=SC1090
+source "${PD_COUNT:?set PD_COUNT to cluster-pd-count.sh}"
+# shellcheck disable=SC1090
+source "${PD_GATE:?set PD_GATE to cluster-pd-gate.sh}"
+# shellcheck disable=SC1090
+source "${ROOM:?set ROOM to cluster-room.sh}"
 # shellcheck disable=SC1090
 source "${GUARDS:?set GUARDS to cluster-link-guards.sh}"
 # The two layers the shipped watcher concatenates AROUND the guards: the
@@ -101,8 +110,10 @@ export CLUSTER_SYSCTL_BIN="$bin/sysctl"
 # The device-PD-budget rung (#1442) sits right after this one in the guard
 # chain and is out of scope here; stubbed healthy, same pattern as
 # rank_reap_verified / generation_parity_cached in test-rank-start-guards.sh.
-# Its own refuse/pass matrix is not yet under a dedicated test.
+# The device-budget and measured-count decisions are covered by test-pd-gate.sh.
 pd_device_budget_ok() { return 0; }
+# Generation parity is outside this test's subject; keep the earlier precondition healthy.
+generation_parity_cached() { printf 'state=ok local=aaaa deploy=aaaa'; }
 
 # Writes a vm_stat-shaped fixture. Field order and the trailing "." on every
 # count mirror real vm_stat output; mem_stat_mb must parse this shape, not a
@@ -159,6 +170,13 @@ check() {
     fail=1
   fi
 }
+# The alert test double uses these directly when the guard sends its page.
+# Smoke them once so the indirect call through the sourced helpers stays an
+# explicit part of this test's fixture.
+check "hostname fixture returns the stable test name" test-host "$(hostname -s)"
+curl -sS -m 10 -X POST -H 'Content-Type: application/json' \
+  --data-binary fixture -w $'\n%{http_code}' "$(cat "$CLUSTER_ALERT_URL_FILE")" > /dev/null
+check "curl fixture records a post" 1 "$(alerts)"
 reset_state() {
   rm -f "$halt_file" "$latch_file" "$kicks_file" "$debt_file" "$dwell_file" "$vmstat_rc"
   : > "$curl_log"
@@ -176,6 +194,15 @@ verdict() { rank_start_preconditions_ok >&2 && echo start || echo "$PRECONDITION
 # its own helper, in the same "start | insufficient-memory" vocabulary the
 # memory-focused sections below already assert against.
 roomdict() { rank_start_room_ok >&2 && echo start || echo insufficient-memory; }
+
+# Keep the test-only upstream rungs healthy; these are indirect callbacks from
+# rank_start_preconditions_ok, so exercise their fixtures directly as well.
+check "device budget fixture allows starts" 0 "$(pd_device_budget_ok && echo 0 || echo 1)"
+check "generation parity fixture is healthy" 'state=ok local=aaaa deploy=aaaa' "$(generation_parity_cached)"
+check "link prep fixture is healthy" 0 "$(link_prep_ok && echo 0 || echo 1)"
+check "peer reachability fixture is healthy" 0 "$(peer_reachable && echo 0 || echo 1)"
+check "wired limit fixture is healthy" 0 "$(set_wired_limit && echo 0 || echo 1)"
+check "rank reap fixture is healthy" 0 "$(rank_reap_verified && echo 0 || echo 1)"
 
 echo "0. the rung is disabled with 0/unset, no vm_stat read needed to pass:"
 reset_state

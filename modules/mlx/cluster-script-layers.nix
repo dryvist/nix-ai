@@ -12,14 +12,16 @@
 # taste, and a grab-bag "utils" layer cannot be added without immediately
 # breaking every consumer that does not use all of it.
 #
-# The RDMA protection-domain split in particular is a privilege boundary, not
-# just a size one:
+# The RDMA protection-domain layers separate the ledger from the measured
+# kernel-count gate:
 #
 #   cluster-pd-ledger.sh   READ side  — watcher, join, detach
 #   cluster-pd-record.sh   WRITE side — watcher, join, detach
 #   cluster-pd-settle.sh   COUNTER-SETTLE — watcher, join and detach (detach
 #                          gained it when it started clearing the session's
 #                          kickstart budget on exit; see the detach set below)
+#   cluster-pd-count.sh   READS the kernel count for cluster-pd-gate.sh
+#   cluster-pd-gate.sh    verifies max_pd and makes the fail-closed start decision
 #
 # cluster-join reads the ledger so it can REFUSE at the cap, and is deliberately
 # denied the write side: a command whose only job is to refuse must not also be
@@ -55,13 +57,17 @@
     ./scripts/cluster-link-facts.sh
     ./scripts/cluster-rank-status.sh
     ./scripts/cluster-rank-reap.sh
+    ./scripts/cluster-pd-count.sh
+    ./scripts/cluster-pd-gate.sh
+    ./scripts/cluster-room.sh
+    ./scripts/cluster-wired-limit.sh
     # RULE 2's automatic key: the detached generation heal. Watcher-only — the
     # supervised heal in cluster-join stays in cluster-join.sh itself. After
     # rank-status because it refuses to touch a machine whose rank is running.
     ./scripts/cluster-generation-heal.sh
     ./scripts/cluster-link-guards.sh
-    # Automated rank health gate + soak — reads mem_stat_mb from the guards
-    # file above, so it must come after it.
+    # Automated rank health gate + soak — reads mem_stat_mb from the room
+    # layer above, so it must come after it.
     ./scripts/cluster-health-gate.sh
     # The peer-armed handshake. After cluster-pd-ledger.sh and
     # cluster-pd-cause.sh, whose pd_debt_count / pd_cause_budget_ok it calls —
@@ -109,6 +115,8 @@
     ./scripts/cluster-peer-probe.sh
     ./scripts/cluster-join-preflight.sh
     ./scripts/cluster-rank-status.sh
+    ./scripts/cluster-pd-count.sh
+    ./scripts/cluster-pd-gate.sh
     # join QUIESCES standalone serving, so it must be able to give it back when
     # it does not end in a formed cluster — the same single definition the
     # watcher and detach use, never a fourth partial copy. See the EXIT trap in

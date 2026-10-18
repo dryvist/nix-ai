@@ -266,6 +266,7 @@ in
 // (import ./checks/mlx-cluster-sharding.nix { inherit pkgs hmConfigCluster; })
 // (import ./checks/mlx-cluster-watcher-env.nix { inherit pkgs hmConfigCluster; })
 // (import ./checks/mlx-cluster-pd-env.nix { inherit pkgs hmConfigCluster src; })
+// (import ./checks/mlx-cluster-pd-gate.nix { inherit pkgs src; })
 // (import ./checks/mlx-cluster-pd-callsites.nix { inherit pkgs src; })
 // (import ./checks/mlx-cluster-pd-settle-billing.nix { inherit pkgs src; })
 // (import ./checks/mlx-cluster-mem-headroom.nix { inherit pkgs src; })

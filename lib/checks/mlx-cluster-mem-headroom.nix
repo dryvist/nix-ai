@@ -27,6 +27,10 @@
     BOOT_SCOPE = "${src}/modules/mlx/scripts/cluster-boot-scope.sh";
     LEDGER = "${src}/modules/mlx/scripts/cluster-pd-ledger.sh";
     HELPERS = "${src}/modules/mlx/scripts/cluster-link-helpers.sh";
+    STATUS = "${src}/modules/mlx/scripts/cluster-rank-status.sh";
+    PD_COUNT = "${src}/modules/mlx/scripts/cluster-pd-count.sh";
+    PD_GATE = "${src}/modules/mlx/scripts/cluster-pd-gate.sh";
+    ROOM = "${src}/modules/mlx/scripts/cluster-room.sh";
     GUARDS = "${src}/modules/mlx/scripts/cluster-link-guards.sh";
     CAUSE = "${src}/modules/mlx/scripts/cluster-pd-cause.sh";
     PEER_STATE = "${src}/modules/mlx/scripts/cluster-peer-state.sh";
