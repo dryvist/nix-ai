@@ -1,5 +1,16 @@
 # Changelog
 
+## [8.0.0](https://github.com/dryvist/nix-ai/compare/v7.26.2...v8.0.0) (2026-10-18)
+
+
+### ⚠ BREAKING CHANGES
+
+* **mlx:** manual cluster join and detach with a kernel PD gate
+
+### Features
+
+* **mlx:** manual cluster join and detach with a kernel PD gate ([a84bcb8](https://github.com/dryvist/nix-ai/commit/a84bcb8daae6b4854437d92a7fcad5f2ac360f70))
+
 ## [7.26.2](https://github.com/dryvist/nix-ai/compare/v7.26.1...v7.26.2) (2026-10-18)
 
 
