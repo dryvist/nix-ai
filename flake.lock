@@ -25,11 +25,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1792329133,
-        "narHash": "sha256-00nwi2650AaR089xMTG6WwH4RZuz2q++1/J4x2lJAxc=",
+        "lastModified": 1792341054,
+        "narHash": "sha256-2WW/9qoKNylPjGc6VZ44Ff394ZJLDYBPvHcK3zRcTR8=",
         "owner": "dryvist",
         "repo": "ai-llm-prompts",
-        "rev": "529dc4570a2f8c9cc0a8b0af57fe8b4812fa93d0",
+        "rev": "2f8358fcdd9e602430783eebd5ae4314c7f68be5",
         "type": "github"
       },
       "original": {
@@ -816,11 +816,11 @@
     "nix-agent-sandbox-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1792055604,
-        "narHash": "sha256-8WbV1MK2Y7AwoYUSmWCkgYffCrAwtA5hSLwfs+/nZ0s=",
+        "lastModified": 1792335280,
+        "narHash": "sha256-DsaLvfGIByjFZYpLbmtVk0I5OXgXAV5b1qeGIhV+TXs=",
         "owner": "dryvist",
         "repo": "nix-agent-sandbox",
-        "rev": "4997d24f93bc02daff33f5bc8a6bcfeec20694a1",
+        "rev": "2c1443e07660b9a06bb338948b02661fa2e2122b",
         "type": "github"
       },
       "original": {
