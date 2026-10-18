@@ -30,9 +30,8 @@ the watcher itself reports.
   not the (empty, here) TCC.db table. If `nehelper` can't resolve the
   identity's display metadata (no alert ever attempted), the resulting
   connect failures classify as ordinary Stage-A rank-start failures and drive
-  the same kickstart-cap → `rank-start-failures` halt →
-  [the auto-reboot path](rdma-protection-domains.md#the-watcher-reboots-itself)
-  — so this failure mode already self-clears without a special case.
+  the same kickstart-cap → `rank-start-failures` halt and alert. A human reboot
+  is required to clear the leaked protection domains.
 - **Never read halt state by file existence.** `[ -f rank-halted ]` reports
   the automation's own self-healing as an outage: post-reboot the marker
   legitimately exists for a tick before `halt_drop_if_pre_boot` drops it. Test
