@@ -473,8 +473,9 @@ cluster_join_wait_worker_ready() {
       echo "cluster-join: peer phase=ready session=$JOIN_SESSION_ID"
       return 0
     fi
+    # A session mismatch here means the worker has not published this session yet; keep waiting.
     case "${PEER_GATE_REASON:-}" in
-      peer-session-mismatch* | version-unknown* | version-mismatch* | peer-arm-stale* | peer-arm-future* | peer-not-armed)
+      version-unknown* | version-mismatch* | peer-arm-stale* | peer-arm-future* | peer-not-armed)
         lifecycle_refuse "${PEER_GATE_REASON%% *}" "$PEER_GATE_REASON"
         return 1
         ;;
@@ -483,6 +484,10 @@ cluster_join_wait_worker_ready() {
         return 1
         ;;
     esac
+    if [ -n "${CLUSTER_PEER_SSH_PID:-}" ] && ! cluster_peer_ssh_running; then
+      lifecycle_refuse peer-join-exited "worker join exited before publishing READY for session $JOIN_SESSION_ID"
+      return 1
+    fi
     echo "cluster-join: peer phase WAIT reason=${PEER_GATE_REASON:-unknown}"
     remaining=$((deadline - SECONDS))
     [ "$remaining" -le 5 ] || remaining=5
