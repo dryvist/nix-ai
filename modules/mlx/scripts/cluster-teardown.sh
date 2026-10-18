@@ -72,10 +72,14 @@ cluster_peer_ssh_wait() {
 }
 
 cluster_lifecycle_lock_record() {
-  local lock="$1" boot
+  local lock="$1" boot owner="$BASHPID"
   boot="$(current_boot_epoch)"
   case "$boot" in '' | *[!0-9]*) boot=0 ;; esac
-  if ! printf '%s\n' "$boot" > "$lock/boot" || ! printf '%s\n' "$BASHPID" > "$lock/pid"; then
+  # The exclusive pid create is the ownership claim; a late writer whose directory was reclaimed loses here.
+  if ! (set -C && printf '%s\n' "$owner" > "$lock/pid") 2> /dev/null; then
+    return 1
+  fi
+  if ! printf '%s\n' "$boot" > "$lock/boot"; then
     rm -f "$lock/pid" "$lock/boot"
     rmdir "$lock" 2> /dev/null || true
     return 1

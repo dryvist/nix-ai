@@ -655,6 +655,142 @@ CLUSTER_PEER_STATE_FILE="$tmp/state/worker-peer-state.json"
 FAKE_PEER_STATE_FILE="$tmp/state/coordinator-peer-state.json"
 CLUSTER_PEER_SSH=
 
+echo 'the coordinator refuses a late kickstart but accepts start_at+10:'
+CLUSTER_ROLE=coordinator
+CLUSTER_PEER_STATE_FILE="$tmp/state/coordinator-peer-state.json"
+FAKE_PEER_STATE_FILE="$tmp/state/worker-peer-state.json"
+JOIN_READY_AT=1000
+JOIN_START_AT=1000
+JOIN_SHARDING=tensor
+FAKE_PGREP_STATE=running
+write_state "$CLUSTER_PEER_STATE_FILE" true 1000 "$JOIN_SESSION_ID" commit 1000
+write_state "$FAKE_PEER_STATE_FILE" true 1000 "$JOIN_SESSION_ID" started 1000
+SECONDS=0
+FAKE_NOW=1011
+: > "$FAKE_LAUNCHCTL_LOG"
+if cluster_final_rank_start 1000 > "$tmp/coordinator-late.log" 2>&1; then
+  coordinator_late_rc=0
+else
+  coordinator_late_rc=$?
+fi
+if [ "$coordinator_late_rc" -eq 1 ] &&
+  grep -q 'REFUSE reason=missed-start-window' "$tmp/coordinator-late.log" &&
+  ! grep -q 'kickstart' "$FAKE_LAUNCHCTL_LOG"; then
+  echo '  ok   coordinator late start returns 1 without kickstart'
+else
+  echo '  FAIL coordinator late start did not return 1 before kickstart'; fail=1
+fi
+
+FAKE_NOW=1010
+write_state "$CLUSTER_PEER_STATE_FILE" true 1000 "$JOIN_SESSION_ID" commit 1000
+: > "$FAKE_LAUNCHCTL_LOG"
+if cluster_final_rank_start 1000 > "$tmp/coordinator-boundary.log" 2>&1; then
+  if [ "$(grep -c 'kickstart' "$FAKE_LAUNCHCTL_LOG" || true)" -eq 1 ]; then
+    echo '  ok   coordinator kickstarts at start_at+10'
+  else
+    echo '  FAIL coordinator exact boundary did not kickstart once'; fail=1
+  fi
+  check 'coordinator publishes started after kickstart' started "$(jq -r '.phase' "$CLUSTER_PEER_STATE_FILE")"
+else
+  echo '  FAIL coordinator exact start window boundary refused'; fail=1
+fi
+
+echo 'worker lease expiry follows coordinator timestamps and phase:'
+CLUSTER_ROLE=worker
+CLUSTER_PEER_STATE_FILE="$tmp/state/worker-peer-state.json"
+FAKE_PEER_STATE_FILE="$tmp/state/coordinator-peer-state.json"
+CLUSTER_COORDINATOR_LEASE_SECS=2
+FAKE_NOW=2000
+write_state "$FAKE_PEER_STATE_FILE" true 1000 "$JOIN_SESSION_ID" started 1000
+COORDINATOR_LEASE_TS=
+COORDINATOR_LEASE_SEEN=0
+SECONDS=0
+if cluster_join_coordinator_lease_ok > "$tmp/lease-expiry.log" 2>&1; then
+  SECONDS=$((COORDINATOR_LEASE_SEEN + 3))
+  if cluster_join_coordinator_lease_ok >> "$tmp/lease-expiry.log" 2>&1; then
+    lease_expiry_rc=0
+  else
+    lease_expiry_rc=$?
+  fi
+  if [ "$lease_expiry_rc" -eq 1 ] &&
+    grep -q 'reason=coordinator-lease-expired' "$tmp/lease-expiry.log"; then
+    echo '  ok   unchanged coordinator timestamp expires the lease with rc=1'
+  else
+    echo '  FAIL unchanged coordinator timestamp did not expire the lease'; fail=1
+  fi
+else
+  echo '  FAIL coordinator lease refused before expiry'; fail=1
+fi
+
+FAKE_NOW=2100
+write_state "$FAKE_PEER_STATE_FILE" true 1000 "$JOIN_SESSION_ID" started 1000
+COORDINATOR_LEASE_TS=
+COORDINATOR_LEASE_SEEN=0
+SECONDS=0
+if cluster_join_coordinator_lease_ok; then
+  FAKE_NOW=2101
+  write_state "$FAKE_PEER_STATE_FILE" true 1000 "$JOIN_SESSION_ID" started 1000
+  SECONDS=2
+  if cluster_join_coordinator_lease_ok; then
+    FAKE_NOW=2102
+    write_state "$FAKE_PEER_STATE_FILE" true 1000 "$JOIN_SESSION_ID" started 1000
+    SECONDS=4
+    if cluster_join_coordinator_lease_ok; then
+      SECONDS=5
+      if cluster_join_coordinator_lease_ok; then
+        echo '  ok   advancing coordinator timestamps keep the lease alive past its window'
+      else
+        echo '  FAIL fresh coordinator timestamp did not keep the lease alive'; fail=1
+      fi
+    else
+      echo '  FAIL second coordinator timestamp refresh was refused'; fail=1
+    fi
+  else
+    echo '  FAIL first coordinator timestamp refresh was refused'; fail=1
+  fi
+else
+  echo '  FAIL coordinator lease refused before its timestamp refreshes'; fail=1
+fi
+
+FAKE_NOW=2200
+write_state "$FAKE_PEER_STATE_FILE" false 0 "$JOIN_SESSION_ID" abort
+COORDINATOR_LEASE_TS=
+COORDINATOR_LEASE_SEEN=0
+: > "$tmp/lease-abort.log"
+if cluster_join_coordinator_lease_ok > "$tmp/lease-abort.log" 2>&1; then
+  coordinator_abort_rc=0
+else
+  coordinator_abort_rc=$?
+fi
+if [ "$coordinator_abort_rc" -eq 1 ] && grep -q 'reason=coordinator-aborted' "$tmp/lease-abort.log"; then
+  echo '  ok   worker refuses coordinator abort with rc=1'
+else
+  echo '  FAIL worker abort did not return 1 with the expected reason'; fail=1
+fi
+
+FAKE_NOW=2300
+write_state "$FAKE_PEER_STATE_FILE" true 1000 "$JOIN_SESSION_ID" started 1000
+COORDINATOR_LEASE_TS=
+COORDINATOR_LEASE_SEEN=0
+SECONDS=0
+if cluster_join_coordinator_lease_ok; then
+  rm -f "$FAKE_PEER_STATE_FILE"
+  SECONDS=$((COORDINATOR_LEASE_SEEN + 3))
+  if cluster_join_coordinator_lease_ok > "$tmp/lease-unreachable.log" 2>&1; then
+    unreachable_lease_rc=0
+  else
+    unreachable_lease_rc=$?
+  fi
+  if [ "$unreachable_lease_rc" -eq 1 ] && grep -q 'reason=coordinator-lease-expired' "$tmp/lease-unreachable.log"; then
+    echo '  ok   unreachable coordinator state expires the lease with rc=1'
+  else
+    echo '  FAIL unreachable coordinator did not return 1 for lease expiry'; fail=1
+  fi
+else
+  echo '  FAIL coordinator lease refused before the fetch failure'; fail=1
+fi
+unset CLUSTER_COORDINATOR_LEASE_SECS
+
 echo 'room refuses missing shard size and the session id is required for workers:'
 unset CLUSTER_SHARD_MEMORY_MB
 if rank_start_room_ok; then

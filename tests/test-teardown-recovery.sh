@@ -284,6 +284,35 @@ set -e
 check 'worker detach succeeds without initiating ssh' 0 "$detach_rc"
 check 'worker issued no ssh' 0 "$(wc -l < "$FAKE_SSH_LOG" | tr -d ' ')"
 
+echo 'lifecycle lock recording preserves the first claimant and fresh acquisition:'
+lock="$CLUSTER_STATE_DIR/cluster-lifecycle.lock"
+rm -rf "$lock"
+mkdir -p "$lock"
+printf '%s\n' "$$" > "$lock/pid"
+printf '100\n' > "$lock/boot"
+if cluster_lifecycle_lock_record "$lock" > "$tmp/late-lock-record.log" 2>&1; then
+  late_lock_record_rc=0
+else
+  late_lock_record_rc=$?
+fi
+if [ "$late_lock_record_rc" -eq 1 ] &&
+  [ "$(cat "$lock/pid")" = "$$" ] && [ "$(cat "$lock/boot")" = 100 ]; then
+  echo '  ok   late lock writer returns 1 and preserves live pid and boot records'
+else
+  echo '  FAIL late lock writer did not return 1 with unchanged records'; fail=1
+fi
+rm -rf "$lock"
+if cluster_lifecycle_lock_acquire; then
+  if [ "$(cat "$lock/pid")" = "$BASHPID" ] && [ "$(cat "$lock/boot")" = 100 ]; then
+    echo '  ok   fresh lifecycle lock records caller pid and boot'
+  else
+    echo '  FAIL fresh lifecycle lock records were incorrect'; fail=1
+  fi
+  cluster_lifecycle_lock_release
+else
+  echo '  FAIL fresh lifecycle lock acquisition failed'; fail=1
+fi
+
 echo 'detach refuses while a join owns the lifecycle lock:'
 cluster_lifecycle_lock_acquire
 : > "$EVENTS"

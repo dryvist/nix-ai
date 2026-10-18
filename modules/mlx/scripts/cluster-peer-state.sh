@@ -1,7 +1,7 @@
 # shellcheck shell=bash
 # Fetch peer state and require the current session and a complete version match.
 
-export PEER_GATE_REASON PEER_ARMED_AT PEER_PHASE PEER_START_AT PEER_FORMED_AT
+export PEER_GATE_REASON PEER_ARMED_AT PEER_PHASE PEER_START_AT PEER_FORMED_AT PEER_TS
 
 peer_state_fetch() {
   PEER_STATE_RAW=""
@@ -19,6 +19,7 @@ peer_state_session_read() {
   PEER_PHASE=""
   PEER_START_AT=""
   PEER_FORMED_AT=""
+  PEER_TS=""
   [ -n "${JOIN_SESSION_ID:-}" ] || {
     PEER_GATE_REASON="no-session"
     return 1
@@ -38,8 +39,10 @@ peer_state_session_read() {
   PEER_PHASE="$(jq -r '.phase // ""' <<< "$PEER_STATE_RAW")"
   PEER_START_AT="$(jq -r '.start_at // 0' <<< "$PEER_STATE_RAW")"
   PEER_FORMED_AT="$(jq -r '.formed_at // 0' <<< "$PEER_STATE_RAW")"
+  PEER_TS="$(jq -r '.ts // 0' <<< "$PEER_STATE_RAW")"
   case "$PEER_START_AT" in '' | *[!0-9]*) PEER_START_AT=0 ;; esac
   case "$PEER_FORMED_AT" in '' | *[!0-9]*) PEER_FORMED_AT=0 ;; esac
+  case "$PEER_TS" in '' | *[!0-9]*) PEER_TS=0 ;; esac
 }
 
 peer_state_versions_match() {

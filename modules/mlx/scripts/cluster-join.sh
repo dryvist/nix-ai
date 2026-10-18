@@ -622,6 +622,7 @@ cluster_join_wait_coordinator_formed() {
     elif cluster_join_peer_gate_refuse; then
       return 1
     fi
+    cluster_join_coordinator_lease_ok || return 1
     remaining=$((deadline - SECONDS))
     [ "$remaining" -le 5 ] || remaining=5
     sleep "$remaining"
@@ -661,6 +662,11 @@ cluster_join_wait_coordinator_formed_local() {
     if "${CLUSTER_CURL_BIN:-/usr/bin/curl}" -fsS -m 5 \
       "http://127.0.0.1:${CLUSTER_HTTP_PORT}/v1/models" > /dev/null 2>&1 && rank_process_running; then
       return 0
+    fi
+    # Refresh the lease the worker requires while both ranks load.
+    if ! peer_state_write true "$JOIN_READY_AT" "$JOIN_SESSION_ID" started "$JOIN_START_AT"; then
+      lifecycle_refuse started-state-write-failed "could not refresh coordinator STARTED for session $JOIN_SESSION_ID"
+      return 1
     fi
     if ! rank_process_running && [ "$((SECONDS - stable_since))" -ge 15 ]; then
       lifecycle_refuse rank-exited-during-formation "coordinator rank exited before the endpoint formed"
@@ -799,6 +805,11 @@ cluster_final_rank_start() {
       lifecycle_refuse missed-start-window "worker accepted COMMIT at $now after start_at=$start_at tolerance=2"
       return 1
     fi
+    # Worker starts by start_at+2; starting by start_at+10 keeps the gap inside JACCL's ~15s connect budget.
+    if [ "$CLUSTER_ROLE" = coordinator ] && [ "$now" -gt "$((start_at + 10))" ]; then
+      lifecycle_refuse missed-start-window "coordinator reached kickstart at $now after start_at=$start_at tolerance=10"
+      return 1
+    fi
     break
   done
   uid="$(id -u)"
@@ -814,11 +825,34 @@ cluster_final_rank_start() {
       lifecycle_refuse worker-rank-not-running "worker rank did not run within 5s of kickstart"
       return 1
     fi
-    if ! peer_state_write true "$JOIN_READY_AT" "$JOIN_SESSION_ID" started "$start_at"; then
-      lifecycle_refuse started-state-write-failed "could not publish worker STARTED for session $JOIN_SESSION_ID"
+  fi
+  if ! peer_state_write true "$JOIN_READY_AT" "$JOIN_SESSION_ID" started "$start_at"; then
+    lifecycle_refuse started-state-write-failed "could not publish $CLUSTER_ROLE STARTED for session $JOIN_SESSION_ID"
+    return 1
+  fi
+  echo "cluster-join: phase=started session=$JOIN_SESSION_ID start_at=$start_at"
+  COORDINATOR_LEASE_TS=""
+  COORDINATOR_LEASE_SEEN="$SECONDS"
+}
+
+# Worker only: stop the rank when the coordinator aborts, changes session, or stops refreshing its state.
+cluster_join_coordinator_lease_ok() {
+  local lease="${CLUSTER_COORDINATOR_LEASE_SECS:-30}"
+  if peer_state_session_read; then
+    if [ "$PEER_PHASE" = abort ]; then
+      lifecycle_refuse coordinator-aborted "coordinator aborted session $JOIN_SESSION_ID after worker start"
       return 1
     fi
-    echo "cluster-join: phase=started session=$JOIN_SESSION_ID start_at=$start_at"
+    if [ "$PEER_TS" != "${COORDINATOR_LEASE_TS:-}" ]; then
+      COORDINATOR_LEASE_TS="$PEER_TS"
+      COORDINATOR_LEASE_SEEN="$SECONDS"
+    fi
+  elif cluster_join_peer_gate_refuse; then
+    return 1
+  fi
+  if [ "$((SECONDS - ${COORDINATOR_LEASE_SEEN:-0}))" -gt "$lease" ]; then
+    lifecycle_refuse coordinator-lease-expired "coordinator state for session $JOIN_SESSION_ID not refreshed for over ${lease}s"
+    return 1
   fi
 }
 
@@ -1015,6 +1049,7 @@ cluster_join_main() {
           exit 1
         fi
       fi
+      cluster_join_coordinator_lease_ok || exit 1
       local remaining=$((deadline - SECONDS))
       [ "$remaining" -le 5 ] || remaining=5
       sleep "$remaining"
