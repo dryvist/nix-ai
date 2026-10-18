@@ -1,7 +1,7 @@
 # shellcheck shell=bash
 # Shared fail-closed teardown for cluster-join recovery and cluster-detach.
 
-export TEARDOWN_FAILED TEARDOWN_REBOOT TEARDOWN_SIGKILLED
+export TEARDOWN_FAILED TEARDOWN_REBOOT TEARDOWN_SIGKILLED CLUSTER_PEER_SSH_RC
 
 cluster_lifecycle_log_start() {
   mkdir -p "$(dirname "$CLUSTER_LIFECYCLE_LOG")"
@@ -15,36 +15,135 @@ lifecycle_refuse() {
   printf '%s: REFUSE reason=%s detail=%s\n' "$component" "$reason" "$detail" >&2
 }
 
-cluster_lifecycle_lock_acquire() {
-  local lock="${CLUSTER_STATE_DIR:-$(dirname "$CLUSTER_PEER_STATE_FILE")}/cluster-lifecycle.lock" owner
-  if mkdir "$lock" 2> /dev/null; then
-    if ! printf '%s\n' "$BASHPID" > "$lock/pid"; then
-      rmdir "$lock" 2> /dev/null || true
-      return 1
+cluster_peer_ssh_running() {
+  local pid expected="${1:-${CLUSTER_PEER_SSH_PID:-}}"
+  [ -n "$expected" ] || return 1
+  while IFS= read -r pid; do
+    [ "$pid" = "$expected" ] && return 0
+  done < <(jobs -pr)
+  return 1
+}
+
+cluster_peer_ssh_wait() {
+  local pid="${1:-${CLUSTER_PEER_SSH_PID:-}}"
+  local timeout="${2:-${CLUSTER_JOIN_TIMEOUT_SECS:-600}}"
+  local timeout_reason="${3:-peer-ssh-timeout}"
+  local ignore_signal="${4:-false}"
+  local deadline term_deadline reap_deadline rc timed_out=false
+  [ -n "$pid" ] || return 0
+  deadline=$((SECONDS + timeout))
+  while cluster_peer_ssh_running "$pid"; do
+    if [ "${JOIN_SIGNAL_RC:-0}" -ne 0 ] && [ "$ignore_signal" != true ]; then
+      echo "cluster-lifecycle: peer-ssh stopping after signal rc=$JOIN_SIGNAL_RC" >&2
+      break
     fi
-    CLUSTER_LIFECYCLE_LOCK_PATH="$lock"
-    CLUSTER_LIFECYCLE_LOCK_PID="$BASHPID"
-    return 0
-  fi
-  if [ -f "$lock/pid" ]; then
-    owner="$(cat "$lock/pid" 2> /dev/null || true)"
-    case "$owner" in
-      '' | *[!0-9]*) return 1 ;;
-    esac
-    if kill -0 "$owner" 2> /dev/null; then
-      return 1
+    if [ "$SECONDS" -ge "$deadline" ]; then
+      timed_out=true
+      echo "cluster-lifecycle: peer-ssh timeout" >&2
+      break
     fi
-    rm -f "$lock/pid" 2> /dev/null || return 1
-    rmdir "$lock" 2> /dev/null || return 1
-    if mkdir "$lock" 2> /dev/null; then
-      if ! printf '%s\n' "$BASHPID" > "$lock/pid"; then
-        rmdir "$lock" 2> /dev/null || true
+    sleep 1
+  done
+  if cluster_peer_ssh_running "$pid"; then
+    kill -TERM "$pid" 2> /dev/null || true
+    term_deadline=$((SECONDS + 5))
+    while cluster_peer_ssh_running "$pid" && [ "$SECONDS" -lt "$term_deadline" ]; do sleep 1; done
+    if cluster_peer_ssh_running "$pid"; then
+      kill -KILL "$pid" 2> /dev/null || true
+      reap_deadline=$((SECONDS + 10))
+      while cluster_peer_ssh_running "$pid" && [ "$SECONDS" -lt "$reap_deadline" ]; do sleep 1; done
+      if cluster_peer_ssh_running "$pid"; then
+        CLUSTER_PEER_SSH_RC=1
+        lifecycle_refuse peer-ssh-reap-uncertain \
+          "could not confirm worker ssh pid=$pid exited within 10s after SIGKILL"
         return 1
       fi
-      CLUSTER_LIFECYCLE_LOCK_PATH="$lock"
-      CLUSTER_LIFECYCLE_LOCK_PID="$BASHPID"
-      return 0
     fi
+  fi
+  if wait "$pid"; then rc=0; else rc=$?; fi
+  CLUSTER_PEER_SSH_RC=$rc
+  if [ "${CLUSTER_PEER_SSH_PID:-}" = "$pid" ]; then CLUSTER_PEER_SSH_PID=""; fi
+  echo "cluster-lifecycle: peer-ssh exit rc=$rc"
+  if [ "$timed_out" = true ]; then
+    CLUSTER_PEER_SSH_RC=124
+    lifecycle_refuse "$timeout_reason" "worker ssh exceeded the ${timeout}s deadline"
+    return 1
+  fi
+}
+
+cluster_lifecycle_lock_record() {
+  local lock="$1" boot
+  boot="$(current_boot_epoch)"
+  case "$boot" in '' | *[!0-9]*) boot=0 ;; esac
+  if ! printf '%s\n' "$boot" > "$lock/boot" || ! printf '%s\n' "$BASHPID" > "$lock/pid"; then
+    rm -f "$lock/pid" "$lock/boot"
+    rmdir "$lock" 2> /dev/null || true
+    return 1
+  fi
+  CLUSTER_LIFECYCLE_LOCK_PATH="$lock"
+  CLUSTER_LIFECYCLE_LOCK_PID="$BASHPID"
+}
+
+cluster_lifecycle_lock_acquire() {
+  local lock="${CLUSTER_STATE_DIR:-$(dirname "$CLUSTER_PEER_STATE_FILE")}/cluster-lifecycle.lock"
+  local owner="" boot="" boot_raw="" current_boot="" reason="" had_pid=false mtime="" now="" age=""
+  local stat_bin="${CLUSTER_STAT_BIN:-/usr/bin/stat}" claim="$lock/reclaim"
+  if mkdir "$lock" 2> /dev/null; then
+    cluster_lifecycle_lock_record "$lock" && return 0
+    return 1
+  fi
+  [ -d "$lock" ] || return 1
+  current_boot="$(current_boot_epoch)"
+  case "$current_boot" in '' | *[!0-9]*) current_boot=0 ;; esac
+  boot_raw="$(cat "$lock/boot" 2> /dev/null || true)"
+  boot="$boot_raw"
+  case "$boot" in '' | *[!0-9]*) boot="" ;; esac
+  if [ -n "$boot" ] && [ "$boot" != 0 ] && [ "$current_boot" != 0 ] && [ "$boot" != "$current_boot" ]; then
+    reason=other-boot
+  fi
+  if [ -f "$lock/pid" ]; then
+    had_pid=true
+    owner="$(cat "$lock/pid" 2> /dev/null || true)"
+    if [ "$reason" != other-boot ]; then
+      case "$owner" in '' | *[!0-9]*) return 1 ;; esac
+      kill -0 "$owner" 2> /dev/null && return 1
+      reason=dead-pid
+    fi
+  elif [ -z "$reason" ]; then
+    mtime="$("$stat_bin" -f %m "$lock" 2> /dev/null || true)"
+    case "$mtime" in '' | *[!0-9]*) mtime="$("$stat_bin" -c %Y "$lock" 2> /dev/null || true)" ;; esac
+    now="$(date +%s)"
+    case "$mtime:$now" in *[!0-9:]* | :* | *:) return 1 ;; esac
+    age=$((now - mtime))
+    [ "$age" -gt 60 ] || return 1
+    reason=ownerless
+  fi
+  mkdir "$claim" 2> /dev/null || return 1
+  if [ -f "$lock/pid" ]; then
+    [ "$had_pid" = true ] || { rmdir "$claim" 2> /dev/null || true; return 1; }
+    [ "$(cat "$lock/pid" 2> /dev/null || true)" = "$owner" ] || {
+      rmdir "$claim" 2> /dev/null || true
+      return 1
+    }
+  elif [ "$had_pid" = true ]; then
+    rmdir "$claim" 2> /dev/null || true
+    return 1
+  fi
+  [ "$(cat "$lock/boot" 2> /dev/null || true)" = "$boot_raw" ] || {
+    rmdir "$claim" 2> /dev/null || true
+    return 1
+  }
+  case "$reason" in
+    dead-pid) kill -0 "$owner" 2> /dev/null && { rmdir "$claim" 2> /dev/null || true; return 1; } ;;
+    other-boot) [ "$boot" != "$current_boot" ] || { rmdir "$claim" 2> /dev/null || true; return 1; } ;;
+    ownerless) [ ! -f "$lock/pid" ] || { rmdir "$claim" 2> /dev/null || true; return 1; } ;;
+  esac
+  rm -f "$lock/pid" "$lock/boot" || { rmdir "$claim" 2> /dev/null || true; return 1; }
+  rmdir "$claim" 2> /dev/null || return 1
+  rmdir "$lock" 2> /dev/null || return 1
+  echo "cluster-lifecycle: lifecycle-lock reclaimed reason=$reason"
+  if mkdir "$lock" 2> /dev/null; then
+    cluster_lifecycle_lock_record "$lock" && return 0
   fi
   return 1
 }
@@ -54,7 +153,7 @@ cluster_lifecycle_lock_release() {
   [ -n "${CLUSTER_LIFECYCLE_LOCK_PATH:-}" ] || return 0
   owner="$(cat "$CLUSTER_LIFECYCLE_LOCK_PATH/pid" 2> /dev/null || true)"
   if [ "$owner" = "${CLUSTER_LIFECYCLE_LOCK_PID:-}" ]; then
-    rm -f "$CLUSTER_LIFECYCLE_LOCK_PATH/pid"
+    rm -f "$CLUSTER_LIFECYCLE_LOCK_PATH/pid" "$CLUSTER_LIFECYCLE_LOCK_PATH/boot"
     rmdir "$CLUSTER_LIFECYCLE_LOCK_PATH" 2> /dev/null || true
   fi
   CLUSTER_LIFECYCLE_LOCK_PATH=""

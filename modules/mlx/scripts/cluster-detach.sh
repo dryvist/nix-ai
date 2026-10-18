@@ -3,8 +3,8 @@
 
 cluster_detach_main() {
   local timeout deadline failed=0 peer_detach_rc=0 used swap_threshold stale_swap=false
-  local current link_state serve_ok=false body held="?" rc worker_invocation=false
-  local session_arg="" current_session
+  local current link_state serve_ok=false body held="?" worker_invocation=false
+  local session_arg="" current_session peer_pid
   state_dir="${CLUSTER_STATE_DIR:-$(dirname "$CLUSTER_STATE_FILE")}"
   mkdir -p "$state_dir"
   export CLUSTER_LIFECYCLE_COMPONENT=cluster-detach
@@ -62,13 +62,22 @@ cluster_detach_main() {
 
   if [ "${CLUSTER_ROLE:-}" = coordinator ] && [ -n "${CLUSTER_PEER_SSH:-}" ]; then
     echo "cluster-detach: peer-ssh detaching worker"
-    if "${CLUSTER_SSH_BIN:-/usr/bin/ssh}" -o BatchMode=yes -o ConnectTimeout=10 \
-      "$CLUSTER_PEER_SSH" cluster-detach --worker; then
-      echo "cluster-detach: peer-ssh peer-detach-succeeded"
+    "${CLUSTER_SSH_BIN:-/usr/bin/ssh}" -o BatchMode=yes -o ConnectTimeout=10 \
+      "$CLUSTER_PEER_SSH" cluster-detach --worker \
+      > >(while IFS= read -r line || [ -n "$line" ]; do printf 'worker: %s\n' "$line"; done) 2>&1 &
+    peer_pid=$!
+    if cluster_peer_ssh_wait "$peer_pid" "$((timeout + 30))" peer-detach-timeout; then
+      if [ "${CLUSTER_PEER_SSH_RC:-1}" -eq 0 ]; then
+        echo "cluster-detach: peer-ssh peer-detach-succeeded"
+      else
+        peer_detach_rc="$CLUSTER_PEER_SSH_RC"
+        lifecycle_refuse peer-detach-failed "worker detach failed (rc=$peer_detach_rc)"
+      fi
     else
-      rc=$?
-      peer_detach_rc=$rc
-      lifecycle_refuse peer-detach-failed "worker detach failed (rc=$rc)"
+      peer_detach_rc="${CLUSTER_PEER_SSH_RC:-1}"
+      if [ "$peer_detach_rc" -ne 124 ]; then
+        lifecycle_refuse peer-detach-failed "worker detach could not be confirmed (rc=$peer_detach_rc)"
+      fi
     fi
   fi
 

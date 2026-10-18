@@ -61,18 +61,18 @@ peer_state_versions_validate() {
 
 peer_state_write() {
   local armed="$1" armed_at="$2" session="${3:-}" phase="${4:-}" start_at="${5:-0}"
-  local out="${CLUSTER_PEER_STATE_FILE:-}" software boot configuration_revision ts tmp
+  local out="${CLUSTER_PEER_STATE_FILE:-}" software boot configuration_revision ts formed_at=0 tmp
   case "$armed" in true | false) ;; *) return 1 ;; esac
   case "$armed_at" in '' | *[!0-9]*) return 1 ;; esac
-  case "$phase" in preparing | ready | commit | abort | formed) ;; *) return 1 ;; esac
+  case "$phase" in preparing | ready | commit | started | abort | formed) ;; *) return 1 ;; esac
   case "$start_at" in '' | *[!0-9]*) return 1 ;; esac
   case "$phase" in
-    preparing | ready | commit | formed)
+    preparing | ready | commit | started | formed)
       [[ "$session" =~ ^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$ ]] || return 1
       ;;
   esac
   case "$phase:$armed" in
-    preparing:false | ready:true | commit:true | abort:false | formed:true) ;;
+    preparing:false | ready:true | commit:true | started:true | abort:false | formed:true) ;;
     *) return 1 ;;
   esac
   [ -n "$out" ] || return 1
@@ -85,6 +85,7 @@ peer_state_write() {
   case "$boot" in '' | *[!0-9]*) boot=0 ;; esac
   ts="$(date +%s)"
   case "$ts" in '' | *[!0-9]*) return 1 ;; esac
+  [ "$phase" != formed ] || formed_at="$ts"
   tmp="${out}.tmp.$$"
   mkdir -p "$(dirname "$out")" || return 1
   if ! jq -nc \
@@ -95,10 +96,11 @@ peer_state_write() {
     --arg session "$session" \
     --arg phase "$phase" \
     --argjson start_at "$start_at" \
+    --argjson formed_at "$formed_at" \
     --argjson software "$software" \
     --argjson ts "$ts" \
     '{armed: $armed, armed_at: $armed_at, boot: $boot, configuration_revision: $configuration_revision,
-      session: $session, phase: $phase, start_at: $start_at, software: $software, ts: $ts}' \
+      session: $session, phase: $phase, start_at: $start_at, formed_at: $formed_at, software: $software, ts: $ts}' \
     > "$tmp"; then
     rm -f "$tmp"
     return 1

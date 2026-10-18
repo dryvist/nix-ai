@@ -37,7 +37,7 @@ peer_state_reset_if_needed() {
   printf 'down\n' > "$CLUSTER_STATE_FILE"
   tmp="${CLUSTER_PEER_STATE_FILE}.tmp.$$"
   jq -nc --argjson boot "$boot" --argjson software "$software" \
-    '{armed: false, armed_at: 0, boot: $boot, configuration_revision: "", session: "", phase: "abort", start_at: 0, software: $software, ts: 0}' > "$tmp"
+    '{armed: false, armed_at: 0, boot: $boot, configuration_revision: "", session: "", phase: "abort", start_at: 0, formed_at: 0, software: $software, ts: 0}' > "$tmp"
   mv -f "$tmp" "$CLUSTER_PEER_STATE_FILE"
   echo "cluster-peer-state: reset state reason=$reset_reason"
 }
@@ -48,7 +48,7 @@ cluster_peer_state_serve_main() {
   : "${CLUSTER_STATIC_SELF_IP:?static self ip is required}"
   local nc_bin="${CLUSTER_NC_BIN:-/usr/bin/nc}" retry_secs="${CLUSTER_PEER_STATE_RETRY_SECS:-5}"
   peer_state_reset_if_needed
-  local unpublished='{"armed":false,"armed_at":0,"boot":0,"configuration_revision":"","session":"","phase":"abort","start_at":0,"software":{"nix_ai":"","mlx":"","mlx_lm":"","macos":"","model":"","model_revision":""},"ts":0}'
+  local unpublished='{"armed":false,"armed_at":0,"boot":0,"configuration_revision":"","session":"","phase":"abort","start_at":0,"formed_at":0,"software":{"nix_ai":"","mlx":"","mlx_lm":"","macos":"","model":"","model_revision":""},"ts":0}'
   echo "cluster-peer-state: serving $CLUSTER_PEER_STATE_FILE on $CLUSTER_STATIC_SELF_IP:$CLUSTER_PEER_STATE_PORT"
 
   while :; do

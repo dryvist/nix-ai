@@ -20,6 +20,7 @@ cat > "$tmp/bin/ssh" <<'SSH'
 #!/usr/bin/env bash
 printf 'ssh %s\n' "$*" >> "$EVENTS"
 printf '%s\n' "$*" >> "$FAKE_SSH_LOG"
+if [ "${FAKE_SSH_HANG:-false}" = true ]; then exec /bin/sleep 60; fi
 exit "${FAKE_SSH_RC:-0}"
 SSH
 cat > "$tmp/bin/sysctl" <<'SYSCTL'
@@ -192,7 +193,10 @@ source modules/mlx/scripts/cluster-rank-reap.sh
 SIGKILL_MARKER="$tmp/sigkill.marker"
 export SIGKILL_MARKER
 export FAKE_PGREP_STATE=running
-sleep() { :; }
+sleep() {
+  /bin/sleep 0.01
+  SECONDS=$((SECONDS + ${1:-1}))
+}
 if rank_stop_verified; then
   check 'rank_stop_verified completes after fake SIGKILL' 0 "$?"
 else
@@ -243,6 +247,29 @@ for pair in '42 1' '255 1' '3 3'; do
   contains 'peer failure reason and raw rc are logged' \
     "REFUSE reason=peer-detach-failed detail=worker detach failed (rc=$FAKE_SSH_RC)" "$(cat "$CLUSTER_LIFECYCLE_LOG")"
 done
+
+echo 'coordinator detach applies the detach timeout plus a 30s SSH deadline:'
+export FAKE_SSH_HANG=true
+export FAKE_SSH_RC=0
+export CLUSTER_DETACH_TIMEOUT_SECS=1
+export CLUSTER_STANDALONE_PROBE_URL=
+: > "$EVENTS"
+: > "$FAKE_SSH_LOG"
+: > "$CLUSTER_LIFECYCLE_LOG"
+SECONDS=0
+set +e
+(
+  cluster_detach_main
+) > "$tmp/detach-timeout.log" 2>&1
+detach_rc=$?
+set -e
+check 'stalled peer detach exits nonzero' 1 "$detach_rc"
+contains 'peer detach timeout has a stable reason' 'REFUSE reason=peer-detach-timeout' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
+contains 'peer detach deadline includes 30s reap margin' 'worker ssh exceeded the 31s deadline' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
+unset FAKE_SSH_HANG
+export CLUSTER_STANDALONE_PROBE_URL=http://127.0.0.1:1
+export CLUSTER_DETACH_TIMEOUT_SECS=10
+
 first_local="$(grep -n '^local-teardown$' "$EVENTS" | cut -d: -f1)"
 first_ssh="$(grep -n '^ssh ' "$EVENTS" | cut -d: -f1)"
 check 'local teardown precedes remote detach' yes "$([ "$first_local" -lt "$first_ssh" ] && echo yes || echo no)"
