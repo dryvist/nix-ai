@@ -4,8 +4,8 @@
 # Split out of ./options-cluster.nix (itself split out of ./cluster-mode.nix)
 # purely to keep each file under the repo per-file size cap. The option paths
 # are UNCHANGED (programs.mlx.clusterMode.*): the module system merges this
-# declaration block with the ones in options-cluster.nix, cluster-mode.nix, and
-# cluster-mode-maintenance.nix. Only `lib` is referenced here.
+# declaration block with the ones in options-cluster.nix and cluster-mode.nix.
+# Only `lib` is referenced here.
 #
 { lib, ... }:
 {

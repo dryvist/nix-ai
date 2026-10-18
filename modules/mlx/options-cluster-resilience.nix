@@ -4,8 +4,8 @@
 # Split out of ./options-cluster.nix (itself split out of ./cluster-mode.nix)
 # purely to keep each file under the repo per-file size cap. The option paths are
 # UNCHANGED (programs.mlx.clusterMode.*): the module system merges this block
-# with the ones in options-cluster.nix, options-cluster-lifecycle.nix,
-# cluster-mode.nix and cluster-mode-maintenance.nix. Only `lib` is referenced.
+# with the ones in options-cluster.nix, options-cluster-lifecycle.nix and
+# cluster-mode.nix. Only `lib` is referenced.
 #
 # Everything here exists so that plugging or unplugging the cable is the ONLY
 # human action a cluster bring-up requires. Each value is a threshold the

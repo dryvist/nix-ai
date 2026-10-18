@@ -5,8 +5,8 @@
 # the repo per-file size cap. The option paths are UNCHANGED
 # (programs.mlx.clusterMode.*): the module system merges this block with the
 # ones in options-cluster.nix, options-cluster-resilience.nix,
-# options-cluster-lifecycle.nix, cluster-mode.nix and
-# cluster-mode-maintenance.nix. Only `lib` is referenced.
+# options-cluster-lifecycle.nix and cluster-mode.nix. Only `lib` is
+# referenced.
 #
 # The seam is deliberate. Its sibling file holds LINK timing and repair — how
 # long before the cable is believed gone, how hard to try to bring it back.

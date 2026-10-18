@@ -5,8 +5,8 @@
 # per-file warn threshold (.file-size.yml). Option paths are UNCHANGED
 # (programs.mlx.clusterMode.*): the module system merges this block with the ones
 # in options-cluster.nix, options-cluster-lifecycle.nix,
-# options-cluster-resilience.nix, cluster-mode.nix and
-# cluster-mode-maintenance.nix. Only `lib` is referenced.
+# options-cluster-resilience.nix and cluster-mode.nix. Only `lib` is
+# referenced.
 #
 # WHAT THIS FILE IS FOR. A generation drift can leave the Thunderbolt link down
 # indefinitely with the cable seated, while every component behaves as designed
