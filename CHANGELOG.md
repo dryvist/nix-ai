@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.26.2](https://github.com/dryvist/nix-ai/compare/v7.26.1...v7.26.2) (2026-10-18)
+
+
+### Bug Fixes
+
+* **deps:** bump the prompt catalog, plugin marketplace, sandbox and claude-code locks ([#2655](https://github.com/dryvist/nix-ai/issues/2655)) ([15dffe7](https://github.com/dryvist/nix-ai/commit/15dffe7872ca4a1dd3fce538e8fe8ebde31cad8d))
+
 ## [7.26.1](https://github.com/dryvist/nix-ai/compare/v7.26.0...v7.26.1) (2026-10-18)
 
 
