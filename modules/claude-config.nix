@@ -243,7 +243,6 @@ in
         # ./claude/permissions.nix to keep this file under the file-size limit.
         permissions = import ./claude/permissions.nix { inherit formatters permissions; };
 
-        # Plain JSON, copied unchanged by the package, so the source tree read is byte-identical.
         skillOverrides =
           if builtins.pathExists skillOverridesFile then
             (lib.importJSON skillOverridesFile).skillOverrides or { }

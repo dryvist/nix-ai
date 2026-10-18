@@ -16,7 +16,7 @@
             os.path.relpath(os.path.join(root, name), source_root)
             for root, _, names in os.walk(source_root)
             for name in names
-        }
+        } - {"index.md"}  # the catalog index is not delivered
         package_files = {
             os.path.relpath(os.path.join(root, name), package_root)
             for root, _, names in os.walk(package_root)
