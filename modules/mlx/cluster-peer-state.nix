@@ -1,20 +1,17 @@
 #
 # MLX Module — clustered-mode peer-state responder
 #
-# Companion to ./cluster-mode.nix and ./peer-liveness.nix, kept as its own
-# module for the same reason those two are separate: one agent, one failure
-# domain, independently reviewable.
+# Companion to ./cluster-mode.nix. Kept separate because it owns a distinct
+# resident agent and failure domain.
 #
-# The watcher answers "is the cable in, and is my rank running?"; peer-liveness
-# answers "is the mesh producing tokens?"; this agent answers the question
-# neither could, because until now nothing on either host could ask it — "is the
-# machine on the other end of the cable in any state to rendezvous?"
+# The watcher publishes whether this host is ready to rendezvous; this agent
+# serves the state so the peer's start guard can read it before spending an RDMA
+# protection domain on an attempt that would fail.
 #
-# It is the publishing half of the peer-armed handshake. The watcher writes one
+# It is the responder half of the peer-armed handshake. The watcher writes one
 # JSON line per tick (peer_state_write in ./scripts/cluster-peer-state.sh); this
-# agent serves that line on the link address so the peer's start guard can read
-# it before spending an RDMA protection domain on an attempt that was certain to
-# fail. Rationale in full at the top of ./scripts/cluster-peer-state-serve.sh.
+# agent serves that line on the link address. Rationale in full at the top of
+# ./scripts/cluster-peer-state-serve.sh.
 #
 {
   config,
@@ -27,8 +24,8 @@ let
   inherit (mlxShared) cfg;
   ncfg = cfg.clusterMode;
   # Cluster override if set, else the module-wide convention
-  # (./options-launch.nix). Resolved the same way the watcher, rank and
-  # peer-liveness agents resolve it, so all four are launched alike.
+  # (./options-launch.nix). Resolved the same way the watcher and rank agents
+  # resolve it, so all three are launched alike.
   appleInterp = if ncfg.appleInterpreter != null then ncfg.appleInterpreter else cfg.appleInterpreter;
 
   logDir = "${config.home.homeDirectory}/Library/Logs/mlx-cluster";

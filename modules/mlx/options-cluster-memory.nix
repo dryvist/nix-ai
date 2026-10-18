@@ -5,8 +5,8 @@
 # the repo per-file size cap. The option paths are UNCHANGED
 # (programs.mlx.clusterMode.*): the module system merges this block with the
 # ones in options-cluster.nix, options-cluster-resilience.nix,
-# options-cluster-rank-health.nix, cluster-mode.nix and
-# cluster-mode-maintenance.nix. Only `lib` is referenced.
+# options-cluster-rank-health.nix and cluster-mode.nix. Only `lib` is
+# referenced.
 #
 { lib, ... }:
 {
@@ -66,23 +66,19 @@
         invisible, and the host never clusters even with the Thunderbolt cable
         plugged in the whole time — the "plugged in but not clustered" state
         the operator's chaos-monkey doctrine rules out. So a shortfall that
-        holds this long escalates to a halt, which puts it in front of
-        pd_auto_reboot_if_warranted exactly as pd-debt-exhausted and
-        rank-start-failures already are (see cluster-link-guards.sh).
+        holds this long escalates to a halt, which keeps the watcher from
+        retrying indefinitely (see cluster-link-guards.sh).
 
         A HALT IS NOT A GUARANTEE THE REBOOT FIXES IT. Unlike the PD ledger,
         a low-memory shortfall is not always the boot-scoped leak signature —
         it could be some other process legitimately holding memory, which a
         reboot may or may not resolve. The dwell exists to tell "genuinely
-        stuck" from "transient" apart; pd_auto_reboot_if_warranted's own rate
-        limit is what keeps a reboot that does not help from repeating without
-        bound.
+        stuck" from "transient" apart.
 
         300s (5 min at the 30s default tick) is a starting guess, not a
-        measurement, same caveat as pdAutoRebootWindowSecs: long enough that an
-        ordinary transient (another process briefly busy) clears on its own,
-        short enough that a genuinely stuck host does not sit refusing for
-        hours before anything escalates.
+        measurement: long enough that an ordinary transient (another process
+        briefly busy) clears on its own, short enough that a genuinely stuck
+        host does not sit refusing for hours before anything escalates.
       '';
     };
   };

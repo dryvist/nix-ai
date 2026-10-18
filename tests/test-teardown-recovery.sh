@@ -39,7 +39,7 @@ tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
 # `#!/usr/bin/env bash` does not resolve in a Linux nix build sandbox; $BASH is
-# the running interpreter's own absolute path (same fix as tests/test-peer-liveness.sh).
+# the running interpreter's own absolute path.
 shebang="#!$BASH"
 
 mkdir -p "$tmp/bin"

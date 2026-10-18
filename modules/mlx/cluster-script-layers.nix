@@ -23,8 +23,7 @@
 #
 # cluster-join reads the ledger so it can REFUSE at the cap, and is deliberately
 # denied the write side: a command whose only job is to refuse must not also be
-# able to spend a protection domain. Likewise the peer-liveness supervisor gets
-# boot scoping (its halt marker is stamped with it) and no ledger at all.
+# able to spend a protection domain.
 #
 # Order matters — these are concatenated, not sourced, so a definition must
 # appear before the layer that calls it. Boot scope is always first.
@@ -73,7 +72,7 @@
     # reads peer state.
     ./scripts/cluster-peer-state.sh
     # new_progress_lines, for the soak probe's proof-of-life check ahead of
-    # endpoint_busy — the same file cluster-peer-liveness.sh already pulls in.
+    # endpoint_busy.
     ./scripts/cluster-peer-observe.sh
     ./scripts/cluster-link-watcher.sh
   ];
@@ -85,17 +84,6 @@
   # different conclusions about what "armed" means.
   peerState = [
     ./scripts/cluster-peer-state-serve.sh
-  ];
-
-  # Peer-liveness supervisor: the same helpers the watcher uses, so its teardown
-  # is byte-identical rather than a second, drifting copy.
-  peerLiveness = [
-    ./scripts/cluster-boot-scope.sh
-    ./scripts/cluster-link-helpers.sh
-    ./scripts/cluster-serving-restore.sh
-    ./scripts/cluster-peer-probe.sh
-    ./scripts/cluster-peer-observe.sh
-    ./scripts/cluster-peer-liveness.sh
   ];
 
   # cluster-join: reads the ledger, and never reaps — the watcher owns rank

@@ -4,7 +4,7 @@
 # pins the RANK's env contract (distributed init, sharding, RDMA discovery);
 # this one pins what the coordinator's link watcher needs to bring standalone
 # serving back and readiness-probe the cluster endpoint. Same fixture
-# (hmConfigCluster) as ./mlx-cluster.nix and ./mlx-cluster-peer-env.nix.
+# (hmConfigCluster) as ./mlx-cluster.nix.
 {
   pkgs,
   hmConfigCluster,
@@ -119,8 +119,6 @@ in
     assert
       builtins.head watcher.ProgramArguments == "/bin/bash"
       || throw "cluster: the watcher must be launched via Apple's /bin/bash, not its Nix shebang — a Nix interpreter's TCC identity is its content hash, so its Local Network grant dies on every rebuild and the probe starts returning 'No route to host'";
-    # The peer-liveness supervisor's own env contract lives in
-    # ./mlx-cluster-peer-env.nix — same fixture, split for the per-file size cap.
     assert
       watcherEnv.CLUSTER_WARM_RECHECK_SECS == "600"
       || throw "cluster: coordinator watcher must carry the health-gate soak recheck interval (vk1188), or liveness is verified at most once per link session";
@@ -129,7 +127,7 @@ in
       && watcherEnv.CLUSTER_RENDEZVOUS_PORT == "11441"
       || throw "cluster: the watcher must know its OWN link address and the rendezvous port — the two rank-start preconditions (errno 49 EADDRNOTAVAIL on a missing address, errno 60 + a leaked RDMA protection domain on an absent rank 0)";
     assert
-      watcherEnv.CLUSTER_PEER_PROBE_TIMEOUT_SECS == "2"
+      watcherEnv.CLUSTER_PEER_RENDEZVOUS_PROBE_TIMEOUT_SECS == "2"
       && watcherEnv.CLUSTER_LINK_REPAIR == "1"
       && watcherEnv.CLUSTER_LINK_ACTIVATE_TIMEOUT_SECS == "150"
       || throw "cluster: rendezvous-probe bound, link-address repair switch and its bounded activation fallback must all reach the watcher as configuration, not script defaults";

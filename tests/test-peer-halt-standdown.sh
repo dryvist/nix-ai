@@ -10,9 +10,9 @@
 #
 # This pins the worker-side detector: it reads the coordinator's own published
 # peer state, strikes ONLY on a positive halted_cause, clears on a clean read,
-# does NOT strike when the fetch fails (an unreachable peer is peer-liveness's
-# verdict, not this one's), and at the strike cap runs the same standdown the
-# rendezvous-absent path runs — halt first, SIGTERM (never SIGKILL), ceiling
+# does NOT strike when the fetch fails (an unreadable state is inconclusive),
+# and at the strike cap runs the same standdown as the rendezvous-absent path —
+# halt first, SIGTERM (never SIGKILL), ceiling
 # back, serving back, page.
 #
 # WHAT IS REAL AND WHAT IS NOT:
@@ -140,7 +140,7 @@ check "no strikes" absent "$(strikes)"
 check "not halted" absent "$(halted)"
 contains "logs the clean read" "peer reports no halt" "$out"
 
-echo "peer state unreadable: NO strike (that verdict belongs to peer-liveness):"
+echo "peer state unreadable: NO strike (only a fetched halted state counts):"
 reset
 export FAKE_FETCH_OK=0
 tick

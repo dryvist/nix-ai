@@ -6,9 +6,8 @@
 # the repo per-file size cap. The option paths are UNCHANGED
 # (programs.mlx.clusterMode.*): the module system merges this declaration block
 # with the staticLinkIps option + config block in cluster-mode.nix, the
-# cluster-join/cluster-detach tunables in options-cluster-lifecycle.nix, and the
-# agents in cluster-mode-maintenance.nix. Only `config` (for the home-directory
-# default) and `lib` are referenced here.
+# cluster-join/cluster-detach tunables in options-cluster-lifecycle.nix. Only
+# `config` (for the home-directory default) and `lib` are referenced here.
 #
 {
   config,
@@ -99,8 +98,8 @@ in
         wanted may have nothing left to allocate.
 
         Free domains are not observable either: ibv_devinfo reports the maximum,
-        never the current allocation, and unrelated processes (model server,
-        prefetch, peer-liveness) may hold some. Remaining budget is unknown, at
+        never the current allocation, and unrelated processes (the model server)
+        may hold some. Remaining budget is unknown, at
         most (11 minus leaked) — another reason to reserve rather than to walk
         up to the edge.
 
@@ -113,9 +112,6 @@ in
         not — the guard re-verifies the ledger and re-halts on its evidence.
       '';
     };
-
-    # pdAutoRebootWindowSecs moved to ./options-cluster-pd-reboot.nix (12KB
-    # file-size split; option path unchanged).
 
     maxWarmFailures = lib.mkOption {
       type = lib.types.int;
@@ -249,12 +245,6 @@ in
       type = lib.types.listOf lib.types.str;
       default = [ ];
       description = "Extra mlx_lm.server args for the cluster rank.";
-    };
-
-    prefetch = lib.mkOption {
-      type = lib.types.bool;
-      default = true;
-      description = "Idempotently download the cluster model at agent load (retries until complete).";
     };
 
     quiesceCommand = lib.mkOption {

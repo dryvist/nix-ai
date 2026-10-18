@@ -10,9 +10,8 @@
 # as "wedged" (2026-08-16: a burst of requests against unloaded models did
 # exactly this and halted a rank that was never broken).
 #
-# This pins that real generation progress (new_progress_lines — the SAME
-# predicate cluster-peer-liveness.sh's coordinator_tick already checks first)
-# is consulted BEFORE endpoint_busy, and that any progress since the last tick
+# This pins that real generation progress (new_progress_lines) is consulted
+# BEFORE endpoint_busy, and that any progress since the last tick
 # short-circuits the probe entirely rather than risking it against a still-busy
 # backend.
 #

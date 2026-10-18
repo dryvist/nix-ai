@@ -55,9 +55,8 @@ export CLUSTER_PD_DEVICE_BUDGET=11
 export CLUSTER_RANK_PROCESS_PATTERN='/mlx_lm\.server'
 
 # Sourced in the module's concatenation order: current_boot_epoch in the boot
-# scope, pd_debt_count in the ledger, halt_write in the helpers (the peer-liveness
-# supervisor sets the same latch), halt_clear_accepted and the preconditions in
-# the guards.
+# scope, pd_debt_count in the ledger, halt_write in the helpers, and
+# halt_clear_accepted and the preconditions in the guards.
 # shellcheck disable=SC1090
 source "${BOOT_SCOPE:?set BOOT_SCOPE to the path of cluster-boot-scope.sh}"
 # shellcheck disable=SC1090

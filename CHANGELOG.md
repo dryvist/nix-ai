@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.26.0](https://github.com/dryvist/nix-ai/compare/v7.25.0...v7.26.0) (2026-10-18)
+
+
+### Features
+
+* **claude:** load AGENTS.md beside CLAUDE.md ([#2638](https://github.com/dryvist/nix-ai/issues/2638)) ([5843760](https://github.com/dryvist/nix-ai/commit/584376014724b95a63d12a980ee2095e863f3a50))
+
 ## [7.25.0](https://github.com/dryvist/nix-ai/compare/v7.24.0...v7.25.0) (2026-10-18)
 
 

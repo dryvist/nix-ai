@@ -11,7 +11,8 @@
 # without the rest (shellcheck SC2329 makes "ship the whole library" a build
 # failure, which is what keeps these layers matched to real call graphs):
 #   peer_reachable         -> ./cluster-peer-probe.sh      (+ cluster-join)
-#   restore_normal_serving -> ./cluster-serving-restore.sh (+ cluster-detach)
+#   restore_normal_serving -> ./cluster-serving-restore.sh (+ cluster-join,
+#                            cluster-detach)
 
 # Page once via Slack incoming webhook, only if the untracked url file exists.
 # Slack needs application/json {"text": ...} — a raw ntfy-style body is rejected
@@ -21,9 +22,8 @@
 #
 # $1 = message text, $2 = headline naming the condition, so a page is
 # identifiable at a glance. Several conditions share this function (PD-guard
-# halt, wedged rank, no token progress, worker rank down, rejected manual
-# clear), and the Slack markup is applied HERE from the plain headline — callers
-# pass words, never formatting.
+# halt, wedged rank, rejected manual clear), and the Slack markup is applied
+# HERE from the plain headline. Callers pass words, never formatting.
 #
 # A PAGE THAT REACHES NOBODY MUST STILL REACH THE LOG. On 2026-07-24 the single
 # alert of the incident died as `alert POST failed http=000 body=curl: (7)
@@ -79,9 +79,8 @@ alert_record() {
 # so a later reader — human or agent — could see that kickstarts were halted but
 # not what halted them, and the fastest way to "make progress" was to delete it.
 #
-# Lives here rather than in cluster-link-guards.sh because BOTH the watcher and
-# the peer-liveness supervisor set this latch, and the cause is worth recording
-# whichever one did it.
+# Lives here rather than in cluster-link-guards.sh so the watcher can record
+# the cause whenever it sets the latch.
 #
 # $1 halt marker, $2 latch, $3 cause token, $4 free-text detail.
 # Drop a halt that was recorded before the current boot.
@@ -129,9 +128,8 @@ halt_drop_if_pre_boot() {
 # so the ESTABLISHED row carries the peer IP and that port whichever side looks —
 # one predicate serves both roles.
 #
-# Lives HERE, not in cluster-peer-observe.sh, because both the link watcher and
-# the peer-liveness supervisor concatenate this file and both now need it. One
-# definition, no drift.
+# Lives HERE, not in cluster-peer-observe.sh, because the link watcher uses it
+# with the other shared link helpers.
 #
 # PERSISTENCE IS MEASURED, not assumed: sampling every 2s across a 1000-token /
 # 38.9s generation on the live cluster, 24 of 24 samples showed the session
@@ -163,14 +161,12 @@ peer_rendezvous_session() {
 # 1-token probe while a real 22k-token generation held the single pipeline slot
 # and had streamed nothing for 181s. The probe expired, the gate declared the
 # rank wedged, and the SIGTERM teardown leaked the wired shard on both hosts —
-# a busy, healthy pipeline killed, at the cost of a dual reboot. The
-# peer-liveness supervisor had carried this check for weeks; the soak had not.
+# a busy, healthy pipeline killed, at the cost of a dual reboot.
 #
 # IN-FLIGHT WORK IS PROOF OF LIFE, but only for a while: a WEDGED rank holds its
 # connections open exactly as a busy one does (measured 2026-07-25 — a killed
-# peer left the coordinator accepting, returning zero bytes after 60s). So every
-# caller bounds how long it will defer; see busy_stall_secs in
-# cluster-peer-liveness.sh and CLUSTER_SOAK_BUSY_SKIP_MAX in the watcher.
+# peer left the coordinator accepting, returning zero bytes after 60s). So the
+# watcher bounds how long it will defer with CLUSTER_SOAK_BUSY_SKIP_MAX.
 #
 # netstat is in /usr/sbin, which is NOT on a writeShellApplication PATH.
 endpoint_busy() {

@@ -81,9 +81,7 @@ let
   };
 
   # Which shell layers each cluster script is assembled from, and why each
-  # consumer gets exactly the layers it calls (shellcheck SC2329 enforces it).
-  # Shared with ./peer-liveness.nix so there is one place that answers "what is
-  # this script made of".
+  # consumer gets exactly the layers it calls, lives in ./cluster-script-layers.nix.
   scriptLayers = import ./cluster-script-layers.nix;
 
   # Thin wrapper in front of the rank: discovers the RDMA device, writes the
@@ -212,8 +210,8 @@ in
         enable = true;
         config = {
           Label = rankLabel;
-          # Apple's interpreter, like the watcher and peer-liveness agents
-          # beside it: a Nix binary's signing identity is its content hash, so
+          # Apple's interpreter, like the watcher beside it: a Nix binary's
+          # signing identity is its content hash, so
           # a Local Network grant dies on the next rebuild. Worst here — the
           # rank alone opens the jaccl rendezvous, and each denied start burns
           # a boot-scoped protection domain. See programs.mlx.appleInterpreter.
@@ -272,6 +270,5 @@ in
         };
       };
     };
-    # Prefetch + log rotation live in ./cluster-mode-maintenance.nix.
   };
 }

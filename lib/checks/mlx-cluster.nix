@@ -1,9 +1,8 @@
 # Clustered-mode compile regression tests — the RANK's env contract.
 #
 # Split from a single file at the repo per-file size cap: the watcher's own
-# contract lives in ./mlx-cluster-watcher-env.nix, the peer-liveness
-# supervisor's in ./mlx-cluster-peer-env.nix. Same fixture (hmConfigCluster)
-# throughout.
+# contract lives in ./mlx-cluster-watcher-env.nix. Same fixture
+# (hmConfigCluster) throughout.
 {
   pkgs,
   hmConfigCluster,
@@ -13,7 +12,7 @@ let
   helpers = import ./helpers.nix { inherit pkgs; };
 in
 {
-  # Coordinator fixture: rank/watcher/prefetch agents must compile with the
+  # Coordinator fixture: rank/watcher agents must compile with the
   # distributed env contract. The fixture leaves shardingMode and fastMetalSync
   # at their defaults, so it also pins those defaults.
   mlx-cluster =
@@ -86,13 +85,9 @@ in
     # The coordinator watcher's own env contract (link timing, standalone-serving
     # restore wiring, readiness probe, derived settle-window strikes) lives in
     # ./mlx-cluster-watcher-env.nix — same fixture, split for the per-file size
-    # cap. The peer-liveness supervisor's is ./mlx-cluster-peer-env.nix.
-    assert
-      agents ? mlx-cluster-prefetch
-      && agents.mlx-cluster-prefetch.config.KeepAlive.SuccessfulExit == false
-      || throw "cluster: prefetch agent must retry until the download completes";
+    # cap.
     assert
       builtins.elem "cluster-join" pkgNames && builtins.elem "cluster-detach" pkgNames
       || throw "cluster: cluster-join and cluster-detach lifecycle commands must ship in home.packages";
-    helpers.mkMarker "check-mlx-cluster" "MLX clustered mode: rank env contract, tensor-parallel default sharding, runtime RDMA-device discovery, prefetch retry, and cluster-join/cluster-detach lifecycle commands verified";
+    helpers.mkMarker "check-mlx-cluster" "MLX clustered mode: rank env contract, tensor-parallel default sharding, runtime RDMA-device discovery, and cluster-join/cluster-detach lifecycle commands verified";
 }

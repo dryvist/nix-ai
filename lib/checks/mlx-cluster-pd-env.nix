@@ -1,7 +1,7 @@
 # RDMA protection-domain guard — env-wiring contract.
 #
-# Split out of ./mlx-cluster.nix for the per-file size cap, the same seam as
-# ./mlx-cluster-peer-env.nix. What it pins is a category of its own: every input
+# Split out of ./mlx-cluster.nix for the per-file size cap. What it pins is a
+# category of its own: every input
 # to the guard that makes protection-domain exhaustion structurally impossible.
 #
 # This file pins the guard's PLUMBING — the env vars, patterns and paths that

@@ -29,7 +29,6 @@
   ./options-model-backends.nix
   ./options-residency.nix
   ./options-cluster.nix
-  ./options-cluster-pd-reboot.nix
   ./options-cluster-lifecycle.nix
   ./options-cluster-resilience.nix
   ./options-cluster-selfheal.nix
@@ -41,8 +40,6 @@
   ./packages.nix
   ./static-residents.nix
   ./cluster-mode.nix
-  ./cluster-mode-maintenance.nix
-  ./peer-liveness.nix
   ./cluster-peer-state.nix
   ./uv-cache-prune.nix
 ]

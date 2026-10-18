@@ -37,5 +37,10 @@ in
       claude-fable-5-1.effortLevel = "high";
       claude-haiku-5-5.effortLevel = "xhigh";
     };
+
+    # Load each directory's AGENTS.md beside its CLAUDE.md files. By default
+    # Claude Code skips AGENTS.md wherever a CLAUDE.md or CLAUDE.local.md exists.
+    programs.claude.settings.pluginConfigs."cc-plugin-agents-md@builtin".options.instructionFiles =
+      "claude-md-and-agents-md";
   };
 }
