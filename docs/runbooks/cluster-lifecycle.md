@@ -15,6 +15,11 @@ Both commands are idempotent and safe to re-run. All `CLUSTER_*` configuration
 is baked at eval from `programs.mlx.clusterMode`, so the commands need no shell
 environment and behave identically on the coordinator and the worker.
 
+## Prerequisites
+
+Before joining, download the selected model on both nodes with
+`hf download <model repo>`.
+
 ## `cluster-join` — bring the cluster up
 
 1. Verify/repair link prep on the local node (own static link IP on a
