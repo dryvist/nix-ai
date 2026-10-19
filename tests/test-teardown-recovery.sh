@@ -155,8 +155,9 @@ MV
 chmod +x "$tmp/bin/mv"
 
 : > "$EVENTS"
-printf 'label-a\nlabel-b\n' > "$tmp/state/quiesced-agents"
-touch "$tmp/home/Library/LaunchAgents/label-a.plist"
+mkdir -p "$tmp/Some App.app"
+printf 'label-a\nlabel-b\nlabel-c %s\n' "$tmp/Some App.app/label-c.plist" > "$tmp/state/quiesced-agents"
+touch "$tmp/home/Library/LaunchAgents/label-a.plist" "$tmp/Some App.app/label-c.plist"
 peer_state_write() { printf 'disarm\n' >> "$EVENTS"; }
 rank_process_absent_calls=0
 rank_process_absent() {
@@ -183,7 +184,7 @@ else
   echo '  FAIL normal teardown returned failure'; fail=1
 fi
 ordered="$(tr '\n' ' ' < "$EVENTS")"
-contains 'teardown order' 'disarm stop count ceiling restore-serving launchctl bootstrap gui/'"$(id -u)"' '"$tmp/home/Library/LaunchAgents/label-a.plist"' launchctl kickstart gui/'"$(id -u)"'/label-b link-down' "$ordered"
+contains 'teardown order' 'disarm stop count ceiling restore-serving launchctl bootstrap gui/'"$(id -u)"' '"$tmp/home/Library/LaunchAgents/label-a.plist"' launchctl kickstart gui/'"$(id -u)"'/label-b launchctl bootstrap gui/'"$(id -u)"' '"$tmp/Some App.app/label-c.plist"' link-down' "$ordered"
 check 'quiesced label file truncated' 0 "$(wc -c < "$tmp/state/quiesced-agents" | tr -d ' ')"
 check 'link state down after teardown' down "$(cat "$CLUSTER_STATE_FILE")"
 

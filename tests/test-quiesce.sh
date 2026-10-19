@@ -21,7 +21,12 @@ case "$1" in
     printf '%s\n' "$*" >> "$FAKE_LAUNCHCTL_LOG"
     case "$*" in *application.com.example.two.3.4*) exit 17 ;; esac
     ;;
-  print) exit 1 ;;
+  print)
+    label="${2##*/}"
+    [ "$label" = org.example.agent ] || exit 1
+    grep -q "/$label\$" "$FAKE_LAUNCHCTL_LOG" && exit 1
+    printf '%s = {\n\tpath = %s\n}\n' "$2" "$FAKE_AGENT_PLIST"
+    ;;
 esac
 LAUNCHCTL
 write_stub "$tmp/bin/sysctl" <<'SYSCTL'
@@ -88,7 +93,8 @@ export CLUSTER_AWK_BIN=awk
 export CLUSTER_SED_BIN=sed
 export CLUSTER_GREP_BIN=grep
 export CLUSTER_QUIESCE_APPS='com.example.one com.example.two'
-export CLUSTER_QUIESCE_LAUNCHD='org.example.agent'
+export CLUSTER_QUIESCE_LAUNCHD='org.example.absent org.example.agent'
+export FAKE_AGENT_PLIST="$tmp/Some App.app/Contents/Library/LaunchAgents/org.example.agent.plist"
 export CLUSTER_QUIESCE_GRACE_SECS=0
 export CLUSTER_JOIN_SWAP_THRESHOLD_MB=8000
 export CLUSTER_SHARD_MEMORY_MB=0
@@ -141,7 +147,8 @@ contains 'room gate refused its unconfigured shard after bootout failure' \
 failure_line="$(grep -n 'quiesce app application.com.example.two.3.4 rc=17' "$tmp/output.log" | cut -d: -f1)"
 room_line="$(grep -n 'REFUSE reason=room-unconfigured' "$tmp/output.log" | cut -d: -f1)"
 check 'room check follows the logged bootout failure' yes "$([ "$failure_line" -lt "$room_line" ] && echo yes || echo no)"
-check 'only configured agent recorded for restore' org.example.agent "$(cat "$tmp/state/quiesced-agents")"
+contains 'unloaded agent skipped' 'cluster-join: quiesce launchd org.example.absent not loaded; skipped' "$output"
+check 'only loaded configured agent recorded with its plist' "org.example.agent $FAKE_AGENT_PLIST" "$(cat "$tmp/state/quiesced-agents")"
 
 if [ "$fail" -ne 0 ]; then
   echo 'quiesce checks FAILED' >&2

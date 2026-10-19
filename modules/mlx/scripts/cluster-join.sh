@@ -162,16 +162,24 @@ cluster_quiesce_wait() {
 }
 
 cluster_quiesce_record() {
-  local label="$1" file="${CLUSTER_STATE_DIR:-$state_dir}/quiesced-agents"
+  local label="$1" path="${2:-}" file="${CLUSTER_STATE_DIR:-$state_dir}/quiesced-agents"
   mkdir -p "$(dirname "$file")"
   touch "$file"
-  "${CLUSTER_GREP_BIN:-/usr/bin/grep}" -Fqx "$label" "$file" || printf '%s\n' "$label" >> "$file"
+  "${CLUSTER_AWK_BIN:-/usr/bin/awk}" -v label="$label" "\$1 == label { found = 1 } END { exit !found }" "$file" ||
+    printf '%s\n' "$label${path:+ $path}" >> "$file"
 }
 
 cluster_quiesce_launchd_label() {
-  local kind="$1" label="$2" rc=0
+  local kind="$1" label="$2" rc=0 info path
   if [ "$kind" = launchd ]; then
-    if ! cluster_quiesce_record "$label"; then
+    # Restore needs the plist launchd loaded, which may live outside ~/Library/LaunchAgents.
+    if ! info="$("${CLUSTER_LAUNCHCTL_BIN:-/bin/launchctl}" print "gui/$uid/$label" 2> /dev/null)"; then
+      echo "cluster-join: quiesce launchd $label not loaded; skipped"
+      return 0
+    fi
+    path="$(printf '%s\n' "$info" | "${CLUSTER_SED_BIN:-/usr/bin/sed}" -n 's/^[[:space:]]*path = //p')"
+    path="${path%%$'\n'*}"
+    if ! cluster_quiesce_record "$label" "$path"; then
       echo "cluster-join: quiesce record $label rc=1" >&2
     fi
   fi
