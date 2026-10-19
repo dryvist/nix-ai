@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.0.3](https://github.com/dryvist/nix-ai/compare/v8.0.2...v8.0.3) (2026-10-19)
+
+
+### Bug Fixes
+
+* **mlx:** start the coordinator rank before the worker ([#2670](https://github.com/dryvist/nix-ai/issues/2670)) ([00ee540](https://github.com/dryvist/nix-ai/commit/00ee540c69e9225d739a392e78aedfc6317e088d))
+
 ## [8.0.2](https://github.com/dryvist/nix-ai/compare/v8.0.1...v8.0.2) (2026-10-19)
 
 
