@@ -18,11 +18,8 @@
 }:
 let
   inherit (import ./cluster-rank-pattern.nix { inherit lib; }) clusterRankProcessPattern;
-  # Detach probes this host's own resident server: the shared front port can be another gateway.
+  # Detach probes this host's own resident servers: the shared front port can be another gateway.
   residentContracts = lib.attrValues cfg.staticResidentContracts;
-  probeContract = lib.findFirst (contract: contract.roles ? default) (
-    if residentContracts == [ ] then null else lib.head residentContracts
-  ) residentContracts;
   clusterCommonEnv = {
     CLUSTER_ROLE = ncfg.role;
     CLUSTER_STATIC_SELF_IP = staticSelfIp;
@@ -96,9 +93,11 @@ let
     // {
       CLUSTER_DETACH_SWAP_THRESHOLD_MB = toString ncfg.detachSwapThresholdMb;
     }
-    // lib.optionalAttrs (probeContract != null) {
-      CLUSTER_STANDALONE_PROBE_URL = "http://127.0.0.1:${toString probeContract.servicePort}/v1";
-      CLUSTER_STANDALONE_PROBE_MODEL = probeContract.model;
+    // lib.optionalAttrs (residentContracts != [ ]) {
+      CLUSTER_STANDALONE_PROBES = lib.concatMapStringsSep "\n" (
+        contract:
+        "${contract.launchdLabel} http://127.0.0.1:${toString contract.servicePort}/v1 ${contract.model}"
+      ) residentContracts;
     }
     // lib.optionalAttrs isCoordinator {
       CLUSTER_SERVER_LABELS = lib.concatStringsSep " " residentAgentLabels;
