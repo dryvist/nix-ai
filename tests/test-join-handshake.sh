@@ -1052,6 +1052,35 @@ else
   echo '  FAIL cached model override refused'; fail=1
 fi
 
+echo 'the responder serves the state as of the request, not as of its previous reply:'
+mkdir -p "$tmp/serve"
+write_stub "$tmp/bin/fake-nc" <<'FAKENC'
+while [ ! -e "$FAKE_NC_TRIGGER" ]; do command sleep 0.05; done
+rm -f "$FAKE_NC_TRIGGER"
+printf 'GET / HTTP/1.1\r\n'
+cat > "$FAKE_NC_RESPONSE.part"
+mv "$FAKE_NC_RESPONSE.part" "$FAKE_NC_RESPONSE"
+FAKENC
+chmod +x "$tmp/bin/fake-nc"
+(
+  export CLUSTER_PEER_STATE_FILE="$tmp/serve/peer-state.json" CLUSTER_STATE_FILE="$tmp/serve/link-state"
+  export CLUSTER_PEER_STATE_PORT=1 CLUSTER_STATIC_SELF_IP=127.0.0.1 CLUSTER_NC_BIN="$tmp/bin/fake-nc"
+  export FAKE_NC_TRIGGER="$tmp/serve/trigger" FAKE_NC_RESPONSE="$tmp/serve/response"
+  write_state "$CLUSTER_PEER_STATE_FILE" false 0 20261018T000000Z-0000aaaa abort
+  printf 'down\n' > "$CLUSTER_STATE_FILE"
+  cluster_peer_state_serve_main > "$tmp/serve/serve.log" 2>&1 &
+  serve_pid=$!
+  command sleep 0.5
+  write_state "$CLUSTER_PEER_STATE_FILE" false 0 20261019T000000Z-0000bbbb preparing
+  touch "$FAKE_NC_TRIGGER"
+  for _ in $(seq 1 100); do [ -f "$FAKE_NC_RESPONSE" ] && break; command sleep 0.05; done
+  kill "$serve_pid" 2> /dev/null || true
+  wait "$serve_pid" 2> /dev/null || true
+)
+served="$(cat "$tmp/serve/response" 2> /dev/null || true)"
+contains 'reply carries the session written after the listener started' '"session":"20261019T000000Z-0000bbbb"' "$served"
+contains 'reply is a complete HTTP response' 'HTTP/1.1 200 OK' "$served"
+
 if [ "$fail" -ne 0 ]; then
   echo 'join handshake checks FAILED' >&2
   exit 1

@@ -14,6 +14,7 @@ write_stub() {
 write_stub "$tmp/bin/launchctl" <<'LAUNCHCTL'
 printf 'launchctl %s\n' "$*" >> "$EVENTS"
 if [ "${1:-}" = kill ] && [ "${2:-}" = SIGKILL ]; then touch "$SIGKILL_MARKER"; fi
+if [ "${1:-}" = print ] && [ "${2##*/}" = "${FAKE_UNLOADED_LABEL:-}" ]; then exit 113; fi
 LAUNCHCTL
 write_stub "$tmp/bin/curl" <<'CURL'
 case " $* " in
@@ -120,8 +121,7 @@ export CLUSTER_STANDALONE_WIRED_LIMIT_MB=0
 export CLUSTER_RANK_LABEL=dev.test.rank
 export CLUSTER_RANK_PROCESS_PATTERN=/fake-rank
 export CLUSTER_DETACH_TIMEOUT_SECS=0
-export CLUSTER_STANDALONE_PROBE_URL=http://127.0.0.1:1
-export CLUSTER_STANDALONE_PROBE_MODEL=test
+export CLUSTER_STANDALONE_PROBES='dev.test.server http://127.0.0.1:1 test'
 export CLUSTER_DETACH_SWAP_THRESHOLD_MB=20000
 export CLUSTER_PEER_STATE_FILE="$tmp/state/peer-state.json"
 export CLUSTER_SOFTWARE_JSON='{"nix_ai":"a","mlx":"c","mlx_lm":"d","macos":"e"}'
@@ -245,8 +245,7 @@ echo 'coordinator maps worker detach results to the documented exit contract:'
 : > "$CLUSTER_LIFECYCLE_LOG"
 export CLUSTER_ROLE=coordinator
 export CLUSTER_PEER_SSH=user@worker
-export CLUSTER_STANDALONE_PROBE_URL=http://127.0.0.1:1
-export CLUSTER_STANDALONE_PROBE_MODEL=test
+export CLUSTER_STANDALONE_PROBES='dev.test.server http://127.0.0.1:1 test'
 export CLUSTER_DETACH_SWAP_THRESHOLD_MB=20000
 export CLUSTER_DETACH_TIMEOUT_SECS=10
 cluster_teardown() { printf 'local-teardown\n' >> "$EVENTS"; TEARDOWN_REBOOT=0; return 0; }
@@ -272,7 +271,7 @@ echo 'coordinator detach applies the detach timeout plus a 30s SSH deadline:'
 export FAKE_SSH_HANG=true
 export FAKE_SSH_RC=0
 export CLUSTER_DETACH_TIMEOUT_SECS=1
-export CLUSTER_STANDALONE_PROBE_URL=
+export CLUSTER_STANDALONE_PROBES=
 : > "$EVENTS"
 : > "$FAKE_SSH_LOG"
 : > "$CLUSTER_LIFECYCLE_LOG"
@@ -287,7 +286,7 @@ check 'stalled peer detach exits nonzero' 1 "$detach_rc"
 contains 'peer detach timeout has a stable reason' 'REFUSE reason=peer-detach-timeout' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
 contains 'peer detach deadline includes 30s reap margin' 'worker ssh exceeded the 31s deadline' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
 unset FAKE_SSH_HANG
-export CLUSTER_STANDALONE_PROBE_URL=http://127.0.0.1:1
+export CLUSTER_STANDALONE_PROBES='dev.test.server http://127.0.0.1:1 test'
 export CLUSTER_DETACH_TIMEOUT_SECS=10
 
 first_local="$(grep -n '^local-teardown$' "$EVENTS" | cut -d: -f1)"
@@ -303,6 +302,38 @@ detach_rc=$?
 set -e
 check 'worker detach succeeds without initiating ssh' 0 "$detach_rc"
 check 'worker issued no ssh' 0 "$(wc -l < "$FAKE_SSH_LOG" | tr -d ' ')"
+
+echo 'detach probes only the resident servers loaded on this host:'
+export FAKE_UNLOADED_LABEL=dev.test.unloaded
+export CLUSTER_STANDALONE_PROBES='dev.test.unloaded http://127.0.0.1:2 other
+dev.test.server http://127.0.0.1:1 test'
+: > "$CLUSTER_LIFECYCLE_LOG"
+set +e
+(cluster_detach_main)
+detach_rc=$?
+set -e
+check 'detach with one loaded resident succeeds' 0 "$detach_rc"
+contains 'unloaded resident is skipped' 'dev.test.unloaded not loaded; not probed' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
+contains 'loaded resident is probed' 'dev.test.server returned a real completion' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
+export CLUSTER_STANDALONE_PROBES='dev.test.unloaded http://127.0.0.1:2 other'
+: > "$CLUSTER_LIFECYCLE_LOG"
+set +e
+(cluster_detach_main)
+detach_rc=$?
+set -e
+check 'detach with no loaded resident succeeds' 0 "$detach_rc"
+contains 'no loaded resident is reported' 'serving    : no resident loaded' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
+export CLUSTER_STANDALONE_PROBES='dev.test.server http://127.0.0.1:1 test'
+export CLUSTER_DETACH_TIMEOUT_SECS=0
+: > "$CLUSTER_LIFECYCLE_LOG"
+set +e
+(cluster_detach_main)
+detach_rc=$?
+set -e
+check 'loaded resident without a completion fails detach' 1 "$detach_rc"
+contains 'missing completion has a stable reason' 'REFUSE reason=serving-not-restored' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
+unset FAKE_UNLOADED_LABEL
+export CLUSTER_DETACH_TIMEOUT_SECS=10
 
 echo 'lifecycle lock record keeps the first owner and fresh acquisition:'
 lock="$CLUSTER_STATE_DIR/cluster-lifecycle.lock"
@@ -389,7 +420,7 @@ check 'failed disarm still restores wired ceiling' 1000 "$(cat "$FAKE_WIRED_FILE
 contains 'failed disarm has a stable refusal token' 'REFUSE reason=disarm-failed' "$(cat "$tmp/disarm-failure.log")"
 
 export CLUSTER_ROLE=worker
-export CLUSTER_STANDALONE_PROBE_URL=
+export CLUSTER_STANDALONE_PROBES=
 export CLUSTER_DETACH_TIMEOUT_SECS=0
 : > "$CLUSTER_LIFECYCLE_LOG"
 set +e

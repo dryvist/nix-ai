@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.0.2](https://github.com/dryvist/nix-ai/compare/v8.0.1...v8.0.2) (2026-10-19)
+
+
+### Bug Fixes
+
+* **mlx:** fresh peer-state replies and loaded-only detach probes ([#2667](https://github.com/dryvist/nix-ai/issues/2667)) ([d9ba338](https://github.com/dryvist/nix-ai/commit/d9ba338b2f336e890ae5063990960da922ed533c))
+
 ## [8.0.1](https://github.com/dryvist/nix-ai/compare/v8.0.0...v8.0.1) (2026-10-19)
 
 

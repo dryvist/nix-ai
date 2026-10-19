@@ -1,9 +1,24 @@
 # shellcheck shell=bash
 # cluster-detach -- stop this rank, restore standalone serving and verify it.
 
+cluster_detach_probe() {
+  local url="$1" model="$2" deadline="$3" body
+  while [ "$(date +%s)" -lt "$deadline" ]; do
+    if curl -fsS -m 5 "$url/models" > /dev/null 2>&1; then
+      body="$(curl -fsS -m 240 -X POST "$url/chat/completions" \
+        -H 'Content-Type: application/json' \
+        -d "$(jq -nc --arg m "$model" \
+          '{model:$m,messages:[{role:"user",content:"ping"}],max_tokens:4}')" 2> /dev/null)" || body=""
+      jq -e '(.usage.completion_tokens // 0) >= 1' > /dev/null 2>&1 <<< "$body" && return 0
+    fi
+    sleep 10
+  done
+  return 1
+}
+
 cluster_detach_main() {
   local timeout deadline failed=0 peer_detach_rc=0 used swap_threshold stale_swap=false
-  local current link_state serve_ok=false body held="?" worker_invocation=false
+  local current link_state serve_ok=false held="?" worker_invocation=false probed label url model
   local session_arg="" current_session peer_pid
   state_dir="${CLUSTER_STATE_DIR:-$(dirname "$CLUSTER_STATE_FILE")}"
   mkdir -p "$state_dir"
@@ -82,29 +97,36 @@ cluster_detach_main() {
   fi
 
   echo "cluster-detach: D2 standalone real-completion probe"
-  if [ -n "${CLUSTER_STANDALONE_PROBE_URL:-}" ]; then
+  if [ -n "${CLUSTER_STANDALONE_PROBES:-}" ]; then
     deadline=$(($(date +%s) + timeout))
-    while [ "$(date +%s)" -lt "$deadline" ]; do
-      if curl -fsS -m 5 "${CLUSTER_STANDALONE_PROBE_URL}/models" > /dev/null 2>&1; then
-        body="$(curl -fsS -m 240 -X POST "${CLUSTER_STANDALONE_PROBE_URL}/chat/completions" \
-          -H 'Content-Type: application/json' \
-          -d "$(jq -nc --arg m "${CLUSTER_STANDALONE_PROBE_MODEL:-}" \
-            '{model:$m,messages:[{role:"user",content:"ping"}],max_tokens:4}')" 2> /dev/null)" || body=""
-        if jq -e '(.usage.completion_tokens // 0) >= 1' > /dev/null 2>&1 <<< "$body"; then
-          serve_ok=true
-          break
-        fi
+    probed=0
+    serve_ok=true
+    # Each line is "label url model"; a resident that is not loaded on this host has no serving to verify.
+    while read -r label url model; do
+      [ -n "$label" ] || continue
+      if ! "${CLUSTER_LAUNCHCTL_BIN:-/bin/launchctl}" print "gui/$(id -u)/$label" > /dev/null 2>&1; then
+        echo "cluster-detach: $label not loaded; not probed"
+        continue
       fi
-      sleep 10
-    done
-    if [ "$serve_ok" = true ]; then
+      probed=$((probed + 1))
+      if cluster_detach_probe "$url" "$model" "$deadline"; then
+        echo "cluster-detach: $label returned a real completion"
+      else
+        echo "cluster-detach: $label did not return a real completion"
+        serve_ok=false
+      fi
+    done <<< "$CLUSTER_STANDALONE_PROBES"
+    if [ "$probed" -eq 0 ]; then
+      serve_ok=none
+      echo "cluster-detach: no standalone resident is loaded; nothing to probe"
+    elif [ "$serve_ok" = true ]; then
       echo "cluster-detach: standalone serving restored (real completion verified)"
     else
       lifecycle_refuse serving-not-restored "standalone serving did not return a real completion within ${timeout}s"
       failed=1
     fi
   else
-    lifecycle_refuse serving-probe-unconfigured "no standalone probe URL; serving cannot be verified"
+    lifecycle_refuse serving-probe-unconfigured "no standalone probes configured; serving cannot be verified"
     failed=1
   fi
 
@@ -131,7 +153,7 @@ cluster_detach_main() {
   echo "  rank       : $(rank_process_absent && echo stopped || echo present-or-unknown)"
   echo "  wired ceil : $current (standalone ${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0})"
   echo "  held PDs   : $held of ${CLUSTER_PD_DEVICE_BUDGET:-?}"
-  echo "  serving    : $([ "$serve_ok" = true ] && echo restored || echo NOT-VERIFIED)"
+  echo "  serving    : $(case "$serve_ok" in true) echo restored ;; none) echo "no resident loaded" ;; *) echo NOT-VERIFIED ;; esac)"
   echo "  swap used  : ${used}M (threshold ${swap_threshold}M)"
 
   cluster_detach_finish "$failed" "$peer_detach_rc" "${TEARDOWN_REBOOT:-0}" "$stale_swap"
