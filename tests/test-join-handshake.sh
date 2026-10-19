@@ -243,6 +243,13 @@ sleep() {
     CLUSTER_PEER_STATE_FILE="$saved"
     READY_WORKER_ON_SLEEP=false
   fi
+  if [ "${START_COORDINATOR_ON_SLEEP:-false}" = true ]; then
+    local saved="$CLUSTER_PEER_STATE_FILE"
+    CLUSTER_PEER_STATE_FILE="$FAKE_PEER_STATE_FILE"
+    peer_state_write true "$JOIN_READY_AT" "$JOIN_SESSION_ID" started "$JOIN_START_AT"
+    CLUSTER_PEER_STATE_FILE="$saved"
+    START_COORDINATOR_ON_SLEEP=false
+  fi
 }
 current_boot_epoch() { printf '100\n'; }
 link_prep_ok() { return 0; }
@@ -499,29 +506,62 @@ else
 fi
 check 'withdrawn commit issued no kickstart' 0 "$(grep -c 'kickstart' "$FAKE_LAUNCHCTL_LOG" || true)"
 
-echo 'worker accepts a COMMIT up to 2s after start_at and publishes STARTED:'
+echo 'worker waits while the coordinator is COMMIT and starts after matching STARTED:'
 CLUSTER_ROLE=worker
 CLUSTER_PEER_STATE_FILE="$tmp/state/worker-peer-state.json"
 FAKE_PEER_STATE_FILE="$tmp/state/coordinator-peer-state.json"
 JOIN_READY_AT=1000
 JOIN_START_AT=1000
 JOIN_SHARDING=tensor
-FAKE_NOW=1001
+FAKE_NOW=1000
 SECONDS=0
 FAKE_PGREP_STATE=running
 FAKE_KICKSTART_RC=0
 export FAKE_KICKSTART_RC CLUSTER_LIFECYCLE_COMPONENT=cluster-join
 write_state "$CLUSTER_PEER_STATE_FILE" true 1000 "$JOIN_SESSION_ID" ready
 write_state "$FAKE_PEER_STATE_FILE" true 1000 "$JOIN_SESSION_ID" commit 1000
+START_COORDINATOR_ON_SLEEP=true
 : > "$FAKE_LAUNCHCTL_LOG"
 if cluster_final_rank_start 1000; then
-  check 'worker late by 1s publishes started' started "$(jq -r '.phase' "$CLUSTER_PEER_STATE_FILE")"
+  check 'worker observes coordinator STARTED' started "$(jq -r '.phase' "$FAKE_PEER_STATE_FILE")"
+  check 'worker publishes started' started "$(jq -r '.phase' "$CLUSTER_PEER_STATE_FILE")"
   check 'worker started session is preserved' "$JOIN_SESSION_ID" "$(jq -r '.session' "$CLUSTER_PEER_STATE_FILE")"
   check 'worker started boundary is preserved' 1000 "$(jq -r '.start_at' "$CLUSTER_PEER_STATE_FILE")"
   check 'worker kickstart was issued once' 1 "$(grep -c 'kickstart' "$FAKE_LAUNCHCTL_LOG" || true)"
 else
-  echo '  FAIL worker refused the 1s start delay'; fail=1
+  echo '  FAIL worker refused after coordinator STARTED'; fail=1
 fi
+START_COORDINATOR_ON_SLEEP=false
+
+echo 'worker times out at start_at+10 while the coordinator remains COMMIT:'
+FAKE_NOW=1000
+SECONDS=0
+write_state "$CLUSTER_PEER_STATE_FILE" true 1000 "$JOIN_SESSION_ID" ready
+write_state "$FAKE_PEER_STATE_FILE" true 1000 "$JOIN_SESSION_ID" commit 1000
+: > "$FAKE_LAUNCHCTL_LOG"
+if cluster_final_rank_start 1000 > "$tmp/coordinator-start-timeout.log" 2>&1; then
+  echo '  FAIL worker proceeded before coordinator STARTED'; fail=1
+else
+  contains 'worker reports coordinator-start-timeout' 'REFUSE reason=coordinator-start-timeout' \
+    "$(cat "$tmp/coordinator-start-timeout.log")"
+  contains 'worker coordinator-start timeout detail' 'coordinator did not publish STARTED by start_at+10' \
+    "$(cat "$tmp/coordinator-start-timeout.log")"
+fi
+check 'coordinator-start timeout issued no kickstart' 0 "$(grep -c 'kickstart' "$FAKE_LAUNCHCTL_LOG" || true)"
+
+echo 'worker refuses a coordinator STARTED with a different start_at:'
+FAKE_NOW=1000
+SECONDS=0
+write_state "$CLUSTER_PEER_STATE_FILE" true 1000 "$JOIN_SESSION_ID" ready
+write_state "$FAKE_PEER_STATE_FILE" true 1000 "$JOIN_SESSION_ID" started 999
+: > "$FAKE_LAUNCHCTL_LOG"
+if cluster_final_rank_start 1000 > "$tmp/coordinator-start-mismatch.log" 2>&1; then
+  echo '  FAIL worker accepted mismatched coordinator STARTED'; fail=1
+else
+  contains 'worker reports coordinator-start-mismatch' 'REFUSE reason=coordinator-start-mismatch' \
+    "$(cat "$tmp/coordinator-start-mismatch.log")"
+fi
+check 'coordinator-start mismatch issued no kickstart' 0 "$(grep -c 'kickstart' "$FAKE_LAUNCHCTL_LOG" || true)"
 
 echo 'worker refuses a kickstart whose process is not visible within 5s:'
 FAKE_NOW=1000
@@ -532,7 +572,7 @@ export FAKE_PGREP_SEQUENCE="$tmp/no-rank.sequence"
 export FAKE_PGREP_COUNT_FILE="$tmp/no-rank-count"
 : > "$FAKE_PGREP_COUNT_FILE"
 write_state "$CLUSTER_PEER_STATE_FILE" true 1000 "$JOIN_SESSION_ID" ready
-write_state "$FAKE_PEER_STATE_FILE" true 1000 "$JOIN_SESSION_ID" commit 1000
+write_state "$FAKE_PEER_STATE_FILE" true 1000 "$JOIN_SESSION_ID" started 1000
 : > "$FAKE_LAUNCHCTL_LOG"
 : > "$CLUSTER_LIFECYCLE_LOG"
 if (
@@ -553,22 +593,22 @@ else
   check 'worker process check failure exits nonzero' 1 "$?"
 fi
 contains 'worker process check failure is logged' 'REFUSE reason=worker-rank-not-running' \
-  "$(cat "$CLUSTER_LIFECYCLE_LOG")"
+  "$(cat "$tmp/worker-process-check.log")"
 check 'worker process check failure publishes abort' abort "$(jq -r '.phase' "$CLUSTER_PEER_STATE_FILE")"
 check 'process-check failure follows the kickstart attempt' 1 "$(grep -c 'kickstart' "$FAKE_LAUNCHCTL_LOG" || true)"
-if grep -q 'phase=started' "$CLUSTER_LIFECYCLE_LOG"; then
+if grep -q 'phase=started' "$tmp/worker-process-check.log"; then
   echo '  FAIL process-check failure published STARTED'; fail=1
 else
   echo '  ok   process-check failure never publishes STARTED'
 fi
 unset FAKE_PGREP_SEQUENCE FAKE_PGREP_COUNT_FILE
 
-echo 'worker 3s late refuses and its exit teardown publishes abort:'
-FAKE_NOW=1003
+echo 'worker 11s late refuses and its exit teardown publishes abort:'
+FAKE_NOW=1011
 SECONDS=0
 FAKE_PGREP_STATE=absent
 write_state "$CLUSTER_PEER_STATE_FILE" true 1000 "$JOIN_SESSION_ID" ready
-write_state "$FAKE_PEER_STATE_FILE" true 1000 "$JOIN_SESSION_ID" commit 1000
+write_state "$FAKE_PEER_STATE_FILE" true 1000 "$JOIN_SESSION_ID" started 1000
 : > "$FAKE_LAUNCHCTL_LOG"
 if (
   JOIN_EXIT_ACTIVE=false
@@ -583,29 +623,37 @@ if (
   trap cluster_join_exit EXIT
   cluster_final_rank_start 1000 || exit 1
 ) > "$tmp/late-worker.log" 2>&1; then
-  echo '  FAIL worker accepted the 3s start delay'; fail=1
+  echo '  FAIL worker accepted the 11s start delay'; fail=1
 else
-  check 'worker 3s late exits nonzero' 1 "$?"
+  check 'worker 11s late exits nonzero' 1 "$?"
 fi
-contains 'worker 3s late reports missed-start-window' 'REFUSE reason=missed-start-window' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
+contains 'worker 11s late reports missed-start-window' 'REFUSE reason=missed-start-window' "$(cat "$tmp/late-worker.log")"
+contains 'worker late refusal reports tolerance=10' 'tolerance=10' "$(cat "$tmp/late-worker.log")"
 check 'late worker teardown publishes abort' abort "$(jq -r '.phase' "$CLUSTER_PEER_STATE_FILE")"
 check 'late worker issued no kickstart' 0 "$(grep -c 'kickstart' "$FAKE_LAUNCHCTL_LOG" || true)"
 
-echo 'coordinator waits for worker STARTED before any kickstart:'
+echo 'coordinator starts before worker STARTED and then times out if worker never starts:'
 CLUSTER_ROLE=coordinator
 CLUSTER_PEER_STATE_FILE="$tmp/state/coordinator-peer-state.json"
 FAKE_PEER_STATE_FILE="$tmp/state/worker-peer-state.json"
+JOIN_READY_AT=1000
+JOIN_START_AT=1000
+JOIN_SHARDING=tensor
 FAKE_NOW=1000
 SECONDS=0
+FAKE_KICKSTART_RC=0
+FAKE_PGREP_STATE=running
 write_state "$CLUSTER_PEER_STATE_FILE" true 1000 "$JOIN_SESSION_ID" commit 1000
 write_state "$FAKE_PEER_STATE_FILE" true 1000 "$JOIN_SESSION_ID" ready
 : > "$FAKE_LAUNCHCTL_LOG"
 if cluster_final_rank_start 1000 > "$tmp/no-started.log" 2>&1; then
   echo '  FAIL coordinator passed without worker STARTED'; fail=1
 else
-  contains 'missing worker STARTED times out' 'REFUSE reason=worker-start-timeout' "$(cat "$tmp/no-started.log")"
+  contains 'missing worker STARTED times out after coordinator kickstart' 'REFUSE reason=worker-start-timeout' \
+    "$(cat "$tmp/no-started.log")"
 fi
-check 'coordinator issued no kickstart without STARTED' 0 "$(grep -c 'kickstart' "$FAKE_LAUNCHCTL_LOG" || true)"
+check 'coordinator publishes STARTED before waiting' started "$(jq -r '.phase' "$CLUSTER_PEER_STATE_FILE")"
+check 'coordinator kickstarts once before waiting' 1 "$(grep -c 'kickstart' "$FAKE_LAUNCHCTL_LOG" || true)"
 
 echo 'worker kickstart failure aborts the session and makes coordinator detach the worker:'
 CLUSTER_ROLE=worker
@@ -614,8 +662,9 @@ FAKE_PEER_STATE_FILE="$tmp/state/coordinator-peer-state.json"
 FAKE_NOW=1000
 SECONDS=0
 FAKE_KICKSTART_RC=1
+FAKE_PGREP_STATE=absent
 write_state "$CLUSTER_PEER_STATE_FILE" true 1000 "$JOIN_SESSION_ID" ready
-write_state "$FAKE_PEER_STATE_FILE" true 1000 "$JOIN_SESSION_ID" commit 1000
+write_state "$FAKE_PEER_STATE_FILE" true 1000 "$JOIN_SESSION_ID" started 1000
 : > "$FAKE_LAUNCHCTL_LOG"
 : > "$CLUSTER_LIFECYCLE_LOG"
 if (
@@ -633,7 +682,9 @@ if (
 ) > "$tmp/worker-kickstart-failure.log" 2>&1; then
   echo '  FAIL worker kickstart failure returned success'; fail=1
 else
-  check 'worker kickstart failure exits nonzero' 1 "$?"
+  worker_kickstart_failure_rc=$?
+  cat "$tmp/worker-kickstart-failure.log"
+  check 'worker kickstart failure exits nonzero' 1 "$worker_kickstart_failure_rc"
 fi
 check 'worker kickstart failure publishes abort' abort "$(jq -r '.phase' "$CLUSTER_PEER_STATE_FILE")"
 
@@ -672,10 +723,10 @@ else
   check 'coordinator abort exits nonzero' 1 "$?"
 fi
 check 'coordinator teardown publishes abort' abort "$(jq -r '.phase' "$CLUSTER_PEER_STATE_FILE")"
-check 'coordinator issued no kickstart after worker failure' 0 "$(grep -c 'kickstart' "$FAKE_LAUNCHCTL_LOG" || true)"
+check 'coordinator kickstarts before observing worker failure' 1 "$(grep -c 'kickstart' "$FAKE_LAUNCHCTL_LOG" || true)"
 contains 'coordinator failure invokes session-scoped remote detach' \
   'user@worker cluster-detach --worker --session 20261018T120000Z-0123abcd' "$(cat "$FAKE_SSH_LOG")"
-contains 'coordinator records worker abort' 'REFUSE reason=worker-aborted' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
+contains 'coordinator records worker abort' 'REFUSE reason=worker-aborted' "$(cat "$tmp/coordinator-worker-abort.log")"
 unset FAKE_SSH_SEQUENCE FAKE_SSH_COUNT_FILE
 FAKE_SSH_RC=0
 export FAKE_SSH_RC
@@ -684,7 +735,7 @@ CLUSTER_PEER_STATE_FILE="$tmp/state/worker-peer-state.json"
 FAKE_PEER_STATE_FILE="$tmp/state/coordinator-peer-state.json"
 CLUSTER_PEER_SSH=
 
-echo 'the coordinator refuses a late kickstart but accepts start_at+10:'
+echo 'the coordinator refuses start_at+3 and accepts start_at+2:'
 CLUSTER_ROLE=coordinator
 CLUSTER_PEER_STATE_FILE="$tmp/state/coordinator-peer-state.json"
 FAKE_PEER_STATE_FILE="$tmp/state/worker-peer-state.json"
@@ -695,7 +746,7 @@ FAKE_PGREP_STATE=running
 write_state "$CLUSTER_PEER_STATE_FILE" true 1000 "$JOIN_SESSION_ID" commit 1000
 write_state "$FAKE_PEER_STATE_FILE" true 1000 "$JOIN_SESSION_ID" started 1000
 SECONDS=0
-FAKE_NOW=1011
+FAKE_NOW=1003
 : > "$FAKE_LAUNCHCTL_LOG"
 if cluster_final_rank_start 1000 > "$tmp/coordinator-late.log" 2>&1; then
   coordinator_late_rc=0
@@ -704,24 +755,25 @@ else
 fi
 if [ "$coordinator_late_rc" -eq 1 ] &&
   grep -q 'REFUSE reason=missed-start-window' "$tmp/coordinator-late.log" &&
+  grep -q 'tolerance=2' "$tmp/coordinator-late.log" &&
   ! grep -q 'kickstart' "$FAKE_LAUNCHCTL_LOG"; then
-  echo '  ok   coordinator late start returns 1 without kickstart'
+  echo '  ok   coordinator at start_at+3 returns 1 without kickstart'
 else
-  echo '  FAIL coordinator late start did not return 1 before kickstart'; fail=1
+  echo '  FAIL coordinator at start_at+3 did not refuse before kickstart'; fail=1
 fi
 
-FAKE_NOW=1010
+FAKE_NOW=1002
 write_state "$CLUSTER_PEER_STATE_FILE" true 1000 "$JOIN_SESSION_ID" commit 1000
 : > "$FAKE_LAUNCHCTL_LOG"
 if cluster_final_rank_start 1000 > "$tmp/coordinator-boundary.log" 2>&1; then
   if [ "$(grep -c 'kickstart' "$FAKE_LAUNCHCTL_LOG" || true)" -eq 1 ]; then
-    echo '  ok   coordinator kickstarts at start_at+10'
+    echo '  ok   coordinator kickstarts at start_at+2'
   else
     echo '  FAIL coordinator exact boundary did not kickstart once'; fail=1
   fi
   check 'coordinator publishes started after kickstart' started "$(jq -r '.phase' "$CLUSTER_PEER_STATE_FILE")"
 else
-  echo '  FAIL coordinator exact start window boundary refused'; fail=1
+  echo '  FAIL coordinator start_at+2 boundary refused'; fail=1
 fi
 
 echo 'worker lease expiry follows coordinator timestamps and phase:'
@@ -821,6 +873,12 @@ fi
 unset CLUSTER_COORDINATOR_LEASE_SECS
 
 echo 'room refuses missing shard size and the session id is required for workers:'
+CLUSTER_ROLE=worker
+CLUSTER_PEER_STATE_FILE="$tmp/state/worker-peer-state.json"
+FAKE_PEER_STATE_FILE="$tmp/state/coordinator-peer-state.json"
+CLUSTER_JOIN_TIMEOUT_SECS=20
+FAKE_HTTP_RC=0
+FAKE_PGREP_STATE=running
 unset CLUSTER_SHARD_MEMORY_MB
 if rank_start_room_ok; then
   echo '  FAIL missing shard size passed'; fail=1
@@ -829,16 +887,18 @@ else
 fi
 CLUSTER_SHARD_MEMORY_MB=128
 : > "$CLUSTER_LIFECYCLE_LOG"
-if (cluster_join_main --worker) > /dev/null 2>&1; then
+if (cluster_join_main --worker) > "$tmp/no-session.log" 2>&1; then
   echo '  FAIL worker without session passed'; fail=1
 else
   check 'worker without session exits nonzero' 1 "$?"
 fi
-contains 'missing worker session is logged' 'REFUSE reason=no-session' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
+contains 'missing worker session is logged' 'REFUSE reason=no-session' "$(cat "$tmp/no-session.log")"
 
 echo 'a coordinator requires both HTTP readiness and a live rank:'
 CLUSTER_ROLE=coordinator
 CLUSTER_HTTP_PORT=8000
+CLUSTER_PEER_STATE_FILE="$tmp/state/coordinator-peer-state.json"
+FAKE_PEER_STATE_FILE="$tmp/state/worker-peer-state.json"
 CLUSTER_JOIN_TIMEOUT_SECS=1
 FAKE_HTTP_RC=0
 FAKE_PGREP_STATE=absent
@@ -854,6 +914,38 @@ if cluster_join_wait_coordinator_formed_local; then
 else
   echo '  FAIL coordinator HTTP plus live rank refused'; fail=1
 fi
+CLUSTER_PEER_STATE_FILE="$tmp/state/coordinator-peer-state.json"
+FAKE_PEER_STATE_FILE="$tmp/state/worker-peer-state.json"
+JOIN_READY_AT=1000
+JOIN_START_AT=1000
+CLUSTER_JOIN_TIMEOUT_SECS=10
+FAKE_HTTP_RC=7
+FAKE_PGREP_STATE=absent
+write_state "$FAKE_PEER_STATE_FILE" false 0 "$JOIN_SESSION_ID" abort
+SECONDS=0
+if cluster_join_wait_coordinator_formed_local > "$tmp/worker-aborted-formation.log" 2>&1; then
+  echo '  FAIL coordinator ignored worker abort during formation'; fail=1
+else
+  contains 'coordinator promptly refuses worker abort' 'REFUSE reason=worker-aborted' \
+    "$(cat "$tmp/worker-aborted-formation.log")"
+fi
+check 'worker abort is refused without waiting' 0 "$SECONDS"
+rm -f "$FAKE_PEER_STATE_FILE"
+SECONDS=0
+if cluster_join_wait_coordinator_formed_local > "$tmp/unreachable-formation.log" 2>&1; then
+  echo '  FAIL endpoint failure passed with an unreachable peer'; fail=1
+else
+  contains 'unreachable peer remains transient until formation timeout' \
+    'REFUSE reason=coordinator-endpoint-not-formed' "$(cat "$tmp/unreachable-formation.log")"
+  if grep -q 'REFUSE reason=worker-aborted' "$tmp/unreachable-formation.log"; then
+    echo '  FAIL unreachable peer was mistaken for worker abort'; fail=1
+  else
+    echo '  ok   unreachable peer was not refused as worker abort'
+  fi
+fi
+CLUSTER_JOIN_TIMEOUT_SECS=1
+FAKE_HTTP_RC=0
+FAKE_PGREP_STATE=running
 FAKE_PGREP_SEQUENCE="$tmp/pgrep.sequence"
 FAKE_PGREP_COUNT_FILE="$tmp/pgrep.count"
 printf 'running\nabsent\n' > "$FAKE_PGREP_SEQUENCE"

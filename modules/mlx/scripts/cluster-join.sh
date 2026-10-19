@@ -533,7 +533,7 @@ cluster_join_peer_gate_refuse() {
 }
 
 cluster_join_wait_worker_started() {
-  local start_at="$1" timeout=10 deadline remaining armed
+  local start_at="$1" timeout=20 deadline remaining armed
   deadline=$((SECONDS + timeout))
   while :; do
     if peer_state_session_read; then
@@ -676,6 +676,14 @@ cluster_join_wait_coordinator_formed_local() {
       "http://127.0.0.1:${CLUSTER_HTTP_PORT}/v1/models" > /dev/null 2>&1 && rank_process_running; then
       return 0
     fi
+    if peer_state_session_read; then
+      if [ "$PEER_PHASE" = abort ]; then
+        lifecycle_refuse worker-aborted "worker aborted session $JOIN_SESSION_ID during formation"
+        return 1
+      fi
+    elif cluster_join_peer_gate_refuse; then
+      return 1
+    fi
     # Refresh the lease the worker requires while both ranks load.
     if ! peer_state_write true "$JOIN_READY_AT" "$JOIN_SESSION_ID" started "$JOIN_START_AT"; then
       lifecycle_refuse started-state-write-failed "could not refresh coordinator STARTED for session $JOIN_SESSION_ID"
@@ -764,10 +772,7 @@ cluster_final_rank_start() {
     lifecycle_refuse missed-start-window "start_at=$start_at was missed or exceeded the join timeout"
     return 1
   }
-  # JACCL has an approximately 15s connect budget, so cap worker acknowledgement at 10s.
-  if [ "$CLUSTER_ROLE" = coordinator ] && ! cluster_join_wait_worker_started "$start_at"; then
-    return 1
-  fi
+  # The coordinator rank listens for the JACCL rendezvous with no timeout and the worker rank connects with a ~15s budget, so the worker starts only after the coordinator has started.
   while :; do
     local_session="$(jq -r '.session // ""' "$CLUSTER_PEER_STATE_FILE" 2> /dev/null || true)"
     local_phase="$(jq -r '.phase // ""' "$CLUSTER_PEER_STATE_FILE" 2> /dev/null || true)"
@@ -785,10 +790,6 @@ cluster_final_rank_start() {
         lifecycle_refuse commit-withdrawn "local COMMIT for session $JOIN_SESSION_ID was withdrawn or changed before kickstart"
         return 1
       fi
-      if ! peer_state_session_read || [ "$PEER_PHASE" != started ] || [ "$PEER_START_AT" != "$start_at" ]; then
-        lifecycle_refuse worker-start-withdrawn "worker STARTED for session $JOIN_SESSION_ID was withdrawn before coordinator kickstart"
-        return 1
-      fi
     else
       if ! peer_state_session_read; then
         if cluster_join_peer_gate_refuse; then return 1; fi
@@ -796,10 +797,35 @@ cluster_final_rank_start() {
           "coordinator COMMIT for session $JOIN_SESSION_ID was withdrawn before kickstart"
         return 1
       fi
-      if [ "$PEER_PHASE" != commit ] || [ "$PEER_START_AT" != "$start_at" ]; then
-        lifecycle_refuse commit-withdrawn "coordinator COMMIT for session $JOIN_SESSION_ID was withdrawn or changed before kickstart"
-        return 1
-      fi
+      case "$PEER_PHASE" in
+        started)
+          if [ "$PEER_START_AT" != "$start_at" ]; then
+            lifecycle_refuse coordinator-start-mismatch \
+              "coordinator STARTED start_at=$PEER_START_AT expected=$start_at"
+            return 1
+          fi
+          ;;
+        commit)
+          now="$(date +%s)"
+          case "$now" in '' | *[!0-9]*)
+            lifecycle_refuse clock-unavailable "could not validate aligned start time"
+            return 1
+            ;;
+          esac
+          if [ "$now" -ge "$((start_at + 10))" ]; then
+            lifecycle_refuse coordinator-start-timeout \
+              "coordinator did not publish STARTED by start_at+10"
+            return 1
+          fi
+          sleep 1
+          continue
+          ;;
+        *)
+          lifecycle_refuse commit-withdrawn \
+            "coordinator COMMIT for session $JOIN_SESSION_ID was withdrawn or changed before kickstart"
+          return 1
+          ;;
+      esac
     fi
     now="$(date +%s)"
     case "$now" in '' | *[!0-9]*)
@@ -814,13 +840,12 @@ cluster_final_rank_start() {
       }
       continue
     fi
-    if [ "$CLUSTER_ROLE" = worker ] && [ "$now" -gt "$((start_at + 2))" ]; then
-      lifecycle_refuse missed-start-window "worker accepted COMMIT at $now after start_at=$start_at tolerance=2"
+    if [ "$CLUSTER_ROLE" = worker ] && [ "$now" -gt "$((start_at + 10))" ]; then
+      lifecycle_refuse missed-start-window "worker reached kickstart at $now after start_at=$start_at tolerance=10"
       return 1
     fi
-    # Worker starts by start_at+2; starting by start_at+10 keeps the gap inside JACCL's ~15s connect budget.
-    if [ "$CLUSTER_ROLE" = coordinator ] && [ "$now" -gt "$((start_at + 10))" ]; then
-      lifecycle_refuse missed-start-window "coordinator reached kickstart at $now after start_at=$start_at tolerance=10"
+    if [ "$CLUSTER_ROLE" = coordinator ] && [ "$now" -gt "$((start_at + 2))" ]; then
+      lifecycle_refuse missed-start-window "coordinator reached kickstart at $now after start_at=$start_at tolerance=2"
       return 1
     fi
     break
@@ -844,6 +869,9 @@ cluster_final_rank_start() {
     return 1
   fi
   echo "cluster-join: phase=started session=$JOIN_SESSION_ID start_at=$start_at"
+  if [ "$CLUSTER_ROLE" = coordinator ] && ! cluster_join_wait_worker_started "$start_at"; then
+    return 1
+  fi
   COORDINATOR_LEASE_TS=""
   COORDINATOR_LEASE_SEEN="$SECONDS"
 }
