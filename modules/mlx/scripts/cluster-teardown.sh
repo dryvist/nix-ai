@@ -223,11 +223,26 @@ cluster_teardown() {
   if pd_held_count; then
     echo "cluster-teardown: PD held=$PD_HELD budget=${CLUSTER_PD_DEVICE_BUDGET:-?} with no rank alive"
     if [ "$PD_HELD" -gt 0 ]; then
-      TEARDOWN_REBOOT=1
-      echo "cluster-teardown: $PD_HELD of ${CLUSTER_PD_DEVICE_BUDGET:-?} PDs held with no rank alive; reboot before the next join" >&2
+      # The kernel frees RDMA PDs asynchronously after the rank exits, so a read this soon can still count them.
+      local pd_settle_secs=30 pd_settled=0
+      echo "cluster-teardown: waiting up to ${pd_settle_secs}s for $PD_HELD PDs to release"
+      while [ "$PD_HELD" -gt 0 ] && [ "$pd_settled" -lt "$pd_settle_secs" ]; do
+        sleep 1
+        pd_settled=$((pd_settled + 1))
+        pd_held_count || { count_rc=$?; break; }
+      done
+      if [ "$count_rc" -eq 0 ]; then
+        echo "cluster-teardown: PD held=$PD_HELD after ${pd_settled}s"
+        if [ "$PD_HELD" -gt 0 ]; then
+          TEARDOWN_REBOOT=1
+          echo "cluster-teardown: $PD_HELD of ${CLUSTER_PD_DEVICE_BUDGET:-?} PDs held with no rank alive; reboot before the next join" >&2
+        fi
+      fi
     fi
   else
     count_rc=$?
+  fi
+  if [ "$count_rc" -ne 0 ]; then
     lifecycle_refuse pd-count-unreadable "PD count rc=$count_rc; the next join's J1 will refuse if the count remains unreadable"
     TEARDOWN_FAILED=1
   fi
