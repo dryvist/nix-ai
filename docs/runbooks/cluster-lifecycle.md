@@ -91,7 +91,8 @@ A propagated worker exit 3 identifies the worker as the node that requested rebo
 The teardown order is disarm peer state, stop and verify the rank, read the kernel PD count,
 restore the standalone wired ceiling and serving, then write link state `down`.
 If the rank cannot be proven absent, teardown leaves serving and link state unchanged.
-A nonzero PD count after the rank stops requires a reboot before the next join.
+A PD count still nonzero 30 seconds after the rank stops (re-read once per second)
+requires a reboot before the next join.
 
 ## Links
 
