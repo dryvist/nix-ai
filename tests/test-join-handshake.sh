@@ -923,13 +923,15 @@ FAKE_HTTP_RC=7
 FAKE_PGREP_STATE=absent
 write_state "$FAKE_PEER_STATE_FILE" false 0 "$JOIN_SESSION_ID" abort
 SECONDS=0
+# Only the fake sleep advances FAKE_NOW; real elapsed time leaks into SECONDS.
+FAKE_NOW=1000
 if cluster_join_wait_coordinator_formed_local > "$tmp/worker-aborted-formation.log" 2>&1; then
   echo '  FAIL coordinator ignored worker abort during formation'; fail=1
 else
   contains 'coordinator promptly refuses worker abort' 'REFUSE reason=worker-aborted' \
     "$(cat "$tmp/worker-aborted-formation.log")"
 fi
-check 'worker abort is refused without waiting' 0 "$SECONDS"
+check 'worker abort is refused without waiting' 1000 "$FAKE_NOW"
 rm -f "$FAKE_PEER_STATE_FILE"
 SECONDS=0
 if cluster_join_wait_coordinator_formed_local > "$tmp/unreachable-formation.log" 2>&1; then
