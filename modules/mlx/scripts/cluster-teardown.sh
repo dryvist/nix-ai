@@ -165,12 +165,16 @@ cluster_lifecycle_lock_release() {
 }
 
 cluster_restore_quiesced_agents() {
-  local uid label plist rc agents_file="${CLUSTER_STATE_DIR:-$(dirname "$CLUSTER_PEER_STATE_FILE")}/quiesced-agents"
+  local uid line label path plist rc agents_file="${CLUSTER_STATE_DIR:-$(dirname "$CLUSTER_PEER_STATE_FILE")}/quiesced-agents"
   [ -f "$agents_file" ] || return 0
   uid="$(id -u)"
-  while IFS= read -r label; do
-    [ -n "$label" ] || continue
-    plist="${CLUSTER_LAUNCH_AGENTS_DIR:-$HOME/Library/LaunchAgents}/$label.plist"
+  # Each line is a label, optionally followed by the plist path launchd reported at quiesce time.
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    label="${line%% *}"
+    path=""
+    [ "$line" = "$label" ] || path="${line#* }"
+    plist="${path:-${CLUSTER_LAUNCH_AGENTS_DIR:-$HOME/Library/LaunchAgents}/$label.plist}"
     if [ -f "$plist" ]; then
       if "${CLUSTER_LAUNCHCTL_BIN:-/bin/launchctl}" bootstrap "gui/$uid" "$plist" > /dev/null 2>&1; then
         rc=0

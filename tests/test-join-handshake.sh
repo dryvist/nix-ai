@@ -236,6 +236,13 @@ sleep() {
     CLUSTER_PEER_STATE_FILE="$saved"
     FORM_WORKER_ON_SLEEP=false
   fi
+  if [ "${READY_WORKER_ON_SLEEP:-false}" = true ]; then
+    local saved="$CLUSTER_PEER_STATE_FILE"
+    CLUSTER_PEER_STATE_FILE="$FAKE_PEER_STATE_FILE"
+    peer_state_write true 1000 "$JOIN_SESSION_ID" ready
+    CLUSTER_PEER_STATE_FILE="$saved"
+    READY_WORKER_ON_SLEEP=false
+  fi
 }
 current_boot_epoch() { printf '100\n'; }
 link_prep_ok() { return 0; }
@@ -383,6 +390,30 @@ if cluster_join_wait_worker_ready && cluster_join_publish_commit; then
 else
   echo "  FAIL coordinator commit refused: ${PEER_GATE_REASON:-unknown}"; fail=1
 fi
+
+echo 'the coordinator waits while the worker has not yet published its session:'
+write_state "$FAKE_PEER_STATE_FILE" false 0 "" abort
+# The fake worker join stays alive and publishes READY after the coordinator's first wait.
+command sleep 30 &
+CLUSTER_PEER_SSH_PID=$!
+READY_WORKER_ON_SLEEP=true
+if cluster_join_wait_worker_ready > "$tmp/late-worker.log" 2>&1; then
+  contains 'late worker session is waited for' 'peer phase WAIT reason=peer-session-mismatch' "$(cat "$tmp/late-worker.log")"
+else
+  echo "  FAIL coordinator refused a worker that had not published yet: $(tail -1 "$tmp/late-worker.log")"; fail=1
+fi
+kill "$CLUSTER_PEER_SSH_PID" 2> /dev/null || true
+wait "$CLUSTER_PEER_SSH_PID" 2> /dev/null || true
+write_state "$FAKE_PEER_STATE_FILE" false 0 "" abort
+true &
+CLUSTER_PEER_SSH_PID=$!
+wait "$CLUSTER_PEER_SSH_PID" 2> /dev/null || true
+if cluster_join_wait_worker_ready > "$tmp/exited-worker.log" 2>&1; then
+  echo '  FAIL coordinator kept waiting after the worker join exited'; fail=1
+else
+  contains 'exited worker join refuses' 'REFUSE reason=peer-join-exited' "$(cat "$tmp/exited-worker.log")"
+fi
+CLUSTER_PEER_SSH_PID=""
 
 echo 'an abort after worker READY becomes commit-withdrawn and launches nothing:'
 CLUSTER_ROLE=worker
