@@ -36,7 +36,6 @@ let
     cfg
     residentAgentLabels
     watchdogAgentLabel
-    apiUrl
     uvPythonVersion
     modelServerProcessPattern
     ;
@@ -111,7 +110,6 @@ let
       watchdogAgentLabel
       stateFile
       stateDir
-      apiUrl
       modelServerProcessPattern
       ;
     inherit (mlxShared) clusterSoftwareJson;

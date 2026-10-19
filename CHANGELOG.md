@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.0.1](https://github.com/dryvist/nix-ai/compare/v8.0.0...v8.0.1) (2026-10-19)
+
+
+### Bug Fixes
+
+* **mlx:** manual cluster join and detach fixes from first bring-up ([#2662](https://github.com/dryvist/nix-ai/issues/2662)) ([24fda13](https://github.com/dryvist/nix-ai/commit/24fda130aa67c88b84f8df3b0205185ceda7ec51))
+
 ## [8.0.0](https://github.com/dryvist/nix-ai/compare/v7.26.2...v8.0.0) (2026-10-18)
 
 

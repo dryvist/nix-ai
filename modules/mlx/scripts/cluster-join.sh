@@ -162,16 +162,24 @@ cluster_quiesce_wait() {
 }
 
 cluster_quiesce_record() {
-  local label="$1" file="${CLUSTER_STATE_DIR:-$state_dir}/quiesced-agents"
+  local label="$1" path="${2:-}" file="${CLUSTER_STATE_DIR:-$state_dir}/quiesced-agents"
   mkdir -p "$(dirname "$file")"
   touch "$file"
-  "${CLUSTER_GREP_BIN:-/usr/bin/grep}" -Fqx "$label" "$file" || printf '%s\n' "$label" >> "$file"
+  "${CLUSTER_AWK_BIN:-/usr/bin/awk}" -v label="$label" "\$1 == label { found = 1 } END { exit !found }" "$file" ||
+    printf '%s\n' "$label${path:+ $path}" >> "$file"
 }
 
 cluster_quiesce_launchd_label() {
-  local kind="$1" label="$2" rc=0
+  local kind="$1" label="$2" rc=0 info path
   if [ "$kind" = launchd ]; then
-    if ! cluster_quiesce_record "$label"; then
+    # Restore needs the plist launchd loaded, which may live outside ~/Library/LaunchAgents.
+    if ! info="$("${CLUSTER_LAUNCHCTL_BIN:-/bin/launchctl}" print "gui/$uid/$label" 2> /dev/null)"; then
+      echo "cluster-join: quiesce launchd $label not loaded; skipped"
+      return 0
+    fi
+    path="$(printf '%s\n' "$info" | "${CLUSTER_SED_BIN:-/usr/bin/sed}" -n 's/^[[:space:]]*path = //p')"
+    path="${path%%$'\n'*}"
+    if ! cluster_quiesce_record "$label" "$path"; then
       echo "cluster-join: quiesce record $label rc=1" >&2
     fi
   fi
@@ -473,8 +481,9 @@ cluster_join_wait_worker_ready() {
       echo "cluster-join: peer phase=ready session=$JOIN_SESSION_ID"
       return 0
     fi
+    # A session mismatch here means the worker has not published this session yet; keep waiting.
     case "${PEER_GATE_REASON:-}" in
-      peer-session-mismatch* | version-unknown* | version-mismatch* | peer-arm-stale* | peer-arm-future* | peer-not-armed)
+      version-unknown* | version-mismatch* | peer-arm-stale* | peer-arm-future* | peer-not-armed)
         lifecycle_refuse "${PEER_GATE_REASON%% *}" "$PEER_GATE_REASON"
         return 1
         ;;
@@ -483,6 +492,10 @@ cluster_join_wait_worker_ready() {
         return 1
         ;;
     esac
+    if [ -n "${CLUSTER_PEER_SSH_PID:-}" ] && ! cluster_peer_ssh_running; then
+      lifecycle_refuse peer-join-exited "worker join exited before publishing READY for session $JOIN_SESSION_ID"
+      return 1
+    fi
     echo "cluster-join: peer phase WAIT reason=${PEER_GATE_REASON:-unknown}"
     remaining=$((deadline - SECONDS))
     [ "$remaining" -le 5 ] || remaining=5
