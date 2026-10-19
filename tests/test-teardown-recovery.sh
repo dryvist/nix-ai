@@ -452,7 +452,6 @@ pd_held_count() {
   printf 'count\n' >> "$EVENTS"
   if [ "${seq[$idx]}" = fail ]; then
     PD_HELD="?"
-    PD_COUNT_DETAIL="ioclasscount rc=1 raw=fake"
     return 1
   fi
   PD_HELD="${seq[$idx]}"
