@@ -51,22 +51,41 @@ cluster_peer_state_serve_main() {
   local unpublished='{"armed":false,"armed_at":0,"boot":0,"configuration_revision":"","session":"","phase":"abort","start_at":0,"formed_at":0,"software":{"nix_ai":"","mlx":"","mlx_lm":"","macos":"","model":"","model_revision":""},"ts":0}'
   echo "cluster-peer-state: serving $CLUSTER_PEER_STATE_FILE on $CLUSTER_STATIC_SELF_IP:$CLUSTER_PEER_STATE_PORT"
 
+  local fifo_dir request body nc_pid nc_rc
+  fifo_dir="$(mktemp -d "${TMPDIR:-/tmp}/cluster-peer-state.XXXXXX")"
+  # shellcheck disable=SC2064 # expand the directory now; it is fixed for this process
+  trap "rm -rf '$fifo_dir'" EXIT
+  mkfifo "$fifo_dir/request" "$fifo_dir/response"
+  # A client that disconnects early makes the reply write fail instead of killing the responder.
+  trap '' PIPE
+
   while :; do
-    local body="$unpublished"
-    if [ -f "$CLUSTER_PEER_STATE_FILE" ]; then
-      body="$(cat "$CLUSTER_PEER_STATE_FILE" 2> /dev/null || printf '%s' "$unpublished")"
+    # The body is read after the client's request arrives, so every reply carries the state as of that request.
+    "$nc_bin" -l -w "${CLUSTER_PEER_STATE_TIMEOUT_SECS:-5}" \
+      "$CLUSTER_STATIC_SELF_IP" "$CLUSTER_PEER_STATE_PORT" < "$fifo_dir/response" > "$fifo_dir/request" 2> /dev/null &
+    nc_pid=$!
+    exec 3> "$fifo_dir/response" 4< "$fifo_dir/request"
+    if IFS= read -r request <&4; then
+      body="$unpublished"
+      if [ -f "$CLUSTER_PEER_STATE_FILE" ]; then
+        body="$(cat "$CLUSTER_PEER_STATE_FILE" 2> /dev/null || printf '%s' "$unpublished")"
+      fi
+      [ -n "$body" ] || body="$unpublished"
+      # Content-Length and Connection: close let the client finish immediately;
+      # -w bounds a peer that connects and then holds the only listener open.
+      printf 'HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: %s\r\nConnection: close\r\n\r\n%s' \
+        "${#body}" "$body" >&3
     fi
-    [ -n "$body" ] || body="$unpublished"
-    # Content-Length and Connection: close let the client finish immediately;
-    # -w bounds a peer that connects and then holds the only listener open.
-    if printf 'HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: %s\r\nConnection: close\r\n\r\n%s' \
-      "${#body}" "$body" |
-      "$nc_bin" -l -w "${CLUSTER_PEER_STATE_TIMEOUT_SECS:-5}" \
-        "$CLUSTER_STATIC_SELF_IP" "$CLUSTER_PEER_STATE_PORT" > /dev/null 2>&1; then
+    exec 3>&-
+    nc_rc=0
+    wait "$nc_pid" || nc_rc=$?
+    exec 4<&-
+    if [ -n "${request:-}" ] && [ "$nc_rc" -eq 0 ]; then
       sleep 0.2
     else
       sleep "$retry_secs"
     fi
+    request=""
   done
 }
 
