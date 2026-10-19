@@ -50,10 +50,13 @@ Each join runs the gates in this order. J1 also runs again at J9 immediately bef
 - **J9, final peer and PD gates.** The J1 PD refusal tokens can recur.
   Peer checks can return the J7 tokens or `peer-armed-at-changed`;
   the timing and launch steps can return `missed-start-window`, `rank-model-write`, or `rank-kickstart-failed`.
+  The coordinator rank starts first and publishes `STARTED`; the worker rank waits for it before kickstart.
+  The worker refuses `coordinator-start-timeout` or `coordinator-start-mismatch`;
+  the coordinator refuses `worker-start-timeout` when the worker does not start within 20 seconds.
   Operator action: resolve the logged reason and retry from J1.
   If the PD gate returns `pd-reserve`, reboot this Mac before retrying.
 - **J10, formation.** Refusal tokens: `rank-exited-during-formation`, `coordinator-endpoint-not-formed`,
-  `worker-rank-exited-during-formation`, or `worker-rank-not-stable`.
+  `worker-rank-exited-during-formation`, `worker-rank-not-stable`, or `worker-aborted`.
   Operator action: read the lifecycle log on both nodes.
   The failed join runs teardown recovery; resolve the reported rank or endpoint failure before retrying.
 - **J11, summary.** `decision=formed` records the link state, wired ceiling, rank process ID,
