@@ -432,6 +432,75 @@ check 'detach keeps link-state up after disarm failure' up "$(cat "$CLUSTER_STAT
 contains 'detach reports disarm failure' 'REFUSE reason=disarm-failed' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
 unset FAIL_PEER_WRITE
 
+echo 'teardown waits for PD release before it requests a reboot:'
+rank_process_absent() { return 0; }
+rank_stop_verified() { return 0; }
+peer_state_write() { return 0; }
+set_wired_limit() { return 0; }
+restore_normal_serving() { return 0; }
+link_state_write() { :; }
+sleep() { printf 'sleep\n' >> "$EVENTS"; }
+pd_reads=0
+FAKE_PD_SEQUENCE=
+pd_held_count() {
+  local -a seq=()
+  local idx
+  read -r -a seq <<< "$FAKE_PD_SEQUENCE"
+  idx=$pd_reads
+  if [ "$idx" -ge "${#seq[@]}" ]; then idx=$((${#seq[@]} - 1)); fi
+  pd_reads=$((pd_reads + 1))
+  printf 'count\n' >> "$EVENTS"
+  if [ "${seq[$idx]}" = fail ]; then
+    PD_HELD="?"
+    return 1
+  fi
+  PD_HELD="${seq[$idx]}"
+}
+settle_run() {
+  FAKE_PD_SEQUENCE="$1"
+  pd_reads=0
+  : > "$EVENTS"
+  TEARDOWN_REBOOT=0
+  if cluster_teardown > "$tmp/pd-settle.log" 2>&1; then
+    settle_rc=0
+  else
+    settle_rc=$?
+  fi
+  settle_sleeps="$(grep -c '^sleep$' "$EVENTS" || true)"
+  settle_reads="$(grep -c '^count$' "$EVENTS" || true)"
+}
+
+settle_run '1 0'
+check 'PD released inside the window returns success' 0 "$settle_rc"
+check 'PD released inside the window stops re-reading after one sleep' 1 "$settle_sleeps"
+check 'PD released inside the window reads twice' 2 "$settle_reads"
+check 'PD released inside the window sets no reboot' 0 "$TEARDOWN_REBOOT"
+contains 'PD release logs the final count' 'cluster-teardown: PD held=0 after 1s' "$(cat "$tmp/pd-settle.log")"
+check 'PD released inside the window logs no reboot request' 0 "$(grep -c 'reboot before the next join' "$tmp/pd-settle.log" || true)"
+set +e
+(cluster_detach_finish 0 0 "$TEARDOWN_REBOOT" false)
+detach_rc=$?
+set -e
+check 'PD released inside the window does not exit 3' 0 "$detach_rc"
+
+settle_run '1'
+check 'stranded PD waits the full 30 s window' 30 "$settle_sleeps"
+check 'stranded PD reads once plus once per second' 31 "$settle_reads"
+check 'stranded PD sets the reboot flag' 1 "$TEARDOWN_REBOOT"
+check 'stranded PD teardown is not a failure' 0 "$settle_rc"
+contains 'stranded PD logs the final count' 'cluster-teardown: PD held=1 after 30s' "$(cat "$tmp/pd-settle.log")"
+contains 'stranded PD requests a reboot before the next join' 'reboot before the next join' "$(cat "$tmp/pd-settle.log")"
+set +e
+(cluster_detach_finish 0 0 "$TEARDOWN_REBOOT" false)
+detach_rc=$?
+set -e
+check 'stranded PD exits 3' 3 "$detach_rc"
+
+settle_run '1 fail'
+check 'unreadable re-read fails teardown' 1 "$settle_rc"
+check 'unreadable re-read stops the wait at the failed read' 1 "$settle_sleeps"
+contains 'unreadable re-read refuses with pd-count-unreadable' 'REFUSE reason=pd-count-unreadable' "$(cat "$tmp/pd-settle.log")"
+
 if [ "$fail" -ne 0 ]; then
   echo 'teardown recovery checks FAILED' >&2
   exit 1

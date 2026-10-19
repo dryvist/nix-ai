@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.0.4](https://github.com/dryvist/nix-ai/compare/v8.0.3...v8.0.4) (2026-10-19)
+
+
+### Bug Fixes
+
+* **mlx:** wait for PD release before teardown requests a reboot ([#2674](https://github.com/dryvist/nix-ai/issues/2674)) ([c51cf1f](https://github.com/dryvist/nix-ai/commit/c51cf1fd456eae1e1714914c5bd457f4f52122fc))
+
 ## [8.0.3](https://github.com/dryvist/nix-ai/compare/v8.0.2...v8.0.3) (2026-10-19)
 
 
