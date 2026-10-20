@@ -76,6 +76,7 @@ source modules/mlx/scripts/cluster-boot-scope.sh
 source modules/mlx/scripts/cluster-peer-state-write.sh
 source modules/mlx/scripts/cluster-rank-status.sh
 source modules/mlx/scripts/cluster-rank-reap.sh
+source modules/mlx/scripts/cluster-serving-restore.sh
 
 fail=0
 check() {
@@ -303,7 +304,19 @@ set -e
 check 'worker detach succeeds without initiating ssh' 0 "$detach_rc"
 check 'worker issued no ssh' 0 "$(wc -l < "$FAKE_SSH_LOG" | tr -d ' ')"
 
-echo 'detach probes only the resident servers loaded on this host:'
+export CLUSTER_STANDALONE_PROBES=
+: > "$CLUSTER_LIFECYCLE_LOG"
+set +e
+(cluster_detach_main)
+detach_rc=$?
+set -e
+check 'worker detach with no declared residents succeeds' 0 "$detach_rc"
+contains 'empty resident list needs no probe' 'cluster-detach: no standalone resident is declared; nothing to probe' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
+contains 'empty resident list reports serving restored' 'serving    : restored' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
+check 'empty resident list is not refused as unrestored' 0 \
+  "$(grep -c 'REFUSE reason=serving-not-restored' "$CLUSTER_LIFECYCLE_LOG" || true)"
+
+echo 'detach verifies every declared resident server, and refuses one that is not loaded:'
 export FAKE_UNLOADED_LABEL=dev.test.unloaded
 export CLUSTER_STANDALONE_PROBES='dev.test.unloaded http://127.0.0.1:2 other
 dev.test.server http://127.0.0.1:1 test'
@@ -312,17 +325,19 @@ set +e
 (cluster_detach_main)
 detach_rc=$?
 set -e
-check 'detach with one loaded resident succeeds' 0 "$detach_rc"
-contains 'unloaded resident is skipped' 'dev.test.unloaded not loaded; not probed' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
+check 'detach with one unloaded declared resident fails' 1 "$detach_rc"
+contains 'unloaded resident is refused by label' 'REFUSE reason=serving-label-not-loaded detail=declared label dev.test.unloaded is not loaded' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
 contains 'loaded resident is probed' 'dev.test.server returned a real completion' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
+check 'detach does not claim restored serving with an unloaded resident' 0 \
+  "$(grep -c 'standalone serving restored' "$CLUSTER_LIFECYCLE_LOG" || true)"
 export CLUSTER_STANDALONE_PROBES='dev.test.unloaded http://127.0.0.1:2 other'
 : > "$CLUSTER_LIFECYCLE_LOG"
 set +e
 (cluster_detach_main)
 detach_rc=$?
 set -e
-check 'detach with no loaded resident succeeds' 0 "$detach_rc"
-contains 'no loaded resident is reported' 'serving    : no resident loaded' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
+check 'detach with no loaded resident fails' 1 "$detach_rc"
+contains 'no loaded resident is reported as not verified' 'serving    : NOT-VERIFIED' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
 export CLUSTER_STANDALONE_PROBES='dev.test.server http://127.0.0.1:1 test'
 export CLUSTER_DETACH_TIMEOUT_SECS=0
 : > "$CLUSTER_LIFECYCLE_LOG"

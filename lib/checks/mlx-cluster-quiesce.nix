@@ -10,6 +10,7 @@
       pkgs.gnugrep
       pkgs.gawk
       pkgs.gnused
+      pkgs.jq
     ];
   } "cd ${src} && bash tests/test-quiesce.sh && touch $out";
 }

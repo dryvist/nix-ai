@@ -41,11 +41,16 @@ let
   ) (builtins.attrValues noProxyNoConsumersHm.config.launchd.agents);
   cfg = hmConfigStaticServing.config.programs.mlx;
   agents = hmConfigStaticServing.config.launchd.agents;
-  residentAgents = builtins.filter (
-    agent:
-    agent.config.Label == "dev.mlx-model-server"
-    || lib.hasPrefix "dev.mlx-model-server." agent.config.Label
-  ) (builtins.attrValues agents);
+  agentsDeepSeq = builtins.deepSeq agents true;
+  inherit (import ../../modules/mlx/serving-label.nix { inherit lib; }) isServingLabel;
+  servingAgents = builtins.filter (agent: agent.enable && isServingLabel agent.config.Label) (
+    builtins.attrValues agents
+  );
+  servingAgentLabels = map (agent: agent.config.Label) servingAgents;
+  servingAgentActivation = hmConfigStaticServing.config.home.activation.enableMlxServingAgents.data;
+  residentAgents = builtins.filter (agent: isServingLabel agent.config.Label) (
+    builtins.attrValues agents
+  );
   labels = map (agent: agent.config.Label) residentAgents;
   contracts = cfg.staticResidentContracts;
   mlxLmServer = import ../../modules/mlx/mlx-lm-server.nix {
@@ -135,6 +140,18 @@ in
       helpers.mkMarker "check-mlx-static-resident-agents" "two always-loaded resident LaunchAgents share the cache preflight before starting model servers"
     else
       throw "static resident mode must render exactly the two KeepAlive model agents without llama-swap";
+
+  mlx-static-serving-launchd-enable = builtins.seq agentsDeepSeq (
+    if
+      servingAgentLabels != [ ]
+      && lib.all (
+        label: lib.hasInfix "launchctl enable \"gui/$uid/${label}\"" servingAgentActivation
+      ) servingAgentLabels
+    then
+      helpers.mkMarker "check-mlx-static-serving-launchd-enable" "activation enables every declared serving LaunchAgent before setupLaunchAgents"
+    else
+      throw "activation must enable every declared dev.mlx-model-server LaunchAgent"
+  );
 
   mlx-static-resident-limits =
     if

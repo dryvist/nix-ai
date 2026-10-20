@@ -190,6 +190,13 @@ source modules/mlx/scripts/cluster-serving-restore.sh
 source modules/mlx/scripts/cluster-teardown.sh
 source modules/mlx/scripts/cluster-join.sh
 source modules/mlx/scripts/cluster-peer-state-serve.sh
+# The production lifecycle log is a tee process substitution, which can still be
+# writing when a subshell exits; a read straight after that subshell may see a
+# partial log. Write synchronously here so each assertion reads complete output.
+cluster_lifecycle_log_start() {
+  mkdir -p "$(dirname "$CLUSTER_LIFECYCLE_LOG")"
+  exec >> "$CLUSTER_LIFECYCLE_LOG" 2>&1
+}
 
 fail=0
 check() {
@@ -593,10 +600,10 @@ else
   check 'worker process check failure exits nonzero' 1 "$?"
 fi
 contains 'worker process check failure is logged' 'REFUSE reason=worker-rank-not-running' \
-  "$(cat "$tmp/worker-process-check.log")"
+  "$(cat "$CLUSTER_LIFECYCLE_LOG")"
 check 'worker process check failure publishes abort' abort "$(jq -r '.phase' "$CLUSTER_PEER_STATE_FILE")"
 check 'process-check failure follows the kickstart attempt' 1 "$(grep -c 'kickstart' "$FAKE_LAUNCHCTL_LOG" || true)"
-if grep -q 'phase=started' "$tmp/worker-process-check.log"; then
+if grep -q 'phase=started' "$CLUSTER_LIFECYCLE_LOG"; then
   echo '  FAIL process-check failure published STARTED'; fail=1
 else
   echo '  ok   process-check failure never publishes STARTED'
@@ -610,6 +617,7 @@ FAKE_PGREP_STATE=absent
 write_state "$CLUSTER_PEER_STATE_FILE" true 1000 "$JOIN_SESSION_ID" ready
 write_state "$FAKE_PEER_STATE_FILE" true 1000 "$JOIN_SESSION_ID" started 1000
 : > "$FAKE_LAUNCHCTL_LOG"
+: > "$CLUSTER_LIFECYCLE_LOG"
 if (
   JOIN_EXIT_ACTIVE=false
   JOIN_SIGNAL_RC=0
@@ -627,8 +635,8 @@ if (
 else
   check 'worker 11s late exits nonzero' 1 "$?"
 fi
-contains 'worker 11s late reports missed-start-window' 'REFUSE reason=missed-start-window' "$(cat "$tmp/late-worker.log")"
-contains 'worker late refusal reports tolerance=10' 'tolerance=10' "$(cat "$tmp/late-worker.log")"
+contains 'worker 11s late reports missed-start-window' 'REFUSE reason=missed-start-window' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
+contains 'worker late refusal reports tolerance=10' 'tolerance=10' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
 check 'late worker teardown publishes abort' abort "$(jq -r '.phase' "$CLUSTER_PEER_STATE_FILE")"
 check 'late worker issued no kickstart' 0 "$(grep -c 'kickstart' "$FAKE_LAUNCHCTL_LOG" || true)"
 
@@ -683,7 +691,7 @@ if (
   echo '  FAIL worker kickstart failure returned success'; fail=1
 else
   worker_kickstart_failure_rc=$?
-  cat "$tmp/worker-kickstart-failure.log"
+  cat "$CLUSTER_LIFECYCLE_LOG"
   check 'worker kickstart failure exits nonzero' 1 "$worker_kickstart_failure_rc"
 fi
 check 'worker kickstart failure publishes abort' abort "$(jq -r '.phase' "$CLUSTER_PEER_STATE_FILE")"
@@ -726,7 +734,7 @@ check 'coordinator teardown publishes abort' abort "$(jq -r '.phase' "$CLUSTER_P
 check 'coordinator kickstarts before observing worker failure' 1 "$(grep -c 'kickstart' "$FAKE_LAUNCHCTL_LOG" || true)"
 contains 'coordinator failure invokes session-scoped remote detach' \
   'user@worker cluster-detach --worker --session 20261018T120000Z-0123abcd' "$(cat "$FAKE_SSH_LOG")"
-contains 'coordinator records worker abort' 'REFUSE reason=worker-aborted' "$(cat "$tmp/coordinator-worker-abort.log")"
+contains 'coordinator records worker abort' 'REFUSE reason=worker-aborted' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
 unset FAKE_SSH_SEQUENCE FAKE_SSH_COUNT_FILE
 FAKE_SSH_RC=0
 export FAKE_SSH_RC
@@ -892,7 +900,7 @@ if (cluster_join_main --worker) > "$tmp/no-session.log" 2>&1; then
 else
   check 'worker without session exits nonzero' 1 "$?"
 fi
-contains 'missing worker session is logged' 'REFUSE reason=no-session' "$(cat "$tmp/no-session.log")"
+contains 'missing worker session is logged' 'REFUSE reason=no-session' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
 
 echo 'a coordinator requires both HTTP readiness and a live rank:'
 CLUSTER_ROLE=coordinator
