@@ -103,7 +103,10 @@ cluster_detach_main() {
   fi
 
   echo "cluster-detach: D2 standalone real-completion probe"
-  if [ -n "${CLUSTER_STANDALONE_PROBES:-}" ]; then
+  if [ -z "${CLUSTER_STANDALONE_PROBES:-}" ]; then
+    echo "cluster-detach: no standalone resident is declared; nothing to probe"
+    serve_ok=true
+  else
     deadline=$(($(date +%s) + timeout))
     probed=0
     serve_ok=true
@@ -134,9 +137,6 @@ cluster_detach_main() {
       lifecycle_refuse serving-not-restored "declared serving labels failed port or completion checks within ${timeout}s:$unhealthy"
       failed=1
     fi
-  else
-    lifecycle_refuse serving-probe-unconfigured "no standalone probes configured; serving cannot be verified"
-    failed=1
   fi
 
   echo "cluster-detach: D3 swap check"

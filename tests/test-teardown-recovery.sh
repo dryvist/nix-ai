@@ -304,6 +304,18 @@ set -e
 check 'worker detach succeeds without initiating ssh' 0 "$detach_rc"
 check 'worker issued no ssh' 0 "$(wc -l < "$FAKE_SSH_LOG" | tr -d ' ')"
 
+export CLUSTER_STANDALONE_PROBES=
+: > "$CLUSTER_LIFECYCLE_LOG"
+set +e
+(cluster_detach_main)
+detach_rc=$?
+set -e
+check 'worker detach with no declared residents succeeds' 0 "$detach_rc"
+contains 'empty resident list needs no probe' 'cluster-detach: no standalone resident is declared; nothing to probe' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
+contains 'empty resident list reports serving restored' 'serving    : restored' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
+check 'empty resident list is not refused as unrestored' 0 \
+  "$(grep -c 'REFUSE reason=serving-not-restored' "$CLUSTER_LIFECYCLE_LOG" || true)"
+
 echo 'detach verifies every declared resident server, and refuses one that is not loaded:'
 export FAKE_UNLOADED_LABEL=dev.test.unloaded
 export CLUSTER_STANDALONE_PROBES='dev.test.unloaded http://127.0.0.1:2 other
