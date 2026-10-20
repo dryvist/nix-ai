@@ -27,6 +27,11 @@ case "$1" in
     grep -q "/$label\$" "$FAKE_LAUNCHCTL_LOG" && exit 1
     printf '%s = {\n\tpath = %s\n}\n' "$2" "$FAKE_AGENT_PLIST"
     ;;
+  print-disabled)
+    if [ -n "${FAKE_DISABLED_LABELS:-}" ]; then
+      printf '%s\n' "$FAKE_DISABLED_LABELS"
+    fi
+    ;;
 esac
 LAUNCHCTL
 write_stub "$tmp/bin/sysctl" <<'SYSCTL'
@@ -42,6 +47,9 @@ write_stub "$tmp/bin/pgrep" <<'PGREP'
 exit 0
 PGREP
 write_stub "$tmp/bin/curl" <<'CURL'
+case "$*" in
+  *chat/completions*) printf '{"usage":{"completion_tokens":1}}\n' ;;
+esac
 exit 0
 CURL
 chmod +x "$tmp/bin/launchctl" "$tmp/bin/sysctl" "$tmp/bin/curl" "$tmp/bin/pgrep"
@@ -54,6 +62,10 @@ source modules/mlx/scripts/cluster-boot-scope.sh
 source modules/mlx/scripts/cluster-teardown.sh
 # shellcheck source=modules/mlx/scripts/cluster-room.sh
 source modules/mlx/scripts/cluster-room.sh
+# shellcheck source=modules/mlx/scripts/cluster-serving-restore.sh
+source modules/mlx/scripts/cluster-serving-restore.sh
+# shellcheck source=modules/mlx/scripts/cluster-detach.sh
+source modules/mlx/scripts/cluster-detach.sh
 
 fail=0
 check() {
@@ -94,6 +106,7 @@ export CLUSTER_SED_BIN=sed
 export CLUSTER_GREP_BIN=grep
 export CLUSTER_QUIESCE_APPS='com.example.one com.example.two'
 export CLUSTER_QUIESCE_LAUNCHD='org.example.absent org.example.agent'
+export CLUSTER_DECLARED_AGENT_LABELS='org.example.agent'
 export FAKE_AGENT_PLIST="$tmp/Some App.app/Contents/Library/LaunchAgents/org.example.agent.plist"
 export CLUSTER_QUIESCE_GRACE_SECS=0
 export CLUSTER_JOIN_SWAP_THRESHOLD_MB=8000
@@ -147,8 +160,50 @@ contains 'room gate refused its unconfigured shard after bootout failure' \
 failure_line="$(grep -n 'quiesce app application.com.example.two.3.4 rc=17' "$tmp/output.log" | cut -d: -f1)"
 room_line="$(grep -n 'REFUSE reason=room-unconfigured' "$tmp/output.log" | cut -d: -f1)"
 check 'room check follows the logged bootout failure' yes "$([ "$failure_line" -lt "$room_line" ] && echo yes || echo no)"
-contains 'unloaded agent skipped' 'cluster-join: quiesce launchd org.example.absent not loaded; skipped' "$output"
-check 'only loaded configured agent recorded with its plist' "org.example.agent $FAKE_AGENT_PLIST" "$(cat "$tmp/state/quiesced-agents")"
+contains 'undeclared agent skipped' 'cluster-join: quiesce launchd org.example.absent not declared on this host; skipped' "$output"
+check 'only declared configured agent recorded with its plist' "org.example.agent $FAKE_AGENT_PLIST" "$(cat "$tmp/state/quiesced-agents")"
+
+# A declared serving label that is disabled must refuse the join before anything is booted out.
+: > "$FAKE_LAUNCHCTL_LOG"
+export CLUSTER_SERVER_LABELS='org.example.agent'
+export FAKE_DISABLED_LABELS='"org.example.agent" => disabled'
+join_disabled_rc=0
+(cluster_join_main) > "$tmp/join-disabled.log" 2>&1 || join_disabled_rc=$?
+export CLUSTER_SERVER_LABELS=''
+unset FAKE_DISABLED_LABELS
+join_disabled_out="$(cat "$tmp/join-disabled.log")"
+check 'join exits non-zero on a disabled serving label' 1 "$join_disabled_rc"
+contains 'disabled serving label named in refusal' \
+  'REFUSE reason=serving-label-disabled detail=declared label org.example.agent is disabled' "$join_disabled_out"
+check 'join boots out nothing when a serving label is disabled' "" "$(cat "$FAKE_LAUNCHCTL_LOG")"
+
+# Detach verifies each declared serving label; the stubs below stand in for the D3/D4 readings.
+pd_held_count() { PD_HELD=0; }
+pd_held_count
+check 'PD count fixture reports zero' 0 "$PD_HELD"
+rank_process_absent() { return 0; }
+export CLUSTER_DETACH_TIMEOUT_SECS=30
+
+# A declared serving label that is not loaded must fail detach and be named in the refusal.
+: > "$FAKE_LAUNCHCTL_LOG"
+export CLUSTER_STANDALONE_PROBES='org.example.absent http://127.0.0.1:9/v1 org/default'
+detach_rc=0
+(cluster_detach_main) > "$tmp/detach-missing.log" 2>&1 || detach_rc=$?
+detach_missing_out="$(cat "$tmp/detach-missing.log")"
+check 'detach exits non-zero on a missing declared serving label' 1 "$detach_rc"
+contains 'missing serving label named in refusal' \
+  'REFUSE reason=serving-label-not-loaded detail=declared label org.example.absent is not loaded' "$detach_missing_out"
+check 'detach does not claim restored serving when a label is missing' 0 \
+  "$(grep -c 'standalone serving restored' "$tmp/detach-missing.log" || true)"
+
+# With every declared serving label loaded, enabled and completing, detach prints the restored line exactly once.
+: > "$FAKE_LAUNCHCTL_LOG"
+export CLUSTER_STANDALONE_PROBES='org.example.agent http://127.0.0.1:9/v1 org/default'
+detach_rc=0
+(cluster_detach_main) > "$tmp/detach-healthy.log" 2>&1 || detach_rc=$?
+check 'detach exits zero when every declared serving label is healthy' 0 "$detach_rc"
+check 'detach prints the restored line once when healthy' 1 \
+  "$(grep -c 'standalone serving restored (real completion verified)' "$tmp/detach-healthy.log" || true)"
 
 if [ "$fail" -ne 0 ]; then
   echo 'quiesce checks FAILED' >&2

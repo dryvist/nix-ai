@@ -39,6 +39,12 @@ let
   residentAgentLabels = map (contract: contract.launchdLabel) (
     lib.attrValues cfg.staticResidentContracts
   );
+  inherit (import ./serving-label.nix { inherit lib; }) isServingLabel;
+  servingAgentLabels = map (agent: agent.config.Label) (
+    lib.attrValues (
+      lib.filterAttrs (_: agent: agent.enable && isServingLabel agent.config.Label) config.launchd.agents
+    )
+  );
   watchdogAgentLabel = "dev.mlx-model-server.watchdog";
 
   inherit
@@ -67,6 +73,17 @@ let
 in
 {
   imports = import ./imports.nix;
+
+  # A serving agent whose launchd override is disabled stays down across converges,
+  # so every declared serving label is enabled before the agents are set up.
+  home.activation.enableMlxServingAgents = lib.mkIf (cfg.enable && servingAgentLabels != [ ]) (
+    lib.hm.dag.entryBetween [ "setupLaunchAgents" ] [ "writeBoundary" ] ''
+      uid="$(id -u)"
+      ${lib.concatMapStringsSep "\n" (label: ''
+        run /bin/launchctl enable "gui/$uid/${label}"
+      '') servingAgentLabels}
+    ''
+  );
 
   _module.args.mlxShared = {
     inherit
