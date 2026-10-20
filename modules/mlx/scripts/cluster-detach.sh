@@ -2,14 +2,19 @@
 # cluster-detach -- stop this rank, restore standalone serving and verify it.
 
 cluster_detach_probe() {
-  local url="$1" model="$2" deadline="$3" body
+  local label="$1" url="$2" model="$3" deadline="$4" body
   while [ "$(date +%s)" -lt "$deadline" ]; do
-    if curl -fsS -m 5 "$url/models" > /dev/null 2>&1; then
+    if ! curl -fsS -m 5 "$url/models" > /dev/null 2>&1; then
+      echo "cluster-detach: $label listening port is not answering"
+    else
       body="$(curl -fsS -m 240 -X POST "$url/chat/completions" \
         -H 'Content-Type: application/json' \
         -d "$(jq -nc --arg m "$model" \
           '{model:$m,messages:[{role:"user",content:"ping"}],max_tokens:4}')" 2> /dev/null)" || body=""
-      jq -e '(.usage.completion_tokens // 0) >= 1' > /dev/null 2>&1 <<< "$body" && return 0
+      if jq -e '(.usage.completion_tokens // 0) >= 1' > /dev/null 2>&1 <<< "$body"; then
+        return 0
+      fi
+      echo "cluster-detach: $label did not return a real completion"
     fi
     sleep 10
   done
@@ -18,7 +23,8 @@ cluster_detach_probe() {
 
 cluster_detach_main() {
   local timeout deadline failed=0 peer_detach_rc=0 used swap_threshold stale_swap=false
-  local current link_state serve_ok=false held="?" worker_invocation=false probed label url model
+  local current link_state serve_ok=false held="?" worker_invocation=false probed label url model disabled_rc
+  local unhealthy=""
   local session_arg="" current_session peer_pid
   state_dir="${CLUSTER_STATE_DIR:-$(dirname "$CLUSTER_STATE_FILE")}"
   mkdir -p "$state_dir"
@@ -101,28 +107,46 @@ cluster_detach_main() {
     deadline=$(($(date +%s) + timeout))
     probed=0
     serve_ok=true
-    # Each line is "label url model"; a resident that is not loaded on this host has no serving to verify.
+    # Each line names one declared resident model server on this host.
     while read -r label url model; do
       [ -n "$label" ] || continue
-      if ! "${CLUSTER_LAUNCHCTL_BIN:-/bin/launchctl}" print "gui/$(id -u)/$label" > /dev/null 2>&1; then
-        echo "cluster-detach: $label not loaded; not probed"
+      if cluster_launchd_label_disabled "$label"; then
+        lifecycle_refuse serving-label-disabled "declared serving label $label remains disabled"
+        serve_ok=false
+        failed=1
+        continue
+      else
+        disabled_rc=$?
+        if [ "$disabled_rc" -eq 2 ]; then
+          lifecycle_refuse serving-label-state-unavailable "could not read disabled state for declared serving label $label"
+          serve_ok=false
+          failed=1
+          continue
+        fi
+      fi
+      if ! cluster_launchd_label_loaded "$label"; then
+        lifecycle_refuse serving-label-not-loaded "declared serving label $label is not loaded"
+        serve_ok=false
+        failed=1
         continue
       fi
       probed=$((probed + 1))
-      if cluster_detach_probe "$url" "$model" "$deadline"; then
+      if cluster_detach_probe "$label" "$url" "$model" "$deadline"; then
         echo "cluster-detach: $label returned a real completion"
       else
-        echo "cluster-detach: $label did not return a real completion"
+        unhealthy="$unhealthy $label"
         serve_ok=false
+        failed=1
       fi
     done <<< "$CLUSTER_STANDALONE_PROBES"
     if [ "$probed" -eq 0 ]; then
-      serve_ok=none
-      echo "cluster-detach: no standalone resident is loaded; nothing to probe"
+      lifecycle_refuse serving-not-restored "no declared serving label passed launchd and completion checks"
+      serve_ok=false
+      failed=1
     elif [ "$serve_ok" = true ]; then
       echo "cluster-detach: standalone serving restored (real completion verified)"
     else
-      lifecycle_refuse serving-not-restored "standalone serving did not return a real completion within ${timeout}s"
+      lifecycle_refuse serving-not-restored "declared serving labels failed port or completion checks within ${timeout}s:$unhealthy"
       failed=1
     fi
   else
@@ -153,7 +177,7 @@ cluster_detach_main() {
   echo "  rank       : $(rank_process_absent && echo stopped || echo present-or-unknown)"
   echo "  wired ceil : $current (standalone ${CLUSTER_STANDALONE_WIRED_LIMIT_MB:-0})"
   echo "  held PDs   : $held of ${CLUSTER_PD_DEVICE_BUDGET:-?}"
-  echo "  serving    : $(case "$serve_ok" in true) echo restored ;; none) echo "no resident loaded" ;; *) echo NOT-VERIFIED ;; esac)"
+  echo "  serving    : $( [ "$serve_ok" = true ] && echo restored || echo NOT-VERIFIED )"
   echo "  swap used  : ${used}M (threshold ${swap_threshold}M)"
 
   cluster_detach_finish "$failed" "$peer_detach_rc" "${TEARDOWN_REBOOT:-0}" "$stale_swap"
