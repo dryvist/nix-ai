@@ -179,6 +179,8 @@ check 'join boots out nothing when a serving label is disabled' "" "$(cat "$FAKE
 
 # Detach verifies each declared serving label; the stubs below stand in for the D3/D4 readings.
 pd_held_count() { PD_HELD=0; }
+pd_held_count
+check 'PD count fixture reports zero' 0 "$PD_HELD"
 rank_process_absent() { return 0; }
 export CLUSTER_DETACH_TIMEOUT_SECS=30
 
