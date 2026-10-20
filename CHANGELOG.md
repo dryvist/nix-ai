@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.0.5](https://github.com/dryvist/nix-ai/compare/v8.0.4...v8.0.5) (2026-10-20)
+
+
+### Bug Fixes
+
+* **mlx:** enforce declared serving labels across activation, join and detach ([#2678](https://github.com/dryvist/nix-ai/issues/2678)) ([e755efe](https://github.com/dryvist/nix-ai/commit/e755efe73b80bc774dfbc64b1df4daa3c2895252))
+
 ## [8.0.4](https://github.com/dryvist/nix-ai/compare/v8.0.3...v8.0.4) (2026-10-19)
 
 
