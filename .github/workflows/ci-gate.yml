@@ -15,8 +15,10 @@ name: CI Gate
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+  # Push runs save the Nix store cache; the default branch's cache is readable
+  # by PRs into develop and by develop-to-main promotions.
   push:
-    branches: [main]
+    branches: [develop]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
