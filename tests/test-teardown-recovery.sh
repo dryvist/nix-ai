@@ -314,7 +314,7 @@ set +e
 detach_rc=$?
 set -e
 check 'detach with one unloaded declared resident fails' 1 "$detach_rc"
-contains 'unloaded resident is refused by label' 'REFUSE reason=serving-label-not-loaded detail=declared serving label dev.test.unloaded is not loaded' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
+contains 'unloaded resident is refused by label' 'REFUSE reason=serving-label-not-loaded detail=declared label dev.test.unloaded is not loaded' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
 contains 'loaded resident is probed' 'dev.test.server returned a real completion' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
 check 'detach does not claim restored serving with an unloaded resident' 0 \
   "$(grep -c 'standalone serving restored' "$CLUSTER_LIFECYCLE_LOG" || true)"

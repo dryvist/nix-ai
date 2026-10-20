@@ -47,6 +47,24 @@ cluster_launchd_label_declared() {
   return 1
 }
 
+cluster_launchd_label_validate() {
+  local kind="$1" label="$2" disabled_rc
+  if cluster_launchd_label_disabled "$label"; then
+    lifecycle_refuse "$kind-label-disabled" "declared label $label is disabled"
+    return 1
+  else
+    disabled_rc=$?
+    if [ "$disabled_rc" -eq 2 ]; then
+      lifecycle_refuse "$kind-label-state-unavailable" "could not read disabled state for $label"
+      return 1
+    fi
+  fi
+  if ! cluster_launchd_label_loaded "$label"; then
+    lifecycle_refuse "$kind-label-not-loaded" "declared label $label is not loaded"
+    return 1
+  fi
+}
+
 cluster_restore_launchd_agent() {
   local label="$1" plist="$2" uid="$3" launchctl_bin="${CLUSTER_LAUNCHCTL_BIN:-/bin/launchctl}" disabled_rc
   if cluster_launchd_label_disabled "$label"; then

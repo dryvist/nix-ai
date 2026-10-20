@@ -23,7 +23,7 @@ cluster_detach_probe() {
 
 cluster_detach_main() {
   local timeout deadline failed=0 peer_detach_rc=0 used swap_threshold stale_swap=false
-  local current link_state serve_ok=false held="?" worker_invocation=false probed label url model disabled_rc
+  local current link_state serve_ok=false held="?" worker_invocation=false probed label url model
   local unhealthy=""
   local session_arg="" current_session peer_pid
   state_dir="${CLUSTER_STATE_DIR:-$(dirname "$CLUSTER_STATE_FILE")}"
@@ -110,22 +110,7 @@ cluster_detach_main() {
     # Each line names one declared resident model server on this host.
     while read -r label url model; do
       [ -n "$label" ] || continue
-      if cluster_launchd_label_disabled "$label"; then
-        lifecycle_refuse serving-label-disabled "declared serving label $label remains disabled"
-        serve_ok=false
-        failed=1
-        continue
-      else
-        disabled_rc=$?
-        if [ "$disabled_rc" -eq 2 ]; then
-          lifecycle_refuse serving-label-state-unavailable "could not read disabled state for declared serving label $label"
-          serve_ok=false
-          failed=1
-          continue
-        fi
-      fi
-      if ! cluster_launchd_label_loaded "$label"; then
-        lifecycle_refuse serving-label-not-loaded "declared serving label $label is not loaded"
+      if ! cluster_launchd_label_validate serving "$label"; then
         serve_ok=false
         failed=1
         continue

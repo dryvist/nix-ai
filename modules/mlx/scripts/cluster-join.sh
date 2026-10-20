@@ -192,40 +192,22 @@ cluster_quiesce_launchd_label() {
   cluster_quiesce_wait "$label" || true
 }
 
-cluster_join_validate_launchd_label() {
-  local kind="$1" label="$2" disabled_rc
-  if cluster_launchd_label_disabled "$label"; then
-    lifecycle_refuse "$kind-label-disabled" "declared label $label is disabled"
-    return 1
-  else
-    disabled_rc=$?
-    if [ "$disabled_rc" -eq 2 ]; then
-      lifecycle_refuse "$kind-label-state-unavailable" "could not read disabled state for $label"
-      return 1
-    fi
-  fi
-  if ! cluster_launchd_label_loaded "$label"; then
-    lifecycle_refuse "$kind-label-not-loaded" "declared label $label is not loaded"
-    return 1
-  fi
-}
-
 cluster_join_validate_quiesce_labels() {
   local label
   local -a labels=()
   read -r -a labels <<< "${CLUSTER_SERVER_LABELS:-}"
   for label in "${labels[@]}"; do
     [ -n "$label" ] || continue
-    cluster_join_validate_launchd_label serving "$label" || return 1
+    cluster_launchd_label_validate serving "$label" || return 1
   done
   if [ -n "${CLUSTER_WATCHDOG_LABEL:-}" ]; then
-    cluster_join_validate_launchd_label serving "$CLUSTER_WATCHDOG_LABEL" || return 1
+    cluster_launchd_label_validate serving "$CLUSTER_WATCHDOG_LABEL" || return 1
   fi
   read -r -a labels <<< "${CLUSTER_QUIESCE_LAUNCHD:-}"
   for label in "${labels[@]}"; do
     [ -n "$label" ] || continue
     if cluster_launchd_label_declared "$label"; then
-      cluster_join_validate_launchd_label quiesce "$label" || return 1
+      cluster_launchd_label_validate quiesce "$label" || return 1
     else
       echo "cluster-join: quiesce launchd $label not declared on this host; skipped"
     fi

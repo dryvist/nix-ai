@@ -190,7 +190,7 @@ detach_rc=0
 detach_missing_out="$(cat "$tmp/detach-missing.log")"
 check 'detach exits non-zero on a missing declared serving label' 1 "$detach_rc"
 contains 'missing serving label named in refusal' \
-  'REFUSE reason=serving-label-not-loaded detail=declared serving label org.example.absent is not loaded' "$detach_missing_out"
+  'REFUSE reason=serving-label-not-loaded detail=declared label org.example.absent is not loaded' "$detach_missing_out"
 check 'detach does not claim restored serving when a label is missing' 0 \
   "$(grep -c 'standalone serving restored' "$tmp/detach-missing.log" || true)"
 
