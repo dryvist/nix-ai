@@ -4,71 +4,104 @@
 # Shared by cluster-join recovery and cluster-detach.
 # Before that split, detach carried a coordinator-only copy of half of it and no
 # worker path at all: on a worker it downed the link, verified markers/rank/
-# ceiling, printed "teardown verified", exited 0 — and left every agent
-# cluster-quiesce had booted out still booted out, with nothing serving on the
-# host. "Standalone ceiling restored" is not "serving restored", and the only
-# way those two can never be confused again is for the restore to be the same
-# function on every path that claims it.
+# ceiling, printed "teardown verified" — and left every agent cluster-quiesce
+# had booted out still booted out, with nothing serving on the host. "Standalone
+# ceiling restored" is not "serving restored", and the only way those two can
+# never be confused again is for the restore to be the same function on every
+# path that claims it.
 #
 # Consumers: cluster-join's failure trap and cluster-detach teardown.
 #
-# Returns nonzero if it could not restore, so the lifecycle command can fail
-# its postcondition and report which standalone service did not return.
-#
 # Consumed environment:
 #   CLUSTER_ROLE          coordinator | worker
-#   coordinator: CLUSTER_SERVER_LABELS / CLUSTER_LAUNCH_AGENTS_DIR
-#                CLUSTER_WATCHDOG_LABEL / CLUSTER_WATCHDOG_PLIST (optional — an
-#                older generation without them just skips the watchdog restore)
-#   worker:      CLUSTER_RESTORE_CMD  (cluster-restore — bootstraps back exactly
-#                the agent set cluster-quiesce recorded, never a hardcoded list)
-restore_normal_serving() {
-  local uid launchctl_bin="${CLUSTER_LAUNCHCTL_BIN:-/bin/launchctl}"
-  uid="$(id -u)"
-  if [ "$CLUSTER_ROLE" = "coordinator" ]; then
-    # cluster-join boots the resident agents out, so every absent resident must
-    # be bootstrapped from its own plist before standalone serving is restored.
-    local server_label server_plist
-    local -a server_labels=()
-    read -r -a server_labels <<< "${CLUSTER_SERVER_LABELS:-}"
-    for server_label in "${server_labels[@]}"; do
-      if ! "$launchctl_bin" print "gui/$uid/$server_label" > /dev/null 2>&1; then
-        server_plist="${CLUSTER_LAUNCH_AGENTS_DIR:-}/$server_label.plist"
-        if [ ! -f "$server_plist" ]; then
-          echo "cluster-link: WARN $server_label not loaded and no plist to bootstrap" >&2
-          return 1
-        fi
-        echo "cluster-link: standalone server agent not loaded; bootstrapping"
-        if ! "$launchctl_bin" bootstrap "gui/$uid" "$server_plist" > /dev/null 2>&1; then
-          echo "cluster-link: WARN failed to bootstrap $server_label" >&2
-          return 1
-        fi
-      fi
-    done
-    # The serving watchdog is booted out alongside the resident agents above (see
-    # cluster-join), so it needs the same bootstrap-back treatment. Best-effort:
-    # standalone serving itself is
-    # already restored by this point, so a watchdog that cannot come back is a
-    # missing safety net, not a repeat of the outage this function exists to fix.
-    if [ -z "${CLUSTER_WATCHDOG_LABEL:-}" ]; then
-      echo "cluster-link: no CLUSTER_WATCHDOG_LABEL configured; nothing to restore for the watchdog"
-    elif "$launchctl_bin" print "gui/$uid/$CLUSTER_WATCHDOG_LABEL" > /dev/null 2>&1; then
-      echo "cluster-link: $CLUSTER_WATCHDOG_LABEL already loaded"
-    elif [ -f "${CLUSTER_WATCHDOG_PLIST:-}" ]; then
-      echo "cluster-link: watchdog agent not loaded; bootstrapping"
-      if "$launchctl_bin" bootstrap "gui/$uid" "$CLUSTER_WATCHDOG_PLIST" > /dev/null 2>&1; then
-        echo "cluster-link: $CLUSTER_WATCHDOG_LABEL bootstrapped"
-      else
-        echo "cluster-link: WARN failed to bootstrap $CLUSTER_WATCHDOG_LABEL" >&2
-      fi
-    else
-      echo "cluster-link: WARN $CLUSTER_WATCHDOG_LABEL not loaded and no plist to bootstrap" >&2
+#   CLUSTER_SERVER_LABELS / CLUSTER_LAUNCH_AGENTS_DIR
+#   coordinator: CLUSTER_WATCHDOG_LABEL / CLUSTER_WATCHDOG_PLIST (optional)
+#   worker:      CLUSTER_RESTORE_CMD  (restores the agent set cluster-quiesce recorded)
+cluster_launchd_label_disabled() {
+  local label="$1" launchctl_bin="${CLUSTER_LAUNCHCTL_BIN:-/bin/launchctl}" listing state="" key arrow value
+  listing="$("$launchctl_bin" print-disabled "gui/$(id -u)" 2> /dev/null)" || return 2
+  while read -r key arrow value; do
+    if [ "$arrow" = "=>" ] && [ "${key//\"/}" = "$label" ]; then
+      state="$value"
+      break
     fi
-  elif [ -n "${CLUSTER_RESTORE_CMD:-}" ]; then
-    # cluster-restore keeps the labels it could not bootstrap and exits nonzero
-    # precisely so a later tick retries them; propagate that.
+  done <<< "$listing"
+  case "$state" in
+    disabled) return 0 ;;
+    enabled | '') return 1 ;;
+    *) return 2 ;;
+  esac
+}
+
+cluster_launchd_label_loaded() {
+  "${CLUSTER_LAUNCHCTL_BIN:-/bin/launchctl}" print "gui/$(id -u)/$1" > /dev/null 2>&1
+}
+
+cluster_launchd_label_declared() {
+  local target="$1" label
+  local -a labels=()
+  IFS=' ' read -r -a labels <<< "${CLUSTER_DECLARED_AGENT_LABELS:-}"
+  for label in "${labels[@]}"; do
+    [ "$label" = "$target" ] && return 0
+  done
+  return 1
+}
+
+cluster_restore_launchd_agent() {
+  local label="$1" plist="$2" uid="$3" launchctl_bin="${CLUSTER_LAUNCHCTL_BIN:-/bin/launchctl}" disabled_rc
+  if cluster_launchd_label_disabled "$label"; then
+    disabled_rc=0
+  else
+    disabled_rc=$?
+    if [ "$disabled_rc" -eq 2 ]; then
+      echo "cluster-link: WARN cannot read launchd disabled state for $label" >&2
+      return 1
+    fi
+  fi
+  if [ "$disabled_rc" -eq 0 ] || ! cluster_launchd_label_loaded "$label"; then
+    if ! "$launchctl_bin" enable "gui/$uid/$label" > /dev/null 2>&1; then
+      echo "cluster-link: WARN failed to enable $label" >&2
+      return 1
+    fi
+    if [ "$disabled_rc" -eq 0 ] && cluster_launchd_label_loaded "$label"; then
+      if ! "$launchctl_bin" kickstart "gui/$uid/$label" > /dev/null 2>&1; then
+        echo "cluster-link: WARN failed to kickstart $label" >&2
+        return 1
+      fi
+      echo "cluster-link: $label enabled and kickstarted"
+      return 0
+    fi
+    if [ ! -f "$plist" ]; then
+      echo "cluster-link: WARN $label not loaded and no plist to bootstrap" >&2
+      return 1
+    fi
+    echo "cluster-link: $label not loaded; bootstrapping"
+    if ! "$launchctl_bin" bootstrap "gui/$uid" "$plist" > /dev/null 2>&1; then
+      echo "cluster-link: WARN failed to bootstrap $label" >&2
+      return 1
+    fi
+  fi
+}
+
+# Returns nonzero if it could not restore, so the lifecycle command can fail
+# its postcondition and report which standalone service did not return.
+restore_normal_serving() {
+  local uid server_label server_plist watchdog_plist
+  local -a server_labels=()
+  uid="$(id -u)"
+  read -r -a server_labels <<< "${CLUSTER_SERVER_LABELS:-}"
+  for server_label in "${server_labels[@]}"; do
+    server_plist="${CLUSTER_LAUNCH_AGENTS_DIR:-$HOME/Library/LaunchAgents}/$server_label.plist"
+    cluster_restore_launchd_agent "$server_label" "$server_plist" "$uid" || return 1
+  done
+  if [ "$CLUSTER_ROLE" = "coordinator" ] && [ -n "${CLUSTER_WATCHDOG_LABEL:-}" ]; then
+    watchdog_plist="${CLUSTER_WATCHDOG_PLIST:-${CLUSTER_LAUNCH_AGENTS_DIR:-$HOME/Library/LaunchAgents}/$CLUSTER_WATCHDOG_LABEL.plist}"
+    cluster_restore_launchd_agent "$CLUSTER_WATCHDOG_LABEL" "$watchdog_plist" "$uid" || return 1
+  fi
+  if [ "$CLUSTER_ROLE" = "worker" ] && [ -n "${CLUSTER_RESTORE_CMD:-}" ]; then
+    # The worker hook restores additional agents recorded by its quiesce hook.
     "${CLUSTER_SH_BIN:-/bin/sh}" -c "$CLUSTER_RESTORE_CMD" || return 1
-  elif [ -n "${CLUSTER_QUIESCE_CMD:-}" ]; then
+  elif [ "$CLUSTER_ROLE" = "worker" ] && [ -n "${CLUSTER_QUIESCE_CMD:-}" ]; then
     # THIS host takes serving away on every join and has no way to give it back.
     # Saying so is the whole point: the silent `return 0` this replaced is what
     # let cluster-detach report success over a machine serving nothing. The

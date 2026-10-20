@@ -20,6 +20,11 @@ let
   inherit (import ./cluster-rank-pattern.nix { inherit lib; }) clusterRankProcessPattern;
   # Detach probes this host's own resident servers: the shared front port can be another gateway.
   residentContracts = lib.attrValues cfg.staticResidentContracts;
+  declaredAgentLabels = map (agent: agent.config.Label) (
+    lib.attrValues (
+      lib.filterAttrs (_: agent: (agent.enable or false) && (agent.config ? Label)) config.launchd.agents
+    )
+  );
   clusterCommonEnv = {
     CLUSTER_ROLE = ncfg.role;
     CLUSTER_STATIC_SELF_IP = staticSelfIp;
@@ -58,9 +63,16 @@ let
     CLUSTER_DETACH_TIMEOUT_SECS = toString ncfg.detachTimeoutSecs;
     CLUSTER_QUIESCE_GRACE_SECS = toString ncfg.quiesceGraceSecs;
     CLUSTER_STANDALONE_WIRED_LIMIT_MB = toString ncfg.standaloneWiredLimitMb;
+    CLUSTER_DECLARED_AGENT_LABELS = lib.concatStringsSep " " declaredAgentLabels;
+    CLUSTER_SERVER_LABELS = lib.concatStringsSep " " residentAgentLabels;
+    CLUSTER_LAUNCH_AGENTS_DIR = launchAgentsDir;
   }
   // lib.optionalAttrs (ncfg.wiredLimitMb != null) {
     CLUSTER_WIRED_LIMIT_MB = toString ncfg.wiredLimitMb;
+  }
+  // lib.optionalAttrs (isCoordinator && lib.elem watchdogAgentLabel declaredAgentLabels) {
+    CLUSTER_WATCHDOG_LABEL = watchdogAgentLabel;
+    CLUSTER_WATCHDOG_PLIST = "${launchAgentsDir}/${watchdogAgentLabel}.plist";
   };
 
   clusterJoinEnv =
@@ -73,10 +85,6 @@ let
       CLUSTER_QUIESCE_APPS = lib.concatStringsSep " " ncfg.quiesce.apps;
       CLUSTER_QUIESCE_LAUNCHD = lib.concatStringsSep " " ncfg.quiesce.launchdLabels;
       CLUSTER_NORMAL_PROXY = "http://127.0.0.1:${toString cfg.port}";
-      CLUSTER_SERVER_LABELS = lib.concatStringsSep " " residentAgentLabels;
-      CLUSTER_LAUNCH_AGENTS_DIR = launchAgentsDir;
-      CLUSTER_WATCHDOG_LABEL = watchdogAgentLabel;
-      CLUSTER_WATCHDOG_PLIST = "${launchAgentsDir}/${watchdogAgentLabel}.plist";
       CLUSTER_STANDALONE_PROCESS_PATTERN = modelServerProcessPattern;
       CLUSTER_KEEP_RESIDENT = lib.concatStringsSep "\n" ncfg.keepResidentBackends;
       CLUSTER_HTTP_PORT = toString ncfg.httpPort;
@@ -98,12 +106,6 @@ let
         contract:
         "${contract.launchdLabel} http://127.0.0.1:${toString contract.servicePort}/v1 ${contract.model}"
       ) residentContracts;
-    }
-    // lib.optionalAttrs isCoordinator {
-      CLUSTER_SERVER_LABELS = lib.concatStringsSep " " residentAgentLabels;
-      CLUSTER_LAUNCH_AGENTS_DIR = launchAgentsDir;
-      CLUSTER_WATCHDOG_LABEL = watchdogAgentLabel;
-      CLUSTER_WATCHDOG_PLIST = "${launchAgentsDir}/${watchdogAgentLabel}.plist";
     }
     // lib.optionalAttrs (!isCoordinator && ncfg.restoreCommand != null) {
       CLUSTER_RESTORE_CMD = ncfg.restoreCommand;

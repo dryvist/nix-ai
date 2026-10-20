@@ -174,7 +174,11 @@ cluster_quiesce_launchd_label() {
   if [ "$kind" = launchd ]; then
     # Restore needs the plist launchd loaded, which may live outside ~/Library/LaunchAgents.
     if ! info="$("${CLUSTER_LAUNCHCTL_BIN:-/bin/launchctl}" print "gui/$uid/$label" 2> /dev/null)"; then
-      echo "cluster-join: quiesce launchd $label not loaded; skipped"
+      if cluster_launchd_label_declared "$label"; then
+        lifecycle_refuse quiesce-label-not-loaded "declared label $label is not loaded"
+        return 1
+      fi
+      echo "cluster-join: quiesce launchd $label not declared on this host; skipped"
       return 0
     fi
     path="$(printf '%s\n' "$info" | "${CLUSTER_SED_BIN:-/usr/bin/sed}" -n 's/^[[:space:]]*path = //p')"
@@ -186,6 +190,46 @@ cluster_quiesce_launchd_label() {
   "${CLUSTER_LAUNCHCTL_BIN:-/bin/launchctl}" bootout "gui/$uid/$label" > /dev/null 2>&1 || rc=$?
   echo "cluster-join: quiesce $kind $label rc=$rc"
   cluster_quiesce_wait "$label" || true
+}
+
+cluster_join_validate_launchd_label() {
+  local kind="$1" label="$2" disabled_rc
+  if cluster_launchd_label_disabled "$label"; then
+    lifecycle_refuse "$kind-label-disabled" "declared label $label is disabled"
+    return 1
+  else
+    disabled_rc=$?
+    if [ "$disabled_rc" -eq 2 ]; then
+      lifecycle_refuse "$kind-label-state-unavailable" "could not read disabled state for $label"
+      return 1
+    fi
+  fi
+  if ! cluster_launchd_label_loaded "$label"; then
+    lifecycle_refuse "$kind-label-not-loaded" "declared label $label is not loaded"
+    return 1
+  fi
+}
+
+cluster_join_validate_quiesce_labels() {
+  local label
+  local -a labels=()
+  read -r -a labels <<< "${CLUSTER_SERVER_LABELS:-}"
+  for label in "${labels[@]}"; do
+    [ -n "$label" ] || continue
+    cluster_join_validate_launchd_label serving "$label" || return 1
+  done
+  if [ -n "${CLUSTER_WATCHDOG_LABEL:-}" ]; then
+    cluster_join_validate_launchd_label serving "$CLUSTER_WATCHDOG_LABEL" || return 1
+  fi
+  read -r -a labels <<< "${CLUSTER_QUIESCE_LAUNCHD:-}"
+  for label in "${labels[@]}"; do
+    [ -n "$label" ] || continue
+    if cluster_launchd_label_declared "$label"; then
+      cluster_join_validate_launchd_label quiesce "$label" || return 1
+    else
+      echo "cluster-join: quiesce launchd $label not declared on this host; skipped"
+    fi
+  done
 }
 
 cluster_application_labels() {
@@ -233,7 +277,8 @@ cluster_quiesce_configured_launchd() {
   IFS=' ' read -r -a labels <<< "${CLUSTER_QUIESCE_LAUNCHD:-}"
   for label in "${labels[@]}"; do
     [ -n "$label" ] || continue
-    cluster_quiesce_launchd_label launchd "$label"
+    cluster_launchd_label_declared "$label" || continue
+    cluster_quiesce_launchd_label launchd "$label" || return 1
   done
 }
 
@@ -294,10 +339,12 @@ cluster_join_quiesce() {
       exit 1
     fi
     echo "cluster-join: swap PASS used=${used}M threshold=${threshold}M"
+    cluster_join_validate_quiesce_labels || return 1
     cluster_quiesce_coordinator_serving
     cluster_quiesce_apps
-    cluster_quiesce_configured_launchd
+    cluster_quiesce_configured_launchd || return 1
   elif [ -n "${CLUSTER_QUIESCE_CMD:-}" ]; then
+    cluster_join_validate_quiesce_labels || return 1
     "${CLUSTER_SH_BIN:-/bin/sh}" -c "$CLUSTER_QUIESCE_CMD" || echo "cluster-join: WARN worker quiesce hook failed"
   fi
 }
@@ -1004,7 +1051,7 @@ cluster_join_main() {
   fi
 
   echo "cluster-join: J4 quiesce"
-  cluster_join_quiesce
+  cluster_join_quiesce || exit 1
 
   echo "cluster-join: J5 room check"
   if [ "$JOIN_MODEL_EXPLICIT" = true ]; then
