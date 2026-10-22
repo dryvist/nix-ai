@@ -39,7 +39,7 @@
 
     # LLM role map source (lib/role-map.nix).
     homelab-contracts = {
-      url = "github:dryvist/homelab-contracts?ref=v5";
+      url = "github:dryvist/homelab-contracts?rev=0fcdf2a12d4f837867617a4b17f2f71212b4d2a4";
       flake = false;
     };
 
