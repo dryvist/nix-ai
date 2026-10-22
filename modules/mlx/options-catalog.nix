@@ -255,7 +255,7 @@ in
       modelRevisions = lib.mapAttrs' (
         name: _sel:
         let
-          revision = (entryFor name).revision;
+          inherit (entryFor name) revision;
         in
         if builtins.match "[0-9a-f]{40}" revision == null then
           throw "programs.mlx.catalog.\"${name}\": revision must be an exact 40-character lowercase Hugging Face commit SHA."
