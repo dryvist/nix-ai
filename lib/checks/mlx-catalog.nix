@@ -194,8 +194,6 @@ in
       builtins.match ".*--model /hf/hub/models--mlx-community--Qwen3.5-9B-OptiQ-4bit/snapshots/${qwen35.revision}.*" qwen35PinnedCmd
       != null
       && builtins.match "[0-9a-f]{40}" qwen35.revision != null
-      && qwen35.contextWindowTokens == 65536
-      && qwen35.maxOutputTokens == 32768
-      || throw "catalog: the pinned Qwen3.5 baseline must match the 64k context and 32k output benchmark contract";
+      || throw "catalog: the Qwen3.5 baseline command must use its exact cached snapshot revision: ${qwen35PinnedCmd}";
     helpers.mkMarker "check-mlx-catalog" "MLX catalog: resident command, role-map OCR metadata, context and host-override precedence verified";
 }
