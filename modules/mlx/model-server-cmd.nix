@@ -39,6 +39,16 @@ rec {
   mkModelArgs =
     modelId: port:
     let
+      revision = cfg.modelRevisions.${modelId} or null;
+      modelArg =
+        if revision == null then
+          modelId
+        else if builtins.match "[0-9a-f]{40}" revision == null then
+          throw "programs.mlx.modelRevisions.\"${modelId}\": revision must be an exact 40-character lowercase Hugging Face commit SHA."
+        else
+          "${cfg.huggingFaceHome}/hub/models--${
+            lib.replaceStrings [ "/" ] [ "--" ] modelId
+          }/snapshots/${revision}";
       backend = backendFor modelId;
       mtp =
         cfg.modelMtpProfiles.${modelId} or {
@@ -130,7 +140,7 @@ rec {
     in
     [
       "--model"
-      modelId
+      modelArg
       "--port"
       (toString port)
       "--host"

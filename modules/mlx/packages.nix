@@ -54,9 +54,10 @@ in
 
         (pkgs.writeShellScriptBin "mlx-eval" ''
           concurrent="''${MLX_EVAL_CONCURRENT:-1}"
+          max_length="''${MLX_EVAL_MAX_LENGTH:-32768}"
           exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} --from "lm-eval[api,math]==${lmEvalVersion}" lm-eval run \
             --model local-chat-completions \
-            --model_args "base_url=''${MLX_API_URL:-${apiUrl}}/chat/completions,model=''${MLX_DEFAULT_MODEL:-${cfg.defaultModel}},tokenizer_backend=None,tokenized_requests=False,num_concurrent=''${concurrent},max_retries=3,max_length=32768" \
+            --model_args "base_url=''${MLX_API_URL:-${apiUrl}}/chat/completions,model=''${MLX_DEFAULT_MODEL:-${cfg.defaultModel}},tokenizer_backend=None,tokenized_requests=False,num_concurrent=''${concurrent},max_retries=3,max_length=''${max_length}" \
             --apply_chat_template \
             "$@"
         '')

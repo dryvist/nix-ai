@@ -178,6 +178,17 @@
       description = "Additional selected-server arguments per physical registry model id, appended after the global flags.";
     };
 
+    modelRevisions = lib.mkOption {
+      type = lib.types.attrsOf lib.types.str;
+      default = { };
+      example = lib.literalExpression ''
+        {
+          "mlx-community/<model>" = "0123456789abcdef0123456789abcdef01234567";
+        }
+      '';
+      description = "Exact Hugging Face commit revisions for selected models. Pinned models load from that cached snapshot path and never resolve a moving repository ref at serve time.";
+    };
+
     # modelConcurrencyLimits — per-physical-id MLX worker decode/prompt
     # concurrency. Proxy admission is configured separately with
     # modelAdmissionLimits; keeping this value at the worker's actual capacity

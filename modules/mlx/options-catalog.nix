@@ -252,6 +252,17 @@ in
         name: _sel: lib.nameValuePair (entryFor name).model (lib.mkDefault (entryFor name).backend)
       ) (lib.filterAttrs (name: _sel: (entryFor name) ? backend) enabled);
 
+      modelRevisions = lib.mapAttrs' (
+        name: _sel:
+        let
+          inherit (entryFor name) revision;
+        in
+        if builtins.match "[0-9a-f]{40}" revision == null then
+          throw "programs.mlx.catalog.\"${name}\": revision must be an exact 40-character lowercase Hugging Face commit SHA."
+        else
+          lib.nameValuePair (entryFor name).model (lib.mkDefault revision)
+      ) (lib.filterAttrs (name: _sel: (entryFor name) ? revision) enabled);
+
       # Swap-class role models still compile into the role registry rather than
       # cfg.models. Carry their catalog TTL to that registry entry so official
       # mlx_lm workers unload after use even when the host's resident TTL is 0.

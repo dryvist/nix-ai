@@ -15,6 +15,7 @@ in
       ocr = "mlx-community/Unlimited-OCR-bf16";
       judge27b = "mlx-community/Qwen3.8-27B-4bit";
       modelCatalog = import ../../modules/mlx/model-catalog.nix;
+      localCatalog = import ../../modules/mlx/catalog-data.nix;
       mimoModel = modelCatalog.${mimo};
       mimoProfile = mimoModel.profiles.mlx;
       mimoSwap = mimoProfile.swap;
@@ -57,6 +58,45 @@ in
           mlxModelServerPkg = pkgs.writeShellScriptBin "mlx-model-server" "";
         }).mkModelCmd
           "mlx-community/null-default-test";
+      k2 = localCatalog.k2-horizon-7b;
+      k2Oq6e = localCatalog.k2-horizon-7b-oq6e;
+      k2PinnedCmd =
+        (import ../../modules/mlx/model-server-cmd.nix {
+          inherit (pkgs) lib;
+          cfg = c // {
+            huggingFaceHome = "/hf";
+            modelRevisions = {
+              ${k2.model} = k2.revision;
+            };
+          };
+          mlxModelServerPkg = pkgs.writeShellScriptBin "mlx-model-server" "";
+        }).mkModelCmd
+          k2.model;
+      k2Oq6ePinnedCmd =
+        (import ../../modules/mlx/model-server-cmd.nix {
+          inherit (pkgs) lib;
+          cfg = c // {
+            huggingFaceHome = "/hf";
+            modelRevisions = {
+              ${k2Oq6e.model} = k2Oq6e.revision;
+            };
+          };
+          mlxModelServerPkg = pkgs.writeShellScriptBin "mlx-model-server" "";
+        }).mkModelCmd
+          k2Oq6e.model;
+      qwen35 = localCatalog."qwen35-9b";
+      qwen35PinnedCmd =
+        (import ../../modules/mlx/model-server-cmd.nix {
+          inherit (pkgs) lib;
+          cfg = c // {
+            huggingFaceHome = "/hf";
+            modelRevisions = {
+              ${qwen35.model} = qwen35.revision;
+            };
+          };
+          mlxModelServerPkg = pkgs.writeShellScriptBin "mlx-model-server" "";
+        }).mkModelCmd
+          qwen35.model;
     in
     assert
       judgeFlags.cacheMemoryMb == 8192
@@ -140,5 +180,20 @@ in
     assert
       c.modelBackends.${ocr} == "mlx-vlm"
       || throw "catalog: the role-map OCR entry remains declared on its VLM backend";
+    assert
+      builtins.match ".*--model /hf/hub/models--mlx-community--K2-Horizon-7B-4bit/snapshots/${k2.revision}.*" k2PinnedCmd
+      != null
+      && builtins.match "[0-9a-f]{40}" k2.revision != null
+      || throw "catalog: the K2 trial command must use its exact cached snapshot revision: ${k2PinnedCmd}";
+    assert
+      builtins.match ".*--model /hf/hub/models--mlx-community--K2-Horizon-7B-oQ6e/snapshots/${k2Oq6e.revision}.*" k2Oq6ePinnedCmd
+      != null
+      && builtins.match "[0-9a-f]{40}" k2Oq6e.revision != null
+      || throw "catalog: the K2 oQ6e fallback command must use its exact cached snapshot revision: ${k2Oq6ePinnedCmd}";
+    assert
+      builtins.match ".*--model /hf/hub/models--mlx-community--Qwen3.5-9B-OptiQ-4bit/snapshots/${qwen35.revision}.*" qwen35PinnedCmd
+      != null
+      && builtins.match "[0-9a-f]{40}" qwen35.revision != null
+      || throw "catalog: the Qwen3.5 baseline command must use its exact cached snapshot revision: ${qwen35PinnedCmd}";
     helpers.mkMarker "check-mlx-catalog" "MLX catalog: resident command, role-map OCR metadata, context and host-override precedence verified";
 }
