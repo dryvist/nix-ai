@@ -111,25 +111,15 @@
     ++ fallbackTier.contextWindowFallbacks
     ++ isolatedTier.contextWindowFallbacks
     ++ staticTier.contextWindowFallbacks;
-  }
-  # Every non-Anthropic call this host makes traverses this proxy, so with no
-  # callback the entire local fabric is an observability blind spot.
-  #
-  # `otel`, NOT `langfuse` — a deliberate match with the shared router rather
-  # than a second mechanism. LiteLLM's `langfuse` callback needs the v2 SDK
-  # and errors on init against the v3 that pip resolves today; the collector
-  # already fans traces out to Langfuse, so one emitter on one path reaches
-  # the same sink with nothing extra to keep in step. It also means this
-  # proxy needs no Langfuse credential of its own.
-  #
-  # Only ever set when there is somewhere to send them: an OTLP exporter with
-  # no endpoint falls back to a conventional loopback address and exports
-  # into a black hole, which is exactly the failure this repo already fixed
-  # once for Claude Code. No endpoint, no callback.
-  # Traces keep timing, token counts and model names, never prompt or
-  # response text: callers send private context through this proxy.
-  // lib.optionalAttrs (telemetryTracesEndpoint != null) {
-    callbacks = [ "otel" ];
+    # Request metadata is emitted independently of tracing, so request volume,
+    # status and latency remain visible when no OTLP endpoint is configured.
+    # Message logging stays disabled because the callback records metadata only.
+    # OTEL remains endpoint-gated: without a configured destination its exporter
+    # can fall back to loopback and silently export nowhere.
+    callbacks = [
+      "request_metrics.proxy_handler_instance"
+    ]
+    ++ lib.optional (telemetryTracesEndpoint != null) "otel";
     turn_off_message_logging = true;
   };
 }

@@ -28,6 +28,9 @@ let
   # building it from source drags a large Python test closure (the rq test
   # suite among it) into every CI and workstation rebuild.
   uvPythonVersion = (import ../../lib/python.nix { inherit pkgs; }).pythonVersion;
+  requestMetricsModule = pkgs.writeTextDir "request_metrics.py" (
+    builtins.readFile ./request_metrics.py
+  );
 
   # Liveness probe for the fallback chain. The chain's members are named here
   # so the command needs no arguments in the common case — running it bare
@@ -94,7 +97,8 @@ let
         ''OPENAI_API_KEY="''${OPENAI_API_KEY:?litellm-local: OPENAI_API_KEY unset; launchPrefix must provide the router bearer}"''
     }
     export OPENAI_API_KEY
-    exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} \
+    PYTHONPATH=${requestMetricsModule} \
+      exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} \
       --from "litellm[proxy]==${versions.litellm}" \
       ${
         lib.concatMapStringsSep " " (p: "--with ${lib.escapeShellArg p}") (

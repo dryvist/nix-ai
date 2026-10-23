@@ -56,6 +56,10 @@ let
   forwardList = rendered.litellm_settings.model_group_settings.forward_client_headers_to_llm_api;
 
   scopedToClaudeOnly = forwardList == [ "claude-*" ];
+  requestMetricsCallback = builtins.elem "request_metrics.proxy_handler_instance" (
+    rendered.litellm_settings.callbacks or [ ]
+  );
+  messageLoggingDisabled = rendered.litellm_settings.turn_off_message_logging or false;
 
   # ---- enabled-path wiring -------------------------------------------------
   enabled = hmConfigLitellmLocal.config;
@@ -161,7 +165,12 @@ in
     assert
       wildcardHasOwnKey
       || throw "the litellm-local wildcard deployment must carry its own api_key so it authenticates to the router as itself";
-    helpers.mkMarker "check-litellm-local-header-scope" "litellm-local: client-header forwarding scoped to claude-* only, no proxy credential, router leg authenticates with its own key";
+    assert
+      requestMetricsCallback || throw "litellm-local must register its structured per-request callback";
+    assert
+      messageLoggingDisabled
+      || throw "litellm-local must not log request messages when emitting metadata-only events";
+    helpers.mkMarker "check-litellm-local-header-scope" "litellm-local: client-header forwarding scoped to claude-* only, no proxy credential, structured request events enabled without message logging";
 
   litellm-local-client-wiring =
     assert
