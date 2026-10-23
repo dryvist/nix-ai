@@ -225,7 +225,7 @@ in
         # suits a 200k window; 1M-window default model still has ~450K left
         # at 45%. Don't also set env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE.
         autoCompactThresholdPercent = 45;
-        cleanupPeriodDays = 180;
+        cleanupPeriodDays = 365;
         # A repository's `.mcp.json` written by `agent-skill-groups link` only
         # ever names catalog servers from the on-demand tier, so approve
         # exactly those without the per-project prompt. Anything else in a

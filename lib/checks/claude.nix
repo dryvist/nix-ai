@@ -129,7 +129,7 @@ in
       {
         name = "cleanupPeriodDays";
         actual = cfg.settings.cleanupPeriodDays;
-        expected = 180;
+        expected = 365;
       }
       {
         name = "model";
