@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.1.0](https://github.com/dryvist/nix-ai/compare/v8.0.5...v8.1.0) (2026-10-22)
+
+
+### Features
+
+* add pinned K2 MLX trial models ([#2686](https://github.com/dryvist/nix-ai/issues/2686)) ([543f2c8](https://github.com/dryvist/nix-ai/commit/543f2c8e30ef024f17da46ace3b08fa2bea20e84))
+
 ## [8.0.5](https://github.com/dryvist/nix-ai/compare/v8.0.4...v8.0.5) (2026-10-20)
 
 

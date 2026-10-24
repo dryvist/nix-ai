@@ -12,6 +12,9 @@ let
   mimoSwap = mimoProfile.swap;
   qwen35 = modelCatalog."mlx-community/Qwen3.5-9B-OptiQ-4bit";
   qwen35Profile = qwen35.profiles.mlx;
+  qwen35Revision = "6c89d1ddddd739fc10b111b3b3a4bf1547431b2b";
+  k2Revision = "c8698376a102bc5e7ad49089b21b62c096a2506c";
+  k2Oq6eRevision = "2cca82ec88e24bd5fc264e4bcd29922182c8f62f";
   mimoMaxOutputTokens = mimoProfile.max_output_tokens;
   mimoConcurrency = mimoProfile.max_parallel_requests;
   mimoSwapFlags = {
@@ -48,6 +51,7 @@ in
   # The workstation small/fast resident (fast, cheap, small, judge, recorder).
   qwen35-9b = {
     model = qwen35.name;
+    revision = qwen35Revision;
     # Conservative bound from the 8.22 GB repository total (shards total about 7.1 GB).
     weightGb = 8.3;
     kv = {
@@ -118,6 +122,47 @@ in
         flags = mimoSwapFlags;
       };
     };
+  };
+
+  # Side-by-side small-role trial. The immutable revision is compiled to a
+  # local HF snapshot path by model-server-cmd.nix; the request model ID stays
+  # stable for role routing and benchmark metadata.
+  k2-horizon-7b = {
+    model = "mlx-community/K2-Horizon-7B-4bit";
+    revision = k2Revision;
+    weightGb = 7.3;
+    contextWindowTokens = 65536;
+    maxOutputTokens = 32768;
+    concurrency = 4;
+    concurrencyLimit = 4;
+    args = [
+      "--trust-remote-code"
+      "--chat-template-args"
+      (builtins.toJSON {
+        reasoning_effort = "high";
+      })
+    ];
+    classes.swap.flags.maxTokens = 32768;
+  };
+
+  # Higher-quality fallback, activated only if the pinned 4-bit trial misses
+  # the quality gate. Keep a separate role so both routes remain comparable.
+  k2-horizon-7b-oq6e = {
+    model = "mlx-community/K2-Horizon-7B-oQ6e";
+    revision = k2Oq6eRevision;
+    weightGb = 7.54;
+    contextWindowTokens = 65536;
+    maxOutputTokens = 32768;
+    concurrency = 4;
+    concurrencyLimit = 4;
+    args = [
+      "--trust-remote-code"
+      "--chat-template-args"
+      (builtins.toJSON {
+        reasoning_effort = "high";
+      })
+    ];
+    classes.swap.flags.maxTokens = 32768;
   };
 
   # Pipeline-parallel cluster model. Cluster hosts select this catalog key;

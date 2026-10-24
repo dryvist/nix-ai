@@ -8,7 +8,7 @@
       "customType": "regex",
       "managerFilePatterns": ["/^mlx-server\\/pyproject\\.toml$/"],
       "matchStrings": [
-        '# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+) packageName=(?<packageName>\\S+) currentValue=(?<currentValue>\\S+)\\n\\s+"mlx-vlm @ https://github\\.com/Blaizzy/mlx-vlm/archive/(?<currentDigest>[a-f0-9]{40})\\.zip"',
+        '# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+) packageName=(?<packageName>\\S+) currentValue=(?<currentValue>\\S+) extractVersion=(?<extractVersion>\\S+)\\n\\s+"mlx-vlm @ https://github\\.com/Blaizzy/mlx-vlm/archive/(?<currentDigest>[a-f0-9]{40})\\.zip"',
       ],
     },
   ],
@@ -41,6 +41,12 @@
       ],
       "matchFileNames": ["lib/python.nix"],
       "enabled": false,
+    },
+    {
+      "description": "Follow omo-ai's beta release stream instead of npm's separate latest tag.",
+      "matchDatasources": ["npm"],
+      "matchPackageNames": ["omo-ai"],
+      "followTag": "beta",
     },
   ],
 }
