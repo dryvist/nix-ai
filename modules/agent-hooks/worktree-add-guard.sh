@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# PreToolUse hook (Claude Code and Codex share this contract): denies
-# `git worktree add` when the destination is not under `<repo>/.worktrees/`
-# or `<repo>/.claude/worktrees/`. See modules/agent-hooks/default.nix.
+# PreToolUse hook (Claude Code and Codex share this contract): denies raw
+# `codex exec` from a tool shell and `git worktree add` outside
+# `<repo>/.worktrees/` or `<repo>/.claude/worktrees/`.
 #
 # Contract: stdin is one JSON object with tool_name, tool_input.command
 # (string) and cwd. Allow by printing nothing and exiting 0. Deny by
@@ -26,6 +26,16 @@ tool_name="$(jq -r '.tool_name // empty' <<<"$input" 2>/dev/null)" || {
 command="$(jq -r '.tool_input.command // empty' <<<"$input")"
 cwd="$(jq -r '.cwd // empty' <<<"$input")"
 [ -n "$command" ] || exit 0
+
+# Inspect each command in a chain. The command-position anchor keeps text such
+# as `grep "codex exec" file` from looking like a CLI invocation.
+codex_exec_regex='^[[:space:]]*(([[:alpha:]_][[:alnum:]_]*=[^[:space:]]+)[[:space:]]+)*(([^[:space:]]*/)?env[[:space:]]+(([[:alpha:]_][[:alnum:]_]*=[^[:space:]]+|-i|--ignore-environment|--)[[:space:]]+)*)?((command|exec)[[:space:]]+)?([^[:space:]]*/)?codex[[:space:]]+exec([[:space:]]|$)'
+segments="$(printf '%s\n' "$command" | sed -E 's/(&&|\|\||[;|&])/\n/g')"
+while IFS= read -r segment; do
+  if [[ "$segment" =~ $codex_exec_regex ]]; then
+    deny "Raw codex exec from a tool shell is not allowed; delegate via the Agent tool (see model-delegation.md)."
+  fi
+done <<<"$segments"
 
 # Chained commands: split on &&, ||, ;, | and take the first segment that
 # actually invokes `git ... worktree add ...` — later segments are not our

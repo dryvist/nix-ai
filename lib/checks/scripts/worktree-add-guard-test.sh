@@ -34,6 +34,19 @@ expect_deny() {
   fi
 }
 
+expect_deny_reason() {
+  local label="$1" input="$2" expected="$3"
+  local result
+  result=$(printf '%s' "$input" | bash "$script")
+  if ! printf '%s' "$result" | jq -e --arg expected "$expected" \
+    '.hookSpecificOutput.permissionDecision == "deny" and .hookSpecificOutput.permissionDecisionReason == $expected' >/dev/null; then
+    echo "FAIL ($label): expected deny reason '$expected', got: $result" >&2
+    fail=1
+  else
+    echo "PASS ($label): denied with requested reason"
+  fi
+}
+
 expect_allow "relative under .worktrees" \
   '{"tool_name":"Bash","tool_input":{"command":"git worktree add .worktrees/x"},"cwd":"/repo"}'
 
@@ -63,6 +76,41 @@ expect_allow "relative under .claude/worktrees" \
 
 expect_allow "no worktree add in command" \
   '{"tool_name":"Bash","tool_input":{"command":"git status"},"cwd":"/repo"}'
+
+expect_allow "codex version command" \
+  '{"tool_name":"Bash","tool_input":{"command":"codex --version"},"cwd":"/repo"}'
+
+expect_allow "quoted grep pattern" \
+  '{"tool_name":"Bash","tool_input":{"command":"grep \"codex exec\" file"},"cwd":"/repo"}'
+
+codex_exec_reason='Raw codex exec from a tool shell is not allowed; delegate via the Agent tool (see model-delegation.md).'
+expect_deny_reason "codex exec" \
+  '{"tool_name":"Bash","tool_input":{"command":"codex exec -"},"cwd":"/repo"}' \
+  "$codex_exec_reason"
+
+expect_deny_reason "codex exec after a chained command" \
+  '{"tool_name":"Bash","tool_input":{"command":"echo before && codex exec -"},"cwd":"/repo"}' \
+  "$codex_exec_reason"
+
+expect_deny_reason "codex exec after a semicolon" \
+  '{"tool_name":"Bash","tool_input":{"command":"echo before; codex exec -"},"cwd":"/repo"}' \
+  "$codex_exec_reason"
+
+expect_deny_reason "codex exec in a pipeline" \
+  '{"tool_name":"Bash","tool_input":{"command":"printf before | env CODEX_HOME=/tmp/codex codex exec -"},"cwd":"/repo"}' \
+  "$codex_exec_reason"
+
+expect_deny_reason "codex exec by full path" \
+  '{"tool_name":"Bash","tool_input":{"command":"/nix/store/abc-codex/bin/codex exec -"},"cwd":"/repo"}' \
+  "$codex_exec_reason"
+
+expect_deny_reason "codex exec with assignment prefix" \
+  '{"tool_name":"Bash","tool_input":{"command":"CODEX_HOME=/tmp/codex codex exec -"},"cwd":"/repo"}' \
+  "$codex_exec_reason"
+
+expect_deny_reason "codex exec with env prefix and full path" \
+  '{"tool_name":"Bash","tool_input":{"command":"env CODEX_HOME=/tmp/codex /opt/homebrew/bin/codex exec -"},"cwd":"/repo"}' \
+  "$codex_exec_reason"
 
 expect_allow "non-Bash tool" \
   '{"tool_name":"Read","tool_input":{"file_path":"/x"},"cwd":"/repo"}'

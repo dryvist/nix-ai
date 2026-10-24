@@ -142,8 +142,8 @@
   '';
 
   # Runs modules/agent-hooks/worktree-add-guard.sh directly against the
-  # allow/deny cases in scripts/worktree-add-guard-test.sh, so a bug in the
-  # path parsing is caught here rather than by a live PreToolUse denial.
+  # allowed and denied PreToolUse cases, covering both worktree paths and raw
+  # Codex CLI commands without relying on a live hook denial.
   worktree-add-guard = pkgs.runCommand "check-worktree-add-guard" {
     SRC = src;
     nativeBuildInputs = [ pkgs.jq ];
