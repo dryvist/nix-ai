@@ -48,7 +48,6 @@
   pkgs,
   lib,
   userConfig,
-  homelab-contracts,
   ...
 }:
 let
@@ -151,8 +150,9 @@ let
 
   configYaml = (pkgs.formats.yaml { }).generate "litellm-local-config.yaml" proxyConfig;
 
-  # Router aliases: every role in the role map (threaded input, so `follows` applies).
-  aliases = builtins.attrNames (import ../../lib/role-map.nix { src = homelab-contracts; }).roles;
+  # Router aliases: the committed lane list, not the role map (which also carries
+  # Stage 0 service roles the router never serves).
+  aliases = import ./aliases.nix;
 
   # The launchd entry point plus the two operator commands.
   commands = import ./commands.nix {

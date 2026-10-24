@@ -112,8 +112,8 @@ in
             baseURL: "{env:LLM_ROUTER_URL}",
             apiKey: "{env:AGENT_ROUTER_KEY}"
           } and
-          (["large", "medium", "small", "go-mimo-flash", "go-deepseek-flash",
-            "go-glm-flash", "go-kimi-k3", "go-qwen-plus", "go-minimax-m3"] -
+          (["auto", "light", "standard", "critical", "long", "medium", "small",
+            "go-mimo-flash", "go-deepseek-flash"] -
             (.provider.litellm.models | keys)) == [] and
           .provider["opencode-go"].options.baseURL == "https://opencode.ai/zen/go/v1" and
           .provider["opencode-go"].options.apiKey == "{env:OPENCODE_API_KEY}" and

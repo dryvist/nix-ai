@@ -34,6 +34,32 @@ let
     (mismatch "codex.litellmProfileNames" cfg.codex.litellmProfileNames)
   ];
   failures = builtins.filter (r: !r.ok) results;
+
+  # Lane vocabulary: identical to ansible-proxmox-ai LANE_VOCABULARY
+  # (tests/llm_router/test_alias_sources.py) and homelab-contracts
+  # tests/llm_roles/check_refs.yml. Change all three together.
+  laneVocabulary = [
+    "auto"
+    "light"
+    "standard"
+    "critical"
+    "long"
+    "embed"
+    "rerank"
+    "ocr"
+    "classify"
+    "judge"
+    "small"
+    "fast"
+    "cheap"
+    "medium"
+    "default"
+    "large"
+    "best"
+    "coding"
+    "recorder"
+  ];
+  unknownAliases = builtins.filter (n: !(builtins.elem n laneVocabulary)) aliases;
 in
 {
   litellm-alias-list-consistency =
@@ -41,4 +67,10 @@ in
       failures == [ ]
       || throw "consumer(s) drifted from modules/litellm-local/aliases.nix: ${builtins.toJSON failures}. A consumer must render from that ONE list, never an inline name — add the alias there first, or remove the stray inline name.";
     helpers.mkMarker "check-litellm-alias-list-consistency" "OpenCode and Codex both render exactly the modules/litellm-local/aliases.nix contract, in both directions";
+
+  litellm-alias-lane-vocabulary =
+    assert
+      unknownAliases == [ ]
+      || throw "modules/litellm-local/aliases.nix names outside the lane vocabulary: ${builtins.toJSON unknownAliases}. Add the name to the vocabulary in all three repos first.";
+    helpers.mkMarker "check-litellm-alias-lane-vocabulary" "every committed router alias is in the lane vocabulary shared with ansible-proxmox-ai and homelab-contracts";
 }
