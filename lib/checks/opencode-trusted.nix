@@ -79,6 +79,11 @@ let
     }
   ];
   localSettings = localConfig.config.home.file.".config/opencode/opencode.json".source;
+  expectedRouterNames = pkgs.lib.unique (
+    hmConfig.config.programs.litellmLocal.aliases
+    ++ hmConfig.config.programs.opencode.routerGoAliases
+    ++ hmConfig.config.programs.opencode.extraModels
+  );
 in
 {
   opencode-go-session-plugin =
@@ -104,7 +109,7 @@ in
     pkgs.runCommand "check-opencode-trusted-provider-config" { nativeBuildInputs = [ pkgs.jq ]; }
       ''
         test -s ${sessionPlugin}
-        jq -e '
+        jq -e --argjson expectedRouterNames '${builtins.toJSON expectedRouterNames}' '
           .permission["*"] == "allow" and
           .model == "litellm/medium" and
           .small_model == "litellm/small" and
@@ -112,8 +117,7 @@ in
             baseURL: "{env:LLM_ROUTER_URL}",
             apiKey: "{env:AGENT_ROUTER_KEY}"
           } and
-          (["auto", "light", "standard", "critical", "long", "medium", "small",
-            "go-mimo-flash", "go-deepseek-flash"] -
+          ($expectedRouterNames -
             (.provider.litellm.models | keys)) == [] and
           .provider["opencode-go"].options.baseURL == "https://opencode.ai/zen/go/v1" and
           .provider["opencode-go"].options.apiKey == "{env:OPENCODE_API_KEY}" and

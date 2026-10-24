@@ -104,7 +104,7 @@ let
   };
 
   # Router aliases are names only; the homelab router owns their mappings.
-  litellmRoles = import ../litellm-local/aliases.nix;
+  litellmRoles = litellmLocal.aliases;
   goModels = [
     {
       alias = "go-mimo-flash";
@@ -226,7 +226,7 @@ let
   // lib.optionalAttrs (otelPlugins != [ ]) { plugin = otelPlugins; }
   # Route OpenCode's default and small background tier through the matching
   # router capabilities. The provider catalog and delegated agents share the
-  # alias contract from modules/litellm-local/aliases.nix.
+  # programs.litellmLocal.aliases value.
   // {
     model = "litellm/medium";
     small_model = "litellm/small";
@@ -275,7 +275,7 @@ in
     {
       programs.opencode = {
         mcpServerNames = lib.attrNames mcpServers;
-        inherit litellmRoles;
+        inherit litellmRoles routerGoAliases;
         lspEnabled = settings.lsp or false;
         otelPluginEntries = otelPlugins;
       };

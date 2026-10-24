@@ -19,6 +19,7 @@
   src,
   home-manager,
   ai-llm-prompts,
+  homelab-contracts,
   aiModule,
   renderAutonomous,
   roleMap,
@@ -284,7 +285,7 @@ in
 // (import ./checks/litellm-local-isolated-chains.nix { inherit pkgs mkHmConfig; })
 // (import ./checks/litellm-local-launch-prefix.nix { inherit pkgs mkHmConfig; })
 // (import ./checks/litellm-local-scripts.nix { inherit pkgs src; })
-// (import ./checks/litellm-local-aliases.nix { inherit pkgs hmConfig; })
+// (import ./checks/litellm-local-aliases.nix { inherit pkgs hmConfig homelab-contracts; })
 // (import ./checks/fabric.nix {
   inherit
     pkgs

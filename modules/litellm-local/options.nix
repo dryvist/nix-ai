@@ -2,10 +2,16 @@
 #
 # All `options.programs.litellmLocal` declarations live here, mirroring the
 # per-module options.nix split used by fabric and the other agent modules.
-{ config, lib, ... }:
+{
+  config,
+  lib,
+  homelab-contracts,
+  ...
+}:
 let
   cfg = config.programs.litellmLocal;
   rungType = import ./rung-type.nix { inherit lib; };
+  lanes = import ../../lib/lanes.nix { src = homelab-contracts; };
 in
 {
   options.programs.litellmLocal = {
@@ -22,6 +28,17 @@ in
       subscription Claude Code session cannot send a gateway credential
       without losing the subscription (see the module header)
     '';
+
+    aliases = lib.mkOption {
+      type = lib.types.listOf (lib.types.enum lanes.vocabulary);
+      default = import ./aliases.nix { src = homelab-contracts; };
+      defaultText = lib.literalExpression "homelab-contracts ansible/roles/llm_roles/files/lanes.json harness_aliases";
+      description = ''
+        Router aliases exposed to routed harness clients and the local LiteLLM
+        proxy. Deployments may override this set; every name must be in the
+        shared homelab-contracts lane vocabulary.
+      '';
+    };
 
     subagentTier = lib.mkOption {
       type = lib.types.enum [

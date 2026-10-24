@@ -150,9 +150,8 @@ let
 
   configYaml = (pkgs.formats.yaml { }).generate "litellm-local-config.yaml" proxyConfig;
 
-  # Router aliases: the committed lane list, not the role map (which also carries
-  # Stage 0 service roles the router never serves).
-  aliases = import ./aliases.nix;
+  # One configurable alias value feeds the proxy and every routed harness.
+  inherit (cfg) aliases;
 
   # The launchd entry point plus the two operator commands.
   commands = import ./commands.nix {

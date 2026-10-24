@@ -64,7 +64,7 @@ let
   # The qwen-code model schema only accepts `name` and `description` — routing
   # is implicit in the provider's baseUrl, not a per-model field. When the
   # endpoint is the router or local proxy, expose only its capability aliases.
-  routerAliases = import ../litellm-local/aliases.nix;
+  routerAliases = litellmLocal.aliases;
   isRouterEndpoint = litellmLocal.enable || llmEndpoint == "router";
   modelEntries =
     if isRouterEndpoint then

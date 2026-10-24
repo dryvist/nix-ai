@@ -79,7 +79,7 @@ they serve as static residents. The selected model must be in that list.
 Without a static Qwen resident, Qwen Code keeps the existing endpoint and
 model behavior: `medium` for the local proxy or router, and `coding` for the
 direct local endpoint. The router or proxy lists the capability aliases from
-`modules/litellm-local/aliases.nix`; direct local serving lists the configured
+`programs.litellmLocal.aliases`; direct local serving lists the configured
 roles. The model option's catalog-key assertion applies when a Qwen catalog
 key is explicitly selected without a matching resident.
 

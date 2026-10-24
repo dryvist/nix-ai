@@ -148,7 +148,7 @@ in
       type = lib.types.listOf lib.types.str;
       readOnly = true;
       internal = true;
-      description = "Router capability aliases (modules/litellm-local/aliases.nix) rendered as Codex --profile <alias> files; read-only.";
+      description = "Router capability aliases rendered as Codex --profile <alias> files; read-only, sourced from programs.litellmLocal.aliases.";
     };
 
     otelExporterKinds = lib.mkOption {

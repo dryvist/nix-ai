@@ -45,7 +45,7 @@ let
   );
 
   features = cfg.features // localProxyFeatures;
-  litellmRoles = import ../litellm-local/aliases.nix;
+  litellmRoles = litellmLocal.aliases;
   selectedOnDemandMcpServers = lib.filterAttrs (
     name: _: lib.elem name cfg.onDemandMcpServers
   ) config.programs.aiMcp.onDemandEnabledServers;

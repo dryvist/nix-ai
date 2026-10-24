@@ -61,7 +61,7 @@
   # upstream (the localModels == [] case below).
   routerEntryModel ? null,
   # Extra group names that resolve to the SAME chain as the head. `small` is
-  # a router capability name (modules/litellm-local/aliases.nix),
+  # a router capability name (programs.litellmLocal.aliases),
   # so a client asking for it must get this host's chain, not the `*`
   # wildcard straight to the router — which would skip this host's own rung.
   headAliases ? [ ],
