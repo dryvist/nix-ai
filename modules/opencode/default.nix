@@ -137,8 +137,13 @@ let
       protocol = "anthropic";
     }
   ];
-  goAliases = map (model: model.alias) goModels;
-  routerModels = lib.unique (litellmRoles ++ goAliases ++ cfg.extraModels);
+  # The go-* names the router registers. The other OpenCode Go models are
+  # direct provider models, never router names.
+  routerGoAliases = [
+    "go-mimo-flash"
+    "go-deepseek-flash"
+  ];
+  routerModels = lib.unique (litellmRoles ++ routerGoAliases ++ cfg.extraModels);
   localMlxModels = lib.unique (litellmRoles ++ cfg.extraModels);
   goModelAttrs =
     models:
