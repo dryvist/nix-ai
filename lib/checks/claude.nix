@@ -209,12 +209,71 @@ in
         expected = true;
       }
       {
+        name = "permissions.deny blocks every Gmail send tool";
+        actual = pkgs.lib.subtractLists cfg.settings.permissions.deny [
+          "mcp__claude_ai_Gmail__forward"
+          "mcp__claude_ai_Gmail__reply"
+          "mcp__claude_ai_Gmail__send_message"
+          "mcp__google-workspace__send_gmail_message"
+        ];
+        expected = [ ];
+      }
+      {
+        name = "permissions.deny keeps Gmail read, label and draft tools reachable";
+        actual = builtins.filter (
+          d:
+          pkgs.lib.hasPrefix "mcp__claude_ai_Gmail__" d
+          && !(
+            pkgs.lib.hasSuffix "forward" d
+            || pkgs.lib.hasSuffix "reply" d
+            || pkgs.lib.hasSuffix "send_message" d
+          )
+        ) cfg.settings.permissions.deny;
+        expected = [ ];
+      }
+      {
         name = "swap.disabled";
         actual = cfg.swap.disabled;
         expected = false;
       }
     ];
   };
+
+  # The gws wrapper refuses Gmail send and forwarding-setup subcommands before
+  # it reaches bunx, wherever they sit on the command line. Only the refusals
+  # are run: an allowed call would exec bunx and need the network.
+  gws-no-email-send =
+    let
+      gws = builtins.head (
+        builtins.filter (p: pkgs.lib.getName p == "gws") hmConfig.config.home.packages
+      );
+      refused = [
+        "gmail +send --to a"
+        "gmail +reply --message-id m"
+        "gmail +reply-all --message-id m"
+        "gmail +forward --message-id m"
+        "gmail users messages send"
+        "gmail users drafts send"
+        "--format json gmail +send"
+        "GMAIL users messages SEND"
+        "gmail users settings autoForwarding update"
+        "gmail users settings forwardingAddresses create"
+      ];
+    in
+    pkgs.runCommand "check-gws-no-email-send" { } ''
+      refuse() {
+        set +e
+        ${gws}/bin/gws "$@" 2>/dev/null
+        rc=$?
+        set -e
+        if [ "$rc" -ne 64 ]; then
+          echo "FAIL: gws $* exited $rc, expected 64" >&2
+          exit 1
+        fi
+      }
+      ${pkgs.lib.concatMapStringsSep "\n" (a: "refuse ${a}") refused}
+      touch $out
+    '';
 
   # Validate the maestro-cli script extraction produces correct output.
   # (Kept here for historical reasons — moves to maestro module checks long-term.)
