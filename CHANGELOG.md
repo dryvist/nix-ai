@@ -1,5 +1,13 @@
 # Changelog
 
+## [8.1.1](https://github.com/dryvist/nix-ai/compare/v8.1.0...v8.1.1) (2026-10-24)
+
+
+### Bug Fixes
+
+* pin LiteLLM to 1.105.1 ([83b68d4](https://github.com/dryvist/nix-ai/commit/83b68d45e92f21e17caac1e801b046c195accccd))
+* track MLX VLM releases in Renovate ([#2692](https://github.com/dryvist/nix-ai/issues/2692)) ([086626f](https://github.com/dryvist/nix-ai/commit/086626f83ed5898e2ef79b6230acbb18cf0fe8ea))
+
 ## [8.1.0](https://github.com/dryvist/nix-ai/compare/v8.0.5...v8.1.0) (2026-10-22)
 
 
