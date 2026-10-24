@@ -116,11 +116,11 @@ in
   # truth: modules/claude/plugins/packs.nix. See docs/architecture/plugin-scoping.md.
   skillPacks = import ../modules/claude/plugins/packs.nix;
 
-  # Router capability aliases: every role in the role map.
+  # Router role names: every role in the role map.
   # Exported as a plain list, no module system, so a non-home-manager
   # cross-flake consumer (e.g. nix-home's Raycast provider renderer) can read
-  # the one committed contract instead of hand-maintaining its own copy.
-  # Same list as modules/litellm-local/aliases.nix, from the threaded input.
+  # the full role registry. Routed harness defaults live in the contracts
+  # lane file and remain separately configurable through programs.litellmLocal.
   litellmAliases = builtins.attrNames roleMap.roles;
 
   # Role-name → physical mlx-community/* model ID registry.

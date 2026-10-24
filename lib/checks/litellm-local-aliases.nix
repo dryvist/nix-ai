@@ -1,7 +1,7 @@
 # Router capability alias consistency — pure, no network.
 #
-# modules/litellm-local/aliases.nix is the ONE committed alias contract every
-# consumer renders from. This proves the two consumers that render from it
+# programs.litellmLocal.aliases is the shared alias contract every consumer
+# renders from. This proves the routed clients that render from it
 # (OpenCode's provider.litellm + agent tiers, Codex's per-alias profile
 # files) still match it exactly — asserted both ways, so a consumer silently
 # reintroducing an inline model name outside the list fails the build just as
@@ -12,11 +12,16 @@
 # lib/checks/scripts/litellm-alias-subset-check.sh for the CI-time
 # counterpart, which skips cleanly when no router credentials are in the
 # environment rather than silently passing.
-{ pkgs, hmConfig }:
+{
+  pkgs,
+  hmConfig,
+  homelab-contracts,
+}:
 let
   helpers = import ./helpers.nix { inherit pkgs; };
-  aliases = import ../../modules/litellm-local/aliases.nix;
   cfg = hmConfig.config.programs;
+  aliases = cfg.litellmLocal.aliases;
+  laneVocabulary = (import ../lanes.nix { src = homelab-contracts; }).vocabulary;
 
   mismatch =
     name: actual:
@@ -34,11 +39,19 @@ let
     (mismatch "codex.litellmProfileNames" cfg.codex.litellmProfileNames)
   ];
   failures = builtins.filter (r: !r.ok) results;
+
+  unknownAliases = builtins.filter (n: !(builtins.elem n laneVocabulary)) aliases;
 in
 {
   litellm-alias-list-consistency =
     assert
       failures == [ ]
-      || throw "consumer(s) drifted from modules/litellm-local/aliases.nix: ${builtins.toJSON failures}. A consumer must render from that ONE list, never an inline name — add the alias there first, or remove the stray inline name.";
-    helpers.mkMarker "check-litellm-alias-list-consistency" "OpenCode and Codex both render exactly the modules/litellm-local/aliases.nix contract, in both directions";
+      || throw "consumer(s) drifted from programs.litellmLocal.aliases: ${builtins.toJSON failures}. Every routed consumer must render from that option.";
+    helpers.mkMarker "check-litellm-alias-list-consistency" "OpenCode and Codex both render exactly programs.litellmLocal.aliases, in both directions";
+
+  litellm-alias-lane-vocabulary =
+    assert
+      unknownAliases == [ ]
+      || throw "programs.litellmLocal.aliases names outside the homelab-contracts lane vocabulary: ${builtins.toJSON unknownAliases}.";
+    helpers.mkMarker "check-litellm-alias-lane-vocabulary" "every configured router alias is in the homelab-contracts lane vocabulary";
 }

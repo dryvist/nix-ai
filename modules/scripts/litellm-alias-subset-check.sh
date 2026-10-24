@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # CI-time counterpart to the pure litellm-alias-list-consistency check
 # (lib/checks/litellm-local-aliases.nix). That check proves nix-ai's own
-# consumers render exactly modules/litellm-local/aliases.nix; it cannot prove
+# consumers render exactly programs.litellmLocal.aliases; it cannot prove
 # the router itself actually serves every name in that list, because a pure
 # Nix evaluation has no network access.
 #
-# Asserts LITELLM_ALIASES (the committed list, space-separated) is a SUBSET
+# Asserts LITELLM_ALIASES (the configured list, space-separated) is a SUBSET
 # of the router's live `/v1/models`. Never asserts equality: the router is
 # free to serve more model groups (physical ids, legacy synonyms) than the
 # capability aliases this repo names.
@@ -52,8 +52,8 @@ done
 
 if [ "${#missing[@]}" -ne 0 ]; then
   echo "router does not serve: ${missing[*]}" >&2
-  echo "committed list: modules/litellm-local/aliases.nix" >&2
+  echo "configured list: programs.litellmLocal.aliases" >&2
   exit 1
 fi
 
-echo "router serves all $# committed alias(es)"
+echo "router serves all $# configured alias(es)"

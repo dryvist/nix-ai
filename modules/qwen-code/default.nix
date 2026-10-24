@@ -66,6 +66,7 @@ in
   imports = [
     ./options.nix
     ./settings.nix
+    ../litellm-local/options.nix
   ];
 
   config = lib.mkMerge [

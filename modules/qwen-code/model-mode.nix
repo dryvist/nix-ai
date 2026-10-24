@@ -2,7 +2,7 @@
 { config, lib }:
 let
   modelCatalog = import ../mlx/catalog-data.nix;
-  routerCapabilities = (import ../litellm-local/aliases.nix) ++ [
+  routerCapabilities = config.programs.litellmLocal.aliases ++ [
     "embed"
     "ocr"
   ];

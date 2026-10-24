@@ -83,7 +83,7 @@ in
       default = [ ];
       description = ''
         Physical model IDs or router aliases exposed alongside the router
-        capability aliases (`modules/litellm-local/aliases.nix`) under the
+        capability aliases (`programs.litellmLocal.aliases`) under the
         LiteLLM provider in OpenCode. Empty by default: the alias list
         already covers every selectable tier. A committed list here would
         duplicate the router's own registry and drift from it — read the
@@ -96,7 +96,14 @@ in
       type = lib.types.listOf lib.types.str;
       readOnly = true;
       internal = true;
-      description = "Router capability aliases rendered into OpenCode's provider.litellm and agent tiers; read-only, sourced from modules/litellm-local/aliases.nix.";
+      description = "Router capability aliases rendered into OpenCode's provider.litellm and agent tiers; read-only, sourced from programs.litellmLocal.aliases.";
+    };
+
+    routerGoAliases = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      readOnly = true;
+      internal = true;
+      description = "Router-registered OpenCode Go aliases rendered into provider.litellm; read-only introspection for regression checks.";
     };
 
     lspEnabled = lib.mkOption {

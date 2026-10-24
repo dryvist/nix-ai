@@ -10,7 +10,7 @@
 let
   helpers = import ./helpers.nix { inherit pkgs; };
   inherit (pkgs) lib;
-  routerAliases = import ../../modules/litellm-local/aliases.nix;
+  routerAliases = hmConfig.config.programs.litellmLocal.aliases;
   routerCapabilities = routerAliases ++ [
     "embed"
     "ocr"

@@ -6,7 +6,7 @@ let
   homeDir = hmConfig.config.home.homeDirectory;
   settingsFile = hmConfig.config.home.file."${cfg.configDir}/opencode.json".source;
   routerAlias = "medium";
-  routerAliases = import ../../modules/litellm-local/aliases.nix;
+  routerAliases = hmConfig.config.programs.litellmLocal.aliases;
 in
 {
   # Verify all expected OpenCode option paths exist.
