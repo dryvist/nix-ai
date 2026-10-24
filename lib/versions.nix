@@ -22,37 +22,37 @@ in
 
   # AI CLI tools (npm)
   # renovate: datasource=npm depName=@felixgeelhaar/cclint
-  cclint = "0.15.1";
+  cclint = "0.25.0";
   # renovate: datasource=npm depName=@githubnext/github-copilot-cli
   ghCopilot = "0.1.36";
   # renovate: datasource=npm depName=chatgpt-cli
   chatgptCli = "3.3.0";
   # renovate: datasource=npm depName=claude-flow
-  claudeFlow = "3.34.0";
+  claudeFlow = "3.56.10";
   # renovate: datasource=npm depName=@googleworkspace/cli
   gwsCli = "0.22.5";
   # renovate: datasource=npm depName=@openwhispr/cli
-  openwhisprCli = "0.1.2";
+  openwhisprCli = "0.3.0";
   # renovate: datasource=npm depName=langfuse-cli
-  langfuseCli = "1.2.0";
+  langfuseCli = "1.2.4";
   # Agent-config synchronizer. The npm package is dyoshikawa/rulesync; at least
   # six unrelated projects share the name, so pin and verify against that repo.
   # renovate: datasource=npm depName=rulesync
-  rulesync = "16.29.0";
+  rulesync = "17.1.0";
   # oh-my-openagent Senpi edition (standalone `omo` command). Follow the beta
   # release stream instead of npm's separate `latest` dist-tag.
   # renovate: datasource=npm depName=omo-ai
-  omoSenpi = "5.0.0-0.beta.17";
+  omoSenpi = "5.1.0";
 
   # MCP servers (npm)
   # renovate: datasource=npm depName=@upstash/context7-mcp
-  context7Mcp = "4.0.5";
+  context7Mcp = "4.4.2";
   # renovate: datasource=npm depName=@modelcontextprotocol/server-everything
-  mcpEverything = "2026.7.4";
+  mcpEverything = "2026.8.31";
   # renovate: datasource=npm depName=@modelcontextprotocol/server-filesystem
-  mcpFilesystem = "2026.7.4";
+  mcpFilesystem = "2026.8.31";
   # renovate: datasource=npm depName=@modelcontextprotocol/server-memory
-  mcpMemory = "2026.7.4";
+  mcpMemory = "2026.8.31";
   # renovate: datasource=npm depName=@modelcontextprotocol/server-aws-kb-retrieval
   mcpAws = "0.6.2";
   # renovate: datasource=npm depName=@modelcontextprotocol/server-postgres
@@ -66,7 +66,7 @@ in
   # renovate: datasource=npm depName=@modelcontextprotocol/server-slack
   mcpSlack = "2025.4.25";
   # renovate: datasource=npm depName=mcp-server-apple-events
-  mcpAppleEvents = "1.5.0";
+  mcpAppleEvents = "1.6.1";
   # renovate: datasource=npm depName=@democratize-technology/vikunja-mcp
   vikunjaMcp = "0.2.0";
 
@@ -86,11 +86,11 @@ in
 
   # MCP servers (pypi)
   # renovate: datasource=pypi depName=mcp-server-time
-  mcpServerTime = "2026.6.4";
+  mcpServerTime = "2026.10.10";
   # renovate: datasource=pypi depName=fabric-mcp
-  fabricMcp = "1.2.1";
+  fabricMcp = "1.3.4";
   # renovate: datasource=pypi depName=google-workspace-mcp
-  gwsMcp = "2.0.8";
+  gwsMcp = "2.0.9";
   # renovate: datasource=pypi depName=unifi-mcp-server
   unifiMcpServer = "0.2.5";
 
@@ -98,7 +98,7 @@ in
   # Consumed as git+https://github.com/basher83/zammad-mcp.git@v<version>; the
   # upstream tag is v-prefixed, this pin stays bare like fabric below.
   # renovate: datasource=github-tags depName=basher83/Zammad-MCP
-  zammadMcp = "1.1.0";
+  zammadMcp = "1.2.0";
 
   # MLX inference stack (pypi). Pinned in mlx-server/pyproject.toml and read
   # from mlx-server/uv.lock, which also carries every artifact hash the Nix
@@ -123,11 +123,11 @@ in
   # renovate: datasource=pypi depName=vllm-mlx
   vllmMlx = "0.5.0";
   # renovate: datasource=pypi depName=lm-eval
-  lmEval = "0.4.12";
+  lmEval = "0.4.13";
 
   # AI tools (pypi)
   # renovate: datasource=pypi depName=browser-use
-  browserUse = "0.13.7";
+  browserUse = "0.13.11";
   # The loopback proxy (modules/litellm-local). Runs from uvx rather than
   # nixpkgs so it tracks the upstream release train; nixpkgs lags by months
   # and builds it from source with a large test closure.
@@ -141,12 +141,12 @@ in
   # fabric-src input. The fabric-version-sync regression check in
   # lib/checks/fabric.nix compares the two and fails on drift.
   # renovate: datasource=github-releases depName=danielmiessler/fabric
-  fabric = "1.4.470";
+  fabric = "1.4.524";
 
   # FluidAudio CLI (github-releases). Built from source at home-manager
   # activation time, not a sandboxed Nix derivation — see modules/fluidaudio.nix.
   # renovate: datasource=github-releases depName=FluidInference/FluidAudio
-  fluidAudio = "0.17.4";
+  fluidAudio = "0.17.7";
 
   # ZCode CLI (github-releases), built from this tag by modules/zcode/package.nix.
   # fix-renovate-hashes.yml refreshes the source and pnpm dependency hashes in

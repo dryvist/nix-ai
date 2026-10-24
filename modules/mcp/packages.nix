@@ -34,9 +34,9 @@ let
   # Regenerate with `nix-prefetch-url` (or read PyPI's JSON) when bumping.
   hashes = {
     modelcontextprotocol."1.0.1" = "sha256-py2wHSblDtTak178rtwVG4nf+T4abWuRYW20xEPKLv0=";
-    fabric-mcp."1.2.1" = "sha256-PNJsfq7ipdQIxIDHuzOFsq5bPzrAXt4vqbYaC0+IEN0=";
+    fabric-mcp."1.3.4" = "sha256-d4f1CQ983jkieW9Dfx11luJeJ1IPOXTB2kk15DVJdV0=";
     huggingface-mcp-server."0.1.0" = "sha256-HpMuEGDX4A5KQiU8P7RCmePnxDBb11uj3fnWYOzv2Ak=";
-    mcp-server-time."2026.6.4" = "sha256-Is6l9+Aa1qd1Cis9OAUekd8IXbkU0p7yuImsprXNaeE=";
+    mcp-server-time."2026.10.10" = "sha256-Mpg9UZOvIZNZzNrEbFWL7XX5yTA2DnQ3zAQKc5hMwXw=";
   };
 
   hashFor =
