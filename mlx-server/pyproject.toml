@@ -21,3 +21,9 @@ dependencies = [
 [tool.uv]
 exclude-newer = "7 days"
 required-version = ">=0.9.17"
+# Retain the patched versions already present in the base lockfile.
+constraint-dependencies = [
+  "certifi>=2026.10.23",
+  "filelock>=4.2.1",
+]
+exclude-newer-package = { certifi = "18 hours", filelock = "4 days" }
