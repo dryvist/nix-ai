@@ -86,7 +86,7 @@ jobs:
     name: Flake Lock Fresh
     permissions:
       contents: read
-    uses: dryvist/.github/.github/workflows/_flake-lock-fresh.yml@cf39ed35622ae0c3398c0e8c8c1de7aa992f387b6
+    uses: dryvist/.github/.github/workflows/_flake-lock-fresh.yml@12df22eadccd6b248ecb2d541d631d8bcf2c44e7
     with:
       max_age_days: 30
 
