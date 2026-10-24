@@ -50,6 +50,15 @@
       "LSP"
       "NotebookEdit"
     ]
+    # Agents never send email. The hosted Gmail connector keeps its read,
+    # label and draft tools; only the three that send are denied. The
+    # google-workspace MCP tool is denied too, in case that server is enabled.
+    ++ [
+      "mcp__claude_ai_Gmail__forward"
+      "mcp__claude_ai_Gmail__reply"
+      "mcp__claude_ai_Gmail__send_message"
+      "mcp__google-workspace__send_gmail_message"
+    ]
     # Zammad's tools average ~1.1k tokens each. Only ticket search, get,
     # create and update, articles, tags and the state/priority/group lookups
     # are used; these ten are denied so they never load where zammad attaches.
