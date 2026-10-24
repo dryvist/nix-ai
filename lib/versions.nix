@@ -135,7 +135,7 @@ in
   # nixpkgs so it tracks the upstream release train; nixpkgs lags by months
   # and builds it from source with a large test closure.
   # renovate: datasource=pypi depName=litellm
-  litellm = "1.105.0";
+  litellm = "1.105.1";
 
   # Fabric Go CLI (github-releases)
   # The flake input fabric-src is ALSO tracked by Renovate's nix manager and
