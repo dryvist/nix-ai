@@ -139,7 +139,24 @@ in
     # Source: https://github.com/googleworkspace/cli
     # NPM: @googleworkspace/cli (pinned version)
     # Key commands: gws gmail +triage, gws gmail +watch, gws drive +upload
+    #
+    # Agents never send email. The wrapper refuses every Gmail send and
+    # forwarding-setup subcommand wherever it sits on the command line, so a
+    # global flag before `gmail` cannot slip past a permission prefix rule.
+    # Reading mail and creating drafts pass through. Chat and Drive are untouched.
     (writeShellScriptBin "gws" ''
+      mail=0
+      send=0
+      for arg in "$@"; do
+        case "''${arg,,}" in
+          gmail) mail=1 ;;
+          send | +send | +reply | +reply-all | +forward | autoforwarding | forwardingaddresses) send=1 ;;
+        esac
+      done
+      if [ "$mail" = 1 ] && [ "$send" = 1 ]; then
+        echo "gws: sending or forwarding email is disabled. Reading mail and creating drafts are allowed." >&2
+        exit 64
+      fi
       exec ${bun}/bin/bunx --bun @googleworkspace/cli@${gwsCliVersion} "$@"
     '')
 

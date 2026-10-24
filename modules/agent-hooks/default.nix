@@ -50,11 +50,11 @@ in
     type = lib.types.bool;
     default = true;
     description = ''
-      Deny `git worktree add` (Claude Code and Codex both run this through a
-      PreToolUse hook) whenever the destination is not under
-      `<repo>/.worktrees/` or `<repo>/.claude/worktrees/`. On by default: it
-      only tightens where a worktree may land, never blocks a normal git
-      command.
+      Deny raw `codex exec` from a tool shell, and deny `git worktree add`
+      (Claude Code and Codex both run this through a PreToolUse hook) whenever
+      the destination is not under `<repo>/.worktrees/` or
+      `<repo>/.claude/worktrees/`. On by default: it only restricts these
+      specific shell commands.
     '';
   };
 

@@ -32,6 +32,8 @@ dev = [
 ]
 
 [tool.uv]
+exclude-newer = "7 days"
+required-version = ">=0.9.17"
 # Security: langsmith < 0.8.18 is affected by GHSA-f4xh-w4cj-qxq8 (CVSS 7.7).
 # Pulled in transitively via langchain-core. Tracked in JacobPEvans/nix-ai#812.
 #
@@ -47,6 +49,8 @@ constraint-dependencies = [
   "certifi>=2026.10.19",
   # renovate: datasource=pypi depName=setuptools
   "setuptools>=84.1.0",
+  # Keep the current locked NLTK baseline within a shorter per-package cooldown.
+  "nltk>=3.10.4",
 ]
 # LiteLLM's upper bound excludes the security-fixed filelock release. Its
 # consumers here use the compatible FileLock and AsyncFileLock APIs.
@@ -54,7 +58,7 @@ constraint-dependencies = [
 override-dependencies = ["filelock==4.2.4"]
 # The 7-day global soak remains for other packages. These fixed packages need
 # a shorter per-package soak to avoid selecting known-vulnerable versions.
-exclude-newer-package = { certifi = "3 days", filelock = "4 days", setuptools = "4 days" }
+exclude-newer-package = { certifi = "3 days", filelock = "4 days", nltk = "2 days", setuptools = "4 days" }
 
 [build-system]
 requires = ["hatchling"]

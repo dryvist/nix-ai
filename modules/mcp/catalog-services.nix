@@ -44,6 +44,10 @@
       "gmail"
       "drive"
       "calendar"
+      # Agents never send email. Server-side, so every harness that attaches
+      # this server loses the tool; read, search, label and draft stay.
+      "--disabled-tools"
+      "send_gmail_message"
     ];
     env_vars = [
       "GOOGLE_OAUTH_CLIENT_ID"
