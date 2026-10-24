@@ -32,10 +32,6 @@ dev = [
 ]
 
 [tool.uv]
-# Security: LiteLLM 1.82.7 and 1.82.8 contained a supply-chain backdoor
-# (credential stealer by TeamPCP, discovered 2026-03-24).
-# Block compromised versions; allow future patched releases.
-#
 # Security: langsmith < 0.8.18 is affected by GHSA-f4xh-w4cj-qxq8 (CVSS 7.7).
 # Pulled in transitively via langchain-core. Tracked in JacobPEvans/nix-ai#812.
 #
@@ -43,10 +39,22 @@ dev = [
 # request smuggling, CWE-444). Pulled in transitively via httpx[http2].
 # Fixed in 4.4.1.
 constraint-dependencies = [
-  "litellm!=1.82.7,!=1.82.8",
+  "litellm==1.105.1",
   "langsmith>=0.8.18",
   "h2>=4.4.1",
+  # Keep patched security dependencies inside shorter per-package soaks.
+  # renovate: datasource=pypi depName=certifi
+  "certifi>=2026.10.19",
+  # renovate: datasource=pypi depName=setuptools
+  "setuptools>=84.1.0",
 ]
+# LiteLLM's upper bound excludes the security-fixed filelock release. Its
+# consumers here use the compatible FileLock and AsyncFileLock APIs.
+# renovate: datasource=pypi depName=filelock
+override-dependencies = ["filelock==4.2.4"]
+# The 7-day global soak remains for other packages. These fixed packages need
+# a shorter per-package soak to avoid selecting known-vulnerable versions.
+exclude-newer-package = { certifi = "3 days", filelock = "4 days", setuptools = "4 days" }
 
 [build-system]
 requires = ["hatchling"]
