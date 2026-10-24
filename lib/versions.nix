@@ -39,12 +39,9 @@ in
   # six unrelated projects share the name, so pin and verify against that repo.
   # renovate: datasource=npm depName=rulesync
   rulesync = "16.29.0";
-  # oh-my-openagent Senpi edition (standalone `omo` command). Beta-channel
-  # only: every published version is a prerelease and the `latest` dist-tag
-  # points at a placeholder (0.0.0-beta.0), so a Renovate npm pin would track
-  # the wrong channel. Bump manually against `npm view omo-ai@beta version`.
-  # Deliberately carries no `renovate:` annotation — same rationale as
-  # mcpSdkBound above.
+  # oh-my-openagent Senpi edition (standalone `omo` command). Follow the beta
+  # release stream instead of npm's separate `latest` dist-tag.
+  # renovate: datasource=npm depName=omo-ai
   omoSenpi = "5.0.0-0.beta.17";
 
   # MCP servers (npm)

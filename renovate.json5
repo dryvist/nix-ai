@@ -42,5 +42,11 @@
       "matchFileNames": ["lib/python.nix"],
       "enabled": false,
     },
+    {
+      "description": "Follow omo-ai's beta release stream instead of npm's separate latest tag.",
+      "matchDatasources": ["npm"],
+      "matchPackageNames": ["omo-ai"],
+      "followTag": "beta",
+    },
   ],
 }
