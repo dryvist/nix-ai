@@ -32,6 +32,8 @@ dev = [
 ]
 
 [tool.uv]
+exclude-newer = "7 days"
+required-version = ">=0.9.17"
 # Security: langsmith < 0.8.18 is affected by GHSA-f4xh-w4cj-qxq8 (CVSS 7.7).
 # Pulled in transitively via langchain-core. Tracked in JacobPEvans/nix-ai#812.
 #

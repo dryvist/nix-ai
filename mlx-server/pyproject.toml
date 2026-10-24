@@ -17,3 +17,7 @@ dependencies = [
   "transformers==5.20.1",
   "huggingface-hub==1.33.0",
 ]
+
+[tool.uv]
+exclude-newer = "7 days"
+required-version = ">=0.9.17"
