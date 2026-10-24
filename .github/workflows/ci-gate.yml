@@ -82,12 +82,20 @@ jobs:
           - 'mlx-server/**'
           - 'orchestrator/**'
 
+  flake-lock-fresh:
+    name: Flake Lock Fresh
+    permissions:
+      contents: read
+    uses: dryvist/.github/.github/workflows/_flake-lock-fresh.yml@12df22eadccd6b248ecb2d541d631d8bcf2c44e7
+    with:
+      max_age_days: 30
+
   # ==========================================================================
   # MERGE GATE - The ONLY required check in branch protection
   # ==========================================================================
   gate:
     name: Merge Gate
-    needs: [shared-gate]
+    needs: [shared-gate, flake-lock-fresh]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     permissions: {}
