@@ -47,35 +47,180 @@ expect_deny_reason() {
   fi
 }
 
+raw_branch_reason="Start branches with \`git town hack <name>\` (or the harness worktree); never from a local base."
+base_merge_reason="Sync with \`git town sync\` (rebase); never merge the base into a PR branch."
+
 expect_allow "relative under .worktrees" \
-  '{"tool_name":"Bash","tool_input":{"command":"git worktree add .worktrees/x"},"cwd":"/repo"}'
+  '{"tool_name":"Bash","tool_input":{"command":"git worktree add .worktrees/x origin/develop"},"cwd":"/repo"}'
 
 expect_allow "absolute under .worktrees" \
-  '{"tool_name":"Bash","tool_input":{"command":"git worktree add /repo/.worktrees/x"},"cwd":"/repo"}'
+  '{"tool_name":"Bash","tool_input":{"command":"git worktree add /repo/.worktrees/x origin/develop"},"cwd":"/repo"}'
 
 expect_allow "-b flag before target" \
-  '{"tool_name":"Bash","tool_input":{"command":"git worktree add -b feat .worktrees/x"},"cwd":"/repo"}'
+  '{"tool_name":"Bash","tool_input":{"command":"git worktree add -b feat .worktrees/x origin/develop"},"cwd":"/repo"}'
 
 expect_deny "relative sibling via .." \
-  '{"tool_name":"Bash","tool_input":{"command":"git worktree add ../foo"},"cwd":"/repo"}'
+  '{"tool_name":"Bash","tool_input":{"command":"git worktree add ../foo origin/develop"},"cwd":"/repo"}'
 
 expect_deny "git -C with unrelated target" \
-  '{"tool_name":"Bash","tool_input":{"command":"git -C /repo worktree add /tmp/x"},"cwd":"/other"}'
+  '{"tool_name":"Bash","tool_input":{"command":"git -C /repo worktree add /tmp/x origin/develop"},"cwd":"/other"}'
 
 expect_deny "chained: earlier command, denied worktree add" \
-  '{"tool_name":"Bash","tool_input":{"command":"git status && git worktree add /tmp/x"},"cwd":"/repo"}'
+  '{"tool_name":"Bash","tool_input":{"command":"git status && git worktree add /tmp/x origin/develop"},"cwd":"/repo"}'
 
 expect_allow "chained: earlier command, allowed worktree add" \
   '{"tool_name":"Bash","tool_input":{"command":"git fetch origin && git worktree add .worktrees/y origin/develop"},"cwd":"/repo"}'
 
 expect_deny "escape via .. after the allowed dir" \
-  '{"tool_name":"Bash","tool_input":{"command":"git worktree add .worktrees/../../elsewhere"},"cwd":"/repo"}'
+  '{"tool_name":"Bash","tool_input":{"command":"git worktree add .worktrees/../../elsewhere origin/develop"},"cwd":"/repo"}'
 
 expect_allow "relative under .claude/worktrees" \
-  '{"tool_name":"Bash","tool_input":{"command":"git worktree add .claude/worktrees/x"},"cwd":"/repo"}'
+  '{"tool_name":"Bash","tool_input":{"command":"git worktree add .claude/worktrees/x origin/develop"},"cwd":"/repo"}'
+
+expect_deny_reason "worktree start-point defaults to local HEAD" \
+  '{"tool_name":"Bash","tool_input":{"command":"git worktree add .worktrees/x"},"cwd":"/repo"}' \
+  "$raw_branch_reason"
+
+expect_deny_reason "worktree start-point is a local base" \
+  '{"tool_name":"Bash","tool_input":{"command":"git worktree add .worktrees/x develop"},"cwd":"/repo"}' \
+  "$raw_branch_reason"
+
+expect_allow "worktree start-point is origin/HEAD" \
+  '{"tool_name":"Bash","tool_input":{"command":"git worktree add --no-track -b feat .worktrees/x origin/HEAD"},"cwd":"/repo"}'
+
+expect_allow "worktree start-point is origin/develop" \
+  '{"tool_name":"Bash","tool_input":{"command":"git worktree add --no-track -b feat .worktrees/x origin/develop"},"cwd":"/repo"}'
 
 expect_allow "no worktree add in command" \
   '{"tool_name":"Bash","tool_input":{"command":"git status"},"cwd":"/repo"}'
+
+expect_allow "git town hack" \
+  '{"tool_name":"Bash","tool_input":{"command":"git town hack x"},"cwd":"/repo"}'
+
+expect_allow "git town sync" \
+  '{"tool_name":"Bash","tool_input":{"command":"git town sync"},"cwd":"/repo"}'
+
+expect_allow "git fetch" \
+  '{"tool_name":"Bash","tool_input":{"command":"git fetch origin"},"cwd":"/repo"}'
+
+expect_allow "git rebase origin/develop" \
+  '{"tool_name":"Bash","tool_input":{"command":"git rebase origin/develop"},"cwd":"/repo"}'
+
+expect_deny_reason "checkout -b" \
+  '{"tool_name":"Bash","tool_input":{"command":"git checkout -b feat/new-branch"},"cwd":"/repo"}' \
+  "$raw_branch_reason"
+
+expect_deny_reason "checkout -B" \
+  '{"tool_name":"Bash","tool_input":{"command":"git checkout -B feat/new-branch"},"cwd":"/repo"}' \
+  "$raw_branch_reason"
+
+expect_deny_reason "switch -c" \
+  '{"tool_name":"Bash","tool_input":{"command":"git switch -c feat/new-branch"},"cwd":"/repo"}' \
+  "$raw_branch_reason"
+
+expect_deny_reason "switch -C" \
+  '{"tool_name":"Bash","tool_input":{"command":"git switch -C feat/new-branch"},"cwd":"/repo"}' \
+  "$raw_branch_reason"
+
+expect_deny_reason "switch --create" \
+  '{"tool_name":"Bash","tool_input":{"command":"git switch --create feat/new-branch"},"cwd":"/repo"}' \
+  "$raw_branch_reason"
+
+expect_deny_reason "git -C switch --create" \
+  '{"tool_name":"Bash","tool_input":{"command":"git -C /repo switch --create feat/new-branch"},"cwd":"/other"}' \
+  "$raw_branch_reason"
+
+expect_deny_reason "branch creation" \
+  '{"tool_name":"Bash","tool_input":{"command":"git branch feat/new-branch"},"cwd":"/repo"}' \
+  "$raw_branch_reason"
+
+expect_deny_reason "branch creation with tracking" \
+  '{"tool_name":"Bash","tool_input":{"command":"git branch --track feat/new-branch origin/develop"},"cwd":"/repo"}' \
+  "$raw_branch_reason"
+
+expect_allow "branch list without arguments" \
+  '{"tool_name":"Bash","tool_input":{"command":"git branch"},"cwd":"/repo"}'
+
+expect_allow "branch list all" \
+  '{"tool_name":"Bash","tool_input":{"command":"git branch -a"},"cwd":"/repo"}'
+
+expect_allow "branch list explicit" \
+  '{"tool_name":"Bash","tool_input":{"command":"git branch --list"},"cwd":"/repo"}'
+
+expect_allow "branch show current" \
+  '{"tool_name":"Bash","tool_input":{"command":"git branch --show-current"},"cwd":"/repo"}'
+
+expect_allow "branch delete short" \
+  '{"tool_name":"Bash","tool_input":{"command":"git branch -d x"},"cwd":"/repo"}'
+
+expect_allow "branch delete force" \
+  '{"tool_name":"Bash","tool_input":{"command":"git branch -D x"},"cwd":"/repo"}'
+
+expect_allow "branch delete long" \
+  '{"tool_name":"Bash","tool_input":{"command":"git branch --delete x"},"cwd":"/repo"}'
+
+expect_allow "branch rename" \
+  '{"tool_name":"Bash","tool_input":{"command":"git branch -m old new"},"cwd":"/repo"}'
+
+expect_allow "branch rename long" \
+  '{"tool_name":"Bash","tool_input":{"command":"git branch --move old new"},"cwd":"/repo"}'
+
+expect_deny_reason "merge main" \
+  '{"tool_name":"Bash","tool_input":{"command":"git merge main"},"cwd":"/repo"}' \
+  "$base_merge_reason"
+
+expect_deny_reason "merge develop" \
+  '{"tool_name":"Bash","tool_input":{"command":"git merge develop"},"cwd":"/repo"}' \
+  "$base_merge_reason"
+
+expect_deny_reason "merge origin/main" \
+  '{"tool_name":"Bash","tool_input":{"command":"git merge origin/main"},"cwd":"/repo"}' \
+  "$base_merge_reason"
+
+expect_deny_reason "merge origin/develop" \
+  '{"tool_name":"Bash","tool_input":{"command":"git merge origin/develop"},"cwd":"/repo"}' \
+  "$base_merge_reason"
+
+expect_deny_reason "merge origin/HEAD" \
+  '{"tool_name":"Bash","tool_input":{"command":"git merge origin/HEAD"},"cwd":"/repo"}' \
+  "$base_merge_reason"
+
+expect_deny_reason "git -C merge base" \
+  '{"tool_name":"Bash","tool_input":{"command":"git -C /repo merge --no-edit origin/develop"},"cwd":"/other"}' \
+  "$base_merge_reason"
+
+expect_allow "merge feature branch" \
+  '{"tool_name":"Bash","tool_input":{"command":"git merge feature/topic"},"cwd":"/repo"}'
+
+expect_deny_reason "pull --no-rebase main" \
+  '{"tool_name":"Bash","tool_input":{"command":"git pull --no-rebase main"},"cwd":"/repo"}' \
+  "$base_merge_reason"
+
+expect_deny_reason "pull --no-rebase develop" \
+  '{"tool_name":"Bash","tool_input":{"command":"git pull --no-rebase develop"},"cwd":"/repo"}' \
+  "$base_merge_reason"
+
+expect_deny_reason "pull --no-rebase origin/main" \
+  '{"tool_name":"Bash","tool_input":{"command":"git pull --no-rebase origin/main"},"cwd":"/repo"}' \
+  "$base_merge_reason"
+
+expect_deny_reason "pull --no-rebase origin/develop" \
+  '{"tool_name":"Bash","tool_input":{"command":"git pull --no-rebase origin/develop"},"cwd":"/repo"}' \
+  "$base_merge_reason"
+
+expect_deny_reason "pull --no-rebase origin/HEAD" \
+  '{"tool_name":"Bash","tool_input":{"command":"git pull --no-rebase origin/HEAD"},"cwd":"/repo"}' \
+  "$base_merge_reason"
+
+expect_deny_reason "git -C pull --no-rebase base" \
+  '{"tool_name":"Bash","tool_input":{"command":"git -C /repo pull --no-rebase origin develop"},"cwd":"/other"}' \
+  "$base_merge_reason"
+
+expect_allow "pull --no-rebase feature branch" \
+  '{"tool_name":"Bash","tool_input":{"command":"git pull --no-rebase origin feature/topic"},"cwd":"/repo"}'
+
+expect_allow "pull with default rebase policy" \
+  '{"tool_name":"Bash","tool_input":{"command":"git pull origin/develop"},"cwd":"/repo"}'
 
 expect_allow "codex version command" \
   '{"tool_name":"Bash","tool_input":{"command":"codex --version"},"cwd":"/repo"}'

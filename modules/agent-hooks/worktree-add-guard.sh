@@ -30,11 +30,106 @@ cwd="$(jq -r '.cwd // empty' <<<"$input")"
 # Inspect each command in a chain. The command-position anchor keeps text such
 # as `grep "codex exec" file` from looking like a CLI invocation.
 codex_exec_regex='^[[:space:]]*(([[:alpha:]_][[:alnum:]_]*=[^[:space:]]+)[[:space:]]+)*(([^[:space:]]*/)?env[[:space:]]+(([[:alpha:]_][[:alnum:]_]*=[^[:space:]]+|-i|--ignore-environment|--)[[:space:]]+)*)?((command|exec)[[:space:]]+)?([^[:space:]]*/)?codex[[:space:]]+exec([[:space:]]|$)'
+git_command_prefix='^[[:space:]]*(([[:alpha:]_][[:alnum:]_]*=[^[:space:]]+)[[:space:]]+)*(([^[:space:]]*/)?env[[:space:]]+(([[:alpha:]_][[:alnum:]_]*=[^[:space:]]+|-i|--ignore-environment|--)[[:space:]]+)*)?((command|exec)[[:space:]]+)?([^[:space:]]*/)?git[[:space:]]+(-C[[:space:]]+[^[:space:]]+[[:space:]]+)?'
+raw_branch_reason="Start branches with \`git town hack <name>\` (or the harness worktree); never from a local base."
+base_merge_reason="Sync with \`git town sync\` (rebase); never merge the base into a PR branch."
 segments="$(printf '%s\n' "$command" | sed -E 's/(&&|\|\||[;|&])/\n/g')"
 while IFS= read -r segment; do
   if [[ "$segment" =~ $codex_exec_regex ]]; then
     deny "Raw codex exec from a tool shell is not allowed; delegate via the Agent tool (see model-delegation.md)."
   fi
+
+  [[ "$segment" =~ $git_command_prefix ]] || continue
+  read -ra git_tokens <<<"$segment"
+
+  # Find the executable after any command prefix, then skip git's optional
+  # -C <path> pair before identifying the subcommand.
+  git_index=-1
+  for i in "${!git_tokens[@]}"; do
+    case "${git_tokens[$i]}" in
+    git | */git)
+      git_index="$i"
+      break
+      ;;
+    esac
+  done
+  [ "$git_index" -ge 0 ] || continue
+  subcommand_index=$((git_index + 1))
+  if [ "${git_tokens[$subcommand_index]:-}" = "-C" ]; then
+    subcommand_index=$((subcommand_index + 2))
+  fi
+  git_subcommand="${git_tokens[$subcommand_index]:-}"
+  git_args_index=$((subcommand_index + 1))
+
+  case "$git_subcommand" in
+  checkout)
+    for ((i = git_args_index; i < ${#git_tokens[@]}; i++)); do
+      case "${git_tokens[$i]}" in
+      -b | -B | --branch | -b=* | -B=* | --branch=*) deny "$raw_branch_reason" ;;
+      esac
+    done
+    ;;
+  switch)
+    for ((i = git_args_index; i < ${#git_tokens[@]}; i++)); do
+      case "${git_tokens[$i]}" in
+      -c | -C | --create | --force-create | -c=* | -C=* | --create=* | --force-create=*) deny "$raw_branch_reason" ;;
+      esac
+    done
+    ;;
+  branch)
+    branch_has_argument=0
+    branch_list_mode=0
+    branch_safe_operation=0
+    for ((i = git_args_index; i < ${#git_tokens[@]}; i++)); do
+      case "${git_tokens[$i]}" in
+      -d | -D | --delete | -m | -M | --move)
+        branch_safe_operation=1
+        ;;
+      -l | --list | -a | --all | -r | --remotes | -v | -vv | --verbose | --show-current | --merged | --no-merged | --contains | --no-contains | --points-at | --format | --sort | --column | --omit-empty | --list=*)
+        branch_list_mode=1
+        ;;
+      --format=* | --sort=* | --column=*)
+        branch_list_mode=1
+        ;;
+      --)
+        if [ "$((i + 1))" -lt "${#git_tokens[@]}" ]; then
+          branch_has_argument=1
+        fi
+        ;;
+      -* ) ;;
+      *) branch_has_argument=1 ;;
+      esac
+    done
+    if [ "$branch_has_argument" -eq 1 ] && [ "$branch_list_mode" -eq 0 ] && [ "$branch_safe_operation" -eq 0 ]; then
+      deny "$raw_branch_reason"
+    fi
+    ;;
+  merge | pull)
+    pull_no_rebase=0
+    if [ "$git_subcommand" = "pull" ]; then
+      for ((i = git_args_index; i < ${#git_tokens[@]}; i++)); do
+        [ "${git_tokens[$i]}" = "--no-rebase" ] && pull_no_rebase=1
+      done
+      [ "$pull_no_rebase" -eq 1 ] || continue
+    fi
+
+    for ((i = git_args_index; i < ${#git_tokens[@]}; i++)); do
+      tok="${git_tokens[$i]}"
+      case "$tok" in
+      -m | --message | -F | --file | -s | --strategy | -X | --strategy-option | --exec | --upload-pack | --depth | --deepen | --shallow-since | --shallow-exclude | --jobs | --filter | --server-option)
+        i=$((i + 1))
+        ;;
+      --)
+        continue
+        ;;
+      -* ) ;;
+      main | develop | origin/main | origin/develop | origin/HEAD)
+        deny "$base_merge_reason"
+        ;;
+      esac
+    done
+    ;;
+  esac
 done <<<"$segments"
 
 # Chained commands: split on &&, ||, ;, | and take the first segment that
@@ -58,24 +153,33 @@ for i in "${!tokens[@]}"; do
   [ "${tokens[$i]}" = "worktree" ] && break
 done
 
-# Find "worktree add" and walk forward past flags to the target path,
-# skipping the value of -b/-B/--reason.
+# Find "worktree add" and walk forward past flags to the target path and
+# optional start-point, skipping the value of -b/-B/--reason.
 target=""
+startpoint=""
 for i in "${!tokens[@]}"; do
   if [ "${tokens[$i]}" = "worktree" ] && [ "${tokens[$((i + 1))]:-}" = "add" ]; then
     j=$((i + 2))
     while [ "$j" -lt "${#tokens[@]}" ]; do
       tok="${tokens[$j]}"
       case "$tok" in
-      -b | -B | --reason)
+      -b | -B | --branch | --reason)
         j=$((j + 2))
+        ;;
+      --)
+        j=$((j + 1))
         ;;
       -*)
         j=$((j + 1))
         ;;
       *)
-        target="$tok"
-        break 2
+        if [ -z "$target" ]; then
+          target="$tok"
+        else
+          startpoint="$tok"
+          break 2
+        fi
+        j=$((j + 1))
         ;;
       esac
     done
@@ -83,6 +187,10 @@ for i in "${!tokens[@]}"; do
   fi
 done
 [ -n "$target" ] || exit 0
+case "$startpoint" in
+origin/*) ;;
+*) deny "$raw_branch_reason" ;;
+esac
 
 # Resolve to an absolute path without requiring the directory to exist.
 case "$target" in
