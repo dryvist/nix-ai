@@ -41,7 +41,7 @@ buildGoModule rec {
   proxyVendor = true;
 
   # Discover via: nix build .#fabric-ai 2>&1 | grep 'got:'
-  vendorHash = "sha256-J0EoTYCqqrOZG1jfTCWYhZ9X8KoL7pObTq6LbYWY7OM=";
+  vendorHash = "sha256-lv4PidMl6pfqG+NdtFxMA0laWR1TmMjwoR5gfYLcL1Q=";
 
   # Build only the main fabric binary from cmd/fabric. Skip cmd/code2context,
   # cmd/generate_changelog, cmd/to_pdf — we only need the primary CLI.
