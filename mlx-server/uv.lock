@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.14"
 resolution-markers = [
     "sys_platform == 'linux'",
@@ -822,7 +822,7 @@ wheels = [
 
 [package.optional-dependencies]
 cpu = [
-    { name = "mlx-cpu", marker = "sys_platform == 'linux'" },
+    { name = "mlx-cpu" },
 ]
 
 [[package]]
