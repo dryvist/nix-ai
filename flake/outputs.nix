@@ -68,6 +68,7 @@ let
         aiModule = self.homeManagerModules.default;
       };
       cfg = fixtures.hmConfigRouter.config.programs;
+      claudeRouterNames = (pkgs.callPackage ../modules/claude-router-pkgs.nix { }).routerNames;
       cecliNames = map (name: nixpkgs.lib.removePrefix "openai/" name) [
         cfg.cecli.model
         cfg.cecli.weakModel
@@ -76,7 +77,9 @@ let
       names =
         cfg.litellmLocal.aliases
         ++ cfg.opencode.litellmRoles
+        ++ cfg.opencode.routerGoAliases
         ++ cfg.codex.litellmProfileNames
+        ++ claudeRouterNames
         ++ [ cfg.qwen-code.model ]
         ++ cecliNames
         ++ [
