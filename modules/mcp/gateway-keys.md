@@ -1,0 +1,3 @@
+# Gateway key launchers
+
+`programs.aiMcp.gatewayKeyLaunchPrefixFor` is an opt-in hook that defaults to `null`. A host sets it to a function of `{ callerId, env }` returning argv tokens, where `env` is the `GATEWAY_KEY_<ID>` name from `modules/mcp/client.nix`. The claude, codex and trusted opencode launchers then run `<tokens> <real executable> "$@"`, or the real executable directly when `$env` is already non-empty. The tokens own key retrieval and the unavailable-key warning. Harnesses without a caller ID, and every launcher while the hook is null, are unchanged. `claude-zai` exports `AGENT_GATEWAY_CALLER=claude-zai` and uses its own prefix; the claude launcher consumes that marker and skips its own key.

@@ -2,6 +2,8 @@
 {
   package,
   launchPrefix ? [ ],
+  gatewayKeyLaunchPrefix ? null,
+  gatewayKeyEnv ? null,
   extraEnv ? { },
 }:
 let
@@ -9,12 +11,28 @@ let
     lib.optionalString (extraEnv != { })
       "env ${lib.escapeShellArgs (lib.mapAttrsToList (name: value: "${name}=${value}") extraEnv)} ";
   launchPrefixArgs = lib.escapeShellArgs launchPrefix;
+  gatewayPrefixArgs =
+    if gatewayKeyLaunchPrefix == null then
+      launchPrefixArgs
+    else
+      lib.escapeShellArgs (gatewayKeyLaunchPrefix ++ launchPrefix);
+  executable = lib.escapeShellArg "${package}/bin/opencode";
+  text =
+    if gatewayKeyLaunchPrefix == null then
+      ''
+        exec ${envPrefix}${launchPrefixArgs} ${executable} "$@"
+      ''
+    else
+      ''
+        if [ -n "''${${gatewayKeyEnv}:-}" ]; then
+          exec ${envPrefix}${launchPrefixArgs} ${executable} "$@"
+        fi
+        exec ${envPrefix}${gatewayPrefixArgs} ${executable} "$@"
+      '';
   launcher = pkgs.writeShellApplication {
     name = "opencode";
     runtimeInputs = [ pkgs.coreutils ];
-    text = ''
-      exec ${envPrefix}${launchPrefixArgs} ${lib.escapeShellArg "${package}/bin/opencode"} "$@"
-    '';
+    inherit text;
   };
 in
 launcher.overrideAttrs (old: {

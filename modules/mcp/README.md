@@ -70,7 +70,8 @@ Gateway routes send `X-Agent-Key` through each client's own environment
 reference syntax. `callerKeyEnv` derives `GATEWAY_KEY_<CALLER_ID>` by uppercasing
 the ID and replacing hyphens with underscores. The configured IDs come from
 `homelab-contracts/ansible/roles/agent_callers/files/callers.json`; evaluation
-fails if a renderer uses an unregistered ID.
+fails if a renderer uses an unregistered ID. The opt-in host launch prefix is
+described in [Gateway key launchers](./gateway-keys.md).
 
 OpenCode renders separate trusted and untrusted MCP overlays selected through
 `OPENCODE_CONFIG`. The `claude-zai` launcher uses its own strict MCP file and

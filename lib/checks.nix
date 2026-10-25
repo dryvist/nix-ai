@@ -57,6 +57,8 @@ let
     hmConfigQwenExcludeToolsCustom
     hmConfigMcpLaunchPrefix
     hmConfigGatewayCallers
+    hmConfigGatewayKeyLaunchPrefix
+    hmConfigGatewayKeyLaunchPrefixNull
     ;
   mkHmConfigDarwin =
     (import ./checks-fixtures.nix {
@@ -239,6 +241,13 @@ in
     hmConfig
     hmConfigMcpLaunchPrefix
     hmConfigGatewayCallers
+    ;
+})
+// (import ./checks/mcp-gateway-key-launch.nix {
+  inherit
+    pkgs
+    hmConfigGatewayKeyLaunchPrefix
+    hmConfigGatewayKeyLaunchPrefixNull
     ;
 })
 // (import ./checks/autonomous-profile.nix {

@@ -77,6 +77,8 @@ rec {
   inherit (import ./checks-fixtures-mcp.nix { inherit mkHmConfig; })
     hmConfigGatewayCallers
     hmConfigMcpLaunchPrefix
+    hmConfigGatewayKeyLaunchPrefix
+    hmConfigGatewayKeyLaunchPrefixNull
     ;
 
   inherit (import ./checks/qwen-code-fixtures.nix { inherit mkHmConfig; })

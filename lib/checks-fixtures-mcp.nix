@@ -45,4 +45,28 @@
     )
   ];
 
+  # Prefix launchers with a visible dummy argv; this fixture never fetches or
+  # embeds a key value. The explicit-null sibling pins the no-op behavior.
+  hmConfigGatewayKeyLaunchPrefix = mkHmConfig [
+    (
+      { ... }:
+      {
+        programs.aiMcp.gatewayKeyLaunchPrefixFor =
+          { callerId, env }: [ "/bin/echo-prefix" "--caller" callerId "--env" env ];
+        programs.ai.untrustedClis.enable = true;
+        programs.opencode.enable = true;
+        programs.codex.enable = true;
+      }
+    )
+  ];
+
+  hmConfigGatewayKeyLaunchPrefixNull = mkHmConfig [
+    {
+      programs.aiMcp.gatewayKeyLaunchPrefixFor = null;
+      programs.ai.untrustedClis.enable = true;
+      programs.opencode.enable = true;
+      programs.codex.enable = true;
+    }
+  ];
+
 }

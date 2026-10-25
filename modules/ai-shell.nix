@@ -16,6 +16,26 @@
 let
   inherit (import ../vars/ai-stack.nix) zai;
   claudeRouterPkgs = pkgs.callPackage ./claude-router-pkgs.nix { };
+  mcpClient = import ./mcp/client.nix { inherit lib; };
+  gatewayKeyLaunchPrefixFor = config.programs.aiMcp.gatewayKeyLaunchPrefixFor;
+  zaiCallerId = config.programs.claude.zaiCallerId;
+  zaiGatewayKeyEnv =
+    if gatewayKeyLaunchPrefixFor == null then
+      null
+    else
+      mcpClient.keyEnvFor zaiCallerId config.programs.claude.zaiCallerKeyEnv;
+  claudeZaiPackage = pkgs.callPackage ./claude-zai-pkg.nix {
+    inherit zai;
+    gatewayKeyEnv = zaiGatewayKeyEnv;
+    gatewayKeyLaunchPrefix =
+      if gatewayKeyLaunchPrefixFor == null then
+        null
+      else
+        gatewayKeyLaunchPrefixFor {
+          callerId = zaiCallerId;
+          env = zaiGatewayKeyEnv;
+        };
+  };
 in
 {
   config = {
@@ -43,8 +63,6 @@ in
       claudeRouterPkgs.claudeLlm
       claudeRouterPkgs.claudeOcg
     ]
-    ++ lib.optional config.programs.ai.untrustedClis.enable (
-      pkgs.callPackage ./claude-zai-pkg.nix { inherit zai; }
-    );
+    ++ lib.optional config.programs.ai.untrustedClis.enable claudeZaiPackage;
   };
 }
