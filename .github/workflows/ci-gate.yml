@@ -133,6 +133,7 @@ jobs:
     with:
       names-artifact: lane-alias-names
       names-files: lane-alias-parity-nix-ai.json
+      router-contract-ref: v2.7.0
 
   flake-lock-fresh:
     name: Flake Lock Fresh
