@@ -124,6 +124,9 @@ let
     excluded = cfg.excludedMcpServers;
     normalize = normalizeMcpServer;
     client = "qwen-code";
+    inherit (cfg) callerId;
+    callerKeyEnvOverride = cfg.callerKeyEnv;
+    callerIds = config.programs.aiMcp.callerIds;
   };
 
   baseSettings = {
@@ -209,6 +212,7 @@ in
       programs.qwen-code = {
         contextFileNames = baseSettings.context.fileName;
         mcpServerNames = lib.attrNames mcpServers;
+        renderedMcpServers = mcpServers;
         generatedSettings = finalSettings;
       };
     }

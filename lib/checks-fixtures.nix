@@ -74,6 +74,20 @@ rec {
   # untrusted CLI's wiring read this fixture; the default one has none.
   hmConfigUntrusted = mkHmConfig [ { programs.ai.untrustedClis.enable = true; } ];
 
+  # Render gateway routes in every MCP-capable harness with no topology value.
+  # The empty base keeps the fixture host-free; checks inspect only route headers.
+  hmConfigGatewayCallers = mkHmConfig [
+    (
+      { lib, ... }:
+      {
+        programs.aiMcp = {
+          gatewayBaseUrl = "";
+          onDemandServers = lib.mkForce [ ];
+        };
+      }
+    )
+  ];
+
   inherit (import ./checks/qwen-code-fixtures.nix { inherit mkHmConfig; })
     hmConfigQwenRouter
     hmConfigQwenMissingResident

@@ -27,6 +27,10 @@ let
         inherit package;
         home = hmConfig.config.home.homeDirectory;
         workRoot = "${hmConfig.config.home.homeDirectory}/opencode-work";
+        extraEnv = {
+          OPENCODE_CONFIG = "${hmConfig.config.home.homeDirectory}/.config/opencode/mcp-untrusted.json";
+          OPENCODE_DISABLE_PROJECT_CONFIG = "true";
+        };
         binaryName = "opencode-wall";
         realBinaryName = "opencode";
       };
@@ -37,6 +41,7 @@ let
       "$AGENT_ROUTER_KEY" \
       "$OPENCODE_API_KEY" \
       "$LITELLM_LOCAL_KEY" \
+      "$OPENCODE_CONFIG" \
       "$@"
   '';
   fakeRouterKeyCommand = pkgs.writeShellScriptBin "opencode-test-router-key" ''
@@ -63,6 +68,7 @@ let
         launchPrefix = [ "${fakeCredentialPrefix}/bin/opencode-test-credentials" ];
         extraEnv = {
           LITELLM_LOCAL_KEY = "local";
+          OPENCODE_CONFIG = "${hmConfig.config.home.homeDirectory}/.config/opencode/mcp-trusted.json";
         };
       };
   localConfig = mkHmConfig [
@@ -158,6 +164,7 @@ in
       printf '%s\n' "$output" | grep -Fx "router-test-key" >/dev/null
       printf '%s\n' "$output" | grep -Fx "go-test-key" >/dev/null
       printf '%s\n' "$output" | grep -Fx "local" >/dev/null
+      printf '%s\n' "$output" | grep -Fx "${hmConfig.config.home.homeDirectory}/.config/opencode/mcp-trusted.json" >/dev/null
       printf '%s\n' "$output" | grep -Fx -- "--model" >/dev/null
       printf '%s\n' "$output" | grep -Fx "litellm/medium" >/dev/null
       printf '%s\n' "$output" | grep -Fx "hello world" >/dev/null
