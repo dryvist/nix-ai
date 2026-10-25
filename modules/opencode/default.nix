@@ -50,6 +50,22 @@ let
     }) userInvokedSkills
   );
   mcpClient = import ../mcp/client.nix { inherit lib; };
+  mcp = import ./mcp.nix { inherit pkgs lib config cfg mcpClient; };
+  inherit (mcp) trustedMcpServers untrustedMcpServers trustedMcpConfig untrustedMcpConfig;
+  gatewayKeyLaunchPrefixFor = config.programs.aiMcp.gatewayKeyLaunchPrefixFor;
+  gatewayKeyEnv =
+    if gatewayKeyLaunchPrefixFor == null then
+      null
+    else
+      mcpClient.keyEnvFor cfg.callerId cfg.callerKeyEnv;
+  gatewayKeyLaunchPrefix =
+    if gatewayKeyLaunchPrefixFor == null then
+      null
+    else
+      gatewayKeyLaunchPrefixFor {
+        callerId = cfg.callerId;
+        env = gatewayKeyEnv;
+      };
 
   # The wall drops everything else, so credentials in the caller's shell never
   # reach it. The local LiteLLM key is a placeholder; the proxy checks no key.
@@ -62,6 +78,7 @@ let
 
   trustedOpencode = import ./trusted.nix { inherit pkgs lib; } {
     inherit (cfg) package launchPrefix;
+    inherit gatewayKeyLaunchPrefix gatewayKeyEnv;
     extraEnv = {
       OPENCODE_CONFIG = "${config.home.homeDirectory}/${configDir}/mcp-trusted.json";
     }
@@ -80,50 +97,6 @@ let
     binaryName = "opencode-wall";
     realBinaryName = "opencode";
   };
-
-  # opencode.json uses a local/remote-tagged MCP schema: local servers carry a
-  # single `command` array (argv0 included) and `environment`; remote servers
-  # carry `url` and optional `headers`. `enabled` defaults true, so it is
-  # omitted. Verified against https://opencode.ai/config.json.
-  normalizeMcpServer =
-    server:
-    if server.url != null then
-      {
-        type = "remote";
-        inherit (server) url;
-      }
-      // lib.optionalAttrs (server.headers != { } || server.gatewayKeyEnv != null) {
-        headers =
-          server.headers
-          // lib.optionalAttrs (server.gatewayKeyEnv != null) {
-            "X-Agent-Key" = "{env:${server.gatewayKeyEnv}}";
-          };
-      }
-    else
-      {
-        type = "local";
-        command = [ server.command ] ++ server.args;
-      }
-      // lib.optionalAttrs (server.env != { }) { environment = server.env; };
-
-  renderMcpServers =
-    callerId: callerKeyEnvOverride:
-    mcpClient.renderServers {
-      inherit (config.programs.aiMcp) enabledServers;
-      excluded = cfg.excludedMcpServers;
-      normalize = normalizeMcpServer;
-      client = "opencode";
-      inherit callerId callerKeyEnvOverride;
-      callerIds = config.programs.aiMcp.callerIds;
-    };
-  trustedMcpServers = renderMcpServers cfg.callerId cfg.callerKeyEnv;
-  untrustedMcpServers = renderMcpServers cfg.untrustedCallerId cfg.untrustedCallerKeyEnv;
-  trustedMcpConfig = pkgs.writeText "opencode-trusted-mcp.json" (
-    builtins.toJSON { mcp = trustedMcpServers; }
-  );
-  untrustedMcpConfig = pkgs.writeText "opencode-untrusted-mcp.json" (
-    builtins.toJSON { mcp = untrustedMcpServers; }
-  );
 
   # Router aliases are names only; the homelab router owns their mappings.
   litellmRoles = litellmLocal.aliases;
