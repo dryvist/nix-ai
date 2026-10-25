@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.4.0](https://github.com/dryvist/nix-ai/compare/v8.3.0...v8.4.0) (2026-10-25)
+
+
+### Features
+
+* **alias-parity:** export Antigravity, Z.ai and ZCode names with direct-provider exemptions ([#2719](https://github.com/dryvist/nix-ai/issues/2719)) ([fa3dc1b](https://github.com/dryvist/nix-ai/commit/fa3dc1b3ccbc7221220dac8c04b75d3b52b54392))
+
 ## [8.3.0](https://github.com/dryvist/nix-ai/compare/v8.2.0...v8.3.0) (2026-10-25)
 
 
