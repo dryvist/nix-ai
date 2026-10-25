@@ -56,12 +56,16 @@ let
   sandboxEnv = {
     OPENCODE_DISABLE_LSP_DOWNLOAD = "true";
     OPENCODE_DISABLE_PROJECT_CONFIG = "true";
+    OPENCODE_CONFIG = "${config.home.homeDirectory}/${configDir}/mcp-untrusted.json";
   }
   // lib.optionalAttrs litellmLocal.enable { LITELLM_LOCAL_KEY = litellmLocal.clientToken; };
 
   trustedOpencode = import ./trusted.nix { inherit pkgs lib; } {
     inherit (cfg) package launchPrefix;
-    extraEnv = lib.optionalAttrs litellmLocal.enable {
+    extraEnv = {
+      OPENCODE_CONFIG = "${config.home.homeDirectory}/${configDir}/mcp-trusted.json";
+    }
+    // lib.optionalAttrs litellmLocal.enable {
       LITELLM_LOCAL_KEY = litellmLocal.clientToken;
     };
   };
@@ -88,7 +92,13 @@ let
         type = "remote";
         inherit (server) url;
       }
-      // lib.optionalAttrs (server.headers != { }) { inherit (server) headers; }
+      // lib.optionalAttrs (server.headers != { } || server.gatewayKeyEnv != null) {
+        headers =
+          server.headers
+          // lib.optionalAttrs (server.gatewayKeyEnv != null) {
+            "X-Agent-Key" = "{env:${server.gatewayKeyEnv}}";
+          };
+      }
     else
       {
         type = "local";
@@ -96,12 +106,24 @@ let
       }
       // lib.optionalAttrs (server.env != { }) { environment = server.env; };
 
-  mcpServers = mcpClient.renderServers {
-    inherit (config.programs.aiMcp) enabledServers;
-    excluded = cfg.excludedMcpServers;
-    normalize = normalizeMcpServer;
-    client = "opencode";
-  };
+  renderMcpServers =
+    callerId: callerKeyEnvOverride:
+    mcpClient.renderServers {
+      inherit (config.programs.aiMcp) enabledServers;
+      excluded = cfg.excludedMcpServers;
+      normalize = normalizeMcpServer;
+      client = "opencode";
+      inherit callerId callerKeyEnvOverride;
+      callerIds = config.programs.aiMcp.callerIds;
+    };
+  trustedMcpServers = renderMcpServers cfg.callerId cfg.callerKeyEnv;
+  untrustedMcpServers = renderMcpServers cfg.untrustedCallerId cfg.untrustedCallerKeyEnv;
+  trustedMcpConfig = pkgs.writeText "opencode-trusted-mcp.json" (
+    builtins.toJSON { mcp = trustedMcpServers; }
+  );
+  untrustedMcpConfig = pkgs.writeText "opencode-untrusted-mcp.json" (
+    builtins.toJSON { mcp = untrustedMcpServers; }
+  );
 
   # Router aliases are names only; the homelab router owns their mappings.
   litellmRoles = litellmLocal.aliases;
@@ -166,7 +188,7 @@ let
       skill = lib.genAttrs (map (skill: skill.name) userInvokedSkills) (_: "deny");
     };
     command = skillCommands;
-    mcp = mcpServers;
+    mcp = { };
     provider = {
       litellm = {
         npm = "@ai-sdk/openai-compatible";
@@ -274,7 +296,11 @@ in
     # programs.opencode.enable = false.
     {
       programs.opencode = {
-        mcpServerNames = lib.attrNames mcpServers;
+        callerId = "opencode-trusted";
+        untrustedCallerId = "opencode-untrusted";
+        mcpServerNames = lib.attrNames trustedMcpServers;
+        renderedMcpServers = trustedMcpServers;
+        inherit untrustedMcpServers;
         inherit litellmRoles routerGoAliases;
         lspEnabled = settings.lsp or false;
         otelPluginEntries = otelPlugins;
@@ -317,6 +343,8 @@ in
 
         file = {
           "${configDir}/opencode.json".source = settingsJson;
+          "${configDir}/mcp-trusted.json".source = trustedMcpConfig;
+          "${configDir}/mcp-untrusted.json".source = untrustedMcpConfig;
           # The session hook sets OpenCode's current session ID on Go group
           # calls routed through LiteLLM; direct Go providers use the same hook.
           "${configDir}/plugins/go-session.js".source = ./plugins/go-session.js;

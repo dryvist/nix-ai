@@ -56,6 +56,7 @@ let
     hmConfigQwenExcludeToolsEmpty
     hmConfigQwenExcludeToolsCustom
     hmConfigMcpLaunchPrefix
+    hmConfigGatewayCallers
     ;
   mkHmConfigDarwin =
     (import ./checks-fixtures.nix {
@@ -232,7 +233,14 @@ in
     hmConfigVctCli
     ;
 })
-// (import ./checks/mcp.nix { inherit pkgs hmConfig hmConfigMcpLaunchPrefix; })
+// (import ./checks/mcp.nix {
+  inherit
+    pkgs
+    hmConfig
+    hmConfigMcpLaunchPrefix
+    hmConfigGatewayCallers
+    ;
+})
 // (import ./checks/autonomous-profile.nix {
   inherit pkgs;
   render = renderAutonomous;

@@ -6,10 +6,20 @@
   config,
   lib,
   pkgs,
+  homelab-contracts,
   ...
 }:
 
 let
+  callerPolicy = builtins.fromJSON (
+    builtins.readFile "${homelab-contracts}/ansible/roles/agent_callers/files/callers.json"
+  );
+  callerIds =
+    if callerPolicy.schema_version == 1 then
+      lib.attrNames callerPolicy.callers
+    else
+      throw "homelab-contracts agent callers must use schema_version 1";
+
   mcpServerModule = lib.types.submodule {
     options = {
       type = lib.mkOption {
@@ -50,6 +60,18 @@ let
       clientNameEnv = lib.mkOption {
         type = lib.types.nullOr lib.types.str;
         default = null;
+      };
+      gatewayRoute = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        internal = true;
+        description = "Whether this HTTP server uses the shared agentgateway caller identity.";
+      };
+      gatewayKeyEnv = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        internal = true;
+        description = "Environment-variable name for this renderer's agentgateway caller key.";
       };
       cwd = lib.mkOption {
         type = lib.types.nullOr lib.types.str;
@@ -150,6 +172,14 @@ let
 in
 {
   options.programs.aiMcp = {
+    callerIds = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      readOnly = true;
+      internal = true;
+      default = callerIds;
+      description = "Caller IDs loaded from homelab-contracts; used to validate per-harness identities.";
+    };
+
     servers = lib.mkOption {
       type = lib.types.attrsOf mcpServerModule;
       default = { };

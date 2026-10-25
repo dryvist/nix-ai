@@ -63,8 +63,23 @@ my-server = {
 layer, instead of a local process per harness. They ship **disabled** because
 the gateway's base URL is private homelab topology and carries no default in
 this public repo; a consumer sets `programs.aiMcp.gatewayBaseUrl` (e.g. via
-`lib.mkForce` in a private host module) to turn them on for every renderer at
-once. `splunk` additionally needs `SPLUNK_MCP_TOKEN` in the environment (a
+`lib.mkForce` in a private host module) to enable them for renderers with a
+registered caller ID. Renderers without one omit these routes.
+
+Gateway routes send `X-Agent-Key` through each client's own environment
+reference syntax. `callerKeyEnv` derives `GATEWAY_KEY_<CALLER_ID>` by uppercasing
+the ID and replacing hyphens with underscores. The configured IDs come from
+`homelab-contracts/ansible/roles/agent_callers/files/callers.json`; evaluation
+fails if a renderer uses an unregistered ID.
+
+OpenCode renders separate trusted and untrusted MCP overlays selected through
+`OPENCODE_CONFIG`. The `claude-zai` launcher uses its own strict MCP file and
+caller ID. ZCode v3.14.3 expands `ZCODE_*` variables only in plugin MCP
+declarations, while this repo has no ZCode plugin MCP emitter; it receives no
+gateway entries. Add one only alongside a plugin declaration renderer and a
+regression check.
+
+`splunk` additionally needs `SPLUNK_MCP_TOKEN` in the environment (a
 Splunk-minted `mcp_token`, not an OpenBao credential) — the gateway passes the
 caller's `Authorization` header straight through to the Splunk backend.
 
@@ -110,6 +125,10 @@ programs.aiMcp.servers.postgresql.disabled = lib.mkForce false;
 
 The MCP config stores **no secrets** — it only references commands and URLs.
 Servers that need API keys read them from environment variables at runtime.
+Gateway caller keys follow the same rule: the config holds only the variable
+name (`GATEWAY_KEY_<CALLER_ID>`, see Shared agentgateway routes). Each launcher
+provides only its own variable. Delivering the value is the host's job and is
+out of scope for this module.
 
 **Inject secrets directly into each run — never write them to disk.**
 

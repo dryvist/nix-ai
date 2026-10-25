@@ -632,11 +632,11 @@
     "homelab-contracts": {
       "flake": false,
       "locked": {
-        "lastModified": 1792871126,
-        "narHash": "sha256-EZPIHmGRvDpm0Ty/NSUvbIKyr7rcuUq2otRI4iDusbY=",
+        "lastModified": 1792883509,
+        "narHash": "sha256-mMjq3ZaEr6/rCMOkCdAiRnlKE30fgUNUjwrB+LPT6o4=",
         "owner": "dryvist",
         "repo": "homelab-contracts",
-        "rev": "2383d90cb01b0f5431e147e3e60752dff69c8b69",
+        "rev": "def4fc32fcd4208f338c63f19ad6f0f15f9fa7f0",
         "type": "github"
       },
       "original": {

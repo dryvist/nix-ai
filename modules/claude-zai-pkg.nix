@@ -36,6 +36,6 @@ pkgs.writeShellApplication {
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
       API_TIMEOUT_MS=3000000 \
       PATH="$HOME/.local/bin:$PATH" \
-      claude "$@"
+      claude --strict-mcp-config --mcp-config "$HOME/.claude/mcp-zai.json" "$@"
   '';
 }

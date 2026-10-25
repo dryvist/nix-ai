@@ -33,6 +33,8 @@ EOF
 chmod +x "$test_root/bin/codex"
 
 export PATH="$test_root/bin:$PATH"
+export HOME="$test_root/home"
+mkdir -p "$HOME/.claude"
 export ZAI_KEY_COMMAND='fetch-key --scope example --'
 export ZAI_KEY_ENV=ZAI_SUBSCRIPTION_KEY
 export ZAI_CLAUDE_BASE_URL=https://api.z.ai/api/anthropic
@@ -57,7 +59,7 @@ claude_rc=$?
 set -e
 [ "$claude_rc" -eq 23 ]
 diff -u <(printf '%s\n' --scope example -- "$claude_zai_bin" 'two words' --flag) "$FETCH_LOG"
-diff -u <(printf '%s\n' 'two words' --flag) "$CLAUDE_ARGS_LOG"
+diff -u <(printf '%s\n' --strict-mcp-config --mcp-config "$HOME/.claude/mcp-zai.json" 'two words' --flag) "$CLAUDE_ARGS_LOG"
 grep -Fxq 'ANTHROPIC_API_KEY=' "$CLAUDE_ENV_LOG"
 grep -Fxq 'ANTHROPIC_AUTH_TOKEN=test-secret' "$CLAUDE_ENV_LOG"
 grep -Fxq 'ANTHROPIC_BASE_URL=https://api.z.ai/api/anthropic' "$CLAUDE_ENV_LOG"

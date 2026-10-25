@@ -90,7 +90,7 @@ let
   claudeMcp = import ./claude/mcp-render.nix { inherit lib config; };
 
   claudeSession = import ./claude/session.nix;
-  inherit (claudeMcp) mcpServers onDemandMcpFiles;
+  inherit (claudeMcp) mcpServers onDemandMcpFiles zaiMcpServers;
 
 in
 {
@@ -98,11 +98,36 @@ in
   # same as every other client. Declared here rather than in nix-claude-code
   # because the shared catalog and its per-client exclude semantics are nix-ai's
   # concern; nix-claude-code owns only the rendering of programs.claude.mcpServers.
-  options.programs.claude = mcpClient.mkClientOptions "Claude Code";
+  options.programs.claude = mcpClient.mkClientOptions "Claude Code" // {
+    zaiCallerId = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      internal = true;
+      description = "Caller ID used by the claude-zai launcher.";
+    };
+
+    zaiCallerKeyEnv = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      internal = true;
+      description = "Optional environment-variable override for the claude-zai caller key.";
+    };
+
+    zaiRenderedMcpServers = lib.mkOption {
+      type = lib.types.attrsOf lib.types.unspecified;
+      readOnly = true;
+      internal = true;
+      description = "Normalized MCP configuration emitted for claude-zai.";
+    };
+  };
 
   config = {
     programs.claude = {
       enable = true;
+      callerId = "claude-code";
+      zaiCallerId = "claude-zai";
+      renderedMcpServers = mcpServers;
+      zaiRenderedMcpServers = zaiMcpServers;
 
       # nix-claude-code keeps account switching disabled by default. This
       # workstation stack opts into its manual switch and parallel-session CLI.
@@ -286,6 +311,8 @@ in
       inherit (claudeSession) statusline hooks;
     };
 
-    home.file = onDemandMcpFiles;
+    home.file = onDemandMcpFiles // {
+      ".claude/mcp-zai.json".text = builtins.toJSON { mcpServers = zaiMcpServers; };
+    };
   };
 }

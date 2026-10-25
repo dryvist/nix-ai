@@ -49,6 +49,27 @@ in
       description = "Arguments prepended before the real OpenCode executable, for runtime credential helpers.";
     };
 
+    untrustedCallerId = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      internal = true;
+      description = "Caller ID for the sandboxed OpenCode configuration.";
+    };
+
+    untrustedCallerKeyEnv = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      internal = true;
+      description = "Optional environment-variable override for the sandboxed OpenCode caller key.";
+    };
+
+    untrustedMcpServers = lib.mkOption {
+      type = lib.types.attrsOf lib.types.unspecified;
+      readOnly = true;
+      internal = true;
+      description = "Normalized MCP configuration emitted for sandboxed OpenCode.";
+    };
+
     sandbox.enable = lib.mkOption {
       type = lib.types.bool;
       default = pkgs.stdenv.hostPlatform.isDarwin;
