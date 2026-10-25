@@ -104,7 +104,7 @@ let
     output_cost_per_token = 0;
   };
 
-  routerAliases = import ../litellm-local/aliases.nix;
+  routerAliases = litellmLocal.aliases;
   allRoles =
     if litellmLocal.enable || llmEndpoint == "router" then
       lib.genAttrs routerAliases (_: null)

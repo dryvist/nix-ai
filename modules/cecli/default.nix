@@ -33,6 +33,7 @@ in
   imports = [
     ./options.nix
     ./settings.nix
+    ../litellm-local/options.nix
     ./packages.nix
   ];
 

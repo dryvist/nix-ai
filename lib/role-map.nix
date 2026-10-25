@@ -6,8 +6,7 @@
 # `src` is the `homelab-contracts` flake input; every in-flake caller passes it
 # (modules receive it via _module.args), so a consumer's `follows` decides the
 # revision. The default reads the same input from this repo's flake.lock and
-# exists only for files imported by path with no arguments
-# (modules/litellm-local/aliases.nix, imported that way by other flakes).
+# exists only for external files imported by path with no arguments.
 {
   src ?
     let

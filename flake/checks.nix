@@ -40,6 +40,7 @@ in
         pkgs
         home-manager
         ai-llm-prompts
+        homelab-contracts
         src
         ;
       roleMap = import (src + "/lib/role-map.nix") {

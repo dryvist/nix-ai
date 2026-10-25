@@ -67,7 +67,7 @@ let
   };
 
   # CI-time / operator tool: proves the shared router actually serves every
-  # alias in the committed contract (modules/litellm-local/aliases.nix). Not
+  # alias in programs.litellmLocal.aliases. Not
   # gated on litellmLocal.enable — it tests the upstream router directly, and
   # a host with the local proxy disabled still wants to be able to run it.
   aliasSubsetCheck = pkgs.writeShellApplication {

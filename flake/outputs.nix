@@ -55,6 +55,39 @@ let
       homelab-contracts
       ;
   };
+  # The reusable lane checker consumes the model names a routed Home Manager
+  # configuration actually gives each harness, not host-specific values.
+  laneAliasParityNames =
+    let
+      pkgs = import nixpkgs {
+        system = "x86_64-linux";
+        config.allowUnfree = true;
+      };
+      fixtures = import ../lib/checks-fixtures.nix {
+        inherit home-manager pkgs;
+        aiModule = self.homeManagerModules.default;
+      };
+      cfg = fixtures.hmConfigRouter.config.programs;
+      cecliNames = map (name: nixpkgs.lib.removePrefix "openai/" name) [
+        cfg.cecli.model
+        cfg.cecli.weakModel
+        cfg.cecli.editorModel
+      ];
+      names =
+        cfg.litellmLocal.aliases
+        ++ cfg.opencode.litellmRoles
+        ++ cfg.codex.litellmProfileNames
+        ++ [ cfg.qwen-code.model ]
+        ++ cecliNames
+        ++ [
+          cfg.fabric.defaultModel
+          (import ../vars/ai-stack.nix).router.model
+        ];
+    in
+    {
+      source = "nix-ai";
+      names = nixpkgs.lib.unique (builtins.sort builtins.lessThan names);
+    };
 in
 {
   homeManagerModules = import ./home-manager-modules.nix {
@@ -95,8 +128,10 @@ in
 
   # CI-friendly and cross-flake outputs. Extracted to flake/lib.nix to keep
   # this file under the file-size budget while preserving the explanatory
-  # comments — see that file. The public `nix-ai.lib.*` shape is unchanged.
-  lib = nixAiLib;
+  # comments — see that file. The public `nix-ai.lib.*` API is additive.
+  lib = nixAiLib // {
+    inherit laneAliasParityNames;
+  };
 
   # System-level modules. herdr is the first thing this flake manages that
   # runs as a service on a Linux guest rather than a launchd agent on the

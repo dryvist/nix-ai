@@ -1,5 +1,20 @@
 # Changelog
 
+## [8.2.0](https://github.com/dryvist/nix-ai/compare/v8.1.1...v8.2.0) (2026-10-24)
+
+
+### Features
+
+* **agent-hooks:** deny raw branch creation and base merges ([#2707](https://github.com/dryvist/nix-ai/issues/2707)) ([22bf190](https://github.com/dryvist/nix-ai/commit/22bf190d6f49a2ac709bb39f29898ec1a38e6c8e))
+* **agent-hooks:** deny raw codex exec and warn on missing launcher targets ([#2704](https://github.com/dryvist/nix-ai/issues/2704)) ([f9fee66](https://github.com/dryvist/nix-ai/commit/f9fee6640c51827ba37248333b171c970700c6d6))
+* **litellm-local:** read lane aliases from the homelab-contracts lanes file ([#2694](https://github.com/dryvist/nix-ai/issues/2694)) ([b45b5aa](https://github.com/dryvist/nix-ai/commit/b45b5aa47619b97bd7570e397f988c0001e871a6))
+
+
+### Bug Fixes
+
+* block every agent email-send path ([#2705](https://github.com/dryvist/nix-ai/issues/2705)) ([61657de](https://github.com/dryvist/nix-ai/commit/61657ded69b4e0d421800bc1af87731527f3d683))
+* enforce seven-day uv resolution cooldown ([dd714bb](https://github.com/dryvist/nix-ai/commit/dd714bbd8581527dc88864aa71ab5495cd59d501))
+
 ## [8.1.1](https://github.com/dryvist/nix-ai/compare/v8.1.0...v8.1.1) (2026-10-24)
 
 

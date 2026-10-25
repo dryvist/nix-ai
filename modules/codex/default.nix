@@ -28,6 +28,7 @@ in
   imports = [
     ./options.nix
     ./settings.nix
+    ../litellm-local/options.nix
   ];
 
   config = lib.mkIf cfg.enable {
