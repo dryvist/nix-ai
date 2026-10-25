@@ -68,8 +68,6 @@ let
         aiModule = self.homeManagerModules.default;
       };
       cfg = fixtures.hmConfigRouter.config.programs;
-      aiStack = import ../vars/ai-stack.nix;
-      sortedUnique = values: nixpkgs.lib.unique (builtins.sort builtins.lessThan values);
       claudeRouterNames = (pkgs.callPackage ../modules/claude-router-pkgs.nix { }).routerNames;
       cecliNames = map (name: nixpkgs.lib.removePrefix "openai/" name) [
         cfg.cecli.model
@@ -86,27 +84,12 @@ let
         ++ cecliNames
         ++ [
           cfg.fabric.defaultModel
-          aiStack.router.model
+          (import ../vars/ai-stack.nix).router.model
         ];
-      # These settings call provider APIs directly. Keep them out of `names`,
-      # which the shared checker treats as router names. The current checker
-      # ignores this key; a contracts follow-up can report these exceptions.
-      directProviderExemptions = {
-        antigravity_cli = sortedUnique (
-          nixpkgs.lib.optional (cfg.antigravity-cli.defaultModel != null) cfg.antigravity-cli.defaultModel
-        );
-        claude_zai = sortedUnique [
-          aiStack.zai.claude.primaryModel
-          aiStack.zai.claude.fastModel
-        ];
-        codex_zai = [ aiStack.zai.codex.model ];
-        zcode = [ aiStack.zai.zcode.model ];
-      };
     in
     {
       source = "nix-ai";
-      names = sortedUnique names;
-      direct_provider_exemptions = directProviderExemptions;
+      names = nixpkgs.lib.unique (builtins.sort builtins.lessThan names);
     };
 in
 {
