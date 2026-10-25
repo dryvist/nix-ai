@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.3.0](https://github.com/dryvist/nix-ai/compare/v8.2.0...v8.3.0) (2026-10-25)
+
+
+### Features
+
+* **lanes:** export routed harness lane names for the shared parity check ([#2713](https://github.com/dryvist/nix-ai/issues/2713)) ([89b9ba1](https://github.com/dryvist/nix-ai/commit/89b9ba1f9b8ce083eb4daf8c3b1a7a8103c2d11c))
+
 ## [8.2.0](https://github.com/dryvist/nix-ai/compare/v8.1.1...v8.2.0) (2026-10-24)
 
 
