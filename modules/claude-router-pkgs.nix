@@ -1,5 +1,23 @@
 { pkgs, lib }:
 let
+  claudeLlmRouterModels = {
+    model = "medium";
+    opus = "medium";
+    sonnet = "medium";
+    haiku = "small";
+    subagent = "medium";
+  };
+  claudeOcgRouterModels = {
+    model = "go-mimo-flash";
+    opus = "go-mimo-flash";
+    sonnet = "go-mimo-flash";
+    haiku = "go-deepseek-flash";
+    subagent = "go-deepseek-flash";
+  };
+  claudeRouterNames = lib.unique (
+    builtins.attrValues claudeLlmRouterModels ++ builtins.attrValues claudeOcgRouterModels
+  );
+
   mkClaudeRouter =
     {
       name,
@@ -171,26 +189,14 @@ in
     name = "claude-llm";
     routerKeyEnv = "CLAUDE_LLM_ROUTER_KEY";
     routerKeyCommandEnv = "CLAUDE_LLM_KEY_COMMAND";
-    routerModels = {
-      model = "medium";
-      opus = "medium";
-      sonnet = "medium";
-      haiku = "small";
-      subagent = "medium";
-    };
+    routerModels = claudeLlmRouterModels;
   };
 
   claudeOcg = mkClaudeRouter {
     name = "claude-ocg";
     routerKeyEnv = "CLAUDE_OCG_ROUTER_KEY";
     routerKeyCommandEnv = "CLAUDE_OCG_KEY_COMMAND";
-    routerModels = {
-      model = "go-mimo-flash";
-      opus = "go-mimo-flash";
-      sonnet = "go-mimo-flash";
-      haiku = "go-deepseek-flash";
-      subagent = "go-deepseek-flash";
-    };
+    routerModels = claudeOcgRouterModels;
     direct = {
       keyEnv = "OPENCODE_GO_API_KEY";
       keyCommandEnv = "OCG_DIRECT_KEY_COMMAND";
@@ -205,4 +211,6 @@ in
     };
     aliases = [ "claude-go" ];
   };
+
+  routerNames = claudeRouterNames;
 }
