@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.5.0](https://github.com/dryvist/nix-ai/compare/v8.4.0...v8.5.0) (2026-10-26)
+
+
+### Features
+
+* **agent-skills:** add .gemini/AGENTS.md to the shared AGENTS.md fan-out ([#2722](https://github.com/dryvist/nix-ai/issues/2722)) ([ac22c68](https://github.com/dryvist/nix-ai/commit/ac22c680f8f4cf8bb7c32e1034d9cd7ac1faf7ba))
+
 ## [8.4.0](https://github.com/dryvist/nix-ai/compare/v8.3.0...v8.4.0) (2026-10-25)
 
 
