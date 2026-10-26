@@ -148,4 +148,15 @@
     SRC = src;
     nativeBuildInputs = [ pkgs.jq ];
   } "${pkgs.bash}/bin/bash ${./scripts/worktree-add-guard-test.sh}";
+
+  # Checks the quota probe rejects an unusable CLI and preserves quota decisions.
+  codex-quota = pkgs.runCommand "check-codex-quota" {
+    SRC = src;
+    nativeBuildInputs = [
+      pkgs.jq
+      pkgs.findutils
+      pkgs.gnugrep
+      pkgs.coreutils
+    ];
+  } "${pkgs.bash}/bin/bash ${./scripts/codex-quota-test.sh}";
 }
