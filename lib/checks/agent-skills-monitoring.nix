@@ -24,6 +24,7 @@ let
 in
 {
   agent-skills-monitoring-first =
+    assert builtins.elem ".gemini/AGENTS.md" sharedInstructionLinks;
     assert builtins.elem ".gemini/GEMINI.md" sharedInstructionLinks;
     assert builtins.elem ".zcode/AGENTS.md" sharedInstructionLinks;
     assert builtins.elem ".gemini/skills" homeFileNames;
