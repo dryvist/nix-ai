@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.5.1](https://github.com/dryvist/nix-ai/compare/v8.5.0...v8.5.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* **antigravity-cli:** allow reading instruction files under ~/.agents ([#2726](https://github.com/dryvist/nix-ai/issues/2726)) ([20c564b](https://github.com/dryvist/nix-ai/commit/20c564b831cd7a85b20022458f716e968bffcd49))
+
 ## [8.5.0](https://github.com/dryvist/nix-ai/compare/v8.4.0...v8.5.0) (2026-10-26)
 
 

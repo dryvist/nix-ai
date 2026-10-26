@@ -34,6 +34,12 @@ let
         "command(${homeDir}/${skillRoot}/fast-subagent/scripts/fast-subagent.sh)"
       ];
 
+  # Instruction files deployed directly under ~/.agents (AGENTS.md, voice.md).
+  # read_file is checked against the resolved store path, not the symlink.
+  agentsInstructionPermissions = lib.mapAttrsToList (_: f: "read_file(${f.source})") (
+    lib.filterAttrs (_: f: builtins.match "\\.agents/[^/]+\\.md" f.target != null) config.home.file
+  );
+
   aiCommon = import ../common {
     inherit lib config nix-claude-code;
   };
@@ -104,7 +110,11 @@ let
       ];
     };
 
-    permissions.allow = [ "command(doppler)" ] ++ fastSubagentPermissions;
+    permissions.allow = [
+      "command(doppler)"
+    ]
+    ++ fastSubagentPermissions
+    ++ agentsInstructionPermissions;
 
     security = {
       folderTrust = {
