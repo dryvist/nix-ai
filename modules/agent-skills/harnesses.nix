@@ -25,6 +25,7 @@ rec {
   # their own config dir find it without any extra configuration.
   agentsMd = {
     qwen = ".qwen/AGENTS.md";
+    antigravity = ".gemini/AGENTS.md";
     antigravity-cli = ".gemini/antigravity-cli/AGENTS.md";
     gemini = ".gemini/GEMINI.md";
     opencode = ".config/opencode/AGENTS.md";
