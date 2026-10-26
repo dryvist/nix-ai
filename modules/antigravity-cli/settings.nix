@@ -36,7 +36,20 @@ let
 
   # Instruction files deployed directly under ~/.agents (AGENTS.md, voice.md).
   # read_file is checked against the resolved store path, not the symlink.
-  agentsInstructionPermissions = lib.mapAttrsToList (_: f: "read_file(${f.source})") (
+  # Mirrors home-manager's sourceStorePath: a context-free path is copied as hm_<name>.
+  hmStorePath =
+    f:
+    let
+      src = toString f.source;
+    in
+    if builtins.hasContext src then
+      src
+    else
+      builtins.path {
+        path = f.source;
+        name = config.lib.strings.storeFileName (baseNameOf src);
+      };
+  agentsInstructionPermissions = lib.mapAttrsToList (_: f: "read_file(${hmStorePath f})") (
     lib.filterAttrs (_: f: builtins.match "\\.agents/[^/]+\\.md" f.target != null) config.home.file
   );
 
