@@ -68,18 +68,20 @@ in
         ];
         activation = hmConfig.config.home.activation.mergeAntigravitySettings.data;
         skillDir = toString skillDir;
+        agentsMd = toString hmConfig.config.home.file.".agents/AGENTS.md".source;
         inherit helperPath;
         passAsFile = [ "activation" ];
       }
       ''
         settings=$(grep -m1 -oE '/nix/store/[^"[:space:]]*antigravity-settings\.json' "$activationPath")
-        jq -e --arg skill "$skillDir" --arg helper "$helperPath" '
-          .permissions.allow == [
+        jq -e --arg skill "$skillDir" --arg helper "$helperPath" --arg agents "$agentsMd" '
+          .permissions.allow[0:4] == [
             "command(doppler)",
             "read_file(\($skill)/SKILL.md)",
             "read_file(\($skill)/scripts/fast-subagent.sh)",
             "command(\($helper))"
           ]
+          and (.permissions.allow | index("read_file(\($agents))") != null)
         ' "$settings" >/dev/null
         touch $out
       '';
