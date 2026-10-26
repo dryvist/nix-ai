@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.5.2](https://github.com/dryvist/nix-ai/compare/v8.5.1...v8.5.2) (2026-10-26)
+
+
+### Bug Fixes
+
+* **antigravity-cli:** resolve plain-path instruction sources to their hm_ store copy ([#2729](https://github.com/dryvist/nix-ai/issues/2729)) ([2971c48](https://github.com/dryvist/nix-ai/commit/2971c48cd30fa610c8f04ebf8fe4c52527d1979b))
+
 ## [8.5.1](https://github.com/dryvist/nix-ai/compare/v8.5.0...v8.5.1) (2026-10-26)
 
 
