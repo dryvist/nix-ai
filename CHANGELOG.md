@@ -1,5 +1,17 @@
 # Changelog
 
+## [8.6.0](https://github.com/dryvist/nix-ai/compare/v8.5.3...v8.6.0) (2026-10-27)
+
+
+### Features
+
+* **mlx:** add default-off nightly join and daytime detach schedule agents ([#2738](https://github.com/dryvist/nix-ai/issues/2738)) ([f2eedd2](https://github.com/dryvist/nix-ai/commit/f2eedd2ad10d8b4ef272aaa1715baa2def2e3070))
+
+
+### Bug Fixes
+
+* start worktrees with git town hack ([#2735](https://github.com/dryvist/nix-ai/issues/2735)) ([e453c5e](https://github.com/dryvist/nix-ai/commit/e453c5e1f3d443144e54d857249c7ac639e0b46e))
+
 ## [8.5.3](https://github.com/dryvist/nix-ai/compare/v8.5.2...v8.5.3) (2026-10-27)
 
 
