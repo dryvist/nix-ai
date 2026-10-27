@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
-# Exit 0 when Codex has quota: every window in the newest limit_id=codex
-# rate_limits record is under 95% used or already reset. Exit 1 otherwise.
+# Exit 0 when the codex CLI runs and Codex has quota. Exit 1 otherwise.
 set -euo pipefail
+
+# A quota reading means nothing when the CLI cannot start; the launcher exits 127 when its target is missing.
+if ! codex --version >/dev/null 2>&1; then
+  echo "codex-quota: unavailable (the codex CLI does not run)"
+  exit 1
+fi
 
 sessions="${CODEX_HOME:-$HOME/.codex}/sessions"
 now="$(date +%s)"
