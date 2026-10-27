@@ -19,7 +19,7 @@ expect_case() {
   home="$case_dir/home"
   mkdir -p "$bin" "$codex_home/sessions" "$home" "$case_dir/empty"
 
-  printf '#!/usr/bin/env bash\necho "codex-cli stub"\nexit %s\n' "$stub_exit" > "$bin/codex"
+  printf '#!/bin/sh\necho "codex-cli stub"\nexit %s\n' "$stub_exit" > "$bin/codex"
   chmod +x "$bin/codex"
 
   if [ -n "$session_json" ]; then
