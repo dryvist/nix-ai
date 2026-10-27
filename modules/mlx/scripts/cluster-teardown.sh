@@ -6,6 +6,8 @@ export TEARDOWN_FAILED TEARDOWN_REBOOT TEARDOWN_SIGKILLED CLUSTER_PEER_SSH_RC
 cluster_lifecycle_log_start() {
   mkdir -p "$(dirname "$CLUSTER_LIFECYCLE_LOG")"
   exec > >(tee -a "$CLUSTER_LIFECYCLE_LOG") 2>&1
+  # Names what started this run: a schedule agent label, or manual.
+  echo "${CLUSTER_LIFECYCLE_COMPONENT:-cluster-lifecycle}: start CLUSTER_INVOKER=${CLUSTER_INVOKER:-manual}"
 }
 
 lifecycle_refuse() {

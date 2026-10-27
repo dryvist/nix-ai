@@ -34,4 +34,25 @@
     ./scripts/cluster-teardown.sh
     ./scripts/cluster-detach.sh
   ];
+
+  # Schedule agents. The preflight reuses the rank and protection-domain gate,
+  # so it takes the same count and gate layers as join. Each list holds only
+  # files whose functions the script calls.
+  schedulePreflight = [
+    ./scripts/cluster-rank-status.sh
+    ./scripts/cluster-pd-count.sh
+    ./scripts/cluster-pd-gate.sh
+    ./scripts/cluster-schedule-common.sh
+    ./scripts/cluster-schedule-preflight.sh
+  ];
+
+  scheduleNightly = [
+    ./scripts/cluster-schedule-nightly.sh
+  ];
+
+  scheduleDaytime = [
+    ./scripts/cluster-rank-status.sh
+    ./scripts/cluster-schedule-common.sh
+    ./scripts/cluster-schedule-daytime.sh
+  ];
 }
