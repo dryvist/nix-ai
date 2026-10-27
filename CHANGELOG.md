@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.5.3](https://github.com/dryvist/nix-ai/compare/v8.5.2...v8.5.3) (2026-10-27)
+
+
+### Bug Fixes
+
+* **agent-hooks:** report codex-quota unavailable when the CLI does not run ([#2732](https://github.com/dryvist/nix-ai/issues/2732)) ([417421b](https://github.com/dryvist/nix-ai/commit/417421b600075caea270b6435e1003079d7c4d97))
+
 ## [8.5.2](https://github.com/dryvist/nix-ai/compare/v8.5.1...v8.5.2) (2026-10-26)
 
 
