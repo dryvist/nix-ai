@@ -92,4 +92,9 @@ in
       ncfg.role == "coordinator" || ncfg.quiesceCommand == null || ncfg.restoreCommand != null;
     message = "programs.mlx.clusterMode: a worker with quiesceCommand set must also set restoreCommand, or nothing can bring standalone serving back after a join.";
   }
+  {
+    # Equal start and end leave the night window undefined: empty, or the whole day.
+    assertion = !ncfg.schedule.enable || ncfg.schedule.nightStart != ncfg.schedule.dayStart;
+    message = "programs.mlx.clusterMode.schedule: nightStart and dayStart must differ, or the night window has no defined span.";
+  }
 ]

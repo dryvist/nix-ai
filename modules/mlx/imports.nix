@@ -34,6 +34,7 @@
   ./options-cluster-memory.nix
   ./options-cluster-wired-room.nix
   ./options-cluster-peer-state.nix
+  ./options-cluster-schedule.nix
   ./assertions.nix
   ./packages.nix
   ./static-residents.nix

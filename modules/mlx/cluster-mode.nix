@@ -122,6 +122,21 @@ let
   clusterJoinPkg = mkClusterCli "cluster-join" scriptLayers.join clusterCliEnv.clusterJoinEnv;
   clusterDetachPkg = mkClusterCli "cluster-detach" scriptLayers.detach clusterCliEnv.clusterDetachEnv;
 
+  # The schedule agents (off unless programs.mlx.clusterMode.schedule.enable) live
+  # in ./cluster-schedule.nix, split out for the per-file size cap.
+  scheduleAgents = import ./cluster-schedule.nix {
+    inherit
+      lib
+      config
+      mlxShared
+      mkClusterCli
+      scriptLayers
+      clusterCliEnv
+      clusterJoinPkg
+      clusterDetachPkg
+      ;
+  };
+
 in
 {
   # Clustered-mode option DECLARATIONS live in ./options-cluster.nix (split out
@@ -200,6 +215,7 @@ in
         };
       };
 
-    };
+    }
+    // scheduleAgents;
   };
 }

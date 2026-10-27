@@ -57,6 +57,10 @@ let
     hmConfigQwenExcludeToolsCustom
     hmConfigMcpLaunchPrefix
     ;
+  inherit (import ./checks-fixtures-cluster-schedule.nix { inherit mkHmConfig; })
+    hmConfigClusterScheduled
+    hmConfigClusterScheduledWorker
+    ;
   mkHmConfigDarwin =
     (import ./checks-fixtures.nix {
       inherit home-manager aiModule;
@@ -272,6 +276,14 @@ in
 // (import ./checks/mlx-cluster-selfheal.nix { inherit pkgs src; })
 // (import ./checks/mlx-cluster-recovery.nix { inherit pkgs src; })
 // (import ./checks/mlx-cluster-peer-armed.nix { inherit pkgs hmConfigCluster src; })
+// (import ./checks/mlx-cluster-schedule.nix {
+  inherit
+    pkgs
+    hmConfigCluster
+    hmConfigClusterScheduled
+    hmConfigClusterScheduledWorker
+    ;
+})
 // (import ./checks/mlx-cluster-quiesce.nix { inherit pkgs src; })
 // (import ./checks/litellm-local.nix {
   inherit
