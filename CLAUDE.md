@@ -7,7 +7,7 @@ Nix home-manager modules.
 
 1. **Flakes-only**: Never use `nix-env` or imperative Nix commands
 2. **Module args injection**: All flake inputs reach modules via `_module.args`, not function parameters
-3. **Worktrees required**: Run `/refresh-repo` then create a worktree before any work
+3. **Worktrees required**: Start a worktree with `git town hack` before any work
 4. **No direct main commits**: Always use feature branches
 
 ## Validation
