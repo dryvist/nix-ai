@@ -16,7 +16,7 @@ Target repository: $MAESTRO_CURRENT_REPO
 
 - [ ] Read issue details from `selected-issue.json`
 - [ ] Extract issue number: `ISSUE_NUMBER=$(jq -r '.number' selected-issue.json)`
-- [ ] Create an isolated worktree: run `/refresh-repo`, then use the AI tool's
+- [ ] Create an isolated worktree with `git town hack`, or use the AI tool's
       native worktree mechanism (Claude's `EnterWorktree`). Every worktree
       lives at `<repo>/.worktrees/<name>/`; a manual one goes there too, via
       an absolute path to `git worktree add`.
