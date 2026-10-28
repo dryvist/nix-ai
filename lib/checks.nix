@@ -201,6 +201,10 @@ in
   inherit pkgs;
   hmConfig = hmConfigUntrusted;
 })
+// (import ./checks/herdr-hail-context.nix {
+  inherit pkgs;
+  hmConfigDarwin = hmConfigDarwinHerdr;
+})
 // (import ./checks/qwen-code.nix {
   inherit
     pkgs

@@ -54,6 +54,13 @@ in
 {
   imports = [ ./hail-options.nix ];
 
+  options.services.herdr.hail.renderedSettings = lib.mkOption {
+    type = lib.types.attrs;
+    readOnly = true;
+    internal = true;
+    description = "The config.json attrset this module renders; read by the regression checks.";
+  };
+
   options.services.herdr.hail.environmentFile = lib.mkOption {
     type = lib.types.nullOr lib.types.path;
     default = null;
@@ -70,6 +77,8 @@ in
   };
 
   config = lib.mkIf (cfg.enable && hail.enable) {
+    services.herdr.hail.renderedSettings = settings;
+
     assertions = [
       {
         # hail computes `enabled = enabled && hasTokens` and exposes no env

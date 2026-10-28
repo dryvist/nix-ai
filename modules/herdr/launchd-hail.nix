@@ -39,7 +39,16 @@ let
   configStoreDir = pkgs.writeTextDir "herdr-hail-config/config.json" (builtins.toJSON settings);
 in
 {
+  options.services.herdr.hail.renderedSettings = lib.mkOption {
+    type = lib.types.attrs;
+    readOnly = true;
+    internal = true;
+    description = "The config.json attrset this module renders; read by the regression checks.";
+  };
+
   config = lib.mkIf (cfg.enable && cfg.package != null && hail.enable) {
+    services.herdr.hail.renderedSettings = settings;
+
     assertions = [
       {
         assertion = (settings.slack.enabled or false) || (settings.discord.enabled or false);
