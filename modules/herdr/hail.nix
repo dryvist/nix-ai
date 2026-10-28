@@ -39,7 +39,7 @@ let
     ];
     pollIntervalMs = 1500;
     contextSource = "visible";
-    contextLines = 12;
+    contextLines = 40;
     slack = {
       enabled = false;
       allowedUsers = [ ];
