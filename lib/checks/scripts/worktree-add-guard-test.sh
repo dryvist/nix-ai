@@ -228,7 +228,7 @@ expect_allow "codex version command" \
 expect_allow "quoted grep pattern" \
   '{"tool_name":"Bash","tool_input":{"command":"grep \"codex exec\" file"},"cwd":"/repo"}'
 
-codex_exec_reason='Raw codex exec from a tool shell is not allowed; delegate via the Agent tool (see model-delegation.md).'
+codex_exec_reason='Run codex exec with its prompt on stdin from a file: codex exec [flags] - < <prompt-file> (see model-delegation.md).'
 expect_deny_reason "codex exec" \
   '{"tool_name":"Bash","tool_input":{"command":"codex exec -"},"cwd":"/repo"}' \
   "$codex_exec_reason"
@@ -255,6 +255,16 @@ expect_deny_reason "codex exec with assignment prefix" \
 
 expect_deny_reason "codex exec with env prefix and full path" \
   '{"tool_name":"Bash","tool_input":{"command":"env CODEX_HOME=/tmp/codex /opt/homebrew/bin/codex exec -"},"cwd":"/repo"}' \
+  "$codex_exec_reason"
+
+expect_allow "codex exec with a prompt file on stdin" \
+  '{"tool_name":"Bash","tool_input":{"command":"GH_TOKEN=x codex exec -s workspace-write --add-dir /repo/.worktrees/a -C /repo/.worktrees/a - < /tmp/prompt.md"},"cwd":"/repo"}'
+
+expect_allow "codex exec with a prompt file after a chained command" \
+  '{"tool_name":"Bash","tool_input":{"command":"cd /repo && codex exec -</tmp/prompt.md"},"cwd":"/repo"}'
+
+expect_deny_reason "codex exec with a heredoc prompt" \
+  '{"tool_name":"Bash","tool_input":{"command":"codex exec - <<EOF"},"cwd":"/repo"}' \
   "$codex_exec_reason"
 
 expect_allow "non-Bash tool" \

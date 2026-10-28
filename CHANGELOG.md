@@ -1,5 +1,17 @@
 # Changelog
 
+## [8.7.0](https://github.com/dryvist/nix-ai/compare/v8.6.0...v8.7.0) (2026-10-28)
+
+
+### Features
+
+* **agent-hooks:** allow codex exec with a prompt file on stdin ([#2741](https://github.com/dryvist/nix-ai/issues/2741)) ([26c4d34](https://github.com/dryvist/nix-ai/commit/26c4d349fe9c358037851a2e0e2da24b27444804))
+
+
+### Bug Fixes
+
+* **herdr:** relaunch the Hail LaunchAgent at most every 15 minutes ([#2742](https://github.com/dryvist/nix-ai/issues/2742)) ([b6b7105](https://github.com/dryvist/nix-ai/commit/b6b71050afcfbeb59fd035d1000aac984e6af16c))
+
 ## [8.6.0](https://github.com/dryvist/nix-ai/compare/v8.5.3...v8.6.0) (2026-10-27)
 
 
