@@ -1,9 +1,9 @@
 #
 # herdr Module — config.toml and agent-detection manifests
 #
-# Both are plain declarative home.file entries. herdr does not rewrite its own
-# config.toml (session state lives under its state dir), so no deep-merge
-# activation is needed — unlike Codex and Antigravity, which do.
+# config.toml is merged with runtime values at activation when mutableSettings
+# is true; otherwise it is linked from the Nix store. Agent manifests remain
+# declarative home.file entries in both modes.
 #
 {
   config,
@@ -26,6 +26,7 @@ let
   };
 
   merged = lib.recursiveUpdate remoteSection cfg.settings;
+  configToml = tomlFormat.generate "herdr-config.toml" merged;
 
   manifestFiles = lib.mapAttrs' (
     name: value:
@@ -36,9 +37,19 @@ let
 in
 {
   config = lib.mkIf cfg.enable {
-    home.file = {
-      "${cfg.configDir}/config.toml".source = tomlFormat.generate "herdr-config.toml" merged;
-    }
-    // manifestFiles;
+    home.activation = lib.optionalAttrs cfg.mutableSettings {
+      herdrConfigMerge = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        export PATH="${pkgs.jq}/bin:${pkgs.yj}/bin:$PATH"
+        $DRY_RUN_CMD ${../scripts/merge-toml-settings.sh} \
+          "${configToml}" \
+          "$HOME/${cfg.configDir}/config.toml"
+      '';
+    };
+
+    home.file =
+      lib.optionalAttrs (!cfg.mutableSettings) {
+        "${cfg.configDir}/config.toml".source = configToml;
+      }
+      // manifestFiles;
   };
 }

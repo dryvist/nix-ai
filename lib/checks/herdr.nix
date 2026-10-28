@@ -71,6 +71,7 @@ in
       "integrations"
       "knownUnsupportedAgents"
       "knownUpstreamAgents"
+      "mutableSettings"
       "package"
       "remotes"
       "settings"
@@ -92,6 +93,11 @@ in
         expected = ".config/herdr";
       }
       {
+        name = "herdr.mutableSettings";
+        actual = cfg.mutableSettings;
+        expected = true;
+      }
+      {
         name = "herdr.package is installed (not null)";
         actual = cfg.package != null;
         expected = true;
@@ -104,16 +110,14 @@ in
     ];
   };
 
-  # Forces the rendered config.toml and every manifest, not just their
-  # attribute names — a check that reads a few attributes of a large structure
-  # proves nothing about the rest (see CLAUDE.md).
+  # Forces every linked config file and manifest, not just their attribute
+  # names — a check that reads a few attributes of a large structure proves
+  # nothing about the rest (see CLAUDE.md).
   herdr-rendered-files-regression =
     let
       files = hmConfig.config.home.file;
-      configPath = "${cfg.configDir}/config.toml";
       ours = lib.filterAttrs (name: _: lib.hasPrefix "${cfg.configDir}/" name) files;
     in
-    assert lib.hasAttr configPath files || throw "herdr: ${configPath} is not rendered";
     # Force each rendered file's STORE PATH, not the derivation itself.
     # `deepSeq` over a derivation walks its whole attrset — drvAttrs, passthru,
     # every build input — which is both enormously slow and prone to erroring on
