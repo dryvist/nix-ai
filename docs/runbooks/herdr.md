@@ -111,11 +111,11 @@ such as `--until blocked` to catch an approval prompt.
 Note there are five states, not three: `--until idle` alone can miss an agent
 that settles on `done`.
 
-**`config.toml` is a read-only symlink into the Nix store.** Any herdr
-subcommand that rewrites its own config fails or is reverted on the next
-switch. Express the change as `programs.herdr.settings` instead. This is the
-same conflict class as `herdr integration install`, which
-[`modules/herdr/README.md`](../../modules/herdr/README.md) covers.
+**`config.toml` is writable when `programs.herdr.mutableSettings` is true, the
+default.** Home Manager merges the existing file with `programs.herdr.settings`
+at every activation, with declared keys taking precedence. Leave UI-tuned keys
+undeclared. Setting `mutableSettings = false` links the generated file from the
+Nix store. Agent-detection manifests remain declarative in both modes.
 
 ## What survives a restart, and what does not
 

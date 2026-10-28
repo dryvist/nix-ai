@@ -17,7 +17,7 @@ CLI and a Unix-socket JSON API.
 graph TD
     subgraph Workstation["Workstation — home-manager"]
         HMOPT["programs.herdr\nmodules/herdr/options.nix"]
-        CFG["~/.config/herdr/config.toml\n(read-only store symlink)"]
+        CFG["$HOME/.config/herdr/config.toml\nmutableSettings=true: activation merge; false: store link"]
         WSOCK["$HOME/.config/herdr/herdr.sock"]
         WSRV["herdr server\n(launchd user agent)"]
         HAIL["herdr-hail\n(optional launchd user agent)"]
