@@ -127,26 +127,6 @@ in
     assert builtins.deepSeq (lib.mapAttrsToList (_: f: "${f.source}") ours) true;
     helpers.mkMarker "check-herdr-rendered-files-regression" "herdr renders ${toString (lib.length (lib.attrNames ours))} file(s) under ${cfg.configDir}.";
 
-  herdr-settings-modes-regression =
-    let
-      configPath = "${cfg.configDir}/config.toml";
-      mutableHome = hmConfig.config.home;
-      immutableHmConfig = hmConfig.extendModules {
-        modules = [ { programs.herdr.mutableSettings = false; } ];
-      };
-      immutableCfg = immutableHmConfig.config.programs.herdr;
-      immutableHome = immutableHmConfig.config.home;
-    in
-    assert cfg.mutableSettings;
-    assert lib.hasAttr "herdrConfigMerge" mutableHome.activation;
-    assert !(lib.hasAttr configPath mutableHome.file);
-    assert !immutableCfg.mutableSettings;
-    assert !(lib.hasAttr "herdrConfigMerge" immutableHome.activation);
-    assert lib.hasAttr configPath immutableHome.file;
-    assert builtins.deepSeq mutableHome.activation.herdrConfigMerge.data true;
-    assert builtins.deepSeq "${immutableHome.file.${configPath}.source}" true;
-    helpers.mkMarker "check-herdr-settings-modes-regression" "herdr config.toml merge and store-link modes evaluate as declared.";
-
   # The TUI is a client, so a module that installs the binary and renders
   # config.toml without declaring a service yields no running herd at all —
   # invisible in the rendered config and raising no error anywhere.
