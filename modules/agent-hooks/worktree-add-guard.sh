@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# PreToolUse hook (Claude Code and Codex share this contract): denies raw
-# `codex exec` from a tool shell and `git worktree add` outside
+# PreToolUse hook (Claude Code and Codex share this contract): denies
+# `codex exec` without a prompt file on stdin and `git worktree add` outside
 # `<repo>/.worktrees/` or `<repo>/.claude/worktrees/`.
 #
 # Contract: stdin is one JSON object with tool_name, tool_input.command
@@ -33,10 +33,12 @@ codex_exec_regex='^[[:space:]]*(([[:alpha:]_][[:alnum:]_]*=[^[:space:]]+)[[:spac
 git_command_prefix='^[[:space:]]*(([[:alpha:]_][[:alnum:]_]*=[^[:space:]]+)[[:space:]]+)*(([^[:space:]]*/)?env[[:space:]]+(([[:alpha:]_][[:alnum:]_]*=[^[:space:]]+|-i|--ignore-environment|--)[[:space:]]+)*)?((command|exec)[[:space:]]+)?([^[:space:]]*/)?git[[:space:]]+(-C[[:space:]]+[^[:space:]]+[[:space:]]+)?'
 raw_branch_reason="Start branches with \`git town hack <name>\` (or the harness worktree); never from a local base."
 base_merge_reason="Sync with \`git town sync\` (rebase); never merge the base into a PR branch."
+stdin_file_regex='(^|[^<])<[[:space:]]*[^<[:space:]]'
 segments="$(printf '%s\n' "$command" | sed -E 's/(&&|\|\||[;|&])/\n/g')"
 while IFS= read -r segment; do
-  if [[ "$segment" =~ $codex_exec_regex ]]; then
-    deny "Raw codex exec from a tool shell is not allowed; delegate via the Agent tool (see model-delegation.md)."
+  # A prompt-file redirect keeps codex exec from waiting on an open, non-TTY stdin.
+  if [[ "$segment" =~ $codex_exec_regex && ! "$segment" =~ $stdin_file_regex ]]; then
+    deny "Run codex exec with its prompt on stdin from a file: codex exec [flags] - < <prompt-file> (see model-delegation.md)."
   fi
 
   [[ "$segment" =~ $git_command_prefix ]] || continue
