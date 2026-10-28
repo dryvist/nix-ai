@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.8.0](https://github.com/dryvist/nix-ai/compare/v8.7.0...v8.8.0) (2026-10-28)
+
+
+### Features
+
+* **herdr:** merge config.toml at activation by default ([#2745](https://github.com/dryvist/nix-ai/issues/2745)) ([1a59168](https://github.com/dryvist/nix-ai/commit/1a59168ad477ec426402db3eb56cc14f0cb544de))
+
 ## [8.7.0](https://github.com/dryvist/nix-ai/compare/v8.6.0...v8.7.0) (2026-10-28)
 
 
