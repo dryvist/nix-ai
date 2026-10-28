@@ -65,7 +65,7 @@ in
         ProgramArguments = hail.launchPrefix ++ [ (lib.getExe hail.package) ];
         RunAtLoad = true;
         KeepAlive = true;
-        ThrottleInterval = 30;
+        ThrottleInterval = 900;
         ProcessType = "Background";
         EnvironmentVariables = {
           HOME = config.home.homeDirectory;
