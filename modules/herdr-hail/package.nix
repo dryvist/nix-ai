@@ -30,8 +30,8 @@ buildNpmPackage {
   version = "0.1.0-unstable-2026-07-19";
   inherit src;
   # Adapt agent input to the herdr >= 0.9 socket API.
-  # Blocked notifications keep the top of the context and cut the excerpt to
-  # fit the Slack and Discord message limits.
+  # Notifications keep the bottom of the context and cut the excerpt to fit the
+  # Slack and Discord message limits.
   # Carry these patches until upstream provides the same behavior.
   patches = [
     ./agent-input.patch
