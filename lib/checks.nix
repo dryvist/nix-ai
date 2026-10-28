@@ -197,6 +197,10 @@ in
   hmConfig = hmConfigUntrusted;
   hmConfigDarwin = hmConfigDarwinHerdr;
 })
+// (import ./checks/herdr-settings.nix {
+  inherit pkgs;
+  hmConfig = hmConfigUntrusted;
+})
 // (import ./checks/qwen-code.nix {
   inherit
     pkgs
