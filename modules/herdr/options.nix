@@ -34,6 +34,16 @@ in
       '';
     };
 
+    mutableSettings = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Keep `config.toml` writable by merging its runtime values with
+        `settings` at activation. Set to `false` to link it read-only from the
+        Nix store.
+      '';
+    };
+
     settings = lib.mkOption {
       inherit (tomlFormat) type;
       default = { };
@@ -48,6 +58,9 @@ in
         [worktrees], [remote], [keys], [theme], [ui], [ui.sound],
         [experimental] and [session]. Free-form on purpose: herdr's config
         reference is the schema, and mirroring it here would go stale.
+
+        While `mutableSettings` is true, keys declared here overwrite the
+        file's values at every activation; leave UI-tuned keys undeclared.
       '';
     };
 
