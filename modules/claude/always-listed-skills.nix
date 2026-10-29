@@ -123,6 +123,8 @@ let
     # helper for the fast-subagent tier only earns its keep if a session sees
     # it every time a routine step appears.
     "fast-subagent"
+    # Offered in every session's skill listing.
+    "monitoring-first"
   ];
 
   # Measured entries with no model invocation in the last 30 days (2026-10-11
