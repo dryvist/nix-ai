@@ -1,5 +1,13 @@
 # Changelog
 
+## [8.8.2](https://github.com/dryvist/nix-ai/compare/v8.8.1...v8.8.2) (2026-10-29)
+
+
+### Bug Fixes
+
+* **herdr:** drop an orphaned surrogate when trimming the excerpt ([#2751](https://github.com/dryvist/nix-ai/issues/2751)) ([b080396](https://github.com/dryvist/nix-ai/commit/b080396c0cf5727379d3f116c95b3f74cbbeb66c))
+* **herdr:** keep the bottom of the context for every status ([#2750](https://github.com/dryvist/nix-ai/issues/2750)) ([58d98b8](https://github.com/dryvist/nix-ai/commit/58d98b80fae331c8e4383a0ef6370aaffb29f21d))
+
 ## [8.8.1](https://github.com/dryvist/nix-ai/compare/v8.8.0...v8.8.1) (2026-10-28)
 
 
