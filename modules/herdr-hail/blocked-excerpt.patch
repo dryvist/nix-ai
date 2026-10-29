@@ -67,7 +67,7 @@ index 6e85642..49b7fb1 100644
      choices: choices?.filter((c) => !/^chat about this$/i.test(c.label)) ?? null,
    };
  }
-@@ -65,24 +72,42 @@ export function buttonLabel(choice: MenuChoice): string {
+@@ -65,24 +72,44 @@ export function buttonLabel(choice: MenuChoice): string {
    return label.length > MAX_LABEL ? label.slice(0, MAX_LABEL - 1) + "…" : label;
  }
  
@@ -121,5 +121,7 @@ index 6e85642..49b7fb1 100644
 +  const all = n.context.split("\n");
 +  const text = all.slice(Math.max(0, all.length - n.contextLines)).join("\n");
 +  if (text.length <= budget) return text;
-+  return "…\n" + text.slice(text.length - Math.max(0, budget - 2));
++  // The cut can land inside a surrogate pair; drop the orphaned low half.
++  const cut = text.slice(text.length - Math.max(0, budget - 2)).replace(/^[\uDC00-\uDFFF]/, "");
++  return "…\n" + cut;
  }
