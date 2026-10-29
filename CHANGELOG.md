@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.8.1](https://github.com/dryvist/nix-ai/compare/v8.8.0...v8.8.1) (2026-10-28)
+
+
+### Bug Fixes
+
+* **herdr:** include the question in blocked notifications ([#2748](https://github.com/dryvist/nix-ai/issues/2748)) ([8058750](https://github.com/dryvist/nix-ai/commit/80587504c2f0bbe249352603c4341a5b41dd92f0))
+
 ## [8.8.0](https://github.com/dryvist/nix-ai/compare/v8.7.0...v8.8.0) (2026-10-28)
 
 

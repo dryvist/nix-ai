@@ -30,8 +30,13 @@ buildNpmPackage {
   version = "0.1.0-unstable-2026-07-19";
   inherit src;
   # Adapt agent input to the herdr >= 0.9 socket API.
-  # Carry this patch until upstream provides the same behavior.
-  patches = [ ./agent-input.patch ];
+  # Notifications keep the bottom of the context and cut the excerpt to fit the
+  # Slack and Discord message limits.
+  # Carry these patches until upstream provides the same behavior.
+  patches = [
+    ./agent-input.patch
+    ./blocked-excerpt.patch
+  ];
 
   # `prefetch-npm-deps package-lock.json` at the pinned rev. Moves only when
   # the lockfile does, which is the reason the input is pinned by rev.
