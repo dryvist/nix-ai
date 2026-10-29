@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.9.0](https://github.com/dryvist/nix-ai/compare/v8.8.2...v8.9.0) (2026-10-29)
+
+
+### Features
+
+* **skills:** list monitoring-first for model invocation ([#2757](https://github.com/dryvist/nix-ai/issues/2757)) ([bde800e](https://github.com/dryvist/nix-ai/commit/bde800e1efa5f57949d27e565cf21c4084960b3b))
+
 ## [8.8.2](https://github.com/dryvist/nix-ai/compare/v8.8.1...v8.8.2) (2026-10-29)
 
 
