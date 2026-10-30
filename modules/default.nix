@@ -133,15 +133,6 @@ in
   ];
 
   config = {
-    programs.agentSkills.local.herdr =
-      lib.mkIf (config.programs.herdr.enable && config.programs.herdr.package != null)
-        "${
-          pkgs.runCommand "herdr-release-skill" { } ''
-            mkdir -p "$out"
-            ${lib.getExe config.programs.herdr.package} --skill > "$out/SKILL.md"
-          ''
-        }/SKILL.md";
-
     home = {
       # AI development tools (MCP servers, linters, CLI wrappers). The agent
       # language servers are spliced in from their own file: ai-tools.nix sits

@@ -64,7 +64,6 @@ in
     inherit cfg;
     expectedOptions = [
       "agentManifests"
-      "configDir"
       "defaultRemote"
       "enable"
       "integrations"
@@ -85,11 +84,6 @@ in
         name = "herdr.enable";
         actual = cfg.enable;
         expected = true;
-      }
-      {
-        name = "herdr.configDir";
-        actual = cfg.configDir;
-        expected = ".config/herdr";
       }
       {
         name = "herdr.server.enable";
@@ -115,16 +109,19 @@ in
   herdr-rendered-files-regression =
     let
       files = hmConfig.config.home.file;
-      ours = lib.filterAttrs (name: _: lib.hasPrefix "${cfg.configDir}/" name) files;
+      configDir = "${hmConfig.config.xdg.configHome}/herdr";
+      ours = lib.filterAttrs (name: _: lib.hasPrefix "${configDir}/" name) files;
+      configFiles = lib.filterAttrs (name: _: lib.hasPrefix "herdr/" name) hmConfig.config.xdg.configFile;
     in
     # Force each rendered file's STORE PATH, not the derivation itself.
     # `deepSeq` over a derivation walks its whole attrset — drvAttrs, passthru,
     # every build input — which is both enormously slow and prone to erroring on
     # attributes that were never meant to be forced. Interpolating to a string
-    # forces exactly what this check is about: that every file under configDir
+    # forces exactly what this check is about: that every managed Herdr file
     # actually renders to a path.
     assert builtins.deepSeq (lib.mapAttrsToList (_: f: "${f.source}") ours) true;
-    helpers.mkMarker "check-herdr-rendered-files-regression" "herdr renders ${toString (lib.length (lib.attrNames ours))} file(s) under ${cfg.configDir}.";
+    assert builtins.deepSeq (lib.mapAttrsToList (_: f: "${f.source}") configFiles) true;
+    helpers.mkMarker "check-herdr-rendered-files-regression" "herdr managed files render under ${configDir}.";
 
   # The TUI is a client, so a module that installs the binary and renders
   # config.toml without declaring a service yields no running herd at all —
@@ -136,7 +133,7 @@ in
       agent = (agents.herdr or absent).config;
       args = agent.ProgramArguments;
       env = agent.EnvironmentVariables or { };
-      expectedSocket = "${hmConfigDarwin.config.home.homeDirectory}/${hmConfigDarwin.config.programs.herdr.configDir}/herdr.sock";
+      expectedSocket = "${hmConfigDarwin.config.xdg.configHome}/herdr/herdr.sock";
       profileBin = "/etc/profiles/per-user/${hmConfigDarwin.config.home.username}/bin";
       pathEntries = lib.splitString ":" (env.PATH or "");
 
@@ -181,8 +178,7 @@ in
     assert hail.launchPrefix == prefix;
     assert agent.ProgramArguments == prefix ++ [ (lib.getExe hail.package) ];
     assert agent.KeepAlive && agent.RunAtLoad;
-    assert
-      env.HERDR_SOCKET_PATH == "${cfg.home.homeDirectory}/${cfg.programs.herdr.configDir}/herdr.sock";
+    assert env.HERDR_SOCKET_PATH == "${cfg.xdg.configHome}/herdr/herdr.sock";
     assert lib.hasSuffix "/herdr-hail-config" env.HERDR_PLUGIN_CONFIG_DIR;
     assert hail.settings.slack.enabled;
     assert lib.all (name: !(lib.hasAttr name env)) [

@@ -1,5 +1,10 @@
 # Hail remains owned by nix-ai while Herdr itself comes from nix-herdr.
-{ lib, ... }:
+{
+  config,
+  lib,
+  options,
+  ...
+}:
 {
   imports = [
     ./hail-options.nix
@@ -32,5 +37,11 @@
       ];
       description = "nix-ai agent names covered by Herdr's bundled detection manifests.";
     };
+  };
+
+  config = lib.optionalAttrs (lib.hasAttrByPath [ "programs" "agentSkills" "local" ] options) {
+    programs.agentSkills.local.herdr = lib.mkIf (
+      config.programs.herdr.enable && config.programs.herdr.package != null
+    ) "${config.programs.herdr.package}/share/herdr/skills/herdr/SKILL.md";
   };
 }

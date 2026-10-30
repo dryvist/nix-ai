@@ -78,7 +78,7 @@ in
         ProcessType = "Background";
         EnvironmentVariables = {
           HOME = config.home.homeDirectory;
-          HERDR_SOCKET_PATH = "${config.home.homeDirectory}/${cfg.configDir}/herdr.sock";
+          HERDR_SOCKET_PATH = "${config.xdg.configHome}/herdr/herdr.sock";
           HERDR_PLUGIN_CONFIG_DIR = "${configStoreDir}/herdr-hail-config";
 
           # launchd supplies no Nix profile; keep a runtime wrapper available.
