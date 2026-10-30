@@ -5,15 +5,9 @@ terminals coding agents run in: sessions survive a reboot, panes are marked
 working/blocked/idle, and agents drive it themselves through a CLI and a
 Unix-socket JSON API.
 
-Two halves, one flake:
-
-| Output | File | Runs |
-| --- | --- | --- |
-| `homeManagerModules.herdr` | `default.nix`, `options.nix`, `settings.nix`, `hail-options.nix`, `launchd.nix`, `launchd-hail.nix` | the workstation |
-| `nixosModules.herdr` | `nixos.nix` | the Linux guest, as a systemd service |
-
-Both take their binary from the same `llm-agents` input, so a pane on the
-server runs the same build as a pane on the Mac.
+The Home Manager export composes the `nix-herdr` module with this flake's Hail
+bridge. The NixOS export remains in this repository. Each export selects its
+own Herdr package; version parity is not implied.
 
 Hail is an optional companion process on either platform. On macOS, set
 `services.herdr.hail.enable = true` alongside `programs.herdr.enable`; its
@@ -38,7 +32,8 @@ the stack could not leave one machine.
 | CLI | Source |
 | --- | --- |
 | Claude Code, Codex | `llm-agents.nix` on Linux, Homebrew cask on darwin |
-| `agy`, Copilot CLI, OpenCode, herdr | `llm-agents.nix` |
+| `agy`, Copilot CLI, OpenCode | `llm-agents.nix` |
+| herdr on Home Manager | `nix-herdr` |
 | qwen-code, Cursor | nixpkgs 26.05 |
 | Claude Desktop, Codex app, ChatGPT, Antigravity, Antigravity IDE | homebrew |
 
@@ -84,18 +79,11 @@ a Linux path at all — narrow it the same way rather than reverting.
 
 Both are things herdr's own quick-start walks straight into.
 
-**Do not run `herdr integration install <agent>`.** It writes lifecycle hooks
-into each agent's own config. For Claude Code that means editing
-`~/.claude/settings.json`, which `nix-claude-code` renders read-only from the
-Nix store — the write fails, or the next `switch` reverts it. Name the agent in
-`programs.herdr.integrations` instead: `modules/herdr/integrations.nix` declares
-the same payloads, referenced from the package's own
-`share/herdr/integrations/`, so they move with the pinned version.
-
-A hook is what makes an agent report its own session and working/blocked/idle
-transitions. Without one herdr is left inferring state from the terminal, which
-is why `integrations` and `agentManifests` solve different halves of the same
-problem — the hook is authoritative, the manifest is the fallback.
+Declare integrations with `programs.herdr.integrations.<agent>.enable`. The
+external module installs release-matched payloads and contributes settings to
+the relevant app renderer. Claude Code, Codex, Copilot, and Antigravity CLI
+report session identity; Herdr's screen manifests provide their state.
+OpenCode reports lifecycle state and session identity. Qwen uses a separate native extension, leaving existing user hooks intact.
 
 **herdr fetches agent-manifest updates from `herdr.dev` at runtime** and applies
 them without a restart: undeclared mutable state reaching the internet on an

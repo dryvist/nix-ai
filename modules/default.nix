@@ -115,11 +115,11 @@ in
     ./claude/slack-channel.nix
     ./claude/skill-packs.nix
     ./codex
+    ./copilot-hooks.nix
     ./antigravity-ide
     ./antigravity-cli
     ./fabric
     ./fluidaudio.nix
-    ./herdr
     ./litellm-local
     ./maestro
     ./mcp/module.nix
@@ -285,21 +285,22 @@ in
       # step (idempotent once installed; the first activation needs network).
       claude.latest.installOnActivation = true;
 
-      # herdr — the multiplexer the agent CLIs above run inside. On the
-      # workstation this is the client half; `herdr --remote <name>` attaches
-      # to a server-hosted herd using the same config.toml the server renders
-      # from this flake.
-      herdr = {
-        enable = true;
+      copilot-cli.enable = lib.mkDefault untrusted;
 
-        # Lifecycle hooks for the agent CLIs this profile installs. Without
-        # them pane state is inferred from the terminal; with them each CLI
-        # reports its own session and working/blocked/idle transitions.
-        integrations = [
-          "claude"
-          "codex"
-        ]
-        ++ lib.optional untrusted "opencode";
+      # Herdr runs the agent CLIs above. Consumer hosts choose the server
+      # role and saved SSH machine catalog.
+      herdr = {
+        enable = lib.mkDefault true;
+
+        server.enable = lib.mkDefault true;
+        integrations = {
+          claude.enable = lib.mkDefault config.programs.claude.enable;
+          codex.enable = lib.mkDefault config.programs.codex.enable;
+          antigravity-cli.enable = lib.mkDefault config.programs.antigravity-cli.enable;
+          opencode.enable = lib.mkDefault config.programs.opencode.enable;
+          copilot.enable = lib.mkDefault config.programs.copilot-cli.enable;
+          qwen.enable = lib.mkDefault config.programs.qwen-code.enable;
+        };
       };
     };
   };

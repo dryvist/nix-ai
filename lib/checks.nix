@@ -236,6 +236,7 @@ in
   inherit pkgs mkHmConfig;
   hmConfig = hmConfigUntrusted;
 })
+// (import ./checks/copilot-settings.nix { inherit pkgs mkHmConfig; })
 // (import ./checks/antigravity-cli.nix { inherit pkgs hmConfig; })
 // (import ./checks/vct-cli.nix {
   inherit

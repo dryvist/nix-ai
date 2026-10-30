@@ -16,10 +16,33 @@ let
     inherit pkgs home-manager aiModule;
   };
   hmConfig = fixtures.mkHmConfig [ { programs.ai.untrustedClis.enable = true; } ];
+  hmConfigDarwinHerdr = fixtures.mkHmConfig [
+    {
+      programs.herdr.enable = true;
+      services.herdr.hail = {
+        enable = true;
+        launchPrefix = [
+          "runtime-secret-launcher"
+          "run"
+          "--"
+        ];
+        settings.slack.enabled = true;
+      };
+    }
+  ];
 in
 {
   ${system} =
     (import (src + "/lib/checks/opencode.nix") { inherit pkgs hmConfig; })
+    // (import (src + "/lib/checks/copilot-settings.nix") {
+      inherit pkgs;
+      inherit (fixtures) mkHmConfig;
+    })
+    // (import (src + "/lib/checks/herdr.nix") {
+      inherit pkgs hmConfig;
+      hmConfigDarwin = hmConfigDarwinHerdr;
+    })
+    // (import (src + "/lib/checks/herdr-settings.nix") { inherit pkgs hmConfig; })
     // (import (src + "/lib/checks/opencode-trusted.nix") {
       inherit pkgs hmConfig;
       inherit (fixtures) mkHmConfig;

@@ -11,7 +11,7 @@ index 6183ec5..e8bb181 100644
 +    | ((paneId: string, text: string) => Promise<boolean> | boolean | void)
 +    | null = null;
    private ready: Promise<void>;
- 
+
    constructor(private readonly cfg: DiscordConfig) {
 @@ -73,8 +75,14 @@ export class DiscordAdapter implements ChannelAdapter {
          await btn.reply({ content: "⛔ You are not authorized to control this agent.", ephemeral: true });
@@ -29,18 +29,18 @@ index 6183ec5..e8bb181 100644
 +      });
      });
    }
- 
+
 @@ -121,7 +129,9 @@ export class DiscordAdapter implements ChannelAdapter {
      }
    }
- 
+
 -  onReply(handler: (paneId: string, text: string) => void): void {
 +  onReply(
 +    handler: (paneId: string, text: string) => Promise<boolean> | boolean | void,
 +  ): void {
      this.replyHandler = handler;
    }
- 
+
 diff --git a/src/herdr.ts b/src/herdr.ts
 index 19ddd78..56daa57 100644
 --- a/src/herdr.ts
@@ -57,7 +57,7 @@ index 19ddd78..56daa57 100644
 @@ -105,9 +105,14 @@ export class HerdrClient {
      return res.read?.text ?? "";
    }
- 
+
 -  /** Send text to an agent — this is what unblocks it from a chat reply. */
 +  /** Send keys or text to an agent — this is what unblocks it from a chat reply. */
    async agentSend(target: string, text: string): Promise<void> {
@@ -69,7 +69,7 @@ index 19ddd78..56daa57 100644
 +    await this.request("pane.send_text", { pane_id: target, text });
 +    await this.request("agent.send_keys", { target, keys: ["Enter"] });
    }
- 
+
    async ping(): Promise<boolean> {
 diff --git a/src/index.ts b/src/index.ts
 index ae4ff50..1cf03d4 100644
@@ -104,7 +104,7 @@ index ae4ff50..1cf03d4 100644
 +      return false;
      }
    };
- 
+
 diff --git a/src/notification.ts b/src/notification.ts
 index ec7ce7e..6e85642 100644
 --- a/src/notification.ts
@@ -119,11 +119,11 @@ index ec7ce7e..6e85642 100644
 +  ): void;
    stop(): Promise<void>;
  }
- 
+
 @@ -36,15 +38,23 @@ export function statusEmoji(status: AgentStatus): string {
    return EMOJI[status] ?? "🔔";
  }
- 
+
 +// The "Chat about this" menu row ends the question without an answer; it gets no button or excerpt line.
 +const CHAT_ROW = /^\s*[❯>›▶]?\s*\d{1,2}[.)]\s+chat about this\s*$/iu;
 +
@@ -145,7 +145,7 @@ index ec7ce7e..6e85642 100644
 +    choices: choices?.filter((c) => !/^chat about this$/i.test(c.label)) ?? null,
    };
  }
- 
+
 diff --git a/src/slack.ts b/src/slack.ts
 index 800cf2d..0cca79a 100644
 --- a/src/slack.ts
@@ -158,7 +158,7 @@ index 800cf2d..0cca79a 100644
 +  private replyHandler:
 +    | ((paneId: string, text: string) => Promise<boolean> | boolean | void)
 +    | null = null;
- 
+
    constructor(private readonly cfg: SlackConfig) {
      this.app = new bolt.App({
 @@ -46,7 +48,7 @@ export class SlackAdapter implements ChannelAdapter {
@@ -176,7 +176,7 @@ index 800cf2d..0cca79a 100644
        if (!paneId || !number) return;
 -      this.replyHandler?.(paneId, number);
 +      const delivered = (await this.replyHandler?.(paneId, number)) === true;
- 
+
 -      // Replace the buttons with a confirmation so it can't be clicked twice.
 +      // Remove the buttons and append a confirmation so they can't be clicked twice.
        const container = (body as { container?: { message_ts?: string } }).container;
@@ -203,14 +203,15 @@ index 800cf2d..0cca79a 100644
              },
            ],
          });
-@@ -120,7 +130,9 @@ export class SlackAdapter implements ChannelAdapter {
+@@ -120,8 +130,10 @@ export class SlackAdapter implements ChannelAdapter {
      if (n.status === "blocked" && res.ts) this.threadToPane.set(res.ts, n.paneId);
    }
- 
+
 -  onReply(handler: (paneId: string, text: string) => void): void {
 +  onReply(
 +    handler: (paneId: string, text: string) => Promise<boolean> | boolean | void,
 +  ): void {
      this.replyHandler = handler;
    }
- 
+
+   async stop(): Promise<void> {

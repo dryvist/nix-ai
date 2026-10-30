@@ -37,6 +37,7 @@ in
 
   imports = [
     ./options.nix
+    ./native-hooks.nix
     ./settings.nix
     ./components.nix
     ./extensions.nix
