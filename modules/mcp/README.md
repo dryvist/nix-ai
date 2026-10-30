@@ -63,8 +63,24 @@ my-server = {
 layer, instead of a local process per harness. They ship **disabled** because
 the gateway's base URL is private homelab topology and carries no default in
 this public repo; a consumer sets `programs.aiMcp.gatewayBaseUrl` (e.g. via
-`lib.mkForce` in a private host module) to turn them on for every renderer at
-once. `splunk` additionally needs `SPLUNK_MCP_TOKEN` in the environment (a
+`lib.mkForce` in a private host module) to enable them for renderers with a
+registered caller ID. Renderers without one omit these routes.
+
+Gateway routes send `X-Agent-Key` through each client's own environment
+reference syntax. `callerKeyEnv` derives `GATEWAY_KEY_<CALLER_ID>` by uppercasing
+the ID and replacing hyphens with underscores. The configured IDs come from
+`homelab-contracts/ansible/roles/agent_callers/files/callers.json`; evaluation
+fails if a renderer uses an unregistered ID. The opt-in host launch prefix is
+described in [Gateway key launchers](./gateway-keys.md).
+
+OpenCode renders separate trusted and untrusted MCP overlays selected through
+`OPENCODE_CONFIG`. The `claude-zai` launcher uses its own strict MCP file and
+caller ID. ZCode v3.14.3 expands `ZCODE_*` variables only in plugin MCP
+declarations, while this repo has no ZCode plugin MCP emitter; it receives no
+gateway entries. Add one only alongside a plugin declaration renderer and a
+regression check.
+
+`splunk` additionally needs `SPLUNK_MCP_TOKEN` in the environment (a
 Splunk-minted `mcp_token`, not an OpenBao credential) — the gateway passes the
 caller's `Authorization` header straight through to the Splunk backend.
 
@@ -108,47 +124,8 @@ programs.aiMcp.servers.postgresql.disabled = lib.mkForce false;
 
 ## Secrets Management
 
-The MCP config stores **no secrets** — it only references commands and URLs.
-Servers that need API keys read them from environment variables at runtime.
-
-**Inject secrets directly into each run — never write them to disk.**
-
-- A server that needs credentials names them in `env_vars`. The consumer may
-  set `programs.aiMcp.servers.<name>.launchPrefix`, an argv list prepended to
-  the server's command (`<launchPrefix...> <command> <args>`), to supply them.
-  `programs.aiMcp.launchPrefixFor`, a function from `env_vars` to that argv,
-  sets it once for every stdio server with `env_vars`; a server's own
-  `launchPrefix` still wins. This repo holds no secret-manager code; the
-  prefix lives with the consumer.
-  With no prefix, the server reads `env_vars` from the agent's own environment.
-- Non-secret config (log levels, flags) belongs in the Nix-managed `env`
-  attribute. Package-backed active servers use a 300-second startup and tool
-  timeout so first-run `uvx`/`bunx` installs can complete before the MCP
-  handshake deadline.
-- Splunk is a gateway route (see [Shared agentgateway
-  routes](#shared-agentgateway-routes)): the client sends `SPLUNK_MCP_TOKEN`
-  (a Splunk-minted `mcp_token`) as a bearer header, and the gateway passes it
-  straight through to the Splunk backend. No OpenBao credential is involved.
-- Env-var-backed servers (HF_TOKEN, GitHub PAT, UniFi, …) read from the process
-  environment, injected directly or through a `launchPrefix`.
-
-The full variable catalog — required vs optional and purpose — is
-[`.env.example`](../../.env.example). Design rationale and full per-secret
-runbooks live on the [docs site](https://docs.jacobpevans.com/security/overview)
-and the private docs repo.
-
-### Plugin-managed servers (context7)
-
-Some servers are also provided by Claude Code plugins, which manage their own
-MCP server lifecycle under a different name. The catalog's `context7` gateway
-route and the plugin's own MCP coexist without conflict because they render as
-distinct server names to Claude (`context7` vs
-`mcp__plugin_context7_context7`); OpenCode and Codex have no plugin
-and get `context7` only from the catalog route.
-
-| Plugin | Server |
-|--------|--------|
-| `context7@claude-plugins-official` | context7 |
+See [Secrets Management](secrets-management.md) for credential references,
+runtime injection, and plugin-managed MCP server details.
 
 ## HuggingFace MCP
 

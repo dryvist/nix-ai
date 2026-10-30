@@ -84,16 +84,24 @@ let
             "startup_timeout_sec"
             "tool_timeout_sec"
           ];
+      envHttpHeaders =
+        server.env_http_headers
+        // lib.optionalAttrs (server.gatewayKeyEnv != null) {
+          "X-Agent-Key" = server.gatewayKeyEnv;
+        };
     in
     lib.filterAttrs (
       name: value: lib.elem name allowedKeys && value != null && value != [ ] && value != { }
-    ) server;
+    ) (server // { env_http_headers = envHttpHeaders; });
 
   mcpServers = mcpClient.renderServers {
     enabledServers = config.programs.aiMcp.enabledServers // selectedOnDemandMcpServers;
     excluded = cfg.excludedMcpServers;
     normalize = normalizeMcpServer;
     client = "codex";
+    inherit (cfg) callerId;
+    callerKeyEnvOverride = cfg.callerKeyEnv;
+    callerIds = config.programs.aiMcp.callerIds;
   };
 
   optionalValue = key: value: lib.optionalAttrs (value != null) { ${key} = value; };
@@ -268,8 +276,10 @@ in
     # succeeds even when programs.codex.enable = false.
     {
       programs.codex = {
+        callerId = "codex";
         projectDocFallbackFilenames = configAttrs.project_doc_fallback_filenames;
         mcpServerNames = lib.attrNames mcpServers;
+        renderedMcpServers = mcpServers;
         litellmProfileNames = lib.attrNames litellmProfileTomls;
         otelExporterKinds = {
           logs = if logsEndpoint == null then "none" else "otlp-http";

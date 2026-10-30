@@ -169,7 +169,7 @@ in
         "modules/claude/mcp-render.nix" = "claude";
         "modules/codex/settings.nix" = "codex";
         "modules/qwen-code/settings.nix" = "qwen-code";
-        "modules/opencode/default.nix" = "opencode";
+        "modules/opencode/mcp.nix" = "opencode";
         "modules/antigravity-cli/settings.nix" = "antigravity-cli";
         "modules/antigravity-ide/default.nix" = "antigravity-ide";
       };

@@ -2,12 +2,33 @@
 # home-manager module and lib/checks/scripts/zai-launchers-test.sh can
 # build the exact same package — one source per fact, not a duplicated
 # shell fragment kept in sync by hand.
-{ pkgs, zai }:
+{
+  pkgs,
+  zai,
+  gatewayKeyLaunchPrefix ? null,
+  gatewayKeyEnv ? null,
+}:
 let
   # Literal shell parameter-expansion text, built by plain Nix string
   # concatenation so it interpolates into the shell script below at one
   # unambiguous level (no nested `${}` between Nix and shell syntax).
   zaiKeyRef = "\${" + zai.keyEnv + ":-}";
+  gatewayKeyRef = if gatewayKeyEnv == null then "" else "\${" + gatewayKeyEnv + ":-}";
+  gatewayPrefixArgs =
+    if gatewayKeyLaunchPrefix == null then "" else pkgs.lib.escapeShellArgs gatewayKeyLaunchPrefix;
+  gatewayPrefixSetup =
+    if gatewayKeyLaunchPrefix == null then
+      ""
+    else
+      "\n      gateway_prefix=()\n"
+      + "      if [ -z \"" + gatewayKeyRef + "\" ]; then\n"
+      + "        gateway_prefix=( " + gatewayPrefixArgs + " )\n"
+      + "      fi";
+  gatewayCommand =
+    if gatewayKeyLaunchPrefix == null then
+      "claude"
+    else
+      ''AGENT_GATEWAY_CALLER=claude-zai "''${gateway_prefix[@]}" claude'';
 in
 pkgs.writeShellApplication {
   name = "claude-zai";
@@ -17,7 +38,7 @@ pkgs.writeShellApplication {
       : "''${ZAI_KEY_COMMAND:?set ${zai.keyEnv}, or ZAI_KEY_COMMAND to fetch it}"
       read -ra fetch <<<"$ZAI_KEY_COMMAND"
       exec "''${fetch[@]}" "$0" "$@"
-    fi
+    fi${gatewayPrefixSetup}
     exec env \
       ANTHROPIC_API_KEY= \
       ANTHROPIC_AUTH_TOKEN="$key_value" \
@@ -36,6 +57,6 @@ pkgs.writeShellApplication {
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
       API_TIMEOUT_MS=3000000 \
       PATH="$HOME/.local/bin:$PATH" \
-      claude "$@"
+      ${gatewayCommand} --strict-mcp-config --mcp-config "$HOME/.claude/mcp-zai.json" "$@"
   '';
 }

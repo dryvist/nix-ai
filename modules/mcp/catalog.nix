@@ -22,6 +22,7 @@ let
       type = "http";
       url = if gatewayBaseUrl == null then null else "${gatewayBaseUrl}${path}";
       disabled = gatewayBaseUrl == null;
+      gatewayRoute = true;
     }
     // extra;
   # Python MCP servers built as Nix derivations rather than launched through

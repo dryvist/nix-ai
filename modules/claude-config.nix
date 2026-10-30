@@ -83,22 +83,11 @@ let
       source = "${sourcePath}/${name}.md";
     }) names;
 
-  # Also used below for mkClientOptions; the rendering itself lives in
-  # claude/mcp-render.nix to keep this file under the org file-size limit.
-  mcpClient = import ./mcp/client.nix { inherit lib; };
-
-  claudeMcp = import ./claude/mcp-render.nix { inherit lib config; };
-
   claudeSession = import ./claude/session.nix;
-  inherit (claudeMcp) mcpServers onDemandMcpFiles;
 
 in
 {
-  # excludedMcpServers + mcpServerNames come from the shared MCP client helper,
-  # same as every other client. Declared here rather than in nix-claude-code
-  # because the shared catalog and its per-client exclude semantics are nix-ai's
-  # concern; nix-claude-code owns only the rendering of programs.claude.mcpServers.
-  options.programs.claude = mcpClient.mkClientOptions "Claude Code";
+  imports = [ ./claude-config-gateway.nix ];
 
   config = {
     programs.claude = {
@@ -226,11 +215,6 @@ in
         # at 45%. Don't also set env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE.
         autoCompactThresholdPercent = 45;
         cleanupPeriodDays = 180;
-        # A repository's `.mcp.json` written by `agent-skill-groups link` only
-        # ever names catalog servers from the on-demand tier, so approve
-        # exactly those without the per-project prompt. Anything else in a
-        # `.mcp.json` still prompts, by name.
-        enabledMcpjsonServers = builtins.attrNames config.programs.aiMcp.onDemandEnabledServers;
         env = import ./claude/settings-env.nix {
           inherit lib userConfig;
           inherit (config.programs) litellmLocal;
@@ -276,16 +260,9 @@ in
         };
       };
 
-      # MCP Servers - deployed to ~/.claude.json via home.activation.
-      # Shared definitions are owned by modules/mcp and rendered per-client here.
-      inherit mcpServers;
-      mcpServerNames = lib.attrNames mcpServers;
-
       # Statusline and event hooks live in ./claude/session.nix (extracted to
       # keep this file under its file-size cap).
       inherit (claudeSession) statusline hooks;
     };
-
-    home.file = onDemandMcpFiles;
   };
 }

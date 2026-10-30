@@ -32,6 +32,9 @@ let
     excluded = cfg.excludedMcpServers;
     normalize = formatters.utils.normalizeMcpServer;
     client = "antigravity-ide";
+    inherit (cfg) callerId;
+    callerKeyEnvOverride = cfg.callerKeyEnv;
+    callerIds = config.programs.aiMcp.callerIds;
   };
 
   mcpConfig = {
@@ -84,7 +87,10 @@ in
 
   config = lib.mkMerge [
     {
-      programs.antigravity-ide.mcpServerNames = lib.attrNames mcpServers;
+      programs.antigravity-ide = {
+        mcpServerNames = lib.attrNames mcpServers;
+        renderedMcpServers = mcpServers;
+      };
     }
     (lib.mkIf cfg.enable {
       home = {

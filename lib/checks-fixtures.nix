@@ -74,6 +74,13 @@ rec {
   # untrusted CLI's wiring read this fixture; the default one has none.
   hmConfigUntrusted = mkHmConfig [ { programs.ai.untrustedClis.enable = true; } ];
 
+  inherit (import ./checks-fixtures-mcp.nix { inherit mkHmConfig; })
+    hmConfigGatewayCallers
+    hmConfigMcpLaunchPrefix
+    hmConfigGatewayKeyLaunchPrefix
+    hmConfigGatewayKeyLaunchPrefixNull
+    ;
+
   inherit (import ./checks/qwen-code-fixtures.nix { inherit mkHmConfig; })
     hmConfigQwenRouter
     hmConfigQwenMissingResident
@@ -98,36 +105,6 @@ rec {
     }
   ];
 
-  # A per-server launchPrefix plus a launchPrefixFor hook
-  # (lib/checks/mcp.nix mcp-launch-prefix).
-  hmConfigMcpLaunchPrefix = mkHmConfig [
-    (
-      { lib, ... }:
-      {
-        programs.aiMcp = {
-          launchPrefixFor = vars: [ "/test/injector" ] ++ vars ++ [ "--" ];
-          servers = {
-            zammad.launchPrefix = [
-              "/test/wrapper"
-              "--flag"
-              "--"
-            ];
-            vikunja.disabled = lib.mkForce false;
-          };
-          # A consumer appending one name, exactly as a host does, must keep
-          # the curated list (lib/checks/mcp.nix mcp-on-demand-merge).
-          onDemandServers = lib.mkAfter [ "vikunja" ];
-          extraOnDemandMcpServers.http-test = {
-            type = "http";
-            url = "https://example.invalid/mcp";
-            bearer_token_env_var = "TEST_TOKEN";
-          };
-        };
-        programs.codex.onDemandMcpServers = [ "http-test" ];
-      }
-    )
-  ];
-
   hmConfigVctCli = mkHmConfig [
     {
       programs.vctCli.enable = true;
@@ -138,205 +115,15 @@ rec {
   # fabric-launchd positive check (default eval has enableServer = false).
   hmConfigFabricServer = mkHmConfig [ { programs.fabric.enableServer = true; } ];
 
-  # Third evaluation exercising programs.mlx.catalog (lib/checks/mlx.nix
-  # mlx-catalog): a server-like selection plus one direct host override that
-  # must beat the catalog's mkDefault.
-  hmConfigCatalog = mkHmConfig [
-    {
-      programs.mlx = {
-        catalog = {
-          qwen38-27b = {
-            class = "resident";
-            roles = [ "judge" ];
-          };
-          # Swap-class text entry exercises its default ttl and model concurrency.
-          mimo-9b.class = "swap";
-          # OCR stays in the pinned role map and exercises the VLM backend.
-          unlimited-ocr = {
-            class = "swap";
-            tweaks.ttl = 600;
-          };
-        };
-        # Direct host setting on a catalog-managed key must win over the catalog.
-        modelFlagOverrides."mlx-community/Qwen3.8-27B-4bit".cacheMemoryMb = 8192;
-      };
-      programs.litellmLocal.enable = true;
-      services.aiStack = {
-        llmEndpoint = "router";
-        llmRouterEndpoint = "https://router.example.invalid/v1";
-        llmEndpointTokenFile = "/tmp/test-router-token";
-      };
-    }
-  ];
-
-  # The MacBook production static-resident shape: both resident catalog
-  # entries, the stable role mapping, and no swap-class selection.
-  hmConfigStaticServing = mkHmConfig [
-    {
-      programs = {
-        mlx = {
-          enable = true;
-          staticResidentLocalProxyConsumers = true;
-          memoryHardLimitGb = 46;
-          roleMap = {
-            models = {
-              qwen38-27b = mkMlxRoleModel "qwen38-27b";
-              qwen35-9b = mkMlxRoleModel "qwen35-9b";
-            };
-            roles = {
-              default.model = "qwen38-27b";
-              fast.model = "qwen35-9b";
-              judge.model = "qwen35-9b";
-              recorder.model = "qwen35-9b";
-              cheap.model = "qwen35-9b";
-              small.model = "qwen35-9b";
-            };
-            hosts.workstation = {
-              resident = [
-                "qwen38-27b"
-                "qwen35-9b"
-              ];
-              swap = [ ];
-            };
-          };
-          catalog = {
-            qwen38-27b = {
-              class = "resident";
-              roles = [ "default" ];
-            };
-            qwen35-9b = {
-              class = "resident";
-              roles = [
-                "fast"
-                "judge"
-                "recorder"
-                "cheap"
-                "small"
-              ];
-            };
-          };
-        };
-        litellmLocal = {
-          enable = true;
-          routerEntryModel = "medium";
-          localModels = [
-            {
-              name = "medium";
-              router = "medium";
-            }
-            {
-              name = "medium-local";
-              id = localMlxCatalog.qwen38-27b.model;
-            }
-          ];
-        };
-        qwen-code.enable = true;
-      };
-      services.aiStack = {
-        llmEndpoint = "router";
-        llmRouterEndpoint = "https://router.example.invalid/v1";
-        llmEndpointTokenFile = "/tmp/test-router-token";
-      };
-    }
-  ];
-
-  # Two evaluations for the role-registry check (lib/checks/mlx-catalog-roles.nix).
-  # The first binds the `small` role to a swap-class entry; the second assigns
-  # one role name to two enabled entries, so the uniqueness assertion must come
-  # back false. Kept out of hmConfigCatalog so the duplicate case cannot leak
-  # into the checks that read that fixture.
-  hmConfigSmallRole = mkHmConfig [
-    {
-      programs.litellmLocal.enable = true;
-      services.aiStack = {
-        llmEndpoint = "router";
-        llmRouterEndpoint = "https://router.example.invalid/v1";
-        llmEndpointTokenFile = "/tmp/test-router-token";
-      };
-      programs.mlx.catalog = {
-        qwen38-27b.class = "resident";
-        mimo-9b = {
-          class = "swap";
-          roles = [ "small" ];
-        };
-      };
-    }
-  ];
-  hmConfigDupRole = mkHmConfig [
-    {
-      programs.litellmLocal.enable = true;
-      services.aiStack = {
-        llmEndpoint = "router";
-        llmRouterEndpoint = "https://router.example.invalid/v1";
-        llmEndpointTokenFile = "/tmp/test-router-token";
-      };
-      programs.mlx.catalog = {
-        qwen38-27b = {
-          class = "resident";
-          roles = [ "small" ];
-        };
-        mimo-9b = {
-          class = "swap";
-          roles = [ "small" ];
-        };
-      };
-    }
-  ];
-
-  # Fourth evaluation exercising programs.mlx.clusterMode as the coordinator
-  # (lib/checks/mlx-cluster.nix): rank env contract, watcher wiring, and the
-  # catalog-rendered resident stop list.
-  hmConfigCluster = mkHmConfig [
-    {
-      programs.mlx = {
-        enable = true;
-        roleMap = {
-          models = {
-            qwen38-27b = mkMlxRoleModel "qwen38-27b";
-            mimo-9b = mkMlxRoleModel "mimo-9b";
-          };
-          roles = {
-            default.model = "qwen38-27b";
-            fast.model = "mimo-9b";
-          };
-          hosts.workstation = {
-            resident = [
-              "qwen38-27b"
-              "mimo-9b"
-            ];
-            swap = [ ];
-          };
-        };
-        catalog = {
-          qwen38-27b = {
-            class = "resident";
-            roles = [ "default" ];
-          };
-          mimo-9b = {
-            class = "resident";
-            roles = [ "fast" ];
-          };
-        };
-        clusterMode = {
-          enable = true;
-          role = "coordinator";
-          modelCatalogKey = "glm47-reap50";
-          # glm4_moe is pipeline-only; the clusterMode assertions now reject
-          # tensor-parallel on it, so this fixture must name the real mode.
-          shardingMode = "pipeline";
-          shardMemoryMb = 1;
-          wiredLimitMb = 90000;
-          standaloneWiredLimitMb = 118000;
-        };
-      };
-      programs.litellmLocal.enable = true;
-      services.aiStack = {
-        llmEndpoint = "router";
-        llmRouterEndpoint = "https://router.example.invalid/v1";
-        llmEndpointTokenFile = "/tmp/test-router-token";
-      };
-    }
-  ];
+  inherit (import ./checks-fixtures-mlx.nix { inherit mkHmConfig localMlxCatalog mkMlxRoleModel; })
+    hmConfigCatalog
+    hmConfigStaticServing
+    ;
+  inherit (import ./checks-fixtures-mlx-roles.nix { inherit mkHmConfig mkMlxRoleModel; })
+    hmConfigSmallRole
+    hmConfigDupRole
+    hmConfigCluster
+    ;
   # Token Meter evaluations cover the canonical disabled option, independent
   # menu-bar/gate switches, and the legacy enable compatibility mapping.
   hmConfigTokenMeter = mkHmConfig [

@@ -56,6 +56,9 @@ let
     hmConfigQwenExcludeToolsEmpty
     hmConfigQwenExcludeToolsCustom
     hmConfigMcpLaunchPrefix
+    hmConfigGatewayCallers
+    hmConfigGatewayKeyLaunchPrefix
+    hmConfigGatewayKeyLaunchPrefixNull
     ;
   inherit (import ./checks-fixtures-cluster-schedule.nix { inherit mkHmConfig; })
     hmConfigClusterScheduled
@@ -244,7 +247,21 @@ in
     hmConfigVctCli
     ;
 })
-// (import ./checks/mcp.nix { inherit pkgs hmConfig hmConfigMcpLaunchPrefix; })
+// (import ./checks/mcp.nix {
+  inherit
+    pkgs
+    hmConfig
+    hmConfigMcpLaunchPrefix
+    hmConfigGatewayCallers
+    ;
+})
+// (import ./checks/mcp-gateway-key-launch.nix {
+  inherit
+    pkgs
+    hmConfigGatewayKeyLaunchPrefix
+    hmConfigGatewayKeyLaunchPrefixNull
+    ;
+})
 // (import ./checks/autonomous-profile.nix {
   inherit pkgs;
   render = renderAutonomous;

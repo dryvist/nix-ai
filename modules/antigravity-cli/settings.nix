@@ -81,11 +81,29 @@ let
 
   mergedSandboxAllowedPaths = lib.unique (defaultSandboxAllowedPaths ++ cfg.sandboxAllowedPaths);
 
+  normalizeMcpServer =
+    server:
+    let
+      normalized = formatters.utils.normalizeMcpServer server;
+    in
+    if server.gatewayKeyEnv == null then
+      normalized
+    else
+      normalized
+      // {
+        headers = (normalized.headers or { }) // {
+          "X-Agent-Key" = "\${" + server.gatewayKeyEnv + "}";
+        };
+      };
+
   mcpServers = mcpClient.renderServers {
     inherit (config.programs.aiMcp) enabledServers;
     excluded = cfg.excludedMcpServers;
-    normalize = formatters.utils.normalizeMcpServer;
+    normalize = normalizeMcpServer;
     client = "antigravity-cli";
+    inherit (cfg) callerId;
+    callerKeyEnvOverride = cfg.callerKeyEnv;
+    callerIds = config.programs.aiMcp.callerIds;
   };
 
   # Policy Engine: generate TOML rules from shared permissions
@@ -181,8 +199,10 @@ in
     # pure Nix expressions (no activation-time side effects).
     {
       programs.antigravity-cli = {
+        callerId = "antigravity-cli";
         contextFileNames = settings.context.fileName;
         mcpServerNames = lib.attrNames mcpServers;
+        renderedMcpServers = mcpServers;
         sandboxAllowedPathsMerged = mergedSandboxAllowedPaths;
         inherit policyRules;
       };

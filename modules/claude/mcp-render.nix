@@ -16,17 +16,55 @@ let
   # because the target schemas genuinely differ (Codex takes env_vars and
   # timeouts, opencode fuses command+args, qwen splits url/httpUrl); only the
   # filter/exclude step is shared, via mcpClient.renderServers below.
+  #
+  # typed = true is for programs.claude.mcpServers, whose nix-claude-code
+  # submodule has no headersHelper, so credentials are interpolated into
+  # headers. If Claude reads an empty value, the gateway rejects the call, so
+  # the failure is closed. typed = false is for the JSON files, which keep the
+  # helper.
   normalizeClaudeMcpServer =
+    { typed }:
     original:
     let
+      headerEnv =
+        lib.optional (original.bearer_token_env_var != null && !(original.headers ? Authorization)) {
+          name = "Authorization";
+          prefix = "Bearer ";
+          env = original.bearer_token_env_var;
+        }
+        ++ lib.optional (original.gatewayKeyEnv != null) {
+          name = "X-Agent-Key";
+          prefix = "";
+          env = original.gatewayKeyEnv;
+        };
+      headerFormat = builtins.toJSON (
+        lib.listToAttrs (
+          map (header: {
+            inherit (header) name;
+            value = "${header.prefix}%s";
+          }) headerEnv
+        )
+      );
+      inlineHeaders = lib.listToAttrs (
+        map (header: {
+          inherit (header) name;
+          value = header.prefix + "\${" + header.env + "}";
+        }) headerEnv
+      );
       # Claude reads credential variables in remote headers as empty in some
-      # cases. A headersHelper reads this consumer's current environment on
-      # every connection, avoiding OAuth discovery and stale session headers.
+      # cases. A headersHelper reads only this caller's variables on each
+      # connection, keeping the secret out of the rendered config.
       server =
-        if original.bearer_token_env_var != null && !(original.headers ? Authorization) then
+        if typed then
+          if headerEnv != [ ] then original // { headers = original.headers // inlineHeaders; } else original
+        else if headerEnv != [ ] then
           original
           // {
-            headersHelper = "printf '{\"Authorization\":\"Bearer %s\"}\\n' \"\${${original.bearer_token_env_var}}\"";
+            headersHelper =
+              "printf "
+              + lib.escapeShellArg "${headerFormat}\\n"
+              + " "
+              + lib.concatStringsSep " " (map (header: "\"\${" + header.env + "}\"") headerEnv);
           }
         else
           original;
@@ -52,8 +90,11 @@ let
   mcpServers = mcpClient.renderServers {
     inherit (config.programs.aiMcp) enabledServers;
     excluded = config.programs.claude.excludedMcpServers;
-    normalize = normalizeClaudeMcpServer;
+    normalize = normalizeClaudeMcpServer { typed = true; };
     client = "claude";
+    callerId = config.programs.claude.callerId;
+    callerKeyEnvOverride = config.programs.claude.callerKeyEnv;
+    callerIds = config.programs.aiMcp.callerIds;
   };
 
   # Servers held out of the always-on profile (programs.aiMcp.onDemandServers)
@@ -63,8 +104,21 @@ let
   onDemandMcpServers = mcpClient.renderServers {
     enabledServers = config.programs.aiMcp.onDemandEnabledServers;
     excluded = config.programs.claude.excludedMcpServers;
-    normalize = normalizeClaudeMcpServer;
+    normalize = normalizeClaudeMcpServer { typed = false; };
     client = "claude";
+    callerId = config.programs.claude.callerId;
+    callerKeyEnvOverride = config.programs.claude.callerKeyEnv;
+    callerIds = config.programs.aiMcp.callerIds;
+  };
+
+  zaiMcpServers = mcpClient.renderServers {
+    inherit (config.programs.aiMcp) enabledServers;
+    excluded = config.programs.claude.excludedMcpServers;
+    normalize = normalizeClaudeMcpServer { typed = false; };
+    client = "claude-zai";
+    callerId = config.programs.claude.zaiCallerId;
+    callerKeyEnvOverride = config.programs.claude.zaiCallerKeyEnv;
+    callerIds = config.programs.aiMcp.callerIds;
   };
 
   onDemandMcpFiles = lib.mapAttrs' (name: server: {
@@ -73,5 +127,5 @@ let
   }) onDemandMcpServers;
 in
 {
-  inherit mcpServers onDemandMcpFiles;
+  inherit mcpServers onDemandMcpFiles zaiMcpServers;
 }
