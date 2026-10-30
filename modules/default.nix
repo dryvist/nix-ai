@@ -296,21 +296,19 @@ in
 
       copilot-cli.enable = untrusted;
 
-      # herdr — the multiplexer the agent CLIs above run inside. On the
-      # workstation this is the client half; `herdr --remote <name>` attaches
-      # to a server-hosted herd using the same config.toml the server renders
-      # from this flake.
+      # Herdr runs the agent CLIs above. Consumer hosts choose the server
+      # role and saved SSH machine catalog.
       herdr = {
-        enable = true;
+        enable = lib.mkDefault true;
 
         server.enable = lib.mkDefault true;
         integrations = {
-          claude.enable = true;
-          codex.enable = true;
-          antigravity-cli.enable = true;
-          opencode.enable = untrusted;
-          copilot.enable = untrusted;
-          qwen.enable = untrusted;
+          claude.enable = lib.mkDefault true;
+          codex.enable = lib.mkDefault true;
+          antigravity-cli.enable = lib.mkDefault true;
+          opencode.enable = lib.mkDefault untrusted;
+          copilot.enable = lib.mkDefault untrusted;
+          qwen.enable = lib.mkDefault untrusted;
         };
       };
     };

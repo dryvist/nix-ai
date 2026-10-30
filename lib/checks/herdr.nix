@@ -18,7 +18,6 @@ let
   cfg = hmConfig.config.programs.herdr;
   programs = hmConfig.config.programs;
   opencodeDir = programs.opencode.configDir or ".config/opencode";
-  claudeTypedSessionStart = (programs.claude.hooks.sessionStart or null) != null;
 
   # Which of this flake's CLIs herdr is expected to recognise, keyed by THIS
   # flake's option name. Translation to herdr's own manifest name happens in
@@ -193,10 +192,7 @@ in
     ];
     helpers.mkMarker "check-herdr-hail-darwin-eval" "herdr Hail Darwin LaunchAgent and runtime argument prefix evaluated.";
 
-  # The failure this guards is silent in both directions: a declared hook whose
-  # payload never renders leaves herdr on terminal heuristics, and a Claude
-  # SessionStart entry that lands without the typed hooks nix-claude-code
-  # renders would drop marketplace refresh from every session.
+  # Verify contributed events and assets; the owner-rendered JSON is checked below.
   herdr-integrations-regression =
     let
       files = hmConfig.config.home.file;
@@ -205,13 +201,6 @@ in
       sessionStart = claudeHooks.SessionStart or [ ];
       commands = lib.concatMap (entry: map (h: h.command or "") (entry.hooks or [ ])) sessionStart;
       declaresHerdr = lib.any (c: lib.hasInfix "herdr-agent-state.sh" c) commands;
-      declaresTyped = lib.any (c: lib.hasInfix "session-start.sh" c) commands;
-      refreshesAsync = lib.any (
-        entry:
-        lib.any (h: lib.hasInfix "session-start.sh" (h.command or "") && (h.async or false)) (
-          entry.hooks or [ ]
-        )
-      ) sessionStart;
 
       expectedFiles = {
         claude = [ ".claude/hooks/herdr-agent-state.sh" ];
@@ -245,16 +234,7 @@ in
           "declares integrations ${lib.concatStringsSep ", " enabledIntegrations} but does not render: ${lib.concatStringsSep ", " missing}"
         ++ lib.optional (
           cfg.integrations.claude.enable && !declaresHerdr
-        ) "claude integration renders its hook but never registers it in settings.hooks.SessionStart"
-        ++
-          lib.optional (cfg.integrations.claude.enable && claudeTypedSessionStart && !declaresTyped)
-            "settings.hooks.SessionStart replaced the typed hook nix-claude-code renders instead of appending to it"
-        ++ lib.optional (
-          cfg.integrations.claude.enable
-          && claudeTypedSessionStart
-          && (hmConfig.config.programs.claude.hooks.refreshMarketplaces or false)
-          && !refreshesAsync
-        ) "the typed SessionStart marketplace refresh lost async, so it blocks every session start";
+        ) "claude integration renders its hook but never registers it in settings.hooks.SessionStart";
     in
     assert lib.assertMsg (problems == [ ]) ''
       herdr integrations are misdeclared:
@@ -266,6 +246,58 @@ in
     helpers.mkMarker "check-herdr-integrations-regression" "herdr lifecycle hooks render and register for ${
       if enabledIntegrations == [ ] then "no agents" else lib.concatStringsSep ", " enabledIntegrations
     }.";
+
+  # Inspect the owner-generated JSON at build time, avoiding import-from-derivation.
+  herdr-claude-rendered-hooks =
+    let
+      composed = hmConfig.extendModules {
+        modules = [
+          {
+            programs.claude.hooks = {
+              sessionStart = lib.mkForce "printf typed-start";
+              refreshMarketplaces = lib.mkForce true;
+            };
+          }
+          {
+            programs.claude.settings.hooks.SessionStart = [
+              {
+                hooks = [
+                  {
+                    type = "command";
+                    command = "fixture-caller-one";
+                  }
+                ];
+              }
+            ];
+          }
+          {
+            programs.claude.settings.hooks.SessionStart = [
+              {
+                hooks = [
+                  {
+                    type = "command";
+                    command = "fixture-caller-two";
+                  }
+                ];
+              }
+            ];
+          }
+        ];
+      };
+    in
+    pkgs.runCommand "check-herdr-claude-rendered-hooks" { nativeBuildInputs = [ pkgs.jq ]; } ''
+      set -euo pipefail
+      settings_json=$(grep -o '/nix/store/[a-z0-9]*-claude-settings\.json' ${composed.activationPackage}/activate | head -1)
+      jq -e '
+        [.hooks.SessionStart[]?.hooks[]?.command | select(type == "string")] as $commands |
+        ($commands | map(select(contains("herdr-agent-state.sh"))) | length) == 1 and
+        ($commands | map(select(contains("session-start.sh"))) | length) == 1 and
+        ($commands | map(select(. == "fixture-caller-one")) | length) == 1 and
+        ($commands | map(select(. == "fixture-caller-two")) | length) == 1 and
+        any(.hooks.SessionStart[]?.hooks[]?; (.command // "" | contains("session-start.sh")) and .async == true and .timeout == 300)
+      ' "$settings_json" >/dev/null
+      touch "$out"
+    '';
 
   herdr-owner-composition-regression =
     let
