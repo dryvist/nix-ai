@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.10.0](https://github.com/dryvist/nix-ai/compare/v8.9.0...v8.10.0) (2026-10-30)
+
+
+### Features
+
+* **litellm-local:** pass /v1/systemone through to the router ([#2760](https://github.com/dryvist/nix-ai/issues/2760)) ([3ac1915](https://github.com/dryvist/nix-ai/commit/3ac1915b38c7887772b52e9e8266765a37339d14))
+
 ## [8.9.0](https://github.com/dryvist/nix-ai/compare/v8.8.2...v8.9.0) (2026-10-29)
 
 
