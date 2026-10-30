@@ -27,7 +27,8 @@
     # to that pin — forcing 26.05 both breaks builds and loses every cache hit.
     llm-agents.url = "github:numtide/llm-agents.nix";
     nix-herdr = {
-      url = "github:jpe-nix/nix-herdr";
+      url = "github:jpe-nix/nix-herdr/5dcd88e8a800ce3cefa7ef37f8d60f88073071c2";
+      inputs.home-manager.follows = "home-manager";
     };
 
     home-manager = {
