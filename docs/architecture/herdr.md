@@ -16,8 +16,8 @@ CLI and a Unix-socket JSON API.
 ```mermaid
 graph TD
     subgraph Workstation["Workstation — home-manager"]
-        HMOPT["programs.herdr\nmodules/herdr/options.nix"]
-        CFG["$HOME/.config/herdr/config.toml\nmutableSettings=true: activation merge; false: store link"]
+        HMOPT["programs.herdr\nnix-herdr Home Manager module"]
+        CFG["$HOME/.config/herdr/config.toml\nstore link"]
         WSOCK["$HOME/.config/herdr/herdr.sock"]
         WSRV["herdr server\n(launchd user agent)"]
         HAIL["herdr-hail\n(optional launchd user agent)"]
@@ -41,10 +41,10 @@ graph TD
     WSOCK -->|"herdr --remote <name>"| GSOCK
 ```
 
-The server halves take their binary from the same `llm-agents` input, so a
-pane on the guest runs the same build as a pane on the workstation. The
-workstation LaunchAgent runs the headless server; the optional Hail LaunchAgent
-reads its generated configuration and connects to that same socket.
+The workstation takes its package from `nix-herdr`; the legacy NixOS guest
+uses `llm-agents`. Version parity is not implied. The workstation LaunchAgent
+runs the headless server when enabled; the optional Hail LaunchAgent reads its
+generated configuration and connects to that socket.
 
 The guest pins its socket at a fixed path, because a bridge forwards that
 socket over SSH and needs a predictable one. The pin is `HERDR_SOCKET_PATH`;

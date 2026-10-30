@@ -64,6 +64,7 @@ let
 in
 {
   imports = [
+    ./native-hooks.nix
     ./options.nix
     ./settings.nix
     ../litellm-local/options.nix

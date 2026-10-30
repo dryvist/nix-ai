@@ -115,11 +115,11 @@ in
     ./claude/slack-channel.nix
     ./claude/skill-packs.nix
     ./codex
+    ./copilot-hooks.nix
     ./antigravity-ide
     ./antigravity-cli
     ./fabric
     ./fluidaudio.nix
-    ./herdr
     ./litellm-local
     ./maestro
     ./mcp/module.nix
@@ -133,6 +133,15 @@ in
   ];
 
   config = {
+    programs.agentSkills.local.herdr =
+      lib.mkIf (config.programs.herdr.enable && config.programs.herdr.package != null)
+        "${
+          pkgs.runCommand "herdr-release-skill" { } ''
+            mkdir -p "$out"
+            ${lib.getExe config.programs.herdr.package} --skill > "$out/SKILL.md"
+          ''
+        }/SKILL.md";
+
     home = {
       # AI development tools (MCP servers, linters, CLI wrappers). The agent
       # language servers are spliced in from their own file: ai-tools.nix sits
@@ -285,6 +294,8 @@ in
       # step (idempotent once installed; the first activation needs network).
       claude.latest.installOnActivation = true;
 
+      copilot-cli.enable = untrusted;
+
       # herdr — the multiplexer the agent CLIs above run inside. On the
       # workstation this is the client half; `herdr --remote <name>` attaches
       # to a server-hosted herd using the same config.toml the server renders
@@ -292,14 +303,15 @@ in
       herdr = {
         enable = true;
 
-        # Lifecycle hooks for the agent CLIs this profile installs. Without
-        # them pane state is inferred from the terminal; with them each CLI
-        # reports its own session and working/blocked/idle transitions.
-        integrations = [
-          "claude"
-          "codex"
-        ]
-        ++ lib.optional untrusted "opencode";
+        server.enable = lib.mkDefault true;
+        integrations = {
+          claude.enable = true;
+          codex.enable = true;
+          antigravity-cli.enable = true;
+          opencode.enable = untrusted;
+          copilot.enable = untrusted;
+          qwen.enable = untrusted;
+        };
       };
     };
   };

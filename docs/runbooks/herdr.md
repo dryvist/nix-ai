@@ -111,11 +111,9 @@ such as `--until blocked` to catch an approval prompt.
 Note there are five states, not three: `--until idle` alone can miss an agent
 that settles on `done`.
 
-**`config.toml` is writable when `programs.herdr.mutableSettings` is true, the
-default.** Home Manager merges the existing file with `programs.herdr.settings`
-at every activation, with declared keys taking precedence. Leave UI-tuned keys
-undeclared. Setting `mutableSettings = false` links the generated file from the
-Nix store. Agent-detection manifests remain declarative in both modes.
+**`config.toml` is declarative.** Home Manager links the generated file from
+the Nix store; declare changes through `programs.herdr.settings`. Agent
+detection manifests are declarative too.
 
 ## What survives a restart, and what does not
 

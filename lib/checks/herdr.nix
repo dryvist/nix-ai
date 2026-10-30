@@ -71,7 +71,7 @@ in
       "integrations"
       "knownUnsupportedAgents"
       "knownUpstreamAgents"
-      "mutableSettings"
+      "server"
       "package"
       "remotes"
       "settings"
@@ -93,8 +93,8 @@ in
         expected = ".config/herdr";
       }
       {
-        name = "herdr.mutableSettings";
-        actual = cfg.mutableSettings;
+        name = "herdr.server.enable";
+        actual = cfg.server.enable;
         expected = true;
       }
       {
@@ -132,13 +132,13 @@ in
   # invisible in the rendered config and raising no error anywhere.
   herdr-launchd-regression =
     let
-      agents = hmConfig.config.launchd.agents;
-      absent = throw "herdr: no launchd agent is declared, so the server never runs and the herd stays empty; see modules/herdr/launchd.nix";
+      agents = hmConfigDarwin.config.launchd.agents;
+      absent = throw "herdr: no launchd agent is declared, so the server never runs and the herd stays empty; see nix-herdr user server module";
       agent = (agents.herdr or absent).config;
       args = agent.ProgramArguments;
       env = agent.EnvironmentVariables or { };
-      expectedSocket = "${hmConfig.config.home.homeDirectory}/${cfg.configDir}/herdr.sock";
-      profileBin = "/etc/profiles/per-user/${hmConfig.config.home.username}/bin";
+      expectedSocket = "${hmConfigDarwin.config.home.homeDirectory}/${hmConfigDarwin.config.programs.herdr.configDir}/herdr.sock";
+      profileBin = "/etc/profiles/per-user/${hmConfigDarwin.config.home.username}/bin";
       pathEntries = lib.splitString ":" (env.PATH or "");
 
       # Collected rather than asserted one at a time, so a broken agent reports
@@ -200,6 +200,7 @@ in
   herdr-integrations-regression =
     let
       files = hmConfig.config.home.file;
+      enabledIntegrations = lib.attrNames (lib.filterAttrs (_: value: value.enable) cfg.integrations);
       claudeHooks = hmConfig.config.programs.claude.settings.hooks or { };
       sessionStart = claudeHooks.SessionStart or [ ];
       commands = lib.concatMap (entry: map (h: h.command or "") (entry.hooks or [ ])) sessionStart;
@@ -218,28 +219,38 @@ in
           ".codex/herdr-agent-state.sh"
           ".codex/hooks.json"
         ];
+        antigravity-cli = [
+          "${programs.antigravity-cli.nativeConfigDir}/hooks/herdr-agent-state.sh"
+          "${programs.antigravity-cli.nativeConfigDir}/hooks.json"
+        ];
+        copilot = [
+          ".copilot/hooks/herdr-agent-state.sh"
+          ".copilot/settings.json"
+        ];
         opencode = [
           "${opencodeDir}/plugins/herdr-agent-state.js"
           "${opencodeDir}/herdr-tui-session.js"
           "${opencodeDir}/tui.jsonc"
+          "${opencodeDir}/herdr-opencode/tui.js"
+          "${opencodeDir}/cli.json"
         ];
       };
 
       missing = lib.concatMap (
         target: lib.filter (f: !(lib.hasAttr f files)) (expectedFiles.${target} or [ ])
-      ) cfg.integrations;
+      ) (lib.attrNames (lib.filterAttrs (_: value: value.enable) cfg.integrations));
 
       problems =
         lib.optional (missing != [ ])
-          "declares integrations ${lib.concatStringsSep ", " cfg.integrations} but does not render: ${lib.concatStringsSep ", " missing}"
+          "declares integrations ${lib.concatStringsSep ", " enabledIntegrations} but does not render: ${lib.concatStringsSep ", " missing}"
         ++ lib.optional (
-          lib.elem "claude" cfg.integrations && !declaresHerdr
+          cfg.integrations.claude.enable && !declaresHerdr
         ) "claude integration renders its hook but never registers it in settings.hooks.SessionStart"
         ++
-          lib.optional (lib.elem "claude" cfg.integrations && claudeTypedSessionStart && !declaresTyped)
+          lib.optional (cfg.integrations.claude.enable && claudeTypedSessionStart && !declaresTyped)
             "settings.hooks.SessionStart replaced the typed hook nix-claude-code renders instead of appending to it"
         ++ lib.optional (
-          lib.elem "claude" cfg.integrations
+          cfg.integrations.claude.enable
           && claudeTypedSessionStart
           && (hmConfig.config.programs.claude.hooks.refreshMarketplaces or false)
           && !refreshesAsync
@@ -250,11 +261,54 @@ in
       ${lib.concatMapStringsSep "\n" (p: "  - ${p}") problems}
     '';
     assert builtins.deepSeq (map (f: "${files.${f}.source}") (
-      lib.concatMap (t: expectedFiles.${t} or [ ]) cfg.integrations
+      lib.concatMap (t: expectedFiles.${t} or [ ]) enabledIntegrations
     )) true;
     helpers.mkMarker "check-herdr-integrations-regression" "herdr lifecycle hooks render and register for ${
-      if cfg.integrations == [ ] then "no agents" else lib.concatStringsSep ", " cfg.integrations
+      if enabledIntegrations == [ ] then "no agents" else lib.concatStringsSep ", " enabledIntegrations
     }.";
+
+  herdr-owner-composition-regression =
+    let
+      extended =
+        (hmConfig.extendModules {
+          modules = [
+            {
+              programs = {
+                ai.untrustedClis.enable = true;
+                antigravity-cli.nativeConfigDir = ".config/custom-agy";
+                opencode = {
+                  tuiSettings.plugin = [ "existing-tui" ];
+                  cliSettings.plugins = [ "existing-cli" ];
+                };
+                qwen-code.extraSettings.hooks.SessionStart = [ { hooks = [ { command = "existing-qwen"; } ]; } ];
+                copilot-cli.nativeHooks.SessionStart = [
+                  {
+                    type = "command";
+                    bash = "existing-copilot";
+                  }
+                ];
+              };
+            }
+          ];
+        }).config;
+      inherit (extended) programs;
+      files = extended.home.file;
+      agyCommand = (builtins.head programs.antigravity-cli.nativeHooks.herdr.PreInvocation).command;
+    in
+    assert lib.elem "existing-tui" programs.opencode.tuiSettings.plugin;
+    assert lib.elem "./herdr-tui-session.js" programs.opencode.tuiSettings.plugin;
+    assert lib.elem "existing-cli" programs.opencode.cliSettings.plugins;
+    assert lib.elem "./herdr-opencode" programs.opencode.cliSettings.plugins;
+    assert lib.hasAttr ".config/custom-agy/hooks/herdr-agent-state.sh" files;
+    assert lib.hasInfix "/.config/custom-agy/hooks/herdr-agent-state.sh" agyCommand;
+    assert builtins.length programs.copilot-cli.nativeHooks.SessionStart == 2;
+    assert
+      (builtins.head programs.qwen-code.generatedSettings.hooks.SessionStart).hooks
+      == [ { command = "existing-qwen"; } ];
+    assert programs.qwen-code.nativeHooks ? SessionStart;
+    assert lib.hasAttr ".qwen/extensions/nix-ai-hooks/qwen-extension.json" files;
+    assert lib.hasAttr ".qwen/hooks/herdr-agent-session.sh" files;
+    helpers.mkMarker "check-herdr-owner-composition-regression" "Existing app hooks and plugin registrations coexist with Herdr.";
 
   herdr-agent-coverage-regression =
     assert

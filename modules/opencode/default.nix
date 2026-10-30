@@ -262,7 +262,7 @@ let
     }) (mdFiles dir);
 in
 {
-  imports = [ ./options.nix ];
+  imports = [ ./options.nix ./ui-settings.nix ];
 
   # Shadow home-manager 26.05's upstream programs.opencode module — this
   # module owns the option namespace (same pattern as antigravity-cli).

@@ -34,7 +34,7 @@ let
   present = hm: lib.filter (n: lib.elem n (installed hm)) untrustedPackages;
   enabledPrograms = hm: lib.filter (n: hm.config.programs.${n}.enable) untrustedPrograms;
   hasFile = hm: name: hm.config.home.file ? ${name};
-  hasIntegration = hm: lib.elem "opencode" hm.config.programs.herdr.integrations;
+  hasIntegration = hm: hm.config.programs.herdr.integrations.opencode.enable;
   brews = capabilities: (homebrewFor capabilities).brews;
 in
 {

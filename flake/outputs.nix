@@ -3,6 +3,7 @@
   nixpkgs,
   nixpkgs-unstable,
   llm-agents,
+  nix-herdr,
   home-manager,
   ai-llm-prompts,
   jacobpevans-cc-plugins,
@@ -109,6 +110,7 @@ in
       mattpocock-skills
       nixpkgs-unstable
       llm-agents
+      nix-herdr
       herdr-hail-src
       dashmotion
       ponytail

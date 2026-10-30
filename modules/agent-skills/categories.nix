@@ -181,6 +181,7 @@ rec {
     "github-workflow-security-patterns"
   ];
   ai = [
+    "herdr"
     "autoresearch"
     "claude-api"
     "codex-adversarial-review"
