@@ -29,7 +29,7 @@ in
         ];
         copilot = [
           ".copilot/hooks/herdr-agent-state.sh"
-          ".copilot/settings.json"
+          ".copilot/hooks/nix-ai.json"
         ];
         opencode = [
           "${opencodeDir}/plugins/herdr-agent-state.js"

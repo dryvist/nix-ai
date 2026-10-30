@@ -107,6 +107,13 @@ Everything is enabled with sensible defaults. Common toggles on the default modu
 Claude's full option schema comes from [nix-claude-code](https://github.com/dryvist/nix-claude-code);
 the MCP catalog is documented in [`modules/mcp/README.md`](modules/mcp/README.md).
 
+Copilot CLI preferences belong in `programs.copilot-cli.settings` and render to
+`~/.copilot/settings.json`; declare changes through Home Manager. Move any
+former user preferences out of `config.json`, which Copilot CLI now reserves
+for internal state. Herdr's Copilot hooks are written separately to
+`~/.copilot/hooks/nix-ai.json`; Copilot CLI combines user hook files with hooks
+declared inline in `settings.json`. Keep secrets out of `settings`.
+
 ## Testing and validation
 
 ```bash

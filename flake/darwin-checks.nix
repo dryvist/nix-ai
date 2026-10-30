@@ -34,6 +34,10 @@ in
 {
   ${system} =
     (import (src + "/lib/checks/opencode.nix") { inherit pkgs hmConfig; })
+    // (import (src + "/lib/checks/copilot-settings.nix") {
+      inherit pkgs;
+      inherit (fixtures) mkHmConfig;
+    })
     // (import (src + "/lib/checks/herdr.nix") {
       inherit pkgs hmConfig;
       hmConfigDarwin = hmConfigDarwinHerdr;
