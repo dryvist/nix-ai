@@ -38,6 +38,7 @@ in
       inherit pkgs hmConfig;
       hmConfigDarwin = hmConfigDarwinHerdr;
     })
+    // (import (src + "/lib/checks/herdr-settings.nix") { inherit pkgs hmConfig; })
     // (import (src + "/lib/checks/opencode-trusted.nix") {
       inherit pkgs hmConfig;
       inherit (fixtures) mkHmConfig;
