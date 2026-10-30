@@ -12,6 +12,8 @@
 # asserts the list stays exactly `[ "claude-*" ]`.
 {
   lib,
+  aiStack,
+  cfg,
   fallbackTier,
   isolatedTier,
   telemetryTracesEndpoint,
@@ -143,5 +145,19 @@
 # design (see default.nix) and listens on loopback only, so set the switch
 # LiteLLM provides for exactly that.
 // {
-  general_settings.dangerously_permit_weak_or_unset_master_key = true;
+  general_settings = {
+    dangerously_permit_weak_or_unset_master_key = true;
+  } // lib.optionalAttrs (
+    aiStack.llmEndpoint == "router"
+    && ((aiStack.llmEndpointTokenFile != null && aiStack.llmEndpointTokenFile != "")
+      || (aiStack.llmEndpointBearerFromEnv && cfg.launchPrefix != [ ]))
+  ) {
+    pass_through_endpoints = [
+      {
+        path = "/v1/systemone";
+        target = "${lib.removeSuffix "/" aiStack.llmRouterEndpoint}/systemone";
+        headers.Authorization = "Bearer os.environ/OPENAI_API_KEY";
+      }
+    ];
+  };
 }
