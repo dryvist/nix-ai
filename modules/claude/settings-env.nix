@@ -122,6 +122,7 @@
     # `claudeDirect`: the guard still needs to resolve roles.
     LLM_ROUTER_URL = aiStack.llmRouterEndpoint;
     LLM_ROUTER_TOKEN_FILE = toString aiStack.llmEndpointTokenFile;
+    LITELLM_LOCAL_BASE_URL = litellmLocal.rootUrl;
     # The role the `fast-subagent` skill's helper requests by default
     # (claude-code-plugins ai-delegation). A role name from the committed
     # alias contract, never a physical id: what it resolves to is the

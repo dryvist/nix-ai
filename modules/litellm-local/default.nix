@@ -145,6 +145,8 @@ let
       isolatedTier
       telemetryTracesEndpoint
       staticTier
+      aiStack
+      cfg
       ;
   };
 
