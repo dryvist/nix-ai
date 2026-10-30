@@ -31,6 +31,8 @@ let
       }
     ];
   agent = (mk prefix).config.launchd.agents.litellm-local.config;
+  route =
+    (mk prefix).config.programs.litellmLocal.renderedConfig.general_settings.pass_through_endpoints;
   args = agent.ProgramArguments;
   noPrefixRejected =
     !(builtins.tryEval (builtins.deepSeq (mk [ ]).config.launchd.agents.litellm-local.config true))
@@ -38,6 +40,25 @@ let
 in
 {
   litellm-local-launch-prefix =
+    assert
+      !(
+        (mkHmConfig [ ]).config.programs.litellmLocal.renderedConfig.general_settings
+          ? pass_through_endpoints
+      )
+      || throw "litellm-local: classifier pass-through must be absent without a router bearer";
+    assert
+      (mk prefix).config.programs.claude.settings.env.LITELLM_LOCAL_BASE_URL == (mk prefix)
+      .config.programs.litellmLocal.rootUrl
+      || throw "Claude Code must receive the local proxy root URL";
+    assert
+      route == [
+        {
+          path = "/v1/systemone";
+          target = "${(mk prefix).config.services.aiStack.llmRouterEndpoint}/systemone";
+          headers.Authorization = "Bearer os.environ/OPENAI_API_KEY";
+        }
+      ]
+      || throw "litellm-local: classifier pass-through must use the router and process bearer";
     assert
       pkgs.lib.take 2 args == prefix
       || throw "litellm-local: launchPrefix must lead ProgramArguments; got ${builtins.toJSON args}";
