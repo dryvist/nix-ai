@@ -25,11 +25,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1792804151,
-        "narHash": "sha256-YdXbKeKASGtyL4EXKMFPPhLwQLBY5fsFy/AMiMwaacw=",
+        "lastModified": 1793357460,
+        "narHash": "sha256-6oVEwWYCGgjPlZXskFEp8S0uXwnQVtKGfdjBk4F07Zo=",
         "owner": "dryvist",
         "repo": "ai-llm-prompts",
-        "rev": "f0732380eac87c71eb1c1a021fd6279a98b988d0",
+        "rev": "48bede6f76458d34fea6f782f6bc0ad1e0a7ca57",
         "type": "github"
       },
       "original": {
@@ -223,17 +223,21 @@
         "nixpkgs-unstable": "nixpkgs-unstable"
       },
       "locked": {
-        "path": "./channels",
-        "type": "path"
+        "dir": "channels",
+        "lastModified": 1793062540,
+        "narHash": "sha256-NKCD2NahC+d/ALYcM9iF5I2VnoubtzZatpK4O31VctQ=",
+        "owner": "dryvist",
+        "repo": "nix-devenv",
+        "rev": "4d7260075b12a24c0d17ccfe6361b5d15cf94410",
+        "type": "github"
       },
       "original": {
-        "path": "./channels",
-        "type": "path"
-      },
-      "parent": [
-        "nix-herdr",
-        "nix-devenv"
-      ]
+        "dir": "channels",
+        "owner": "dryvist",
+        "ref": "v0",
+        "repo": "nix-devenv",
+        "type": "github"
+      }
     },
     "claude-channel-slack": {
       "flake": false,
@@ -1360,11 +1364,11 @@
         "treefmt-nix": "treefmt-nix_4"
       },
       "locked": {
-        "lastModified": 1793062540,
-        "narHash": "sha256-NKCD2NahC+d/ALYcM9iF5I2VnoubtzZatpK4O31VctQ=",
+        "lastModified": 1793376537,
+        "narHash": "sha256-QQxccT+Zqfmb2gMPk60T93oUk4nIeekx9nod3vu2gWA=",
         "owner": "dryvist",
         "repo": "nix-devenv",
-        "rev": "4d7260075b12a24c0d17ccfe6361b5d15cf94410",
+        "rev": "396e8a806c7cfa7b23dd18c093152d90562e66b1",
         "type": "github"
       },
       "original": {
@@ -1387,17 +1391,17 @@
         "nixpkgs": "nixpkgs_5"
       },
       "locked": {
-        "lastModified": 1793366200,
-        "narHash": "sha256-C2lzyOGtngx2wF2A5a8CaeGzMwb+XHYc6PAqj3/ev3M=",
+        "lastModified": 1793379533,
+        "narHash": "sha256-76kdSmw+xNwIv5wRCds9VsNHc2Rl2sOIryQV3apC0HQ=",
         "owner": "jpe-nix",
         "repo": "nix-herdr",
-        "rev": "5dcd88e8a800ce3cefa7ef37f8d60f88073071c2",
+        "rev": "bcf254dec308bd236a53d7b0c500ddb09126e41b",
         "type": "github"
       },
       "original": {
         "owner": "jpe-nix",
         "repo": "nix-herdr",
-        "rev": "5dcd88e8a800ce3cefa7ef37f8d60f88073071c2",
+        "rev": "bcf254dec308bd236a53d7b0c500ddb09126e41b",
         "type": "github"
       }
     },

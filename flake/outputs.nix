@@ -155,7 +155,7 @@ in
   };
 
   # Extracted to flake/checks.nix to stay under the 12KB file-size gate.
-  # Still x86_64-linux-scoped; see that file for why.
+  # Includes the full Linux suite and focused native Darwin checks.
   checks = import ./checks.nix {
     inherit
       self

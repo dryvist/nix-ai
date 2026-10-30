@@ -1,19 +1,9 @@
 # Nix quality checks - thin aggregator
 # Individual check groups live in lib/checks/{lint,claude,agent-skills,codex,codex-otel,antigravity-cli,mcp,mlx,fabric}.nix
 #
-# THESE CHECKS ONLY EXIST FOR x86_64-linux (see flake.nix `checks`). On a Mac,
-# `nix flake check` therefore passes them VACUOUSLY — it never evaluates them,
-# so a broken assertion here returns exit 0 and looks green. Two separate
-# catalog defects shipped to develop behind that false negative (2026-08-14).
-#
-# Validate a check on a Mac by naming the system explicitly:
-#   nix eval '.#checks.x86_64-linux.<check>.drvPath'
-#
-# The lint checks are the ones this bites most often, because they are pure
-# source scans that a Mac can run directly — but only if you invoke them, since
-# `nix flake check` skips them here. Run both before pushing:
-#   nix run nixpkgs#statix -- check .
-#   nix run nixpkgs#deadnix -- -L --fail .
+# This full regression suite is scoped to x86_64-linux. Focused native macOS
+# checks are wired separately in flake/darwin-checks.nix. Follow CLAUDE.md for
+# native and cross-system validation commands.
 {
   pkgs,
   src,
