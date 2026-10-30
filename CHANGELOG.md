@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.11.1](https://github.com/dryvist/nix-ai/compare/v8.11.0...v8.11.1) (2026-10-30)
+
+
+### Bug Fixes
+
+* propagate published Herdr dependencies ([#2766](https://github.com/dryvist/nix-ai/issues/2766)) ([a2b5a01](https://github.com/dryvist/nix-ai/commit/a2b5a013502e6a36047665471341a63256a1c668))
+
 ## [8.11.0](https://github.com/dryvist/nix-ai/compare/v8.10.0...v8.11.0) (2026-10-30)
 
 
