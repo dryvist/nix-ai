@@ -37,6 +37,7 @@ let
       "$AGENT_ROUTER_KEY" \
       "$OPENCODE_API_KEY" \
       "$LITELLM_LOCAL_KEY" \
+      "$OPENCODE_CONFIG_DIR" \
       "$@"
   '';
   fakeRouterKeyCommand = pkgs.writeShellScriptBin "opencode-test-router-key" ''
@@ -104,7 +105,6 @@ in
     test -x ${wallPackage}/bin/opencode-wall
     touch $out
   '';
-
   opencode-trusted-provider-config =
     pkgs.runCommand "check-opencode-trusted-provider-config" { nativeBuildInputs = [ pkgs.jq ]; }
       ''
@@ -165,3 +165,4 @@ in
     touch $out
   '';
 }
+// (import ./opencode-custom-config.nix { inherit pkgs mkHmConfig fakePackage; })

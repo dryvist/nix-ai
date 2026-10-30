@@ -22,12 +22,18 @@ in
     };
 
     configDir = lib.mkOption {
-      type = lib.types.str;
+      type = lib.types.addCheck lib.types.str (
+        path:
+        path != ""
+        && !(lib.hasPrefix "/" path)
+        && lib.all (part: part != "" && part != "." && part != "..") (lib.splitString "/" path)
+      );
       default = ".config/opencode";
       description = ''
         Directory (relative to $HOME) holding `opencode.json` and `command/`.
         Also the path the agent-skills registry symlinks skills and AGENTS.md
-        into, so a consumer relocates the config dir here once.
+        into, so a consumer relocates the config dir here once. Empty, absolute,
+        and traversal paths are rejected to keep sandbox reads within $HOME.
       '';
     };
 

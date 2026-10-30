@@ -19,6 +19,7 @@ let
   cfg = config.programs.opencode;
   llmAgents = llm-agents.packages.${pkgs.stdenv.hostPlatform.system};
   inherit (cfg) configDir;
+  configDirAbs = "${config.home.homeDirectory}/${configDir}";
   inherit (config.programs) litellmLocal;
 
   otelPlugins = import ./otel-plugin.nix {
@@ -54,6 +55,7 @@ let
   # The wall drops everything else, so credentials in the caller's shell never
   # reach it. The local LiteLLM key is a placeholder; the proxy checks no key.
   sandboxEnv = {
+    OPENCODE_CONFIG_DIR = configDirAbs;
     OPENCODE_DISABLE_LSP_DOWNLOAD = "true";
     OPENCODE_DISABLE_PROJECT_CONFIG = "true";
   }
@@ -61,7 +63,10 @@ let
 
   trustedOpencode = import ./trusted.nix { inherit pkgs lib; } {
     inherit (cfg) package launchPrefix;
-    extraEnv = lib.optionalAttrs litellmLocal.enable {
+    extraEnv = {
+      OPENCODE_CONFIG_DIR = configDirAbs;
+    }
+    // lib.optionalAttrs litellmLocal.enable {
       LITELLM_LOCAL_KEY = litellmLocal.clientToken;
     };
   };
@@ -71,6 +76,12 @@ let
     inherit (cfg) package;
     home = config.home.homeDirectory;
     workRoot = cfg.sandbox.workRoot;
+    readRules = [
+      {
+        kind = "subpath";
+        path = configDir;
+      }
+    ];
     localPorts = lib.optional litellmLocal.enable litellmLocal.port;
     extraEnv = sandboxEnv;
     binaryName = "opencode-wall";
@@ -313,6 +324,7 @@ in
         # instead.
         sessionVariables = {
           OPENCODE_DISABLE_LSP_DOWNLOAD = "true";
+          OPENCODE_CONFIG_DIR = configDirAbs;
         }
         // lib.optionalAttrs (config.services.aiStack.llmRouterEndpoint != "") {
           LLM_ROUTER_URL = config.services.aiStack.llmRouterEndpoint;
