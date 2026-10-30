@@ -285,7 +285,7 @@ in
       # step (idempotent once installed; the first activation needs network).
       claude.latest.installOnActivation = true;
 
-      copilot-cli.enable = untrusted;
+      copilot-cli.enable = lib.mkDefault untrusted;
 
       # Herdr runs the agent CLIs above. Consumer hosts choose the server
       # role and saved SSH machine catalog.
@@ -294,12 +294,12 @@ in
 
         server.enable = lib.mkDefault true;
         integrations = {
-          claude.enable = lib.mkDefault true;
-          codex.enable = lib.mkDefault true;
-          antigravity-cli.enable = lib.mkDefault true;
-          opencode.enable = lib.mkDefault untrusted;
-          copilot.enable = lib.mkDefault untrusted;
-          qwen.enable = lib.mkDefault untrusted;
+          claude.enable = lib.mkDefault config.programs.claude.enable;
+          codex.enable = lib.mkDefault config.programs.codex.enable;
+          antigravity-cli.enable = lib.mkDefault config.programs.antigravity-cli.enable;
+          opencode.enable = lib.mkDefault config.programs.opencode.enable;
+          copilot.enable = lib.mkDefault config.programs.copilot-cli.enable;
+          qwen.enable = lib.mkDefault config.programs.qwen-code.enable;
         };
       };
     };

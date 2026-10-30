@@ -131,3 +131,4 @@ in
 // (import ./herdr-integrations.nix { inherit pkgs hmConfig; })
 // (import ./herdr-services.nix { inherit pkgs hmConfigDarwin; })
 // (import ./herdr-claude-hooks.nix { inherit pkgs hmConfig; })
+// (import ./herdr-disabled-apps.nix { inherit pkgs hmConfig; })
