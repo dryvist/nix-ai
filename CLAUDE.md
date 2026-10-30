@@ -12,49 +12,27 @@ Nix home-manager modules.
 
 ## Validation
 
-**Static** (every change):
+Run the formatter and native checks for each change:
 
 ```bash
-nix fmt            # Fix formatting
-nix flake check    # Packages, formatters, devShells
-
-# Regression suite (lib/checks/) — REQUIRED on macOS, see below
-nix eval --raw .#checks.x86_64-linux \
-  --apply 'cs: builtins.concatStringsSep "\n" (map (c: c.outPath) (builtins.attrValues cs))' \
-  >/dev/null
+nix fmt
+nix flake check
+nix flake check --no-build --all-systems
 ```
 
-**A bare `nix flake check` on a Mac runs none of `lib/checks/`.** `checks` is
-scoped to `x86_64-linux` (flake.nix), so on aarch64-darwin it omits them, prints
-green for packages and formatters, and says nothing about the regression suite.
-A module argument `launchd.nix` required and `default.nix` never passed survived
-a green bare check and failed only at `darwin-rebuild`.
-
-`--all-systems` surfaces the assertions but then tries to *build* Linux
-derivations on darwin, exiting non-zero for that unrelated reason — so it cannot
-be routine. The `nix eval` form above forces every check's `outPath`: every
-assertion runs at evaluation time, nothing builds. Verified both ways — passes
-on a healthy tree, fails on a deliberately broken one.
-
-**Workaround; PR #1819 is the structural fix.** It builds `checks` for every
-supported system, so a plain `nix flake check` runs the darwin assertions.
-When it lands, replace the `nix eval` form above — noting `--all-systems` on a
-Linux-only runner then tries to realise the darwin markers and fails.
+The native check builds the current system's exported checks. Darwin runs its
+focused checks; the full regression suite is exported for x86_64-linux and
+must be built on a Linux runner. The all-system command evaluates checks for
+both systems without building their derivations. CI also runs a Darwin lane.
 
 Assertions only fire when something forces them, so a check that reads a few
 attributes of a large structure proves nothing about the rest. Where a check
 covers a nested tree (the launchd agents, for one) it should `deepSeq` it.
 
-**Runtime** (changes to plugins, hooks, settings, activations, MCP servers):
-
-```bash
-sudo darwin-rebuild switch --flake "$HOME/git/nix-darwin/main" \
-  --override-input nix-ai "$HOME/git/nix-ai/<worktree>"
-```
-
-Then verify in a live Claude Code session — static checks validate Nix
-evaluation, not runtime behavior. Start a fresh session and confirm the
-feature loads without errors before claiming done.
+For changes to plugins, hooks, settings, activations, or MCP servers, follow
+the consuming host's documented deployment procedure and host guards. Verify
+the affected behavior in a fresh harness session before claiming runtime
+success; static checks do not establish live behavior.
 
 ## Architecture
 
