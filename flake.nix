@@ -28,7 +28,6 @@
     llm-agents.url = "github:numtide/llm-agents.nix";
     nix-herdr = {
       url = "github:jpe-nix/nix-herdr";
-      inputs.nix-claude-code.follows = "nix-claude-code";
     };
 
     home-manager = {

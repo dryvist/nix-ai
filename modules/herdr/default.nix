@@ -42,6 +42,6 @@
   config = lib.optionalAttrs (lib.hasAttrByPath [ "programs" "agentSkills" "local" ] options) {
     programs.agentSkills.local.herdr = lib.mkIf (
       config.programs.herdr.enable && config.programs.herdr.package != null
-    ) "${config.programs.herdr.package}/share/herdr/skills/herdr/SKILL.md";
+    ) "${config.programs.herdr.package}/share/skills/herdr/herdr/SKILL.md";
   };
 }
