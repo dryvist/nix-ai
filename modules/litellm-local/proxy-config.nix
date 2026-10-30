@@ -147,17 +147,23 @@
 // {
   general_settings = {
     dangerously_permit_weak_or_unset_master_key = true;
-  } // lib.optionalAttrs (
-    aiStack.llmEndpoint == "router"
-    && ((aiStack.llmEndpointTokenFile != null && aiStack.llmEndpointTokenFile != "")
-      || (aiStack.llmEndpointBearerFromEnv && cfg.launchPrefix != [ ]))
-  ) {
-    pass_through_endpoints = [
+  }
+  //
+    lib.optionalAttrs
+      (
+        aiStack.llmEndpoint == "router"
+        && (
+          (aiStack.llmEndpointTokenFile != null && aiStack.llmEndpointTokenFile != "")
+          || (aiStack.llmEndpointBearerFromEnv && cfg.launchPrefix != [ ])
+        )
+      )
       {
-        path = "/v1/systemone";
-        target = "${lib.removeSuffix "/" aiStack.llmRouterEndpoint}/systemone";
-        headers.Authorization = "Bearer os.environ/OPENAI_API_KEY";
-      }
-    ];
-  };
+        pass_through_endpoints = [
+          {
+            path = "/v1/systemone";
+            target = "${lib.removeSuffix "/" aiStack.llmRouterEndpoint}/systemone";
+            headers.Authorization = "Bearer os.environ/OPENAI_API_KEY";
+          }
+        ];
+      };
 }
