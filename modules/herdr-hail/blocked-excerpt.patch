@@ -4,11 +4,11 @@ index e8bb181..c658502 100644
 +++ b/src/discord.ts
 @@ -20,6 +20,8 @@ import {
  } from "./notification.js";
- 
+
  const CUSTOM_ID_PREFIX = "hail";
 +// Discord rejects message content longer than this.
 +const CONTENT_MAX = 2000;
- 
+
  /**
   * Discord adapter over the Gateway — like Slack Socket Mode, the bot holds an
 @@ -102,7 +104,7 @@ export class DiscordAdapter implements ChannelAdapter {
@@ -17,7 +17,7 @@ index e8bb181..c658502 100644
      }
 -    const content = summaryLines(n).join("\n");
 +    const content = summaryLines(n, CONTENT_MAX).join("\n");
- 
+
      const components: ActionRowBuilder<ButtonBuilder>[] = [];
      if (n.choices) {
 diff --git a/src/index.ts b/src/index.ts
@@ -30,7 +30,7 @@ index 1cf03d4..eae1812 100644
          : "";
 -    const notification = buildNotification(t.agent, context);
 +    const notification = buildNotification(t.agent, context, cfg.contextLines);
- 
+
      console.log(
        `${t.from} → ${t.to}  [${t.agent.agent}] ${notification.title} (${t.agent.pane_id})`,
 diff --git a/src/notification.ts b/src/notification.ts
@@ -49,7 +49,7 @@ index 6e85642..49b7fb1 100644
 @@ -41,7 +43,11 @@ export function statusEmoji(status: AgentStatus): string {
  // The "Chat about this" menu row ends the question without an answer; it gets no button or excerpt line.
  const CHAT_ROW = /^\s*[❯>›▶]?\s*\d{1,2}[.)]\s+chat about this\s*$/iu;
- 
+
 -export function buildNotification(agent: Agent, context: string): Notification {
 +export function buildNotification(
 +  agent: Agent,
@@ -70,7 +70,7 @@ index 6e85642..49b7fb1 100644
 @@ -65,24 +72,44 @@ export function buttonLabel(choice: MenuChoice): string {
    return label.length > MAX_LABEL ? label.slice(0, MAX_LABEL - 1) + "…" : label;
  }
- 
+
 -/** Plain-text summary shared by both channels; each adapter adds its own chrome. */
 -export function summaryLines(n: Notification): string[] {
 +/** Slack caps a section's text at 3000 characters; keep headroom under that. */
