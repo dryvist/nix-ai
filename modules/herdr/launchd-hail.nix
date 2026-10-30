@@ -48,6 +48,7 @@ in
 
   config = lib.mkIf (cfg.enable && cfg.package != null && hail.enable) {
     services.herdr.hail.renderedSettings = settings;
+    home.file."Library/Logs/herdr/.hail-keep".text = "";
 
     assertions = [
       {

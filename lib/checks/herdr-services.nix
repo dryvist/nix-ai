@@ -50,6 +50,9 @@ in
       hail = cfg.services.herdr.hail;
       agent = cfg.launchd.agents.herdr-hail.config;
       env = agent.EnvironmentVariables;
+      serverless = hmConfigDarwin.extendModules {
+        modules = [ { programs.herdr.server.enable = lib.mkForce false; } ];
+      };
       prefix = [
         "runtime-secret-launcher"
         "run"
@@ -60,6 +63,10 @@ in
     assert agent.ProgramArguments == prefix ++ [ (lib.getExe hail.package) ];
     assert agent.KeepAlive && agent.RunAtLoad;
     assert env.HERDR_SOCKET_PATH == "${cfg.xdg.configHome}/herdr/herdr.sock";
+    assert !(serverless.config.launchd.agents ? herdr);
+    assert serverless.config.launchd.agents ? herdr-hail;
+    assert serverless.config.home.file ? "Library/Logs/herdr/.hail-keep";
+    assert !(serverless.config.home.file ? "Library/Logs/herdr/.keep");
     assert lib.hasSuffix "/herdr-hail-config" env.HERDR_PLUGIN_CONFIG_DIR;
     assert hail.settings.slack.enabled;
     assert lib.all (name: !(lib.hasAttr name env)) [
