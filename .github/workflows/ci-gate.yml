@@ -82,6 +82,14 @@ jobs:
           - 'mlx-server/**'
           - 'orchestrator/**'
 
+  darwin-checks:
+    name: Darwin Checks
+    uses: JacobPEvans/.github/.github/workflows/_nix-validate.yml@v1
+    with:
+      runner_label: macos-15
+      all_systems: false
+      focused_checks: true
+
   lane-alias-names:
     name: Lane Alias Names
     runs-on: ubuntu-24.04
@@ -148,7 +156,7 @@ jobs:
   # ==========================================================================
   gate:
     name: Merge Gate
-    needs: [shared-gate, flake-lock-fresh, lane-alias-names, lane-alias-parity]
+    needs: [shared-gate, darwin-checks, flake-lock-fresh, lane-alias-names, lane-alias-parity]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5

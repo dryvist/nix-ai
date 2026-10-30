@@ -1,12 +1,9 @@
 # Regression suite wiring, extracted from flake.nix to stay under the 12KB
 # file-size gate. The public `nix-ai.checks.<system>` shape is unchanged.
 #
-# Scoped to x86_64-linux only so `nix flake check --all-systems` succeeds from
-# a single linux runner. All checks in lib/checks.nix are source-only or
-# evaluation-wrapped — running once on the CI system is sufficient.
-# Cross-platform breakage is still caught by `--all-systems` evaluating
-# `packages.<system>`, `formatter.<system>`, and `overlays.default` on every
-# declared system.
+# The full Linux regression suite is scoped to x86_64-linux. Focused native
+# macOS checks are merged below from darwin-checks.nix and run on a Darwin
+# runner; do not build both platforms' check derivations from one Linux job.
 {
   self,
   nixpkgs,

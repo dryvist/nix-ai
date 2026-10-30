@@ -14,6 +14,7 @@
   karpathy-skills,
   mattpocock-skills,
   llm-agents,
+  nix-herdr,
   dashmotion,
   ponytail,
   claude-channel-slack,
@@ -98,6 +99,8 @@ in
       nix-claude-code.homeModules.claude
       nix-codex.homeModules.approvals
       ../modules/default.nix
+      nix-herdr.homeManagerModules.default
+      ../modules/herdr
       (import "${nix-agent-sandbox-src}/nix/zcode-job-module.nix")
       (
         {
@@ -300,7 +303,10 @@ in
   };
 
   herdr = {
-    imports = [ ../modules/herdr ];
+    imports = [
+      nix-herdr.homeManagerModules.default
+      ../modules/herdr
+    ];
     _module.args = partialArgs {
       inherit llm-agents herdr-hail-src;
     };

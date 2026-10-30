@@ -2,11 +2,7 @@
 #
 # The coverage check is the load-bearing one. herdr classifies a pane as
 # working/blocked/idle by matching manifest rules against the foreground
-# process; a CLI with no manifest shows up as a bare shell, and every downstream
-# consumer — blocked-agent alerting, `herdr agent wait`, the web dashboard's
-# approvals — silently sees nothing to report. Adding a CLI to
-# this flake without a manifest is exactly the "a newly advertised tier cannot
-# go unmonitored" failure the fabric watchdog's assert exists to prevent.
+# process. Without a manifest, downstream consumers see a bare shell.
 {
   pkgs,
   hmConfig,
@@ -17,8 +13,6 @@ let
   inherit (pkgs) lib;
   cfg = hmConfig.config.programs.herdr;
   programs = hmConfig.config.programs;
-  opencodeDir = programs.opencode.configDir or ".config/opencode";
-  claudeTypedSessionStart = (programs.claude.hooks.sessionStart or null) != null;
 
   # Which of this flake's CLIs herdr is expected to recognise, keyed by THIS
   # flake's option name. Translation to herdr's own manifest name happens in
@@ -34,17 +28,8 @@ let
 
   enabledAgents = lib.attrNames (lib.filterAttrs (_: v: v) managedAgents);
 
-  # herdr selects a local manifest by FILENAME, and agentManifests renders
-  # `<attrname>.toml`. So a manifest must be keyed by HERDR's name for the
-  # agent, not by this flake's option name: `agentManifests.qwen-code` writes
-  # qwen-code.toml, which herdr ignores without warning while still looking
-  # like coverage here. Verified live against 0.8.2 — an identical manifest is
-  # picked up as `source_kind: local override` under qwen.toml and produces no
-  # local override, and no diagnostic, under any other filename.
-  #
-  # Only this branch needs the translation. knownUpstreamAgents is keyed by
-  # option name on purpose, because it answers "is the CLI we enable detected",
-  # not "what is the file called".
+  # Herdr selects local manifests by filename, so translate nix-ai option names
+  # to Herdr's names. knownUpstreamAgents remains keyed by nix-ai option name.
   herdrManifestName = {
     antigravity-cli = "agy";
     qwen-code = "qwen";
@@ -65,13 +50,12 @@ in
     inherit cfg;
     expectedOptions = [
       "agentManifests"
-      "configDir"
       "defaultRemote"
       "enable"
       "integrations"
       "knownUnsupportedAgents"
       "knownUpstreamAgents"
-      "mutableSettings"
+      "server"
       "package"
       "remotes"
       "settings"
@@ -88,13 +72,8 @@ in
         expected = true;
       }
       {
-        name = "herdr.configDir";
-        actual = cfg.configDir;
-        expected = ".config/herdr";
-      }
-      {
-        name = "herdr.mutableSettings";
-        actual = cfg.mutableSettings;
+        name = "herdr.server.enable";
+        actual = cfg.server.enable;
         expected = true;
       }
       {
@@ -116,145 +95,19 @@ in
   herdr-rendered-files-regression =
     let
       files = hmConfig.config.home.file;
-      ours = lib.filterAttrs (name: _: lib.hasPrefix "${cfg.configDir}/" name) files;
+      configDir = "${hmConfig.config.xdg.configHome}/herdr";
+      ours = lib.filterAttrs (name: _: lib.hasPrefix "${configDir}/" name) files;
+      configFiles = lib.filterAttrs (name: _: lib.hasPrefix "herdr/" name) hmConfig.config.xdg.configFile;
     in
     # Force each rendered file's STORE PATH, not the derivation itself.
     # `deepSeq` over a derivation walks its whole attrset — drvAttrs, passthru,
     # every build input — which is both enormously slow and prone to erroring on
     # attributes that were never meant to be forced. Interpolating to a string
-    # forces exactly what this check is about: that every file under configDir
+    # forces exactly what this check is about: that every managed Herdr file
     # actually renders to a path.
     assert builtins.deepSeq (lib.mapAttrsToList (_: f: "${f.source}") ours) true;
-    helpers.mkMarker "check-herdr-rendered-files-regression" "herdr renders ${toString (lib.length (lib.attrNames ours))} file(s) under ${cfg.configDir}.";
-
-  # The TUI is a client, so a module that installs the binary and renders
-  # config.toml without declaring a service yields no running herd at all —
-  # invisible in the rendered config and raising no error anywhere.
-  herdr-launchd-regression =
-    let
-      agents = hmConfig.config.launchd.agents;
-      absent = throw "herdr: no launchd agent is declared, so the server never runs and the herd stays empty; see modules/herdr/launchd.nix";
-      agent = (agents.herdr or absent).config;
-      args = agent.ProgramArguments;
-      env = agent.EnvironmentVariables or { };
-      expectedSocket = "${hmConfig.config.home.homeDirectory}/${cfg.configDir}/herdr.sock";
-      profileBin = "/etc/profiles/per-user/${hmConfig.config.home.username}/bin";
-      pathEntries = lib.splitString ":" (env.PATH or "");
-
-      # Collected rather than asserted one at a time, so a broken agent reports
-      # every fault in one pass. The last two are the silent ones: a mismatched
-      # socket leaves the client hunting a socket nothing created, and a PATH
-      # without the Nix profile makes every pane look like a bare shell.
-      problems =
-        lib.optional (
-          !(lib.elem "server" args)
-        ) "must run the headless server (`herdr server`), got: ${builtins.concatStringsSep " " args}"
-        ++ lib.optional (!(agent.KeepAlive or false)) "must set KeepAlive = true"
-        ++ lib.optional (!(agent.RunAtLoad or false)) "must set RunAtLoad = true"
-        ++ lib.optional ((agent.ProcessType or "") != "Background") ''must set ProcessType = "Background"''
-        ++
-          lib.optional ((env.HERDR_SOCKET_PATH or null) != expectedSocket)
-            "must pin HERDR_SOCKET_PATH to ${expectedSocket}, keeping the server's socket and the client's identical"
-        ++ lib.optional (
-          !(lib.elem profileBin pathEntries)
-        ) "PATH must include ${profileBin}, leaving panes able to run claude/codex";
-    in
-    assert lib.assertMsg (problems == [ ]) ''
-      herdr LaunchAgent is misdeclared:
-      ${lib.concatMapStringsSep "\n" (p: "  - ${p}") problems}
-    '';
-    # Force the whole agent, not just the attributes read above.
-    assert builtins.deepSeq agents true;
-    helpers.mkMarker "check-herdr-launchd-regression" "herdr LaunchAgent runs the headless server with a pinned socket and a Nix-profile PATH.";
-
-  herdr-hail-darwin-eval =
-    let
-      cfg = hmConfigDarwin.config;
-      hail = cfg.services.herdr.hail;
-      agent = cfg.launchd.agents.herdr-hail.config;
-      env = agent.EnvironmentVariables;
-      prefix = [
-        "runtime-secret-launcher"
-        "run"
-        "--"
-      ];
-    in
-    assert hail.launchPrefix == prefix;
-    assert agent.ProgramArguments == prefix ++ [ (lib.getExe hail.package) ];
-    assert agent.KeepAlive && agent.RunAtLoad;
-    assert
-      env.HERDR_SOCKET_PATH == "${cfg.home.homeDirectory}/${cfg.programs.herdr.configDir}/herdr.sock";
-    assert lib.hasSuffix "/herdr-hail-config" env.HERDR_PLUGIN_CONFIG_DIR;
-    assert hail.settings.slack.enabled;
-    assert lib.all (name: !(lib.hasAttr name env)) [
-      "SLACK_BOT_TOKEN"
-      "SLACK_APP_TOKEN"
-      "DISCORD_BOT_TOKEN"
-    ];
-    helpers.mkMarker "check-herdr-hail-darwin-eval" "herdr Hail Darwin LaunchAgent and runtime argument prefix evaluated.";
-
-  # The failure this guards is silent in both directions: a declared hook whose
-  # payload never renders leaves herdr on terminal heuristics, and a Claude
-  # SessionStart entry that lands without the typed hooks nix-claude-code
-  # renders would drop marketplace refresh from every session.
-  herdr-integrations-regression =
-    let
-      files = hmConfig.config.home.file;
-      claudeHooks = hmConfig.config.programs.claude.settings.hooks or { };
-      sessionStart = claudeHooks.SessionStart or [ ];
-      commands = lib.concatMap (entry: map (h: h.command or "") (entry.hooks or [ ])) sessionStart;
-      declaresHerdr = lib.any (c: lib.hasInfix "herdr-agent-state.sh" c) commands;
-      declaresTyped = lib.any (c: lib.hasInfix "session-start.sh" c) commands;
-      refreshesAsync = lib.any (
-        entry:
-        lib.any (h: lib.hasInfix "session-start.sh" (h.command or "") && (h.async or false)) (
-          entry.hooks or [ ]
-        )
-      ) sessionStart;
-
-      expectedFiles = {
-        claude = [ ".claude/hooks/herdr-agent-state.sh" ];
-        codex = [
-          ".codex/herdr-agent-state.sh"
-          ".codex/hooks.json"
-        ];
-        opencode = [
-          "${opencodeDir}/plugins/herdr-agent-state.js"
-          "${opencodeDir}/herdr-tui-session.js"
-          "${opencodeDir}/tui.jsonc"
-        ];
-      };
-
-      missing = lib.concatMap (
-        target: lib.filter (f: !(lib.hasAttr f files)) (expectedFiles.${target} or [ ])
-      ) cfg.integrations;
-
-      problems =
-        lib.optional (missing != [ ])
-          "declares integrations ${lib.concatStringsSep ", " cfg.integrations} but does not render: ${lib.concatStringsSep ", " missing}"
-        ++ lib.optional (
-          lib.elem "claude" cfg.integrations && !declaresHerdr
-        ) "claude integration renders its hook but never registers it in settings.hooks.SessionStart"
-        ++
-          lib.optional (lib.elem "claude" cfg.integrations && claudeTypedSessionStart && !declaresTyped)
-            "settings.hooks.SessionStart replaced the typed hook nix-claude-code renders instead of appending to it"
-        ++ lib.optional (
-          lib.elem "claude" cfg.integrations
-          && claudeTypedSessionStart
-          && (hmConfig.config.programs.claude.hooks.refreshMarketplaces or false)
-          && !refreshesAsync
-        ) "the typed SessionStart marketplace refresh lost async, so it blocks every session start";
-    in
-    assert lib.assertMsg (problems == [ ]) ''
-      herdr integrations are misdeclared:
-      ${lib.concatMapStringsSep "\n" (p: "  - ${p}") problems}
-    '';
-    assert builtins.deepSeq (map (f: "${files.${f}.source}") (
-      lib.concatMap (t: expectedFiles.${t} or [ ]) cfg.integrations
-    )) true;
-    helpers.mkMarker "check-herdr-integrations-regression" "herdr lifecycle hooks render and register for ${
-      if cfg.integrations == [ ] then "no agents" else lib.concatStringsSep ", " cfg.integrations
-    }.";
+    assert builtins.deepSeq (lib.mapAttrsToList (_: f: "${f.source}") configFiles) true;
+    helpers.mkMarker "check-herdr-rendered-files-regression" "herdr managed files render under ${configDir}.";
 
   herdr-agent-coverage-regression =
     assert
@@ -275,3 +128,7 @@ in
       '';
     helpers.mkMarker "check-herdr-agent-coverage-regression" "herdr detection covers all ${toString (lib.length enabledAgents)} enabled agent CLIs.";
 }
+// (import ./herdr-integrations.nix { inherit pkgs hmConfig; })
+// (import ./herdr-services.nix { inherit pkgs hmConfigDarwin; })
+// (import ./herdr-claude-hooks.nix { inherit pkgs hmConfig; })
+// (import ./herdr-disabled-apps.nix { inherit pkgs hmConfig; })
