@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.11.0](https://github.com/dryvist/nix-ai/compare/v8.10.0...v8.11.0) (2026-10-30)
+
+
+### Features
+
+* compose declarative Herdr integrations ([#2763](https://github.com/dryvist/nix-ai/issues/2763)) ([4998f67](https://github.com/dryvist/nix-ai/commit/4998f6754f20656c06a24cac5bad7d04b535dded))
+
 ## [8.10.0](https://github.com/dryvist/nix-ai/compare/v8.9.0...v8.10.0) (2026-10-30)
 
 
