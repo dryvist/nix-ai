@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.11.2](https://github.com/dryvist/nix-ai/compare/v8.11.1...v8.11.2) (2026-10-31)
+
+
+### Bug Fixes
+
+* **deps:** update claude-code-plugins to aeb8705 ([#2771](https://github.com/dryvist/nix-ai/issues/2771)) ([125a711](https://github.com/dryvist/nix-ai/commit/125a7119594ab2cd889144a7726063993dd5b065))
+
 ## [8.11.1](https://github.com/dryvist/nix-ai/compare/v8.11.0...v8.11.1) (2026-10-30)
 
 
