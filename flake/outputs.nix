@@ -185,7 +185,7 @@ in
   devShells = import ./dev-shells.nix { inherit nixpkgs forAllSystems ai-llm-prompts; };
 
   # Extracted to flake/overlays.nix to stay under the 12KB file-size gate.
-  overlays = import ./overlays.nix { inherit self; };
+  overlays = import ./overlays.nix { inherit self nixpkgs-unstable; };
 
   # Formatter
   formatter = forAllSystems (system: nixpkgs.legacyPackages.${system}.nixfmt-tree);
