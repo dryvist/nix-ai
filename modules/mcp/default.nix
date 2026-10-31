@@ -149,6 +149,8 @@ let
     ++ (lib.attrNames config.programs.aiMcp.extraOnDemandMcpServers);
 in
 {
+  imports = [ ./facade-canary.nix ];
+
   options.programs.aiMcp = {
     servers = lib.mkOption {
       type = lib.types.attrsOf mcpServerModule;
@@ -323,7 +325,7 @@ in
         && !(lib.elem name config.programs.aiMcp.excludedServers)
         && !(lib.elem name onDemandNames)
         && !(name == "apple-events" && !pkgs.stdenv.isDarwin)
-      ) config.programs.aiMcp.servers
+      ) config.programs.aiMcp.sourceServers
     );
     onDemandEnabledServers = withLaunchPrefix (
       lib.filterAttrs (
@@ -332,7 +334,7 @@ in
         && !(lib.elem name config.programs.aiMcp.excludedServers)
         && lib.elem name onDemandNames
         && !(name == "apple-events" && !pkgs.stdenv.isDarwin)
-      ) config.programs.aiMcp.servers
+      ) config.programs.aiMcp.sourceServers
     );
     enabledServerNames = lib.attrNames config.programs.aiMcp.enabledServers;
   };

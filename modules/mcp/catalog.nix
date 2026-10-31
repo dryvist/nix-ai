@@ -144,6 +144,15 @@ in
     bearer_token_env_var = "SPLUNK_MCP_TOKEN";
   };
 
+  # Facade canary target (modules/mcp/facade-canary.nix). Ships disabled; only a
+  # consumer with programs.aiMcp.facadeCanary renders it. Codex reads the key from
+  # AGENT_FACADE_KEY through env_http_headers; the other renderers send `headers`.
+  agent-facade = gatewayRoute "/agents" {
+    headers."X-Agent-Key" = "\${AGENT_FACADE_KEY}";
+    env_http_headers."X-Agent-Key" = "AGENT_FACADE_KEY";
+    disabled = true;
+  };
+
   # ================================================================
   # Obsidian - Integrated via Claude Code Plugin (not MCP)
   # ================================================================

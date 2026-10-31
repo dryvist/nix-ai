@@ -68,6 +68,19 @@ once. `splunk` additionally needs `SPLUNK_MCP_TOKEN` in the environment (a
 Splunk-minted `mcp_token`, not an OpenBao credential) — the gateway passes the
 caller's `Authorization` header straight through to the Splunk backend.
 
+## Facade canary
+
+`programs.aiMcp.facadeCanary = true` makes `agent-facade` the only server in every
+shared set. Evaluation fails if the consumer defines or enables another server, or
+leaves `gatewayBaseUrl` unset. Codex reads `AGENT_FACADE_KEY` through
+`env_http_headers`; other renderers send the `${AGENT_FACADE_KEY}` placeholder in
+`headers`.
+
+Non-canary consumers are checked against the hand-edited
+[`facade-baseline.nix`](facade-baseline.nix). Entries are only removed, never added.
+Workspace and project `.mcp.json` files and Hermes are covered by separate checks
+outside this repository.
+
 ## Global Profile / Per-Agent Exclusions
 
 The catalog is intentionally wider than the default profile. Servers stay out of

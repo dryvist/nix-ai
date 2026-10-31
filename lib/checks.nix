@@ -235,7 +235,14 @@ in
     hmConfigVctCli
     ;
 })
-// (import ./checks/mcp.nix { inherit pkgs hmConfig hmConfigMcpLaunchPrefix; })
+// (import ./checks/mcp.nix {
+  inherit
+    pkgs
+    hmConfig
+    hmConfigMcpLaunchPrefix
+    mkHmConfig
+    ;
+})
 // (import ./checks/autonomous-profile.nix {
   inherit pkgs;
   render = renderAutonomous;
