@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.11.3](https://github.com/dryvist/nix-ai/compare/v8.11.2...v8.11.3) (2026-10-31)
+
+
+### Bug Fixes
+
+* **overlays:** take uv from nixpkgs-unstable ([#2774](https://github.com/dryvist/nix-ai/issues/2774)) ([0fe1184](https://github.com/dryvist/nix-ai/commit/0fe118438fa807982420709e2b237e0cb936d3b4))
+
 ## [8.11.2](https://github.com/dryvist/nix-ai/compare/v8.11.1...v8.11.2) (2026-10-31)
 
 
