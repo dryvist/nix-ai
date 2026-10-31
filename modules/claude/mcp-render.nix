@@ -22,11 +22,24 @@ let
       # Claude reads credential variables in remote headers as empty in some
       # cases. A headersHelper reads this consumer's current environment on
       # every connection, avoiding OAuth discovery and stale session headers.
+      envHeaders =
+        lib.optional (original.bearer_token_env_var != null && !(original.headers ? Authorization)) {
+          name = "Authorization";
+          prefix = "Bearer ";
+          var = original.bearer_token_env_var;
+        }
+        ++ lib.mapAttrsToList (name: var: {
+          inherit name var;
+          prefix = "";
+        }) original.env_http_headers;
       server =
-        if original.bearer_token_env_var != null && !(original.headers ? Authorization) then
+        if envHeaders != [ ] then
           original
           // {
-            headersHelper = "printf '{\"Authorization\":\"Bearer %s\"}\\n' \"\${${original.bearer_token_env_var}}\"";
+            headersHelper = "printf ${lib.escapeShellArg "{${lib.concatMapStringsSep "," (header: "${builtins.toJSON header.name}:${builtins.toJSON "${header.prefix}%s"}") envHeaders}}\\n"} ${
+              lib.concatMapStringsSep " " (header: "\"\${${header.var}}\"") envHeaders
+            }";
+            headers = builtins.removeAttrs original.headers (map (header: header.name) envHeaders);
           }
         else
           original;
