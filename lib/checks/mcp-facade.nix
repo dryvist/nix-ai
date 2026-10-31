@@ -142,6 +142,13 @@ in
     assert
       builtins.all (value: !(lib.hasInfix "\${" value)) (builtins.attrValues canaryOpencodeHeaders)
       || throw "facadeCanary OpenCode agent-facade contains an unexpanded header";
+    assert
+      hmConfigFacadeCanary.config.programs.claude.mcpServers.agent-facade.headersHelper
+      == "printf '{\"X-Agent-Key\":\"%s\"}\\n' \"\${AGENT_FACADE_KEY}\""
+      || throw "facadeCanary agent-facade lost its Claude key headersHelper";
+    assert
+      !(hmConfigFacadeCanary.config.programs.claude.mcpServers.agent-facade.headers ? "X-Agent-Key")
+      || throw "facadeCanary agent-facade retained its static Claude key header";
     helpers.mkMarker "check-facade-canary-effective-set" "facadeCanary: every renderer, on-demand file and agent-skill attachment names exactly agent-facade";
 
   facade-canary-renderer-coverage =
