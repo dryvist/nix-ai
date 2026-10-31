@@ -17,6 +17,7 @@ let
   facadeNames = [ "agent-facade" ];
   hmConfigFacadeCanary = mkHmConfig [
     {
+      programs.opencode.enable = true;
       programs.aiMcp = {
         facadeCanary = true;
         gatewayBaseUrl = facadeGateway;
@@ -25,6 +26,10 @@ let
   ];
   canaryCfg = hmConfigFacadeCanary.config.programs.aiMcp;
   canaryRendered = rendererNamesOf hmConfigFacadeCanary;
+  canaryOpencode =
+    builtins.fromJSON
+      hmConfigFacadeCanary.config.home.file."${hmConfigFacadeCanary.config.programs.opencode.configDir}/opencode.json".source.json;
+  canaryOpencodeHeaders = canaryOpencode.mcp.agent-facade.headers;
   canaryRendererMismatches = builtins.filter (name: canaryRendered.${name} != facadeNames) (
     builtins.attrNames canaryRendered
   );
@@ -131,6 +136,12 @@ in
     assert
       canaryCfg.servers.agent-facade.env_http_headers."X-Agent-Key" == "AGENT_FACADE_KEY"
       || throw "facadeCanary agent-facade lost its Codex key header mapping";
+    assert
+      canaryOpencodeHeaders."X-Agent-Key" == "{env:AGENT_FACADE_KEY}"
+      || throw "facadeCanary OpenCode agent-facade lost its environment key header";
+    assert
+      builtins.all (value: !(lib.hasInfix "\${" value)) (builtins.attrValues canaryOpencodeHeaders)
+      || throw "facadeCanary OpenCode agent-facade contains an unexpanded header";
     helpers.mkMarker "check-facade-canary-effective-set" "facadeCanary: every renderer, on-demand file and agent-skill attachment names exactly agent-facade";
 
   facade-canary-renderer-coverage =

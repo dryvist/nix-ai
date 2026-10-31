@@ -95,11 +95,22 @@ let
   normalizeMcpServer =
     server:
     if server.url != null then
+      let
+        # OpenCode substitutes its own environment variable syntax in config values.
+        mappedHeaders =
+          builtins.removeAttrs server.headers (builtins.attrNames server.env_http_headers)
+          // lib.mapAttrs (_: variable: "{env:${variable}}") server.env_http_headers;
+        headers =
+          mappedHeaders
+          // lib.optionalAttrs (server.bearer_token_env_var != null && !(mappedHeaders ? Authorization)) {
+            Authorization = "Bearer {env:${server.bearer_token_env_var}}";
+          };
+      in
       {
         type = "remote";
         inherit (server) url;
       }
-      // lib.optionalAttrs (server.headers != { }) { inherit (server) headers; }
+      // lib.optionalAttrs (headers != { }) { inherit headers; }
     else
       {
         type = "local";
