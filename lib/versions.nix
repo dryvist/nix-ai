@@ -28,7 +28,7 @@ in
   # renovate: datasource=npm depName=chatgpt-cli
   chatgptCli = "3.3.0";
   # renovate: datasource=npm depName=claude-flow
-  claudeFlow = "3.56.10";
+  claudeFlow = "3.61.1";
   # renovate: datasource=npm depName=@googleworkspace/cli
   gwsCli = "0.22.5";
   # renovate: datasource=npm depName=@openwhispr/cli
@@ -38,7 +38,7 @@ in
   # Agent-config synchronizer. The npm package is dyoshikawa/rulesync; at least
   # six unrelated projects share the name, so pin and verify against that repo.
   # renovate: datasource=npm depName=rulesync
-  rulesync = "17.1.0";
+  rulesync = "24.0.0";
   # oh-my-openagent Senpi edition (standalone `omo` command). Follow the beta
   # release stream instead of npm's separate `latest` dist-tag.
   # renovate: datasource=npm depName=omo-ai
@@ -46,7 +46,7 @@ in
 
   # MCP servers (npm)
   # renovate: datasource=npm depName=@upstash/context7-mcp
-  context7Mcp = "4.4.2";
+  context7Mcp = "4.4.4";
   # renovate: datasource=npm depName=@modelcontextprotocol/server-everything
   mcpEverything = "2026.8.31";
   # renovate: datasource=npm depName=@modelcontextprotocol/server-filesystem
@@ -66,7 +66,7 @@ in
   # renovate: datasource=npm depName=@modelcontextprotocol/server-slack
   mcpSlack = "2025.4.25";
   # renovate: datasource=npm depName=mcp-server-apple-events
-  mcpAppleEvents = "1.6.1";
+  mcpAppleEvents = "1.6.2";
   # renovate: datasource=npm depName=@democratize-technology/vikunja-mcp
   vikunjaMcp = "0.2.0";
 
@@ -86,9 +86,9 @@ in
 
   # MCP servers (pypi)
   # renovate: datasource=pypi depName=mcp-server-time
-  mcpServerTime = "2026.10.10";
+  mcpServerTime = "2026.10.19";
   # renovate: datasource=pypi depName=fabric-mcp
-  fabricMcp = "1.3.4";
+  fabricMcp = "1.3.5";
   # renovate: datasource=pypi depName=google-workspace-mcp
   gwsMcp = "2.0.9";
   # renovate: datasource=pypi depName=unifi-mcp-server
@@ -121,7 +121,7 @@ in
   transformers = uvLock.version "transformers";
   # Optional Apple-Silicon benchmark CLI; it does not select or enable a serving backend.
   # renovate: datasource=pypi depName=vllm-mlx
-  vllmMlx = "0.5.0";
+  vllmMlx = "0.6.0";
   # renovate: datasource=pypi depName=lm-eval
   lmEval = "0.4.13";
 
@@ -132,7 +132,7 @@ in
   # nixpkgs so it tracks the upstream release train; nixpkgs lags by months
   # and builds it from source with a large test closure.
   # renovate: datasource=pypi depName=litellm
-  litellm = "1.105.1";
+  litellm = "1.106.2";
 
   # Fabric Go CLI (github-releases)
   # The flake input fabric-src is ALSO tracked by Renovate's nix manager and
@@ -141,7 +141,7 @@ in
   # fabric-src input. The fabric-version-sync regression check in
   # lib/checks/fabric.nix compares the two and fails on drift.
   # renovate: datasource=github-releases depName=danielmiessler/fabric
-  fabric = "1.4.524";
+  fabric = "1.4.553";
 
   # FluidAudio CLI (github-releases). Built from source at home-manager
   # activation time, not a sandboxed Nix derivation — see modules/fluidaudio.nix.
