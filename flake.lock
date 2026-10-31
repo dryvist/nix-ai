@@ -58,11 +58,11 @@
     "autoresearch": {
       "flake": false,
       "locked": {
-        "lastModified": 1786573603,
-        "narHash": "sha256-Hwxlit87HPoHLLDiX/Tz4L5ONvmDf5B71KhTePNLyhU=",
+        "lastModified": 1793454849,
+        "narHash": "sha256-DapoBvuMAVHm7M/6NT/J6zdWNKno55Ans9+cxFWeHj8=",
         "owner": "uditgoenka",
         "repo": "autoresearch",
-        "rev": "050e30dc4ba0974b03f2873111b9901ec3211390",
+        "rev": "7bddd056dfd0b0ded8360588d8101b1ecb5c0baa",
         "type": "github"
       },
       "original": {
@@ -970,11 +970,11 @@
     "jacobpevans-cc-plugins": {
       "flake": false,
       "locked": {
-        "lastModified": 1793213821,
-        "narHash": "sha256-rLj158qioG34Sa4aoMVLd+Cpb8yAnRziKfg467NBSa8=",
+        "lastModified": 1793465011,
+        "narHash": "sha256-JFcuL/zXjc85AkKxeUBgbFzU84reflLFssS5kpzJWkE=",
         "owner": "dryvist",
         "repo": "claude-code-plugins",
-        "rev": "8c485f07dc3a6150ed2de567370a12d9bcc41510",
+        "rev": "aeb87058194fee8d64b8402ee4cfa37b54ea060e",
         "type": "github"
       },
       "original": {
