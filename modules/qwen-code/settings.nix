@@ -122,7 +122,7 @@ let
   mcpServers = mcpClient.renderServers {
     inherit (config.programs.aiMcp) enabledServers;
     excluded = cfg.excludedMcpServers;
-    normalize = normalizeMcpServer;
+    normalize = server: normalizeMcpServer (mcpClient.bridgeEnvHeaders pkgs server);
     client = "qwen-code";
   };
 

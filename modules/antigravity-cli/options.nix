@@ -152,6 +152,13 @@ in
       description = "Policy Engine rules rendered into nix-managed.toml; read-only.";
     };
 
+    generatedSettings = lib.mkOption {
+      type = lib.types.attrs;
+      readOnly = true;
+      internal = true;
+      description = "Settings emitted to Antigravity CLI.";
+    };
+
     # Sandbox configuration
     sandbox = {
       enable = lib.mkOption {

@@ -41,9 +41,10 @@ import ../opencode/sandbox.nix { inherit pkgs lib; } {
       (subpath "${home}/.qwen/file-history")
       (subpath "${home}/.qwen/tmp")
       (literal "${home}/.qwen/output-language.md"))'';
-  # The router bearer and base URL are the only caller-shell values it receives.
+  # Forward the router configuration and the facade bridge key.
   inheritedEnv = [
     "OPENAI_API_KEY"
     "OPENAI_BASE_URL"
+    "AGENT_FACADE_KEY"
   ];
 }

@@ -30,6 +30,19 @@ let
     builtins.fromJSON
       hmConfigFacadeCanary.config.home.file."${hmConfigFacadeCanary.config.programs.opencode.configDir}/opencode.json".source.json;
   canaryOpencodeHeaders = canaryOpencode.mcp.agent-facade.headers;
+  bridge = lib.getExe (import ../../modules/mcp/mcp-remote.nix { inherit pkgs; });
+  expectedFacade = {
+    command = bridge;
+    args = [
+      "${facadeGateway}/agents"
+      "--header"
+      "X-Agent-Key:\${AGENT_FACADE_KEY}"
+    ];
+  };
+  agyFacade =
+    hmConfigFacadeCanary.config.programs.antigravity-cli.generatedSettings.mcpServers.agent-facade;
+  qwenFacade =
+    hmConfigFacadeCanary.config.programs.qwen-code.generatedSettings.mcpServers.agent-facade;
   canaryRendererMismatches = builtins.filter (name: canaryRendered.${name} != facadeNames) (
     builtins.attrNames canaryRendered
   );
@@ -149,6 +162,12 @@ in
     assert
       !(hmConfigFacadeCanary.config.programs.claude.mcpServers.agent-facade.headers ? "X-Agent-Key")
       || throw "facadeCanary agent-facade retained its static Claude key header";
+    assert
+      agyFacade == expectedFacade
+      || throw "Antigravity facade bridge config differs: ${builtins.toJSON agyFacade}";
+    assert
+      qwenFacade == expectedFacade
+      || throw "Qwen facade bridge config differs: ${builtins.toJSON qwenFacade}";
     helpers.mkMarker "check-facade-canary-effective-set" "facadeCanary: every renderer, on-demand file and agent-skill attachment names exactly agent-facade";
 
   facade-canary-renderer-coverage =
