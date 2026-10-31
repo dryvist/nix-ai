@@ -5,5 +5,5 @@ on:
 permissions: read-all
 jobs:
   gate:
-    uses: JacobPEvans/.github-ai/.github/workflows/_ai-merge-gate.yml@v1
+    uses: JacobPEvans/.github-ai/.github/workflows/_ai-merge-gate.yml@v2
     secrets: inherit

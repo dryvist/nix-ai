@@ -57,7 +57,7 @@ jobs:
       id-token: write
       issues: write
       pull-requests: write
-    uses: JacobPEvans/.github-ai/.github/workflows/suite-all.yml@v1
+    uses: JacobPEvans/.github-ai/.github/workflows/suite-all.yml@v2
     with:
       caller_event: ${{ github.event_name }}
       commit_sha: ${{ inputs.commit_sha || github.sha }}

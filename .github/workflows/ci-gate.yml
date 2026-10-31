@@ -92,7 +92,7 @@ jobs:
 
   lane-alias-names:
     name: Lane Alias Names
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions:
       contents: read
@@ -128,7 +128,7 @@ jobs:
         run: nix eval --json .#lib.laneAliasParityNames > lane-alias-parity-nix-ai.json
 
       - name: Upload lane alias names
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: lane-alias-names
           path: lane-alias-parity-nix-ai.json
@@ -137,7 +137,7 @@ jobs:
   # The reusable workflow's check job sets timeout-minutes: 5.
   lane-alias-parity:
     needs: lane-alias-names
-    uses: dryvist/homelab-contracts/.github/workflows/alias-parity.yml@fe9a40d047e594b78d0b92d3a8ae0a0a9f5d3cc7 # v5.22.0
+    uses: dryvist/homelab-contracts/.github/workflows/alias-parity.yml@bad95b272a8a9dc4bc39ddded67f0807e6f83708 # v5.40.2
     with:
       names-artifact: lane-alias-names
       names-files: lane-alias-parity-nix-ai.json
@@ -147,7 +147,7 @@ jobs:
     name: Flake Lock Fresh
     permissions:
       contents: read
-    uses: JacobPEvans/.github/.github/workflows/_flake-lock-fresh.yml@5c9cc746395607e0a89ee0014e28df9595adbb80 # v1.35.0
+    uses: JacobPEvans/.github/.github/workflows/_flake-lock-fresh.yml@3b65cb1ed41d34eb12ed635d878b21e9b4d5b3c8 # v1.40.3
     with:
       max_age_days: 30
 
