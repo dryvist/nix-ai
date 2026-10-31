@@ -162,7 +162,7 @@
     # Renovate opens a separate PR for each, and the fabric-version-sync check
     # (lib/checks/fabric.nix) catches the drift.
     fabric-src = {
-      url = "github:danielmiessler/fabric/v1.4.524";
+      url = "github:danielmiessler/fabric/v1.4.553";
       flake = false;
     };
 
