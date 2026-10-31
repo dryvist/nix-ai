@@ -527,16 +527,16 @@
     "fabric-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1792164018,
-        "narHash": "sha256-RP9s7UeLwOGbEvc3u2zj6M8KZ96hOd6nBuGZ6l+KO3g=",
+        "lastModified": 1792777527,
+        "narHash": "sha256-c2MorqgimTOYr2yad4XU0GwQecXJBqC/3t+N/8Q7bCM=",
         "owner": "danielmiessler",
         "repo": "fabric",
-        "rev": "cef213cd9c2e4b90658a33b24693bb8ffc34c742",
+        "rev": "f16de16827ae23e4bb9aa35c2e4b690d40c5907c",
         "type": "github"
       },
       "original": {
         "owner": "danielmiessler",
-        "ref": "v1.4.524",
+        "ref": "v1.4.553",
         "repo": "fabric",
         "type": "github"
       }
@@ -858,17 +858,17 @@
     "herdr-remote-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1792779701,
-        "narHash": "sha256-ZDlc/pmZ1N+aBHzRy9RNNcbdNgJALSzDbHXN1/xM+wA=",
+        "lastModified": 1793348175,
+        "narHash": "sha256-lLfbFUI+7V+6M1tVR2hU4BBvCehqkvWjrj6egaIWhYI=",
         "owner": "dcolinmorgan",
         "repo": "herdr-remote",
-        "rev": "041e53ccc44f0a7cd4d022ef8296b79904237dc9",
+        "rev": "67582cec5d86ae83897074403d373716c77ede78",
         "type": "github"
       },
       "original": {
         "owner": "dcolinmorgan",
         "repo": "herdr-remote",
-        "rev": "041e53ccc44f0a7cd4d022ef8296b79904237dc9",
+        "rev": "67582cec5d86ae83897074403d373716c77ede78",
         "type": "github"
       }
     },

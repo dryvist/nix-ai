@@ -31,7 +31,7 @@ jobs:
     if: >-
       github.event_name == 'issues' &&
       (github.event.action == 'opened' || github.event.action == 'reopened')
-    uses: JacobPEvans/.github-ai/.github/workflows/issue-triage.yml@v1
+    uses: JacobPEvans/.github-ai/.github/workflows/issue-triage.yml@v2
     secrets:
       LLM_ROUTER_BASE_URL: ${{ secrets.LLM_ROUTER_BASE_URL }}
       LLM_ROUTER_API_KEY: ${{ secrets.LLM_ROUTER_API_KEY }}
@@ -52,7 +52,7 @@ jobs:
       !(github.event_name == 'issues' &&
         github.event.action == 'labeled' &&
         github.event.label.name != 'ai:ready')
-    uses: JacobPEvans/.github-ai/.github/workflows/cc-issue-resolver.yml@v1
+    uses: JacobPEvans/.github-ai/.github/workflows/cc-issue-resolver.yml@v2
     secrets:
       LLM_ROUTER_BASE_URL: ${{ secrets.LLM_ROUTER_BASE_URL }}
       LLM_ROUTER_API_KEY: ${{ secrets.LLM_ROUTER_API_KEY }}

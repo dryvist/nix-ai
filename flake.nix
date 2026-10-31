@@ -68,7 +68,7 @@
     # this is a third-party repo and a branch ref would silently redeploy
     # whatever landed upstream between converges.
     herdr-remote-src = {
-      url = "github:dcolinmorgan/herdr-remote/041e53ccc44f0a7cd4d022ef8296b79904237dc9";
+      url = "github:dcolinmorgan/herdr-remote/67582cec5d86ae83897074403d373716c77ede78";
       flake = false;
     };
 
@@ -162,7 +162,7 @@
     # Renovate opens a separate PR for each, and the fabric-version-sync check
     # (lib/checks/fabric.nix) catches the drift.
     fabric-src = {
-      url = "github:danielmiessler/fabric/v1.4.524";
+      url = "github:danielmiessler/fabric/v1.4.553";
       flake = false;
     };
 

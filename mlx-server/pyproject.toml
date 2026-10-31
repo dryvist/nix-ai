@@ -12,9 +12,9 @@ dependencies = [
   # The CPU backend the Linux CI build of the serving env installs.
   "mlx[cpu]==0.32.4; sys_platform == 'linux'",
   "mlx-lm==0.32.2",
-  # renovate: datasource=github-releases depName=Blaizzy/mlx-vlm packageName=Blaizzy/mlx-vlm currentValue=v0.7.8 extractVersion=^(?<version>.*)$
-  "mlx-vlm @ https://github.com/Blaizzy/mlx-vlm/archive/9790231827a890eade1a626643a6bc94a1317c72.zip",
-  "transformers==5.20.1",
+  # renovate: datasource=github-releases depName=Blaizzy/mlx-vlm packageName=Blaizzy/mlx-vlm currentValue=v0.7.10 extractVersion=^(?<version>.*)$
+  "mlx-vlm @ https://github.com/Blaizzy/mlx-vlm/archive/8c061ef516e7f8b584c0d5b64f26b50d5806303b.zip",
+  "transformers==5.20.2",
   "huggingface-hub==1.33.0",
 ]
 
