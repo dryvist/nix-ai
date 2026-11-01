@@ -25,11 +25,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1793357460,
-        "narHash": "sha256-6oVEwWYCGgjPlZXskFEp8S0uXwnQVtKGfdjBk4F07Zo=",
+        "lastModified": 1793532092,
+        "narHash": "sha256-S7/25bBAheFiRQAwqRwQ9+4vQGbyWP5bPZt8MrcOhrU=",
         "owner": "dryvist",
         "repo": "ai-llm-prompts",
-        "rev": "48bede6f76458d34fea6f782f6bc0ad1e0a7ca57",
+        "rev": "96ed5ed7f07be9741c915daa61bf58dad1ad51e1",
         "type": "github"
       },
       "original": {

@@ -10,109 +10,7 @@
 }:
 
 let
-  mcpServerModule = lib.types.submodule {
-    options = {
-      type = lib.mkOption {
-        type = lib.types.enum [
-          "stdio"
-          "sse"
-          "http"
-        ];
-        default = "stdio";
-      };
-      command = lib.mkOption {
-        type = lib.types.nullOr lib.types.str;
-        default = null;
-      };
-      args = lib.mkOption {
-        type = lib.types.listOf lib.types.str;
-        default = [ ];
-      };
-      env = lib.mkOption {
-        type = lib.types.attrsOf lib.types.str;
-        default = { };
-      };
-      env_vars = lib.mkOption {
-        type = lib.types.listOf lib.types.str;
-        default = [ ];
-      };
-      # argv prepended to `command` at render time, e.g. a wrapper that
-      # supplies `env_vars`. Where the values come from is the consumer's
-      # concern; this module only splices the list in.
-      launchPrefix = lib.mkOption {
-        type = lib.types.listOf lib.types.str;
-        default = [ ];
-      };
-      # Servers that report which agent runtime invoked them need a different
-      # value per client, which `env` (one attrset shared by every renderer)
-      # cannot express. Naming the variable here lets modules/mcp/client.nix
-      # fill in each client's own name as it renders.
-      clientNameEnv = lib.mkOption {
-        type = lib.types.nullOr lib.types.str;
-        default = null;
-      };
-      cwd = lib.mkOption {
-        type = lib.types.nullOr lib.types.str;
-        default = null;
-      };
-      url = lib.mkOption {
-        type = lib.types.nullOr lib.types.str;
-        default = null;
-      };
-      headers = lib.mkOption {
-        type = lib.types.attrsOf lib.types.str;
-        default = { };
-      };
-      timeout = lib.mkOption {
-        type = lib.types.nullOr lib.types.int;
-        default = null;
-      };
-      startup_timeout_sec = lib.mkOption {
-        type = lib.types.nullOr lib.types.int;
-        default = null;
-      };
-      tool_timeout_sec = lib.mkOption {
-        type = lib.types.nullOr lib.types.int;
-        default = null;
-      };
-      disabled = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-      };
-      required = lib.mkOption {
-        type = lib.types.nullOr lib.types.bool;
-        default = null;
-      };
-      enabled_tools = lib.mkOption {
-        type = lib.types.listOf lib.types.str;
-        default = [ ];
-      };
-      disabled_tools = lib.mkOption {
-        type = lib.types.listOf lib.types.str;
-        default = [ ];
-      };
-      bearer_token_env_var = lib.mkOption {
-        type = lib.types.nullOr lib.types.str;
-        default = null;
-      };
-      env_http_headers = lib.mkOption {
-        type = lib.types.attrsOf lib.types.str;
-        default = { };
-      };
-      http_headers = lib.mkOption {
-        type = lib.types.attrsOf lib.types.str;
-        default = { };
-      };
-      oauth_resource = lib.mkOption {
-        type = lib.types.nullOr lib.types.str;
-        default = null;
-      };
-      scopes = lib.mkOption {
-        type = lib.types.listOf lib.types.str;
-        default = [ ];
-      };
-    };
-  };
+  mcpServerModule = import ./server-module.nix { inherit lib; };
 
   # A stdio server with a launchPrefix launches as
   #   <launchPrefix...> <command> <args>
@@ -147,6 +45,8 @@ let
   onDemandNames =
     config.programs.aiMcp.onDemandServers
     ++ (lib.attrNames config.programs.aiMcp.extraOnDemandMcpServers);
+  # Servers a specialist subagent owns (lib/specialists.nix): loaded by that agent only.
+  specialistOwned = lib.concatMap (s: s.owns) (import ../../lib/specialists.nix);
 in
 {
   imports = [
@@ -285,6 +185,13 @@ in
       description = "On-demand servers, resolved and platform-filtered; rendered per client for attach-on-demand.";
     };
 
+    specialistServers = lib.mkOption {
+      type = lib.types.attrsOf mcpServerModule;
+      readOnly = true;
+      internal = true;
+      description = "Enabled specialist-owned servers, launch-prefixed; rendered only into the specialist agents that own them.";
+    };
+
     enabledServers = lib.mkOption {
       type = lib.types.attrsOf mcpServerModule;
       readOnly = true;
@@ -325,6 +232,7 @@ in
       lib.filterAttrs (
         name: server:
         !(server.disabled or false)
+        && !(lib.elem name specialistOwned)
         && !(lib.elem name config.programs.aiMcp.excludedServers)
         && !(lib.elem name onDemandNames)
         && !(name == "apple-events" && !pkgs.stdenv.isDarwin)
@@ -334,11 +242,27 @@ in
       lib.filterAttrs (
         name: server:
         !(server.disabled or false)
+        && !(lib.elem name specialistOwned)
         && !(lib.elem name config.programs.aiMcp.excludedServers)
         && lib.elem name onDemandNames
         && !(name == "apple-events" && !pkgs.stdenv.isDarwin)
       ) config.programs.aiMcp.sourceServers
     );
+    specialistServers = withLaunchPrefix (
+      lib.filterAttrs (
+        name: server:
+        !(server.disabled or false)
+        && lib.elem name specialistOwned
+        && !(lib.elem name config.programs.aiMcp.excludedServers)
+      ) config.programs.aiMcp.sourceServers
+    );
     enabledServerNames = lib.attrNames config.programs.aiMcp.enabledServers;
   };
+
+  config.assertions = [
+    {
+      assertion = lib.unique specialistOwned == specialistOwned;
+      message = "programs.aiMcp: an MCP server is owned by more than one specialist in lib/specialists.nix: ${builtins.toJSON specialistOwned}";
+    }
+  ];
 }
