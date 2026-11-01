@@ -71,6 +71,7 @@ let
     normalize = normalizeClaudeMcpServer;
     client = "claude";
   };
+  mcpServerNames = lib.attrNames mcpServers;
 
   # Servers held out of the always-on profile (programs.aiMcp.onDemandServers)
   # are still rendered, one ready-to-attach file each, so nothing a session
@@ -95,7 +96,7 @@ in
   # A selected facade owns Claude's final attrsOf map even if downstream
   # modules define programs.claude.mcpServers entries.
   mcpServers = if facadeCanarySelected then lib.mkForce mcpServers else mcpServers;
-  inherit onDemandMcpFiles onDemandMcpServerNames;
+  inherit mcpServerNames onDemandMcpFiles onDemandMcpServerNames;
   enabledMcpjsonServers =
     if facadeCanarySelected then
       onDemandMcpServerNames

@@ -99,6 +99,7 @@ in
       || throw "a selected-client positive fixture failed Home Manager assertions";
     assert
       (nativeMcpMapNames hmConfigClaudeOnly).claude == facadeNames
+      && hmConfigClaudeOnly.config.programs.claude.mcpServerNames == facadeNames
       && unselectedRendererMismatches hmConfigClaudeOnly "claude" == [ ]
       || throw "Claude selector did not isolate its whole-set facade cutover";
     assert

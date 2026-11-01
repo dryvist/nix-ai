@@ -92,6 +92,7 @@ let
   claudeSession = import ./claude/session.nix;
   inherit (claudeMcp)
     mcpServers
+    mcpServerNames
     onDemandMcpFiles
     enabledMcpjsonServers
     ;
@@ -283,7 +284,7 @@ in
       # MCP Servers - deployed to ~/.claude.json via home.activation.
       # Shared definitions are owned by modules/mcp and rendered per-client here.
       inherit mcpServers;
-      mcpServerNames = lib.attrNames mcpServers;
+      inherit mcpServerNames;
 
       # Statusline and event hooks live in ./claude/session.nix (extracted to
       # keep this file under its file-size cap).
