@@ -149,7 +149,10 @@ let
     ++ (lib.attrNames config.programs.aiMcp.extraOnDemandMcpServers);
 in
 {
-  imports = [ ./facade-canary.nix ];
+  imports = [
+    ./facade-canary.nix
+    ./caller-registry.nix
+  ];
 
   options.programs.aiMcp = {
     servers = lib.mkOption {

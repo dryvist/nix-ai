@@ -7,6 +7,46 @@
 # supplies its normalizer.
 { lib }:
 {
+  callerKeyEnvFor =
+    { callerId, callerRegistry }:
+    let
+      callerIdValid = callerId != null && builtins.match "[a-z0-9]+(-[a-z0-9]+)*" callerId != null;
+      hasCallers =
+        callerRegistry != null
+        && builtins.isAttrs callerRegistry
+        && callerRegistry ? callers
+        && builtins.isAttrs callerRegistry.callers;
+      registered = callerIdValid && hasCallers && callerRegistry.callers ? ${callerId};
+      callerRecord = if registered then callerRegistry.callers.${callerId} else null;
+      hasTiers =
+        callerRegistry != null
+        && builtins.isAttrs callerRegistry
+        && callerRegistry ? tiers
+        && builtins.isList callerRegistry.tiers;
+    in
+    assert callerIdValid || throw "MCP caller ID must be a lowercase hyphenated identifier";
+    assert
+      registered
+      || throw "MCP caller ID `${callerId}` is not registered in homelab-contracts callers.json";
+    assert
+      builtins.isAttrs callerRecord
+      || throw "MCP caller `${callerId}` record in homelab-contracts callers.json must be an object";
+    assert
+      callerRecord ? trust_tier
+      || throw "MCP caller `${callerId}` record in homelab-contracts callers.json is missing required field `trust_tier`";
+    assert
+      builtins.attrNames callerRecord == [ "trust_tier" ]
+      || throw "MCP caller `${callerId}` record contains fields not allowed by the schema-1 callers.json contract";
+    assert
+      builtins.isString callerRecord.trust_tier
+      && builtins.match "[a-z][a-z0-9_-]*" callerRecord.trust_tier != null
+      || throw "MCP caller `${callerId}` trust_tier must match the schema-1 lowercase tier-name pattern";
+    assert hasTiers || throw "homelab-contracts callers.json must declare its schema-1 `tiers` list";
+    assert
+      lib.elem callerRecord.trust_tier callerRegistry.tiers
+      || throw "MCP caller `${callerId}` trust_tier `${callerRecord.trust_tier}` is not declared in homelab-contracts callers.json tiers";
+    "GATEWAY_KEY_" + lib.toUpper (builtins.replaceStrings [ "-" ] [ "_" ] callerId);
+
   bridgeEnvHeaders =
     pkgs: server:
     if server.url == null || server.env_http_headers == { } then
@@ -74,6 +114,13 @@
     lib.mapAttrs (_: server: normalize (withClientName server)) clientServers;
 
   mkClientOptions = tool: {
+    callerId = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      internal = true;
+      description = "Registered caller ID used for authenticated agentgateway MCP routes from ${tool}.";
+    };
+
     excludedMcpServers = lib.mkOption {
       type = lib.types.listOf lib.types.str;
       default = [ ];

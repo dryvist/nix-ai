@@ -9,6 +9,7 @@
   ...
 }:
 let
+  mcpClient = import ./mcp/client.nix { inherit lib; };
   tools = {
     claude = {
       renderer = import "${nix-claude-code-launcher-src}/lib/mk-launcher.nix";
@@ -24,20 +25,59 @@ let
     };
   };
   enabled = lib.filterAttrs (_: tool: tool.cfg.enable or false) tools;
+  gatewayFor =
+    tool:
+    let
+      callerId = tool.cfg.callerId or null;
+      hook = config.programs.aiMcp.gatewayKeyLaunchPrefixFor;
+    in
+    if hook == null || callerId == null then
+      null
+    else
+      let
+        env = mcpClient.callerKeyEnvFor {
+          inherit callerId;
+          callerRegistry = config.programs.aiMcp.callerRegistry;
+        };
+      in
+      {
+        inherit callerId env;
+        prefix = hook { inherit callerId env; };
+      };
   executableFor =
     name: tool:
     if (tool.cfg.package or null) != null then
       "${tool.cfg.package}/bin/${name}"
     else
       "/opt/homebrew/bin/${name}";
-  packages = lib.mapAttrsToList (
+  gatewayWrapperFor =
+    name: target: gateway:
+    pkgs.writeShellScript "${name}-gateway-launcher" ''
+      if [ -n "''${${gateway.env}:-}" ]; then
+        exec ${lib.escapeShellArg target} "$@"
+      fi
+      exec ${lib.escapeShellArgs gateway.prefix} ${lib.escapeShellArg target} "$@"
+    '';
+  rendered = lib.mapAttrs (
     name: tool:
-    tool.renderer {
-      inherit pkgs;
-      nofile = agentNofile;
-      executable = executableFor name tool;
+    let
+      target = executableFor name tool;
+      gateway = gatewayFor tool;
+      wrapper = if gateway == null then null else gatewayWrapperFor name target gateway;
+    in
+    {
+      package = tool.renderer {
+        inherit pkgs;
+        nofile = agentNofile;
+        executable = if wrapper == null then target else "${wrapper}";
+      };
+      inherit wrapper;
     }
   ) enabled;
+  packages = lib.mapAttrsToList (_: value: value.package) rendered;
+  gatewayWrappers = lib.filterAttrs (_: wrapper: wrapper != null) (
+    lib.mapAttrs (_: value: value.wrapper) rendered
+  );
   checkTargets = lib.concatStringsSep "\n" (
     lib.mapAttrsToList (
       name: tool:
@@ -56,7 +96,10 @@ let
   launchers = pkgs.symlinkJoin {
     name = "agent-cli-launchers";
     paths = packages;
-    passthru.launchers = packages;
+    passthru = {
+      launchers = packages;
+      inherit gatewayWrappers;
+    };
   };
 in
 {

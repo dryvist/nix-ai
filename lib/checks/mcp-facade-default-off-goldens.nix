@@ -1,11 +1,13 @@
 # Frozen SHA-256 digests of builtins.toJSON over the projection in
-# mcp-facade-default-off-projection.nix, evaluated from merge-base 37b952fc
-# with the exact same flake.lock. Codex and Antigravity IDE maps were rendered
-# with their merge-base-pinned shared renderer and checked against the
-# merge-base mcpServerNames options before hashing.
+# mcp-facade-default-off-projection.nix, freshly compared from base bd39621a
+# and the candidate with the same locked inputs. The only changed input is
+# homelab-contracts v5.19.2 at de3be0f0; nixpkgs is 752cbac9 and home-manager
+# is 24f21905. The Home Manager assertions and projections were deepSeq'd for
+# both systems before comparing. These values match the earlier 37b952fc
+# baseline, now verified at the exact source base for this candidate.
 {
-  baseCommit = "37b952fc92e383c1b7a8eef2547a602b80494db1";
-  flakeLockSha256 = "27eded9443f1619a8ba54288f73ae409f1d3cd871dc10bd5e85efbaf8d293c51";
+  baseCommit = "bd39621af5358bf01af73899f1761430ec6fae3d";
+  flakeLockSha256 = "85c688758b002ee077e6702c8e6b8f1a8c298dea144da3107dee6c0c645027fb";
   projections = {
     aarch64-darwin = {
       bytes = 3357;

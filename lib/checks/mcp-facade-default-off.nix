@@ -25,9 +25,17 @@ let
   actualJson = builtins.toJSON projection;
   actualSha256 = builtins.hashString "sha256" actualJson;
   actualBytes = builtins.stringLength actualJson;
+  projectionsAndAssertionsPass = builtins.deepSeq hmConfigDefaultOff.config.assertions (
+    builtins.deepSeq projection (
+      builtins.all (assertion: assertion.assertion) hmConfigDefaultOff.config.assertions
+    )
+  );
 in
 {
   facade-canary-default-off-merge-base =
+    assert
+      projectionsAndAssertionsPass
+      || throw "default-off Home Manager assertions failed or its MCP projection changed";
     assert
       builtins.hashString "sha256" (builtins.readFile ../../flake.lock) == golden.flakeLockSha256
       || throw "facade canary golden was captured from a different flake.lock";
