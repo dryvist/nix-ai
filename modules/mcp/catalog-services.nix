@@ -85,7 +85,7 @@
   # no-op, unbounded list response) — see
   # patches/vikunja-mcp-0.2.0-defects.patch.
   # Ships disabled — a consumer enables it deliberately once secrets exist
-  # for that machine.
+  # for that machine. Owned by vikunja-specialist (lib/specialists.nix).
   vikunja = codexMcp {
     command = "${mcpNpmPkgs.vikunja-mcp}/bin/vikunja-mcp";
     env_vars = [

@@ -71,7 +71,8 @@ let
   # env_vars) takes the hook; time (no env_vars) and http-test (not stdio)
   # launch unchanged.
   launchCfg = hmConfigMcpLaunchPrefix.config.programs.aiMcp;
-  launched = launchCfg.onDemandEnabledServers // launchCfg.enabledServers;
+  launched =
+    launchCfg.onDemandEnabledServers // launchCfg.enabledServers // launchCfg.specialistServers;
   codexOnDemandNames = hmConfigMcpLaunchPrefix.config.programs.codex.mcpServerNames;
   claudeHttpTest =
     builtins.fromJSON
@@ -159,7 +160,7 @@ in
   mcp-on-demand-merge =
     let
       lost = builtins.filter (name: !(builtins.elem name launchCfg.onDemandServers)) (
-        cfg.onDemandServers ++ [ "vikunja" ]
+        cfg.onDemandServers ++ [ "http-test" ]
       );
     in
     assert

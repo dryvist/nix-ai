@@ -204,8 +204,14 @@ in
         fromFlakeInputs = mkSourceEntries "${claude-cookbooks}/.claude/commands" cbCommands;
       };
 
-      # The subagent definitions (executor) come from the prompt catalog.
-      agents.fromFlakeInputs = promptCatalog.agents;
+      # Subagent definitions come from the prompt catalog, plus the specialists
+      # in lib/specialists.nix (claude/specialist-agents.nix).
+      agents.fromFlakeInputs =
+        promptCatalog.agents
+        ++ import ./claude/specialist-agents.nix {
+          inherit lib pkgs ai-llm-prompts;
+          inherit (claudeMcp) specialistMcpServers;
+        };
 
       # home-manager is the single canonical delivery pipe for agent instructions.
       # Non-recursive discovery delivers only top-level `agentsmd/rules/*.md` flat to

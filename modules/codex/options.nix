@@ -168,6 +168,13 @@ in
       description = "MCP server objects rendered into Codex config.toml; read-only for regression checks.";
     };
 
+    generatedAgents = lib.mkOption {
+      type = lib.types.attrs;
+      readOnly = true;
+      internal = true;
+      description = "[agents.<name>] registrations rendered into Codex config.toml; read-only for regression checks.";
+    };
+
     onDemandMcpServers = lib.mkOption {
       type = lib.types.listOf lib.types.str;
       default = [ ];

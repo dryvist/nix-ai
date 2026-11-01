@@ -147,6 +147,8 @@ let
   onDemandNames =
     config.programs.aiMcp.onDemandServers
     ++ (lib.attrNames config.programs.aiMcp.extraOnDemandMcpServers);
+  # Servers a specialist subagent owns (lib/specialists.nix): loaded by that agent only.
+  specialistOwned = lib.concatMap (s: s.owns) (import ../../lib/specialists.nix);
 in
 {
   imports = [
@@ -285,6 +287,13 @@ in
       description = "On-demand servers, resolved and platform-filtered; rendered per client for attach-on-demand.";
     };
 
+    specialistServers = lib.mkOption {
+      type = lib.types.attrsOf mcpServerModule;
+      readOnly = true;
+      internal = true;
+      description = "Enabled specialist-owned servers, launch-prefixed; rendered only into the specialist agents that own them.";
+    };
+
     enabledServers = lib.mkOption {
       type = lib.types.attrsOf mcpServerModule;
       readOnly = true;
@@ -325,6 +334,7 @@ in
       lib.filterAttrs (
         name: server:
         !(server.disabled or false)
+        && !(lib.elem name specialistOwned)
         && !(lib.elem name config.programs.aiMcp.excludedServers)
         && !(lib.elem name onDemandNames)
         && !(name == "apple-events" && !pkgs.stdenv.isDarwin)
@@ -334,11 +344,27 @@ in
       lib.filterAttrs (
         name: server:
         !(server.disabled or false)
+        && !(lib.elem name specialistOwned)
         && !(lib.elem name config.programs.aiMcp.excludedServers)
         && lib.elem name onDemandNames
         && !(name == "apple-events" && !pkgs.stdenv.isDarwin)
       ) config.programs.aiMcp.sourceServers
     );
+    specialistServers = withLaunchPrefix (
+      lib.filterAttrs (
+        name: server:
+        !(server.disabled or false)
+        && lib.elem name specialistOwned
+        && !(lib.elem name config.programs.aiMcp.excludedServers)
+      ) config.programs.aiMcp.sourceServers
+    );
     enabledServerNames = lib.attrNames config.programs.aiMcp.enabledServers;
   };
+
+  config.assertions = [
+    {
+      assertion = lib.unique specialistOwned == specialistOwned;
+      message = "programs.aiMcp: an MCP server is owned by more than one specialist in lib/specialists.nix: ${builtins.toJSON specialistOwned}";
+    }
+  ];
 }

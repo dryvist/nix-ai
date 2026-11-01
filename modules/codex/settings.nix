@@ -8,6 +8,7 @@
   config,
   lib,
   nix-claude-code,
+  ai-llm-prompts,
   userConfig,
   ...
 }:
@@ -97,6 +98,23 @@ let
     client = "codex";
   };
 
+  # Specialist-owned servers render into their specialist role only, never into
+  # the shared mcp_servers table that every role inherits.
+  specialistMcpServers = mcpClient.renderServers {
+    enabledServers = config.programs.aiMcp.specialistServers;
+    excluded = cfg.excludedMcpServers;
+    normalize = normalizeMcpServer;
+    client = "codex";
+  };
+  specialist = import ./specialist-agents.nix {
+    inherit
+      lib
+      pkgs
+      ai-llm-prompts
+      specialistMcpServers
+      ;
+  };
+
   optionalValue = key: value: lib.optionalAttrs (value != null) { ${key} = value; };
 
   litellmProfileAttrs = lib.genAttrs litellmRoles (role: {
@@ -176,6 +194,7 @@ let
   // optionalValue "review_model" cfg.reviewModel
   // optionalValue "service_tier" cfg.serviceTier
   // optionalValue "web_search" cfg.webSearch
+  // lib.optionalAttrs (specialist.registration != { }) { agents = specialist.registration; }
   // lib.optionalAttrs (features != { }) {
     inherit features;
   }
@@ -272,6 +291,7 @@ in
         projectDocFallbackFilenames = configAttrs.project_doc_fallback_filenames;
         mcpServerNames = lib.attrNames mcpServers;
         generatedMcpServers = mcpServers;
+        generatedAgents = specialist.registration;
         litellmProfileNames = lib.attrNames litellmProfileTomls;
         otelExporterKinds = {
           logs = if logsEndpoint == null then "none" else "otlp-http";
@@ -316,6 +336,7 @@ in
           "${configDir}/zai-models.json".text = builtins.toJSON zaiModelCatalog;
           "${configDir}/zai.config.toml".source = zaiProfileToml;
         }
+        // specialist.files
         // lib.optionalAttrs litellmLocal.enable (
           lib.mapAttrs' (
             role: toml: lib.nameValuePair "${configDir}/${role}.config.toml" { source = toml; }
