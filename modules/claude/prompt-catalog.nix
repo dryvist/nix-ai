@@ -3,9 +3,11 @@
 # Each catalog directory holds an OKF index.md, which is not a delivered file.
 {
   lib,
+  pkgs,
   ai-llm-prompts,
   discoverMarkdownFiles,
   mkSourceEntries,
+  specialistMcpServers,
 }:
 let
   root = "${ai-llm-prompts}/auto-ai-agent/claude-code";
@@ -13,6 +15,16 @@ let
     dir: mkSourceEntries "${root}/${dir}" (lib.remove "index" (discoverMarkdownFiles "${root}/${dir}"));
 in
 {
-  agents = entries "agents";
+  # Plus the specialists in lib/specialists.nix.
+  agents =
+    entries "agents"
+    ++ import ./specialist-agents.nix {
+      inherit
+        lib
+        pkgs
+        ai-llm-prompts
+        specialistMcpServers
+        ;
+    };
   rules = entries "rules";
 }

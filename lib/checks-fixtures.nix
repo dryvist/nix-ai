@@ -116,7 +116,7 @@ rec {
           };
           # A consumer appending one name, exactly as a host does, must keep
           # the curated list (lib/checks/mcp.nix mcp-on-demand-merge).
-          onDemandServers = lib.mkAfter [ "vikunja" ];
+          onDemandServers = lib.mkAfter [ "http-test" ];
           extraOnDemandMcpServers.http-test = {
             type = "http";
             url = "https://example.invalid/mcp";

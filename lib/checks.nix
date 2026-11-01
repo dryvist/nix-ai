@@ -243,6 +243,13 @@ in
     mkHmConfig
     ;
 })
+// (import ./checks/specialists.nix {
+  inherit
+    pkgs
+    hmConfig
+    hmConfigMcpLaunchPrefix
+    ;
+})
 // (import ./checks/autonomous-profile.nix {
   inherit pkgs;
   render = renderAutonomous;
