@@ -1,5 +1,17 @@
 # Changelog
 
+## [8.12.0](https://github.com/dryvist/nix-ai/compare/v8.11.3...v8.12.0) (2026-11-01)
+
+
+### Features
+
+* **claude:** send env-sourced MCP headers through a per-connection headersHelper ([#2779](https://github.com/dryvist/nix-ai/issues/2779)) ([c3d18ca](https://github.com/dryvist/nix-ai/commit/c3d18cae7bc3b2e9b3c44e4c4103247f13cfa127))
+* **mcp:** add independent harness facade selectors ([#2780](https://github.com/dryvist/nix-ai/issues/2780)) ([bd39621](https://github.com/dryvist/nix-ai/commit/bd39621af5358bf01af73899f1761430ec6fae3d))
+* **mcp:** add the agent-facade canary consumer and frozen MCP baseline check ([#2776](https://github.com/dryvist/nix-ai/issues/2776)) ([b5c480a](https://github.com/dryvist/nix-ai/commit/b5c480a5f74b15edd85b836da02c4d03c341b950))
+* **mcp:** bridge env-sourced MCP headers through mcp-remote for agy and qwen-code ([#2778](https://github.com/dryvist/nix-ai/issues/2778)) ([37b952f](https://github.com/dryvist/nix-ai/commit/37b952fc92e383c1b7a8eef2547a602b80494db1))
+* **mcp:** reconcile Claude caller keys ([e24dcd8](https://github.com/dryvist/nix-ai/commit/e24dcd8921cd367fdf6ec08a6dd2bb41827357bd))
+* **opencode:** render env-sourced MCP headers in opencode's {env:VAR} form ([#2777](https://github.com/dryvist/nix-ai/issues/2777)) ([c2fbc54](https://github.com/dryvist/nix-ai/commit/c2fbc540786450e97bd71d795c882c9dcbf9041f))
+
 ## [8.11.3](https://github.com/dryvist/nix-ai/compare/v8.11.2...v8.11.3) (2026-10-31)
 
 
