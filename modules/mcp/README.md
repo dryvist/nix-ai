@@ -82,9 +82,12 @@ header transport is not verified, so setting its selector fails evaluation.
 Selecting Claude also clears Claude's `GROUP-MCP` attachments. Selecting another
 client leaves those Claude-only attachments alone.
 
-The supported renderers keep `AGENT_FACADE_KEY` environment-backed: Codex uses
-`env_http_headers`, Claude uses a per-connection `headersHelper`, OpenCode uses
-its `{env:AGENT_FACADE_KEY}` syntax, and Antigravity CLI/Qwen Code use the
+Claude's selected `/agents` facade resolves the registered `claude-code` caller
+ID to `GATEWAY_KEY_CLAUDE_CODE` in its per-connection `headersHelper`. A host
+may opt into `programs.aiMcp.gatewayKeyLaunchPrefixFor` to run a configured
+prefix when that key is missing. The other supported facade renderers continue
+using `AGENT_FACADE_KEY`: Codex uses `env_http_headers`, OpenCode uses its
+`{env:AGENT_FACADE_KEY}` syntax, and Antigravity CLI/Qwen Code use the
 `mcp-remote` bridge. These Nix assertions prove rendered configuration only;
 caller credentials and backend permissions still require the separate live
 cutover receipt before a host enables a selector.

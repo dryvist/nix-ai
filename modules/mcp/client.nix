@@ -7,6 +7,16 @@
 # supplies its normalizer.
 { lib }:
 {
+  callerKeyEnvFor =
+    { callerId, callerIds }:
+    assert
+      callerId != null && builtins.match "[a-z0-9]+(-[a-z0-9]+)*" callerId != null
+      || throw "MCP caller ID must be a lowercase hyphenated identifier";
+    assert
+      lib.elem callerId callerIds
+      || throw "MCP caller ID `${callerId}` is not registered in homelab-contracts callers.json";
+    "GATEWAY_KEY_" + lib.toUpper (builtins.replaceStrings [ "-" ] [ "_" ] callerId);
+
   bridgeEnvHeaders =
     pkgs: server:
     if server.url == null || server.env_http_headers == { } then
@@ -74,6 +84,13 @@
     lib.mapAttrs (_: server: normalize (withClientName server)) clientServers;
 
   mkClientOptions = tool: {
+    callerId = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      internal = true;
+      description = "Registered caller ID used for authenticated agentgateway MCP routes from ${tool}.";
+    };
+
     excludedMcpServers = lib.mkOption {
       type = lib.types.listOf lib.types.str;
       default = [ ];

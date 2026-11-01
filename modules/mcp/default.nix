@@ -10,6 +10,21 @@
 }:
 
 let
+  homelabContracts = config._module.args."homelab-contracts" or null;
+  callerIds =
+    if homelabContracts == null then
+      [ ]
+    else
+      let
+        callerPolicy = builtins.fromJSON (
+          builtins.readFile "${homelabContracts}/ansible/roles/agent_callers/files/callers.json"
+        );
+      in
+      if callerPolicy.schema_version == 1 then
+        lib.attrNames callerPolicy.callers
+      else
+        throw "homelab-contracts agent callers must use schema_version 1";
+
   mcpServerModule = lib.types.submodule {
     options = {
       type = lib.mkOption {
@@ -152,6 +167,14 @@ in
   imports = [ ./facade-canary.nix ];
 
   options.programs.aiMcp = {
+    callerIds = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      readOnly = true;
+      internal = true;
+      default = callerIds;
+      description = "Caller IDs loaded from homelab-contracts for validated gateway-key derivation.";
+    };
+
     servers = lib.mkOption {
       type = lib.types.attrsOf mcpServerModule;
       default = { };
@@ -174,6 +197,17 @@ in
         Maps a server's `env_vars` to the argv prefix that supplies them. Set
         once by the consumer; applied to every stdio server with `env_vars`
         and no `launchPrefix` of its own.
+      '';
+    };
+
+    gatewayKeyLaunchPrefixFor = lib.mkOption {
+      type = lib.types.nullOr (lib.types.functionTo (lib.types.listOf lib.types.str));
+      default = null;
+      description = ''
+        Maps a registered harness caller ID and its derived gateway-key
+        environment-variable name to the argv prefix that supplies the key.
+        The prefix is used only when that key is not already set; it receives
+        `{ callerId, env }` and remains responsible for its own failure behavior.
       '';
     };
 

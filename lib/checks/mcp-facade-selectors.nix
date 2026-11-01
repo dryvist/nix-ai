@@ -13,6 +13,7 @@ let
   inherit (pkgs) lib;
   facadeGateway = "https://gateway.example.invalid";
   facadeNames = [ "agent-facade" ];
+  callerClient = import ../../modules/mcp/client.nix { inherit lib; };
   selectedClientConfig = client: {
     programs.opencode.enable = true;
     programs.aiMcp = {
@@ -30,6 +31,9 @@ let
   hmConfigCodexOnly = mkHmConfig [ (selectedClientConfig "codex") ];
   hmConfigQwenOnly = mkHmConfig [ (selectedClientConfig "qwen-code") ];
   hmConfigOpenCodeOnly = mkHmConfig [ (selectedClientConfig "opencode") ];
+  gatewayLauncherCheck = import ./mcp-gateway-key-launch-hook.nix {
+    inherit pkgs mkHmConfig;
+  };
   nativeMcpMaps = import ./mcp-facade-native-maps.nix;
   nativeMcpMapNames = hm: lib.mapAttrs (_: servers: builtins.attrNames servers) (nativeMcpMaps hm);
   bridge = lib.getExe (import ../../modules/mcp/mcp-remote.nix { inherit pkgs; });
@@ -74,7 +78,52 @@ let
       }
     ];
     noGateway = mkHmConfig [ { programs.aiMcp.facadeCanaryClients.claude = true; } ];
+    unknownClaudeCaller = mkHmConfig [
+      (selectedClientConfig "claude")
+      { programs.claude.callerId = lib.mkForce "unregistered-caller"; }
+    ];
+    malformedClaudeCaller = mkHmConfig [
+      (selectedClientConfig "claude")
+      { programs.claude.callerId = lib.mkForce "claude-code;invalid"; }
+    ];
   };
+  standaloneSelectorEvaluates =
+    selected:
+    let
+      standalone = lib.evalModules {
+        modules = [
+          {
+            options.assertions = lib.mkOption {
+              type = lib.types.listOf lib.types.unspecified;
+              default = [ ];
+            };
+            config = {
+              _module.args.pkgs = pkgs;
+              programs.aiMcp = {
+                facadeCanaryClients.claude = selected;
+                gatewayBaseUrl = if selected then facadeGateway else null;
+              };
+            };
+          }
+          ../../modules/mcp/module.nix
+        ];
+      };
+    in
+    (builtins.tryEval (
+      assert builtins.all (assertion: assertion.assertion) standalone.config.assertions;
+      assert selected || standalone.config.programs.aiMcp.callerIds == [ ];
+      builtins.deepSeq {
+        callerIds = standalone.config.programs.aiMcp.callerIds;
+        keyEnv =
+          if selected then
+            callerClient.callerKeyEnvFor {
+              callerId = "claude-code";
+              callerIds = standalone.config.programs.aiMcp.callerIds;
+            }
+          else
+            null;
+      } true
+    )).success;
   evaluates =
     hm:
     (builtins.tryEval (
@@ -111,7 +160,8 @@ in
       selectorClaudeServer.url == "${facadeGateway}/agents"
       &&
         selectorClaudeServer.headersHelper
-        == "printf '{\"X-Agent-Key\":\"%s\"}\\n' \"\${AGENT_FACADE_KEY}\""
+        == "printf '{\"X-Agent-Key\":\"%s\"}\\n' \"\${GATEWAY_KEY_CLAUDE_CODE}\""
+      && !(lib.hasInfix "AGENT_FACADE_KEY" selectorClaudeServer.headersHelper)
       && !(selectorClaudeServer.headers ? "X-Agent-Key")
       || throw "Claude selector did not render exactly the canonical environment-backed facade header";
     assert
@@ -158,5 +208,10 @@ in
           builtins.filter (name: evaluates selectorNegatives.${name}) (builtins.attrNames selectorNegatives)
         )
       }";
+    assert
+      standaloneSelectorEvaluates false && !(standaloneSelectorEvaluates true)
+      || throw "a standalone MCP module must render unselected without caller metadata and reject a selected caller without the registry";
     helpers.mkMarker "check-facade-canary-client-selectors" "Selected clients render only the facade in their final native MCP map; unselected clients retain baseline maps and attachments";
+
+  mcp-gateway-key-launch-hook = gatewayLauncherCheck;
 }

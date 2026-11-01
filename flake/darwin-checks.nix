@@ -60,6 +60,12 @@ in
       inherit pkgs;
       inherit (fixtures) mkHmConfig;
     })
+    // {
+      mcp-gateway-key-launch-hook = import (src + "/lib/checks/mcp-gateway-key-launch-hook.nix") {
+        inherit pkgs;
+        mkHmConfig = fixtures.mkHmConfig;
+      };
+    }
     // (import (src + "/lib/checks/opencode-sandbox.nix") { inherit pkgs; })
     // (import (src + "/lib/checks/qwen-code-sandbox.nix") {
       inherit pkgs;

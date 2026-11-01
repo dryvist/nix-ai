@@ -108,6 +108,7 @@ in
   config = {
     programs.claude = {
       enable = true;
+      callerId = "claude-code";
 
       # nix-claude-code keeps account switching disabled by default. This
       # workstation stack opts into its manual switch and parallel-session CLI.
