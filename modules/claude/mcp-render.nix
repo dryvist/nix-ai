@@ -13,6 +13,20 @@ let
   mcpClient = import ../mcp/client.nix { inherit lib; };
   facadeCanarySelected =
     config.programs.aiMcp.facadeCanary || config.programs.aiMcp.facadeCanaryClients.claude;
+  callerFacadeServer =
+    let
+      server = config.programs.aiMcp.facadeServer;
+      keyEnv = mcpClient.callerKeyEnvFor {
+        callerId = config.programs.claude.callerId;
+        callerRegistry = config.programs.aiMcp.callerRegistry;
+      };
+    in
+    server
+    // {
+      env_http_headers = (server.env_http_headers or { }) // {
+        "X-Agent-Key" = keyEnv;
+      };
+    };
 
   # Claude Code's own key allowlist. Every client keeps its own normalizer
   # because the target schemas genuinely differ (Codex takes env_vars and
@@ -66,7 +80,8 @@ let
 
   mcpServers = mcpClient.renderServers {
     inherit (config.programs.aiMcp) enabledServers;
-    inherit (config.programs.aiMcp) facadeCanary facadeCanaryClients facadeServer;
+    inherit (config.programs.aiMcp) facadeCanary facadeCanaryClients;
+    facadeServer = callerFacadeServer;
     excluded = config.programs.claude.excludedMcpServers;
     normalize = normalizeClaudeMcpServer;
     client = "claude";
@@ -79,7 +94,8 @@ let
   #   claude --mcp-config ~/.claude/mcp-available/zammad.json
   onDemandMcpServers = mcpClient.renderServers {
     enabledServers = config.programs.aiMcp.onDemandEnabledServers;
-    inherit (config.programs.aiMcp) facadeCanary facadeCanaryClients facadeServer;
+    inherit (config.programs.aiMcp) facadeCanary facadeCanaryClients;
+    facadeServer = callerFacadeServer;
     excluded = config.programs.claude.excludedMcpServers;
     normalize = normalizeClaudeMcpServer;
     client = "claude";

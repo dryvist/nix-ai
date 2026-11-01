@@ -1,12 +1,11 @@
 # MCP Servers - Nix-Native Configuration
 
-The `modules/mcp` Home Manager module owns MCP server definitions. Its
-`catalog.nix` exposes `programs.aiMcp.servers`; Claude, Codex, Antigravity, and
-Qwen render the shared `programs.aiMcp.enabledServers` profile on each
-`darwin-rebuild switch`.
+`modules/mcp` owns MCP definitions. `catalog.nix` exposes
+`programs.aiMcp.servers`; Claude, Codex, Antigravity, and Qwen render the shared
+`programs.aiMcp.enabledServers` profile on rebuild.
 
-Standalone consumers import `modules/mcp/module.nix`, not `default.nix`. It
-includes the shared option catalog and required local wrappers.
+Standalone consumers import `modules/mcp/module.nix` for the shared catalog and
+required local wrappers.
 
 **Nix is the sole manager of user-scoped MCP servers.** Any entries added manually
 through client CLIs may be overwritten on the next rebuild.
@@ -57,14 +56,13 @@ my-server = {
 ### Shared agentgateway routes
 
 `context7`, `splunk`, `docs`, and `memory` are `gatewayRoute` entries in
-`catalog.nix` — one governed URL per capability on the shared agentgateway MCP
-layer, instead of a local process per harness. They ship **disabled** because
-the gateway's base URL is private homelab topology and carries no default in
-this public repo; a consumer sets `programs.aiMcp.gatewayBaseUrl` (e.g. via
-`lib.mkForce` in a private host module) to turn them on for every renderer at
-once. `splunk` additionally needs `SPLUNK_MCP_TOKEN` in the environment (a
-Splunk-minted `mcp_token`, not an OpenBao credential) — the gateway passes the
-caller's `Authorization` header straight through to the Splunk backend.
+`catalog.nix`: one governed URL per capability on shared agentgateway, rather
+than a local process per harness. They ship **disabled** because this public
+repo has no default for the private gateway URL. Set
+`programs.aiMcp.gatewayBaseUrl` (e.g. with `lib.mkForce` in a private host
+module) to enable them for every renderer. `splunk` also needs
+`SPLUNK_MCP_TOKEN` (a Splunk-minted `mcp_token`); the gateway forwards the
+caller's `Authorization` header unchanged.
 
 ## Facade canary
 
@@ -82,9 +80,12 @@ header transport is not verified, so setting its selector fails evaluation.
 Selecting Claude also clears Claude's `GROUP-MCP` attachments. Selecting another
 client leaves those Claude-only attachments alone.
 
-The supported renderers keep `AGENT_FACADE_KEY` environment-backed: Codex uses
-`env_http_headers`, Claude uses a per-connection `headersHelper`, OpenCode uses
-its `{env:AGENT_FACADE_KEY}` syntax, and Antigravity CLI/Qwen Code use the
+Claude's selected `/agents` facade resolves the registered `claude-code` caller
+ID to `GATEWAY_KEY_CLAUDE_CODE` in its per-connection `headersHelper`. A host
+may opt into `programs.aiMcp.gatewayKeyLaunchPrefixFor` to run a configured
+prefix when that key is missing. The other supported facade renderers continue
+using `AGENT_FACADE_KEY`: Codex uses `env_http_headers`, OpenCode uses its
+`{env:AGENT_FACADE_KEY}` syntax, and Antigravity CLI/Qwen Code use the
 `mcp-remote` bridge. These Nix assertions prove rendered configuration only;
 caller credentials and backend permissions still require the separate live
 cutover receipt before a host enables a selector.
@@ -130,23 +131,19 @@ programs.aiMcp.servers.postgresql.disabled = lib.mkForce false;
 
 ## Secrets Management
 
-The MCP config stores **no secrets** — it only references commands and URLs.
-Servers that need API keys read them from environment variables at runtime.
+MCP config stores **no secrets**; it references commands and URLs. Servers read
+API keys from their runtime environment.
 
 **Inject secrets directly into each run — never write them to disk.**
 
-- A server that needs credentials names them in `env_vars`. The consumer may
-  set `programs.aiMcp.servers.<name>.launchPrefix`, an argv list prepended to
-  the server's command (`<launchPrefix...> <command> <args>`), to supply them.
-  `programs.aiMcp.launchPrefixFor`, a function from `env_vars` to that argv,
-  sets it once for every stdio server with `env_vars`; a server's own
-  `launchPrefix` still wins. This repo holds no secret-manager code; the
-  prefix lives with the consumer.
-  With no prefix, the server reads `env_vars` from the agent's own environment.
-- Non-secret config (log levels, flags) belongs in the Nix-managed `env`
-  attribute. Package-backed active servers use a 300-second startup and tool
-  timeout so first-run `uvx`/`bunx` installs can complete before the MCP
-  handshake deadline.
+- Servers name credentials in `env_vars`. Consumers supply them through a
+  per-server `launchPrefix` argv (`<prefix...> <command> <args>`) or shared
+  `programs.aiMcp.launchPrefixFor`, a function from `env_vars` to argv. A
+  server's own prefix wins. This repo has no secret-manager code; prefixes live
+  with consumers. Without a prefix, the agent environment supplies `env_vars`.
+- Put non-secret config (log levels, flags) in Nix-managed `env`. Package-backed
+  active servers use 300-second startup/tool timeouts for first-run
+  `uvx`/`bunx` installs.
 - Splunk is a gateway route (see [Shared agentgateway
   routes](#shared-agentgateway-routes)): the client sends `SPLUNK_MCP_TOKEN`
   (a Splunk-minted `mcp_token`) as a bearer header, and the gateway passes it
@@ -161,9 +158,9 @@ and the private docs repo.
 
 ### Plugin-managed servers (context7)
 
-Claude Code plugins manage their own servers. The catalog and plugin `context7`
-servers coexist under distinct Claude names (`context7` and
-`mcp__plugin_context7_context7`). OpenCode and Codex use the catalog route.
+Plugins own their MCP servers. Claude's catalog and plugin `context7` coexist as
+`context7` and `mcp__plugin_context7_context7`; OpenCode and Codex use the
+catalog route.
 
 | Plugin | Server |
 |--------|--------|

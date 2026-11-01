@@ -173,6 +173,7 @@ in
         agentNofile
         marketplaceInputs
         llm-agents
+        homelab-contracts
         ;
     };
   };
@@ -186,6 +187,9 @@ in
 
   mcp = {
     imports = [ ../modules/mcp/module.nix ];
+    _module.args = partialArgs {
+      inherit homelab-contracts;
+    };
   };
 
   codex = {
@@ -232,6 +236,7 @@ in
         agentNofile
         marketplaceInputs
         llm-agents
+        homelab-contracts
         ;
     };
   };
@@ -247,6 +252,7 @@ in
       inherit
         nix-claude-code
         marketplaceInputs
+        homelab-contracts
         ;
     };
   };

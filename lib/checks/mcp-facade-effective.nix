@@ -178,7 +178,7 @@ in
       || throw "facadeCanary OpenCode agent-facade contains an unexpanded header";
     assert
       hmConfigFacadeCanary.config.programs.claude.mcpServers.agent-facade.headersHelper
-      == "printf '{\"X-Agent-Key\":\"%s\"}\\n' \"\${AGENT_FACADE_KEY}\""
+      == "printf '{\"X-Agent-Key\":\"%s\"}\\n' \"\${GATEWAY_KEY_CLAUDE_CODE}\""
       || throw "facadeCanary agent-facade lost its Claude key headersHelper";
     assert
       !(hmConfigFacadeCanary.config.programs.claude.mcpServers.agent-facade.headers ? "X-Agent-Key")
