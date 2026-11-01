@@ -80,12 +80,22 @@ in
       description = "Default artifact review mode.";
     };
 
+    generatedMcpServers = lib.mkOption {
+      type = lib.types.attrs;
+      readOnly = true;
+      internal = true;
+      description = "MCP server objects rendered into mcp_config.json; read-only for regression checks.";
+    };
+
   }
   // mcpClient.mkClientOptions "Antigravity IDE";
 
   config = lib.mkMerge [
     {
-      programs.antigravity-ide.mcpServerNames = lib.attrNames mcpServers;
+      programs.antigravity-ide = {
+        mcpServerNames = lib.attrNames mcpServers;
+        generatedMcpServers = mcpServers;
+      };
     }
     (lib.mkIf cfg.enable {
       home = {

@@ -255,6 +255,14 @@ let
     small_model = "litellm/small";
   };
 
+  # extraSettings is merged after the shared renderer. Re-apply the selected
+  # whole-set here so it cannot add an MCP server past the facade boundary.
+  mergedSettings = lib.recursiveUpdate settings cfg.extraSettings;
+  selectedFacade =
+    config.programs.aiMcp.facadeCanary || config.programs.aiMcp.facadeCanaryClients.opencode;
+  effectiveSettings =
+    if selectedFacade then mergedSettings // { mcp = mcpServers; } else mergedSettings;
+
   # Pretty-printed via jq (same convention as copilot.nix / antigravity-cli):
   # builtins.toJSON is compact, so a runCommand + jq '.' derivation produces the
   # human-readable layout the other harness configs use.
@@ -262,7 +270,7 @@ let
     pkgs.runCommand "opencode.json"
       {
         nativeBuildInputs = [ pkgs.jq ];
-        json = builtins.toJSON (lib.recursiveUpdate settings cfg.extraSettings);
+        json = builtins.toJSON effectiveSettings;
         passAsFile = [ "json" ];
       }
       ''

@@ -15,16 +15,133 @@ let
   inherit (pkgs) lib;
   facadeGateway = "https://gateway.example.invalid";
   facadeNames = [ "agent-facade" ];
+  injectedRemoteMcp = {
+    type = "remote";
+    url = "https://extra.example.invalid/mcp";
+  };
   selectedClientConfig = client: {
+    programs.opencode.enable = true;
     programs.aiMcp = {
       gatewayBaseUrl = facadeGateway;
       facadeCanaryClients.${client} = true;
     };
   };
-  hmConfigSelectorBaseline = mkHmConfig [ { programs.aiMcp.gatewayBaseUrl = facadeGateway; } ];
+  hmConfigSelectorBaseline = mkHmConfig [
+    {
+      programs.opencode.enable = true;
+      programs.aiMcp.gatewayBaseUrl = facadeGateway;
+    }
+  ];
   hmConfigClaudeOnly = mkHmConfig [ (selectedClientConfig "claude") ];
   hmConfigCodexOnly = mkHmConfig [ (selectedClientConfig "codex") ];
   hmConfigQwenOnly = mkHmConfig [ (selectedClientConfig "qwen-code") ];
+  hmConfigOpenCodeOnly = mkHmConfig [ (selectedClientConfig "opencode") ];
+  hmConfigOpenCodeExtra = mkHmConfig [
+    {
+      programs = {
+        opencode = {
+          enable = true;
+          extraSettings.mcp.injected = injectedRemoteMcp;
+        };
+        aiMcp.gatewayBaseUrl = facadeGateway;
+      };
+    }
+  ];
+  hmConfigOpenCodeOnlyExtra = mkHmConfig [
+    {
+      programs = {
+        opencode = {
+          enable = true;
+          extraSettings.mcp.injected = injectedRemoteMcp;
+        };
+        aiMcp = {
+          gatewayBaseUrl = facadeGateway;
+          facadeCanaryClients.opencode = true;
+        };
+      };
+    }
+  ];
+  hmConfigQwenExtra = mkHmConfig [
+    {
+      programs = {
+        opencode.enable = true;
+        qwen-code.extraSettings.mcpServers.injected.httpUrl = injectedRemoteMcp.url;
+        aiMcp.gatewayBaseUrl = facadeGateway;
+      };
+    }
+  ];
+  hmConfigQwenOnlyExtra = mkHmConfig [
+    {
+      programs = {
+        opencode.enable = true;
+        qwen-code.extraSettings.mcpServers.injected.httpUrl = injectedRemoteMcp.url;
+        aiMcp = {
+          gatewayBaseUrl = facadeGateway;
+          facadeCanaryClients.qwen-code = true;
+        };
+      };
+    }
+  ];
+  injectedClaudeMcp = {
+    type = "http";
+    inherit (injectedRemoteMcp) url;
+  };
+  hmConfigClaudeExtra = mkHmConfig [
+    {
+      programs = {
+        opencode.enable = true;
+        claude.mcpServers.injected = injectedClaudeMcp;
+        aiMcp.gatewayBaseUrl = facadeGateway;
+      };
+    }
+  ];
+  hmConfigClaudeOnlyExtra = mkHmConfig [
+    {
+      programs = {
+        opencode.enable = true;
+        claude.mcpServers.injected = injectedClaudeMcp;
+        aiMcp = {
+          gatewayBaseUrl = facadeGateway;
+          facadeCanaryClients.claude = true;
+        };
+      };
+    }
+  ];
+  hmConfigClaudeExcluded = mkHmConfig [
+    {
+      programs = {
+        opencode.enable = true;
+        claude.excludedMcpServers = [ "zammad" ];
+        aiMcp.gatewayBaseUrl = facadeGateway;
+      };
+    }
+  ];
+  hmConfigCodexOnlyClaudeExcluded = mkHmConfig [
+    (selectedClientConfig "codex")
+    { programs.claude.excludedMcpServers = [ "zammad" ]; }
+  ];
+  injectedExtensionMcp = {
+    type = "http";
+    inherit (injectedRemoteMcp) url;
+  };
+  mkExtensionConfig = selected: {
+    programs = {
+      antigravity-cli = {
+        enable = true;
+        extensions.fixture = {
+          description = "Synthetic selector merge fixture";
+          mcpServers.injected = injectedExtensionMcp;
+        };
+      };
+      opencode.enable = true;
+      aiMcp = {
+        gatewayBaseUrl = facadeGateway;
+        facadeCanaryClients.antigravity-cli = selected;
+      };
+    };
+  };
+  hmConfigAntigravityCliExtra = mkHmConfig [ (mkExtensionConfig false) ];
+  hmConfigAntigravityCliOnlyExtra = mkHmConfig [ (mkExtensionConfig true) ];
   hmConfigFacadeCanary = mkHmConfig [
     {
       programs.opencode.enable = true;
@@ -40,6 +157,23 @@ let
   canaryOpencode =
     builtins.fromJSON
       hmConfigFacadeCanary.config.home.file."${hmConfigFacadeCanary.config.programs.opencode.configDir}/opencode.json".source.json;
+  nativeMcpMaps = hm: {
+    claude = hm.config.programs.claude.mcpServers;
+    codex = hm.config.programs.codex.generatedMcpServers;
+    antigravity-cli = hm.config.programs.antigravity-cli.generatedSettings.mcpServers;
+    antigravity-ide = hm.config.programs.antigravity-ide.generatedMcpServers;
+    "qwen-code" = hm.config.programs.qwen-code.generatedSettings.mcpServers;
+    opencode =
+      (builtins.fromJSON
+        hm.config.home.file."${hm.config.programs.opencode.configDir}/opencode.json".source.json
+      ).mcp;
+  };
+  nativeMcpMapNames = hm: lib.mapAttrs (_: servers: builtins.attrNames servers) (nativeMcpMaps hm);
+  nativeMcpMapMismatches =
+    hm: expected:
+    builtins.filter (name: (nativeMcpMapNames hm).${name} != expected) (
+      builtins.attrNames rendererNames
+    );
   canaryOpencodeHeaders = canaryOpencode.mcp.agent-facade.headers;
   canaryCodex = hmConfigFacadeCanary.config.programs.codex.generatedMcpServers.agent-facade;
   bridge = lib.getExe (import ../../modules/mcp/mcp-remote.nix { inherit pkgs; });
@@ -59,6 +193,16 @@ let
   selectorCodexServer = hmConfigCodexOnly.config.programs.codex.generatedMcpServers.agent-facade;
   selectorQwenServer =
     hmConfigQwenOnly.config.programs.qwen-code.generatedSettings.mcpServers.agent-facade;
+  unselectedRendererMismatches =
+    hm: selected:
+    builtins.filter (
+      name:
+      name != selected && (nativeMcpMaps hm).${name} != (nativeMcpMaps hmConfigSelectorBaseline).${name}
+    ) (builtins.attrNames rendererNames);
+  extensionManifest =
+    hm:
+    builtins.fromJSON
+      hm.config.home.file.".gemini/antigravity-cli/extensions/fixture/antigravity-extension.json".text;
   canaryRendererMismatches = builtins.filter (name: canaryRendered.${name} != facadeNames) (
     builtins.attrNames canaryRendered
   );
@@ -75,13 +219,6 @@ let
     codex = rendererNamesOf hmConfigCodexOnly;
     qwen-code = rendererNamesOf hmConfigQwenOnly;
   };
-  unselectedRendererMismatches =
-    hm: selected:
-    builtins.filter (
-      name:
-      name != selected
-      && (rendererNamesOf hm).${name} != (rendererNamesOf hmConfigSelectorBaseline).${name}
-    ) (builtins.attrNames rendererNames);
   selectorNegatives = {
     unknownClient = mkHmConfig [
       {
@@ -195,6 +332,9 @@ in
         )
       }";
     assert
+      nativeMcpMapMismatches hmConfigFacadeCanary facadeNames == [ ]
+      || throw "facadeCanary final native MCP maps are not exactly [agent-facade]: ${builtins.toJSON (nativeMcpMapNames hmConfigFacadeCanary)}";
+    assert
       canaryCfg.enabledServerNames == facadeNames
       || throw "facadeCanary enabled set is not [agent-facade]: ${builtins.toJSON canaryCfg.enabledServerNames}";
     assert
@@ -249,6 +389,7 @@ in
       || throw "a selected-client positive fixture failed Home Manager assertions";
     assert
       selectorRenderers.claude.claude == facadeNames
+      && (nativeMcpMapNames hmConfigClaudeOnly).claude == facadeNames
       && unselectedRendererMismatches hmConfigClaudeOnly "claude" == [ ]
       || throw "Claude selector did not isolate its whole-set facade cutover";
     assert
@@ -265,6 +406,7 @@ in
       || throw "Claude selector did not render exactly the canonical environment-backed facade header";
     assert
       selectorRenderers.codex.codex == facadeNames
+      && (nativeMcpMapNames hmConfigCodexOnly).codex == facadeNames
       && unselectedRendererMismatches hmConfigCodexOnly "codex" == [ ]
       || throw "Codex selector did not isolate its whole-set facade cutover";
     assert
@@ -282,6 +424,7 @@ in
       || throw "Codex selector did not render exactly the canonical environment-backed facade header";
     assert
       selectorRenderers."qwen-code"."qwen-code" == facadeNames
+      && (nativeMcpMapNames hmConfigQwenOnly)."qwen-code" == facadeNames
       && unselectedRendererMismatches hmConfigQwenOnly "qwen-code" == [ ]
       || throw "Qwen selector did not isolate its whole-set facade cutover";
     assert
@@ -296,6 +439,41 @@ in
     assert
       selectorQwenServer == expectedFacade
       || throw "Qwen selector did not render the canonical /agents route through the environment-backed bridge";
+    assert
+      (nativeMcpMapNames hmConfigOpenCodeOnly).opencode == facadeNames
+      && unselectedRendererMismatches hmConfigOpenCodeOnly "opencode" == [ ]
+      || throw "OpenCode selector did not render a final singleton facade map";
+    assert
+      (nativeMcpMaps hmConfigOpenCodeExtra).opencode.injected == injectedRemoteMcp
+      && (nativeMcpMapNames hmConfigOpenCodeOnlyExtra).opencode == facadeNames
+      && unselectedRendererMismatches hmConfigOpenCodeOnlyExtra "opencode" == [ ]
+      || throw "OpenCode final recursive merge can add an MCP server after selection";
+    assert
+      (nativeMcpMaps hmConfigQwenExtra)."qwen-code".injected.httpUrl == injectedRemoteMcp.url
+      && (nativeMcpMapNames hmConfigQwenOnlyExtra)."qwen-code" == facadeNames
+      && unselectedRendererMismatches hmConfigQwenOnlyExtra "qwen-code" == [ ]
+      || throw "Qwen final settings merge can add an MCP server after selection";
+    assert
+      (nativeMcpMaps hmConfigClaudeExtra).claude.injected.url == injectedClaudeMcp.url
+      && (nativeMcpMapNames hmConfigClaudeOnlyExtra).claude == facadeNames
+      && unselectedRendererMismatches hmConfigClaudeOnlyExtra "claude" == [ ]
+      || throw "Claude downstream attrs merge can add an MCP server after selection";
+    assert
+      (nativeMcpMapNames hmConfigAntigravityCliOnlyExtra)."antigravity-cli" == facadeNames
+      && unselectedRendererMismatches hmConfigAntigravityCliExtra "antigravity-cli" == [ ]
+      && (extensionManifest hmConfigAntigravityCliExtra).mcpServers.injected == injectedExtensionMcp
+      && (extensionManifest hmConfigAntigravityCliOnlyExtra).mcpServers == { }
+      || throw "Antigravity CLI extension MCP merges bypass its selected singleton facade set";
+    assert
+      hmConfigClaudeExcluded.config.programs.claude.settings.enabledMcpjsonServers
+      == builtins.attrNames hmConfigClaudeExcluded.config.programs.aiMcp.onDemandEnabledServers
+      && !(builtins.elem "zammad" hmConfigClaudeExcluded.config.programs.claude.mcpServerNames)
+      && !(hmConfigClaudeExcluded.config.home.file ? ".claude/mcp-available/zammad.json")
+      &&
+        hmConfigCodexOnlyClaudeExcluded.config.programs.claude.settings.enabledMcpjsonServers
+        == builtins.attrNames hmConfigCodexOnlyClaudeExcluded.config.programs.aiMcp.onDemandEnabledServers
+      && !(hmConfigCodexOnlyClaudeExcluded.config.home.file ? ".claude/mcp-available/zammad.json")
+      || throw "unselected Claude approval names changed under zammad exclusion or Codex-only selection";
     assert
       builtins.all (name: !(evaluates selectorNegatives.${name})) (builtins.attrNames selectorNegatives)
       || throw "a selector negative fixture evaluated: ${

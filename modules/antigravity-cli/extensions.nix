@@ -6,6 +6,8 @@
 
 let
   cfg = config.programs.antigravity-cli;
+  facadeCanarySelected =
+    config.programs.aiMcp.facadeCanary || config.programs.aiMcp.facadeCanaryClients.antigravity-cli;
 
   # Generate file entries for a single extension
   mkExtensionFiles =
@@ -14,7 +16,8 @@ let
       manifest = builtins.toJSON {
         inherit name;
         inherit (ext) description;
-        inherit (ext) mcpServers;
+        # Extension manifests are another MCP entry point for this client.
+        mcpServers = if facadeCanarySelected then { } else ext.mcpServers;
       };
       commandFiles = lib.mapAttrs' (
         cmdName: path:
