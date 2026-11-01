@@ -11,6 +11,8 @@
 }:
 let
   mcpClient = import ../mcp/client.nix { inherit lib; };
+  facadeCanarySelected =
+    config.programs.aiMcp.facadeCanary || config.programs.aiMcp.facadeCanaryClients.claude;
 
   # Claude Code's own key allowlist. Every client keeps its own normalizer
   # because the target schemas genuinely differ (Codex takes env_vars and
@@ -87,8 +89,16 @@ let
     name = ".claude/mcp-available/${name}.json";
     value.text = builtins.toJSON { mcpServers.${name} = server; };
   }) onDemandMcpServers;
+  onDemandMcpServerNames = lib.attrNames onDemandMcpServers;
 in
 {
-  inherit mcpServers onDemandMcpFiles;
-  onDemandMcpServerNames = lib.attrNames onDemandMcpServers;
+  # A selected facade owns Claude's final attrsOf map even if downstream
+  # modules define programs.claude.mcpServers entries.
+  mcpServers = if facadeCanarySelected then lib.mkForce mcpServers else mcpServers;
+  inherit onDemandMcpFiles onDemandMcpServerNames;
+  enabledMcpjsonServers =
+    if facadeCanarySelected then
+      onDemandMcpServerNames
+    else
+      builtins.attrNames config.programs.aiMcp.onDemandEnabledServers;
 }
