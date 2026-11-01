@@ -1,14 +1,12 @@
 # MCP Servers - Nix-Native Configuration
 
-MCP server definitions are owned by the `modules/mcp` Home Manager module. The
-shared catalog lives in `catalog.nix` and is exposed as `programs.aiMcp.servers`.
-The default cross-agent profile is `programs.aiMcp.enabledServers`. Claude,
-Codex, Antigravity, and Qwen consume that one option and render it into their
-own configuration formats during every `darwin-rebuild switch`.
+The `modules/mcp` Home Manager module owns MCP server definitions. Its
+`catalog.nix` exposes `programs.aiMcp.servers`; Claude, Codex, Antigravity, and
+Qwen render the shared `programs.aiMcp.enabledServers` profile on each
+`darwin-rebuild switch`.
 
-Standalone consumers should import `modules/mcp/module.nix`, not
-`modules/mcp/default.nix`; the runtime module includes the shared option
-catalog plus any local wrapper a catalog entry needs.
+Standalone consumers import `modules/mcp/module.nix`, not `default.nix`. It
+includes the shared option catalog and required local wrappers.
 
 **Nix is the sole manager of user-scoped MCP servers.** Any entries added manually
 through client CLIs may be overwritten on the next rebuild.
@@ -68,10 +66,37 @@ once. `splunk` additionally needs `SPLUNK_MCP_TOKEN` in the environment (a
 Splunk-minted `mcp_token`, not an OpenBao credential) — the gateway passes the
 caller's `Authorization` header straight through to the Splunk backend.
 
+## Facade canary
+
+`programs.aiMcp.facadeCanary = true` keeps its legacy meaning: `agent-facade` is
+the only server for every shared client. It takes precedence over the per-client
+selectors below. Evaluation fails if the consumer defines or enables another
+server, or leaves `gatewayBaseUrl` unset.
+
+`programs.aiMcp.facadeCanaryClients` has one default-off boolean for each shared
+client: `claude`, `codex`, `antigravity-cli`, `antigravity-ide`, `qwen-code`, and
+`opencode`. Setting one to `true` makes that client's entire regular, on-demand,
+and skill-group MCP set the canonical `/agents` `agent-facade` route; every
+unselected client's rendered MCP sets stay unchanged. The unknown `antigravity-ide`
+header transport is not verified, so setting its selector fails evaluation.
+Selecting Claude also clears Claude's `GROUP-MCP` attachments. Selecting another
+client leaves those Claude-only attachments alone.
+
+The supported renderers keep `AGENT_FACADE_KEY` environment-backed: Codex uses
+`env_http_headers`, Claude uses a per-connection `headersHelper`, OpenCode uses
+its `{env:AGENT_FACADE_KEY}` syntax, and Antigravity CLI/Qwen Code use the
+`mcp-remote` bridge. These Nix assertions prove rendered configuration only;
+caller credentials and backend permissions still require the separate live
+cutover receipt before a host enables a selector.
+
+Non-canary consumers are checked against the hand-edited
+[`facade-baseline.nix`](facade-baseline.nix). Entries are only removed, never added.
+Workspace and project `.mcp.json` files and Hermes are covered by separate checks
+outside this repository.
+
 ## Global Profile / Per-Agent Exclusions
 
-The catalog is intentionally wider than the default profile. Servers stay out of
-the cross-agent profile when either:
+The catalog is wider than the default profile. Servers are excluded when:
 
 - `programs.aiMcp.servers.<name>.disabled = true`
 - `<name>` is listed in `programs.aiMcp.excludedServers`
@@ -84,8 +109,7 @@ To disable a server everywhere, prefer the shared profile:
 programs.aiMcp.excludedServers = [ "postgresql" ];
 ```
 
-To keep a server in the shared profile but omit it from one renderer, use that
-agent's `excludedMcpServers` option:
+To omit a shared server from one renderer, use its `excludedMcpServers` option:
 
 ```nix
 programs.codex.excludedMcpServers = [ "postgresql" ];
@@ -94,13 +118,11 @@ programs.antigravity-ide.excludedMcpServers = [ "postgresql" ];
 programs.qwen-code.excludedMcpServers = [ "postgresql" ];
 ```
 
-Use per-agent exclusions only for client incompatibility. Routine policy belongs
-in `programs.aiMcp.excludedServers` so Claude, Codex, Antigravity, Qwen, and
-future clients stay aligned.
+Use per-agent exclusions for client incompatibility; use
+`programs.aiMcp.excludedServers` for shared policy.
 
-To enable a catalog-disabled server without editing `catalog.nix`, override via
-the module system. Because the catalog uses plain assignments (priority 100),
-the override must use `lib.mkForce` to win the merge:
+To enable a catalog-disabled server, use `lib.mkForce` to override the
+catalog's plain assignments (priority 100):
 
 ```nix
 programs.aiMcp.servers.postgresql.disabled = lib.mkForce false;
@@ -139,12 +161,9 @@ and the private docs repo.
 
 ### Plugin-managed servers (context7)
 
-Some servers are also provided by Claude Code plugins, which manage their own
-MCP server lifecycle under a different name. The catalog's `context7` gateway
-route and the plugin's own MCP coexist without conflict because they render as
-distinct server names to Claude (`context7` vs
-`mcp__plugin_context7_context7`); OpenCode and Codex have no plugin
-and get `context7` only from the catalog route.
+Claude Code plugins manage their own servers. The catalog and plugin `context7`
+servers coexist under distinct Claude names (`context7` and
+`mcp__plugin_context7_context7`). OpenCode and Codex use the catalog route.
 
 | Plugin | Server |
 |--------|--------|
@@ -152,11 +171,11 @@ and get `context7` only from the catalog route.
 
 ## HuggingFace MCP
 
-The `huggingface` server provides tools for searching and exploring HuggingFace Hub.
+The `huggingface` server searches and explores HuggingFace Hub.
 
 **Requires:** `HF_TOKEN` (see [`.env.example`](../../.env.example)).
 
-**Available tools:** search models, datasets, spaces, and papers; get model/dataset info; compare models.
+**Tools:** search models, datasets, spaces, and papers; inspect models and datasets; compare models.
 
 ## UniFi Network MCP
 
@@ -182,9 +201,8 @@ The `monarch` server is Monarch's official hosted connector — a remote
 Streamable-HTTP endpoint at `https://api.monarch.com/mcp`
 ([setup guide](https://help.monarch.com/hc/en-us/articles/50207234679956-Monarch-MCP-Connector)).
 
-Authentication is **browser OAuth handled by the MCP client** on first connect: the
-client opens Monarch in the browser to authorize access. No token, password, or header
-is stored in the Nix config — there is nothing to put in a secret store.
+On first connect, the MCP client opens Monarch for browser OAuth. Nix stores no
+token, password, or header.
 
 ## OpenWhispr MCP and CLI
 

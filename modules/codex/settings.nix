@@ -91,6 +91,7 @@ let
 
   mcpServers = mcpClient.renderServers {
     enabledServers = config.programs.aiMcp.enabledServers // selectedOnDemandMcpServers;
+    inherit (config.programs.aiMcp) facadeCanary facadeCanaryClients facadeServer;
     excluded = cfg.excludedMcpServers;
     normalize = normalizeMcpServer;
     client = "codex";
@@ -270,6 +271,7 @@ in
       programs.codex = {
         projectDocFallbackFilenames = configAttrs.project_doc_fallback_filenames;
         mcpServerNames = lib.attrNames mcpServers;
+        generatedMcpServers = mcpServers;
         litellmProfileNames = lib.attrNames litellmProfileTomls;
         otelExporterKinds = {
           logs = if logsEndpoint == null then "none" else "otlp-http";

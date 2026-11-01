@@ -3,6 +3,7 @@
   pkgs,
   hmConfig,
   hmConfigMcpLaunchPrefix,
+  mkHmConfig,
 }:
 let
   helpers = import ./helpers.nix { inherit pkgs; };
@@ -36,14 +37,15 @@ let
   onDemandUnreachable = builtins.filter (
     name: !(hmConfig.config.home.file ? ".claude/mcp-available/${name}.json")
   ) (builtins.filter (name: cfg.onDemandEnabledServers ? ${name}) onDemandRenderable);
-  rendererNames = {
-    claude = builtins.attrNames hmConfig.config.programs.claude.mcpServers;
-    codex = hmConfig.config.programs.codex.mcpServerNames;
-    antigravity-cli = hmConfig.config.programs.antigravity-cli.mcpServerNames;
-    antigravity-ide = hmConfig.config.programs.antigravity-ide.mcpServerNames;
-    qwen-code = hmConfig.config.programs.qwen-code.mcpServerNames;
-    opencode = hmConfig.config.programs.opencode.mcpServerNames;
+  rendererNamesOf = hm: {
+    claude = builtins.attrNames hm.config.programs.claude.mcpServers;
+    codex = hm.config.programs.codex.mcpServerNames;
+    antigravity-cli = hm.config.programs.antigravity-cli.mcpServerNames;
+    antigravity-ide = hm.config.programs.antigravity-ide.mcpServerNames;
+    qwen-code = hm.config.programs.qwen-code.mcpServerNames;
+    opencode = hm.config.programs.opencode.mcpServerNames;
   };
+  rendererNames = rendererNamesOf hmConfig;
   rendererMismatches = builtins.filter (name: rendererNames.${name} != cfg.enabledServerNames) (
     builtins.attrNames rendererNames
   );
@@ -173,4 +175,13 @@ in
       codexLaunchContractMismatches == [ ]
       || throw "Codex MCP launch contract mismatch: ${builtins.toJSON codexLaunchContractMismatches}";
     helpers.mkMarker "check-codex-mcp-launch-contract" "Codex MCP servers have scoped environment forwarding and 300-second startup/tool timeouts";
+}
+// import ./mcp-facade.nix {
+  inherit
+    pkgs
+    hmConfig
+    mkHmConfig
+    rendererNames
+    rendererNamesOf
+    ;
 }

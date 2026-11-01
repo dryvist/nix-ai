@@ -90,7 +90,12 @@ let
   claudeMcp = import ./claude/mcp-render.nix { inherit lib config; };
 
   claudeSession = import ./claude/session.nix;
-  inherit (claudeMcp) mcpServers onDemandMcpFiles;
+  inherit (claudeMcp)
+    mcpServers
+    mcpServerNames
+    onDemandMcpFiles
+    enabledMcpjsonServers
+    ;
 
 in
 {
@@ -230,7 +235,7 @@ in
         # ever names catalog servers from the on-demand tier, so approve
         # exactly those without the per-project prompt. Anything else in a
         # `.mcp.json` still prompts, by name.
-        enabledMcpjsonServers = builtins.attrNames config.programs.aiMcp.onDemandEnabledServers;
+        inherit enabledMcpjsonServers;
         env = import ./claude/settings-env.nix {
           inherit lib userConfig;
           inherit (config.programs) litellmLocal;
@@ -279,7 +284,7 @@ in
       # MCP Servers - deployed to ~/.claude.json via home.activation.
       # Shared definitions are owned by modules/mcp and rendered per-client here.
       inherit mcpServers;
-      mcpServerNames = lib.attrNames mcpServers;
+      inherit mcpServerNames;
 
       # Statusline and event hooks live in ./claude/session.nix (extracted to
       # keep this file under its file-size cap).

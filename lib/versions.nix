@@ -45,6 +45,8 @@ in
   omoSenpi = "5.1.0";
 
   # MCP servers (npm)
+  # renovate: datasource=npm depName=mcp-remote
+  mcpRemote = "0.15.2";
   # renovate: datasource=npm depName=@upstash/context7-mcp
   context7Mcp = "4.4.2";
   # renovate: datasource=npm depName=@modelcontextprotocol/server-everything
