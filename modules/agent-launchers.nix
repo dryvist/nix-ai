@@ -37,7 +37,7 @@ let
       let
         env = mcpClient.callerKeyEnvFor {
           inherit callerId;
-          callerIds = config.programs.aiMcp.callerIds;
+          callerRegistry = config.programs.aiMcp.callerRegistry;
         };
       in
       {

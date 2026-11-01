@@ -11,9 +11,9 @@
 
 let
   homelabContracts = config._module.args."homelab-contracts" or null;
-  callerIds =
+  callerRegistry =
     if homelabContracts == null then
-      [ ]
+      null
     else
       let
         callerPolicy = builtins.fromJSON (
@@ -21,7 +21,7 @@ let
         );
       in
       if callerPolicy.schema_version == 1 then
-        lib.attrNames callerPolicy.callers
+        callerPolicy
       else
         throw "homelab-contracts agent callers must use schema_version 1";
 
@@ -167,12 +167,12 @@ in
   imports = [ ./facade-canary.nix ];
 
   options.programs.aiMcp = {
-    callerIds = lib.mkOption {
-      type = lib.types.listOf lib.types.str;
+    callerRegistry = lib.mkOption {
+      type = lib.types.nullOr (lib.types.attrsOf lib.types.unspecified);
       readOnly = true;
       internal = true;
-      default = callerIds;
-      description = "Caller IDs loaded from homelab-contracts for validated gateway-key derivation.";
+      default = callerRegistry;
+      description = "Caller registry loaded from homelab-contracts for validated gateway-key derivation.";
     };
 
     servers = lib.mkOption {

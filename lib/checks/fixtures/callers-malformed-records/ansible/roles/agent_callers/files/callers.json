@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "description": "Malformed caller-record fixtures for selected-caller validation.",
+  "tiers": ["trusted", "untrusted"],
+  "default_tier": "untrusted",
+  "callers": {
+    "claude-code": null,
+    "missing-trust-tier": {},
+    "invalid-trust-tier": {"trust_tier": "undeclared"},
+    "extra-field": {"trust_tier": "trusted", "extra": true},
+    "valid-selected": {"trust_tier": "trusted"}
+  }
+}

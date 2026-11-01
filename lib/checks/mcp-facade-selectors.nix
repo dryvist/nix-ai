@@ -31,6 +31,7 @@ let
   hmConfigCodexOnly = mkHmConfig [ (selectedClientConfig "codex") ];
   hmConfigQwenOnly = mkHmConfig [ (selectedClientConfig "qwen-code") ];
   hmConfigOpenCodeOnly = mkHmConfig [ (selectedClientConfig "opencode") ];
+  callerRegistryFixture = ./fixtures/callers-malformed-records;
   gatewayLauncherCheck = import ./mcp-gateway-key-launch-hook.nix {
     inherit pkgs mkHmConfig;
   };
@@ -111,18 +112,68 @@ let
     in
     (builtins.tryEval (
       assert builtins.all (assertion: assertion.assertion) standalone.config.assertions;
-      assert selected || standalone.config.programs.aiMcp.callerIds == [ ];
+      assert selected || standalone.config.programs.aiMcp.callerRegistry == null;
       builtins.deepSeq {
-        callerIds = standalone.config.programs.aiMcp.callerIds;
+        callerRegistry = standalone.config.programs.aiMcp.callerRegistry;
         keyEnv =
           if selected then
             callerClient.callerKeyEnvFor {
               callerId = "claude-code";
-              callerIds = standalone.config.programs.aiMcp.callerIds;
+              callerRegistry = standalone.config.programs.aiMcp.callerRegistry;
             }
           else
             null;
       } true
+    )).success;
+  selectedCallerRendererEvaluates =
+    callerId:
+    let
+      selected = lib.evalModules {
+        modules = [
+          (
+            { config, lib, ... }:
+            {
+              options = {
+                assertions = lib.mkOption {
+                  type = lib.types.listOf lib.types.unspecified;
+                  default = [ ];
+                };
+                programs.claude = {
+                  callerId = lib.mkOption {
+                    type = lib.types.nullOr lib.types.str;
+                    default = null;
+                  };
+                  excludedMcpServers = lib.mkOption {
+                    type = lib.types.listOf lib.types.str;
+                    default = [ ];
+                  };
+                  mcpServers = lib.mkOption {
+                    type = lib.types.attrsOf lib.types.unspecified;
+                    default = { };
+                  };
+                };
+              };
+              config = {
+                _module.args.pkgs = pkgs;
+                _module.args."homelab-contracts" = callerRegistryFixture;
+                programs.aiMcp = {
+                  gatewayBaseUrl = facadeGateway;
+                  facadeCanaryClients.claude = true;
+                };
+                programs.claude = {
+                  inherit callerId;
+                  mcpServers = (import ../../modules/claude/mcp-render.nix { inherit lib config; }).mcpServers;
+                };
+              };
+            }
+          )
+          ../../modules/mcp/module.nix
+        ];
+      };
+    in
+    (builtins.tryEval (
+      assert builtins.all (assertion: assertion.assertion) selected.config.assertions;
+      builtins.deepSeq selected.config.programs.claude.mcpServers true
     )).success;
   evaluates =
     hm:
@@ -208,6 +259,17 @@ in
           builtins.filter (name: evaluates selectorNegatives.${name}) (builtins.attrNames selectorNegatives)
         )
       }";
+    assert
+      selectedCallerRendererEvaluates "valid-selected"
+      || throw "a selected valid caller failed when malformed unselected records were present in the registry fixture";
+    assert
+      builtins.all (callerId: !(selectedCallerRendererEvaluates callerId)) [
+        "claude-code"
+        "missing-trust-tier"
+        "invalid-trust-tier"
+        "extra-field"
+      ]
+      || throw "a selected caller with a malformed schema-1 registry record rendered a facade";
     assert
       standaloneSelectorEvaluates false && !(standaloneSelectorEvaluates true)
       || throw "a standalone MCP module must render unselected without caller metadata and reject a selected caller without the registry";
