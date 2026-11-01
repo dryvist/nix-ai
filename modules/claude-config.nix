@@ -56,10 +56,12 @@ let
   promptCatalog = import ./claude/prompt-catalog.nix {
     inherit
       lib
+      pkgs
       ai-llm-prompts
       discoverMarkdownFiles
       mkSourceEntries
       ;
+    inherit (claudeMcp) specialistMcpServers;
   };
   aiRules = discoverMarkdownFiles "${instructions.src}/agentsmd/rules";
   skillOverridesFile = "${instructions.src}/agentsmd/settings/skill-overrides.json";
@@ -204,21 +206,15 @@ in
         fromFlakeInputs = mkSourceEntries "${claude-cookbooks}/.claude/commands" cbCommands;
       };
 
-      # Subagent definitions come from the prompt catalog, plus the specialists
-      # in lib/specialists.nix (claude/specialist-agents.nix).
-      agents.fromFlakeInputs =
-        promptCatalog.agents
-        ++ import ./claude/specialist-agents.nix {
-          inherit lib pkgs ai-llm-prompts;
-          inherit (claudeMcp) specialistMcpServers;
-        };
+      # The subagent definitions (executor) come from the prompt catalog.
+      agents.fromFlakeInputs = promptCatalog.agents;
 
       # home-manager is the single canonical delivery pipe for agent instructions.
       # Non-recursive discovery delivers only top-level `agentsmd/rules/*.md` flat to
       # `~/.claude/rules/`: the always-on `soul.md` core plus path-scoped tier rules
       # whose `paths:` frontmatter Claude Code's native loader honors. The opt-in
       # `agentsmd/rules/on-demand/` tier lives in a subdir that discovery skips on
-      # purpose — it is read by path, never delivered. Do not make discovery recurse.
+      # purpose — it is read by path, never delivered.
       rules.fromFlakeInputs =
         mkSourceEntries "${instructions.pkg}/agentsmd/rules" aiRules ++ promptCatalog.rules;
 

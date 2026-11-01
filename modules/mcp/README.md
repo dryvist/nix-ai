@@ -129,16 +129,6 @@ catalog's plain assignments (priority 100):
 programs.aiMcp.servers.postgresql.disabled = lib.mkForce false;
 ```
 
-## Specialist-Owned Servers
-
-A server in a specialist's `owns` list (`lib/specialists.nix`) is removed from
-every shared profile and on-demand file. Only that specialist loads it: its
-Claude agent (`~/.claude/agents/<name>.md`, `mcpServers` frontmatter) and its
-Codex role (`~/.codex/agents/<name>.toml`, registered under `[agents.<name>]`)
-carry the launch-prefixed server. A specialist renders only once every server
-it owns is enabled, and `lib/checks/specialists.nix` fails when two specialists
-own the same server.
-
 ## Secrets Management
 
 MCP config stores **no secrets**; it references commands and URLs. Servers read
