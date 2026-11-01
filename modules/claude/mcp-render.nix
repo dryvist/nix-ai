@@ -11,6 +11,8 @@
 }:
 let
   mcpClient = import ../mcp/client.nix { inherit lib; };
+  facadeCanarySelected =
+    config.programs.aiMcp.facadeCanary || config.programs.aiMcp.facadeCanaryClients.claude;
 
   # Claude Code's own key allowlist. Every client keeps its own normalizer
   # because the target schemas genuinely differ (Codex takes env_vars and
@@ -64,10 +66,12 @@ let
 
   mcpServers = mcpClient.renderServers {
     inherit (config.programs.aiMcp) enabledServers;
+    inherit (config.programs.aiMcp) facadeCanary facadeCanaryClients facadeServer;
     excluded = config.programs.claude.excludedMcpServers;
     normalize = normalizeClaudeMcpServer;
     client = "claude";
   };
+  mcpServerNames = lib.attrNames mcpServers;
 
   # Servers held out of the always-on profile (programs.aiMcp.onDemandServers)
   # are still rendered, one ready-to-attach file each, so nothing a session
@@ -75,16 +79,27 @@ let
   #   claude --mcp-config ~/.claude/mcp-available/zammad.json
   onDemandMcpServers = mcpClient.renderServers {
     enabledServers = config.programs.aiMcp.onDemandEnabledServers;
+    inherit (config.programs.aiMcp) facadeCanary facadeCanaryClients facadeServer;
     excluded = config.programs.claude.excludedMcpServers;
     normalize = normalizeClaudeMcpServer;
     client = "claude";
+    onDemand = true;
   };
 
   onDemandMcpFiles = lib.mapAttrs' (name: server: {
     name = ".claude/mcp-available/${name}.json";
     value.text = builtins.toJSON { mcpServers.${name} = server; };
   }) onDemandMcpServers;
+  onDemandMcpServerNames = lib.attrNames onDemandMcpServers;
 in
 {
-  inherit mcpServers onDemandMcpFiles;
+  # A selected facade owns Claude's final attrsOf map even if downstream
+  # modules define programs.claude.mcpServers entries.
+  mcpServers = if facadeCanarySelected then lib.mkForce mcpServers else mcpServers;
+  inherit mcpServerNames onDemandMcpFiles onDemandMcpServerNames;
+  enabledMcpjsonServers =
+    if facadeCanarySelected then
+      onDemandMcpServerNames
+    else
+      builtins.attrNames config.programs.aiMcp.onDemandEnabledServers;
 }

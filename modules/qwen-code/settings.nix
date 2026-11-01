@@ -121,6 +121,7 @@ let
 
   mcpServers = mcpClient.renderServers {
     inherit (config.programs.aiMcp) enabledServers;
+    inherit (config.programs.aiMcp) facadeCanary facadeCanaryClients facadeServer;
     excluded = cfg.excludedMcpServers;
     normalize = server: normalizeMcpServer (mcpClient.bridgeEnvHeaders pkgs server);
     client = "qwen-code";
@@ -191,15 +192,23 @@ let
     ) p.models;
   allProviders = baseSettings.modelProviders ++ extraProviders;
 
-  finalSettings = (lib.recursiveUpdate baseSettings extraWithoutProviders) // {
-    modelProviders = lib.foldl' (
-      acc: p:
-      acc
-      // {
-        ${p.protocol} = (acc.${p.protocol} or [ ]) ++ toModelEntries p;
-      }
-    ) { } allProviders;
-  };
+  finalSettings =
+    let
+      merged = (lib.recursiveUpdate baseSettings extraWithoutProviders) // {
+        modelProviders = lib.foldl' (
+          acc: p:
+          acc
+          // {
+            ${p.protocol} = (acc.${p.protocol} or [ ]) ++ toModelEntries p;
+          }
+        ) { } allProviders;
+      };
+      selected =
+        config.programs.aiMcp.facadeCanary || config.programs.aiMcp.facadeCanaryClients."qwen-code";
+    in
+    # extraSettings is merged late, so selected clients must re-apply the
+    # renderer output to the final native map.
+    if selected then merged // { inherit mcpServers; } else merged;
 
   settingsJson = pkgs.writeText "qwen-settings.json" (builtins.toJSON finalSettings);
 in

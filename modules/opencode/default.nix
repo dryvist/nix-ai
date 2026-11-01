@@ -33,23 +33,10 @@ let
     skill: skill.userInvoked && agentSkills.deployedSkillPaths ? "${skillRoot}/${skill.name}"
   ) agentSkills.fromFlakeInputs;
 
-  # OpenCode ignores Claude's invocation flag. Native commands load manual
-  # workflows explicitly while skill permissions hide them from model selection.
-  skillCommands = lib.listToAttrs (
-    map (skill: {
-      inherit (skill) name;
-      value = {
-        description = "Run the ${skill.name} skill";
-        template = ''
-          Follow the ${skill.name} skill in @${config.home.homeDirectory}/${skillRoot}/${skill.name}/SKILL.md.
-          Load reusable skills through the native skill tool; resolve supporting
-          files relative to the referenced skill directory.
-
-          User arguments: $ARGUMENTS
-        '';
-      };
-    }) userInvokedSkills
-  );
+  skillCommands = import ./skill-commands.nix {
+    inherit lib skillRoot userInvokedSkills;
+    homeDirectory = config.home.homeDirectory;
+  };
   mcpClient = import ../mcp/client.nix { inherit lib; };
 
   # The wall drops everything else, so credentials in the caller's shell never
@@ -120,6 +107,7 @@ let
 
   mcpServers = mcpClient.renderServers {
     inherit (config.programs.aiMcp) enabledServers;
+    inherit (config.programs.aiMcp) facadeCanary facadeCanaryClients facadeServer;
     excluded = cfg.excludedMcpServers;
     normalize = normalizeMcpServer;
     client = "opencode";
@@ -254,6 +242,12 @@ let
     small_model = "litellm/small";
   };
 
+  effectiveSettings = import ./merge-settings.nix {
+    inherit lib settings mcpServers;
+    inherit (cfg) extraSettings;
+    selected = config.programs.aiMcp.facadeCanary || config.programs.aiMcp.facadeCanaryClients.opencode;
+  };
+
   # Pretty-printed via jq (same convention as copilot.nix / antigravity-cli):
   # builtins.toJSON is compact, so a runCommand + jq '.' derivation produces the
   # human-readable layout the other harness configs use.
@@ -261,7 +255,7 @@ let
     pkgs.runCommand "opencode.json"
       {
         nativeBuildInputs = [ pkgs.jq ];
-        json = builtins.toJSON (lib.recursiveUpdate settings cfg.extraSettings);
+        json = builtins.toJSON effectiveSettings;
         passAsFile = [ "json" ];
       }
       ''
