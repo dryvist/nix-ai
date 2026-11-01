@@ -73,8 +73,9 @@ caller's `Authorization` header straight through to the Splunk backend.
 `programs.aiMcp.facadeCanary = true` makes `agent-facade` the only server in every
 shared set. Evaluation fails if the consumer defines or enables another server, or
 leaves `gatewayBaseUrl` unset. Codex reads `AGENT_FACADE_KEY` through
-`env_http_headers`; other renderers send the `${AGENT_FACADE_KEY}` placeholder in
-`headers`.
+`env_http_headers`; Antigravity CLI and Qwen Code pass the variable through a
+local `mcp-remote` bridge. Other renderers send the `${AGENT_FACADE_KEY}`
+placeholder in `headers`.
 
 Non-canary consumers are checked against the hand-edited
 [`facade-baseline.nix`](facade-baseline.nix). Entries are only removed, never added.

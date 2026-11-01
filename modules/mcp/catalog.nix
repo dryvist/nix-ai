@@ -146,7 +146,7 @@ in
 
   # Facade canary target (modules/mcp/facade-canary.nix). Ships disabled; only a
   # consumer with programs.aiMcp.facadeCanary renders it. Codex reads the key from
-  # AGENT_FACADE_KEY through env_http_headers; the other renderers send `headers`.
+  # AGENT_FACADE_KEY through env_http_headers; CLI bridges use the same mapping.
   agent-facade = gatewayRoute "/agents" {
     headers."X-Agent-Key" = "\${AGENT_FACADE_KEY}";
     env_http_headers."X-Agent-Key" = "AGENT_FACADE_KEY";

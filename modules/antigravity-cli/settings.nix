@@ -84,7 +84,7 @@ let
   mcpServers = mcpClient.renderServers {
     inherit (config.programs.aiMcp) enabledServers;
     excluded = cfg.excludedMcpServers;
-    normalize = formatters.utils.normalizeMcpServer;
+    normalize = server: formatters.utils.normalizeMcpServer (mcpClient.bridgeEnvHeaders pkgs server);
     client = "antigravity-cli";
   };
 
@@ -185,6 +185,7 @@ in
         mcpServerNames = lib.attrNames mcpServers;
         sandboxAllowedPathsMerged = mergedSandboxAllowedPaths;
         inherit policyRules;
+        generatedSettings = settings;
       };
     }
     (lib.mkIf cfg.enable {
