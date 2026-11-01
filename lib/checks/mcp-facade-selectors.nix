@@ -162,7 +162,7 @@ let
                 };
                 programs.claude = {
                   inherit callerId;
-                  mcpServers = (import ../../modules/claude/mcp-render.nix { inherit lib config; }).mcpServers;
+                  inherit (import ../../modules/claude/mcp-render.nix { inherit lib config; }) mcpServers;
                 };
               };
             }
