@@ -4,3 +4,4 @@ args:
 (import ./mcp-facade-effective.nix args)
 // (import ./mcp-facade-selectors.nix args)
 // (import ./mcp-facade-merges.nix args)
+// (import ./mcp-facade-default-off.nix args)

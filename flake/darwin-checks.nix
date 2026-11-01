@@ -56,6 +56,10 @@ in
         hmConfigStaticServing
         ;
     })
+    // (import (src + "/lib/checks/mcp-facade-default-off.nix") {
+      inherit pkgs;
+      inherit (fixtures) mkHmConfig;
+    })
     // (import (src + "/lib/checks/opencode-sandbox.nix") { inherit pkgs; })
     // (import (src + "/lib/checks/qwen-code-sandbox.nix") {
       inherit pkgs;
