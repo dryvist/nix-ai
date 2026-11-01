@@ -64,6 +64,7 @@ let
 
   mcpServers = mcpClient.renderServers {
     inherit (config.programs.aiMcp) enabledServers;
+    inherit (config.programs.aiMcp) facadeCanary facadeCanaryClients facadeServer;
     excluded = config.programs.claude.excludedMcpServers;
     normalize = normalizeClaudeMcpServer;
     client = "claude";
@@ -75,9 +76,11 @@ let
   #   claude --mcp-config ~/.claude/mcp-available/zammad.json
   onDemandMcpServers = mcpClient.renderServers {
     enabledServers = config.programs.aiMcp.onDemandEnabledServers;
+    inherit (config.programs.aiMcp) facadeCanary facadeCanaryClients facadeServer;
     excluded = config.programs.claude.excludedMcpServers;
     normalize = normalizeClaudeMcpServer;
     client = "claude";
+    onDemand = true;
   };
 
   onDemandMcpFiles = lib.mapAttrs' (name: server: {
@@ -87,4 +90,5 @@ let
 in
 {
   inherit mcpServers onDemandMcpFiles;
+  onDemandMcpServerNames = lib.attrNames onDemandMcpServers;
 }

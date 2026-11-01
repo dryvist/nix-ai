@@ -121,6 +121,7 @@ let
 
   mcpServers = mcpClient.renderServers {
     inherit (config.programs.aiMcp) enabledServers;
+    inherit (config.programs.aiMcp) facadeCanary facadeCanaryClients facadeServer;
     excluded = cfg.excludedMcpServers;
     normalize = server: normalizeMcpServer (mcpClient.bridgeEnvHeaders pkgs server);
     client = "qwen-code";

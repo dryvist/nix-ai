@@ -34,7 +34,9 @@
       };
 
   # programs.aiMcp.enabledServers is already filtered for disabled/global-exclude
-  # (modules/mcp/default.nix) — only the per-tool exclude list applies here.
+  # (modules/mcp/default.nix). Unselected clients apply the per-tool excludes;
+  # a selected facade client instead receives only the canonical route, while
+  # its on-demand invocation is empty.
   #
   # `client` is this renderer's own name, used to resolve a server's
   # clientNameEnv. The key itself needs no stripping: every normalizer is a key
@@ -45,8 +47,18 @@
       excluded ? [ ],
       normalize,
       client ? null,
+      facadeCanary ? false,
+      facadeCanaryClients ? { },
+      facadeServer ? null,
+      onDemand ? false,
     }:
     let
+      selected = facadeCanary || (client != null && (facadeCanaryClients.${client} or false));
+      clientServers =
+        if selected then
+          if onDemand then { } else { agent-facade = facadeServer; }
+        else
+          lib.filterAttrs (name: _: !lib.elem name excluded) enabledServers;
       withClientName =
         server:
         if client == null || server.clientNameEnv == null then
@@ -59,9 +71,7 @@
             };
           };
     in
-    lib.mapAttrs (_: server: normalize (withClientName server)) (
-      lib.filterAttrs (name: _: !lib.elem name excluded) enabledServers
-    );
+    lib.mapAttrs (_: server: normalize (withClientName server)) clientServers;
 
   mkClientOptions = tool: {
     excludedMcpServers = lib.mkOption {

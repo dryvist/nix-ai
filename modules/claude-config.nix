@@ -90,7 +90,7 @@ let
   claudeMcp = import ./claude/mcp-render.nix { inherit lib config; };
 
   claudeSession = import ./claude/session.nix;
-  inherit (claudeMcp) mcpServers onDemandMcpFiles;
+  inherit (claudeMcp) mcpServers onDemandMcpFiles onDemandMcpServerNames;
 
 in
 {
@@ -230,7 +230,7 @@ in
         # ever names catalog servers from the on-demand tier, so approve
         # exactly those without the per-project prompt. Anything else in a
         # `.mcp.json` still prompts, by name.
-        enabledMcpjsonServers = builtins.attrNames config.programs.aiMcp.onDemandEnabledServers;
+        enabledMcpjsonServers = onDemandMcpServerNames;
         env = import ./claude/settings-env.nix {
           inherit lib userConfig;
           inherit (config.programs) litellmLocal;

@@ -15,11 +15,22 @@ let
   inherit (pkgs) lib;
   facadeGateway = "https://gateway.example.invalid";
   facadeNames = [ "agent-facade" ];
+  selectedClientConfig = client: {
+    programs.aiMcp = {
+      gatewayBaseUrl = facadeGateway;
+      facadeCanaryClients.${client} = true;
+    };
+  };
+  hmConfigSelectorBaseline = mkHmConfig [ { programs.aiMcp.gatewayBaseUrl = facadeGateway; } ];
+  hmConfigClaudeOnly = mkHmConfig [ (selectedClientConfig "claude") ];
+  hmConfigCodexOnly = mkHmConfig [ (selectedClientConfig "codex") ];
+  hmConfigQwenOnly = mkHmConfig [ (selectedClientConfig "qwen-code") ];
   hmConfigFacadeCanary = mkHmConfig [
     {
       programs.opencode.enable = true;
       programs.aiMcp = {
         facadeCanary = true;
+        facadeCanaryClients.codex = true;
         gatewayBaseUrl = facadeGateway;
       };
     }
@@ -30,6 +41,7 @@ let
     builtins.fromJSON
       hmConfigFacadeCanary.config.home.file."${hmConfigFacadeCanary.config.programs.opencode.configDir}/opencode.json".source.json;
   canaryOpencodeHeaders = canaryOpencode.mcp.agent-facade.headers;
+  canaryCodex = hmConfigFacadeCanary.config.programs.codex.generatedMcpServers.agent-facade;
   bridge = lib.getExe (import ../../modules/mcp/mcp-remote.nix { inherit pkgs; });
   expectedFacade = {
     command = bridge;
@@ -43,16 +55,64 @@ let
     hmConfigFacadeCanary.config.programs.antigravity-cli.generatedSettings.mcpServers.agent-facade;
   qwenFacade =
     hmConfigFacadeCanary.config.programs.qwen-code.generatedSettings.mcpServers.agent-facade;
+  selectorClaudeServer = hmConfigClaudeOnly.config.programs.claude.mcpServers.agent-facade;
+  selectorCodexServer = hmConfigCodexOnly.config.programs.codex.generatedMcpServers.agent-facade;
+  selectorQwenServer =
+    hmConfigQwenOnly.config.programs.qwen-code.generatedSettings.mcpServers.agent-facade;
   canaryRendererMismatches = builtins.filter (name: canaryRendered.${name} != facadeNames) (
     builtins.attrNames canaryRendered
   );
   canaryOnDemandFiles = builtins.filter (name: lib.hasPrefix ".claude/mcp-available/" name) (
     builtins.attrNames hmConfigFacadeCanary.config.home.file
   );
-  # home-manager throws on any failed assertion once config is read, so an
-  # evaluation that throws is the failure (same pattern as litellm-local-negative).
+  onDemandFiles =
+    hm:
+    builtins.filter (name: lib.hasPrefix ".claude/mcp-available/" name) (
+      builtins.attrNames hm.config.home.file
+    );
+  selectorRenderers = {
+    claude = rendererNamesOf hmConfigClaudeOnly;
+    codex = rendererNamesOf hmConfigCodexOnly;
+    qwen-code = rendererNamesOf hmConfigQwenOnly;
+  };
+  unselectedRendererMismatches =
+    hm: selected:
+    builtins.filter (
+      name:
+      name != selected
+      && (rendererNamesOf hm).${name} != (rendererNamesOf hmConfigSelectorBaseline).${name}
+    ) (builtins.attrNames rendererNames);
+  selectorNegatives = {
+    unknownClient = mkHmConfig [
+      {
+        programs.aiMcp = {
+          gatewayBaseUrl = facadeGateway;
+          facadeCanaryClients.unknown-client = true;
+        };
+      }
+    ];
+    unsupportedAntigravityIde = mkHmConfig [
+      {
+        programs.aiMcp = {
+          gatewayBaseUrl = facadeGateway;
+          facadeCanaryClients.antigravity-ide = true;
+        };
+      }
+    ];
+    noGateway = mkHmConfig [ { programs.aiMcp.facadeCanaryClients.claude = true; } ];
+  };
+  # Force Home Manager assertions as well as the rendered outputs: otherwise
+  # tryEval can accept a config whose assertion list contains false entries.
   evaluates =
-    hm: (builtins.tryEval (builtins.deepSeq hm.config.programs.aiMcp.enabledServerNames true)).success;
+    hm:
+    (builtins.tryEval (
+      assert builtins.all (assertion: assertion.assertion) hm.config.assertions;
+      builtins.deepSeq {
+        enabled = hm.config.programs.aiMcp.enabledServerNames;
+        clients = hm.config.programs.aiMcp.facadeCanaryClients;
+        rendered = rendererNamesOf hm;
+      } true
+    )).success;
   facadeNegatives = {
     rawCatalogEntry = mkHmConfig [
       {
@@ -150,6 +210,14 @@ in
       canaryCfg.servers.agent-facade.env_http_headers."X-Agent-Key" == "AGENT_FACADE_KEY"
       || throw "facadeCanary agent-facade lost its Codex key header mapping";
     assert
+      canaryCfg.facadeServer.url == "${facadeGateway}/agents"
+      && canaryCfg.facadeServer.env_http_headers == { "X-Agent-Key" = "AGENT_FACADE_KEY"; }
+      || throw "facadeCanary did not select the canonical /agents route and key environment reference";
+    assert
+      canaryCodex.url == "${facadeGateway}/agents"
+      && canaryCodex.env_http_headers == { "X-Agent-Key" = "AGENT_FACADE_KEY"; }
+      || throw "Codex facade route lost its environment-backed header";
+    assert
       canaryOpencodeHeaders."X-Agent-Key" == "{env:AGENT_FACADE_KEY}"
       || throw "facadeCanary OpenCode agent-facade lost its environment key header";
     assert
@@ -169,6 +237,73 @@ in
       qwenFacade == expectedFacade
       || throw "Qwen facade bridge config differs: ${builtins.toJSON qwenFacade}";
     helpers.mkMarker "check-facade-canary-effective-set" "facadeCanary: every renderer, on-demand file and agent-skill attachment names exactly agent-facade";
+
+  facade-canary-client-selectors =
+    assert
+      builtins.all (enabled: !enabled) (
+        builtins.attrValues hmConfig.config.programs.aiMcp.facadeCanaryClients
+      )
+      || throw "per-client facade selectors do not default off";
+    assert
+      evaluates hmConfigClaudeOnly && evaluates hmConfigCodexOnly && evaluates hmConfigQwenOnly
+      || throw "a selected-client positive fixture failed Home Manager assertions";
+    assert
+      selectorRenderers.claude.claude == facadeNames
+      && unselectedRendererMismatches hmConfigClaudeOnly "claude" == [ ]
+      || throw "Claude selector did not isolate its whole-set facade cutover";
+    assert
+      onDemandFiles hmConfigClaudeOnly == [ ]
+      && hmConfigClaudeOnly.config.programs.claude.settings.enabledMcpjsonServers == [ ]
+      && hmConfigClaudeOnly.config.programs.agentSkills.groupMcpServers == { }
+      || throw "Claude selector left on-demand approvals, files, or skill-group MCP attachments";
+    assert
+      selectorClaudeServer.url == "${facadeGateway}/agents"
+      &&
+        selectorClaudeServer.headersHelper
+        == "printf '{\"X-Agent-Key\":\"%s\"}\\n' \"\${AGENT_FACADE_KEY}\""
+      && !(selectorClaudeServer.headers ? "X-Agent-Key")
+      || throw "Claude selector did not render exactly the canonical environment-backed facade header";
+    assert
+      selectorRenderers.codex.codex == facadeNames
+      && unselectedRendererMismatches hmConfigCodexOnly "codex" == [ ]
+      || throw "Codex selector did not isolate its whole-set facade cutover";
+    assert
+      onDemandFiles hmConfigCodexOnly == onDemandFiles hmConfigSelectorBaseline
+      &&
+        hmConfigCodexOnly.config.programs.claude.settings.enabledMcpjsonServers
+        == hmConfigSelectorBaseline.config.programs.claude.settings.enabledMcpjsonServers
+      &&
+        hmConfigCodexOnly.config.programs.agentSkills.groupMcpServers
+        == hmConfigSelectorBaseline.config.programs.agentSkills.groupMcpServers
+      || throw "Codex selector changed Claude-only on-demand files or group attachments";
+    assert
+      selectorCodexServer.url == "${facadeGateway}/agents"
+      && selectorCodexServer.env_http_headers == { "X-Agent-Key" = "AGENT_FACADE_KEY"; }
+      || throw "Codex selector did not render exactly the canonical environment-backed facade header";
+    assert
+      selectorRenderers."qwen-code"."qwen-code" == facadeNames
+      && unselectedRendererMismatches hmConfigQwenOnly "qwen-code" == [ ]
+      || throw "Qwen selector did not isolate its whole-set facade cutover";
+    assert
+      onDemandFiles hmConfigQwenOnly == onDemandFiles hmConfigSelectorBaseline
+      &&
+        hmConfigQwenOnly.config.programs.claude.settings.enabledMcpjsonServers
+        == hmConfigSelectorBaseline.config.programs.claude.settings.enabledMcpjsonServers
+      &&
+        hmConfigQwenOnly.config.programs.agentSkills.groupMcpServers
+        == hmConfigSelectorBaseline.config.programs.agentSkills.groupMcpServers
+      || throw "Qwen selector changed Claude-only on-demand files or group attachments";
+    assert
+      selectorQwenServer == expectedFacade
+      || throw "Qwen selector did not render the canonical /agents route through the environment-backed bridge";
+    assert
+      builtins.all (name: !(evaluates selectorNegatives.${name})) (builtins.attrNames selectorNegatives)
+      || throw "a selector negative fixture evaluated: ${
+        builtins.toJSON (
+          builtins.filter (name: evaluates selectorNegatives.${name}) (builtins.attrNames selectorNegatives)
+        )
+      }";
+    helpers.mkMarker "check-facade-canary-client-selectors" "A selected client alone renders the canonical facade, while other renderers and attachments retain baseline MCP sets";
 
   facade-canary-renderer-coverage =
     assert

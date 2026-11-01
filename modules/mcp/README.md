@@ -70,12 +70,26 @@ caller's `Authorization` header straight through to the Splunk backend.
 
 ## Facade canary
 
-`programs.aiMcp.facadeCanary = true` makes `agent-facade` the only server in every
-shared set. Evaluation fails if the consumer defines or enables another server, or
-leaves `gatewayBaseUrl` unset. Codex reads `AGENT_FACADE_KEY` through
-`env_http_headers`; Antigravity CLI and Qwen Code pass the variable through a
-local `mcp-remote` bridge. Other renderers send the `${AGENT_FACADE_KEY}`
-placeholder in `headers`.
+`programs.aiMcp.facadeCanary = true` keeps its legacy meaning: `agent-facade` is
+the only server for every shared client. It takes precedence over the per-client
+selectors below. Evaluation fails if the consumer defines or enables another
+server, or leaves `gatewayBaseUrl` unset.
+
+`programs.aiMcp.facadeCanaryClients` has one default-off boolean for each shared
+client: `claude`, `codex`, `antigravity-cli`, `antigravity-ide`, `qwen-code`, and
+`opencode`. Setting one to `true` makes that client's entire regular, on-demand,
+and skill-group MCP set the canonical `/agents` `agent-facade` route; every
+unselected client's rendered MCP sets stay unchanged. The unknown `antigravity-ide`
+header transport is not verified, so setting its selector fails evaluation.
+Selecting Claude also clears Claude's `GROUP-MCP` attachments. Selecting another
+client leaves those Claude-only attachments alone.
+
+The supported renderers keep `AGENT_FACADE_KEY` environment-backed: Codex uses
+`env_http_headers`, Claude uses a per-connection `headersHelper`, OpenCode uses
+its `{env:AGENT_FACADE_KEY}` syntax, and Antigravity CLI/Qwen Code use the
+`mcp-remote` bridge. These Nix assertions prove rendered configuration only;
+caller credentials and backend permissions still require the separate live
+cutover receipt before a host enables a selector.
 
 Non-canary consumers are checked against the hand-edited
 [`facade-baseline.nix`](facade-baseline.nix). Entries are only removed, never added.
