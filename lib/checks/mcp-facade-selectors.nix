@@ -31,7 +31,7 @@ let
   hmConfigCodexOnly = mkHmConfig [ (selectedClientConfig "codex") ];
   hmConfigQwenOnly = mkHmConfig [ (selectedClientConfig "qwen-code") ];
   hmConfigOpenCodeOnly = mkHmConfig [ (selectedClientConfig "opencode") ];
-  callerRegistryFixture = ./fixtures/callers-malformed-records;
+  callerRegistryFixture = "${builtins.toString ../../.}/lib/checks/fixtures/callers-validation-cold-path-proof";
   gatewayLauncherCheck = import ./mcp-gateway-key-launch-hook.nix {
     inherit pkgs mkHmConfig;
   };
