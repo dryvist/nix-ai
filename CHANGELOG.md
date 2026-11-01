@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.13.0](https://github.com/dryvist/nix-ai/compare/v8.12.0...v8.13.0) (2026-11-01)
+
+
+### Features
+
+* **mcp:** render specialist subagents that own their MCP servers ([#2785](https://github.com/dryvist/nix-ai/issues/2785)) ([844209f](https://github.com/dryvist/nix-ai/commit/844209f668c8099af533af6c7b873bb017bcdc2e))
+
 ## [8.12.0](https://github.com/dryvist/nix-ai/compare/v8.11.3...v8.12.0) (2026-11-01)
 
 
