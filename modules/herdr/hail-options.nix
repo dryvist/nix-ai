@@ -21,7 +21,41 @@
       enable = lib.mkEnableOption "local summaries for blocked herdr agents";
 
       baseUrl = lib.mkOption {
-        type = lib.types.str;
+        type = lib.types.addCheck lib.types.str (
+          value:
+          let
+            scheme =
+              if lib.hasPrefix "http://" value then
+                "http://"
+              else if lib.hasPrefix "https://" value then
+                "https://"
+              else
+                "";
+            rest = lib.removePrefix scheme value;
+            authority = builtins.head (lib.splitString "/" rest);
+            isLoopbackHost =
+              host:
+              authority == host
+              || (
+                lib.hasPrefix "${host}:" authority
+                && (
+                  let
+                    port = lib.removePrefix "${host}:" authority;
+                  in
+                  port != "" && builtins.match "[0-9]+" port != null
+                )
+              );
+          in
+          scheme != ""
+          && !lib.hasInfix "?" value
+          && !lib.hasInfix "#" value
+          && !lib.hasInfix "@" authority
+          && lib.any isLoopbackHost [
+            "localhost"
+            "127.0.0.1"
+            "[::1]"
+          ]
+        );
         default = "http://127.0.0.1:11434/v1";
         description = "Loopback OpenAI-compatible endpoint used for blocked-agent summaries.";
       };

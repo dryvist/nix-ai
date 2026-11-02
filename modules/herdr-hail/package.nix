@@ -30,7 +30,7 @@ buildNpmPackage {
   version = "0.1.0-unstable-2026-07-19";
   inherit src;
   # Adapt agent input to the herdr >= 0.9 socket API.
-  # Blocked context is cleaned, optionally summarized locally, and clipped to
+  # Blocked context is optionally cleaned for local summaries and clipped to
   # the Slack and Discord message limits.
   # Carry these patches until upstream provides the same behavior.
   patches = [

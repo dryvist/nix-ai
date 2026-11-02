@@ -24,8 +24,30 @@ index aa9746f..ba5fa0c 100644
 +    timeoutMs: 1500,
 +    maxInputChars: 4000,
 +  },
-@@ -78,0 +93 @@ export function loadConfig(): Config {
+@@ -48,0 +63,16 @@
++export function isLoopbackBaseUrl(baseUrl: string): boolean {
++  try {
++    const endpoint = new URL(baseUrl);
++    return (
++      ["localhost", "127.0.0.1", "[::1]", "::1"].includes(endpoint.hostname) &&
++      ["http:", "https:"].includes(endpoint.protocol) &&
++      !endpoint.username &&
++      !endpoint.password &&
++      !endpoint.search &&
++      !endpoint.hash
++    );
++  } catch {
++    return false;
++  }
++}
++
+@@ -78,0 +109 @@ export function loadConfig(): Config {
 +    summarizer: { ...DEFAULTS.summarizer, ...fromFile.summarizer },
+@@ -100,0 +131,4 @@
++  if (!isLoopbackBaseUrl(cfg.summarizer.baseUrl)) {
++    throw new Error("summarizer.baseUrl must be an HTTP(S) loopback URL without credentials, query, or fragment");
++  }
++
 diff --git a/src/index.ts b/src/index.ts
 index eae1812..a122855 100644
 --- a/src/index.ts
@@ -42,10 +64,15 @@ new file mode 100644
 index 0000000..732fdd9
 --- /dev/null
 +++ b/src/notification.test.ts
-@@ -0,0 +1,75 @@
+@@ -0,0 +1,162 @@
 +import assert from "node:assert/strict";
++import fs from "node:fs";
++import os from "node:os";
++import path from "node:path";
 +import { test } from "node:test";
 +import type { Config } from "./config.js";
++import { loadConfig } from "./config.js";
++import { parseMenu } from "./menu.js";
 +import { buildNotification, cleanContext, summarizeContext, summaryLines } from "./notification.js";
 +
 +const summarizer: Config["summarizer"] = {
@@ -56,11 +83,63 @@ index 0000000..732fdd9
 +  maxInputChars: 4000,
 +};
 +
++function beforeSummaryPatchBuilder(
++  agent: Parameters<typeof buildNotification>[0],
++  context: string,
++  contextLines: number,
++): ReturnType<typeof buildNotification> {
++  const choices = agent.agent_status === "blocked" ? parseMenu(context) : null;
++  return {
++    paneId: agent.pane_id,
++    status: agent.agent_status,
++    title: agent.terminal_title_stripped || agent.terminal_title || agent.pane_id,
++    cwd: agent.cwd,
++    agentKind: agent.agent,
++    context: context
++      .split("\n")
++      .filter((line) => !/^\s*[❯>›▶]?\s*\d{1,2}[.)]\s+chat about this\s*$/iu.test(line))
++      .join("\n")
++      .trim(),
++    contextLines,
++    choices: choices?.filter((choice) => !/^chat about this$/i.test(choice.label)) ?? null,
++  };
++}
++
 +test("cleanContext strips terminal decoration but preserves question text and links", () => {
 +  assert.equal(
 +    cleanContext("\u001b[31m╭────────╮\u001b[0m\n│  Allow this?  https://example.test/a  │\n✻ Thinking…\n╰────────╯"),
 +    "Allow this? https://example.test/a",
 +  );
++});
++
++test("disabled summary output matches the pre-summary builder byte-for-byte", async () => {
++  const agent = {
++    pane_id: "w1:p1",
++    agent_status: "blocked",
++    terminal_title_stripped: "Approval",
++    terminal_title: "",
++    cwd: "/work",
++    agent: "claude",
++  } as Parameters<typeof buildNotification>[0];
++  const context =
++    "╭──────────────╮\n✻ Thinking…  \n  *Question* _keep_ ~literal~  \n❯ 1. Allow once\n  2. Chat about this\n╰──────────────╯";
++  const request: typeof fetch = async () => {
++    throw new Error("disabled summarizer must not fetch");
++  };
++  assert.equal(await summarizeContext(context, { ...summarizer, enabled: false }, request), "");
++
++  const expected = beforeSummaryPatchBuilder(agent, context, 40);
++  const notification = buildNotification(agent, context, 40);
++
++  assert.deepEqual(notification, expected);
++  assert.deepEqual(Buffer.from(notification.context), Buffer.from(expected.context));
++  assert.deepEqual(summaryLines(notification), [
++    "🔴 *claude* needs your input",
++    "*Approval*",
++    "`/work`",
++    "```╭──────────────╮\n✻ Thinking…  \n  *Question* _keep_ ~literal~  \n❯ 1. Allow once\n╰──────────────╯```",
++    "_Tap a choice below (or reply in-thread to type an answer)._",
++  ]);
 +});
 +
 +test("summary appears before the unchanged question and menu choices", () => {
@@ -80,11 +159,10 @@ index 0000000..732fdd9
 +  const summary = "The agent is waiting for permission to run a command.";
 +  notification.summary = summary;
 +  const lines = summaryLines(notification).join("\n");
-+  const cleaned = "Can the agent run this command?\n❯ 1. Allow once\n2. Deny\nhttps://example.test/a";
 +
 +  assert.ok(lines.indexOf(summary) < lines.indexOf("Can the agent run this command?"));
-+  assert.equal(notification.context, cleaned);
-+  assert.ok(lines.includes(cleaned));
++  assert.equal(notification.context, context);
++  assert.ok(lines.includes(`\`\`\`${context}\`\`\``));
 +  assert.deepEqual(notification.choices?.map(({ number, label }) => [number, label]), [
 +    ["1", "Allow once"],
 +    ["2", "Deny"],
@@ -106,6 +184,20 @@ index 0000000..732fdd9
 +  assert.ok(userMessage.endsWith("question"));
 +});
 +
++test("summarizer refuses redirects without following them", async () => {
++  let redirect: RequestRedirect | undefined;
++  const request: typeof fetch = async (_input, init) => {
++    redirect = init?.redirect;
++    return new Response(null, {
++      status: 307,
++      headers: { location: "https://example.test/collect" },
++    });
++  };
++
++  assert.equal(await summarizeContext("private terminal output", summarizer, request), "");
++  assert.equal(redirect, "error");
++});
++
 +test("summarizer never sends pane output to a non-loopback endpoint", async () => {
 +  let called = false;
 +  const request: typeof fetch = async () => {
@@ -118,16 +210,34 @@ index 0000000..732fdd9
 +  );
 +  assert.equal(called, false);
 +});
++
++test("loadConfig rejects a non-loopback summarizer baseUrl", () => {
++  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "herdr-hail-config-"));
++  const previous = process.env.HERDR_PLUGIN_CONFIG_DIR;
++  try {
++    fs.writeFileSync(
++      path.join(dir, "config.json"),
++      JSON.stringify({ summarizer: { baseUrl: "https://example.test/v1" } }),
++    );
++    process.env.HERDR_PLUGIN_CONFIG_DIR = dir;
++    assert.throws(() => loadConfig(), /loopback/);
++  } finally {
++    if (previous === undefined) delete process.env.HERDR_PLUGIN_CONFIG_DIR;
++    else process.env.HERDR_PLUGIN_CONFIG_DIR = previous;
++    fs.rmSync(dir, { recursive: true, force: true });
++  }
++});
 diff --git a/src/notification.ts b/src/notification.ts
 index 82b18ed..c0fd196 100644
 --- a/src/notification.ts
 +++ b/src/notification.ts
-@@ -2,0 +3 @@ import { MenuChoice, parseMenu } from "./menu.js";
+@@ -2,0 +3,2 @@ import { MenuChoice, parseMenu } from "./menu.js";
++import { isLoopbackBaseUrl } from "./config.js";
 +import type { Config } from "./config.js";
 @@ -12,0 +14,2 @@ export interface Notification {
 +  /** A short local-model summary of the blocked agent's recent output. */
 +  summary?: string;
-@@ -42,0 +46,86 @@ export function statusEmoji(status: AgentStatus): string {
+@@ -42,0 +46,83 @@ export function statusEmoji(status: AgentStatus): string {
 +const ANSI = /\u001B(?:\[[0-?]*[ -/]*[@-~]|\][^\u0007]*(?:\u0007|\u001B\\)|[@-_])/gu;
 +const SPINNER_ONLY = /^[\s⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏◐◓◑◒◴◷◶◵⏳✢✳✴✵✶✻✽✾✿❋❊⟳⟲▏▕▁▂▃▄▅▆▇█░▒▓|/\\-]+$/u;
 +const SPINNER_PREFIX = /^[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏◐◓◑◒◴◷◶◵⏳✢✳✴✵✶✻✽✾✿❋❊⟳⟲]/u;
@@ -157,11 +267,7 @@ index 82b18ed..c0fd196 100644
 +
 +  try {
 +    const endpoint = new URL(config.baseUrl);
-+    if (
-+      !["localhost", "127.0.0.1", "[::1]", "::1"].includes(endpoint.hostname) ||
-+      !["http:", "https:"].includes(endpoint.protocol) ||
-+      endpoint.username || endpoint.password || endpoint.search || endpoint.hash
-+    ) return "";
++    if (!isLoopbackBaseUrl(config.baseUrl)) return "";
 +    if (
 +      !config.model.trim() ||
 +      !Number.isSafeInteger(config.timeoutMs) || config.timeoutMs < 1 ||
@@ -176,6 +282,7 @@ index 82b18ed..c0fd196 100644
 +    try {
 +      const response = await request(url, {
 +        method: "POST",
++        redirect: "error",
 +        headers: { "content-type": "application/json" },
 +        body: JSON.stringify({
 +          model: config.model,
@@ -214,22 +321,5 @@ index 82b18ed..c0fd196 100644
 +  }
 +}
 +
-@@ -51 +140,2 @@ export function buildNotification(
--  const choices = agent.agent_status === "blocked" ? parseMenu(context) : null;
-+  const cleaned = cleanContext(context);
-+  const choices = agent.agent_status === "blocked" ? parseMenu(cleaned) : null;
-@@ -58,5 +148 @@ export function buildNotification(
--    context: context
--      .split("\n")
--      .filter((line) => !CHAT_ROW.test(line))
--      .join("\n")
--      .trim(),
-+    context: cleaned.split("\n").filter((line) => !CHAT_ROW.test(line)).join("\n"),
 @@ -95,0 +182 @@ export function summaryLines(n: Notification, maxChars = SLACK_SECTION_MAX): str
 +  if (n.summary) lines.push(`*Background:* ${n.summary}`);
-@@ -97,3 +184,2 @@ export function summaryLines(n: Notification, maxChars = SLACK_SECTION_MAX): str
--    // The six fence characters count toward the budget with the other lines.
--    const room = maxChars - [...lines, "``````", ...footer].join("\n").length;
--    lines.push("```" + excerpt(n, room) + "```");
-+    const room = maxChars - [...lines, ...footer].join("\n").length;
-+    lines.push(excerpt(n, room));

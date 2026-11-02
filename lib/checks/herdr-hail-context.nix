@@ -29,6 +29,24 @@ let
         }
       ];
     }).config.services.herdr.hail.renderedSettings;
+  baseUrlRejected =
+    value:
+    !(builtins.tryEval (
+      builtins.deepSeq
+        (hmConfigDarwin.extendModules {
+          modules = [
+            {
+              services.herdr.hail.summarizer.baseUrl = value;
+            }
+          ];
+        }).config.services.herdr.hail.renderedSettings
+        true
+    )).success;
+  unsafeBaseUrlsRejected = lib.all baseUrlRejected [
+    "https://example.test/v1"
+    "http://localhost.evil.test/v1"
+    "http://localhost:11434@evil.test/v1"
+  ];
 
   evalNixos =
     summarizer:
@@ -104,5 +122,7 @@ in
     assert lib.assertMsg (
       nixosEnabled.summarizer == expectedSummarizer
     ) "herdr-hail NixOS unit did not render the configured summarizer settings";
+    assert lib.assertMsg unsafeBaseUrlsRejected
+      "herdr-hail must reject non-loopback summarizer baseUrls at configuration time";
     helpers.mkMarker "check-herdr-hail-context-regression" "herdr-hail renders bounded context and opt-in summarizer settings on Darwin and NixOS.";
 }
