@@ -229,10 +229,10 @@ in
         # now; forcing it removed low/medium as real options.
         alwaysThinkingEnabled = false;
 
-        # % of context window at which auto-compaction fires. Upstream (60)
-        # suits a 200k window; 1M-window default model still has ~450K left
-        # at 45%. Don't also set env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE.
-        autoCompactThresholdPercent = 45;
+        # % of context window at which auto-compaction fires. Bumped to 70%
+        # to maximize active working context before compaction.
+        # Don't also set env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE.
+        autoCompactThresholdPercent = 70;
         cleanupPeriodDays = 180;
         # A repository's `.mcp.json` written by `agent-skill-groups link` only
         # ever names catalog servers from the on-demand tier, so approve
