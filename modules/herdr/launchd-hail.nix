@@ -17,24 +17,37 @@ let
   logDir = "${config.home.homeDirectory}/Library/Logs/herdr";
 
   # Match hail's upstream defaults; only non-secret config is rendered here.
-  settings = lib.recursiveUpdate {
-    notifyOn = [
-      "blocked"
-      "done"
-    ];
-    pollIntervalMs = 1500;
-    contextSource = "visible";
-    contextLines = 40;
-    slack = {
-      enabled = false;
-      allowedUsers = [ ];
-    };
-    discord = {
-      enabled = false;
-      allowedUsers = [ ];
-      messageContent = false;
-    };
-  } hail.settings;
+  settings =
+    lib.recursiveUpdate
+      (lib.recursiveUpdate {
+        notifyOn = [
+          "blocked"
+          "done"
+        ];
+        pollIntervalMs = 1500;
+        contextSource = "visible";
+        contextLines = 40;
+        slack = {
+          enabled = false;
+          allowedUsers = [ ];
+        };
+        discord = {
+          enabled = false;
+          allowedUsers = [ ];
+          messageContent = false;
+        };
+      } hail.settings)
+      {
+        summarizer = {
+          enabled = hail.summarizer.enable;
+          inherit (hail.summarizer)
+            baseUrl
+            model
+            timeoutMs
+            maxInputChars
+            ;
+        };
+      };
 
   configStoreDir = pkgs.writeTextDir "herdr-hail-config/config.json" (builtins.toJSON settings);
 in
