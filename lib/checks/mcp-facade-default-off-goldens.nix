@@ -9,7 +9,7 @@
 # projection digests below were recomputed from the candidate and are unchanged.
 {
   baseCommit = "bd39621af5358bf01af73899f1761430ec6fae3d";
-  flakeLockSha256 = "152dbed4b3f7707f3a0a5059fcc098748be7ce73239ab8ff106d3f37d8b93350";
+  flakeLockSha256 = "ceab0e8f39903c79b6c2fa5021ce84eed46ec738e04f8a11814472907ab52882";
   projections = {
     aarch64-darwin = {
       bytes = 3357;
