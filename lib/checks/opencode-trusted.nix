@@ -134,7 +134,7 @@ in
         fi
         jq -e '
           .provider.mlx.name == "MLX (local)" and
-          .provider.mlx.options.baseURL == hmConfig.config.services.aiStack.localRouterUrl
+          .provider.mlx.options.baseURL == "${localConfig.config.services.aiStack.localRouterUrl}"
         ' ${localSettings} >/dev/null
         touch $out
       '';
