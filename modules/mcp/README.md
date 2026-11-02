@@ -223,7 +223,7 @@ Two CLI tools work together for local MLX model workflows:
 hf download "$MLX_DEFAULT_MODEL"
 
 # 3. Query it through the local llama-swap proxy
-curl http://127.0.0.1:11434/v1/models
+curl "${MLX_API_URL}/models"
 ```
 
 `hf` is a `uvx` wrapper defined in `ai-tools.nix`; the server is the programs.mlx LaunchAgent.

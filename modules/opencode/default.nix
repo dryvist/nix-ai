@@ -213,7 +213,7 @@ let
         npm = "@ai-sdk/openai-compatible";
         name = "MLX (local)";
         options = {
-          baseURL = litellmLocal.baseUrl;
+          baseURL = config.services.aiStack.localRouterUrl;
           apiKey = "{env:LITELLM_LOCAL_KEY}";
         };
         models = lib.genAttrs localMlxModels (name: {

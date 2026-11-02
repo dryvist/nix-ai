@@ -27,7 +27,7 @@ let
   ) { } (builtins.attrNames contracts);
   judgeModelId = byRole.judge or null;
   judgeContract = if judgeModelId == null then { } else contracts.${judgeModelId};
-  routerUrl = "http://127.0.0.1:${toString config.programs.litellmLocal.port}/v1";
+  routerUrl = config.services.aiStack.localRouterUrl;
   recorderModels = {
     medium = "medium";
     small = "small";
@@ -56,8 +56,8 @@ let
     aliases = byRole // recorderSourceRoles;
     clients = {
       ghGuard = lib.optionalAttrs (judgeModelId != null) {
-        url = "${routerUrl}/chat/completions";
-        model = "small";
+        url = "${consumerConfig.models.${judgeModelId}.baseUrl}/chat/completions";
+        model = judgeModelId;
         inherit (judgeContract) timeoutSeconds;
       };
       recorder = {

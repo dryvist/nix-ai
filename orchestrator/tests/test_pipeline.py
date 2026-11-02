@@ -100,7 +100,7 @@ def _make_docs(n: int, prefix: str = "doc") -> list[dict[str, Any]]:
 class TestEmbeddingConfig:
     def test_defaults(self):
         cfg = EmbeddingConfig()
-        assert cfg.endpoint == "http://localhost:11434/v1"
+        assert cfg.endpoint == "https://router.example.invalid/v1"
         assert cfg.model == "nomic-embed-text"
         assert cfg.batch_size == 32
         assert cfg.backend == "faiss"

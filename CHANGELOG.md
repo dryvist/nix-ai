@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.13.1](https://github.com/dryvist/nix-ai/compare/v8.13.0...v8.13.1) (2026-11-02)
+
+
+### Bug Fixes
+
+* **mlx:** point gh-guard judge client at the judge resident ([#2788](https://github.com/dryvist/nix-ai/issues/2788)) ([66a5327](https://github.com/dryvist/nix-ai/commit/66a53272754d2c407779c3e052e600a28505c5ed))
+
 ## [8.13.0](https://github.com/dryvist/nix-ai/compare/v8.12.0...v8.13.0) (2026-11-01)
 
 

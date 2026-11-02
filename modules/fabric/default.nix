@@ -10,7 +10,7 @@
 #   4. Optionally starts the fabric REST API as a macOS LaunchAgent (launchd.nix)
 #
 # Fabric connects to the local MLX stack by default via the Ollama-compatible
-# endpoint at http://127.0.0.1:11434/v1. Cloud providers (OpenAI, Anthropic,
+# endpoint from services.aiStack.localRouterUrl. Cloud providers (OpenAI, Anthropic,
 # Gemini, etc.) work but require API keys in ~/.config/fabric/.env.
 #
 # Related docs:

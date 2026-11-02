@@ -124,11 +124,7 @@ let
       ];
     };
 
-    permissions.allow = [
-      "command(doppler)"
-    ]
-    ++ fastSubagentPermissions
-    ++ agentsInstructionPermissions;
+    permissions.allow = fastSubagentPermissions ++ agentsInstructionPermissions;
 
     security = {
       folderTrust = {

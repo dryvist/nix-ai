@@ -105,7 +105,7 @@
   # is the "no routing at all" switch: with no base URL and no marker header,
   # Claude Code resolves Anthropic directly and nothing here can reroute it.
   lib.optionalAttrs (!litellmLocal.claudeDirect) {
-    ANTHROPIC_BASE_URL = litellmLocal.rootUrl;
+    ANTHROPIC_BASE_URL = lib.removeSuffix "/v1" aiStack.localRouterUrl;
     ANTHROPIC_CUSTOM_HEADERS = "x-litellm-api-key: Bearer ${litellmLocal.clientToken}";
   }
   // {
@@ -122,7 +122,7 @@
     # `claudeDirect`: the guard still needs to resolve roles.
     LLM_ROUTER_URL = aiStack.llmRouterEndpoint;
     LLM_ROUTER_TOKEN_FILE = toString aiStack.llmEndpointTokenFile;
-    LITELLM_LOCAL_BASE_URL = litellmLocal.rootUrl;
+    LITELLM_LOCAL_BASE_URL = lib.removeSuffix "/v1" aiStack.localRouterUrl;
     # The role the `fast-subagent` skill's helper requests by default
     # (claude-code-plugins ai-delegation). A role name from the committed
     # alias contract, never a physical id: what it resolves to is the
