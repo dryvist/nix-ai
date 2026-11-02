@@ -20,6 +20,7 @@ from typing import Any, Callable
 
 from openai import OpenAI
 
+from orchestrator.common import local_router_url
 from orchestrator.prompts import load_prompt_resource
 from orchestrator.workflows.models import NodeDefinition, NodeType, WorkflowState
 
@@ -61,7 +62,7 @@ def _make_llm_call_node(
 ) -> Callable[[WorkflowState], WorkflowState]:
     """Return a node function that calls an OpenAI-compatible LLM endpoint."""
     cfg = node_def.config
-    endpoint = cfg.get("endpoint", "http://127.0.0.1:11434/v1")
+    endpoint = cfg.get("endpoint") or local_router_url()
     model = cfg.get("model", "mlx-community/Qwen3.5-35B-A3B-4bit")
     system_prompt = cfg.get("system_prompt")
     if system_prompt is None:

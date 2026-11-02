@@ -18,20 +18,24 @@
 }:
 let
   cfg = config.services.aiStack;
-  registryAttrs = import ../../vars/ai-stack.nix;
 in
 {
   options.services.aiStack = {
     llmEndpoint = lib.mkOption {
-      type = lib.types.enum (builtins.attrNames registryAttrs.endpoints ++ [ "router" ]);
+      type = lib.types.enum [
+        "mlx_local"
+        "router"
+      ];
       default = "mlx_local";
       description = ''
         Which well-known endpoint the OpenAI-compatible CLI consumers (cecli,
-        qwen-code, fabric) target. `mlx_local` (default) keeps every consumer
-        on the on-host llama-swap proxy — local-first. `router` points them at
+        qwen-code, fabric) target. `mlx_local` (default) uses the local
+        OpenAI-compatible endpoint: the inner LiteLLM proxy when enabled, or
+        the on-host llama-swap listener otherwise. `router` points them at
         the cluster-hosted LiteLLM proxy given by `llmRouterEndpoint`; that
-        path is bearer-gated, so `llmEndpointTokenFile` must also be set. The
-        resolved URL is surfaced read-only as `resolvedLlmEndpoint`.
+        path requires a bearer from `llmEndpointTokenFile` or
+        `llmEndpointBearerFromEnv`. The resolved URL is surfaced read-only as
+        `resolvedLlmEndpoint`.
       '';
     };
 
@@ -47,6 +51,27 @@ in
 
         Empty by default so this repo ships no personal endpoint. Required
         when `llmEndpoint = "router"`.
+      '';
+    };
+
+    localRouterUrl = lib.mkOption {
+      type = lib.types.str;
+      readOnly = true;
+      default =
+        if config.programs.litellmLocal.enable then
+          config.programs.litellmLocal.baseUrl
+        else
+          "http://${config.programs.mlx.host}:${toString config.programs.mlx.port}/v1";
+      defaultText = lib.literalExpression ''
+        if config.programs.litellmLocal.enable
+        then config.programs.litellmLocal.baseUrl
+        else "http://''${config.programs.mlx.host}:''${toString config.programs.mlx.port}/v1"
+      '';
+      description = ''
+        Read-only OpenAI-compatible `/v1` URL for local clients. It follows
+        the inner loopback LiteLLM proxy when enabled, otherwise the local
+        llama-swap endpoint. Clients use this instead of rebuilding a URL
+        from listener ports; the separate Caddy gate is for external callers.
       '';
     };
 
@@ -105,10 +130,8 @@ in
     resolvedLlmEndpoint = lib.mkOption {
       type = lib.types.str;
       readOnly = true;
-      default =
-        registryAttrs.endpoints.${cfg.llmEndpoint}
-          or (if cfg.llmEndpoint == "router" then cfg.llmRouterEndpoint else "");
-      defaultText = lib.literalExpression "the endpoints.<llmEndpoint> URL (router → llmRouterEndpoint)";
+      default = if cfg.llmEndpoint == "router" then cfg.llmRouterEndpoint else cfg.localRouterUrl;
+      defaultText = lib.literalExpression "the selected localRouterUrl or llmRouterEndpoint";
       description = ''
         Read-only resolved OpenAI-compatible `/v1` base URL for the selected
         `llmEndpoint`. Consumers read this instead of hardcoding a URL.

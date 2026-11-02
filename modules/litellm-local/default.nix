@@ -200,8 +200,8 @@ in
         {
           assertion =
             (aiStack.llmEndpointTokenFile != null && aiStack.llmEndpointTokenFile != "")
-            || (aiStack.llmEndpointBearerFromEnv && cfg.launchPrefix != [ ]);
-          message = "programs.litellmLocal.enable needs the router bearer: set services.aiStack.llmEndpointTokenFile, or set services.aiStack.llmEndpointBearerFromEnv together with programs.litellmLocal.launchPrefix. The proxy runs as a launchd agent with no shell init, so a shell-exported bearer cannot reach it.";
+            || aiStack.llmEndpointBearerFromEnv;
+          message = "programs.litellmLocal.enable needs the router bearer: set services.aiStack.llmEndpointTokenFile or services.aiStack.llmEndpointBearerFromEnv. In env-bearer mode, the process wrapper must export OPENAI_API_KEY before starting the proxy.";
         }
         {
           assertion =

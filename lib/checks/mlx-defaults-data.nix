@@ -117,7 +117,7 @@
   {
     name = "mlx.env.MLX_API_URL";
     actual = hmConfig.config.home.sessionVariables.MLX_API_URL;
-    expected = "http://${mlxCfg.host}:${toString mlxCfg.port}/v1";
+    expected = hmConfig.config.services.aiStack.localRouterUrl;
   }
   {
     name = "mlx.env.MLX_PORT";

@@ -306,6 +306,16 @@ in
     ;
 })
 // (import ./checks/litellm-local-endpoint.nix { inherit pkgs hmConfigLitellmLocal; })
+// (import ./checks/local-router-url.nix {
+  inherit
+    pkgs
+    src
+    hmConfig
+    hmConfigLitellmLocal
+    hmConfigStaticServing
+    mkHmConfig
+    ;
+})
 // (import ./checks/litellm-local-negative.nix { inherit pkgs mkHmConfig; })
 // (import ./checks/litellm-local-isolated-chains.nix { inherit pkgs mkHmConfig; })
 // (import ./checks/litellm-local-launch-prefix.nix { inherit pkgs mkHmConfig; })
