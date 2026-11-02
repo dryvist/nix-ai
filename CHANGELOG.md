@@ -1,5 +1,13 @@
 # Changelog
 
+## [8.13.2](https://github.com/dryvist/nix-ai/compare/v8.13.1...v8.13.2) (2026-11-02)
+
+
+### Bug Fixes
+
+* **antigravity-cli:** remove the doppler command permission ([#2790](https://github.com/dryvist/nix-ai/issues/2790)) ([49b2ee2](https://github.com/dryvist/nix-ai/commit/49b2ee26a9697db71e9ec3b6da13e134344a9f14))
+* **litellm-local:** move the proxy to its allocated port and derive one local client URL ([#2791](https://github.com/dryvist/nix-ai/issues/2791)) ([70ce19f](https://github.com/dryvist/nix-ai/commit/70ce19f007c48e0dd8e42328c7e2a29adad62ed5))
+
 ## [8.13.1](https://github.com/dryvist/nix-ai/compare/v8.13.0...v8.13.1) (2026-11-02)
 
 
