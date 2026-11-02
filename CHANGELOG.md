@@ -1,5 +1,14 @@
 # Changelog
 
+## [8.14.1](https://github.com/dryvist/nix-ai/compare/v8.14.0...v8.14.1) (2026-11-02)
+
+
+### Bug Fixes
+
+* **claude:** unmark keep-listed skills in read-only cache copies ([#2800](https://github.com/dryvist/nix-ai/issues/2800)) ([01f989e](https://github.com/dryvist/nix-ai/commit/01f989e26fdce4d1e186fbb2d6d0822019856851))
+* **deps:** bump nix-agent-sandbox to v1.10.6 ([#2802](https://github.com/dryvist/nix-ai/issues/2802)) ([9c0c425](https://github.com/dryvist/nix-ai/commit/9c0c4251f8a8ca10c17cd99c36bae0310776ba12))
+* **release:** release 8.14.1 for the nix-agent-sandbox v1.10.5 bump ([#2799](https://github.com/dryvist/nix-ai/issues/2799)) ([5e30b32](https://github.com/dryvist/nix-ai/commit/5e30b32242abb561fa0806b76b2d437e7bd707f8))
+
 ## [8.14.0](https://github.com/dryvist/nix-ai/compare/v8.13.2...v8.14.0) (2026-11-02)
 
 
