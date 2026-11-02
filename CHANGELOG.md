@@ -1,5 +1,13 @@
 # Changelog
 
+## [8.14.0](https://github.com/dryvist/nix-ai/compare/v8.13.2...v8.14.0) (2026-11-02)
+
+
+### Features
+
+* **herdr-hail:** add an optional local-model summary to Slack posts ([#2796](https://github.com/dryvist/nix-ai/issues/2796)) ([04320af](https://github.com/dryvist/nix-ai/commit/04320afe401f7e7037a3e568942ba659a3eb3875))
+* **herdr-hail:** add local blocked-agent summaries ([04320af](https://github.com/dryvist/nix-ai/commit/04320afe401f7e7037a3e568942ba659a3eb3875))
+
 ## [8.13.2](https://github.com/dryvist/nix-ai/compare/v8.13.1...v8.13.2) (2026-11-02)
 
 
