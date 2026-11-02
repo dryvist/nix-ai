@@ -75,12 +75,12 @@ in
       ''
         settings=$(grep -m1 -oE '/nix/store/[^"[:space:]]*antigravity-settings\.json' "$activationPath")
         jq -e --arg skill "$skillDir" --arg helper "$helperPath" --arg agents "$agentsMd" '
-          .permissions.allow[0:4] == [
-            "command(doppler)",
+          .permissions.allow[0:3] == [
             "read_file(\($skill)/SKILL.md)",
             "read_file(\($skill)/scripts/fast-subagent.sh)",
             "command(\($helper))"
           ]
+          and (.permissions.allow | index("command(doppler)") == null)
           and (.permissions.allow | index("read_file(\($agents))") != null)
         ' "$settings" >/dev/null
         touch $out
