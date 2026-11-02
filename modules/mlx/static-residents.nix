@@ -56,8 +56,8 @@ let
     aliases = byRole // recorderSourceRoles;
     clients = {
       ghGuard = lib.optionalAttrs (judgeModelId != null) {
-        url = "${routerUrl}/chat/completions";
-        model = "small";
+        url = "${consumerConfig.models.${judgeModelId}.baseUrl}/chat/completions";
+        model = judgeModelId;
         inherit (judgeContract) timeoutSeconds;
       };
       recorder = {

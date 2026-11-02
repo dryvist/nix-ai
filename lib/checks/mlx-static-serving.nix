@@ -166,7 +166,10 @@ in
       &&
         limits.routerUrl
         == "http://127.0.0.1:${toString hmConfigStaticServing.config.programs.litellmLocal.port}/v1"
-      && limits.clients.ghGuard.url == "${limits.routerUrl}/chat/completions"
+      &&
+        limits.clients.ghGuard.url == "http://127.0.0.1:${toString small9b.servicePort}/v1/chat/completions"
+      && limits.clients.ghGuard.model == small9b.model
+      && small9b.servicePort != hmConfigStaticServing.config.programs.litellmLocal.port
       && limits.clients.ghGuard.timeoutSeconds == small9b.timeoutSeconds
       && limits.clients.recorder.identity == "recorder"
       && limits.clients.recorder.models.medium == "medium"
