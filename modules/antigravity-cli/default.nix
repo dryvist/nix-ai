@@ -58,7 +58,7 @@ in
       # streaming twin) alongside the OpenAI-compatible one. The root URL is
       # what goes here — the CLI appends the `/v1beta/...` path itself.
       sessionVariables = lib.mkIf config.programs.litellmLocal.enable {
-        GOOGLE_GEMINI_BASE_URL = config.programs.litellmLocal.rootUrl;
+        GOOGLE_GEMINI_BASE_URL = lib.removeSuffix "/v1" config.services.aiStack.localRouterUrl;
       };
     };
 

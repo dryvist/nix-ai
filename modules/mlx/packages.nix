@@ -12,6 +12,7 @@ let
     parakeetMlxVersion
     mlxVlmInstallSpec
     apiUrl
+    clientApiUrl
     uvPythonVersion
     ;
   versions = import ../../lib/versions.nix;
@@ -23,7 +24,7 @@ in
   config = lib.mkIf cfg.enable {
     home = {
       sessionVariables = {
-        MLX_API_URL = apiUrl;
+        MLX_API_URL = clientApiUrl;
         MLX_DEFAULT_MODEL = cfg.defaultModel;
         MLX_PORT = toString cfg.port;
         MLX_HOST = cfg.host;
@@ -57,7 +58,7 @@ in
           max_length="''${MLX_EVAL_MAX_LENGTH:-32768}"
           exec ${pkgs.uv}/bin/uvx --python ${uvPythonVersion} --from "lm-eval[api,math]==${lmEvalVersion}" lm-eval run \
             --model local-chat-completions \
-            --model_args "base_url=''${MLX_API_URL:-${apiUrl}}/chat/completions,model=''${MLX_DEFAULT_MODEL:-${cfg.defaultModel}},tokenizer_backend=None,tokenized_requests=False,num_concurrent=''${concurrent},max_retries=3,max_length=''${max_length}" \
+            --model_args "base_url=''${MLX_API_URL:-${clientApiUrl}}/chat/completions,model=''${MLX_DEFAULT_MODEL:-${cfg.defaultModel}},tokenizer_backend=None,tokenized_requests=False,num_concurrent=''${concurrent},max_retries=3,max_length=''${max_length}" \
             --apply_chat_template \
             "$@"
         '')

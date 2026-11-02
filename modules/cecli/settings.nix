@@ -28,13 +28,14 @@ let
     else
       ".codex/skills";
 
-  # Endpoint follows services.aiStack.llmEndpoint. Local (llama-swap) is an
+  # With the local proxy enabled, endpoint follows localRouterUrl. Otherwise
+  # it follows the selected local or cluster endpoint. Local inference is an
   # open loopback hop, so the dummy key below satisfies LiteLLM. The router is
   # bearer-gated: omit the key so cecli reads OPENAI_API_KEY from the process
-  # env, which ai-stack exports at shell init from llmEndpointTokenFile (never
-  # baked into the Nix store).
+  # env, which the consumer provides without baking the secret into the store.
   inherit (config.programs) litellmLocal;
-  endpointBase = if litellmLocal.enable then litellmLocal.baseUrl else resolvedLlmEndpoint;
+  endpointBase =
+    if litellmLocal.enable then config.services.aiStack.localRouterUrl else resolvedLlmEndpoint;
   isLocalEndpoint = llmEndpoint == "mlx_local" && !litellmLocal.enable;
 
   # Model names are openai/<role>; llama-swap resolves each role to the

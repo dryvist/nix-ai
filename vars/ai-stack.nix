@@ -1,7 +1,7 @@
 # Cross-Repo Runtime Registry — Pure Data
 #
 # This is the source of truth for cross-repo shared values: capability-class
-# model IDs, well-known endpoints, NodePort allocations. No module-system
+# model IDs, endpoint names, NodePort allocations. No module-system
 # dependencies, no functions, no logic — just an attrset of plain values so
 # any consumer (Nix, jq, ansible) can read it without ceremony.
 #
@@ -23,18 +23,11 @@
 #     docs/architecture/per-agent-flakes.md) when the schema changes,
 #     so the JSON shape stays self-explanatory.
 {
-  # Well-known LLM endpoints. Each value is a complete OpenAI-compatible
-  # `/v1` base URL, read verbatim (no path munging) by whichever entry
-  # `services.aiStack.llmEndpoint` selects — see modules/ai-stack/default.nix.
-  #
-  # Only the loopback default lives here. The cluster-hosted `router` entry
-  # (the LiteLLM proxy fronting the whole fabric) is injected at evaluation
-  # time by the module from `services.aiStack.llmRouterEndpoint`, so this
-  # public data file never commits the internal serving FQDN — the consumer
-  # composes it from its own domain var (e.g. nix-darwin's baseDomain).
-  endpoints = {
-    mlx_local = "http://127.0.0.1:11434/v1";
-  };
+  # Endpoint values resolve from module options: `mlx_local` follows
+  # services.aiStack.localRouterUrl, and `router` is injected from the
+  # consumer's services.aiStack.llmRouterEndpoint. This data file carries no
+  # listener URL or host identity.
+  endpoints = { };
 
   # OrbStack NodePort allocations. Authoritative source for any consumer
   # that needs to know where a service listens.

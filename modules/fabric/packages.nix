@@ -13,12 +13,12 @@
 }:
 let
   inherit (fabricShared) cfg fabricPkg;
-  inherit (config.services.aiStack) resolvedLlmEndpoint llmEndpoint;
+  inherit (config.services.aiStack) localRouterUrl resolvedLlmEndpoint llmEndpoint;
   inherit (config.programs) litellmLocal;
 
-  # With the local proxy up it is the endpoint every CLI talks to; the router
-  # is reached only by the proxy itself.
-  endpointBase = if litellmLocal.enable then litellmLocal.baseUrl else resolvedLlmEndpoint;
+  # With the local proxy up it is the endpoint every CLI talks to; otherwise
+  # follow the selected local or cluster endpoint.
+  endpointBase = if litellmLocal.enable then localRouterUrl else resolvedLlmEndpoint;
 
   # Single source of truth for the patterns symlink location. The relative
   # path (patternsKey) is used as the home.file attribute key; the absolute

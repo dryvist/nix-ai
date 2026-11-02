@@ -33,6 +33,7 @@ let
   };
   mlxModelServerPkg = mlxModelServerPkgs.${cfg.modelServerBackend};
   apiUrl = "http://${cfg.host}:${toString cfg.port}/v1";
+  clientApiUrl = config.services.aiStack.localRouterUrl;
 
   # The cluster lifecycle module uses these identifiers when it quiesces
   # standalone serving. Labels are taken from the selected resident contracts.
@@ -95,6 +96,7 @@ in
       parakeetMlxVersion
       mlxVlmInstallSpec
       apiUrl
+      clientApiUrl
       uvPythonVersion
       residentAgentLabels
       watchdogAgentLabel
