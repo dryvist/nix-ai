@@ -1192,11 +1192,11 @@
     "nix-agent-sandbox-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1792369312,
-        "narHash": "sha256-2uyt82mZYR2lrY0OcGKMDDWoQUHrHSdslF/W3H0DwgU=",
+        "lastModified": 1793600697,
+        "narHash": "sha256-tyUuWrde5uAurd9vQh70CQae1w8c3oeaKoREYGs1wpA=",
         "owner": "dryvist",
         "repo": "nix-agent-sandbox",
-        "rev": "b55bbff3795b4481bef496b9e2cd8ff5013ae7d5",
+        "rev": "27c7f58062bd23fe86e3640b3aff896a59d77218",
         "type": "github"
       },
       "original": {
