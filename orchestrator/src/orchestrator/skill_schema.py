@@ -14,7 +14,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from orchestrator.common import load_yaml_file
+from orchestrator.common import load_yaml_file, local_router_url
 from orchestrator.prompts import load_prompt_resource
 
 def _require_default_model() -> str:
@@ -59,7 +59,7 @@ class ModelRequirement(BaseModel):
     """Specifies which model a skill needs and how to reach it."""
 
     endpoint: str = Field(
-        default="http://127.0.0.1:11434/v1",
+        default_factory=local_router_url,
         description="OpenAI-compatible API endpoint URL",
     )
     model: str = Field(

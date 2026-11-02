@@ -28,7 +28,7 @@ def sample_skill_data() -> dict:
         "version": "1.0.0",
         "tags": ["code", "review", "quality"],
         "model": {
-            "endpoint": "http://127.0.0.1:11434/v1",
+            "endpoint": "https://router.example.invalid/v1",
             "model": "mlx-community/Qwen2.5-Coder-32B-Instruct-4bit",
             "size": "medium",
             "temperature": 0.3,
@@ -80,7 +80,7 @@ class TestSkillDefinition:
 
     def test_model_defaults(self):
         model = ModelRequirement()
-        assert model.endpoint == "http://127.0.0.1:11434/v1"
+        assert model.endpoint == "https://router.example.invalid/v1"
         assert model.model == _DEFAULT_MODEL
         assert model.temperature == 0.7
 

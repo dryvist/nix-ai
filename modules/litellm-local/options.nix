@@ -218,11 +218,12 @@ in
 
     port = lib.mkOption {
       type = lib.types.port;
-      default = 11434;
+      default = 4100;
       description = ''
-        Loopback port for the proxy.
+        Loopback port for the proxy. The system integration map allocates 4100
+        here; 11434 is the MLX endpoint and 11435 is reserved for a macOS app.
 
-        Default 11434 matches the standard local OpenAI-compatible endpoint.
+        Client URLs read services.aiStack.localRouterUrl.
       '';
     };
 

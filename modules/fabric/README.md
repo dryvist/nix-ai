@@ -50,7 +50,7 @@ fabric --setup
 
 Walk through the prompts. For local-only routing through MLX:
 
-- `OPENAI_BASE_URL=http://127.0.0.1:11434/v1`
+- `OPENAI_BASE_URL=$MLX_API_URL`
 - `DEFAULT_MODEL=ollama/<your-mlx-model-id>`
 - Skip the cloud provider keys (or wire them via Doppler — see #445)
 
@@ -177,8 +177,8 @@ intentionally not managed by Nix because it contains credentials.
 ### `fabric --pattern X` returns nothing or hangs
 
 Check that the MLX server is running: `launchctl list | grep dev.mlx-model-server`. The default
-model points at the local MLX endpoint at `http://127.0.0.1:11434/v1`. Verify with
-`curl http://127.0.0.1:11434/v1/models`.
+model points at the configured local endpoint from `services.aiStack.localRouterUrl`.
+Verify with `curl "$MLX_API_URL/models"`.
 
 ### Custom pattern not discovered by `fabric -l`
 

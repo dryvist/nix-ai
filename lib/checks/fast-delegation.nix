@@ -21,7 +21,7 @@ let
   helperPath = "${hmConfig.config.home.homeDirectory}/${skillRoot}/fast-subagent/scripts/fast-subagent.sh";
   proxyAuthority = builtins.head (
     pkgs.lib.strings.splitString "/" (
-      pkgs.lib.strings.removePrefix "http://" hmConfig.config.programs.litellmLocal.baseUrl
+      pkgs.lib.strings.removePrefix "http://" hmConfig.config.services.aiStack.localRouterUrl
     )
   );
   proxyHost = builtins.head (pkgs.lib.strings.splitString ":" proxyAuthority);

@@ -208,7 +208,7 @@ let
   // lib.optionalAttrs litellmLocal.enable {
     model_providers.litellm = {
       name = "LiteLLM (local)";
-      base_url = litellmLocal.baseUrl;
+      base_url = config.services.aiStack.localRouterUrl;
       wire_api = "responses";
       env_key = "LITELLM_LOCAL_KEY";
     };

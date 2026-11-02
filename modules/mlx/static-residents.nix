@@ -27,7 +27,7 @@ let
   ) { } (builtins.attrNames contracts);
   judgeModelId = byRole.judge or null;
   judgeContract = if judgeModelId == null then { } else contracts.${judgeModelId};
-  routerUrl = "http://127.0.0.1:${toString config.programs.litellmLocal.port}/v1";
+  routerUrl = config.services.aiStack.localRouterUrl;
   recorderModels = {
     medium = "medium";
     small = "small";
