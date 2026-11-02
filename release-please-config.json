@@ -3,6 +3,7 @@
   "packages": {
     ".": {
       "release-type": "simple",
+      "release-as": "8.14.1",
       "version-file": "VERSION",
       "include-v-in-tag": true,
       "draft": true,
