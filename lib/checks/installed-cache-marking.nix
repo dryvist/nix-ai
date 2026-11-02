@@ -32,6 +32,15 @@
     printf -- '---\nname: promoted\ndisable-model-invocation: true\n---\n\nb\n' \
       > $root/mkt/plug/1.0.0/skills/promoted/SKILL.md
 
+    # A cache copy made from the store is mode 0444. A keep-list promotion must
+    # still unmark it, while marking stays limited to files that are writable.
+    mkdir -p $root/mkt/plug/1.0.0/skills/{promoted-readonly,plain-readonly}
+    printf -- '---\nname: promoted-readonly\ndisable-model-invocation: true\n---\n\nb\n' \
+      > $root/mkt/plug/1.0.0/skills/promoted-readonly/SKILL.md
+    printf -- '---\nname: plain-readonly\n---\n\nb\n' \
+      > $root/mkt/plug/1.0.0/skills/plain-readonly/SKILL.md
+    chmod 0444 $root/mkt/plug/1.0.0/skills/{promoted-readonly,plain-readonly}/SKILL.md
+
     # A store-style symlink must never be written through.
     mkdir -p store/skills/fromstore
     printf -- '---\nname: fromstore\n---\n\nb\n' > store/skills/fromstore/SKILL.md
@@ -41,7 +50,7 @@
       $root/mkt/plug/1.0.0/skills/fromstore/SKILL.md
 
     run() {
-      KEEP_LISTED="keepme promoted" ${pkgs.bash}/bin/bash \
+      KEEP_LISTED="keepme promoted promoted-readonly" ${pkgs.bash}/bin/bash \
         ${src}/modules/claude/scripts/mark-installed-cache.sh "$root" 2>&1
     }
     first=$(run)
@@ -62,6 +71,8 @@
     check plain 1             # ordinary case
     check keepme 0            # keep-listed stays listed
     check promoted 0          # promoted into the keep-list: unmarked again
+    check promoted-readonly 0 # same, for a read-only (0444) cache copy
+    check plain-readonly 0    # an unmarked read-only copy is not marked
 
     # The symlink target must be untouched.
     if ${pkgs.gnugrep}/bin/grep -q disable-model-invocation \

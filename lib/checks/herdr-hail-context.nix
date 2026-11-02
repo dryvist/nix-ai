@@ -1,17 +1,37 @@
-# herdr-hail excerpt size: both renderers must hand hail contextLines = 40.
-#
-# Each module restates upstream's defaults and renders them as config.json.
-# This reads the settings each module renders and forces them, so reverting
-# either literal to upstream's 12 fails evaluation.
+# herdr-hail context and opt-in summarizer settings reach both service renderers.
 { pkgs, hmConfigDarwin }:
 let
   helpers = import ./helpers.nix { inherit pkgs; };
   inherit (pkgs) lib;
-  expected = 40;
+  expectedContextLines = 40;
+  expectedSummarizer = {
+    enabled = true;
+    baseUrl = "http://127.0.0.1:11434/v1";
+    model = "fast";
+    timeoutMs = 750;
+    maxInputChars = 4000;
+  };
 
   darwin = hmConfigDarwin.config.services.herdr.hail.renderedSettings;
+  darwinEnabled =
+    (hmConfigDarwin.extendModules {
+      modules = [
+        {
+          services.herdr.hail.summarizer = {
+            enable = true;
+            inherit (expectedSummarizer)
+              baseUrl
+              model
+              timeoutMs
+              maxInputChars
+              ;
+          };
+        }
+      ];
+    }).config.services.herdr.hail.renderedSettings;
 
-  nixos =
+  evalNixos =
+    summarizer:
     (lib.evalModules {
       specialArgs = {
         inherit pkgs;
@@ -20,8 +40,7 @@ let
       modules = [
         ../../modules/herdr/hail.nix
         {
-          # Stand-ins for the NixOS options the unit also writes to. Only
-          # renderedSettings is read here, so these are never forced.
+          # Stand-ins for NixOS options the unit also writes to; only renderedSettings is forced.
           options = {
             assertions = lib.mkOption {
               type = lib.types.listOf lib.types.raw;
@@ -50,17 +69,40 @@ let
             socketPath = "/run/herdr/herdr.sock";
             onFailureUnit = null;
             hail.enable = true;
+            hail.summarizer = summarizer;
           };
         }
       ];
     }).config.services.herdr.hail.renderedSettings;
+
+  nixos = evalNixos { };
+  nixosEnabled = evalNixos {
+    enable = true;
+    inherit (expectedSummarizer)
+      baseUrl
+      model
+      timeoutMs
+      maxInputChars
+      ;
+  };
 in
 {
   herdr-hail-context-regression =
-    assert builtins.deepSeq darwin (builtins.deepSeq nixos true);
-    assert lib.assertMsg (darwin.contextLines == expected)
-      "herdr-hail LaunchAgent renders contextLines ${toString darwin.contextLines}, expected ${toString expected}";
-    assert lib.assertMsg (nixos.contextLines == expected)
-      "herdr-hail NixOS unit renders contextLines ${toString nixos.contextLines}, expected ${toString expected}";
-    helpers.mkMarker "check-herdr-hail-context-regression" "herdr-hail renders contextLines ${toString expected} in both modules.";
+    assert builtins.deepSeq darwin (
+      builtins.deepSeq darwinEnabled (builtins.deepSeq nixos (builtins.deepSeq nixosEnabled true))
+    );
+    assert lib.assertMsg (darwin.contextLines == expectedContextLines)
+      "herdr-hail LaunchAgent renders contextLines ${toString darwin.contextLines}, expected ${toString expectedContextLines}";
+    assert lib.assertMsg (nixos.contextLines == expectedContextLines)
+      "herdr-hail NixOS unit renders contextLines ${toString nixos.contextLines}, expected ${toString expectedContextLines}";
+    assert lib.assertMsg (
+      !darwin.summarizer.enabled && !nixos.summarizer.enabled
+    ) "herdr-hail summarizer must default disabled on Darwin and NixOS";
+    assert lib.assertMsg (
+      darwinEnabled.summarizer == expectedSummarizer
+    ) "herdr-hail LaunchAgent did not render the configured summarizer settings";
+    assert lib.assertMsg (
+      nixosEnabled.summarizer == expectedSummarizer
+    ) "herdr-hail NixOS unit did not render the configured summarizer settings";
+    helpers.mkMarker "check-herdr-hail-context-regression" "herdr-hail renders bounded context and opt-in summarizer settings on Darwin and NixOS.";
 }

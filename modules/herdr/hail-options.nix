@@ -17,6 +17,34 @@
       description = "herdr-hail package to run.";
     };
 
+    summarizer = {
+      enable = lib.mkEnableOption "local summaries for blocked herdr agents";
+
+      baseUrl = lib.mkOption {
+        type = lib.types.str;
+        default = "http://127.0.0.1:11434/v1";
+        description = "Loopback OpenAI-compatible endpoint used for blocked-agent summaries.";
+      };
+
+      model = lib.mkOption {
+        type = lib.types.str;
+        default = "fast";
+        description = "Local model name sent to the OpenAI-compatible chat completions endpoint.";
+      };
+
+      timeoutMs = lib.mkOption {
+        type = lib.types.ints.between 1 30000;
+        default = 1500;
+        description = "Maximum time to wait for a local summary before posting without one.";
+      };
+
+      maxInputChars = lib.mkOption {
+        type = lib.types.ints.between 1 12000;
+        default = 4000;
+        description = "Maximum recent cleaned pane characters sent to the local summarizer.";
+      };
+    };
+
     launchPrefix = lib.mkOption {
       type = lib.types.listOf lib.types.str;
       default = [ ];
