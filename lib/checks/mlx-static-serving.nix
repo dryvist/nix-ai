@@ -96,7 +96,7 @@ let
     unset HF_HUB_CACHE
     model="modelcache-fixture/missing-model"
     snapshot_dir="$HF_HOME/hub/models--modelcache-fixture--missing-model/snapshots"
-    if ${preflightServer} "$PWD/model-server-stub" --model "$model" 2>missing.log; then
+    if HOME="$PWD/fake-home" ${preflightServer} "$PWD/model-server-stub" --model "$model" 2>missing.log; then
       echo "old behavior: resident server reached its listener with an absent cache" >&2
       exit 1
     fi
@@ -104,7 +104,8 @@ let
       echo "resident server reached its listener with an absent cache" >&2
       exit 1
     }
-    printf 'mlx-model-server-preflight: model %s is missing from HF cache; expected a snapshot at %s/*\n' "$model" "$snapshot_dir" > expected.log
+    printf 'mlx-model-server-preflight: allow model=%s link-state=missing armed=missing cluster=not-clustered\n' "$model" > expected.log
+    printf 'mlx-model-server-preflight: model %s is missing from HF cache; expected a snapshot at %s/*\n' "$model" "$snapshot_dir" >> expected.log
     diff -u expected.log missing.log
     mkdir -p "$snapshot_dir/revision-fixture"
     ${preflightServer} "$PWD/model-server-stub" --model "$model"
