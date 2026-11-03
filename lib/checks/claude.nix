@@ -132,6 +132,16 @@ in
         expected = 180;
       }
       {
+        name = "settings.autoCompactThresholdPercent";
+        actual = cfg.settings.autoCompactThresholdPercent;
+        expected = 70;
+      }
+      {
+        name = "settings.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS";
+        actual = cfg.settings.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS or null;
+        expected = "1";
+      }
+      {
         name = "model";
         actual = cfg.model;
         expected = "opusplan";

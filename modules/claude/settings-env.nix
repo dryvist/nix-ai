@@ -35,12 +35,8 @@
   MCP_TOOL_TIMEOUT = "300000";
 
   # Experimental: Agent teams - coordinate multiple Claude Code instances.
-  # Off by default: an orchestrator only pays off when work spans more than
-  # one context window or has a routine long tail, and loses on a single
-  # dependent chain. Enable per project (repo-local env override) for
-  # sweep-type repos.
   # See: https://code.claude.com/docs/en/agent-teams
-  # CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = "1";
+  CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = "1";
 
   # Disable the autoresearch plugin's PreToolUse block hooks (dangerous-cmd-block,
   # scout-block, privacy-block). Those hooks raw-substring-match the command/path
