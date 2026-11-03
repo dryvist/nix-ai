@@ -135,6 +135,7 @@ let
         contextWindowTokens
         maxOutputTokens
         queueSize
+        weightGb
         ;
       concurrency = servedConcurrency entry;
       catalogKey = name;
