@@ -6,6 +6,15 @@
 ### Features
 
 * **claude:** enable agent teams and bump autocompact to 70% ([#2805](https://github.com/dryvist/nix-ai/issues/2805)) ([d4d1263](https://github.com/dryvist/nix-ai/commit/d4d126358bf34e354f0d927725e1dd9f8ac3fadf))
+* **mlx:** allow three static residents behind a cluster guard ([#2807](https://github.com/dryvist/nix-ai/issues/2807)) ([8964924](https://github.com/dryvist/nix-ai/commit/896492465d721f52822e8133084bc8c690921c6f))
+* **mlx:** make the prompt-cache slot count per model ([#2811](https://github.com/dryvist/nix-ai/issues/2811)) ([212f2ef](https://github.com/dryvist/nix-ai/commit/212f2ef2bbca09aeb8c47bdc19fa37858b84df81))
+
+## [8.14.1](https://github.com/dryvist/nix-ai/compare/v8.14.1...v8.14.1) (2026-11-03)
+
+
+### Features
+
+* **claude:** enable agent teams and bump autocompact to 70% ([#2805](https://github.com/dryvist/nix-ai/issues/2805)) ([d4d1263](https://github.com/dryvist/nix-ai/commit/d4d126358bf34e354f0d927725e1dd9f8ac3fadf))
 
 ## [8.14.1](https://github.com/dryvist/nix-ai/compare/v8.14.0...v8.14.1) (2026-11-02)
 
