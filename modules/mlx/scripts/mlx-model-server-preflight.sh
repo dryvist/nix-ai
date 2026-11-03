@@ -28,7 +28,9 @@ if [ -e "$link_file" ]; then
 fi
 peer_armed=missing
 if [ -e "$peer_file" ]; then
-  peer_armed=$(jq -r '.armed // false' "$peer_file" 2>/dev/null) || refuse peer-state-unreadable
+# The file must hold exactly one JSON object whose armed value, when present, is a
+# boolean. Empty, multi-document, non-object and non-boolean files all refuse.
+peer_armed=$(jq -rs 'if length == 1 and (.[0] | type) == "object" then (.[0].armed // false | if type == "boolean" then tostring else error("armed is not a boolean") end) else error("peer-state is not one JSON object") end' "$peer_file" 2>/dev/null) || refuse peer-state-unreadable
 fi
 if [ "$link_state" = up ] && [ "$peer_armed" = true ]; then
   refuse clustered

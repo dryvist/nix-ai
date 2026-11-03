@@ -55,6 +55,10 @@ run_case start-peer-missing up - 0 1
 run_case refuse-peer-malformed-link-up up '{not json' 75 0
 run_case refuse-peer-malformed-link-down down '{not json' 75 0
 run_case refuse-link-unreadable DIR '{"armed": true}' 75 0
+run_case refuse-peer-empty up '' 75 0
+run_case refuse-peer-two-documents up '{"armed": true}{"armed": false}' 75 0
+run_case refuse-peer-armed-not-boolean up '{"armed": "true"}' 75 0
+run_case start-peer-no-armed-key up '{}' 0 1
 
 if ! grep -q 'refuse reason=clustered' "$work/refuse-up-armed.err"; then
   echo "FAIL refuse-up-armed: refusal was not logged with its reason" >&2

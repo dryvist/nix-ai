@@ -1,4 +1,4 @@
-# Two always-loaded MLX resident servers. The catalog owns every model limit,
+# Up to three always-loaded MLX resident servers. The catalog owns every model limit,
 # the generated consumer file and the launch arguments are compiled from it.
 {
   config,
