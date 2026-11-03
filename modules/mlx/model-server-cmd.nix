@@ -35,6 +35,7 @@ rec {
     "maxNumSeqs"
     "maxTokens"
     "maxRequestTokens"
+    "promptCacheSize"
   ];
   mkModelArgs =
     modelId: port:
@@ -95,7 +96,10 @@ rec {
         # 27B model, and a 4-slot cache measured hits at 4.7s versus
         # 98-154s misses re-prefilling roughly 20k tokens.
         "--prompt-cache-size"
-        "16"
+        # Per-model via promptCacheSize; 16 unless a catalog entry lowers it.
+        # Each cached prompt holds Metal buffers, so the count bounds the
+        # Metal buffer total (metal::malloc resource limit).
+        (toString (c.promptCacheSize or 16))
       ]
       ++
         # Reuse the backend-neutral cache budget. Official mlx_lm calls this
