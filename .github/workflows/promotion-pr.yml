@@ -1,0 +1,13 @@
+name: Promotion PR
+
+on:
+  schedule:
+    - cron: "13 7 * * 6"
+
+permissions: {}
+
+jobs:
+  promotion-pr:
+    uses: JacobPEvans/.github/.github/workflows/_promotion-pr.yml@v1
+    secrets:
+      GH_ACTION_RELEASE_PLEASE_PRIVATE_KEY: ${{ secrets.GH_ACTION_RELEASE_PLEASE_PRIVATE_KEY }}
