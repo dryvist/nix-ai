@@ -16,10 +16,13 @@ let
     ;
   modelServerPreflight = pkgs.writeShellApplication {
     name = "mlx-model-server-preflight";
+    runtimeInputs = [ pkgs.jq ];
     text = builtins.readFile ./scripts/mlx-model-server-preflight.sh;
   };
   gib = 1024 * 1024 * 1024;
   contracts = cfg.staticResidentContracts;
+  residentWeightMb =
+    lib.foldl' (acc: contract: acc + contract.weightGb) 0 (lib.attrValues contracts) * 1024;
   localProxyRoutesEnabled =
     cfg.staticResidentLocalProxyConsumers || config.programs.litellmLocal.enable;
   byRole = lib.foldl' (
@@ -125,8 +128,16 @@ in
   config = lib.mkIf (cfg.enable && contracts != { }) {
     assertions = [
       {
-        assertion = builtins.length (builtins.attrNames contracts) <= 2;
-        message = "programs.mlx may render at most two static resident model servers.";
+        assertion = builtins.length (builtins.attrNames contracts) <= 3;
+        message = "programs.mlx may render at most three static resident model servers.";
+      }
+      {
+        # Resident weights are wired GPU memory. A standalone limit of 0 means
+        # the macOS default ceiling, so there is no number to check against.
+        assertion =
+          cfg.clusterMode.standaloneWiredLimitMb <= 0
+          || residentWeightMb <= cfg.clusterMode.standaloneWiredLimitMb;
+        message = "static resident weights (${toString residentWeightMb} MB) exceed programs.mlx.clusterMode.standaloneWiredLimitMb.";
       }
       {
         assertion = lib.all (contract: contract.backend != null) (lib.attrValues contracts);
