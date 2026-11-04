@@ -5,7 +5,6 @@
 # not imported directly; it takes the helpers it needs as arguments.
 
 {
-  bunx,
   codexMcp,
   versions,
   mcpNpmPkgs,
@@ -13,20 +12,9 @@
 
 {
   # ================================================================
-  # Database (disabled by default)
-  # ================================================================
-
-  postgresql = bunx [ "@modelcontextprotocol/server-postgres@${versions.mcpPostgres}" ] // {
-    disabled = true;
-  };
-
-  # ================================================================
   # Additional (disabled - specialized use cases)
   # ================================================================
 
-  brave-search = bunx [ "@modelcontextprotocol/server-brave-search@${versions.mcpBraveSearch}" ] // {
-    disabled = true;
-  };
   # Google Workspace - Gmail, Drive, Calendar integration.
   # Source: https://github.com/taylorwilsdon/google_workspace_mcp
   # DISABLED but kept defined — "available in case we ever need it". Was leaking
@@ -50,15 +38,6 @@
       "GOOGLE_OAUTH_CLIENT_ID"
       "GOOGLE_OAUTH_CLIENT_SECRET"
     ];
-    disabled = true;
-  };
-  google-maps = bunx [ "@modelcontextprotocol/server-google-maps@${versions.mcpGoogleMaps}" ] // {
-    disabled = true;
-  };
-  puppeteer = bunx [ "@modelcontextprotocol/server-puppeteer@${versions.mcpPuppeteer}" ] // {
-    disabled = true;
-  };
-  slack = bunx [ "@modelcontextprotocol/server-slack@${versions.mcpSlack}" ] // {
     disabled = true;
   };
 

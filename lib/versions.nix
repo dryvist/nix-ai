@@ -51,18 +51,6 @@ in
   mcpEverything = "2.1.0";
   # renovate: datasource=npm depName=@modelcontextprotocol/server-filesystem
   mcpFilesystem = "2.1.0";
-  # renovate: datasource=npm depName=@modelcontextprotocol/server-aws-kb-retrieval
-  mcpAws = "0.6.2";
-  # renovate: datasource=npm depName=@modelcontextprotocol/server-postgres
-  mcpPostgres = "0.6.2";
-  # renovate: datasource=npm depName=@modelcontextprotocol/server-brave-search
-  mcpBraveSearch = "0.6.2";
-  # renovate: datasource=npm depName=@modelcontextprotocol/server-google-maps
-  mcpGoogleMaps = "0.6.2";
-  # renovate: datasource=npm depName=@modelcontextprotocol/server-puppeteer
-  mcpPuppeteer = "2025.5.12";
-  # renovate: datasource=npm depName=@modelcontextprotocol/server-slack
-  mcpSlack = "2025.4.25";
   # renovate: datasource=npm depName=mcp-server-apple-events
   mcpAppleEvents = "1.6.1";
   # renovate: datasource=npm depName=@democratize-technology/vikunja-mcp

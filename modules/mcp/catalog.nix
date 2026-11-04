@@ -63,9 +63,6 @@ in
     command = "${mcpPkgs.mcp-server-time}/bin/mcp-server-time";
     args = [ ];
   };
-  aws = bunx [ "@modelcontextprotocol/server-aws-kb-retrieval@${versions.mcpAws}" ] // {
-    disabled = true;
-  }; # Requires: AWS credentials; 0 calls in 3 months of history
 
   # ================================================================
   # Native nixpkgs packages
@@ -157,7 +154,6 @@ in
 }
 // import ./catalog-services.nix {
   inherit
-    bunx
     codexMcp
     versions
     ;

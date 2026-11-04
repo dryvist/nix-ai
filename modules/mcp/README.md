@@ -107,16 +107,16 @@ The catalog is wider than the default profile. Servers are excluded when:
 To disable a server everywhere, prefer the shared profile:
 
 ```nix
-programs.aiMcp.excludedServers = [ "postgresql" ];
+programs.aiMcp.excludedServers = [ "terraform" ];
 ```
 
 To omit a shared server from one renderer, use its `excludedMcpServers` option:
 
 ```nix
-programs.codex.excludedMcpServers = [ "postgresql" ];
-programs.antigravity-cli.excludedMcpServers = [ "postgresql" ];
-programs.antigravity-ide.excludedMcpServers = [ "postgresql" ];
-programs.qwen-code.excludedMcpServers = [ "postgresql" ];
+programs.codex.excludedMcpServers = [ "terraform" ];
+programs.antigravity-cli.excludedMcpServers = [ "terraform" ];
+programs.antigravity-ide.excludedMcpServers = [ "terraform" ];
+programs.qwen-code.excludedMcpServers = [ "terraform" ];
 ```
 
 Use per-agent exclusions for client incompatibility; use
@@ -126,7 +126,7 @@ To enable a catalog-disabled server, use `lib.mkForce` to override the
 catalog's plain assignments (priority 100):
 
 ```nix
-programs.aiMcp.servers.postgresql.disabled = lib.mkForce false;
+programs.aiMcp.servers.google-workspace.disabled = lib.mkForce false;
 ```
 
 ## Secrets Management
