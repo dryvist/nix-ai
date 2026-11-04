@@ -28,6 +28,13 @@
   # because they churn frequently: https://code.claude.com/docs/en/model-config
   #   ANTHROPIC_DEFAULT_OPUS_MODEL / ANTHROPIC_DEFAULT_SONNET_MODEL / ANTHROPIC_DEFAULT_HAIKU_MODEL
 
+  # Claude Code stays on the latest channel by owner decision (the
+  # claude-code@latest cask in lib/homebrew.nix, no soak). This makes it run the
+  # Homebrew upgrade itself when a release lands and prompt for a restart, so
+  # nobody has to run `brew upgrade` by hand. Other install methods ignore it.
+  # See: https://code.claude.com/docs/en/setup#auto-updates
+  CLAUDE_CODE_PACKAGE_MANAGER_AUTO_UPDATE = "1";
+
   # MCP timeout settings (5 minutes) - required for slow MCP servers
   MCP_TIMEOUT = "300000";
   MCP_TOOL_TIMEOUT = "300000";
