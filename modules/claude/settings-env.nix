@@ -19,11 +19,9 @@
   # using a stable capability alias:
   # ANTHROPIC_MODEL = "sonnet"; # aliases: opus / sonnet / haiku
 
-  # Default subagent model: the Haiku tier. An explicit
-  # `claude-*[1m]` id, never a bare alias, so it reaches Anthropic directly
-  # even when a local proxy fronts Claude Code. A model passed on the Agent
-  # call wins over this default; the ai-delegation plugin's router sets one.
-  CLAUDE_CODE_SUBAGENT_MODEL = "claude-haiku-5-5[1m]";
+  # The subagent model is set below from programs.litellmLocal.subagentTier,
+  # never here: a hardcoded value is invisible to whoever reads that option.
+  # A model passed on the Agent call still wins over it.
 
   # To pin an exact model id instead of an alias, set the *_MODEL env vars below
   # to full ids from the model-config docs. Exact ids are omitted here on purpose
@@ -129,6 +127,27 @@
     CLAUDE_SUBAGENT_INTERNAL_DOMAINS = lib.concatStringsSep " " aiStack.internalDomains;
   }
 )
+# Native subagents run on the tier the proxy option names. `router` needs the
+# proxy hop and a path that carries it: under claudeDirect, a proxy group would
+# be unreachable, so that case falls through to Claude Code's own subagent
+# default instead. `local-only` (this host's own model, no router leg) is used
+# rather than `medium`: subagent context can be private, and the router refuses
+# content its key is not cleared for. `local-only` exists only when the host
+# declares local rungs, so a host without them keeps Claude Code's default.
+// lib.optionalAttrs (litellmLocal.subagentTier == "anthropic") {
+  CLAUDE_CODE_SUBAGENT_MODEL = litellmLocal.subagentAnthropicModel;
+}
+//
+  lib.optionalAttrs
+    (
+      litellmLocal.subagentTier == "router"
+      && litellmLocal.enable
+      && !litellmLocal.claudeDirect
+      && litellmLocal.localModels != [ ]
+    )
+    {
+      CLAUDE_CODE_SUBAGENT_MODEL = "local-only";
+    }
 
 # OpenTelemetry — opt-in via userConfig.telemetry. Split into its own file to
 # keep this one inside the repo's file-size gate.

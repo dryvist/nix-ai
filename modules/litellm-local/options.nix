@@ -45,22 +45,22 @@ in
         "anthropic"
         "router"
       ];
-      default = "anthropic";
+      default = "router";
       description = ''
-        Which tier Claude Code's subagents run on.
+        Which tier Claude Code's native subagents run on. Sessions need no
+        setting of their own.
 
-        `anthropic` (default) pins `CLAUDE_CODE_SUBAGENT_MODEL` to an explicit
-        `claude-*` id, so a subagent is a NATIVE Claude subagent: the request
-        matches the `claude-*` group, reaches Anthropic with the caller's own
-        forwarded credential, and never touches the router leg. No third-party
-        egress, so no data-retention question to answer.
+        `router` (default) sets `CLAUDE_CODE_SUBAGENT_MODEL` to `local-only`:
+        this host's own model, with no router leg, so subagent context that is
+        private never reaches the router, which refuses content its key is not
+        cleared for. Subagents with an explicit model field keep that model.
+        Without the proxy hop (`enable = false` or `claudeDirect`) the variable
+        is not set, and Claude Code picks its own subagent model.
 
-        `router` points subagents at the tier in ./fallback-tier.nix: this
-        host's own models first, then the shared router as the terminal rung.
-        That path is opt-in on purpose. A local rung serves at no cost, but a
-        request that overflows its window escapes to the terminal rung, and
-        what the router does behind that — including whether it bills — is
-        configured there rather than here.
+        `anthropic` pins `CLAUDE_CODE_SUBAGENT_MODEL` to `subagentAnthropicModel`
+        instead, so a subagent is a NATIVE Claude subagent: the request matches
+        the `claude-*` group, reaches Anthropic with the caller's own forwarded
+        credential, and never touches the router leg. No third-party egress.
       '';
     };
 

@@ -86,6 +86,7 @@ let
     claudeTierNamesAre1m
     claudeShapedNamesCannotReachWildcard
     claudeHaikuUntouched
+    claudeSubagentIsLocalOnly
     claudeNoDiscovery
     claudeGetsRouterAddress
     claudeGetsTokenPathOnly
@@ -179,6 +180,11 @@ in
     assert
       claudeHaikuUntouched
       || throw "Claude Code's haiku tier must stay on Anthropic: the `small` capability's local target cannot hold Claude Code's system prompt, so an override fails every background call";
+    assert
+      claudeSubagentIsLocalOnly
+      || throw "native subagents must default to the local-only group (CLAUDE_CODE_SUBAGENT_MODEL=local-only); got: ${
+        claudeEnv.CLAUDE_CODE_SUBAGENT_MODEL or "unset"
+      }";
     assert
       claudeHeaderIsMarker
       || throw "Claude Code's proxy wiring is all-or-nothing: claudeDirect=false needs ANTHROPIC_BASE_URL plus the constant marker header `x-litellm-api-key: Bearer ${clientToken}` (what makes LiteLLM forward the OAuth bearer) on every surface; claudeDirect=true needs neither. Got direct=${lib.boolToString claudeDirect}, url ${
