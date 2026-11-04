@@ -9,7 +9,7 @@ plus shared libraries and operational behaviour.
 | ---- | ------- | ------- | -------------- |
 | Ears (Audio) | `parakeet-mlx` | Real-time speech-to-text | `uvx` wrapper (Nix derivation) |
 | Eyes (Vision) | `mlx-vlm` | Screen/camera image analysis | `uvx` wrapper (Nix derivation) |
-| Brain (LLM) | `mlx-lm` (`mlx_lm.server`) | LLM inference API server | Nix store (LaunchAgent, fronted by llama-swap) |
+| Brain (LLM) | `mlx-lm` (`mlx_lm.server`) | LLM inference API server | Nix store (static-resident LaunchAgents) |
 
 `mlx-lm` is the text backend. A vision-language model may opt into `mlx-vlm` per model through
 `programs.mlx.modelBackends`.
@@ -123,9 +123,9 @@ Metal is live.
 **Tool-call parsing**: the mlx-lm backend infers the tool parser from each
 model's chat template. No tool-call parser flag is passed.
 
-**Idle penalty**: llama-swap evicts an idle model after `proxy.idleTtl` (default 15 min;
-the worker's `autoUnloadIdleSeconds` failsafe fires at 30 min). The next request pays a
-full reload — seconds for a small MoE, ~60-120s for a 120B model.
+**Residency**: models stay loaded; there is no idle eviction
+(`modules/mlx/static-residents.nix`). A resident restart pays a full reload — seconds
+for a small MoE, ~60-120s for a 120B model.
 
 **Resident vs swap tiers**: a server-class host is the intelligence tier — it
 optimises for answer quality, not throughput, so it keeps several models
