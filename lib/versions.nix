@@ -50,9 +50,9 @@ in
   # renovate: datasource=npm depName=@upstash/context7-mcp
   context7Mcp = "4.4.2";
   # renovate: datasource=npm depName=@modelcontextprotocol/server-everything
-  mcpEverything = "2026.8.31";
+  mcpEverything = "2.1.0";
   # renovate: datasource=npm depName=@modelcontextprotocol/server-filesystem
-  mcpFilesystem = "2026.8.31";
+  mcpFilesystem = "2.1.0";
   # renovate: datasource=npm depName=@modelcontextprotocol/server-memory
   mcpMemory = "2026.8.31";
   # renovate: datasource=npm depName=@modelcontextprotocol/server-aws-kb-retrieval
