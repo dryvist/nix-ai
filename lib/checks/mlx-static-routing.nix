@@ -7,7 +7,7 @@
 let
   inherit (pkgs) lib;
   helpers = import ./helpers.nix { inherit pkgs; };
-  renderedConfig = hmConfigStaticServing.config.programs.litellmLocal.renderedConfig;
+  inherit (hmConfigStaticServing.config.programs.litellmLocal) renderedConfig;
   routes = renderedConfig.model_list;
   routeFor = name: builtins.head (builtins.filter (route: route.model_name == name) routes);
   fallbackFor =
@@ -71,9 +71,7 @@ in
       throw "LiteLLM localEndpoint must be the default-role resident's loopback endpoint, got ${builtins.toJSON hmConfigStaticServing.config.programs.litellmLocal.localEndpoint}";
 
   mlx-static-resident-cooldowns =
-    if
-      singleDeploymentResidentGroups != [ ] && renderedConfig.router_settings.disable_cooldowns == true
-    then
+    if singleDeploymentResidentGroups != [ ] && renderedConfig.router_settings.disable_cooldowns then
       helpers.mkMarker "check-mlx-static-resident-cooldowns" "catalog-derived single-deployment resident groups render LiteLLM cooldown suppression"
     else
       throw "single-deployment static resident groups without fallbacks must render LiteLLM router cooldown suppression";

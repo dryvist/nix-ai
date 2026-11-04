@@ -9,7 +9,7 @@ in
 {
   mlx-cluster =
     let
-      agents = hmConfigCluster.config.launchd.agents;
+      inherit (hmConfigCluster.config.launchd) agents;
       rank = agents.mlx-cluster-rank.config;
       rankEnv = rank.EnvironmentVariables;
       rankArgs = rank.ProgramArguments;
@@ -47,9 +47,7 @@ in
     assert
       builtins.elem "mlx-community/GLM-4.7-REAP-50-mxfp4" rankArgs
       || throw "cluster: configured cluster model missing from rank arguments";
-    assert
-      rank.RunAtLoad == false && rank.KeepAlive == false
-      || throw "cluster: rank starts only through cluster-join";
+    assert !rank.RunAtLoad && !rank.KeepAlive || throw "cluster: rank starts only through cluster-join";
     assert rank.ProcessType == "Interactive" || throw "cluster: rank must run at Interactive QoS";
     assert
       builtins.elem "cluster-join" pkgNames && builtins.elem "cluster-detach" pkgNames

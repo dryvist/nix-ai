@@ -88,7 +88,7 @@ in
         }
       );
     in
-    assert cfg.programs.token-meter.disabled == false || throw "token-meter fixture must be enabled";
+    assert !cfg.programs.token-meter.disabled || throw "token-meter fixture must be enabled";
     assert
       server.Label == "com.token-meter.server"
       || throw "token-meter server must replace the upstream label";
@@ -103,7 +103,7 @@ in
       || throw "token-meter menu bar must run from the Nix store";
     assert
       pkgs.lib.hasPrefix "/nix/store/" mcp.command || throw "token-meter MCP must run from the Nix store";
-    assert mcp.disabled == false || throw "token-meter MCP must be enabled with the dashboard";
+    assert !mcp.disabled || throw "token-meter MCP must be enabled with the dashboard";
     assert
       pkgs.lib.hasInfix "merge-json-settings.sh" cfg.home.activation.tokenMeterSettings.data
       || throw "token-meter settings must use the shared writable JSON merge helper";
@@ -129,10 +129,10 @@ in
 
   token-meter-enable-compat =
     assert
-      hmConfigTokenMeterLegacy.config.programs.token-meter.disabled == false
+      !hmConfigTokenMeterLegacy.config.programs.token-meter.disabled
       || throw "legacy enable = true must map to disabled = false";
     assert
-      hmConfigTokenMeterLegacyDisabled.config.programs.token-meter.disabled == true
+      hmConfigTokenMeterLegacyDisabled.config.programs.token-meter.disabled
       || throw "legacy enable = false must map to disabled = true";
     helpers.mkMarker "check-token-meter-enable-compat" "token-meter compatibility: legacy enable maps by inversion";
 

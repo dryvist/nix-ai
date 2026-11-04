@@ -7,7 +7,7 @@
 let
   inherit (pkgs) lib;
   helpers = import ./helpers.nix { inherit pkgs; };
-  renderedConfig = hmConfigStaticServing.config.programs.litellmLocal.renderedConfig;
+  inherit (hmConfigStaticServing.config.programs.litellmLocal) renderedConfig;
   routeFor =
     name: builtins.head (builtins.filter (route: route.model_name == name) renderedConfig.model_list);
   fallbackFor =

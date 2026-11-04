@@ -260,7 +260,7 @@ let
 
   zaiModelCatalogPath = "${homeDir}/${configDir}/zai-models.json";
   zaiProfileAttrs = {
-    model = zai.codex.model;
+    inherit (zai.codex) model;
     model_provider = "ZAI";
     model_reasoning_effort = "max";
     model_catalog_json = zaiModelCatalogPath;
@@ -320,7 +320,7 @@ in
         sessionVariables = lib.optionalAttrs telemetryEnabled {
           OTEL_RESOURCE_ATTRIBUTES = import ../../lib/telemetry-resource-attributes.nix {
             inherit lib userConfig;
-            username = config.home.username;
+            inherit (config.home) username;
           };
         };
 

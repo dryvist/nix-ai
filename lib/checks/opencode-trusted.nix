@@ -7,7 +7,7 @@
 let
   settingsFile = hmConfig.config.home.file.".config/opencode/opencode.json".source;
   sessionPlugin = hmConfig.config.home.file.".config/opencode/plugins/go-session.js".source;
-  package = hmConfig.config.programs.opencode.package;
+  inherit (hmConfig.config.programs.opencode) package;
   trustedPackage =
     import ../../modules/opencode/trusted.nix
       {

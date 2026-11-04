@@ -40,7 +40,7 @@ let
     agent: lib.hasPrefix "dev.mlx-model-server" agent.config.Label
   ) (builtins.attrValues noProxyNoConsumersHm.config.launchd.agents);
   cfg = hmConfigStaticServing.config.programs.mlx;
-  agents = hmConfigStaticServing.config.launchd.agents;
+  inherit (hmConfigStaticServing.config.launchd) agents;
   agentsDeepSeq = builtins.deepSeq agents true;
   inherit (import ../../modules/mlx/serving-label.nix { inherit lib; }) isServingLabel;
   servingAgents = builtins.filter (agent: agent.enable && isServingLabel agent.config.Label) (
