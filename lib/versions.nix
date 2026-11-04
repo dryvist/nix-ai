@@ -47,14 +47,10 @@ in
   # MCP servers (npm)
   # renovate: datasource=npm depName=mcp-remote
   mcpRemote = "0.15.2";
-  # renovate: datasource=npm depName=@upstash/context7-mcp
-  context7Mcp = "4.4.2";
   # renovate: datasource=npm depName=@modelcontextprotocol/server-everything
   mcpEverything = "2.1.0";
   # renovate: datasource=npm depName=@modelcontextprotocol/server-filesystem
   mcpFilesystem = "2.1.0";
-  # renovate: datasource=npm depName=@modelcontextprotocol/server-memory
-  mcpMemory = "2026.8.31";
   # renovate: datasource=npm depName=@modelcontextprotocol/server-aws-kb-retrieval
   mcpAws = "0.6.2";
   # renovate: datasource=npm depName=@modelcontextprotocol/server-postgres
