@@ -18,6 +18,7 @@
 
 let
   cfg = config.programs.antigravity-cli;
+  inherit (config.programs) litellmLocal;
   homeDir = config.home.homeDirectory;
   gitDir = config.userConfig.paths.git;
   skillRoot =
@@ -102,6 +103,16 @@ let
   # Path where the policy file will be deployed (must be absolute for policyPaths)
   policyPath = "${homeDir}/.gemini/antigravity-cli/policies/nix-managed.toml";
 
+  # Built-in subagents run on the group the proxy option derives (`local-only`),
+  # the group the Claude, Codex and OpenCode settings also use. The endpoint is
+  # already the proxy: default.nix sets GOOGLE_GEMINI_BASE_URL to it. subagentModel
+  # is null unless the proxy is enabled, so no override is emitted without it.
+  subagentOverrides = lib.optionalAttrs (litellmLocal.subagentModel != null) {
+    agents.overrides = lib.genAttrs [ "codebase_investigator" "cli_help" "generalist" ] (_: {
+      modelConfig.model = litellmLocal.subagentModel;
+    });
+  };
+
   settings = {
     "$schema" =
       "https://raw.githubusercontent.com/google-gemini/gemini-cli/main/schemas/settings.schema.json";
@@ -158,7 +169,8 @@ let
     model = {
       name = cfg.defaultModel;
     };
-  };
+  }
+  // subagentOverrides;
 
   settingsJson =
     pkgs.runCommand "antigravity-settings.json"
