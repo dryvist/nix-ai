@@ -122,6 +122,12 @@ let
       msg = "`local-only` must be a loopback-served group outside every fallback and context-window chain; got entry ${builtins.toJSON localOnlyEntry}";
     }
     {
+      ok =
+        localOnlyEntry != null
+        && lib.hasPrefix "custom_openai/" (localOnlyEntry.litellm_params.model or "");
+      msg = "`local-only` must use the custom_openai provider: the openai provider's Responses bridge passes a mid-conversation system turn through and the local model's chat template rejects it; got entry ${builtins.toJSON localOnlyEntry}";
+    }
+    {
       ok = headIsRouterRung;
       msg = "the head rung declared with `router = <group>` must render as `openai/<group>` against LLM_ROUTER_URL with no local model_info; got: ${builtins.toJSON headEntry}";
     }
