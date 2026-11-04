@@ -2,7 +2,7 @@ name: Promotion PR
 
 on:
   schedule:
-    - cron: "13 7 * * 6"
+    - cron: "13 12 * * 6"
 
 permissions: {}
 
