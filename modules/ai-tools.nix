@@ -13,7 +13,7 @@
 # version: check `nix search nixpkgs <pkg>` first; reach for
 # github:numtide/llm-agents.nix for an agent CLI nixpkgs does not carry;
 # homebrew is GUI applications, plus exactly two CLI casks
-# (claude-code@latest, codex) that must track upstream faster than a
+# (claude-code on the stable channel, codex) that must track upstream faster than a
 # relock-and-rebuild cycle — darwin-only, config still in Nix, Linux
 # unaffected. A cask cannot run on Linux guests, which used to pin this
 # stack to one machine, so a third needs the same justification. bunx for
@@ -30,7 +30,7 @@
 #
 # HOMEBREW (lib/homebrew.nix): block-goose-cli, langgraph-cli, the desktop
 #   apps (claude, codex-app, chatgpt, antigravity, antigravity-ide), plus the
-#   claude-code@latest and codex CLI casks (darwin only)
+#   claude-code (stable channel) and codex CLI casks (darwin only)
 #
 # ONE OWNER PER CLI. claude-code and codex come from Homebrew on darwin
 #   (`package = null`; nix-ai still renders their config) and llm-agents.nix

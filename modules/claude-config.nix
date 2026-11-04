@@ -116,7 +116,7 @@ in
       # workstation stack opts into its manual switch and parallel-session CLI.
       swap.disabled = false;
 
-      # One owner per host: the `claude-code@latest` cask on darwin,
+      # One owner per host: the `claude-code` (stable channel) cask on darwin,
       # llm-agents.nix on Linux. Rationale and the full source table live in
       # modules/herdr/README.md ("Where CLI binaries come from").
       #

@@ -55,7 +55,7 @@ Two rules that will bite otherwise:
   It pins its own `nixpkgs-unstable` and the numtide cache is keyed to that
   pin; forcing 26.05 breaks builds *and* loses every cache hit.
 - **`lib/homebrew.nix` is GUI apps plus a closed two-entry CLI exception**
-  (`claude-code@latest`, `codex`). Both are darwin-only, both keep their
+  (`claude-code` on the stable channel, `codex`). Both are darwin-only, both keep their
   configuration in Nix with `package = null`, and Linux still takes both from
   llm-agents.nix. The exception exists because those two must track upstream
   within days, which a relock-and-rebuild cycle cannot deliver. Do not add a

@@ -16,7 +16,7 @@
 # machine. That reason still holds. Check nixpkgs first, llm-agents.nix second,
 # a cask only as a last resort.
 #
-# The exception is claude-code@latest and codex, below, and it stays narrow:
+# The exception is claude-code (stable channel) and codex, below, and it stays narrow:
 #   - darwin only. Both are additive to a Nix-declared configuration, never a
 #     replacement, and neither is the fleet's source — Linux still takes both
 #     from llm-agents.nix, unchanged.
@@ -47,7 +47,9 @@
     # both without --greedy, so a plain `brew upgrade` already catches them.
     claudeCode = [
       {
-        name = "claude-code@latest";
+        # Stable channel: about a week behind latest, skipping releases with
+        # major regressions (`claude-code@latest` tracks the latest channel).
+        name = "claude-code";
         greedy = false;
       }
     ];
