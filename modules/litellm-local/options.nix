@@ -64,6 +64,25 @@ in
       '';
     };
 
+    subagentModel = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      readOnly = true;
+      default =
+        if
+          cfg.enable
+          && cfg.subagentTier == "router"
+          && lib.any (m: (m.router or null) == null) cfg.localModels
+        then
+          "local-only"
+        else
+          null;
+      description = ''
+        The group native subagents run on, derived from the options above:
+        `local-only` when the router tier is on and this host declares a local
+        rung, null otherwise. The Claude, Codex and OpenCode settings read it.
+      '';
+    };
+
     claudeDirect = lib.mkOption {
       type = lib.types.bool;
       default = false;

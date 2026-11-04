@@ -10,6 +10,7 @@
   claudeEnv,
   rendered,
   routerUrl,
+  subagentModel,
   tokenFilePath,
 }:
 rec {
@@ -72,10 +73,9 @@ rec {
   # local target cannot hold, so an override fails every background call.
   claudeHaikuUntouched = !(claudeEnv ? ANTHROPIC_DEFAULT_HAIKU_MODEL);
 
-  # The default subagent tier is `local-only`: this host's own model, with no
-  # router leg, so private subagent context never reaches the router. Any other
-  # value here is a silent change of tier.
-  claudeSubagentIsLocalOnly = (claudeEnv.CLAUDE_CODE_SUBAGENT_MODEL or null) == "local-only";
+  # The subagent tier is the proxy option's derived group (`local-only` when a
+  # host rung exists, null otherwise). Any other value here is a silent change.
+  claudeSubagentMatchesOption = (claudeEnv.CLAUDE_CODE_SUBAGENT_MODEL or null) == subagentModel;
 
   # The header is what makes LiteLLM forward the OAuth bearer instead of
   # treating it as the proxy credential. It must be in settings.json (every

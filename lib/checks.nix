@@ -40,6 +40,7 @@ let
     hmConfigSessionSync
     hmConfigSessionArchive
     hmConfigLitellmLocal
+    hmConfigLitellmSubagents
     hmConfigRouter
     hmConfigQwenRouter
     hmConfigQwenMissingResident
@@ -306,6 +307,7 @@ in
     ;
 })
 // (import ./checks/litellm-local-endpoint.nix { inherit pkgs hmConfigLitellmLocal; })
+// (import ./checks/litellm-local-subagents.nix { inherit pkgs hmConfigLitellmSubagents; })
 // (import ./checks/local-router-url.nix {
   inherit
     pkgs

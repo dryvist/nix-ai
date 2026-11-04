@@ -1,23 +1,15 @@
 # Local LiteLLM proxy regression tests
 #
-# The safety property this file exists for: the local proxy forwards the
-# calling client's own credentials to the `claude-*` deployment ONLY. That
-# deployment reaches Anthropic directly with the client's own credentials;
-# the wildcard deployment reaches a shared router. Forwarding the first leg's
-# credential onto the second is the one unacceptable outcome, and the only
-# thing standing between them is the scoped
-# `litellm_settings.model_group_settings.forward_client_headers_to_llm_api`
-# list. So assert on that list directly, and assert that the global
-# `general_settings.forward_client_headers_to_llm_api` boolean — which would
-# forward to EVERY deployment, router leg included — is absent.
+# Safety: client credentials are forwarded to the `claude-*` deployment only.
+# The wildcard deployment reaches a shared router, so the scoped
+# model_group_settings list must be the only forwarding rule. A global
+# `general_settings.forward_client_headers_to_llm_api` boolean would reach it too.
 #
-# The second property is the one the 2026-08-24 outage taught: everything a
-# Claude Code session needs to reach the proxy must travel in settings.json,
-# and therefore must be non-secret. A proxy credential cannot satisfy both, so
-# the proxy takes none, and the one header LiteLLM needs is a constant marker.
+# Per the 2026-08-24 outage, everything a Claude Code session needs must travel
+# in settings.json, so it must be non-secret: the proxy takes no credential, and
+# the one header LiteLLM needs is a constant marker.
 #
-# Reads programs.litellmLocal.renderedConfig, which the module sets
-# unconditionally, so this needs no second home-manager evaluation.
+# Reads programs.litellmLocal.renderedConfig, so it needs no second HM evaluation.
 {
   pkgs,
   hmConfig,
@@ -60,7 +52,7 @@ let
   # ---- enabled-path wiring -------------------------------------------------
   enabled = hmConfigLitellmLocal.config;
   proxyBase = enabled.programs.litellmLocal.baseUrl;
-  inherit (enabled.programs.litellmLocal) clientToken;
+  inherit (enabled.programs.litellmLocal) clientToken subagentModel;
   tokenFilePath = toString enabled.services.aiStack.llmEndpointTokenFile;
   routerUrl = enabled.services.aiStack.llmRouterEndpoint;
 
@@ -76,17 +68,19 @@ let
       inherit
         lib
         claudeEnv
-        rendered
         routerUrl
         tokenFilePath
+        subagentModel
         ;
+      # Same config as claudeEnv, so the explicit-group check sees local-only.
+      rendered = renderedTier;
     })
     claudeTierNames
     claudeTierNamesResolveLocally
     claudeTierNamesAre1m
     claudeShapedNamesCannotReachWildcard
     claudeHaikuUntouched
-    claudeSubagentIsLocalOnly
+    claudeSubagentMatchesOption
     claudeNoDiscovery
     claudeGetsRouterAddress
     claudeGetsTokenPathOnly
@@ -181,8 +175,8 @@ in
       claudeHaikuUntouched
       || throw "Claude Code's haiku tier must stay on Anthropic: the `small` capability's local target cannot hold Claude Code's system prompt, so an override fails every background call";
     assert
-      claudeSubagentIsLocalOnly
-      || throw "native subagents must default to the local-only group (CLAUDE_CODE_SUBAGENT_MODEL=local-only); got: ${
+      claudeSubagentMatchesOption
+      || throw "native subagents must run on the derived subagentModel group (${toString subagentModel}); got: ${
         claudeEnv.CLAUDE_CODE_SUBAGENT_MODEL or "unset"
       }";
     assert
@@ -226,20 +220,6 @@ in
       agentCarriesNoSecret
       || throw "the launchd agent must take the router URL as plain env and read the bearer from its file at exec time, never as an EnvironmentVariable";
     helpers.mkMarker "check-litellm-local-client-wiring" "litellm-local: clients name roles, lead models untouched, every Claude Code setting non-secret and in settings.json";
-
-  litellm-local-codex-subagents =
-    pkgs.runCommand "check-litellm-local-codex-subagents"
-      {
-        profile = enabled.home.file.".codex/medium.config.toml".source;
-      }
-      ''
-        grep -Fxq 'default_subagent_model = "local-only"' "$profile" || {
-          echo "a litellm Codex profile must route subagents to the local-only group:"
-          cat "$profile"
-          exit 1
-        }
-        touch $out
-      '';
 
   litellm-local-fallback-tier =
     assert firstFallbackFailure == null || throw firstFallbackFailure.msg;

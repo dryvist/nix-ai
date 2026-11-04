@@ -46,7 +46,6 @@ let
   );
 
   features = cfg.features // localProxyFeatures;
-  litellmRoles = litellmLocal.aliases;
   selectedOnDemandMcpServers = lib.filterAttrs (
     name: _: lib.elem name cfg.onDemandMcpServers
   ) config.programs.aiMcp.onDemandEnabledServers;
@@ -117,32 +116,7 @@ let
 
   optionalValue = key: value: lib.optionalAttrs (value != null) { ${key} = value; };
 
-  # A litellm profile's subagents run on the local-only group, the same group
-  # Claude Code's native subagents use. Codex sets this per provider only, so
-  # it is written into the profile, never the default config.
-  litellmProfileAttrs = lib.genAttrs litellmRoles (
-    role:
-    {
-      model = role;
-      model_provider = "litellm";
-    }
-    //
-      lib.optionalAttrs
-        (litellmLocal.enable && litellmLocal.subagentTier == "router" && litellmLocal.localModels != [ ])
-        {
-          agents.default_subagent_model = "local-only";
-        }
-  );
-
-  litellmProfileTomls = lib.mapAttrs (
-    role: attrs:
-    let
-      json = pkgs.writeText "codex-${role}-profile.json" (builtins.toJSON attrs);
-    in
-    pkgs.runCommand "codex-${role}.config.toml" { nativeBuildInputs = [ pkgs.yj ]; } ''
-      yj -jt < ${json} > $out
-    ''
-  ) litellmProfileAttrs;
+  litellmProfileTomls = import ./litellm-profiles.nix { inherit lib litellmLocal pkgs; };
 
   # Share Claude Code's telemetry configuration. Codex uses full signal URLs
   # verbatim; Claude's generic endpoint is a base URL. Binary means protobuf.

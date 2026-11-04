@@ -127,27 +127,15 @@
     CLAUDE_SUBAGENT_INTERNAL_DOMAINS = lib.concatStringsSep " " aiStack.internalDomains;
   }
 )
-# Native subagents run on the tier the proxy option names. `router` needs the
-# proxy hop and a path that carries it: under claudeDirect, a proxy group would
-# be unreachable, so that case falls through to Claude Code's own subagent
-# default instead. `local-only` (this host's own model, no router leg) is used
-# rather than `medium`: subagent context can be private, and the router refuses
-# content its key is not cleared for. `local-only` exists only when the host
-# declares local rungs, so a host without them keeps Claude Code's default.
+# Native subagents run on the group the proxy option derives: `local-only`, this
+# host's own model with no router leg. Null keeps Claude Code's default. Under
+# claudeDirect there is no proxy hop to reach that group.
 // lib.optionalAttrs (litellmLocal.subagentTier == "anthropic") {
   CLAUDE_CODE_SUBAGENT_MODEL = litellmLocal.subagentAnthropicModel;
 }
-//
-  lib.optionalAttrs
-    (
-      litellmLocal.subagentTier == "router"
-      && litellmLocal.enable
-      && !litellmLocal.claudeDirect
-      && litellmLocal.localModels != [ ]
-    )
-    {
-      CLAUDE_CODE_SUBAGENT_MODEL = "local-only";
-    }
+// lib.optionalAttrs (litellmLocal.subagentModel != null && !litellmLocal.claudeDirect) {
+  CLAUDE_CODE_SUBAGENT_MODEL = litellmLocal.subagentModel;
+}
 
 # OpenTelemetry — opt-in via userConfig.telemetry. Split into its own file to
 # keep this one inside the repo's file-size gate.
