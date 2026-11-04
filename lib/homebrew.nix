@@ -49,7 +49,7 @@
     # Claude Code: latest channel, no soak, by owner decision. Never switch it
     # to the stable `claude-code` cask. Claude Code upgrades this cask itself
     # (CLAUDE_CODE_PACKAGE_MANAGER_AUTO_UPDATE in modules/claude/settings-env.nix),
-    # and lib/checks/claude.nix fails if either changes.
+    # and lib/checks/claude-code-channel.nix fails if either changes.
     claudeCode = [
       {
         name = "claude-code@latest";

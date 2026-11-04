@@ -142,18 +142,6 @@ in
         expected = "1";
       }
       {
-        # Latest channel by owner decision: the cask stays claude-code@latest
-        # and Claude Code upgrades it itself. See lib/homebrew.nix.
-        name = "homebrew.casks.claudeCode";
-        actual = map (cask: cask.name) (import ../homebrew.nix).casks.claudeCode;
-        expected = [ "claude-code@latest" ];
-      }
-      {
-        name = "settings.env.CLAUDE_CODE_PACKAGE_MANAGER_AUTO_UPDATE";
-        actual = cfg.settings.env.CLAUDE_CODE_PACKAGE_MANAGER_AUTO_UPDATE or null;
-        expected = "1";
-      }
-      {
         name = "model";
         actual = cfg.model;
         expected = "opusplan";
