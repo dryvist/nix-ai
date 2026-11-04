@@ -30,7 +30,8 @@ let
   # see modules/mcp/packages.nix.
   mcpPkgs = import ./packages.nix { inherit pkgs; };
   mcpNpmPkgs = import ./packages-npm.nix { inherit pkgs; };
-  # bunx helper: command-only args for MCP server definitions.
+  # bunx helper: command-only args for MCP server definitions. Every bunx, npx
+  # and uvx entry names an exact version (lib/checks/mcp-catalog-pins.nix).
   bunx = args: {
     command = "bunx";
     inherit args;
