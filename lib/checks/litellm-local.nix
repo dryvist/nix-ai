@@ -227,6 +227,20 @@ in
       || throw "the launchd agent must take the router URL as plain env and read the bearer from its file at exec time, never as an EnvironmentVariable";
     helpers.mkMarker "check-litellm-local-client-wiring" "litellm-local: clients name roles, lead models untouched, every Claude Code setting non-secret and in settings.json";
 
+  litellm-local-codex-subagents =
+    pkgs.runCommand "check-litellm-local-codex-subagents"
+      {
+        profile = enabled.home.file.".codex/medium.config.toml".source;
+      }
+      ''
+        grep -Fxq 'default_subagent_model = "local-only"' "$profile" || {
+          echo "a litellm Codex profile must route subagents to the local-only group:"
+          cat "$profile"
+          exit 1
+        }
+        touch $out
+      '';
+
   litellm-local-fallback-tier =
     assert firstFallbackFailure == null || throw firstFallbackFailure.msg;
     helpers.mkMarker "check-litellm-local-fallback-tier" "litellm-local: subagent tier is a cost-ordered chain of explicit groups, main tier never silently downgraded";

@@ -154,7 +154,9 @@ let
     "go-deepseek-flash"
   ];
   routerModels = lib.unique (litellmRoles ++ routerGoAliases ++ cfg.extraModels);
-  localMlxModels = lib.unique (litellmRoles ++ cfg.extraModels);
+  # `local-only` is the local proxy's own group (no router leg), used by the
+  # subagents below. It is not a router capability, so it is named here only.
+  localMlxModels = lib.unique (litellmRoles ++ [ "local-only" ] ++ cfg.extraModels);
   goModelAttrs =
     models:
     lib.listToAttrs (
@@ -221,11 +223,24 @@ let
         });
       };
     };
-    agent = lib.genAttrs litellmRoles (role: {
-      description = "Delegate to the router's `${role}` capability (resolved upstream, never a physical model)";
-      mode = "subagent";
-      model = "litellm/${role}";
-    });
+    agent =
+      lib.genAttrs litellmRoles (role: {
+        description = "Delegate to the router's `${role}` capability (resolved upstream, never a physical model)";
+        mode = "subagent";
+        model = "litellm/${role}";
+      })
+      # The built-in subagents the Task tool invokes by name run on the router's
+      # medium tier, the tier Claude Code's native subagents use.
+      //
+        lib.optionalAttrs
+          (litellmLocal.enable && litellmLocal.subagentTier == "router" && litellmLocal.localModels != [ ])
+          (
+            lib.genAttrs [ "general" "explore" ] (name: {
+              description = "${name} subagent, run on the local-only group (this host's own model)";
+              mode = "subagent";
+              model = "mlx/local-only";
+            })
+          );
     # LSP integration is off by default upstream; this enables every built-in
     # server. A server only activates when its binary is on PATH, so the set
     # in use is whatever nix-home ships globally (see its core.nix "Language

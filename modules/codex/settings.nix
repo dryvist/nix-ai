@@ -117,10 +117,22 @@ let
 
   optionalValue = key: value: lib.optionalAttrs (value != null) { ${key} = value; };
 
-  litellmProfileAttrs = lib.genAttrs litellmRoles (role: {
-    model = role;
-    model_provider = "litellm";
-  });
+  # A litellm profile's subagents run on the local-only group, the same group
+  # Claude Code's native subagents use. Codex sets this per provider only, so
+  # it is written into the profile, never the default config.
+  litellmProfileAttrs = lib.genAttrs litellmRoles (
+    role:
+    {
+      model = role;
+      model_provider = "litellm";
+    }
+    //
+      lib.optionalAttrs
+        (litellmLocal.enable && litellmLocal.subagentTier == "router" && litellmLocal.localModels != [ ])
+        {
+          agents.default_subagent_model = "local-only";
+        }
+  );
 
   litellmProfileTomls = lib.mapAttrs (
     role: attrs:

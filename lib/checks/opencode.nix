@@ -66,6 +66,22 @@ in
     ];
   };
 
+  opencode-native-subagents-local-only =
+    pkgs.runCommand "check-opencode-native-subagents-local-only"
+      {
+        nativeBuildInputs = [ pkgs.jq ];
+      }
+      ''
+        jq -e --arg alias "${routerAlias}" '
+          . as $c
+          | (["general", "explore"] | all(. as $n |
+              $c.agent[$n].mode == "subagent" and $c.agent[$n].model == "mlx/local-only"
+            ))
+            and $c.model == ("litellm/" + $alias)
+        ' ${settingsFile} >/dev/null
+        touch $out
+      '';
+
   opencode-router-provider =
     assert builtins.elem routerAlias routerAliases;
     pkgs.runCommand "check-opencode-router-provider"
