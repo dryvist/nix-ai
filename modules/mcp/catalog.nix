@@ -51,12 +51,9 @@ in
   # ================================================================
   # Official Anthropic MCP Servers
   # ================================================================
-  # Archived servers remain unpinned unless a maintained replacement exists.
 
   everything = bunx [ "@modelcontextprotocol/server-everything@${versions.mcpEverything}" ];
-  fetch = bunx [ "@modelcontextprotocol/server-fetch" ]; # archived
   filesystem = bunx [ "@modelcontextprotocol/server-filesystem@${versions.mcpFilesystem}" ];
-  git = bunx [ "@modelcontextprotocol/server-git" ]; # archived
   # memory: cross-agent vector memory via the gateway's mcp-server-qdrant
   # sidecar. Replaces the local knowledge-graph server (11 calls all-time per
   # Splunk, and duplicated the file-based MEMORY.md system) with the same
@@ -66,16 +63,6 @@ in
     command = "${mcpPkgs.mcp-server-time}/bin/mcp-server-time";
     args = [ ];
   };
-  docker = bunx [ "@modelcontextprotocol/server-docker" ]; # archived
-  exa = bunx [ "@modelcontextprotocol/server-exa" ] // {
-    disabled = true;
-  }; # archived; Requires: EXA_API_KEY
-  firecrawl = bunx [ "@modelcontextprotocol/server-firecrawl" ] // {
-    disabled = true;
-  }; # archived; Requires: FIRECRAWL_API_KEY
-  cloudflare = bunx [ "@modelcontextprotocol/server-cloudflare" ] // {
-    disabled = true;
-  }; # archived; Requires: CLOUDFLARE_API_TOKEN
   aws = bunx [ "@modelcontextprotocol/server-aws-kb-retrieval@${versions.mcpAws}" ] // {
     disabled = true;
   }; # Requires: AWS credentials; 0 calls in 3 months of history

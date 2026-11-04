@@ -14,12 +14,12 @@ through client CLIs may be overwritten on the next rebuild.
 
 ### stdio (local processes)
 
-Run a local command as the MCP server. Use the `official` helper for Anthropic servers,
-or write inline attribute sets for custom servers:
+Run a local command as the MCP server. Use the `bunx` helper for npm packages, pinned to an
+exact version in `lib/versions.nix`, or write inline attribute sets for custom servers:
 
 ```nix
-# Official Anthropic server via bunx
-fetch = official "fetch";
+# npm package via bunx, pinned
+everything = bunx [ "@modelcontextprotocol/server-everything@${versions.mcpEverything}" ];
 
 # nixpkgs binary (resolved via PATH)
 github = { command = "github-mcp-server"; };

@@ -71,7 +71,7 @@ let
         programs.aiMcp = {
           facadeCanary = true;
           gatewayBaseUrl = facadeGateway;
-          servers.exa.disabled = lib.mkForce false;
+          servers.google-workspace.disabled = lib.mkForce false;
         };
       }
     ];

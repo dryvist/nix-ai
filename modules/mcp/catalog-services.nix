@@ -19,9 +19,6 @@
   postgresql = bunx [ "@modelcontextprotocol/server-postgres@${versions.mcpPostgres}" ] // {
     disabled = true;
   };
-  sqlite = bunx [ "@modelcontextprotocol/server-sqlite" ] // {
-    disabled = true;
-  }; # archived
 
   # ================================================================
   # Additional (disabled - specialized use cases)
@@ -64,9 +61,6 @@
   slack = bunx [ "@modelcontextprotocol/server-slack@${versions.mcpSlack}" ] // {
     disabled = true;
   };
-  sentry = bunx [ "@modelcontextprotocol/server-sentry" ] // {
-    disabled = true;
-  }; # archived
 
   # ================================================================
   # Vikunja - self-hosted task management
