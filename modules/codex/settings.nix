@@ -46,7 +46,6 @@ let
   );
 
   features = cfg.features // localProxyFeatures;
-  litellmRoles = litellmLocal.aliases;
   selectedOnDemandMcpServers = lib.filterAttrs (
     name: _: lib.elem name cfg.onDemandMcpServers
   ) config.programs.aiMcp.onDemandEnabledServers;
@@ -117,20 +116,7 @@ let
 
   optionalValue = key: value: lib.optionalAttrs (value != null) { ${key} = value; };
 
-  litellmProfileAttrs = lib.genAttrs litellmRoles (role: {
-    model = role;
-    model_provider = "litellm";
-  });
-
-  litellmProfileTomls = lib.mapAttrs (
-    role: attrs:
-    let
-      json = pkgs.writeText "codex-${role}-profile.json" (builtins.toJSON attrs);
-    in
-    pkgs.runCommand "codex-${role}.config.toml" { nativeBuildInputs = [ pkgs.yj ]; } ''
-      yj -jt < ${json} > $out
-    ''
-  ) litellmProfileAttrs;
+  litellmProfileTomls = import ./litellm-profiles.nix { inherit lib litellmLocal pkgs; };
 
   # Share Claude Code's telemetry configuration. Codex uses full signal URLs
   # verbatim; Claude's generic endpoint is a base URL. Binary means protobuf.
@@ -260,7 +246,7 @@ let
 
   zaiModelCatalogPath = "${homeDir}/${configDir}/zai-models.json";
   zaiProfileAttrs = {
-    model = zai.codex.model;
+    inherit (zai.codex) model;
     model_provider = "ZAI";
     model_reasoning_effort = "max";
     model_catalog_json = zaiModelCatalogPath;
@@ -320,7 +306,7 @@ in
         sessionVariables = lib.optionalAttrs telemetryEnabled {
           OTEL_RESOURCE_ATTRIBUTES = import ../../lib/telemetry-resource-attributes.nix {
             inherit lib userConfig;
-            username = config.home.username;
+            inherit (config.home) username;
           };
         };
 

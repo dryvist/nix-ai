@@ -17,8 +17,8 @@ let
     let
       server = config.programs.aiMcp.facadeServer;
       keyEnv = mcpClient.callerKeyEnvFor {
-        callerId = config.programs.claude.callerId;
-        callerRegistry = config.programs.aiMcp.callerRegistry;
+        inherit (config.programs.claude) callerId;
+        inherit (config.programs.aiMcp) callerRegistry;
       };
     in
     server

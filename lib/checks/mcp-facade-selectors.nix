@@ -114,12 +114,12 @@ let
       assert builtins.all (assertion: assertion.assertion) standalone.config.assertions;
       assert selected || standalone.config.programs.aiMcp.callerRegistry == null;
       builtins.deepSeq {
-        callerRegistry = standalone.config.programs.aiMcp.callerRegistry;
+        inherit (standalone.config.programs.aiMcp) callerRegistry;
         keyEnv =
           if selected then
             callerClient.callerKeyEnvFor {
               callerId = "claude-code";
-              callerRegistry = standalone.config.programs.aiMcp.callerRegistry;
+              inherit (standalone.config.programs.aiMcp) callerRegistry;
             }
           else
             null;

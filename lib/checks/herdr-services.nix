@@ -9,7 +9,7 @@ in
   # invisible in the rendered config and raising no error anywhere.
   herdr-launchd-regression =
     let
-      agents = hmConfigDarwin.config.launchd.agents;
+      inherit (hmConfigDarwin.config.launchd) agents;
       absent = throw "herdr: no launchd agent is declared, so the server never runs and the herd stays empty; see nix-herdr user server module";
       agent = (agents.herdr or absent).config;
       args = agent.ProgramArguments;
@@ -47,7 +47,7 @@ in
   herdr-hail-darwin-eval =
     let
       cfg = hmConfigDarwin.config;
-      hail = cfg.services.herdr.hail;
+      inherit (cfg.services.herdr) hail;
       agent = cfg.launchd.agents.herdr-hail.config;
       env = agent.EnvironmentVariables;
       serverless = hmConfigDarwin.extendModules {

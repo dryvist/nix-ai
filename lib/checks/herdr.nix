@@ -12,7 +12,7 @@ let
   helpers = import ./helpers.nix { inherit pkgs; };
   inherit (pkgs) lib;
   cfg = hmConfig.config.programs.herdr;
-  programs = hmConfig.config.programs;
+  inherit (hmConfig.config) programs;
 
   # Which of this flake's CLIs herdr is expected to recognise, keyed by THIS
   # flake's option name. Translation to herdr's own manifest name happens in

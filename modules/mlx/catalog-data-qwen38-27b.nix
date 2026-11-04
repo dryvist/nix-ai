@@ -9,10 +9,15 @@ let
   contextWindowTokens = profile.context_window;
   maxOutputTokens = profile.max_output_tokens or model.max_output_tokens;
   concurrency = profile.max_parallel_requests or model.max_parallel_requests;
+  # Prompt-cache slot count for the 27B, lowered from the fleet default of 16.
+  # Each cached long prompt keeps Metal buffers alive; 16 slots reached the
+  # metal::malloc resource limit under review load (Zammad 1001254).
+  promptCacheSize = 8;
   swapFlags = {
     autoUnloadIdleSeconds = swap.auto_unload_idle_seconds;
     maxNumSeqs = swap.max_num_sequences;
     maxRequestTokens = swap.max_request_tokens;
+    inherit promptCacheSize;
   }
   // (
     if swap ? paged_cache_block_size then
@@ -122,6 +127,7 @@ in
           maxNumSeqs = profile.max_num_sequences;
           maxRequestTokens = contextWindowTokens;
           maxTokens = maxOutputTokens;
+          inherit promptCacheSize;
         };
       };
       # cacheMemoryMb PINNED (derive.nix's cacheMemoryMbFor): forModel does

@@ -382,4 +382,8 @@ rec {
     hmConfigLitellmLocal
     hmConfigRouter
     ;
+  # The same host with OpenCode on: the subagent launcher checks read its settings.
+  hmConfigLitellmSubagents = hmConfigLitellmLocal.extendModules {
+    modules = [ { programs.opencode.enable = true; } ];
+  };
 }

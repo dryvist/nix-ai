@@ -25,13 +25,13 @@ let
   # fails the explicit-groups check well before the terminal one, so the guard
   # is unreachable through it.
   emptyModelListIsFalseNotThrow =
-    (import ./litellm-local-fallbacks.nix {
+    !(import ./litellm-local-fallbacks.nix {
       inherit lib;
       rendered = {
         model_list = [ ];
         litellm_settings.num_retries = 3;
       };
-    }).terminalNamesUpstreamGroup == false;
+    }).terminalNamesUpstreamGroup;
 
   # ---- routerEntryModel must be a plain router group name -----------------
   # One fixture, one variable. Everything else is valid, so a failed
@@ -73,7 +73,7 @@ let
     ""
     "openai/x"
   ];
-  everyBadRouterEntryRejected = lib.all (v: routerEntryEvaluates v == false) rejectedRouterEntries;
+  everyBadRouterEntryRejected = lib.all (v: !routerEntryEvaluates v) rejectedRouterEntries;
   plainGroupNameAccepted = routerEntryEvaluates "test-router-entry";
 in
 {

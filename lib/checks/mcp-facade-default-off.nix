@@ -21,7 +21,7 @@ let
     antigravityIdeMcpServers = hmConfigDefaultOff.config.programs.antigravity-ide.generatedMcpServers;
   } hmConfigDefaultOff;
   golden = import ./mcp-facade-default-off-goldens.nix;
-  system = pkgs.stdenv.hostPlatform.system;
+  inherit (pkgs.stdenv.hostPlatform) system;
   actualJson = builtins.toJSON projection;
   actualSha256 = builtins.hashString "sha256" actualJson;
   actualBytes = builtins.stringLength actualJson;

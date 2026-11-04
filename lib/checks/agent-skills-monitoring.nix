@@ -6,7 +6,7 @@
 }:
 let
   inherit (pkgs) lib;
-  home = hmConfig.config.home;
+  inherit (hmConfig.config) home;
   homeDir = home.homeDirectory;
   cfg = hmConfig.config.programs.agentSkills;
   homeFileNames = builtins.attrNames home.file;

@@ -90,12 +90,19 @@ let
           }
         else
           {
-            model = "openai/${m.id}";
+            # custom_openai, not openai: the openai provider sends Anthropic
+            # /v1/messages through LiteLLM's Responses bridge, which never converts a
+            # mid-conversation system turn, and the local model's chat template rejects it.
+            # custom_openai takes the chat-completions path, which converts that turn.
+            model = "custom_openai/${m.id}";
             api_base = "os.environ/${localEndpointEnvVar}";
             # The loopback server takes no credential. LiteLLM still wants the key
             # present, so name the same variable every other leg uses rather than
             # inventing a second one.
             api_key = "os.environ/OPENAI_API_KEY";
+            # mlx-lm-server implements chat completions only. Without this,
+            # LiteLLM sends /v1/responses and the local rung answers 404.
+            use_chat_completions_api = true;
           };
     }
     # A router rung's window is the router's to advertise; only a rung this
