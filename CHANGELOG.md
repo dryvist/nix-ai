@@ -1,5 +1,16 @@
 # Changelog
 
+## [8.14.1](https://github.com/dryvist/nix-ai/compare/v8.14.1...v8.14.1) (2026-11-04)
+
+
+### Features
+
+* **claude:** allow cross-repo feature-branch work in auto mode ([#2816](https://github.com/dryvist/nix-ai/issues/2816)) ([64faa6b](https://github.com/dryvist/nix-ai/commit/64faa6bc7c1f611f49abb235aaa398084786a510))
+* **claude:** enable agent teams and bump autocompact to 70% ([#2805](https://github.com/dryvist/nix-ai/issues/2805)) ([d4d1263](https://github.com/dryvist/nix-ai/commit/d4d126358bf34e354f0d927725e1dd9f8ac3fadf))
+* **mlx:** allow three static residents behind a cluster guard ([#2807](https://github.com/dryvist/nix-ai/issues/2807)) ([8964924](https://github.com/dryvist/nix-ai/commit/896492465d721f52822e8133084bc8c690921c6f))
+* **mlx:** make the prompt-cache slot count per model ([#2811](https://github.com/dryvist/nix-ai/issues/2811)) ([212f2ef](https://github.com/dryvist/nix-ai/commit/212f2ef2bbca09aeb8c47bdc19fa37858b84df81))
+* route native subagents to the local-only group ([#2814](https://github.com/dryvist/nix-ai/issues/2814)) ([c0edf80](https://github.com/dryvist/nix-ai/commit/c0edf8082f339f78558c1c356f07f4b4a59ea1e1))
+
 ## [8.14.1](https://github.com/dryvist/nix-ai/compare/v8.14.1...v8.14.1) (2026-11-03)
 
 
