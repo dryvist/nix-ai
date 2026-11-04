@@ -22,11 +22,11 @@
     _final: prev:
     if prev ? stdenv then
       let
-        system = prev.stdenv.hostPlatform.system;
+        inherit (prev.stdenv.hostPlatform) system;
       in
       (self.packages.${system} or { })
       // {
-        uv = nixpkgs-unstable.legacyPackages.${system}.uv;
+        inherit (nixpkgs-unstable.legacyPackages.${system}) uv;
       }
     else
       { };

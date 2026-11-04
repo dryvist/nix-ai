@@ -24,10 +24,10 @@ let
 
   otelPlugins = import ./otel-plugin.nix {
     inherit lib userConfig;
-    username = config.home.username;
+    inherit (config.home) username;
   };
 
-  agentSkills = config.programs.agentSkills;
+  inherit (config.programs) agentSkills;
   skillRoot = ".${agentSkills.root}/skills";
   userInvokedSkills = builtins.filter (
     skill: skill.userInvoked && agentSkills.deployedSkillPaths ? "${skillRoot}/${skill.name}"
@@ -35,7 +35,7 @@ let
 
   skillCommands = import ./skill-commands.nix {
     inherit lib skillRoot userInvokedSkills;
-    homeDirectory = config.home.homeDirectory;
+    inherit (config.home) homeDirectory;
   };
   mcpClient = import ../mcp/client.nix { inherit lib; };
 
@@ -62,7 +62,7 @@ let
   sandboxedOpencode = import ./sandbox.nix { inherit pkgs lib; } {
     inherit (cfg) package;
     home = config.home.homeDirectory;
-    workRoot = cfg.sandbox.workRoot;
+    inherit (cfg.sandbox) workRoot;
     readRules = [
       {
         kind = "subpath";

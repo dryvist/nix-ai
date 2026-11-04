@@ -52,7 +52,7 @@
 }:
 let
   cfg = config.programs.litellmLocal;
-  aiStack = config.services.aiStack;
+  inherit (config.services) aiStack;
   versions = import ../../lib/versions.nix;
 
   # Fallback chain for the subagent tier: this host's own models first, the

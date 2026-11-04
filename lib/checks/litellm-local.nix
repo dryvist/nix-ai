@@ -60,7 +60,7 @@ let
   # ---- enabled-path wiring -------------------------------------------------
   enabled = hmConfigLitellmLocal.config;
   proxyBase = enabled.programs.litellmLocal.baseUrl;
-  clientToken = enabled.programs.litellmLocal.clientToken;
+  inherit (enabled.programs.litellmLocal) clientToken;
   tokenFilePath = toString enabled.services.aiStack.llmEndpointTokenFile;
   routerUrl = enabled.services.aiStack.llmRouterEndpoint;
 
@@ -95,7 +95,7 @@ let
   # base URL and the marker header are absent by design. The pair must move
   # together: a URL without the header is the 2026-08-24 outage, and a header
   # without the URL points at nothing.
-  claudeDirect = enabled.programs.litellmLocal.claudeDirect;
+  inherit (enabled.programs.litellmLocal) claudeDirect;
   claudeHasBaseUrl = claudeEnv ? ANTHROPIC_BASE_URL;
   claudeHeaderIsMarker =
     if claudeDirect then

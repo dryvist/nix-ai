@@ -13,7 +13,7 @@
 
 let
   cfg = config.programs.herdr;
-  hail = config.services.herdr.hail;
+  inherit (config.services.herdr) hail;
   logDir = "${config.home.homeDirectory}/Library/Logs/herdr";
 
   # Match hail's upstream defaults; only non-secret config is rendered here.

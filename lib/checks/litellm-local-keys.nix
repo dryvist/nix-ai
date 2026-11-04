@@ -18,7 +18,7 @@ let
 
   # LiteLLM 1.105 refuses to boot with no master key unless this is set.
   permitsUnsetMasterKey =
-    (rendered.general_settings.dangerously_permit_weak_or_unset_master_key or false) == true;
+    rendered.general_settings.dangerously_permit_weak_or_unset_master_key or false;
 
   # The first violated master-key rule, or null.
   masterKeyFailure =
