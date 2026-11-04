@@ -53,7 +53,8 @@ in
         `router` (default) sets `CLAUDE_CODE_SUBAGENT_MODEL` to `local-only`:
         this host's own model, with no router leg, so subagent context that is
         private never reaches the router, which refuses content its key is not
-        cleared for. Subagents with an explicit model field keep that model.
+        cleared for. Default only: an Agent call that names a model goes to the
+        router, where that key's clearance applies.
         Without the proxy hop (`enable = false` or `claudeDirect`) the variable
         is not set, and Claude Code picks its own subagent model.
 
