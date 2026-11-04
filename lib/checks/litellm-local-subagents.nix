@@ -1,6 +1,7 @@
-# Subagent routing checks for the local LiteLLM proxy. Codex and OpenCode
-# subagents must run on the group the proxy option derives (subagentModel).
-# The fixture declares a host rung, so that group exists, and enables OpenCode.
+# Subagent routing checks for the local LiteLLM proxy. Codex, OpenCode and
+# Antigravity subagents must run on the group the proxy option derives
+# (subagentModel). The fixture declares a host rung, so that group exists, and
+# enables OpenCode.
 # Kept out of ./litellm-local.nix and ./opencode.nix for the 12KB gate.
 {
   pkgs,
@@ -15,6 +16,11 @@ let
     cfg.programs.litellmLocal.subagentModel;
   opencodeSettings = cfg.home.file."${cfg.programs.opencode.configDir}/opencode.json".source;
   codexProfile = cfg.home.file.".codex/medium.config.toml".source;
+  # Antigravity merges settings.json at activation, so the check reads the
+  # generated settings the module exposes rather than a home.file source.
+  agySettings = pkgs.writeText "antigravity-settings.json" (
+    builtins.toJSON cfg.programs.antigravity-cli.generatedSettings
+  );
 in
 {
   litellm-local-opencode-subagents =
@@ -45,6 +51,24 @@ in
         grep -Fxq 'default_subagent_model = "${group}"' "$profile" || {
           echo "a litellm Codex profile must route subagents to ${group}:"
           cat "$profile"
+          exit 1
+        }
+        touch $out
+      '';
+
+  litellm-local-antigravity-subagents =
+    pkgs.runCommand "check-litellm-local-antigravity-subagents"
+      {
+        nativeBuildInputs = [ pkgs.jq ];
+      }
+      ''
+        jq -e --arg g "${group}" '
+          . as $c
+          | ["codebase_investigator", "cli_help", "generalist"] | all(. as $n |
+              $c.agents.overrides[$n].modelConfig.model == $g)
+        ' ${agySettings} >/dev/null || {
+          echo "antigravity built-in subagents must use ${group}:"
+          cat ${agySettings}
           exit 1
         }
         touch $out
