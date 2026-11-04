@@ -51,7 +51,7 @@ in
           "medium-local"
           "medium-homelab"
         ]
-      && mediumLocal.litellm_params.model == "openai/${qwen.model}"
+      && mediumLocal.litellm_params.model == "custom_openai/${qwen.model}"
       && mediumLocal.litellm_params.api_base == "os.environ/LOCAL_LLM_URL"
       && !(builtins.any (
         entry: entry ? judge
