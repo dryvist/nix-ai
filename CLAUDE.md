@@ -97,7 +97,7 @@ this one.
 - MCP servers and wrappers (github-mcp-server, terraform-mcp-server, etc.)
 - AI tool configuration files (`.claude/`, `.gemini/`, `.copilot/`)
 - MLX inference server (always-loaded mlx_lm.server LaunchAgents + wrappers)
-- AI-specific shell utilities (hf CLI wrapper, Doppler-wrapped aliases)
+- AI-specific shell utilities (hf CLI wrapper, Z.ai launchers `claude-zai` / `codex-zai`)
 
 ### Package placement
 
