@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.16.0](https://github.com/dryvist/nix-ai/compare/v8.15.0...v8.16.0) (2026-11-05)
+
+
+### Features
+
+* **mcp:** accept additive caller-record fields from homelab-contracts ([#2826](https://github.com/dryvist/nix-ai/issues/2826)) ([a4b608a](https://github.com/dryvist/nix-ai/commit/a4b608a30653552b48e7301d8f7fd4bb42bf7c70))
+
 ## [8.15.0](https://github.com/dryvist/nix-ai/compare/v8.14.1...v8.15.0) (2026-11-04)
 
 
