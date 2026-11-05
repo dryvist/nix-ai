@@ -37,6 +37,7 @@ buildNpmPackage {
     ./agent-input.patch
     ./blocked-excerpt.patch
     ./local-summary.patch
+    ./repeat-dedupe.patch
   ];
 
   # `prefetch-npm-deps package-lock.json` at the pinned rev. Moves only when

@@ -197,6 +197,9 @@ in
   inherit pkgs;
   hmConfigDarwin = hmConfigDarwinHerdr;
 })
+// (import ./checks/herdr-hail-dedupe.nix {
+  inherit pkgs;
+})
 // (import ./checks/qwen-code.nix {
   inherit
     pkgs
@@ -237,6 +240,7 @@ in
     hmConfigVctCli
     ;
 })
+// (import ./checks/mcp-catalog-pins.nix { inherit pkgs; })
 // (import ./checks/mcp.nix {
   inherit
     pkgs
