@@ -3,7 +3,7 @@
 let
   helpers = import ./helpers.nix { inherit pkgs; };
   inherit (pkgs) lib;
-  expectedContextLines = 40;
+  expectedContextLines = 12;
   expectedSummarizer = {
     enabled = true;
     baseUrl = "http://127.0.0.1:11434/v1";

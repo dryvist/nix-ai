@@ -197,6 +197,9 @@ in
   inherit pkgs;
   hmConfigDarwin = hmConfigDarwinHerdr;
 })
+// (import ./checks/herdr-hail-dedupe.nix {
+  inherit pkgs;
+})
 // (import ./checks/qwen-code.nix {
   inherit
     pkgs
