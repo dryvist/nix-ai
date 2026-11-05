@@ -240,6 +240,7 @@ in
     hmConfigVctCli
     ;
 })
+// (import ./checks/mcp-catalog-pins.nix { inherit pkgs; })
 // (import ./checks/mcp.nix {
   inherit
     pkgs

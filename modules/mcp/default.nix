@@ -97,15 +97,9 @@ in
     excludedServers = lib.mkOption {
       type = lib.types.listOf lib.types.str;
       default = [
-        "cloudflare"
         "cribl"
-        "docker"
         "everything"
-        "exa"
-        "fetch"
         "filesystem"
-        "firecrawl"
-        "git"
         "github"
         "terraform"
       ];
