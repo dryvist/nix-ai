@@ -39,8 +39,6 @@ in
         allowedDomains = builtins.toJSON (
           {
             "${proxyHost}" = "allow";
-            "api.doppler.com" = "allow";
-            "cli.doppler.com" = "allow";
             "api.github.com" = "allow";
             "github.com" = "allow";
           }
