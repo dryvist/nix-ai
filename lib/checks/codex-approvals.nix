@@ -4,6 +4,7 @@
   mkHmConfig,
 }:
 let
+  sandboxDefaults = import ../../modules/codex/sandbox-defaults.nix;
   overridden = mkHmConfig [
     {
       programs.codex = {
@@ -30,12 +31,11 @@ in
         defaultActivation = hmConfig.config.home.activation.codexConfigMerge.data;
         overrideActivation = overridden.config.home.activation.codexConfigMerge.data;
         expectedRoots = builtins.toJSON (
-          [
-            "${hmConfig.config.home.homeDirectory}/.codex"
-            "/Volumes/git"
-            "${hmConfig.config.home.homeDirectory}/.cache"
-          ]
-          ++ pkgs.lib.optional pkgs.stdenv.hostPlatform.isDarwin "${hmConfig.config.home.homeDirectory}/Library/Application Support/git-town"
+          sandboxDefaults.writableRoots {
+            inherit (pkgs) lib;
+            inherit (hmConfig.config.home) homeDirectory;
+            inherit (pkgs.stdenv.hostPlatform) isDarwin;
+          }
         );
         projectRoot = "/Volumes/git/${hmConfig.config.home.username}";
         passAsFile = [

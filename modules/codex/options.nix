@@ -11,6 +11,7 @@
 }:
 
 let
+  sandboxDefaults = import ./sandbox-defaults.nix;
   mcpClient = import ../mcp/client.nix { inherit lib; };
   hookType = lib.types.nullOr (lib.types.either lib.types.path lib.types.lines);
   nullableStr = lib.types.nullOr lib.types.str;
@@ -80,12 +81,11 @@ in
 
     writableRoots = lib.mkOption {
       type = lib.types.listOf lib.types.str;
-      default = [
-        "${config.home.homeDirectory}/.codex"
-        "/Volumes/git"
-        "${config.home.homeDirectory}/.cache"
-      ]
-      ++ lib.optional pkgs.stdenv.hostPlatform.isDarwin "${config.home.homeDirectory}/Library/Application Support/git-town";
+      default = sandboxDefaults.writableRoots {
+        inherit lib;
+        inherit (config.home) homeDirectory;
+        inherit (pkgs.stdenv.hostPlatform) isDarwin;
+      };
       description = "Writable directories in Codex's workspace-write sandbox, alongside its active XDG config directory.";
     };
 
