@@ -1,9 +1,7 @@
 # Test fixtures for the regression suite in ./checks.nix.
 #
-# Split out of ./checks.nix to stay under the .file-size.yml ceiling. The seam
-# is by responsibility, not by size: this file BUILDS the evaluated
-# home-manager configurations the checks assert against, while ./checks.nix
-# decides which check groups run and wires each one to the fixtures it needs.
+# This file BUILDS the evaluated home-manager configurations the checks assert
+# against; ./checks.nix decides which check groups run and wires their fixtures.
 #
 # `rec` because the fixtures are layered — mkHmConfig sits on mkHmConfigWith,
 # and most hmConfig* sit on mkHmConfig.
@@ -31,8 +29,7 @@ rec {
   # Placeholder physical model id for regression tests. The real value is
   # sourced by consumers (nix-darwin) from AI_MODEL_LOCAL_LLM; tests only need
   # a valid non-empty mlx-community/* string to populate services.aiStack and
-  # exercise lib/ai-stack-models.nix (a function since the role registry was
-  # parameterized).
+  # exercise lib/ai-stack-models.nix.
   testLocalModelId = "mlx-community/test-model";
 
   # Shared test module configuration — used by claude, mlx, and fabric regression
@@ -113,6 +110,10 @@ rec {
               "--"
             ];
             vikunja.disabled = lib.mkForce false;
+            youtrack = {
+              disabled = lib.mkForce false;
+              env.YOUTRACK_MCP_URL = "https://example.invalid/mcp";
+            };
           };
           # A consumer appending one name, exactly as a host does, must keep
           # the curated list (lib/checks/mcp.nix mcp-on-demand-merge).

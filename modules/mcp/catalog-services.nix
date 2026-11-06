@@ -5,6 +5,7 @@
 # not imported directly; it takes the helpers it needs as arguments.
 
 {
+  pkgs,
   codexMcp,
   versions,
   mcpNpmPkgs,
@@ -65,6 +66,25 @@
       "VIKUNJA_API_TOKEN"
       "VIKUNJA_URL"
     ];
+    disabled = true;
+  };
+
+  # ================================================================
+  # YouTrack - built-in Streamable HTTP, owned by youtrack-specialist.
+  # Only youtrack-specialist loads it. The host's launchPrefix supplies the
+  # token to this child only; never export it into the harness environment.
+  # YOUTRACK_MCP_URL (servers.youtrack.env) is the full /mcp endpoint, set privately.
+  # ================================================================
+  youtrack = codexMcp {
+    command = "sh";
+    args = [
+      "-c"
+      ''exec ${
+        pkgs.lib.getExe (import ./mcp-remote.nix { inherit pkgs; })
+      } "$YOUTRACK_MCP_URL" --header "Authorization:Bearer $YOUTRACK_TOKEN"''
+    ];
+    # The URL is not secret: the host sets servers.youtrack.env.YOUTRACK_MCP_URL.
+    env_vars = [ "YOUTRACK_TOKEN" ];
     disabled = true;
   };
 

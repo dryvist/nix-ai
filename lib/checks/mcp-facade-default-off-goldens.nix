@@ -5,11 +5,11 @@
 # is 24f21905. The Home Manager assertions and projections were deepSeq'd for
 # both systems before comparing. These values match the earlier 37b952fc
 # baseline, now verified at the exact source base for this candidate.
-# flakeLockSha256 was re-pinned after the nix-herdr follows update; the
+# flakeLockSha256 was re-pinned after the ai-llm-prompts update; the
 # projection digests below were recomputed from the candidate and are unchanged.
 {
   baseCommit = "bd39621af5358bf01af73899f1761430ec6fae3d";
-  flakeLockSha256 = "47a432fc8839c7b197e7e4fa28ca2b15291eb612dd75c0d231859a8efb7b2a5f";
+  flakeLockSha256 = "0ab00451c786a9554da5d909f745972939e38c2fa73c1acd0b5e6f4e43890dcf";
   projections = {
     aarch64-darwin = {
       bytes = 3357;
