@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.17.0](https://github.com/dryvist/nix-ai/compare/v8.16.1...v8.17.0) (2026-11-06)
+
+
+### Features
+
+* **skills:** enable official authoring skills across harnesses ([#2841](https://github.com/dryvist/nix-ai/issues/2841)) ([6ebb756](https://github.com/dryvist/nix-ai/commit/6ebb756fc23e2b74a8cda90875ea44dcae1d09fb))
+
 ## [8.16.1](https://github.com/dryvist/nix-ai/compare/v8.16.0...v8.16.1) (2026-11-06)
 
 
