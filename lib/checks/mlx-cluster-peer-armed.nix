@@ -6,7 +6,7 @@
 }:
 let
   helpers = import ./helpers.nix { inherit pkgs; };
-  agents = hmConfigCluster.config.launchd.agents;
+  inherit (hmConfigCluster.config.launchd) agents;
   responder = agents.mlx-cluster-peer-state.config;
   responderEnv = responder.EnvironmentVariables;
   ncfg = hmConfigCluster.config.programs.mlx.clusterMode;
@@ -76,7 +76,7 @@ in
       ) assertionMessages
       || throw "cluster: coordinator SSH must default empty and reject worker configuration";
     assert
-      responder.RunAtLoad == true && responder.KeepAlive == true
+      responder.RunAtLoad && responder.KeepAlive
       || throw "cluster: peer-state responder must stay resident for the join poll";
     helpers.mkMarker "check-mlx-cluster-peer-armed-env" "peer-state responder binds the point-to-point address, serves the shared path and port, and publishes the software contract";
 }

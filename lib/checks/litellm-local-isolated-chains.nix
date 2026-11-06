@@ -47,7 +47,7 @@ let
     ];
 
   rendered = (mkChainConfig { qwen = qwenChain; }).config.programs.litellmLocal.renderedConfig;
-  fallbacks = rendered.litellm_settings.fallbacks;
+  inherit (rendered.litellm_settings) fallbacks;
   contextFallbacks = rendered.litellm_settings.context_window_fallbacks;
 
   chainFallbackPresent = lib.elem { "qwen-local" = [ "qwen-homelab" ]; } fallbacks;

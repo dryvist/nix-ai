@@ -8,7 +8,6 @@ tags:
   - documentation
 
 model:
-  endpoint: http://127.0.0.1:11434/v1
   size: medium
   temperature: 0.5
   max_tokens: 4096

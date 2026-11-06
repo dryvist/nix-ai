@@ -12,8 +12,10 @@
 # line and never removes or moves anything.
 #
 # Deliberately narrow:
-#   - Only regular writable files. Store paths are already marked at source and
-#     are read-only; skipping them keeps this from fighting the derivation.
+#   - Only regular files in a writable directory. Store paths are already marked
+#     at source and sit in read-only directories; skipping them keeps this from
+#     fighting the derivation. Marking also needs a writable file; unmarking a
+#     keep-listed skill does not, so a read-only cache copy still converges.
 #   - Only the frontmatter block is inspected, so a skill whose *body*
 #     documents the key is still marked (the bug fixed in #2066).
 #   - KEEP_LISTED names are never touched.
@@ -32,7 +34,9 @@ unmarked=0
 while IFS= read -r -d '' f; do
   # Never write through a store symlink: that content is the derivation's.
   [ -L "$f" ] && continue
-  [ -w "$f" ] || continue
+  # Replacing a file needs a writable directory, not a writable file: a cache
+  # copy made from the store is mode 0444 and must still converge.
+  [ -w "$(dirname "$f")" ] || continue
 
   name="$(basename "$(dirname "$f")")"
   case " ${KEEP_LISTED:-} " in
@@ -53,7 +57,7 @@ while IFS= read -r -d '' f; do
                 NR==1 { print; fm=1; next }
                 fm && /^---$/ { fm=0; print; next }
                 fm && /^disable-model-invocation:[[:space:]]*true[[:space:]]*$/ { next }
-                { print }' "$f" >"$tmp" 2>/dev/null && mv "$tmp" "$f"; then
+                { print }' "$f" >"$tmp" 2>/dev/null && mv -f "$tmp" "$f"; then
           unmarked=$((unmarked + 1))
         else
           rm -f "$tmp"
@@ -64,6 +68,8 @@ while IFS= read -r -d '' f; do
       ;;
   esac
 
+  # Marking only touches files that are themselves writable.
+  [ -w "$f" ] || continue
   [ "$(head -n 1 "$f")" = "---" ] || continue
 
   # Frontmatter block only — a body mention must not suppress marking.

@@ -17,8 +17,8 @@ let
     let
       server = config.programs.aiMcp.facadeServer;
       keyEnv = mcpClient.callerKeyEnvFor {
-        callerId = config.programs.claude.callerId;
-        callerRegistry = config.programs.aiMcp.callerRegistry;
+        inherit (config.programs.claude) callerId;
+        inherit (config.programs.aiMcp) callerRegistry;
       };
     in
     server
@@ -88,6 +88,14 @@ let
   };
   mcpServerNames = lib.attrNames mcpServers;
 
+  # Specialist-owned servers render into their specialist agent's frontmatter only.
+  specialistMcpServers = mcpClient.renderServers {
+    enabledServers = config.programs.aiMcp.specialistServers;
+    excluded = config.programs.claude.excludedMcpServers;
+    normalize = normalizeClaudeMcpServer;
+    client = "claude";
+  };
+
   # Servers held out of the always-on profile (programs.aiMcp.onDemandServers)
   # are still rendered, one ready-to-attach file each, so nothing a session
   # might need becomes unreachable:
@@ -112,7 +120,12 @@ in
   # A selected facade owns Claude's final attrsOf map even if downstream
   # modules define programs.claude.mcpServers entries.
   mcpServers = if facadeCanarySelected then lib.mkForce mcpServers else mcpServers;
-  inherit mcpServerNames onDemandMcpFiles onDemandMcpServerNames;
+  inherit
+    mcpServerNames
+    onDemandMcpFiles
+    onDemandMcpServerNames
+    specialistMcpServers
+    ;
   enabledMcpjsonServers =
     if facadeCanarySelected then
       onDemandMcpServerNames

@@ -8,7 +8,6 @@ tags:
   - security
 
 model:
-  endpoint: http://127.0.0.1:11434/v1
   model: mlx-community/Qwen2.5-Coder-32B-Instruct-4bit
   size: medium
   temperature: 0.3

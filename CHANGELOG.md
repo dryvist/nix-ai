@@ -1,5 +1,115 @@
 # Changelog
 
+## [8.17.0](https://github.com/dryvist/nix-ai/compare/v8.16.1...v8.17.0) (2026-11-06)
+
+
+### Features
+
+* **skills:** enable official authoring skills across harnesses ([#2841](https://github.com/dryvist/nix-ai/issues/2841)) ([6ebb756](https://github.com/dryvist/nix-ai/commit/6ebb756fc23e2b74a8cda90875ea44dcae1d09fb))
+
+## [8.16.1](https://github.com/dryvist/nix-ai/compare/v8.16.0...v8.16.1) (2026-11-06)
+
+
+### Bug Fixes
+
+* **codex:** drop the Doppler allowlist from the local proxy ([#2831](https://github.com/dryvist/nix-ai/issues/2831)) ([646b920](https://github.com/dryvist/nix-ai/commit/646b920c41c1fea31b1c400e377280a6640ba5c9))
+* **flake:** track nix-herdr main and share the unstable root ([#2836](https://github.com/dryvist/nix-ai/issues/2836)) ([5148ed9](https://github.com/dryvist/nix-ai/commit/5148ed94908b6e727c91f238ad8f9e7d3de4bc86))
+* **herdr:** use upstream context lines and drop repeat hails within 15 minutes ([#2829](https://github.com/dryvist/nix-ai/issues/2829)) ([177427a](https://github.com/dryvist/nix-ai/commit/177427a7e3c391db51dae8f13621ff61beb206a2))
+* **mcp:** remove dead catalog servers and require exact versions ([#2827](https://github.com/dryvist/nix-ai/issues/2827)) ([8f22853](https://github.com/dryvist/nix-ai/commit/8f2285337086591f314950586ed2f3326b76965c))
+
+## [8.16.0](https://github.com/dryvist/nix-ai/compare/v8.15.0...v8.16.0) (2026-11-05)
+
+
+### Features
+
+* **mcp:** accept additive caller-record fields from homelab-contracts ([#2826](https://github.com/dryvist/nix-ai/issues/2826)) ([a4b608a](https://github.com/dryvist/nix-ai/commit/a4b608a30653552b48e7301d8f7fd4bb42bf7c70))
+
+## [8.15.0](https://github.com/dryvist/nix-ai/compare/v8.14.1...v8.15.0) (2026-11-04)
+
+
+### Features
+
+* **agent:** autonomous zcode run j-aa64f8071156b338 ([#2819](https://github.com/dryvist/nix-ai/issues/2819)) ([c9b8d3b](https://github.com/dryvist/nix-ai/commit/c9b8d3b3642c8b896b738e46e0a608628b84ef36))
+* **agent:** zcode run j-aa64f8071156b338 ([c9b8d3b](https://github.com/dryvist/nix-ai/commit/c9b8d3b3642c8b896b738e46e0a608628b84ef36))
+* **antigravity-cli:** route built-in subagents to the local-only group ([#2818](https://github.com/dryvist/nix-ai/issues/2818)) ([246288c](https://github.com/dryvist/nix-ai/commit/246288c05d901425624858b8f548b2335a91ebf5))
+* **claude:** allow cross-repo feature-branch work in auto mode ([#2816](https://github.com/dryvist/nix-ai/issues/2816)) ([64faa6b](https://github.com/dryvist/nix-ai/commit/64faa6bc7c1f611f49abb235aaa398084786a510))
+* **claude:** enable agent teams and bump autocompact to 70% ([#2805](https://github.com/dryvist/nix-ai/issues/2805)) ([d4d1263](https://github.com/dryvist/nix-ai/commit/d4d126358bf34e354f0d927725e1dd9f8ac3fadf))
+* **claude:** let Claude Code upgrade its Homebrew cask itself ([#2823](https://github.com/dryvist/nix-ai/issues/2823)) ([f298fdd](https://github.com/dryvist/nix-ai/commit/f298fddda19642428cf1a7cd07fc84b300e8b2f8))
+* **mlx:** allow three static residents behind a cluster guard ([#2807](https://github.com/dryvist/nix-ai/issues/2807)) ([8964924](https://github.com/dryvist/nix-ai/commit/896492465d721f52822e8133084bc8c690921c6f))
+* **mlx:** make the prompt-cache slot count per model ([#2811](https://github.com/dryvist/nix-ai/issues/2811)) ([212f2ef](https://github.com/dryvist/nix-ai/commit/212f2ef2bbca09aeb8c47bdc19fa37858b84df81))
+* route native subagents to the local-only group ([#2814](https://github.com/dryvist/nix-ai/issues/2814)) ([c0edf80](https://github.com/dryvist/nix-ai/commit/c0edf8082f339f78558c1c356f07f4b4a59ea1e1))
+
+
+### Bug Fixes
+
+* **release:** drop the pinned release-as version ([#2820](https://github.com/dryvist/nix-ai/issues/2820)) ([f859204](https://github.com/dryvist/nix-ai/commit/f859204338f7e8895607c53a42869435fe8fc8a3))
+
+## [8.14.1](https://github.com/dryvist/nix-ai/compare/v8.14.1...v8.14.1) (2026-11-04)
+
+
+### Features
+
+* **claude:** allow cross-repo feature-branch work in auto mode ([#2816](https://github.com/dryvist/nix-ai/issues/2816)) ([64faa6b](https://github.com/dryvist/nix-ai/commit/64faa6bc7c1f611f49abb235aaa398084786a510))
+* **claude:** enable agent teams and bump autocompact to 70% ([#2805](https://github.com/dryvist/nix-ai/issues/2805)) ([d4d1263](https://github.com/dryvist/nix-ai/commit/d4d126358bf34e354f0d927725e1dd9f8ac3fadf))
+* **mlx:** allow three static residents behind a cluster guard ([#2807](https://github.com/dryvist/nix-ai/issues/2807)) ([8964924](https://github.com/dryvist/nix-ai/commit/896492465d721f52822e8133084bc8c690921c6f))
+* **mlx:** make the prompt-cache slot count per model ([#2811](https://github.com/dryvist/nix-ai/issues/2811)) ([212f2ef](https://github.com/dryvist/nix-ai/commit/212f2ef2bbca09aeb8c47bdc19fa37858b84df81))
+* route native subagents to the local-only group ([#2814](https://github.com/dryvist/nix-ai/issues/2814)) ([c0edf80](https://github.com/dryvist/nix-ai/commit/c0edf8082f339f78558c1c356f07f4b4a59ea1e1))
+
+## [8.14.1](https://github.com/dryvist/nix-ai/compare/v8.14.1...v8.14.1) (2026-11-03)
+
+
+### Features
+
+* **claude:** enable agent teams and bump autocompact to 70% ([#2805](https://github.com/dryvist/nix-ai/issues/2805)) ([d4d1263](https://github.com/dryvist/nix-ai/commit/d4d126358bf34e354f0d927725e1dd9f8ac3fadf))
+* **mlx:** allow three static residents behind a cluster guard ([#2807](https://github.com/dryvist/nix-ai/issues/2807)) ([8964924](https://github.com/dryvist/nix-ai/commit/896492465d721f52822e8133084bc8c690921c6f))
+* **mlx:** make the prompt-cache slot count per model ([#2811](https://github.com/dryvist/nix-ai/issues/2811)) ([212f2ef](https://github.com/dryvist/nix-ai/commit/212f2ef2bbca09aeb8c47bdc19fa37858b84df81))
+
+## [8.14.1](https://github.com/dryvist/nix-ai/compare/v8.14.1...v8.14.1) (2026-11-03)
+
+
+### Features
+
+* **claude:** enable agent teams and bump autocompact to 70% ([#2805](https://github.com/dryvist/nix-ai/issues/2805)) ([d4d1263](https://github.com/dryvist/nix-ai/commit/d4d126358bf34e354f0d927725e1dd9f8ac3fadf))
+
+## [8.14.1](https://github.com/dryvist/nix-ai/compare/v8.14.0...v8.14.1) (2026-11-02)
+
+
+### Bug Fixes
+
+* **claude:** unmark keep-listed skills in read-only cache copies ([#2800](https://github.com/dryvist/nix-ai/issues/2800)) ([01f989e](https://github.com/dryvist/nix-ai/commit/01f989e26fdce4d1e186fbb2d6d0822019856851))
+* **deps:** bump nix-agent-sandbox to v1.10.6 ([#2802](https://github.com/dryvist/nix-ai/issues/2802)) ([9c0c425](https://github.com/dryvist/nix-ai/commit/9c0c4251f8a8ca10c17cd99c36bae0310776ba12))
+* **release:** release 8.14.1 for the nix-agent-sandbox v1.10.5 bump ([#2799](https://github.com/dryvist/nix-ai/issues/2799)) ([5e30b32](https://github.com/dryvist/nix-ai/commit/5e30b32242abb561fa0806b76b2d437e7bd707f8))
+
+## [8.14.0](https://github.com/dryvist/nix-ai/compare/v8.13.2...v8.14.0) (2026-11-02)
+
+
+### Features
+
+* **herdr-hail:** add an optional local-model summary to Slack posts ([#2796](https://github.com/dryvist/nix-ai/issues/2796)) ([04320af](https://github.com/dryvist/nix-ai/commit/04320afe401f7e7037a3e568942ba659a3eb3875))
+* **herdr-hail:** add local blocked-agent summaries ([04320af](https://github.com/dryvist/nix-ai/commit/04320afe401f7e7037a3e568942ba659a3eb3875))
+
+## [8.13.2](https://github.com/dryvist/nix-ai/compare/v8.13.1...v8.13.2) (2026-11-02)
+
+
+### Bug Fixes
+
+* **antigravity-cli:** remove the doppler command permission ([#2790](https://github.com/dryvist/nix-ai/issues/2790)) ([49b2ee2](https://github.com/dryvist/nix-ai/commit/49b2ee26a9697db71e9ec3b6da13e134344a9f14))
+* **litellm-local:** move the proxy to its allocated port and derive one local client URL ([#2791](https://github.com/dryvist/nix-ai/issues/2791)) ([70ce19f](https://github.com/dryvist/nix-ai/commit/70ce19f007c48e0dd8e42328c7e2a29adad62ed5))
+
+## [8.13.1](https://github.com/dryvist/nix-ai/compare/v8.13.0...v8.13.1) (2026-11-02)
+
+
+### Bug Fixes
+
+* **mlx:** point gh-guard judge client at the judge resident ([#2788](https://github.com/dryvist/nix-ai/issues/2788)) ([66a5327](https://github.com/dryvist/nix-ai/commit/66a53272754d2c407779c3e052e600a28505c5ed))
+
+## [8.13.0](https://github.com/dryvist/nix-ai/compare/v8.12.0...v8.13.0) (2026-11-01)
+
+
+### Features
+
+* **mcp:** render specialist subagents that own their MCP servers ([#2785](https://github.com/dryvist/nix-ai/issues/2785)) ([844209f](https://github.com/dryvist/nix-ai/commit/844209f668c8099af533af6c7b873bb017bcdc2e))
+
 ## [8.12.0](https://github.com/dryvist/nix-ai/compare/v8.11.3...v8.12.0) (2026-11-01)
 
 

@@ -24,10 +24,10 @@ let
 
   otelPlugins = import ./otel-plugin.nix {
     inherit lib userConfig;
-    username = config.home.username;
+    inherit (config.home) username;
   };
 
-  agentSkills = config.programs.agentSkills;
+  inherit (config.programs) agentSkills;
   skillRoot = ".${agentSkills.root}/skills";
   userInvokedSkills = builtins.filter (
     skill: skill.userInvoked && agentSkills.deployedSkillPaths ? "${skillRoot}/${skill.name}"
@@ -35,7 +35,7 @@ let
 
   skillCommands = import ./skill-commands.nix {
     inherit lib skillRoot userInvokedSkills;
-    homeDirectory = config.home.homeDirectory;
+    inherit (config.home) homeDirectory;
   };
   mcpClient = import ../mcp/client.nix { inherit lib; };
 
@@ -62,7 +62,7 @@ let
   sandboxedOpencode = import ./sandbox.nix { inherit pkgs lib; } {
     inherit (cfg) package;
     home = config.home.homeDirectory;
-    workRoot = cfg.sandbox.workRoot;
+    inherit (cfg.sandbox) workRoot;
     readRules = [
       {
         kind = "subpath";
@@ -154,7 +154,11 @@ let
     "go-deepseek-flash"
   ];
   routerModels = lib.unique (litellmRoles ++ routerGoAliases ++ cfg.extraModels);
-  localMlxModels = lib.unique (litellmRoles ++ cfg.extraModels);
+  localMlxModels = lib.unique (
+    litellmRoles
+    ++ lib.optional (litellmLocal.subagentModel != null) litellmLocal.subagentModel
+    ++ cfg.extraModels
+  );
   goModelAttrs =
     models:
     lib.listToAttrs (
@@ -213,7 +217,7 @@ let
         npm = "@ai-sdk/openai-compatible";
         name = "MLX (local)";
         options = {
-          baseURL = litellmLocal.baseUrl;
+          baseURL = config.services.aiStack.localRouterUrl;
           apiKey = "{env:LITELLM_LOCAL_KEY}";
         };
         models = lib.genAttrs localMlxModels (name: {
@@ -221,11 +225,20 @@ let
         });
       };
     };
-    agent = lib.genAttrs litellmRoles (role: {
-      description = "Delegate to the router's `${role}` capability (resolved upstream, never a physical model)";
-      mode = "subagent";
-      model = "litellm/${role}";
-    });
+    agent =
+      lib.genAttrs litellmRoles (role: {
+        description = "Delegate to the router's `${role}` capability (resolved upstream, never a physical model)";
+        mode = "subagent";
+        model = "litellm/${role}";
+      })
+      # The built-in subagents the Task tool runs by name use the derived group.
+      // lib.optionalAttrs (litellmLocal.subagentModel != null) (
+        lib.genAttrs [ "general" "explore" ] (name: {
+          description = "${name} subagent, run on the local-only group";
+          mode = "subagent";
+          model = "mlx/${litellmLocal.subagentModel}";
+        })
+      );
     # LSP integration is off by default upstream; this enables every built-in
     # server. A server only activates when its binary is on PATH, so the set
     # in use is whatever nix-home ships globally (see its core.nix "Language

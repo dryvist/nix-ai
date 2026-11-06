@@ -21,7 +21,7 @@ let
   helperPath = "${hmConfig.config.home.homeDirectory}/${skillRoot}/fast-subagent/scripts/fast-subagent.sh";
   proxyAuthority = builtins.head (
     pkgs.lib.strings.splitString "/" (
-      pkgs.lib.strings.removePrefix "http://" hmConfig.config.programs.litellmLocal.baseUrl
+      pkgs.lib.strings.removePrefix "http://" hmConfig.config.services.aiStack.localRouterUrl
     )
   );
   proxyHost = builtins.head (pkgs.lib.strings.splitString ":" proxyAuthority);
@@ -39,8 +39,6 @@ in
         allowedDomains = builtins.toJSON (
           {
             "${proxyHost}" = "allow";
-            "api.doppler.com" = "allow";
-            "cli.doppler.com" = "allow";
             "api.github.com" = "allow";
             "github.com" = "allow";
           }
@@ -75,12 +73,12 @@ in
       ''
         settings=$(grep -m1 -oE '/nix/store/[^"[:space:]]*antigravity-settings\.json' "$activationPath")
         jq -e --arg skill "$skillDir" --arg helper "$helperPath" --arg agents "$agentsMd" '
-          .permissions.allow[0:4] == [
-            "command(doppler)",
+          .permissions.allow[0:3] == [
             "read_file(\($skill)/SKILL.md)",
             "read_file(\($skill)/scripts/fast-subagent.sh)",
             "command(\($helper))"
           ]
+          and (.permissions.allow | index("command(doppler)") == null)
           and (.permissions.allow | index("read_file(\($agents))") != null)
         ' "$settings" >/dev/null
         touch $out

@@ -14,12 +14,12 @@ through client CLIs may be overwritten on the next rebuild.
 
 ### stdio (local processes)
 
-Run a local command as the MCP server. Use the `official` helper for Anthropic servers,
-or write inline attribute sets for custom servers:
+Run a local command as the MCP server. Use the `bunx` helper for npm packages, pinned to an
+exact version in `lib/versions.nix`, or write inline attribute sets for custom servers:
 
 ```nix
-# Official Anthropic server via bunx
-fetch = official "fetch";
+# npm package via bunx, pinned
+everything = bunx [ "@modelcontextprotocol/server-everything@${versions.mcpEverything}" ];
 
 # nixpkgs binary (resolved via PATH)
 github = { command = "github-mcp-server"; };
@@ -107,16 +107,16 @@ The catalog is wider than the default profile. Servers are excluded when:
 To disable a server everywhere, prefer the shared profile:
 
 ```nix
-programs.aiMcp.excludedServers = [ "postgresql" ];
+programs.aiMcp.excludedServers = [ "terraform" ];
 ```
 
 To omit a shared server from one renderer, use its `excludedMcpServers` option:
 
 ```nix
-programs.codex.excludedMcpServers = [ "postgresql" ];
-programs.antigravity-cli.excludedMcpServers = [ "postgresql" ];
-programs.antigravity-ide.excludedMcpServers = [ "postgresql" ];
-programs.qwen-code.excludedMcpServers = [ "postgresql" ];
+programs.codex.excludedMcpServers = [ "terraform" ];
+programs.antigravity-cli.excludedMcpServers = [ "terraform" ];
+programs.antigravity-ide.excludedMcpServers = [ "terraform" ];
+programs.qwen-code.excludedMcpServers = [ "terraform" ];
 ```
 
 Use per-agent exclusions for client incompatibility; use
@@ -126,7 +126,7 @@ To enable a catalog-disabled server, use `lib.mkForce` to override the
 catalog's plain assignments (priority 100):
 
 ```nix
-programs.aiMcp.servers.postgresql.disabled = lib.mkForce false;
+programs.aiMcp.servers.google-workspace.disabled = lib.mkForce false;
 ```
 
 ## Secrets Management
@@ -223,7 +223,7 @@ Two CLI tools work together for local MLX model workflows:
 hf download "$MLX_DEFAULT_MODEL"
 
 # 3. Query it through the local llama-swap proxy
-curl http://127.0.0.1:11434/v1/models
+curl "${MLX_API_URL}/models"
 ```
 
 `hf` is a `uvx` wrapper defined in `ai-tools.nix`; the server is the programs.mlx LaunchAgent.

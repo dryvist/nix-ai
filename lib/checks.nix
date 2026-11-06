@@ -40,6 +40,7 @@ let
     hmConfigSessionSync
     hmConfigSessionArchive
     hmConfigLitellmLocal
+    hmConfigLitellmSubagents
     hmConfigRouter
     hmConfigQwenRouter
     hmConfigQwenMissingResident
@@ -131,6 +132,7 @@ in
 // (import ./checks/ai-stack-endpoint.nix { inherit pkgs; })
 // (import ./checks/ai-stack-drift-check.nix { inherit pkgs src; })
 // (import ./checks/claude.nix { inherit pkgs hmConfig; })
+// (import ./checks/claude-code-channel.nix { inherit pkgs hmConfig; })
 // (import ./checks/telemetry.nix { inherit pkgs mkHmConfigWith; })
 // (import ./checks/codex-otel.nix { inherit pkgs mkHmConfigWith; })
 // (import ./checks/opencode-otel.nix { inherit pkgs mkHmConfigWith; })
@@ -149,6 +151,14 @@ in
 })
 // (import ./checks/installed-cache-marking.nix { inherit pkgs src; })
 // (import ./checks/agent-skills.nix {
+  inherit
+    pkgs
+    hmConfig
+    hmConfigAgentSkillsShared
+    ;
+})
+// (import ./checks/agent-skills-authoring.nix {
+  marketplaceInputs = aiModule._module.args.marketplaceInputs;
   inherit
     pkgs
     hmConfig
@@ -196,6 +206,9 @@ in
   inherit pkgs;
   hmConfigDarwin = hmConfigDarwinHerdr;
 })
+// (import ./checks/herdr-hail-dedupe.nix {
+  inherit pkgs;
+})
 // (import ./checks/qwen-code.nix {
   inherit
     pkgs
@@ -236,12 +249,20 @@ in
     hmConfigVctCli
     ;
 })
+// (import ./checks/mcp-catalog-pins.nix { inherit pkgs; })
 // (import ./checks/mcp.nix {
   inherit
     pkgs
     hmConfig
     hmConfigMcpLaunchPrefix
     mkHmConfig
+    ;
+})
+// (import ./checks/specialists.nix {
+  inherit
+    pkgs
+    hmConfig
+    hmConfigMcpLaunchPrefix
     ;
 })
 // (import ./checks/autonomous-profile.nix {
@@ -300,6 +321,17 @@ in
     ;
 })
 // (import ./checks/litellm-local-endpoint.nix { inherit pkgs hmConfigLitellmLocal; })
+// (import ./checks/litellm-local-subagents.nix { inherit pkgs hmConfigLitellmSubagents; })
+// (import ./checks/local-router-url.nix {
+  inherit
+    pkgs
+    src
+    hmConfig
+    hmConfigLitellmLocal
+    hmConfigStaticServing
+    mkHmConfig
+    ;
+})
 // (import ./checks/litellm-local-negative.nix { inherit pkgs mkHmConfig; })
 // (import ./checks/litellm-local-isolated-chains.nix { inherit pkgs mkHmConfig; })
 // (import ./checks/litellm-local-launch-prefix.nix { inherit pkgs mkHmConfig; })

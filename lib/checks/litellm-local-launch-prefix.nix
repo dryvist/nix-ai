@@ -1,10 +1,10 @@
 # litellm-local — bearer from a launch prefix instead of a token file.
 #
 # With services.aiStack.llmEndpointBearerFromEnv and
-# programs.litellmLocal.launchPrefix, the proxy agent must start with the
-# prefix and carry no OPENAI_API_KEY of its own. Without a
-# prefix the same config must fail its assertion rather than start a proxy
-# that has no bearer.
+# programs.litellmLocal.launchPrefix, the proxy agent starts with the prefix
+# and carries no OPENAI_API_KEY of its own. An external process wrapper can
+# also provide the bearer, so the module accepts env-bearer mode without its
+# own launchPrefix; the start script still fails if the variable is missing.
 {
   pkgs,
   mkHmConfig,
@@ -34,9 +34,11 @@ let
   route =
     (mk prefix).config.programs.litellmLocal.renderedConfig.general_settings.pass_through_endpoints;
   args = agent.ProgramArguments;
-  noPrefixRejected =
-    !(builtins.tryEval (builtins.deepSeq (mk [ ]).config.launchd.agents.litellm-local.config true))
+  noPrefixAccepted =
+    (builtins.tryEval (builtins.deepSeq (mk [ ]).config.launchd.agents.litellm-local.config true))
     .success;
+  noPrefixRoute =
+    (mk [ ]).config.programs.litellmLocal.renderedConfig.general_settings.pass_through_endpoints;
 in
 {
   litellm-local-launch-prefix =
@@ -66,7 +68,10 @@ in
       !(agent.EnvironmentVariables ? OPENAI_API_KEY)
       || throw "litellm-local: the proxy agent must not carry OPENAI_API_KEY in EnvironmentVariables";
     assert
-      noPrefixRejected
-      || throw "litellm-local: llmEndpointBearerFromEnv without launchPrefix must fail its assertion";
-    helpers.mkMarker "check-litellm-local-launch-prefix" "litellm-local: launchPrefix leads the agent, the bearer comes only from the environment, and a missing prefix is rejected";
+      noPrefixAccepted
+      || throw "litellm-local: external env-bearer delivery must not require the module's launchPrefix";
+    assert
+      noPrefixRoute == route
+      || throw "litellm-local: external env-bearer delivery must enable router pass-through";
+    helpers.mkMarker "check-litellm-local-launch-prefix" "litellm-local: module and external wrappers can deliver the bearer through the environment";
 }

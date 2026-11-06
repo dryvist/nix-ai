@@ -2,11 +2,21 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import yaml
+
+
+def local_router_url() -> str:
+    """Return the local API URL exported by the host AI-stack configuration."""
+    endpoint = os.environ.get("MLX_API_URL")
+    if not endpoint:
+        msg = "MLX_API_URL is unset; configure it from services.aiStack.localRouterUrl."
+        raise RuntimeError(msg)
+    return endpoint
 
 
 def load_yaml_file(path: str | Path) -> dict[str, Any]:

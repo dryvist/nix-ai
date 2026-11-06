@@ -8,7 +8,7 @@
 }:
 let
   helpers = import ./helpers.nix { inherit pkgs; };
-  litellmLocal = hmConfigLitellmLocal.config.programs.litellmLocal;
+  inherit (hmConfigLitellmLocal.config.programs) litellmLocal;
   localEndpointIsNotProxy =
     litellmLocal.localEndpoint != "http://127.0.0.1:${toString litellmLocal.port}/v1";
 in

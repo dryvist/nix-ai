@@ -21,7 +21,7 @@
 # than mistaken for a dead rung.
 set -euo pipefail
 
-BASE="${LITELLM_LOCAL_URL:-http://127.0.0.1:11434}"
+BASE="${LITELLM_LOCAL_URL:?litellm-fallback-probe: LITELLM_LOCAL_URL not set}"
 TOKEN="${LITELLM_LOCAL_TOKEN:-local}"
 # Reasoning models spend output tokens before emitting content; too small a cap
 # returns finish_reason=length with empty content and looks like a failure.

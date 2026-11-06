@@ -40,7 +40,7 @@ let
     agent: lib.hasPrefix "dev.mlx-model-server" agent.config.Label
   ) (builtins.attrValues noProxyNoConsumersHm.config.launchd.agents);
   cfg = hmConfigStaticServing.config.programs.mlx;
-  agents = hmConfigStaticServing.config.launchd.agents;
+  inherit (hmConfigStaticServing.config.launchd) agents;
   agentsDeepSeq = builtins.deepSeq agents true;
   inherit (import ../../modules/mlx/serving-label.nix { inherit lib; }) isServingLabel;
   servingAgents = builtins.filter (agent: agent.enable && isServingLabel agent.config.Label) (
@@ -96,7 +96,7 @@ let
     unset HF_HUB_CACHE
     model="modelcache-fixture/missing-model"
     snapshot_dir="$HF_HOME/hub/models--modelcache-fixture--missing-model/snapshots"
-    if ${preflightServer} "$PWD/model-server-stub" --model "$model" 2>missing.log; then
+    if HOME="$PWD/fake-home" ${preflightServer} "$PWD/model-server-stub" --model "$model" 2>missing.log; then
       echo "old behavior: resident server reached its listener with an absent cache" >&2
       exit 1
     fi
@@ -104,7 +104,8 @@ let
       echo "resident server reached its listener with an absent cache" >&2
       exit 1
     }
-    printf 'mlx-model-server-preflight: model %s is missing from HF cache; expected a snapshot at %s/*\n' "$model" "$snapshot_dir" > expected.log
+    printf 'mlx-model-server-preflight: allow model=%s link-state=missing armed=missing cluster=not-clustered\n' "$model" > expected.log
+    printf 'mlx-model-server-preflight: model %s is missing from HF cache; expected a snapshot at %s/*\n' "$model" "$snapshot_dir" >> expected.log
     diff -u expected.log missing.log
     mkdir -p "$snapshot_dir/revision-fixture"
     ${preflightServer} "$PWD/model-server-stub" --model "$model"
@@ -163,10 +164,11 @@ in
       && limits.aliases.recorder == small9b.model
       && limits.aliases.medium == qwen.model
       && limits.aliases.small == small9b.model
+      && limits.routerUrl == hmConfigStaticServing.config.services.aiStack.localRouterUrl
       &&
-        limits.routerUrl
-        == "http://127.0.0.1:${toString hmConfigStaticServing.config.programs.litellmLocal.port}/v1"
-      && limits.clients.ghGuard.url == "${limits.routerUrl}/chat/completions"
+        limits.clients.ghGuard.url == "http://127.0.0.1:${toString small9b.servicePort}/v1/chat/completions"
+      && limits.clients.ghGuard.model == small9b.model
+      && small9b.servicePort != hmConfigStaticServing.config.programs.litellmLocal.port
       && limits.clients.ghGuard.timeoutSeconds == small9b.timeoutSeconds
       && limits.clients.recorder.identity == "recorder"
       && limits.clients.recorder.models.medium == "medium"

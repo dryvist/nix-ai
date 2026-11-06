@@ -25,7 +25,7 @@ identically, every time.
 | **Qwen Code & Cecli** | Settings for the Alibaba and Aider-fork CLIs |
 | **MCP Servers** | One [catalog](modules/mcp/README.md) (GitHub, Terraform, Context7, filesystem, memory, …) fanned out to every agent |
 | **AI Dev Tools** | cclint, rulesync, and more |
-| **MLX** *(macOS)* | Local Apple Silicon inference via mlx_lm.server behind llama-swap, with launchd integration |
+| **MLX** *(macOS)* | Local Apple Silicon inference via always-loaded mlx_lm.server residents, with launchd integration |
 
 Claude Code, Codex and Antigravity CLI are always configured. The other agent CLIs
 (Copilot, OpenCode, Qwen Code, Cecli, claude-zai, claude-flow) are
@@ -131,7 +131,7 @@ modules/
 ├── cecli/          # Cecli (Aider fork)
 ├── qwen-code/      # Alibaba Qwen Code
 ├── mcp/            # MCP server catalog, fanned out to every agent
-├── mlx/            # MLX local inference (mlx_lm + llama-swap, macOS)
+├── mlx/            # MLX local inference (static mlx_lm residents, macOS)
 ├── fabric/         # Fabric prompt patterns + CLI
 ├── agent-skills/   # Cross-tool skill deployment
 ├── token-meter.nix # splunk/token-meter usage dashboard + HTTPS gate

@@ -4,7 +4,7 @@
   hmConfigCluster,
 }:
 let
-  agents = hmConfigCluster.config.launchd.agents;
+  inherit (hmConfigCluster.config.launchd) agents;
   agentExes = map (name: pkgs.lib.last agents.${name}.config.ProgramArguments) [
     "mlx-cluster-peer-state"
   ];

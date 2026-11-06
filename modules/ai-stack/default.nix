@@ -35,6 +35,9 @@ let
   # domain var and passes it in via `llmRouterEndpoint`).
   effectiveEndpoints =
     registryAttrs.endpoints
+    // {
+      mlx_local = cfg.localRouterUrl;
+    }
     // lib.optionalAttrs (cfg.llmRouterEndpoint != "") { router = cfg.llmRouterEndpoint; };
 
   # The populated registry adds the role → id map computed from

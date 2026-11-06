@@ -95,5 +95,5 @@ fi
 printf '%s\n' "$now" > "$PAGED_FILE"
 echo "$(ts) litellm-fallback-watch: WEDGE — probe failed ${streak} consecutive checks (rc=${rc})" >&2
 indent "$output" >&2
-alert "$(/bin/hostname -s): a local LLM fallback rung stopped serving — the probe failed ${streak} consecutive checks. A rung can 404 while the rendered config stays correct, so inspect with litellm-fallback-probe rather than reading the config. Probe output: ${output}"
+alert "$(/bin/hostname -s): the local LiteLLM proxy or a fallback rung stopped serving — the probe failed ${streak} consecutive checks. A rung can 404 while the rendered config stays correct, so inspect with litellm-fallback-probe rather than reading the config. Probe output: ${output}"
 exit 1

@@ -29,7 +29,7 @@ in
   };
   claudeOnDemandFiles = lib.mapAttrs (_: file: file.text) onDemandFiles;
   claudeApprovalNames = hm.config.programs.claude.settings.enabledMcpjsonServers;
-  groupMcpServers = hm.config.programs.agentSkills.groupMcpServers;
+  inherit (hm.config.programs.agentSkills) groupMcpServers;
   groupMcpFile =
     if hm.config.home.file ? ${groupMcpPath} then hm.config.home.file.${groupMcpPath}.text else null;
 }

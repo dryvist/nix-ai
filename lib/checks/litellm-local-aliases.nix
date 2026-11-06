@@ -20,7 +20,7 @@
 let
   helpers = import ./helpers.nix { inherit pkgs; };
   cfg = hmConfig.config.programs;
-  aliases = cfg.litellmLocal.aliases;
+  inherit (cfg.litellmLocal) aliases;
   laneVocabulary = (import ../lanes.nix { src = homelab-contracts; }).vocabulary;
 
   mismatch =
