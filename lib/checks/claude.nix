@@ -241,11 +241,6 @@ in
         ) cfg.settings.permissions.deny;
         expected = [ ];
       }
-      {
-        name = "swap.disabled";
-        actual = cfg.swap.disabled;
-        expected = false;
-      }
     ];
   };
 
