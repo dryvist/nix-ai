@@ -27,7 +27,10 @@
     # to that pin — forcing 26.05 both breaks builds and loses every cache hit.
     llm-agents.url = "github:numtide/llm-agents.nix";
     nix-herdr = {
-      url = "github:jpe-nix/nix-herdr/bcf254dec308bd236a53d7b0c500ddb09126e41b";
+      # Tracks main; flake.lock holds the exact revision.
+      url = "github:jpe-nix/nix-herdr";
+      # Herdr builds on nixpkgs-unstable; share this flake's unstable root.
+      inputs.nixpkgs.follows = "nixpkgs-unstable";
       inputs.home-manager.follows = "home-manager";
     };
 
