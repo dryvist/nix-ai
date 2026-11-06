@@ -71,7 +71,8 @@
 
   # ================================================================
   # YouTrack - built-in Streamable HTTP, owned by youtrack-specialist.
-  # The host's launchPrefixFor supplies credentials only to this child.
+  # Only youtrack-specialist loads it. The host's launchPrefix supplies the
+  # token to this child only; never export it into the harness environment.
   # YOUTRACK_MCP_URL (servers.youtrack.env) is the full /mcp endpoint, set privately.
   # ================================================================
   youtrack = codexMcp {
