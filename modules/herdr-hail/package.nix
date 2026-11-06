@@ -30,12 +30,14 @@ buildNpmPackage {
   version = "0.1.0-unstable-2026-07-19";
   inherit src;
   # Adapt agent input to the herdr >= 0.9 socket API.
-  # Notifications keep the bottom of the context and cut the excerpt to fit the
-  # Slack and Discord message limits.
+  # Blocked context is cleaned, optionally summarized locally, and clipped to
+  # the Slack and Discord message limits.
   # Carry these patches until upstream provides the same behavior.
   patches = [
     ./agent-input.patch
     ./blocked-excerpt.patch
+    ./local-summary.patch
+    ./repeat-dedupe.patch
   ];
 
   # `prefetch-npm-deps package-lock.json` at the pinned rev. Moves only when
@@ -43,6 +45,13 @@ buildNpmPackage {
   npmDepsHash = "sha256-DTS0Wcfq32/1kV3E/jMvEHOrkcfeavUQZaGeSzfXWZg=";
 
   nativeBuildInputs = [ makeWrapper ];
+
+  doCheck = true;
+  checkPhase = ''
+    runHook preCheck
+    npm test
+    runHook postCheck
+  '';
 
   # `npm run build` is bare `tsc` — the same command the manifest's [[build]]
   # block runs when herdr installs from GitHub. Running it here is what makes

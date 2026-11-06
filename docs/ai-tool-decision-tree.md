@@ -11,7 +11,7 @@ When to use which tool for AI-assisted tasks in the nix-ai ecosystem.
 | Want Claude Code to auto-invoke a pattern | Fabric skills (generated plugin marketplace) | Curated patterns auto-loaded by description match |
 | Want to explicitly call a pattern from Claude Code | Fabric MCP server | Pattern appears as a callable MCP tool |
 | Routine, checkable step inside an agent session (summarize, extract, classify, reduce output) — every time one appears | `/fast-subagent` (capability `small`) | One command; the router picks the cheapest local rung that answers and the fallback order is edited in its UI, never here |
-| Single local model call | llama-swap (`127.0.0.1:11434`) | OpenAI-compatible, direct to local MLX |
+| Single local model call | local endpoint (`$MLX_API_URL`) | OpenAI-compatible, resolved from `services.aiStack.localRouterUrl` |
 | Second opinion / adversarial review from another model | `/delegate-to-ai` (Codex / native subagent) | No local gateway needed |
 | Long-running agent session that must survive a client disconnect, or be driven by another agent | herdr | The server owns the PTY; panes carry working/blocked/idle state over a socket API |
 | Writing Python/Go code that calls an LLM | Anthropic SDK / OpenAI SDK | Direct API, no middleware |
@@ -81,9 +81,10 @@ Not for:
 
 Best for: **a single local model call over an OpenAI-compatible API**
 
-Point an OpenAI-compatible client at llama-swap (`http://127.0.0.1:11434/v1`);
+Point an OpenAI-compatible client at `$MLX_API_URL`;
 it routes capability-class aliases (`default`, `coding`, …) to the resident
-MLX model. Fabric and cecli use this endpoint. Qwen Code calls a selected
+MLX model. The value is resolved from `services.aiStack.localRouterUrl`.
+Fabric and cecli use this endpoint. Qwen Code calls a selected
 Qwen catalog entry's static resident server when the host has one; otherwise
 it keeps the local role or router capability path.
 

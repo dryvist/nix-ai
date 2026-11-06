@@ -22,9 +22,10 @@ let
     inherit
       lib
       pkgs
-      marketplaceInputs
       enabledPlugins
       ;
+    # Select Anthropic skills below instead of discovering its whole bundle.
+    marketplaceInputs = builtins.removeAttrs marketplaceInputs [ "anthropic-agent-skills" ];
   };
 in
 {
@@ -73,13 +74,14 @@ in
       enable = lib.mkDefault true;
       fromFlakeInputs = lib.mkDefault sharedSkills;
 
-      # Sources discovery cannot supply: file-organizer matches no
-      # walkAllPatterns case; the design pair's marketplace has no enabled
-      # plugin, so `isMarketplaceEnabled` skips it.
+      # Targeted Anthropic sources preserve each complete skill directory.
+      # file-organizer matches no discovery pattern.
       local = {
         file-organizer = "${awesome-claude-skills}/file-organizer/SKILL.md";
         frontend-design = "${marketplaceInputs.anthropic-agent-skills}/skills/frontend-design/SKILL.md";
         canvas-design = "${marketplaceInputs.anthropic-agent-skills}/skills/canvas-design/SKILL.md";
+        skill-creator = "${marketplaceInputs.anthropic-agent-skills}/skills/skill-creator/SKILL.md";
+        mcp-builder = "${marketplaceInputs.anthropic-agent-skills}/skills/mcp-builder/SKILL.md";
       };
 
       # Category map for the generated INDEX.md and, through `groups` below,

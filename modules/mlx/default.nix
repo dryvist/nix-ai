@@ -13,7 +13,7 @@ let
     inherit (versions) mlx;
     mlx_lm = versions.mlxLm;
     macos = "";
-    model = cfg.clusterMode.model;
+    inherit (cfg.clusterMode) model;
     model_revision = "";
   };
   parakeetMlxVersion = versions.parakeetMlx;
@@ -33,6 +33,7 @@ let
   };
   mlxModelServerPkg = mlxModelServerPkgs.${cfg.modelServerBackend};
   apiUrl = "http://${cfg.host}:${toString cfg.port}/v1";
+  clientApiUrl = config.services.aiStack.localRouterUrl;
 
   # The cluster lifecycle module uses these identifiers when it quiesces
   # standalone serving. Labels are taken from the selected resident contracts.
@@ -95,6 +96,7 @@ in
       parakeetMlxVersion
       mlxVlmInstallSpec
       apiUrl
+      clientApiUrl
       uvPythonVersion
       residentAgentLabels
       watchdogAgentLabel

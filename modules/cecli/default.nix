@@ -7,7 +7,7 @@
 # point — while shipping bug fixes and new features.
 #
 # Routes through the local MLX stack (llama-swap at
-# http://127.0.0.1:11434/v1) so it works with open-source models
+# the configured local endpoint) so it works with open-source models
 # (Qwen3-Coder, Gemma, etc.) without cloud API keys. Cloud access is
 # opt-in: run `cecli` with the provider keys in its environment.
 #

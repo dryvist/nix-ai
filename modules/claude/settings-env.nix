@@ -19,28 +19,29 @@
   # using a stable capability alias:
   # ANTHROPIC_MODEL = "sonnet"; # aliases: opus / sonnet / haiku
 
-  # Default subagent model: the Haiku tier. An explicit
-  # `claude-*[1m]` id, never a bare alias, so it reaches Anthropic directly
-  # even when a local proxy fronts Claude Code. A model passed on the Agent
-  # call wins over this default; the ai-delegation plugin's router sets one.
-  CLAUDE_CODE_SUBAGENT_MODEL = "claude-haiku-5-5[1m]";
+  # The subagent model is set below from programs.litellmLocal.subagentTier,
+  # never here: a hardcoded value is invisible to whoever reads that option.
+  # A model passed on the Agent call still wins over it.
 
   # To pin an exact model id instead of an alias, set the *_MODEL env vars below
   # to full ids from the model-config docs. Exact ids are omitted here on purpose
   # because they churn frequently: https://code.claude.com/docs/en/model-config
   #   ANTHROPIC_DEFAULT_OPUS_MODEL / ANTHROPIC_DEFAULT_SONNET_MODEL / ANTHROPIC_DEFAULT_HAIKU_MODEL
 
+  # Claude Code stays on the latest channel by owner decision (the
+  # claude-code@latest cask in lib/homebrew.nix, no soak). This makes it run the
+  # Homebrew upgrade itself when a release lands and prompt for a restart, so
+  # nobody has to run `brew upgrade` by hand. Other install methods ignore it.
+  # See: https://code.claude.com/docs/en/setup#auto-updates
+  CLAUDE_CODE_PACKAGE_MANAGER_AUTO_UPDATE = "1";
+
   # MCP timeout settings (5 minutes) - required for slow MCP servers
   MCP_TIMEOUT = "300000";
   MCP_TOOL_TIMEOUT = "300000";
 
   # Experimental: Agent teams - coordinate multiple Claude Code instances.
-  # Off by default: an orchestrator only pays off when work spans more than
-  # one context window or has a routine long tail, and loses on a single
-  # dependent chain. Enable per project (repo-local env override) for
-  # sweep-type repos.
   # See: https://code.claude.com/docs/en/agent-teams
-  # CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = "1";
+  CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = "1";
 
   # Disable the autoresearch plugin's PreToolUse block hooks (dangerous-cmd-block,
   # scout-block, privacy-block). Those hooks raw-substring-match the command/path
@@ -105,7 +106,7 @@
   # is the "no routing at all" switch: with no base URL and no marker header,
   # Claude Code resolves Anthropic directly and nothing here can reroute it.
   lib.optionalAttrs (!litellmLocal.claudeDirect) {
-    ANTHROPIC_BASE_URL = litellmLocal.rootUrl;
+    ANTHROPIC_BASE_URL = lib.removeSuffix "/v1" aiStack.localRouterUrl;
     ANTHROPIC_CUSTOM_HEADERS = "x-litellm-api-key: Bearer ${litellmLocal.clientToken}";
   }
   // {
@@ -122,7 +123,7 @@
     # `claudeDirect`: the guard still needs to resolve roles.
     LLM_ROUTER_URL = aiStack.llmRouterEndpoint;
     LLM_ROUTER_TOKEN_FILE = toString aiStack.llmEndpointTokenFile;
-    LITELLM_LOCAL_BASE_URL = litellmLocal.rootUrl;
+    LITELLM_LOCAL_BASE_URL = lib.removeSuffix "/v1" aiStack.localRouterUrl;
     # The role the `fast-subagent` skill's helper requests by default
     # (claude-code-plugins ai-delegation). A role name from the committed
     # alias contract, never a physical id: what it resolves to is the
@@ -133,6 +134,15 @@
     CLAUDE_SUBAGENT_INTERNAL_DOMAINS = lib.concatStringsSep " " aiStack.internalDomains;
   }
 )
+# Native subagents run on the group the proxy option derives: `local-only`, this
+# host's own model with no router leg. Null keeps Claude Code's default. Under
+# claudeDirect there is no proxy hop to reach that group.
+// lib.optionalAttrs (litellmLocal.subagentTier == "anthropic") {
+  CLAUDE_CODE_SUBAGENT_MODEL = litellmLocal.subagentAnthropicModel;
+}
+// lib.optionalAttrs (litellmLocal.subagentModel != null && !litellmLocal.claudeDirect) {
+  CLAUDE_CODE_SUBAGENT_MODEL = litellmLocal.subagentModel;
+}
 
 # OpenTelemetry — opt-in via userConfig.telemetry. Split into its own file to
 # keep this one inside the repo's file-size gate.

@@ -58,7 +58,7 @@ let
   sandboxedQwen = import ./sandbox.nix { inherit pkgs lib; } {
     qwen = cfg.package;
     home = config.home.homeDirectory;
-    workRoot = cfg.sandbox.workRoot;
+    inherit (cfg.sandbox) workRoot;
     inherit localPorts;
   };
 in

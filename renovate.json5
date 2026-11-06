@@ -3,6 +3,8 @@
   "extends": [
     "github>JacobPEvans/.github:renovate-nix",
   ],
+  // Commits by the hash-fix App bot do not mark a Renovate branch as edited.
+  "gitIgnoredAuthors": ["264163489+jacobpevans-claude[bot]@users.noreply.github.com"],
   "customManagers": [
     {
       "customType": "regex",

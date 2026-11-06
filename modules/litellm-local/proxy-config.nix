@@ -154,7 +154,7 @@
         aiStack.llmEndpoint == "router"
         && (
           (aiStack.llmEndpointTokenFile != null && aiStack.llmEndpointTokenFile != "")
-          || (aiStack.llmEndpointBearerFromEnv && cfg.launchPrefix != [ ])
+          || aiStack.llmEndpointBearerFromEnv
         )
       )
       {

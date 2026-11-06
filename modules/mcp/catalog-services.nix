@@ -5,7 +5,7 @@
 # not imported directly; it takes the helpers it needs as arguments.
 
 {
-  bunx,
+  pkgs,
   codexMcp,
   versions,
   mcpNpmPkgs,
@@ -13,23 +13,9 @@
 
 {
   # ================================================================
-  # Database (disabled by default)
-  # ================================================================
-
-  postgresql = bunx [ "@modelcontextprotocol/server-postgres@${versions.mcpPostgres}" ] // {
-    disabled = true;
-  };
-  sqlite = bunx [ "@modelcontextprotocol/server-sqlite" ] // {
-    disabled = true;
-  }; # archived
-
-  # ================================================================
   # Additional (disabled - specialized use cases)
   # ================================================================
 
-  brave-search = bunx [ "@modelcontextprotocol/server-brave-search@${versions.mcpBraveSearch}" ] // {
-    disabled = true;
-  };
   # Google Workspace - Gmail, Drive, Calendar integration.
   # Source: https://github.com/taylorwilsdon/google_workspace_mcp
   # DISABLED but kept defined — "available in case we ever need it". Was leaking
@@ -55,18 +41,6 @@
     ];
     disabled = true;
   };
-  google-maps = bunx [ "@modelcontextprotocol/server-google-maps@${versions.mcpGoogleMaps}" ] // {
-    disabled = true;
-  };
-  puppeteer = bunx [ "@modelcontextprotocol/server-puppeteer@${versions.mcpPuppeteer}" ] // {
-    disabled = true;
-  };
-  slack = bunx [ "@modelcontextprotocol/server-slack@${versions.mcpSlack}" ] // {
-    disabled = true;
-  };
-  sentry = bunx [ "@modelcontextprotocol/server-sentry" ] // {
-    disabled = true;
-  }; # archived
 
   # ================================================================
   # Vikunja - self-hosted task management
@@ -85,13 +59,32 @@
   # no-op, unbounded list response) — see
   # patches/vikunja-mcp-0.2.0-defects.patch.
   # Ships disabled — a consumer enables it deliberately once secrets exist
-  # for that machine.
+  # for that machine. Owned by vikunja-specialist (lib/specialists.nix).
   vikunja = codexMcp {
     command = "${mcpNpmPkgs.vikunja-mcp}/bin/vikunja-mcp";
     env_vars = [
       "VIKUNJA_API_TOKEN"
       "VIKUNJA_URL"
     ];
+    disabled = true;
+  };
+
+  # ================================================================
+  # YouTrack - built-in Streamable HTTP, owned by youtrack-specialist.
+  # Only youtrack-specialist loads it. The host's launchPrefix supplies the
+  # token to this child only; never export it into the harness environment.
+  # YOUTRACK_MCP_URL (servers.youtrack.env) is the full /mcp endpoint, set privately.
+  # ================================================================
+  youtrack = codexMcp {
+    command = "sh";
+    args = [
+      "-c"
+      ''exec ${
+        pkgs.lib.getExe (import ./mcp-remote.nix { inherit pkgs; })
+      } "$YOUTRACK_MCP_URL" --header "Authorization:Bearer $YOUTRACK_TOKEN"''
+    ];
+    # The URL is not secret: the host sets servers.youtrack.env.YOUTRACK_MCP_URL.
+    env_vars = [ "YOUTRACK_TOKEN" ];
     disabled = true;
   };
 

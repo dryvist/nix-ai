@@ -56,10 +56,12 @@ let
   promptCatalog = import ./claude/prompt-catalog.nix {
     inherit
       lib
+      pkgs
       ai-llm-prompts
       discoverMarkdownFiles
       mkSourceEntries
       ;
+    inherit (claudeMcp) specialistMcpServers;
   };
   aiRules = discoverMarkdownFiles "${instructions.src}/agentsmd/rules";
   skillOverridesFile = "${instructions.src}/agentsmd/settings/skill-overrides.json";
@@ -109,10 +111,6 @@ in
     programs.claude = {
       enable = true;
       callerId = "claude-code";
-
-      # nix-claude-code keeps account switching disabled by default. This
-      # workstation stack opts into its manual switch and parallel-session CLI.
-      swap.disabled = false;
 
       # One owner per host: the `claude-code@latest` cask on darwin,
       # llm-agents.nix on Linux. Rationale and the full source table live in
@@ -212,7 +210,7 @@ in
       # `~/.claude/rules/`: the always-on `soul.md` core plus path-scoped tier rules
       # whose `paths:` frontmatter Claude Code's native loader honors. The opt-in
       # `agentsmd/rules/on-demand/` tier lives in a subdir that discovery skips on
-      # purpose — it is read by path, never delivered. Do not make discovery recurse.
+      # purpose — it is read by path, never delivered.
       rules.fromFlakeInputs =
         mkSourceEntries "${instructions.pkg}/agentsmd/rules" aiRules ++ promptCatalog.rules;
 
@@ -227,10 +225,10 @@ in
         # now; forcing it removed low/medium as real options.
         alwaysThinkingEnabled = false;
 
-        # % of context window at which auto-compaction fires. Upstream (60)
-        # suits a 200k window; 1M-window default model still has ~450K left
-        # at 45%. Don't also set env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE.
-        autoCompactThresholdPercent = 45;
+        # % of context window at which auto-compaction fires. Bumped to 70%
+        # to maximize active working context before compaction.
+        # Don't also set env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE.
+        autoCompactThresholdPercent = 70;
         cleanupPeriodDays = 180;
         # A repository's `.mcp.json` written by `agent-skill-groups link` only
         # ever names catalog servers from the on-demand tier, so approve

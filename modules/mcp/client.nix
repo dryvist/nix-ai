@@ -34,9 +34,7 @@
     assert
       callerRecord ? trust_tier
       || throw "MCP caller `${callerId}` record in homelab-contracts callers.json is missing required field `trust_tier`";
-    assert
-      builtins.attrNames callerRecord == [ "trust_tier" ]
-      || throw "MCP caller `${callerId}` record contains fields not allowed by the schema-1 callers.json contract";
+    # Additive contract fields (e.g. consumer_class) are tolerated; only trust_tier is read.
     assert
       builtins.isString callerRecord.trust_tier
       && builtins.match "[a-z][a-z0-9_-]*" callerRecord.trust_tier != null

@@ -3,7 +3,7 @@ let
   helpers = import ./helpers.nix { inherit pkgs; };
   inherit (pkgs) lib;
   cfg = hmConfig.config.programs.herdr;
-  programs = hmConfig.config.programs;
+  inherit (hmConfig.config) programs;
   opencodeDir = programs.opencode.configDir or ".config/opencode";
 in
 {

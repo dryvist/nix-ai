@@ -82,8 +82,29 @@ jobs:
           - 'mlx-server/**'
           - 'orchestrator/**'
 
+  # Darwin builds only when a Nix input changes on a develop PR. Promotions
+  # (PRs into main) and push runs always run it.
+  changes:
+    name: Darwin Changes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      nix: ${{ steps.filter.outputs.nix }}
+    steps:
+      - name: Filter Nix inputs
+        id: filter
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
+        with:
+          filters: |
+            nix:
+              - '**/*.nix'
+              - 'flake.lock'
+
   darwin-checks:
     name: Darwin Checks
+    needs: changes
+    if: ${{ github.event_name != 'pull_request' || github.base_ref == 'main' || needs.changes.outputs.nix == 'true' }}
     uses: JacobPEvans/.github/.github/workflows/_nix-validate.yml@v1
     with:
       runner_label: macos-15
@@ -103,7 +124,7 @@ jobs:
           persist-credentials: false
 
       - name: Install Nix
-        uses: DeterminateSystems/determinate-nix-action@8d87e8d5e5b8a8309d4281094560f127d9a265f1 # v3
+        uses: DeterminateSystems/determinate-nix-action@8d87e8d5e5b8a8309d4281094560f127d9a265f1 # v3.22.5
         with:
           extra-conf: |
             max-jobs = auto
@@ -156,7 +177,7 @@ jobs:
   # ==========================================================================
   gate:
     name: Merge Gate
-    needs: [shared-gate, darwin-checks, flake-lock-fresh, lane-alias-names, lane-alias-parity]
+    needs: [shared-gate, changes, darwin-checks, flake-lock-fresh, lane-alias-names, lane-alias-parity]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -166,3 +187,5 @@ jobs:
         uses: re-actors/alls-green@b5b5b37504aa4183270bd3d855c52a67f212be35 # release/v1
         with:
           jobs: ${{ toJSON(needs) }}
+          # Darwin Checks is skipped on develop PRs that change no Nix input.
+          allowed-skips: darwin-checks

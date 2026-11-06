@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from orchestrator.common import l2_normalize
+from orchestrator.common import local_router_url, l2_normalize
 
 if TYPE_CHECKING:
     from openai import OpenAI
@@ -48,7 +48,7 @@ class SkillRouter:
     and match incoming prompts via cosine similarity.
     """
 
-    embedding_endpoint: str = "http://127.0.0.1:11434/v1"
+    embedding_endpoint: str = field(default_factory=local_router_url)
     embedding_model: str = "nomic-embed-text-v1.5"
     threshold: float = 0.3
     _skills: dict[str, SkillDefinition] = field(default_factory=dict)

@@ -15,9 +15,31 @@ let
   # only provides inside NixOS/home-manager evaluations.
   hostStub = {
     options = {
-      programs.zsh.initContent = lib.mkOption {
-        type = lib.types.lines;
-        default = "";
+      programs = {
+        zsh.initContent = lib.mkOption {
+          type = lib.types.lines;
+          default = "";
+        };
+        litellmLocal = {
+          enable = lib.mkOption {
+            type = lib.types.bool;
+            default = false;
+          };
+          baseUrl = lib.mkOption {
+            type = lib.types.str;
+            default = "http://127.0.0.1:4100/v1";
+          };
+        };
+        mlx = {
+          host = lib.mkOption {
+            type = lib.types.str;
+            default = "127.0.0.1";
+          };
+          port = lib.mkOption {
+            type = lib.types.port;
+            default = 11434;
+          };
+        };
       };
       assertions = lib.mkOption {
         type = lib.types.listOf (
@@ -58,6 +80,14 @@ let
 
   # mlx_local is the local-first default and must need no bearer at all.
   localDefaultOk = accepts { };
+  localProxyRoute =
+    (lib.evalModules {
+      modules = [
+        hostStub
+        ../../modules/ai-stack/endpoint.nix
+        { programs.litellmLocal.enable = true; }
+      ];
+    }).config.services.aiStack.localRouterUrl;
 
   bearerFromEnvOk = accepts {
     llmEndpoint = "router";
@@ -103,6 +133,9 @@ in
   ai-stack-endpoint-bearer-gate =
     assert
       localDefaultOk || throw "services.aiStack default (mlx_local) must evaluate without a bearer";
+    assert
+      localProxyRoute == "http://127.0.0.1:4100/v1"
+      || throw "services.aiStack.localRouterUrl must follow the enabled local proxy base URL";
     assert bearerFromEnvOk || throw "llmEndpoint=router with llmEndpointBearerFromEnv must be accepted";
     assert tokenFileOk || throw "llmEndpoint=router with llmEndpointTokenFile must be accepted";
     assert ungatedRejected || throw "llmEndpoint=router with no bearer must be rejected";

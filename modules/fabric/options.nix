@@ -28,7 +28,9 @@ in
         Port for the fabric REST API server.
 
         Default 8180 avoids conflicts with:
+        - 4100: local LiteLLM proxy
         - 11434: llama-swap proxy (MLX stack)
+        - 11435: reserved macOS app port
         - 11436+: llama-swap model workers
         - 27124: Obsidian Local REST API
       '';
