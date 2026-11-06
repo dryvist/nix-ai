@@ -54,7 +54,7 @@ _:
     "security-guidance@claude-plugins-official" = false;
 
     # Plugin Development (user maintains claude-code-plugins repo)
-    "plugin-dev@claude-plugins-official" = false;
+    "plugin-dev@claude-plugins-official" = true;
     # Disabled: its four per-tool-call hooks only read rule files in the session cwd;
     # the rules now run as content-guards credential-guard.
     "hookify@claude-plugins-official" = false;
@@ -106,31 +106,18 @@ _:
     # Enabling more than one yields duplicate registrations for zero
     # added coverage. Keep ONE; disable the rest.
     #
-    # Keeper: document-skills (most generic name, clearest mental
-    # model for the bundle). Re-evaluate if upstream ever honors the
-    # manifest split.
-    #
-    # It is nonetheless disabled at user level below. Measured at 980 tokens of
-    # every session, for office-document authoring that matters only in
-    # repositories which actually produce such documents. A plugin earns a
-    # user-level enable only when it is useful in nearly every repository;
-    # everything else is repo-scoped, as skill groups already are.
+    # example-skills supplies skill-creator and mcp-builder. The plugin option
+    # selects whole bundles; shared harnesses select individual sources in
+    # ../../agent-skills/default.nix.
     # ========================================================================
 
-    # Two of this marketplace's skills — frontend-design and canvas-design —
-    # are nonetheless required on every harness. They are wired by path in
-    # ../../agent-skills/default.nix (`local.*`), which bypasses the discovery
-    # gate this disable would otherwise close, so keeping all three plugins off
-    # costs nothing but the other 15 skills.
+    # Office-document bundle remains disabled.
     "document-skills@anthropic-agent-skills" = false;
 
-    # DISABLED — duplicates document-skills (identical 17 skills on
-    # disk). The skill set previously credited to this plugin is now
-    # served via document-skills:* namespace.
-    "example-skills@anthropic-agent-skills" = false;
+    "example-skills@anthropic-agent-skills" = true;
 
-    # DISABLED — duplicates document-skills. The claude-api skill is
-    # still reachable via document-skills:claude-api.
+    # DISABLED — duplicates example-skills. The claude-api skill is
+    # still reachable through the enabled bundle.
     "claude-api@anthropic-agent-skills" = false;
   };
 }

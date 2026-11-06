@@ -45,22 +45,42 @@ in
         "anthropic"
         "router"
       ];
-      default = "anthropic";
+      default = "router";
       description = ''
-        Which tier Claude Code's subagents run on.
+        Which tier Claude Code's native subagents run on. Sessions need no
+        setting of their own.
 
-        `anthropic` (default) pins `CLAUDE_CODE_SUBAGENT_MODEL` to an explicit
-        `claude-*` id, so a subagent is a NATIVE Claude subagent: the request
-        matches the `claude-*` group, reaches Anthropic with the caller's own
-        forwarded credential, and never touches the router leg. No third-party
-        egress, so no data-retention question to answer.
+        `router` (default) sets `CLAUDE_CODE_SUBAGENT_MODEL` to `local-only`:
+        this host's own model, with no router leg, so subagent context that is
+        private never reaches the router, which refuses content its key is not
+        cleared for. Default only: an Agent call that names a model goes to the
+        router, where that key's clearance applies.
+        Without the proxy hop (`enable = false` or `claudeDirect`) the variable
+        is not set, and Claude Code picks its own subagent model.
 
-        `router` points subagents at the tier in ./fallback-tier.nix: this
-        host's own models first, then the shared router as the terminal rung.
-        That path is opt-in on purpose. A local rung serves at no cost, but a
-        request that overflows its window escapes to the terminal rung, and
-        what the router does behind that — including whether it bills — is
-        configured there rather than here.
+        `anthropic` pins `CLAUDE_CODE_SUBAGENT_MODEL` to `subagentAnthropicModel`
+        instead, so a subagent is a NATIVE Claude subagent: the request matches
+        the `claude-*` group, reaches Anthropic with the caller's own forwarded
+        credential, and never touches the router leg. No third-party egress.
+      '';
+    };
+
+    subagentModel = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      readOnly = true;
+      default =
+        if
+          cfg.enable
+          && cfg.subagentTier == "router"
+          && lib.any (m: (m.router or null) == null) cfg.localModels
+        then
+          "local-only"
+        else
+          null;
+      description = ''
+        The group native subagents run on, derived from the options above:
+        `local-only` when the router tier is on and this host declares a local
+        rung, null otherwise. The Claude, Codex and OpenCode settings read it.
       '';
     };
 
@@ -218,11 +238,12 @@ in
 
     port = lib.mkOption {
       type = lib.types.port;
-      default = 11434;
+      default = 4100;
       description = ''
-        Loopback port for the proxy.
+        Loopback port for the proxy. The system integration map allocates 4100
+        here; 11434 is the MLX endpoint and 11435 is reserved for a macOS app.
 
-        Default 11434 matches the standard local OpenAI-compatible endpoint.
+        Client URLs read services.aiStack.localRouterUrl.
       '';
     };
 

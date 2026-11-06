@@ -8,7 +8,8 @@
 #
 # Common thread worth keeping in view: none of these may take a credential
 # through the Nix store or through a launchd `EnvironmentVariables` entry. The
-# router bearer is read from its file at exec time, every time.
+# start script reads the token file at exec time when configured, or requires
+# `OPENAI_API_KEY` from the launch prefix when the consumer provisions it.
 {
   aliases,
   pkgs,
@@ -44,6 +45,7 @@ let
     # looked like a dead chain. Word-splitting the default belongs in the
     # script, which is also where the no-inline-shell rule wants it.
     text = ''
+      LITELLM_LOCAL_URL=${lib.escapeShellArg (lib.removeSuffix "/v1" aiStack.localRouterUrl)} \
       LITELLM_FALLBACK_CHAIN=${lib.escapeShellArg (lib.concatStringsSep " " fallbackTier.names)} \
         exec ${./../scripts/litellm-fallback-probe.sh} "$@"
     '';
@@ -89,8 +91,8 @@ let
       if aiStack.llmEndpointTokenFile != null then
         ''OPENAI_API_KEY="$(cat ${lib.escapeShellArg (toString aiStack.llmEndpointTokenFile)})"''
       else
-        # llmEndpointBearerFromEnv: the launch prefix (programs.litellmLocal
-        # .launchPrefix) resolved the bearer and exec'd this script with it.
+        # llmEndpointBearerFromEnv: the host's process wrapper resolves the
+        # bearer and execs this script with it.
         ''OPENAI_API_KEY="''${OPENAI_API_KEY:?litellm-local: OPENAI_API_KEY unset; launchPrefix must provide the router bearer}"''
     }
     export OPENAI_API_KEY

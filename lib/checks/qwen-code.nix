@@ -208,7 +208,7 @@ in
       {
         name = "local-proxy provider entries match capability aliases";
         actual = localProxySettings.modelProviders.openai;
-        expected = routerProviderEntries hmConfigLitellmLocal.config.programs.litellmLocal.baseUrl;
+        expected = routerProviderEntries hmConfigLitellmLocal.config.services.aiStack.localRouterUrl;
       }
       {
         name = "local-proxy provider environment";

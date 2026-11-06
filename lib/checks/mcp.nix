@@ -71,7 +71,8 @@ let
   # env_vars) takes the hook; time (no env_vars) and http-test (not stdio)
   # launch unchanged.
   launchCfg = hmConfigMcpLaunchPrefix.config.programs.aiMcp;
-  launched = launchCfg.onDemandEnabledServers // launchCfg.enabledServers;
+  launched =
+    launchCfg.onDemandEnabledServers // launchCfg.enabledServers // launchCfg.specialistServers;
   codexOnDemandNames = hmConfigMcpLaunchPrefix.config.programs.codex.mcpServerNames;
   claudeHttpTest =
     builtins.fromJSON
@@ -90,6 +91,28 @@ let
   ) (builtins.attrNames codexLaunchContracts);
 in
 {
+  youtrack-mcp-contract =
+    assert
+      cfg.servers.youtrack.disabled
+      && cfg.servers.youtrack.url == null
+      && cfg.servers.youtrack.type == "stdio"
+      && cfg.servers.youtrack.command == "sh"
+      && cfg.servers.youtrack.bearer_token_env_var == null
+      && cfg.servers.youtrack.env_vars == [ "YOUTRACK_TOKEN" ]
+      || throw "YouTrack must ship disabled with child-scoped URL and token injection";
+    assert
+      launched.youtrack.command == "/test/injector"
+      &&
+        launched.youtrack.args == cfg.servers.youtrack.env_vars
+        ++ [
+          "--"
+          "sh"
+        ]
+        ++ cfg.servers.youtrack.args
+      && launched.youtrack.env.YOUTRACK_MCP_URL == "https://example.invalid/mcp"
+      || throw "YouTrack launch prefix or child environment was lost";
+    helpers.mkMarker "check-youtrack-mcp-contract" "YouTrack uses child-scoped injection with the stdio HTTP bridge";
+
   shared-mcp-global-profile =
     assert
       missingGlobalServers == [ ]
@@ -159,7 +182,7 @@ in
   mcp-on-demand-merge =
     let
       lost = builtins.filter (name: !(builtins.elem name launchCfg.onDemandServers)) (
-        cfg.onDemandServers ++ [ "vikunja" ]
+        cfg.onDemandServers ++ [ "http-test" ]
       );
     in
     assert

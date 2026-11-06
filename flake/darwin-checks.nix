@@ -38,6 +38,10 @@ in
       inherit pkgs;
       inherit (fixtures) hmConfig mkHmConfig;
     })
+    // (import (src + "/lib/checks/litellm-local-subagents.nix") {
+      inherit pkgs;
+      inherit (fixtures) hmConfigLitellmSubagents;
+    })
     // (import (src + "/lib/checks/copilot-settings.nix") {
       inherit pkgs;
       inherit (fixtures) mkHmConfig;

@@ -115,14 +115,23 @@ rec {
 
   # Authoring skills, hooks, plugins and their config.
   authoring = [
+    "agent-development"
     "claude-automation-recommender"
     "claude-skill-authoring"
+    "command-development"
+    "hook-development"
+    "mcp-builder"
+    "mcp-integration"
+    "plugin-dev-create-plugin"
+    "plugin-settings"
+    "plugin-structure"
     "reviewing-agent-definitions"
     "reviewing-claude-config"
     "reviewing-command-definitions"
     "reviewing-project-guidance"
     "reviewing-runtime-configuration"
     "skill-creator"
+    "skill-development"
     "validate-readme"
     "writing-rules"
   ];
@@ -221,6 +230,7 @@ rec {
     "llm-router-ops"
     "mcp-builder"
     "microsoft-foundry"
+    "migrate-to-langfuse"
     "openrouter-models"
     "perf-reclaim"
     "perf-snapshot"

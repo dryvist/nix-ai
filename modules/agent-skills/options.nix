@@ -147,6 +147,8 @@ in
       default = [
         "canvas-design"
         "frontend-design"
+        "langfuse"
+        "migrate-to-langfuse"
       ];
       example = [ "canvas-design" ];
       description = "Skill names to link into ~/.claude/skills, which Claude Code reads in every repository.";

@@ -37,7 +37,7 @@ let
   ];
   deployed = cfg.deployedSkillPaths;
   groupedNames = builtins.attrNames grouped.config.programs.agentSkills.deployedSkillPaths;
-  productivity = cfg.categories.productivity;
+  inherit (cfg.categories) productivity;
   keepListed = import ../../modules/claude/always-listed-skills.nix;
 in
 {

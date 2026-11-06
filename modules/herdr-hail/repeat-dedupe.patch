@@ -1,0 +1,37 @@
+diff --git a/src/index.ts b/src/index.ts
+index a122855..b34745b 100644
+--- a/src/index.ts
++++ b/src/index.ts
+@@ -9,6 +9,9 @@
+ // A tiny per-agent debounce so a flapping status can't spam the channels.
+ const NOTIFY_COOLDOWN_MS = 4000;
+
++// An identical hail (same agent, status and excerpt) is dropped for this long.
++const REPEAT_WINDOW_MS = 15 * 60 * 1000;
++
+ function warnOpenChannel(name: string): void {
+   console.warn(
+     `⚠️  ${name}: no allowedUsers configured — anyone who can post in the ` +
+@@ -79,6 +82,7 @@
+   }
+
+   const lastNotified = new Map<string, number>(); // terminal_id -> ts
++  const lastSent = new Map<string, number>(); // hail key -> ts, pruned past the window
+   const watcher = new Watcher(herdr, cfg.pollIntervalMs);
+
+   watcher.on("transition", async (t: Transition) => {
+@@ -98,6 +102,14 @@
+       notification.summary = await summarizeContext(notification.context, cfg.summarizer);
+     }
+
++    const key = [t.agent.terminal_id, t.to, notification.context].join("\n");
++    for (const [k, ts] of lastSent) if (now - ts >= REPEAT_WINDOW_MS) lastSent.delete(k);
++    if (lastSent.has(key)) {
++      console.log(`repeat dropped: ${notification.title} (${t.agent.pane_id})`);
++      return;
++    }
++    lastSent.set(key, now);
++
+     console.log(
+       `${t.from} → ${t.to}  [${t.agent.agent}] ${notification.title} (${t.agent.pane_id})`,
+     );

@@ -7,7 +7,7 @@
 let
   settingsFile = hmConfig.config.home.file.".config/opencode/opencode.json".source;
   sessionPlugin = hmConfig.config.home.file.".config/opencode/plugins/go-session.js".source;
-  package = hmConfig.config.programs.opencode.package;
+  inherit (hmConfig.config.programs.opencode) package;
   trustedPackage =
     import ../../modules/opencode/trusted.nix
       {
@@ -134,7 +134,7 @@ in
         fi
         jq -e '
           .provider.mlx.name == "MLX (local)" and
-          .provider.mlx.options.baseURL == "http://127.0.0.1:11434/v1"
+          .provider.mlx.options.baseURL == "${localConfig.config.services.aiStack.localRouterUrl}"
         ' ${localSettings} >/dev/null
         touch $out
       '';

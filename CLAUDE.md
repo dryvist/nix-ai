@@ -96,8 +96,8 @@ this one.
 - AI CLI tools (Claude Code, Antigravity, Codex, Copilot, qwen-code, cecli)
 - MCP servers and wrappers (github-mcp-server, terraform-mcp-server, etc.)
 - AI tool configuration files (`.claude/`, `.gemini/`, `.copilot/`)
-- MLX inference server (mlx_lm.server LaunchAgent + llama-swap + wrappers)
-- AI-specific shell utilities (hf CLI wrapper, Doppler-wrapped aliases)
+- MLX inference server (always-loaded mlx_lm.server LaunchAgents + wrappers)
+- AI-specific shell utilities (hf CLI wrapper, Z.ai launchers `claude-zai` / `codex-zai`)
 
 ### Package placement
 
@@ -125,7 +125,8 @@ instead. Design decisions in [`docs/adr/`](docs/adr/README.md).
 ## MLX Ecosystem
 
 Three tools — `parakeet-mlx` (audio), `mlx-vlm` (vision), `mlx-lm` (LLM). The first two are
-`uvx` wrappers; `mlx_lm.server` runs as a LaunchAgent fronted by llama-swap. Full dependency
+`uvx` wrappers; `mlx_lm.server` runs as up to three always-loaded LaunchAgents
+(`modules/mlx/static-residents.nix`). Full dependency
 graph, version management, and operational notes (tool-call parser, idle eviction, MoE
 throughput) in [`docs/architecture/mlx-stack.md`](docs/architecture/mlx-stack.md).
 Port allocation lives in [`docs/architecture/system-integration-map.md`](docs/architecture/system-integration-map.md).

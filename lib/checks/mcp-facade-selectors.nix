@@ -114,12 +114,12 @@ let
       assert builtins.all (assertion: assertion.assertion) standalone.config.assertions;
       assert selected || standalone.config.programs.aiMcp.callerRegistry == null;
       builtins.deepSeq {
-        callerRegistry = standalone.config.programs.aiMcp.callerRegistry;
+        inherit (standalone.config.programs.aiMcp) callerRegistry;
         keyEnv =
           if selected then
             callerClient.callerKeyEnvFor {
               callerId = "claude-code";
-              callerRegistry = standalone.config.programs.aiMcp.callerRegistry;
+              inherit (standalone.config.programs.aiMcp) callerRegistry;
             }
           else
             null;
@@ -267,9 +267,11 @@ in
         "claude-code"
         "missing-trust-tier"
         "invalid-trust-tier"
-        "extra-field"
       ]
       || throw "a selected caller with a malformed schema-1 registry record rendered a facade";
+    assert
+      selectedCallerRendererEvaluates "extra-field" && selectedCallerRendererEvaluates "consumer-class"
+      || throw "a selected caller carrying additive contract fields did not render a facade";
     assert
       standaloneSelectorEvaluates false && !(standaloneSelectorEvaluates true)
       || throw "a standalone MCP module must render unselected without caller metadata and reject a selected caller without the registry";

@@ -23,7 +23,7 @@ reach Galileo. Check each before assuming the pipeline is live:
 galileo-on          # sets GALILEO_TRACE=1, prints confirmation
 
 # Hit MLX directly with trace header:
-gcurl http://127.0.0.1:11434/v1/chat/completions \
+gcurl "${MLX_API_URL}/chat/completions" \
   -H "Content-Type: application/json" \
   -d '{"model":"default","messages":[{"role":"user","content":"hello"}]}'
 

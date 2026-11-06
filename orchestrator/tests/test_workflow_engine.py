@@ -36,7 +36,7 @@ def simple_workflow_dict() -> dict[str, Any]:
                 "type": "llm_call",
                 "config": {
                     "model": "test-model",
-                    "endpoint": "http://localhost:11434/v1",
+                    "endpoint": "https://router.example.invalid/v1",
                     "system_prompt": "You are a test assistant.",
                 },
                 "description": "First node",
@@ -65,7 +65,7 @@ def conditional_workflow_dict() -> dict[str, Any]:
                 "type": "llm_call",
                 "config": {
                     "model": "test-model",
-                    "endpoint": "http://localhost:11434/v1",
+                    "endpoint": "https://router.example.invalid/v1",
                     "system_prompt": "Analyze the input.",
                 },
             },

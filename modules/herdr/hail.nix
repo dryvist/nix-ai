@@ -32,24 +32,37 @@ let
   # Upstream's own DEFAULTS (src/config.ts), restated so `settings` can
   # override one field without naming the rest, and so the assertions below
   # read the EFFECTIVE value rather than only what the operator typed.
-  settings = lib.recursiveUpdate {
-    notifyOn = [
-      "blocked"
-      "done"
-    ];
-    pollIntervalMs = 1500;
-    contextSource = "visible";
-    contextLines = 40;
-    slack = {
-      enabled = false;
-      allowedUsers = [ ];
-    };
-    discord = {
-      enabled = false;
-      allowedUsers = [ ];
-      messageContent = false;
-    };
-  } hail.settings;
+  settings =
+    lib.recursiveUpdate
+      (lib.recursiveUpdate {
+        notifyOn = [
+          "blocked"
+          "done"
+        ];
+        pollIntervalMs = 1500;
+        contextSource = "visible";
+        contextLines = 12;
+        slack = {
+          enabled = false;
+          allowedUsers = [ ];
+        };
+        discord = {
+          enabled = false;
+          allowedUsers = [ ];
+          messageContent = false;
+        };
+      } hail.settings)
+      {
+        summarizer = {
+          enabled = hail.summarizer.enable;
+          inherit (hail.summarizer)
+            baseUrl
+            model
+            timeoutMs
+            maxInputChars
+            ;
+        };
+      };
 in
 {
   imports = [ ./hail-options.nix ];

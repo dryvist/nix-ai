@@ -15,6 +15,8 @@ from typing import Any
 import faiss
 from pydantic import BaseModel, Field
 
+from orchestrator.common import local_router_url
+
 logger = logging.getLogger(__name__)
 
 try:
@@ -29,8 +31,8 @@ class EmbeddingConfig(BaseModel):
     """Configuration for the EmbeddingPipeline."""
 
     endpoint: str = Field(
-        default="http://localhost:11434/v1",
-        description="OpenAI-compatible embedding endpoint (MLX default)",
+        default_factory=local_router_url,
+        description="OpenAI-compatible embedding endpoint from MLX_API_URL",
     )
     model: str = Field(
         default="nomic-embed-text",

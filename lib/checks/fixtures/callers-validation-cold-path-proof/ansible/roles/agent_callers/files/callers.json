@@ -8,6 +8,7 @@
     "missing-trust-tier": {},
     "invalid-trust-tier": {"trust_tier": "undeclared"},
     "extra-field": {"trust_tier": "trusted", "extra": true},
+    "consumer-class": {"trust_tier": "trusted", "consumer_class": "interactive"},
     "valid-selected": {"trust_tier": "trusted"}
   }
 }
