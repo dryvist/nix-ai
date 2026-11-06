@@ -1,6 +1,7 @@
 # Rendered fast-subagent access for Codex and Antigravity CLI.
 { pkgs, mkHmConfig }:
 let
+  sandboxDefaults = import ../../modules/codex/sandbox-defaults.nix;
   hmConfig = mkHmConfig [
     {
       programs = {
@@ -37,11 +38,7 @@ in
         ];
         activation = hmConfig.config.home.activation.codexConfigMerge.data;
         allowedDomains = builtins.toJSON (
-          {
-            "${proxyHost}" = "allow";
-            "api.github.com" = "allow";
-            "github.com" = "allow";
-          }
+          pkgs.lib.genAttrs ([ proxyHost ] ++ sandboxDefaults.networkProxyDomains) (_: "allow")
           // pkgs.lib.genAttrs hmConfig.config.programs.codex.networkProxyDomains (_: "allow")
         );
         passAsFile = [ "activation" ];

@@ -34,14 +34,17 @@ let
   xdgConfigHome = lib.removePrefix "${homeDir}/" config.xdg.configHome;
   configDir = if useXdgDirectories then "${xdgConfigHome}/codex" else ".codex";
 
-  writableRoots = [
-    "${homeDir}/.codex"
-  ]
-  ++ lib.optional useXdgDirectories "${config.xdg.configHome}/codex";
+  writableRoots = lib.unique (
+    cfg.writableRoots ++ lib.optional useXdgDirectories "${config.xdg.configHome}/codex"
+  );
 
   trustedProjects = lib.unique (
     (permissions.directories.development or [ ])
     ++ (permissions.directories.config or [ ])
+    ++ map (visibility: "/Volumes/git/${config.home.username}/${visibility}") [
+      "public"
+      "private"
+    ]
     ++ cfg.trustedProjectDirs
   );
 
@@ -167,7 +170,7 @@ let
     );
     sandbox_mode = "workspace-write";
     sandbox_workspace_write = {
-      network_access = litellmLocal.enable;
+      network_access = true;
       writable_roots = writableRoots;
     };
     mcp_servers = mcpServers;
