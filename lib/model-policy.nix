@@ -5,7 +5,7 @@
   mlxCatalog,
   policy ?
     let
-      file = "${src}/ansible/roles/llm_model_catalog/files/model-policy.json";
+      file = "${toString src}/ansible/roles/llm_model_catalog/files/model-policy.json";
     in
     if builtins.pathExists file then builtins.fromJSON (builtins.readFile file) else null,
 }:
@@ -95,7 +95,9 @@ in
 # The policy becomes mandatory when the contracts input first supplies it.
 # No fixture substitutes for an absent production policy during the input bump.
 if policy == null then
-  if builtins.pathExists "${src}/ansible/roles/llm_model_catalog/files/model-policy.json" then
+  if
+    builtins.pathExists "${toString src}/ansible/roles/llm_model_catalog/files/model-policy.json"
+  then
     throw "model policy: expected a version 1 policy object"
   else
     [ ]

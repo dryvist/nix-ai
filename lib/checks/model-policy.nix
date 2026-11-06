@@ -30,6 +30,8 @@ let
   fails = args: !(builtins.tryEval (builtins.deepSeq (validate args) true)).success;
   cases = {
     reads-contracts-path = validate { } == [ ];
+    reads-contracts-string = validate { src = toString src; } == [ ];
+    reads-contracts-input = validate { src.outPath = toString src; } == [ ];
     age-365-inclusive = accepted policy;
     age-366-rejected =
       !accepted (withModel {
@@ -150,6 +152,7 @@ let
       (withModel { upstream_created = "2000-02-29"; }) // { as_of = "2001-02-28"; }
     );
     absent-policy-during-input-bump = validate { src = ./fixtures; } == [ ];
+    absent-policy-string = validate { src = toString ./fixtures; } == [ ];
   };
   realErrors = import ../model-policy.nix {
     src = homelab-contracts;
