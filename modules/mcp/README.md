@@ -64,6 +64,26 @@ module) to enable them for every renderer. `splunk` also needs
 `SPLUNK_MCP_TOKEN` (a Splunk-minted `mcp_token`); the gateway forwards the
 caller's `Authorization` header unchanged.
 
+### Clerk write routes
+
+`programs.aiMcp.clerkRoutes.vikunja-clerk` and
+`programs.aiMcp.clerkRoutes.zammad-clerk` default to `null`. Each accepts `url`
+and `env_http_headers`: the complete published agentgateway MCP endpoint and a
+mapping of identity header names to runtime environment variable names. Both
+fields are required when a route is configured. Header mappings must be nonempty.
+The configuration contains variable names only.
+
+Configured clerks appear by agent name in the shared harness MCP profiles.
+Claude uses a per-connection header helper, Codex and OpenCode use native
+environment mappings, and Antigravity CLI/IDE and Qwen use the existing MCP bridge.
+The `vikunja` and `zammad` read configurations retain their existing definitions.
+
+Consumers supply endpoint publication and gateway grants separately. ZCode's
+sandbox MCP configuration is managed outside this module; its grants permit
+public reads and only task or comment writes through `vikunja-clerk` within its
+own project. These options configure callers; gateway policy enforces resource
+and operation scope.
+
 ## Facade canary
 
 `programs.aiMcp.facadeCanary = true` keeps its legacy meaning: `agent-facade` is

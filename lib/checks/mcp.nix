@@ -88,8 +88,59 @@ let
     || actual.tool_timeout_sec != 300
     || (expected ? env_vars && actual.env_vars != expected.env_vars)
   ) (builtins.attrNames codexLaunchContracts);
+  clerkNames = [
+    "vikunja-clerk"
+    "zammad-clerk"
+  ];
+  clerkConfig = mkHmConfig [
+    {
+      programs.opencode.enable = true;
+      programs.aiMcp.clerkRoutes = {
+        vikunja-clerk = {
+          url = "https://example.invalid/task-agent";
+          env_http_headers."X-Test-Identity" = "TEST_TASK_IDENTITY";
+        };
+        zammad-clerk = {
+          url = "https://example.invalid/ticket-agent";
+          env_http_headers."X-Test-Identity" = "TEST_TICKET_IDENTITY";
+        };
+      };
+    }
+  ];
+  clerkMaps = import ./mcp-facade-native-maps.nix clerkConfig;
 in
 {
+  mcp-clerk-routes =
+    assert builtins.all (name: cfg.clerkRoutes.${name} == null && !(cfg.servers ? ${name})) clerkNames;
+    assert builtins.all (name: clerkConfig.config.programs.aiMcp.servers.${name} == cfg.servers.${name})
+      [
+        "vikunja"
+        "zammad"
+      ];
+    assert builtins.all (servers: builtins.all (name: servers ? ${name}) clerkNames) (
+      builtins.attrValues clerkMaps
+    );
+    assert clerkMaps.codex.vikunja-clerk.env_http_headers."X-Test-Identity" == "TEST_TASK_IDENTITY";
+    assert
+      clerkMaps.claude.vikunja-clerk.headersHelper
+      == "printf '{\"X-Test-Identity\":\"%s\"}\\n' \"\${TEST_TASK_IDENTITY}\"";
+    assert clerkMaps.opencode.vikunja-clerk.headers."X-Test-Identity" == "{env:TEST_TASK_IDENTITY}";
+    assert builtins.all
+      (
+        client:
+        clerkMaps.${client}.vikunja-clerk.args == [
+          "https://example.invalid/task-agent"
+          "--header"
+          "X-Test-Identity:\${TEST_TASK_IDENTITY}"
+        ]
+      )
+      [
+        "antigravity-cli"
+        "antigravity-ide"
+        "qwen-code"
+      ];
+    helpers.mkMarker "check-mcp-clerk-routes" "Optional clerk routes preserve reads and render runtime identity across harnesses";
+
   shared-mcp-global-profile =
     assert
       missingGlobalServers == [ ]
