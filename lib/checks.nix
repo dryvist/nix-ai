@@ -154,6 +154,14 @@ in
     hmConfigAgentSkillsShared
     ;
 })
+// (import ./checks/agent-skills-authoring.nix {
+  marketplaceInputs = aiModule._module.args.marketplaceInputs;
+  inherit
+    pkgs
+    hmConfig
+    hmConfigAgentSkillsShared
+    ;
+})
 // (import ./checks/agent-skills-monitoring.nix {
   inherit pkgs hmConfig;
   instructions = catalogInstructions;

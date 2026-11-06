@@ -75,10 +75,8 @@ in
         actual = cfg.categories != { };
         expected = true;
       }
-      # frontend-design and canvas-design must reach every harness. Nothing
-      # else delivers them: their marketplace has no enabled Claude plugin, so
-      # discovery skips it, and Claude reads neither the shared root nor a
-      # per-repo tree in a repository with no AGENTS.md. Losing either half —
+      # frontend-design and canvas-design must reach every harness. Their
+      # shared sources are selected explicitly. Losing either half —
       # the local source or the ~/.claude/skills listing — silently removes the
       # skill from a harness rather than failing, so both are pinned.
       {
@@ -92,6 +90,8 @@ in
         expected = [
           "canvas-design"
           "frontend-design"
+          "langfuse"
+          "migrate-to-langfuse"
         ];
       }
       # The names above resolving to nothing is the silent failure: the option
