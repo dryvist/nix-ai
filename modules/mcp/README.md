@@ -64,6 +64,11 @@ module) to enable them for every renderer. `splunk` also needs
 `SPLUNK_MCP_TOKEN` (a Splunk-minted `mcp_token`); the gateway forwards the
 caller's `Authorization` header unchanged.
 
+### Clerk write routes
+
+See [clerk write routes](../../docs/architecture/mcp-clerk-routes.md) for optional
+agentgateway endpoints, runtime identity mappings, and caller grants.
+
 ## Facade canary
 
 `programs.aiMcp.facadeCanary = true` keeps its legacy meaning: `agent-facade` is

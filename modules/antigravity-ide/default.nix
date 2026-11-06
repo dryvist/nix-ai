@@ -31,7 +31,7 @@ let
     inherit (config.programs.aiMcp) enabledServers;
     inherit (config.programs.aiMcp) facadeCanary facadeCanaryClients facadeServer;
     excluded = cfg.excludedMcpServers;
-    normalize = formatters.utils.normalizeMcpServer;
+    normalize = server: formatters.utils.normalizeMcpServer (mcpClient.bridgeEnvHeaders pkgs server);
     client = "antigravity-ide";
   };
 
