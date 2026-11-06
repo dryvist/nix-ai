@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "as_of": "2026-11-06",
+  "max_age_days": 365,
+  "deny": [],
+  "models": [
+    {
+      "id": "example/quantized",
+      "upstream_id": "example/base",
+      "upstream_created": "2025-11-06",
+      "dossier": "fixtures/example.md"
+    }
+  ]
+}
