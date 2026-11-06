@@ -1,5 +1,15 @@
 # Changelog
 
+## [8.16.1](https://github.com/dryvist/nix-ai/compare/v8.16.0...v8.16.1) (2026-11-06)
+
+
+### Bug Fixes
+
+* **codex:** drop the Doppler allowlist from the local proxy ([#2831](https://github.com/dryvist/nix-ai/issues/2831)) ([646b920](https://github.com/dryvist/nix-ai/commit/646b920c41c1fea31b1c400e377280a6640ba5c9))
+* **flake:** track nix-herdr main and share the unstable root ([#2836](https://github.com/dryvist/nix-ai/issues/2836)) ([5148ed9](https://github.com/dryvist/nix-ai/commit/5148ed94908b6e727c91f238ad8f9e7d3de4bc86))
+* **herdr:** use upstream context lines and drop repeat hails within 15 minutes ([#2829](https://github.com/dryvist/nix-ai/issues/2829)) ([177427a](https://github.com/dryvist/nix-ai/commit/177427a7e3c391db51dae8f13621ff61beb206a2))
+* **mcp:** remove dead catalog servers and require exact versions ([#2827](https://github.com/dryvist/nix-ai/issues/2827)) ([8f22853](https://github.com/dryvist/nix-ai/commit/8f2285337086591f314950586ed2f3326b76965c))
+
 ## [8.16.0](https://github.com/dryvist/nix-ai/compare/v8.15.0...v8.16.0) (2026-11-05)
 
 
