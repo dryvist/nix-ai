@@ -112,10 +112,6 @@ in
       enable = true;
       callerId = "claude-code";
 
-      # nix-claude-code keeps account switching disabled by default. This
-      # workstation stack opts into its manual switch and parallel-session CLI.
-      swap.disabled = false;
-
       # One owner per host: the `claude-code@latest` cask on darwin,
       # llm-agents.nix on Linux. Rationale and the full source table live in
       # modules/herdr/README.md ("Where CLI binaries come from").
