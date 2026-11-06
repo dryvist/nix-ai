@@ -154,6 +154,7 @@ in
 
 }
 // import ./catalog-services.nix {
+  inherit pkgs;
   inherit
     codexMcp
     versions

@@ -9,6 +9,13 @@
 # resolved at runtime from Codex's own model cache, not pinned here.
 [
   {
+    name = "youtrack-specialist";
+    description = "Sole owner of the YouTrack tracker: finds, creates, updates and comments on YouTrack issues, verifying every write by readback. Delegate all YouTrack work here.";
+    model = "haiku";
+    prompt = "applications/youtrack-specialist.md";
+    owns = [ "youtrack" ];
+  }
+  {
     name = "vikunja-specialist";
     description = "Sole owner of the Vikunja task tracker: finds, files, labels, relates, comments on and completes Vikunja tasks, verifying every write by readback. Delegate all Vikunja work here.";
     model = "haiku";
