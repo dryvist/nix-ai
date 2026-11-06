@@ -13,6 +13,9 @@ let
     assert
       cfg.programs.litellmLocal.subagentModel != null
       || throw "the litellm fixture must declare a host rung, so the subagent group exists";
+    assert
+      cfg.programs.litellmLocal.subagentModel == "medium"
+      || throw "the default subagent group must be medium";
     cfg.programs.litellmLocal.subagentModel;
   opencodeSettings = cfg.home.file."${cfg.programs.opencode.configDir}/opencode.json".source;
   codexProfile = cfg.home.file.".codex/medium.config.toml".source;
@@ -31,11 +34,12 @@ in
       ''
         jq -e --arg g "${group}" '
           . as $c
-          | (["general", "explore"] | all(. as $n |
-              $c.agent[$n].mode == "subagent" and $c.agent[$n].model == ("mlx/" + $g)))
-            and ($c.provider.mlx.models | has($g))
+          | ($c.provider.litellm.options.apiKey == "{env:LITELLM_LOCAL_KEY}")
+            and (["general", "explore"] | all(. as $n |
+              $c.agent[$n].mode == "subagent" and $c.agent[$n].model == ("litellm/" + $g)))
+            and ($c.provider.litellm.models | has($g))
         ' ${opencodeSettings} >/dev/null || {
-          echo "opencode general and explore must use mlx/${group}:"
+          echo "opencode general and explore must use litellm/${group}:"
           cat ${opencodeSettings}
           exit 1
         }

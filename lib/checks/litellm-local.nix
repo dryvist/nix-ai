@@ -72,7 +72,7 @@ let
         tokenFilePath
         subagentModel
         ;
-      # Same config as claudeEnv, so the explicit-group check sees local-only.
+      # Same config as claudeEnv, so the explicit-group check sees medium.
       rendered = renderedTier;
     })
     claudeTierNames
@@ -113,14 +113,15 @@ let
   agyBase = enabled.home.sessionVariables.GOOGLE_GEMINI_BASE_URL;
   agyGetsRoot = agyBase == enabled.programs.litellmLocal.rootUrl && !lib.hasSuffix "/v1" agyBase;
 
-  # Shell callers get the same router address and bearer-file PATH, and the
-  # placeholder every OpenAI-compatible client sends the proxy. The token
-  # file's CONTENTS must never be exported under the router-token name.
+  # Shell callers read the router key from the existing token-file path at
+  # runtime. The token file's CONTENTS must never be rendered into the store.
   zshInit = enabled.programs.zsh.initContent;
   exportsRouterUrl = lib.hasInfix "export LLM_ROUTER_URL=" zshInit;
   exportsTokenFilePath = lib.hasInfix "export LLM_ROUTER_TOKEN_FILE=" zshInit;
   tokenFileIsPathOnly = lib.hasInfix "export LLM_ROUTER_TOKEN_FILE=${tokenFilePath}" zshInit;
-  exportsPlaceholder = lib.hasInfix "export LITELLM_LOCAL_KEY=${clientToken}" zshInit;
+  readsRouterKeyFromFile = lib.hasInfix ''LITELLM_LOCAL_KEY="$(< "$LLM_ROUTER_TOKEN_FILE")"'' zshInit;
+  exportsResolvedRouterKey = lib.hasInfix ''export OPENAI_API_KEY="$LITELLM_LOCAL_KEY"'' zshInit;
+  clearsPlaceholderForRouter = lib.hasInfix "unset OPENAI_API_KEY" zshInit;
 
   agent = enabled.launchd.agents.litellm-local.config;
 
@@ -213,8 +214,11 @@ in
       tokenFileIsPathOnly
       || throw "LLM_ROUTER_TOKEN_FILE must carry the PATH of the bearer file, never its contents";
     assert
-      exportsPlaceholder
-      || throw "shell init must export LITELLM_LOCAL_KEY as the constant placeholder `${clientToken}`; the proxy checks no credential and OpenAI-compatible SDKs refuse an empty key";
+      readsRouterKeyFromFile
+      || throw "shell init must read the router key from LLM_ROUTER_TOKEN_FILE at runtime";
+    assert
+      exportsResolvedRouterKey && clearsPlaceholderForRouter
+      || throw "shell init must pass the resolved router key to direct router clients and leave the local marker out of OPENAI_API_KEY";
     assert agentsFullyEvaluate || throw "unreachable: deepSeq either forces the agent tree or raises";
     assert
       agentCarriesNoSecret

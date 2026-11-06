@@ -73,8 +73,8 @@ rec {
   # local target cannot hold, so an override fails every background call.
   claudeHaikuUntouched = !(claudeEnv ? ANTHROPIC_DEFAULT_HAIKU_MODEL);
 
-  # The subagent tier is the proxy option's derived group (`local-only` when a
-  # host rung exists, null otherwise). Any other value here is a silent change.
+  # The subagent tier is the proxy option's derived `medium` group. Any other
+  # value here is a silent change.
   claudeSubagentMatchesOption = (claudeEnv.CLAUDE_CODE_SUBAGENT_MODEL or null) == subagentModel;
 
   # The header is what makes LiteLLM forward the OAuth bearer instead of

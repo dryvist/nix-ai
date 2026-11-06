@@ -134,9 +134,9 @@
     CLAUDE_SUBAGENT_INTERNAL_DOMAINS = lib.concatStringsSep " " aiStack.internalDomains;
   }
 )
-# Native subagents run on the group the proxy option derives: `local-only`, this
-# host's own model with no router leg. Null keeps Claude Code's default. Under
-# claudeDirect there is no proxy hop to reach that group.
+# Native subagents run on the proxy option's `medium` group, which uses this
+# host's configured local chain before the shared router's existing ladder.
+# Null keeps Claude Code's default. Under claudeDirect there is no proxy hop.
 // lib.optionalAttrs (litellmLocal.subagentTier == "anthropic") {
   CLAUDE_CODE_SUBAGENT_MODEL = litellmLocal.subagentAnthropicModel;
 }

@@ -34,7 +34,6 @@ let
     printf '%s\n' \
       "$PWD" \
       "$LLM_ROUTER_URL" \
-      "$AGENT_ROUTER_KEY" \
       "$OPENCODE_API_KEY" \
       "$LITELLM_LOCAL_KEY" \
       "$OPENCODE_CONFIG_DIR" \
@@ -49,7 +48,7 @@ let
   fakeCredentialPrefix = pkgs.writeShellScriptBin "opencode-test-credentials" ''
     set -eu
     export LLM_ROUTER_URL=https://router.example.invalid/v1
-    export AGENT_ROUTER_KEY="$(${fakeRouterKeyCommand}/bin/opencode-test-router-key)"
+    export LITELLM_LOCAL_KEY="$(${fakeRouterKeyCommand}/bin/opencode-test-router-key)"
     export OPENCODE_API_KEY="$(${fakeGoKeyCommand}/bin/opencode-test-go-key)"
     exec "$@"
   '';
@@ -62,9 +61,6 @@ let
       {
         package = fakePackage;
         launchPrefix = [ "${fakeCredentialPrefix}/bin/opencode-test-credentials" ];
-        extraEnv = {
-          LITELLM_LOCAL_KEY = "local";
-        };
       };
   localConfig = mkHmConfig [
     {
@@ -117,6 +113,7 @@ in
             baseURL: "{env:LLM_ROUTER_URL}",
             apiKey: "{env:AGENT_ROUTER_KEY}"
           } and
+          .provider.litellm.models.small.body.chat_template_kwargs.enable_thinking == false and
           ($expectedRouterNames -
             (.provider.litellm.models | keys)) == [] and
           .provider["opencode-go"].options.baseURL == "https://opencode.ai/zen/go/v1" and
@@ -134,6 +131,7 @@ in
         fi
         jq -e '
           .provider.mlx.name == "MLX (local)" and
+          .provider.litellm.options.apiKey == "{env:LITELLM_LOCAL_KEY}" and
           .provider.mlx.options.baseURL == "${localConfig.config.services.aiStack.localRouterUrl}"
         ' ${localSettings} >/dev/null
         touch $out
@@ -157,7 +155,6 @@ in
       printf '%s\n' "$output" | grep -Fx "https://router.example.invalid/v1" >/dev/null
       printf '%s\n' "$output" | grep -Fx "router-test-key" >/dev/null
       printf '%s\n' "$output" | grep -Fx "go-test-key" >/dev/null
-      printf '%s\n' "$output" | grep -Fx "local" >/dev/null
       printf '%s\n' "$output" | grep -Fx -- "--model" >/dev/null
       printf '%s\n' "$output" | grep -Fx "litellm/medium" >/dev/null
       printf '%s\n' "$output" | grep -Fx "hello world" >/dev/null

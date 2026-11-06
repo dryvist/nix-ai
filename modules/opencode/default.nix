@@ -39,22 +39,19 @@ let
   };
   mcpClient = import ../mcp/client.nix { inherit lib; };
 
-  # The wall drops everything else, so credentials in the caller's shell never
-  # reach it. The local LiteLLM key is a placeholder; the proxy checks no key.
+  # The wall drops everything else, so explicitly pass only the router key it
+  # needs for the local model endpoint.
   sandboxEnv = {
     OPENCODE_CONFIG_DIR = configDirAbs;
     OPENCODE_DISABLE_LSP_DOWNLOAD = "true";
     OPENCODE_DISABLE_PROJECT_CONFIG = "true";
-  }
-  // lib.optionalAttrs litellmLocal.enable { LITELLM_LOCAL_KEY = litellmLocal.clientToken; };
+    LLM_ROUTER_URL = config.services.aiStack.llmRouterEndpoint;
+  };
 
   trustedOpencode = import ./trusted.nix { inherit pkgs lib; } {
     inherit (cfg) package launchPrefix;
     extraEnv = {
       OPENCODE_CONFIG_DIR = configDirAbs;
-    }
-    // lib.optionalAttrs litellmLocal.enable {
-      LITELLM_LOCAL_KEY = litellmLocal.clientToken;
     };
   };
 
@@ -71,6 +68,7 @@ let
     ];
     localPorts = lib.optional litellmLocal.enable litellmLocal.port;
     extraEnv = sandboxEnv;
+    inheritedEnv = lib.optional litellmLocal.enable "LITELLM_LOCAL_KEY";
     binaryName = "opencode-wall";
     realBinaryName = "opencode";
   };
@@ -187,11 +185,17 @@ let
         name = "LiteLLM (router)";
         options = {
           baseURL = "{env:LLM_ROUTER_URL}";
-          apiKey = "{env:AGENT_ROUTER_KEY}";
+          apiKey = if litellmLocal.enable then "{env:LITELLM_LOCAL_KEY}" else "{env:AGENT_ROUTER_KEY}";
         };
-        models = lib.genAttrs routerModels (name: {
-          inherit name;
-        });
+        models = lib.genAttrs routerModels (
+          name:
+          {
+            inherit name;
+          }
+          // lib.optionalAttrs (name == "small") {
+            body.chat_template_kwargs.enable_thinking = false;
+          }
+        );
       };
       opencode-go = {
         npm = "@ai-sdk/openai-compatible";
@@ -234,9 +238,9 @@ let
       # The built-in subagents the Task tool runs by name use the derived group.
       // lib.optionalAttrs (litellmLocal.subagentModel != null) (
         lib.genAttrs [ "general" "explore" ] (name: {
-          description = "${name} subagent, run on the local-only group";
+          description = "${name} subagent, run on the local-first medium group";
           mode = "subagent";
-          model = "mlx/${litellmLocal.subagentModel}";
+          model = "litellm/${litellmLocal.subagentModel}";
         })
       );
     # LSP integration is off by default upstream; this enables every built-in

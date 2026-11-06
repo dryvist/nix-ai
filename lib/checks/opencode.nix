@@ -81,6 +81,9 @@ in
             apiKey: "{env:AGENT_ROUTER_KEY}"
           } and
           .provider.litellm.models[$alias].name == $alias and
+          .provider.litellm.models.small.body.chat_template_kwargs.enable_thinking == false and
+          .model == "litellm/medium" and
+          .small_model == "litellm/small" and
           (.provider | has("router") | not)
         ' ${settingsFile} >/dev/null
         touch $out

@@ -229,30 +229,28 @@ in
           ;
       };
 
-      # Client-side environment for the OpenAI-compatible CLIs.
-      #
-      # mkBefore, deliberately: endpoint.nix appends a `:-` guarded
-      # OPENAI_API_KEY export that defers to an already-set value, so running
-      # first makes this the winner. With the proxy enabled no interactive
-      # client talks to the router directly, so none of them needs the router
-      # bearer; the proxy checks no credential, but OpenAI-compatible SDKs
-      # refuse an empty key, so every client sends the same placeholder. The
-      # router bearer stays confined to the launchd agent's own environment.
-      #
-      # LLM_ROUTER_URL and LLM_ROUTER_TOKEN_FILE are exported for callers that
-      # must reach the UPSTREAM router directly rather than through this proxy
-      # — asking what a role actually resolves to, which the local `*` wildcard
-      # hides. Both values are non-secret (an address and a path); the token
-      # file's CONTENTS are never exported, so a caller reads the file itself
-      # at the moment it needs the bearer. Claude Code gets the same three
-      # non-secret values through settings.json (modules/claude/settings-env.nix)
-      # so its hooks see them from every surface, not only a login shell.
+      # Client-side environment for routed agents and OpenAI-compatible CLIs.
+      # The router key is read at shell startup from the existing token file;
+      # only the path is rendered into the Nix store. When no token file or
+      # environment key is available, keep the non-secret marker for the
+      # unauthenticated loopback proxy, but leave OPENAI_API_KEY unset so the
+      # router command wrappers can read the token at invocation time.
       programs.zsh.initContent = lib.mkBefore (
         ''
-          export LITELLM_LOCAL_KEY=${lib.escapeShellArg cfg.clientToken}
-          export OPENAI_API_KEY="$LITELLM_LOCAL_KEY"
           export LLM_ROUTER_URL=${lib.escapeShellArg aiStack.llmRouterEndpoint}
           export LLM_ROUTER_TOKEN_FILE=${lib.escapeShellArg (toString aiStack.llmEndpointTokenFile)}
+          if [[ -r "$LLM_ROUTER_TOKEN_FILE" ]]; then
+            LITELLM_LOCAL_KEY="$(< "$LLM_ROUTER_TOKEN_FILE")"
+          fi
+          if [[ -z "''${LITELLM_LOCAL_KEY:-}" || "$LITELLM_LOCAL_KEY" == ${lib.escapeShellArg cfg.clientToken} ]]; then
+            LITELLM_LOCAL_KEY="''${OPENAI_API_KEY:-${lib.escapeShellArg cfg.clientToken}}"
+          fi
+          export LITELLM_LOCAL_KEY
+          if [[ "$LITELLM_LOCAL_KEY" != ${lib.escapeShellArg cfg.clientToken} ]]; then
+            export OPENAI_API_KEY="$LITELLM_LOCAL_KEY"
+          elif [[ "''${OPENAI_API_KEY:-}" == ${lib.escapeShellArg cfg.clientToken} ]]; then
+            unset OPENAI_API_KEY
+          fi
         ''
         + lib.optionalString (aiStack.internalDomains != [ ]) ''
           export CLAUDE_SUBAGENT_INTERNAL_DOMAINS=${lib.escapeShellArg (lib.concatStringsSep " " aiStack.internalDomains)}
