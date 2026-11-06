@@ -192,6 +192,28 @@ the environment (see [`.env.example`](../../.env.example)):
 `unifi` ships disabled; enabling it without these set makes the server fail to
 start. Inject directly — do not write the key to disk.
 
+## YouTrack MCP
+
+`youtrack` uses YouTrack's built-in Streamable HTTP endpoint and ships disabled.
+Only `youtrack-specialist` loads it; shared profiles and on-demand files exclude it.
+It runs the packaged `mcp-remote` bridge over stdio, with credentials injected
+into the child process by the host's `programs.aiMcp.launchPrefixFor`.
+
+Set these options in the private host configuration:
+
+```nix
+programs.aiMcp.servers.youtrack = {
+  disabled = lib.mkForce false;
+  env.YOUTRACK_MCP_URL = "<base-url>/mcp";
+};
+```
+
+Configure `programs.aiMcp.launchPrefixFor` to supply `YOUTRACK_TOKEN` to the
+child from the host's credential reference. The URL comes from `env`.
+
+Keep the real URL and credential reference in the private host configuration.
+Do not export `YOUTRACK_TOKEN` into the main harness environment.
+
 ## Monarch Money MCP
 
 The `monarch` server is Monarch's official hosted connector — a remote

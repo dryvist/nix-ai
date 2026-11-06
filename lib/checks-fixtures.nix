@@ -113,6 +113,10 @@ rec {
               "--"
             ];
             vikunja.disabled = lib.mkForce false;
+            youtrack = {
+              disabled = lib.mkForce false;
+              env.YOUTRACK_MCP_URL = "https://example.invalid/mcp";
+            };
           };
           # A consumer appending one name, exactly as a host does, must keep
           # the curated list (lib/checks/mcp.nix mcp-on-demand-merge).

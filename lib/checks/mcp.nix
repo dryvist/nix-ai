@@ -91,6 +91,28 @@ let
   ) (builtins.attrNames codexLaunchContracts);
 in
 {
+  youtrack-mcp-contract =
+    assert
+      cfg.servers.youtrack.disabled
+      && cfg.servers.youtrack.url == null
+      && cfg.servers.youtrack.type == "stdio"
+      && cfg.servers.youtrack.command == "sh"
+      && cfg.servers.youtrack.bearer_token_env_var == null
+      && cfg.servers.youtrack.env_vars == [ "YOUTRACK_TOKEN" ]
+      || throw "YouTrack must ship disabled with child-scoped URL and token injection";
+    assert
+      launched.youtrack.command == "/test/injector"
+      &&
+        launched.youtrack.args == cfg.servers.youtrack.env_vars
+        ++ [
+          "--"
+          "sh"
+        ]
+        ++ cfg.servers.youtrack.args
+      && launched.youtrack.env.YOUTRACK_MCP_URL == "https://example.invalid/mcp"
+      || throw "YouTrack launch prefix or child environment was lost";
+    helpers.mkMarker "check-youtrack-mcp-contract" "YouTrack uses child-scoped injection with the stdio HTTP bridge";
+
   shared-mcp-global-profile =
     assert
       missingGlobalServers == [ ]
