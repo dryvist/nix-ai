@@ -33,6 +33,11 @@ in
           catalog = import ./catalog-data.nix;
           inherit (cfg) roleMap;
         }
+        ++ import ../../lib/model-policy.nix {
+          src = homelab-contracts;
+          mlxCatalog = import ./catalog-data.nix;
+          inherit (cfg) roleMap;
+        }
       )
   );
 }

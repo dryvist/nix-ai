@@ -76,6 +76,7 @@ let
   catalogInstructions = import ./catalog-instructions.nix { inherit ai-llm-prompts pkgs; };
 in
 (import ./checks/lint.nix { inherit pkgs src; })
+// (import ./checks/model-policy.nix { inherit pkgs homelab-contracts roleMap; })
 // (import ./checks/catalog-instructions.nix {
   inherit pkgs;
   instructions = catalogInstructions;
