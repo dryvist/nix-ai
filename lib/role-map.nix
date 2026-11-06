@@ -23,6 +23,10 @@ let
     builtins.readFile "${src}/ansible/roles/llm_model_catalog/files/model-catalog.json"
   );
   catalogModels = catalog.llm_model_catalog_models;
+  policyErrors = import ./model-policy.nix {
+    inherit src roleMap;
+    mlxCatalog = import ../modules/mlx/catalog-data.nix;
+  };
   models = builtins.mapAttrs (
     key: model:
     let
@@ -47,4 +51,5 @@ let
       model // { inherit concurrency; } // serving
   ) roleMap.models;
 in
+assert policyErrors == [ ] || throw (builtins.concatStringsSep "\n" policyErrors);
 roleMap // { inherit models; }

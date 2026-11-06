@@ -31,7 +31,10 @@ let
     }
     // lib.optionalAttrs (s.model != null) { inherit (s) model; }
     // lib.optionalAttrs (tools != [ ]) { inherit tools; }
-    // lib.optionalAttrs (s.mcpServers != { }) { inherit (s) mcpServers; }
+    # Claude Code accepts agent mcpServers only as a list of { name = config; } and drops a mapping.
+    // lib.optionalAttrs (s.mcpServers != { }) {
+      mcpServers = lib.mapAttrsToList (name: config: { ${name} = config; }) s.mcpServers;
+    }
   );
   markdown = pkgs.runCommand "${s.name}.md" { } ''
     {

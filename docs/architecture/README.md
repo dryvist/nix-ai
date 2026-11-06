@@ -57,6 +57,11 @@ notes covering tool-call parsing, idle eviction, and MoE vs dense throughput.
 **Read when**: Adding a new MLX tool, debugging a model loading or tool-calling issue,
 or understanding why the 35B model is preloaded vs the 122B MoE.
 
+### [model-policy.md](model-policy.md)
+
+Pure model admission against the shared policy, including upstream age,
+denials, catalog coverage, and fixture evaluation commands.
+
 ### [per-agent-flakes.md](per-agent-flakes.md)
 
 The uniform module layout each AI agent module follows (`default.nix`, `options.nix`,

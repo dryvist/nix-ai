@@ -3,9 +3,15 @@
 # Declarative options for OpenAI Codex CLI configuration.
 # Follows the same per-agent option patterns as the other agent modules
 # (see docs/architecture/per-agent-flakes.md).
-{ lib, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 let
+  sandboxDefaults = import ./sandbox-defaults.nix;
   mcpClient = import ../mcp/client.nix { inherit lib; };
   hookType = lib.types.nullOr (lib.types.either lib.types.path lib.types.lines);
   nullableStr = lib.types.nullOr lib.types.str;
@@ -71,6 +77,16 @@ in
       type = lib.types.listOf lib.types.str;
       default = [ ];
       description = "Additional exact hostnames allowed by Codex's network proxy.";
+    };
+
+    writableRoots = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = sandboxDefaults.writableRoots {
+        inherit lib;
+        inherit (config.home) homeDirectory;
+        inherit (pkgs.stdenv.hostPlatform) isDarwin;
+      };
+      description = "Writable directories in Codex's workspace-write sandbox, alongside its active XDG config directory.";
     };
 
     model = lib.mkOption {

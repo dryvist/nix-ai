@@ -50,6 +50,7 @@ let
 in
 {
   imports = [
+    ./clerk-routes.nix
     ./facade-canary.nix
     ./caller-registry.nix
   ];

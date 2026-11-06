@@ -45,7 +45,7 @@ let
           else
             ''
               grep -qxF 'mcpServers:' "$f"
-              ${lib.concatMapStrings (n: "grep -q '^  ${n}:' \"$f\"\n") s.owns}
+              ${lib.concatMapStrings (n: "grep -q '^- ${n}:$' \"$f\"\n") s.owns}
             ''
         }
         ! grep -q 'type: LLM Prompt' "$f"
