@@ -13,6 +13,12 @@ let
     "cli.doppler.com" = "allow";
     "api.github.com" = "allow";
     "github.com" = "allow";
+    "pypi.org" = "allow";
+    "files.pythonhosted.org" = "allow";
+    "registry.npmjs.org" = "allow";
+    "raw.githubusercontent.com" = "allow";
+    "codeload.github.com" = "allow";
+    "objects.githubusercontent.com" = "allow";
   }
   // lib.genAttrs cfg.networkProxyDomains (_: "allow");
 in
