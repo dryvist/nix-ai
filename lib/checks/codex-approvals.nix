@@ -91,13 +91,15 @@ in
           and .runtime_marker == "preserved"
           and .projects["/runtime/worktree"].trust_level == "trusted"
         ' >/dev/null
-        cp "$out/config.toml" "$out/first.toml"
+        yj -tj < "$out/config.toml" | jq -S . > "$out/first.json"
         bash ${../../modules/scripts/merge-toml-settings.sh} "$toml" "$out/config.toml"
-        cmp "$out/first.toml" "$out/config.toml"
+        yj -tj < "$out/config.toml" | jq -S . > "$out/repeated.json"
+        cmp "$out/first.json" "$out/repeated.json"
         yj -tj < "$out/config.toml" | jq '
           .sandbox_workspace_write = {network_access: false, writable_roots: ["/stale"]}
         ' | yj -jt > "$out/stale.toml"
         bash ${../../modules/scripts/merge-toml-settings.sh} "$toml" "$out/stale.toml"
-        cmp "$out/config.toml" "$out/stale.toml"
+        yj -tj < "$out/stale.toml" | jq -S . > "$out/stale.json"
+        cmp "$out/first.json" "$out/stale.json"
       '';
 }
