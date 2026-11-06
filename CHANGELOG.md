@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.18.0](https://github.com/dryvist/nix-ai/compare/v8.17.0...v8.18.0) (2026-11-06)
+
+
+### Features
+
+* **models:** assert shared model policy during evaluation ([#2840](https://github.com/dryvist/nix-ai/issues/2840)) ([887d7c5](https://github.com/dryvist/nix-ai/commit/887d7c5e297c6f61354f5d6ac654ed1bd3b47037))
+
 ## [8.17.0](https://github.com/dryvist/nix-ai/compare/v8.16.1...v8.17.0) (2026-11-06)
 
 
