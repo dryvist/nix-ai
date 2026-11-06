@@ -1,5 +1,18 @@
 # Changelog
 
+## [8.19.0](https://github.com/dryvist/nix-ai/compare/v8.18.0...v8.19.0) (2026-11-06)
+
+
+### Features
+
+* **codex:** configure shared workspace sandbox access ([#2842](https://github.com/dryvist/nix-ai/issues/2842)) ([5fcdf95](https://github.com/dryvist/nix-ai/commit/5fcdf95d4b3aa04a77ae5e20d7b4832e5a089e16))
+* **mcp:** add optional clerk caller routes ([#2844](https://github.com/dryvist/nix-ai/issues/2844)) ([9ca1470](https://github.com/dryvist/nix-ai/commit/9ca1470a8d32dada68cd5ce05117624f632f0d01))
+
+
+### Bug Fixes
+
+* **claude:** render specialist MCP servers as a list ([#2848](https://github.com/dryvist/nix-ai/issues/2848)) ([817c493](https://github.com/dryvist/nix-ai/commit/817c493fed3468e652ed0db7f67578d7fe6bf06e))
+
 ## [8.18.0](https://github.com/dryvist/nix-ai/compare/v8.17.0...v8.18.0) (2026-11-06)
 
 
