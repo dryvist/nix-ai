@@ -36,6 +36,9 @@ scores, dates, and source requirements. Every policy model is checked, including
 models without role assignments. Validation uses the shared validator's current
 UTC date; synthetic fixtures use their policy's `as_of` date.
 
+The fixture directory is a path-valued derivation input, so Nix includes its
+policy and dossiers in the build sandbox.
+
 The check builds during CI's `nix flake check`. A missing dossier, missing or
 empty benchmark section, or undated benchmark fails the build. Fixtures cover
 these rejections and a dated numeric result with a source. The pure Nix admission

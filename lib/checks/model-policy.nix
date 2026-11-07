@@ -184,7 +184,7 @@ in
         nativeBuildInputs = [ pkgs.python3 ];
         PYTHONPATH = "${homelab-contracts}/tests/llm_model_catalog";
         contractsRoot = toString homelab-contracts;
-        fixturesRoot = toString src;
+        fixturesRoot = src;
       }
       ''
         python3 - <<'PY'
