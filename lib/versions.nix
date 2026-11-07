@@ -7,6 +7,7 @@
 # current, so they carry no annotation of their own.
 let
   uvLock = import ./uv-lock.nix;
+  flakeLock = builtins.fromJSON (builtins.readFile ../flake.lock);
 in
 {
 
@@ -120,14 +121,10 @@ in
   # renovate: datasource=pypi depName=litellm
   litellm = "1.105.1";
 
-  # Fabric Go CLI (github-releases)
-  # The flake input fabric-src is ALSO tracked by Renovate's nix manager and
-  # must be bumped to the same tag. vendorHash only validates the fetched Go
-  # source tree — it does NOT detect label drift between this pin and the
-  # fabric-src input. The fabric-version-sync regression check in
-  # lib/checks/fabric.nix compares the two and fails on drift.
-  # renovate: datasource=github-releases depName=danielmiessler/fabric
-  fabric = "1.4.524";
+  # Fabric Go CLI: Renovate tracks the fabric-src input; use its locked tag.
+  fabric = builtins.head (
+    builtins.match "v([0-9].*)" flakeLock.nodes.${flakeLock.nodes.root.inputs.fabric-src}.original.ref
+  );
 
   # FluidAudio CLI (github-releases). Built from source at home-manager
   # activation time, not a sandboxed Nix derivation — see modules/fluidaudio.nix.

@@ -153,10 +153,8 @@ in
     helpers.mkMarker "check-fabric-launchd-negative" "Fabric LaunchAgent negative: launchd.agents.fabric correctly absent when enableServer = false";
 
   # Assert the fabric version in lib/versions.nix matches the version tag of
-  # the fabric-src flake input in flake.nix. Renovate's nix manager bumps
-  # fabric-src; the customManager regex bumps lib/versions.nix.fabric. The
-  # vendorHash only validates the fetched Go source tree — it does NOT detect
-  # label drift. This check runs in every `nix flake check`.
+  # the fabric-src flake input in flake.nix. lib/versions.nix reads the locked
+  # input tag, so this also verifies that flake.nix and flake.lock agree.
   fabric-version-sync =
     let
       # `src + "/path"` keeps this a PATH. Writing `"${src}/path"` interpolates

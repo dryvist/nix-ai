@@ -5,12 +5,8 @@
 # 252+ reusable AI prompt patterns for analysis, extraction, summarization, code
 # review, and content transformation.
 #
-# Version pinning lives in two places that MUST stay in sync:
-#   - lib/versions.nix `fabric = "X.Y.Z"` — Renovate customManager bumps this
-#     (datasource=github-releases, depName=danielmiessler/fabric)
-#   - flake.nix `fabric-src` flake input — Renovate's nix manager bumps this
-# The fabric-version-sync regression check in lib/checks/fabric.nix asserts
-# that the two stay aligned.
+# Renovate tracks the fabric-src flake input. lib/versions.nix reads its
+# locked tag, and the fabric-version-sync check compares it with flake.nix.
 #
 # Naming: "fabric-ai" avoids collision with the unrelated Python `fabric` package
 # in nixpkgs (pythonic remote execution). Both can coexist on PATH since the

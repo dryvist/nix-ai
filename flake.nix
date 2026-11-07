@@ -161,9 +161,8 @@
     };
 
     # Fabric prompt-pattern framework: source of both the binary and the
-    # pattern library. This tag and lib/versions.nix.fabric must stay in sync —
-    # Renovate opens a separate PR for each, and the fabric-version-sync check
-    # (lib/checks/fabric.nix) catches the drift.
+    # pattern library. lib/versions.nix.fabric reads the locked input tag;
+    # the fabric-version-sync check compares that version with this tag.
     fabric-src = {
       url = "github:danielmiessler/fabric/v1.4.524";
       flake = false;
