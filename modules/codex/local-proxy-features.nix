@@ -15,6 +15,7 @@ in
 lib.optionalAttrs localProxy.enable {
   network_proxy = {
     enabled = true;
+    allow_local_binding = true;
     domains = allowedDomains;
   };
 }
