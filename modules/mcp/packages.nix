@@ -35,8 +35,10 @@ let
   hashes = {
     modelcontextprotocol."1.0.1" = "sha256-py2wHSblDtTak178rtwVG4nf+T4abWuRYW20xEPKLv0=";
     fabric-mcp."1.3.4" = "sha256-d4f1CQ983jkieW9Dfx11luJeJ1IPOXTB2kk15DVJdV0=";
+    fabric-mcp."1.3.7" = "sha256-6Cvq7zO1Tt57aB884lywFoH1EhKZBLS2DnUDKaEJ6wA=";
     huggingface-mcp-server."0.1.0" = "sha256-HpMuEGDX4A5KQiU8P7RCmePnxDBb11uj3fnWYOzv2Ak=";
     mcp-server-time."2026.10.10" = "sha256-Mpg9UZOvIZNZzNrEbFWL7XX5yTA2DnQ3zAQKc5hMwXw=";
+    mcp-server-time."2026.10.28" = "sha256-S4oYZejEXaLSJH5yyoPqCH5ci8WXycqTxj6RA660bDE=";
   };
 
   hashFor =
