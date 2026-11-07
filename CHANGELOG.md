@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.19.3](https://github.com/dryvist/nix-ai/compare/v8.19.2...v8.19.3) (2026-11-07)
+
+
+### Bug Fixes
+
+* **session-archive:** skip the thread history database and SQLite sidecars ([#2861](https://github.com/dryvist/nix-ai/issues/2861)) ([9529bdb](https://github.com/dryvist/nix-ai/commit/9529bdbaa6769eca03419d94681f0b154bb206fa))
+
 ## [8.19.2](https://github.com/dryvist/nix-ai/compare/v8.19.1...v8.19.2) (2026-11-07)
 
 
