@@ -1,8 +1,8 @@
 ---
 type: Reference
 title: Model policy admission
-description: Pure evaluation of role-map and local catalog models against the shared model policy.
-timestamp: "2026-11-06"
+description: Model admission and dated benchmark evidence from the shared model policy.
+timestamp: "2026-11-07"
 ---
 
 ## Admission
@@ -27,6 +27,23 @@ The shared policy is required. An absent file or invalid policy fails
 evaluation, including when no models are configured. The synthetic policy under
 `lib/checks/fixtures/model-policy/` supplies regression inputs only.
 
+## Dated benchmark evidence
+
+`checks.x86_64-linux.model-policy-benchmarks` calls `validate_policy` from
+`tests/llm_model_catalog/test_model_policy.py` in the same locked
+`homelab-contracts` input. That validator owns dossier paths, benchmark sections,
+scores, dates, and source requirements. Every policy model is checked, including
+models without role assignments. Validation uses the shared validator's current
+UTC date; synthetic fixtures use their policy's `as_of` date.
+
+The check builds during CI's `nix flake check`. A missing dossier, missing or
+empty benchmark section, or undated benchmark fails the build. Fixtures cover
+these rejections and a dated numeric result with a source. The pure Nix admission
+checks run at evaluation time; the shared Python evidence check runs at build
+time. Evaluation alone does not execute the evidence check.
+
+## Verification
+
 The lead can evaluate the fixture regressions and current policy admission:
 
 ```sh
@@ -37,4 +54,10 @@ The repository-wide evaluation command is:
 
 ```sh
 nix flake check --no-build --all-systems
+```
+
+CI supplies Nix evaluation and build proof. To run the evidence check alone:
+
+```sh
+nix build .#checks.x86_64-linux.model-policy-benchmarks
 ```
