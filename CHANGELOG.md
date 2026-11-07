@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.19.4](https://github.com/dryvist/nix-ai/compare/v8.19.3...v8.19.4) (2026-11-07)
+
+
+### Bug Fixes
+
+* **model-policy:** validate dated benchmarks with the shared contract ([#2860](https://github.com/dryvist/nix-ai/issues/2860)) ([0124d05](https://github.com/dryvist/nix-ai/commit/0124d0552e0d2fddbf390b5b75c35c661aea2264))
+
 ## [8.19.3](https://github.com/dryvist/nix-ai/compare/v8.19.2...v8.19.3) (2026-11-07)
 
 

@@ -3,12 +3,13 @@
   "as_of": "2026-11-06",
   "max_age_days": 365,
   "deny": [],
+  "exempt_hosted": [],
   "models": [
     {
       "id": "example/quantized",
       "upstream_id": "example/base",
       "upstream_created": "2025-11-06",
-      "dossier": "fixtures/example.md"
+      "dossier": "ansible/roles/llm_model_catalog/files/dossiers/example.md"
     }
   ]
 }
