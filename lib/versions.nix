@@ -38,7 +38,7 @@ in
   # Agent-config synchronizer. The npm package is dyoshikawa/rulesync; at least
   # six unrelated projects share the name, so pin and verify against that repo.
   # renovate: datasource=npm depName=rulesync
-  rulesync = "17.1.0";
+  rulesync = "27.0.0";
   # oh-my-openagent Senpi edition (standalone `omo` command). Follow the beta
   # release stream instead of npm's separate `latest` dist-tag.
   # renovate: datasource=npm depName=omo-ai
