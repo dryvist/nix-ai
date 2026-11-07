@@ -2,8 +2,8 @@
 #
 # Renovate's custom regex manager updates version strings in .nix files but
 # cannot update adjacent hash = "sha256-..." fields. This workflow fires on
-# every push to a Renovate branch, re-runs nix-update for the affected
-# packages, and commits corrected hashes back before CI runs.
+# every push to a Renovate branch, refreshes hashes with nix-update while
+# keeping package versions, and commits corrected hashes back before CI runs.
 #
 # Packages covered: cecli, mcp (via cecli passthru), and zcode (source and
 # pnpm dependency hashes in modules/zcode/package.nix). The MLX Python stack
@@ -46,10 +46,10 @@ jobs:
         uses: DeterminateSystems/determinate-nix-action@e847f25223456b3058e12f7fc9d777b6a6f25060 # v3.23.2
 
       - name: Update mcp hash
-        run: nix run nixpkgs#nix-update -- --flake mcp --version="$(nix eval --raw .#mcp.version)"
+        run: nix run nixpkgs#nix-update -- --flake mcp --version=skip
 
       - name: Update cecli hash
-        run: nix run nixpkgs#nix-update -- --flake cecli --version="$(nix eval --raw .#cecli.version)"
+        run: nix run nixpkgs#nix-update -- --flake cecli --version=skip
 
       - name: Update zcode hashes
         run: nix run nixpkgs#nix-update -- --flake zcode --override-filename modules/zcode/package.nix --version=skip
