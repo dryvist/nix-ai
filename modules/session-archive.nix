@@ -13,18 +13,17 @@
 let
   cfg = config.programs.sessionArchive;
   logDir = "${config.home.homeDirectory}/Library/Logs/session-archive";
-  scriptArgs = lib.escapeShellArgs (
-    [
-      (lib.getExe' pkgs.awscli2 "aws")
-      logDir
-      "${config.home.homeDirectory}/Library/Caches/session-archive.lock"
-      cfg.endpoint
-      "--vendors"
-    ]
-    ++ lib.mapAttrsToList (dir: bucket: "${dir}=${bucket}") cfg.vendors
-    ++ [ "--excludes" ]
-    ++ cfg.excludes
-  );
+  archiveArgs = [
+    (lib.getExe' pkgs.awscli2 "aws")
+    logDir
+    "${config.home.homeDirectory}/Library/Caches/session-archive.lock"
+    cfg.endpoint
+    "--vendors"
+  ]
+  ++ lib.mapAttrsToList (dir: bucket: "${dir}=${bucket}") cfg.vendors
+  ++ [ "--excludes" ]
+  ++ cfg.excludes;
+  scriptArgs = lib.escapeShellArgs archiveArgs;
   agentPath = "${config.home.profileDirectory}/bin:/run/current-system/sw/bin:/usr/bin:/bin";
   sessionEndCommand = ''
     if ! ${pkgs.coreutils}/bin/mkdir -p ${lib.escapeShellArg logDir}; then
@@ -50,16 +49,7 @@ let
         ]
         ++ cfg.credentialCommand
         ++ [ "${./scripts/session-archive.sh}" ]
-        ++ [
-          (lib.getExe' pkgs.awscli2 "aws")
-          logDir
-          "${config.home.homeDirectory}/Library/Caches/session-archive.lock"
-          cfg.endpoint
-          "--vendors"
-        ]
-        ++ lib.mapAttrsToList (dir: bucket: "${dir}=${bucket}") cfg.vendors
-        ++ [ "--excludes" ]
-        ++ cfg.excludes
+        ++ archiveArgs
       )
     } </dev/null >>${lib.escapeShellArg "${logDir}/session-end-hook.log"} 2>&1 &
   '';
