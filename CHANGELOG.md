@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.19.5](https://github.com/dryvist/nix-ai/compare/v8.19.4...v8.19.5) (2026-11-07)
+
+
+### Bug Fixes
+
+* **renovate:** refresh mcp and cecli hashes without changing versions ([#2868](https://github.com/dryvist/nix-ai/issues/2868)) ([71006f5](https://github.com/dryvist/nix-ai/commit/71006f597ad8af0791459594f6d8c6e9ba199bc9))
+
 ## [8.19.4](https://github.com/dryvist/nix-ai/compare/v8.19.3...v8.19.4) (2026-11-07)
 
 
