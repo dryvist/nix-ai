@@ -51,6 +51,10 @@ in
     assert
       builtins.all (c: builtins.elem c cfg.excludes) creds
       || throw "session-archive must exclude every credential pattern; backup must not place secrets in a bucket";
+    # A multi-gigabyte upload times out and takes the next few uploads down with it.
+    assert
+      builtins.elem "*thread_history_*.sqlite" cfg.excludes
+      || throw "session-archive must exclude the rollout-derived thread history database";
     helpers.mkMarker "check-session-archive-agent" "session-archive: per-leaf sync, no symlink follow, credentials excluded";
 
   session-archive-negative =
