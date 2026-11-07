@@ -29,7 +29,12 @@ if [ "${1:-}" = "--session-end-wrapper" ]; then
   # The atomic guard keeps simultaneous SessionEnd events to one credential
   # request. The archive itself retains its separate mkdir lock below.
   guard_dir="${stamp_file}.guard"
-  mkdir "$guard_dir" 2>/dev/null || exit 0
+  if ! mkdir "$guard_dir" 2>/dev/null; then
+    # The guard lives for milliseconds; one older than a minute belongs to a killed run.
+    [ -n "$(find "$guard_dir" -maxdepth 0 -mmin +1 2>/dev/null)" ] || exit 0
+    rmdir "$guard_dir" 2>/dev/null || true
+    mkdir "$guard_dir" 2>/dev/null || exit 0
+  fi
   trap 'rmdir "$guard_dir" 2>/dev/null || true' EXIT
 
   stamp_mtime="$("$coreutils_dir/bin/stat" --format=%Y "$stamp_file" 2>/dev/null || printf '0')"

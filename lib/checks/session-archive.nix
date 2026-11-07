@@ -20,6 +20,7 @@ let
       pkgs.lib.splitString "\n" (builtins.readFile ../../modules/scripts/session-archive.sh)
     )
   );
+  reclaimToken = "find \"$guard_dir\" -maxdepth 0 -mmin +1";
   guardToken = "if (( stamp_mtime > 0 && now - stamp_mtime < min_interval_seconds )); then";
   stampToken = "touch \"$stamp_file\"";
   credentialToken = "exec \"$nice_bin\" -n 10 \"$timeout_bin\"";
@@ -95,7 +96,10 @@ in
 
   session-archive-credential-guard =
     assert
-      hasInfix guardToken code && hasInfix stampToken code && hasInfix credentialToken code
+      hasInfix reclaimToken code
+      && hasInfix guardToken code
+      && hasInfix stampToken code
+      && hasInfix credentialToken code
       || throw "session-archive session-end wrapper must check and touch its interval stamp before invoking the credential command";
     assert
       guardOffset < stampOffset && stampOffset < credentialOffset
