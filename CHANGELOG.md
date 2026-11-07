@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.19.2](https://github.com/dryvist/nix-ai/compare/v8.19.1...v8.19.2) (2026-11-07)
+
+
+### Bug Fixes
+
+* **deps:** synchronize packaged dependency metadata ([#2858](https://github.com/dryvist/nix-ai/issues/2858)) ([7cae62c](https://github.com/dryvist/nix-ai/commit/7cae62c387bcc56d3114ef12fb3423b152548072))
+
 ## [8.19.1](https://github.com/dryvist/nix-ai/compare/v8.19.0...v8.19.1) (2026-11-07)
 
 
