@@ -54,5 +54,7 @@ in
     # Disabled: no use in 30 days of session logs (2026-09-08 to 2026-10-08).
     "codeql-resolver@jacobpevans-cc-plugins" = false;
     "testing@jacobpevans-cc-plugins" = false;
+    # Answers every AskUserQuestion with its first option; enabling it is an operator decision.
+    "ask-default@jacobpevans-cc-plugins" = false;
   };
 }
