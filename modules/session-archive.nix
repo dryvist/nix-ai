@@ -65,6 +65,11 @@ in
         "*oauth_creds.json"
         "*antigravity-oauth-token"
         "*.DS_Store"
+        # A database built from session rollouts, too large to upload, and its siblings'
+        # write-ahead files, which cannot be restored alone.
+        "*thread_history_*.sqlite"
+        "*.sqlite-wal"
+        "*.sqlite-shm"
       ];
       description = "aws s3 sync --exclude patterns, applied to every vendor dir.";
     };
