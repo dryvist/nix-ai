@@ -33,6 +33,21 @@ let
 in
 (import ./catalog-data-qwen38-27b.nix)
 // {
+  "policy-negative-old" = {
+    model = "policy-negative-old";
+    upstream_created = "2025-10-01";
+    weightGb = 1;
+    args = [ ];
+    classes = { };
+  };
+
+  "policy-negative-undated" = {
+    model = "policy-negative-undated";
+    weightGb = 1;
+    args = [ ];
+    classes = { };
+  };
+
   # Keep this entry while the pinned role map still names the vision model.
   # It is outside a host's static resident set unless explicitly selected.
   unlimited-ocr = {
