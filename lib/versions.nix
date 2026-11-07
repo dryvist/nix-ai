@@ -29,7 +29,7 @@ in
   # renovate: datasource=npm depName=chatgpt-cli
   chatgptCli = "3.3.0";
   # renovate: datasource=npm depName=claude-flow
-  claudeFlow = "3.56.10";
+  claudeFlow = "3.66.0";
   # renovate: datasource=npm depName=@googleworkspace/cli
   gwsCli = "0.22.5";
   # renovate: datasource=npm depName=@openwhispr/cli
@@ -53,7 +53,7 @@ in
   # renovate: datasource=npm depName=@modelcontextprotocol/server-filesystem
   mcpFilesystem = "2.1.0";
   # renovate: datasource=npm depName=mcp-server-apple-events
-  mcpAppleEvents = "1.6.1";
+  mcpAppleEvents = "1.6.2";
   # renovate: datasource=npm depName=@democratize-technology/vikunja-mcp
   vikunjaMcp = "0.2.0";
 
@@ -73,13 +73,13 @@ in
 
   # MCP servers (pypi)
   # renovate: datasource=pypi depName=mcp-server-time
-  mcpServerTime = "2026.10.10";
+  mcpServerTime = "2026.10.28";
   # renovate: datasource=pypi depName=fabric-mcp
-  fabricMcp = "1.3.4";
+  fabricMcp = "1.3.7";
   # renovate: datasource=pypi depName=google-workspace-mcp
   gwsMcp = "2.0.9";
   # renovate: datasource=pypi depName=unifi-mcp-server
-  unifiMcpServer = "0.2.5";
+  unifiMcpServer = "0.7.0";
 
   # MCP servers (uvx from git — not published to PyPI or npm)
   # Consumed as git+https://github.com/basher83/zammad-mcp.git@v<version>; the
@@ -108,18 +108,18 @@ in
   transformers = uvLock.version "transformers";
   # Optional Apple-Silicon benchmark CLI; it does not select or enable a serving backend.
   # renovate: datasource=pypi depName=vllm-mlx
-  vllmMlx = "0.5.0";
+  vllmMlx = "0.6.0";
   # renovate: datasource=pypi depName=lm-eval
   lmEval = "0.4.13";
 
   # AI tools (pypi)
   # renovate: datasource=pypi depName=browser-use
-  browserUse = "0.13.11";
+  browserUse = "0.13.14";
   # The loopback proxy (modules/litellm-local). Runs from uvx rather than
   # nixpkgs so it tracks the upstream release train; nixpkgs lags by months
   # and builds it from source with a large test closure.
   # renovate: datasource=pypi depName=litellm
-  litellm = "1.105.1";
+  litellm = "1.106.6";
 
   # Fabric Go CLI: Renovate tracks the fabric-src input; use its locked tag.
   fabric = builtins.head (
@@ -129,11 +129,11 @@ in
   # FluidAudio CLI (github-releases). Built from source at home-manager
   # activation time, not a sandboxed Nix derivation — see modules/fluidaudio.nix.
   # renovate: datasource=github-releases depName=FluidInference/FluidAudio
-  fluidAudio = "0.17.7";
+  fluidAudio = "0.18.0";
 
   # ZCode CLI (github-releases), built from this tag by modules/zcode/package.nix.
   # fix-renovate-hashes.yml refreshes the source and pnpm dependency hashes in
   # that file after a Renovate bump; the zcode-build check builds it.
   # renovate: datasource=github-releases depName=zai-org/ZCode
-  zcode = "v3.14.3";
+  zcode = "v3.17.1";
 }
