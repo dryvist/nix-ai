@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.19.6](https://github.com/dryvist/nix-ai/compare/v8.19.5...v8.19.6) (2026-11-07)
+
+
+### Bug Fixes
+
+* **codex:** allow private destinations for allowlisted proxy hosts ([#2873](https://github.com/dryvist/nix-ai/issues/2873)) ([b34b557](https://github.com/dryvist/nix-ai/commit/b34b557fbeead36bf5064c87e9e5ddcda175a441))
+
 ## [8.19.5](https://github.com/dryvist/nix-ai/compare/v8.19.4...v8.19.5) (2026-11-07)
 
 
