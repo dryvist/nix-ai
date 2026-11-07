@@ -45,6 +45,7 @@ let
           "${pkgs.coreutils}/bin/timeout"
           config.home.homeDirectory
           agentPath
+          (lib.getExe pkgs.flock)
           "--"
         ]
         ++ cfg.credentialCommand

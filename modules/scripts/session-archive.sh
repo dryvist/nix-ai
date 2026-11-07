@@ -20,22 +20,17 @@ if [ "${1:-}" = "--session-end-wrapper" ]; then
   timeout_bin="$7"
   home_dir="$8"
   path_value="$9"
-  shift 9
+  flock_bin="${10}"
+  shift 10
   [ "${1:-}" = "--" ] && shift
 
   export HOME="$home_dir" PATH="$path_value"
   mkdir -p "$log_dir" || exit 1
 
-  # The atomic guard keeps simultaneous SessionEnd events to one credential
-  # request. The archive itself retains its separate mkdir lock below.
-  guard_dir="${stamp_file}.guard"
-  if ! mkdir "$guard_dir" 2>/dev/null; then
-    # The guard lives for milliseconds; one older than a minute belongs to a killed run.
-    [ -n "$(find "$guard_dir" -maxdepth 0 -mmin +1 2>/dev/null)" ] || exit 0
-    rmdir "$guard_dir" 2>/dev/null || true
-    mkdir "$guard_dir" 2>/dev/null || exit 0
-  fi
-  trap 'rmdir "$guard_dir" 2>/dev/null || true' EXIT
+  # One credential request per interval across simultaneous SessionEnd events.
+  # The kernel drops the lock when this process dies, so a killed run never blocks later ones.
+  exec 9>"${stamp_file}.lock" || exit 1
+  "$flock_bin" -n 9 || exit 0
 
   stamp_mtime="$("$coreutils_dir/bin/stat" --format=%Y "$stamp_file" 2>/dev/null || printf '0')"
   now="$("$coreutils_dir/bin/date" +%s)"
@@ -44,8 +39,7 @@ if [ "${1:-}" = "--session-end-wrapper" ]; then
   fi
 
   touch "$stamp_file" || exit 1
-  rmdir "$guard_dir" 2>/dev/null || exit 1
-  trap - EXIT
+  exec 9>&-
   exec "$nice_bin" -n 10 "$timeout_bin" --signal=TERM --kill-after=1s "${max_run_hours}h" "$@"
 fi
 

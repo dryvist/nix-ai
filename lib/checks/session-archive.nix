@@ -20,10 +20,11 @@ let
       pkgs.lib.splitString "\n" (builtins.readFile ../../modules/scripts/session-archive.sh)
     )
   );
-  reclaimToken = "find \"$guard_dir\" -maxdepth 0 -mmin +1";
+  lockToken = "\"$flock_bin\" -n 9 || exit 0";
   guardToken = "if (( stamp_mtime > 0 && now - stamp_mtime < min_interval_seconds )); then";
   stampToken = "touch \"$stamp_file\"";
   credentialToken = "exec \"$nice_bin\" -n 10 \"$timeout_bin\"";
+  lockOffset = builtins.stringLength (builtins.head (splitString lockToken code));
   guardOffset = builtins.stringLength (builtins.head (splitString guardToken code));
   stampOffset = builtins.stringLength (builtins.head (splitString stampToken code));
   credentialOffset = builtins.stringLength (builtins.head (splitString credentialToken code));
@@ -96,13 +97,13 @@ in
 
   session-archive-credential-guard =
     assert
-      hasInfix reclaimToken code
+      hasInfix lockToken code
       && hasInfix guardToken code
       && hasInfix stampToken code
       && hasInfix credentialToken code
       || throw "session-archive session-end wrapper must check and touch its interval stamp before invoking the credential command";
     assert
-      guardOffset < stampOffset && stampOffset < credentialOffset
+      lockOffset < guardOffset && guardOffset < stampOffset && stampOffset < credentialOffset
       || throw "session-archive session-end wrapper must check its interval stamp and touch it before invoking the credential command";
     helpers.mkMarker "check-session-archive-credential-guard" "session-archive: interval guard precedes the credential command";
 
