@@ -176,6 +176,10 @@ in
             message = "programs.sessionArchive.maxRunHours must be between 1 and 11.";
           }
           {
+            assertion = cfg.trigger != "session-end" || config.programs.claude.enable;
+            message = "programs.sessionArchive.trigger = \"session-end\" needs programs.claude.enable, which renders the hook.";
+          }
+          {
             assertion = cfg.trigger != "session-end" || cfg.minIntervalHours > 0;
             message = "programs.sessionArchive.minIntervalHours must be greater than zero.";
           }
