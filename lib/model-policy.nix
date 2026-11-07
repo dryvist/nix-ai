@@ -7,7 +7,10 @@
     let
       file = "${toString src}/ansible/roles/llm_model_catalog/files/model-policy.json";
     in
-    if builtins.pathExists file then builtins.fromJSON (builtins.readFile file) else null,
+    if builtins.pathExists file then
+      builtins.fromJSON (builtins.readFile file)
+    else
+      throw "model policy: required shared policy file is missing",
 }:
 let
   inherit (builtins)
@@ -92,15 +95,8 @@ let
     else
       [ ];
 in
-# The policy becomes mandatory when the contracts input first supplies it.
-# No fixture substitutes for an absent production policy during the input bump.
 if policy == null then
-  if
-    builtins.pathExists "${toString src}/ansible/roles/llm_model_catalog/files/model-policy.json"
-  then
-    throw "model policy: expected a version 1 policy object"
-  else
-    [ ]
+  throw "model policy: expected a version 1 policy object"
 else if
   (policy.version or null) != 1 || !builtins.isInt policy.max_age_days || policy.max_age_days < 0
 then
