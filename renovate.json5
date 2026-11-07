@@ -17,6 +17,16 @@
   "packageRules": [
     {
       "description": [
+        "Exclude a ZCode release that fails pnpm install in the Nix build on",
+        "x86_64-linux with ENOENT on react-scan/node_modules/esbuild. Newer",
+        "releases pass this rule. Remove it after one of them builds.",
+      ],
+      "matchDatasources": ["github-releases"],
+      "matchPackageNames": ["zai-org/ZCode"],
+      "allowedVersions": "!/^v?3\\.17\\.1$/",
+    },
+    {
+      "description": [
         "Exclude a transformers release that breaks mlx-lm during import; the",
         "release fails while registering a model and prevents worker startup.",
         "Remove the restriction after upstream fixes the registration behavior.",

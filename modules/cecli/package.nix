@@ -102,7 +102,7 @@ let
   };
 
   # renovate: datasource=pypi depName=cecli-dev
-  version = "1.8.0";
+  version = "1.10.1";
 in
 python3Packages.buildPythonApplication {
   pname = "cecli";
@@ -115,7 +115,7 @@ python3Packages.buildPythonApplication {
   src = fetchPypi {
     pname = "cecli_dev";
     inherit version;
-    hash = "sha256-d1PZ2qco87+yQJPfzTxEygH1TLjXN+bwgrwaqTu8tls=";
+    hash = "sha256-AkSnUbvcxcvwC4/ENPHIwV2s6xYdtvkxZW0/FPJD6qg=";
   };
 
   # nixpkgs-25.11 ships older versions of several deps than cecli's
