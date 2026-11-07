@@ -49,6 +49,8 @@ in
         jq -e --argjson allowedDomains "$allowedDomains" '
           .sandbox_workspace_write.network_access == true
           and .features.network_proxy.enabled == true
+          and .features.network_proxy.allow_local_binding == true
+          and ([.features.network_proxy.domains | keys[] | select(contains("*"))] | length == 0)
           and .features.network_proxy.domains == $allowedDomains
         ' config.json >/dev/null
         touch $out
