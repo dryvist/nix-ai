@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.19.8](https://github.com/dryvist/nix-ai/compare/v8.19.7...v8.19.8) (2026-11-07)
+
+
+### Bug Fixes
+
+* **deps:** update non-major dependencies and pins ([#2878](https://github.com/dryvist/nix-ai/issues/2878)) ([44214ab](https://github.com/dryvist/nix-ai/commit/44214ab810acd0ba1e6bb9a10e8dd273a92e8fc3))
+
 ## [8.19.7](https://github.com/dryvist/nix-ai/compare/v8.19.6...v8.19.7) (2026-11-07)
 
 

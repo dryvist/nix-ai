@@ -5,18 +5,20 @@
 # is 24f21905. The Home Manager assertions and projections were deepSeq'd for
 # both systems before comparing. These values match the earlier 37b952fc
 # baseline, now verified at the exact source base for this candidate.
-# flakeLockSha256 tracks the homelab-contracts v5.55.0 input update.
+# flakeLockSha256 and both projection digests track the all non-major dependencies
+# update in #2855: its MCP server version bumps change store paths in the
+# projection; byte counts are unchanged.
 {
   baseCommit = "bd39621af5358bf01af73899f1761430ec6fae3d";
-  flakeLockSha256 = "37daa4399851c1d97279c6cfcbe7594b84c12487e782da4e760d1a121c576916";
+  flakeLockSha256 = "58bdde5ec18f46857acd8281ccdc37302024defc23fc98e938fc3d178eeaa968";
   projections = {
     aarch64-darwin = {
       bytes = 3357;
-      sha256 = "db25765b1dda424737ffb217c5a9ed6a4d4a92a42e993cea9b2290a6ad48fd05";
+      sha256 = "de5ca3d56fd484c910b6f9348625c887f29cf98487280f95af4afd9ce7317352";
     };
     x86_64-linux = {
       bytes = 3175;
-      sha256 = "cd6d5c1f4900bbd14170dfe1dc2ed74f3c564fbe3527e1e8c54d61fab406feeb";
+      sha256 = "cd493162676eae7b9017a71136e811230ba1ec84d0738aab0fae074c80dde0de";
     };
   };
 }
