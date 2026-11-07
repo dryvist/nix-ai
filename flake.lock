@@ -867,17 +867,17 @@
     "herdr-remote-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1792779701,
-        "narHash": "sha256-ZDlc/pmZ1N+aBHzRy9RNNcbdNgJALSzDbHXN1/xM+wA=",
+        "lastModified": 1793645165,
+        "narHash": "sha256-tXkN15Y2wQUA9DXR6OeWorYZh67BkG3efiotWjfD908=",
         "owner": "dcolinmorgan",
         "repo": "herdr-remote",
-        "rev": "041e53ccc44f0a7cd4d022ef8296b79904237dc9",
+        "rev": "051f6e6d7b9ca22d0fc05f125a486546b907659c",
         "type": "github"
       },
       "original": {
         "owner": "dcolinmorgan",
         "repo": "herdr-remote",
-        "rev": "041e53ccc44f0a7cd4d022ef8296b79904237dc9",
+        "rev": "051f6e6d7b9ca22d0fc05f125a486546b907659c",
         "type": "github"
       }
     },
