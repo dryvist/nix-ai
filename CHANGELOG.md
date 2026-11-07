@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.20.0](https://github.com/dryvist/nix-ai/compare/v8.19.8...v8.20.0) (2026-11-07)
+
+
+### Features
+
+* **agent-skills:** distribute agent-builder and skill-builder ([#2882](https://github.com/dryvist/nix-ai/issues/2882)) ([2f15267](https://github.com/dryvist/nix-ai/commit/2f1526717f529d228addbfde2fede12939999464))
+
 ## [8.19.8](https://github.com/dryvist/nix-ai/compare/v8.19.7...v8.19.8) (2026-11-07)
 
 
