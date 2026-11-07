@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.21.0](https://github.com/dryvist/nix-ai/compare/v8.20.0...v8.21.0) (2026-11-07)
+
+
+### Features
+
+* **session-archive:** add a session-end trigger ([#2885](https://github.com/dryvist/nix-ai/issues/2885)) ([bf32fc1](https://github.com/dryvist/nix-ai/commit/bf32fc1cb776f836fa49a69636be5cf5d2b407f0))
+
 ## [8.20.0](https://github.com/dryvist/nix-ai/compare/v8.19.8...v8.20.0) (2026-11-07)
 
 
