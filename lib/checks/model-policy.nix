@@ -177,4 +177,52 @@ in
         expected = true;
       }) cases;
     };
+
+  model-policy-benchmarks =
+    pkgs.runCommand "check-model-policy-benchmarks"
+      {
+        nativeBuildInputs = [ pkgs.python3 ];
+        PYTHONPATH = "${homelab-contracts}/tests/llm_model_catalog";
+        contractsRoot = toString homelab-contracts;
+        fixturesRoot = src;
+      }
+      ''
+        python3 - <<'PY'
+        import copy
+        import datetime
+        import json
+        import os
+        from pathlib import Path
+        import unittest
+
+        from test_model_policy import validate_policy
+
+        def check(root, policy, *, today=None):
+            validate_policy(
+                policy, {"llm_model_catalog_models": []},
+                {"models": {}, "roles": {}, "hosts": {}}, root=root,
+                today=today)
+
+        class BenchmarkAdmissionTest(unittest.TestCase):
+            def test_shared_policy(self):
+                root = Path(os.environ["contractsRoot"])
+                policy = json.loads((root / "ansible/roles/llm_model_catalog/files/model-policy.json").read_text())
+                check(root, policy)
+
+            def test_fixture_dossiers(self):
+                root = Path(os.environ["fixturesRoot"])
+                policy = json.loads((root / "ansible/roles/llm_model_catalog/files/model-policy.json").read_text())
+                today = datetime.date.fromisoformat(policy["as_of"])
+                check(root, policy, today=today)
+                for name in ("no-benchmark-section", "empty-benchmarks", "undated-benchmark", "absent"):
+                    with self.subTest(dossier=name):
+                        candidate = copy.deepcopy(policy)
+                        candidate["models"][0]["dossier"] = str(Path(policy["models"][0]["dossier"]).with_name(name + ".md"))
+                        with self.assertRaisesRegex(ValueError, "benchmark evidence|missing dossier"):
+                            check(root, candidate, today=today)
+
+        unittest.main()
+        PY
+        touch $out
+      '';
 }
