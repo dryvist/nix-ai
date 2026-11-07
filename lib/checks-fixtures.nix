@@ -371,14 +371,10 @@ rec {
   ];
   # Seventh evaluation exercising the session-archive agent (lib/checks/
   # session-archive.nix): also off by default, so the agent only exists here.
-  hmConfigSessionArchive = mkHmConfig [
-    {
-      programs.sessionArchive = {
-        enable = true;
-        endpoint = "https://example.invalid";
-      };
-    }
-  ];
+  inherit (import ./checks-fixtures-session-archive.nix { inherit mkHmConfig; })
+    hmConfigSessionArchive
+    hmConfigSessionArchiveSessionEnd
+    ;
   inherit (import ./checks-fixtures-litellm.nix { inherit mkHmConfig; })
     hmConfigLitellmLocal
     hmConfigRouter

@@ -39,6 +39,7 @@ let
     hmConfigTokenMeterNoMenu
     hmConfigSessionSync
     hmConfigSessionArchive
+    hmConfigSessionArchiveSessionEnd
     hmConfigLitellmLocal
     hmConfigLitellmSubagents
     hmConfigRouter
@@ -118,6 +119,7 @@ in
     pkgs
     hmConfig
     hmConfigSessionArchive
+    hmConfigSessionArchiveSessionEnd
     ;
 })
 // (import ./checks/ai-stack.nix { inherit pkgs testLocalModelId roleMap; })
