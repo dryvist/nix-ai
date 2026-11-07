@@ -17,6 +17,16 @@
   "packageRules": [
     {
       "description": [
+        "Hold the v3.17.1 update, which fails pnpm install in the Nix build on",
+        "x86_64-linux with ENOENT on react-scan/node_modules/esbuild. Retry from",
+        "2026-11-14 with the newest release.",
+      ],
+      "matchDatasources": ["github-releases"],
+      "matchPackageNames": ["zai-org/ZCode"],
+      "allowedVersions": "<3.17.1",
+    },
+    {
+      "description": [
         "Exclude a transformers release that breaks mlx-lm during import; the",
         "release fails while registering a model and prevents worker startup.",
         "Remove the restriction after upstream fixes the registration behavior.",
