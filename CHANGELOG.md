@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.19.7](https://github.com/dryvist/nix-ai/compare/v8.19.6...v8.19.7) (2026-11-07)
+
+
+### Bug Fixes
+
+* **renovate:** use the Python package name for mlx-vlm ([#2872](https://github.com/dryvist/nix-ai/issues/2872)) ([bd7c270](https://github.com/dryvist/nix-ai/commit/bd7c270b9729c73297b87f4843a19eb1315707ba))
+
 ## [8.19.6](https://github.com/dryvist/nix-ai/compare/v8.19.5...v8.19.6) (2026-11-07)
 
 
