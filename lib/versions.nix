@@ -135,5 +135,5 @@ in
   # fix-renovate-hashes.yml refreshes the source and pnpm dependency hashes in
   # that file after a Renovate bump; the zcode-build check builds it.
   # renovate: datasource=github-releases depName=zai-org/ZCode
-  zcode = "v3.17.1";
+  zcode = "v3.14.3";
 }
