@@ -7,10 +7,12 @@
   pkgs,
   hmConfig,
   hmConfigSessionArchive,
+  hmConfigSessionArchiveSessionEnd,
 }:
 let
   helpers = import ./helpers.nix { inherit pkgs; };
   inherit (pkgs.lib) hasInfix;
+  inherit (pkgs.lib) splitString;
   # Read the script as code only: comments explain the forbidden whole-tree
   # sync, and a naive scan would match the very prose that bans it.
   code = pkgs.lib.concatStringsSep "\n" (
@@ -18,6 +20,14 @@ let
       pkgs.lib.splitString "\n" (builtins.readFile ../../modules/scripts/session-archive.sh)
     )
   );
+  lockToken = "\"$flock_bin\" -n 9 || exit 0";
+  guardToken = "if (( stamp_mtime > 0 && now - stamp_mtime < min_interval_seconds )); then";
+  stampToken = "touch \"$stamp_file\"";
+  credentialToken = "exec \"$nice_bin\" -n 10 \"$timeout_bin\"";
+  lockOffset = builtins.stringLength (builtins.head (splitString lockToken code));
+  guardOffset = builtins.stringLength (builtins.head (splitString guardToken code));
+  stampOffset = builtins.stringLength (builtins.head (splitString stampToken code));
+  credentialOffset = builtins.stringLength (builtins.head (splitString credentialToken code));
 in
 {
   session-archive-agent =
@@ -32,6 +42,14 @@ in
         "*antigravity-oauth-token"
       ];
     in
+    assert
+      cfg.trigger == "schedule" || throw "session-archive must default to the launchd schedule trigger";
+    assert
+      cfg.maxRunHours == 11 && cfg.minIntervalHours == 20
+      || throw "session-archive runtime and interval defaults must remain 11 and 20 hours";
+    assert
+      hmConfigSessionArchive.config.launchd.agents ? session-archive
+      || throw "session-archive schedule trigger must define its launchd agent";
     assert
       cal.Hour == cfg.calendarHour && cal.Minute == cfg.calendarMinute
       || throw "session-archive agent must schedule from calendarHour/calendarMinute";
@@ -55,7 +73,39 @@ in
     assert
       builtins.elem "*thread_history_*.sqlite" cfg.excludes
       || throw "session-archive must exclude the rollout-derived thread history database";
-    helpers.mkMarker "check-session-archive-agent" "session-archive: per-leaf sync, no symlink follow, credentials excluded";
+    builtins.deepSeq agent (
+      helpers.mkMarker "check-session-archive-agent" "session-archive: per-leaf sync, no symlink follow, credentials excluded"
+    );
+
+  session-archive-session-end =
+    let
+      hm = hmConfigSessionArchiveSessionEnd.config;
+      events = hm.programs.claude.hooks.events.SessionEnd or [ ];
+      commands = pkgs.lib.concatMap (event: map (hook: hook.command or "") (event.hooks or [ ])) events;
+    in
+    assert
+      !(hm.launchd.agents ? session-archive)
+      || throw "session-end trigger must not define a launchd agent";
+    assert
+      events != [ ]
+      && builtins.any (
+        command:
+        hasInfix "nohup" command && hasInfix "</dev/null" command && hasInfix "session-end-hook.log" command
+      ) commands
+      || throw "session-end trigger must register a detached SessionEnd hook with log output";
+    helpers.mkMarker "check-session-archive-session-end" "session-archive: detached SessionEnd hook without a launchd agent";
+
+  session-archive-credential-guard =
+    assert
+      hasInfix lockToken code
+      && hasInfix guardToken code
+      && hasInfix stampToken code
+      && hasInfix credentialToken code
+      || throw "session-archive session-end wrapper must check and touch its interval stamp before invoking the credential command";
+    assert
+      lockOffset < guardOffset && guardOffset < stampOffset && stampOffset < credentialOffset
+      || throw "session-archive session-end wrapper must check its interval stamp and touch it before invoking the credential command";
+    helpers.mkMarker "check-session-archive-credential-guard" "session-archive: interval guard precedes the credential command";
 
   session-archive-negative =
     assert
