@@ -25,6 +25,43 @@ let
     ++ [ "--excludes" ]
     ++ cfg.excludes
   );
+  agentPath = "${config.home.profileDirectory}/bin:/run/current-system/sw/bin:/usr/bin:/bin";
+  sessionEndCommand = ''
+    if ! ${pkgs.coreutils}/bin/mkdir -p ${lib.escapeShellArg logDir}; then
+      exit 0
+    fi
+    ${pkgs.coreutils}/bin/nohup ${
+      lib.escapeShellArgs (
+        [
+          "${pkgs.bash}/bin/bash"
+          "${./scripts/session-archive.sh}"
+          "--session-end-wrapper"
+          logDir
+          "${logDir}/last-attempt"
+          (toString (cfg.minIntervalHours * 3600))
+          (toString cfg.maxRunHours)
+          "${pkgs.coreutils}"
+          "${pkgs.coreutils}/bin/nice"
+          "${pkgs.coreutils}/bin/timeout"
+          config.home.homeDirectory
+          agentPath
+          "--"
+        ]
+        ++ cfg.credentialCommand
+        ++ [ "${./scripts/session-archive.sh}" ]
+        ++ [
+          (lib.getExe' pkgs.awscli2 "aws")
+          logDir
+          "${config.home.homeDirectory}/Library/Caches/session-archive.lock"
+          cfg.endpoint
+          "--vendors"
+        ]
+        ++ lib.mapAttrsToList (dir: bucket: "${dir}=${bucket}") cfg.vendors
+        ++ [ "--excludes" ]
+        ++ cfg.excludes
+      )
+    } </dev/null >>${lib.escapeShellArg "${logDir}/session-end-hook.log"} 2>&1 &
+  '';
 in
 {
   options.programs.sessionArchive = {
@@ -87,6 +124,27 @@ in
       description = "Minute of the daily run.";
     };
 
+    trigger = lib.mkOption {
+      type = lib.types.enum [
+        "schedule"
+        "session-end"
+      ];
+      default = "schedule";
+      description = "Whether to run the archive on its daily schedule or at Claude Code session end.";
+    };
+
+    maxRunHours = lib.mkOption {
+      type = lib.types.int;
+      default = 11;
+      description = "Maximum session-end archive runtime in hours; must stay below the 12-hour stale-lock reclaim interval.";
+    };
+
+    minIntervalHours = lib.mkOption {
+      type = lib.types.int;
+      default = 20;
+      description = "Minimum hours between session-end archive attempts.";
+    };
+
     credentialCommand = lib.mkOption {
       type = lib.types.listOf lib.types.str;
       default = [ ];
@@ -104,44 +162,70 @@ in
     };
   };
 
-  config = lib.mkIf cfg.enable {
-    assertions = [
+  config = lib.mkIf cfg.enable (
+    lib.mkMerge [
       {
-        assertion = cfg.endpoint != "";
-        message = "programs.sessionArchive.endpoint must name the S3 endpoint to push to.";
-      }
-    ];
-
-    launchd.agents.session-archive = {
-      enable = true;
-      config = {
-        Label = "dev.session-archive";
-        # wait4path: the agent can fire before /nix/store is mounted after boot.
-        # credentialCommand injects the per-bucket secrets the script reads.
-        ProgramArguments = [
-          "/bin/sh"
-          "-c"
-          "/bin/wait4path /nix/store && exec ${lib.escapeShellArgs cfg.credentialCommand} ${./scripts/session-archive.sh} ${scriptArgs}"
-        ];
-        StartCalendarInterval = [
+        assertions = [
           {
-            Hour = cfg.calendarHour;
-            Minute = cfg.calendarMinute;
+            assertion = cfg.endpoint != "";
+            message = "programs.sessionArchive.endpoint must name the S3 endpoint to push to.";
+          }
+          {
+            assertion = cfg.trigger != "session-end" || (cfg.maxRunHours > 0 && cfg.maxRunHours < 12);
+            message = "programs.sessionArchive.maxRunHours must be between 1 and 11.";
+          }
+          {
+            assertion = cfg.trigger != "session-end" || cfg.minIntervalHours > 0;
+            message = "programs.sessionArchive.minIntervalHours must be greater than zero.";
           }
         ];
-        RunAtLoad = false;
-        ProcessType = "Background";
-        LowPriorityIO = true;
-        Nice = 10;
-        EnvironmentVariables = {
-          HOME = config.home.homeDirectory;
-          # Same PATH shape as the maestro agent: per-user profile first so the
-          # user-level credentialCommand resolves, then system and Apple paths.
-          PATH = "${config.home.profileDirectory}/bin:/run/current-system/sw/bin:/usr/bin:/bin";
+
+      }
+      (lib.mkIf (cfg.trigger == "session-end") {
+        programs.claude.hooks.events.SessionEnd = [
+          {
+            hooks = [
+              {
+                type = "command";
+                command = sessionEndCommand;
+              }
+            ];
+          }
+        ];
+      })
+      (lib.mkIf (cfg.trigger == "schedule") {
+        launchd.agents.session-archive = {
+          enable = true;
+          config = {
+            Label = "dev.session-archive";
+            # wait4path: the agent can fire before /nix/store is mounted after boot.
+            # credentialCommand injects the per-bucket secrets the script reads.
+            ProgramArguments = [
+              "/bin/sh"
+              "-c"
+              "/bin/wait4path /nix/store && exec ${lib.escapeShellArgs cfg.credentialCommand} ${./scripts/session-archive.sh} ${scriptArgs}"
+            ];
+            StartCalendarInterval = [
+              {
+                Hour = cfg.calendarHour;
+                Minute = cfg.calendarMinute;
+              }
+            ];
+            RunAtLoad = false;
+            ProcessType = "Background";
+            LowPriorityIO = true;
+            Nice = 10;
+            EnvironmentVariables = {
+              HOME = config.home.homeDirectory;
+              # Same PATH shape as the maestro agent: per-user profile first so the
+              # user-level credentialCommand resolves, then system and Apple paths.
+              PATH = agentPath;
+            };
+            StandardOutPath = "${logDir}/agent.log";
+            StandardErrorPath = "${logDir}/agent.error.log";
+          };
         };
-        StandardOutPath = "${logDir}/agent.log";
-        StandardErrorPath = "${logDir}/agent.error.log";
-      };
-    };
-  };
+      })
+    ]
+  );
 }

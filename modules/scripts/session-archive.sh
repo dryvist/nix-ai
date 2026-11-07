@@ -1,10 +1,48 @@
 #!/usr/bin/env bash
 # Push AI session history to per-vendor S3 buckets (RustFS).
-# Called by the launchd agent in modules/session-archive.nix.
+# Called by the launchd agent or the Claude Code SessionEnd hook in
+# modules/session-archive.nix.
 #
 # Arguments: <aws-bin> <log-dir> <lock-dir> <endpoint>
 # then a "--vendors" list of dir=bucket pairs, then an "--excludes" list.
 set -uo pipefail
+
+# The SessionEnd hook starts this mode detached. Its stamp guard runs before
+# the credential command so repeated sessions do not mint credentials again.
+if [ "${1:-}" = "--session-end-wrapper" ]; then
+  shift
+  log_dir="$1"
+  stamp_file="$2"
+  min_interval_seconds="$3"
+  max_run_hours="$4"
+  coreutils_dir="$5"
+  nice_bin="$6"
+  timeout_bin="$7"
+  home_dir="$8"
+  path_value="$9"
+  shift 9
+  [ "${1:-}" = "--" ] && shift
+
+  export HOME="$home_dir" PATH="$path_value"
+  mkdir -p "$log_dir" || exit 1
+
+  # The atomic guard keeps simultaneous SessionEnd events to one credential
+  # request. The archive itself retains its separate mkdir lock below.
+  guard_dir="${stamp_file}.guard"
+  mkdir "$guard_dir" 2>/dev/null || exit 0
+  trap 'rmdir "$guard_dir" 2>/dev/null || true' EXIT
+
+  stamp_mtime="$("$coreutils_dir/bin/stat" --format=%Y "$stamp_file" 2>/dev/null || printf '0')"
+  now="$("$coreutils_dir/bin/date" +%s)"
+  if (( stamp_mtime > 0 && now - stamp_mtime < min_interval_seconds )); then
+    exit 0
+  fi
+
+  touch "$stamp_file" || exit 1
+  rmdir "$guard_dir" 2>/dev/null || exit 1
+  trap - EXIT
+  exec "$nice_bin" -n 10 "$timeout_bin" --signal=TERM --kill-after=1s "${max_run_hours}h" "$@"
+fi
 
 aws_bin="$1"
 log_dir="$2"

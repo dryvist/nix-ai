@@ -379,6 +379,20 @@ rec {
       };
     }
   ];
+  hmConfigSessionArchiveSessionEnd = mkHmConfig [
+    {
+      programs.sessionArchive = {
+        enable = true;
+        endpoint = "https://example.invalid";
+        trigger = "session-end";
+        credentialCommand = [
+          "test-credential"
+          "run"
+          "--"
+        ];
+      };
+    }
+  ];
   inherit (import ./checks-fixtures-litellm.nix { inherit mkHmConfig; })
     hmConfigLitellmLocal
     hmConfigRouter
