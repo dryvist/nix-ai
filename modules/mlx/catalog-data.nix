@@ -32,7 +32,6 @@ let
   );
 in
 (import ./catalog-data-qwen38-27b.nix)
-// (import ./catalog-data-gpt-oss-120b.nix)
 // {
   # Keep this entry while the pinned role map still names the vision model.
   # It is outside a host's static resident set unless explicitly selected.

@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.19.1](https://github.com/dryvist/nix-ai/compare/v8.19.0...v8.19.1) (2026-11-07)
+
+
+### Bug Fixes
+
+* **model-policy:** require the shared policy ([#2852](https://github.com/dryvist/nix-ai/issues/2852)) ([be8ecf9](https://github.com/dryvist/nix-ai/commit/be8ecf95c119af4c68673997c0334ecfdd7d25ac))
+
 ## [8.19.0](https://github.com/dryvist/nix-ai/compare/v8.18.0...v8.19.0) (2026-11-06)
 
 

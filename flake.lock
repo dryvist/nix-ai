@@ -922,11 +922,11 @@
     "homelab-contracts": {
       "flake": false,
       "locked": {
-        "lastModified": 1792899083,
-        "narHash": "sha256-imobaGqWoTSV0ta5krAcrDi7eLu9wSgkAVWxhJKryZI=",
+        "lastModified": 1794021513,
+        "narHash": "sha256-p5+VgpRuEICtsZxt+BExOB4G3E8MMOAkeLOFVkXs8yA=",
         "owner": "dryvist",
         "repo": "homelab-contracts",
-        "rev": "de3be0f0eb5034805b6bdff88415e46d0e5272fd",
+        "rev": "88d2c7980531e5da1a7d56d9332f4c58d123801a",
         "type": "github"
       },
       "original": {

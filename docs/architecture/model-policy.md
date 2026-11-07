@@ -23,9 +23,8 @@ including leap years. The interval is inclusive: age 0 through `max_age_days`
 passes. Future dates, missing dates, and ambiguous dates fail. Quantized
 copies use their upstream creation date. Evaluation uses no current time.
 
-The guard activates when the pinned contracts input contains the policy.
-Until that input bump, an absent file leaves admission unchanged. A present
-invalid policy fails evaluation. The synthetic policy under
+The shared policy is required. An absent file or invalid policy fails
+evaluation, including when no models are configured. The synthetic policy under
 `lib/checks/fixtures/model-policy/` supplies regression inputs only.
 
 The lead can evaluate the fixture regressions and current policy admission:
