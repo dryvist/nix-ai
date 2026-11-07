@@ -86,7 +86,7 @@ jobs:
   # (PRs into main) and push runs always run it.
   changes:
     name: Darwin Changes
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     outputs:
       nix: ${{ steps.filter.outputs.nix }}
@@ -113,7 +113,7 @@ jobs:
 
   lane-alias-names:
     name: Lane Alias Names
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions:
       contents: read
