@@ -17,13 +17,13 @@
   "packageRules": [
     {
       "description": [
-        "Hold the v3.17.1 update, which fails pnpm install in the Nix build on",
-        "x86_64-linux with ENOENT on react-scan/node_modules/esbuild. Retry from",
-        "2026-11-14 with the newest release.",
+        "Exclude a ZCode release that fails pnpm install in the Nix build on",
+        "x86_64-linux with ENOENT on react-scan/node_modules/esbuild. Newer",
+        "releases pass this rule. Remove it after one of them builds.",
       ],
       "matchDatasources": ["github-releases"],
       "matchPackageNames": ["zai-org/ZCode"],
-      "allowedVersions": "<3.17.1",
+      "allowedVersions": "!/^v?3\\.17\\.1$/",
     },
     {
       "description": [
