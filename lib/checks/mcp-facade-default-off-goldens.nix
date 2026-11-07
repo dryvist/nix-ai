@@ -8,7 +8,7 @@
 # flakeLockSha256 tracks the homelab-contracts v5.55.0 input update.
 {
   baseCommit = "bd39621af5358bf01af73899f1761430ec6fae3d";
-  flakeLockSha256 = "37daa4399851c1d97279c6cfcbe7594b84c12487e782da4e760d1a121c576916";
+  flakeLockSha256 = "be4f253ccaa7b62d2014f0335486db4c2c7e6bdbac28698e70121c26b753c9a8";
   projections = {
     aarch64-darwin = {
       bytes = 3357;

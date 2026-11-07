@@ -115,6 +115,7 @@ rec {
 
   # Authoring skills, hooks, plugins and their config.
   authoring = [
+    "agent-builder"
     "agent-development"
     "claude-automation-recommender"
     "claude-skill-authoring"
@@ -130,6 +131,7 @@ rec {
     "reviewing-command-definitions"
     "reviewing-project-guidance"
     "reviewing-runtime-configuration"
+    "skill-builder"
     "skill-creator"
     "skill-development"
     "validate-readme"
