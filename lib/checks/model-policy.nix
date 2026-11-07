@@ -151,8 +151,14 @@ let
     leap-century = accepted (
       (withModel { upstream_created = "2000-02-29"; }) // { as_of = "2001-02-28"; }
     );
-    absent-policy-during-input-bump = validate { src = ./fixtures; } == [ ];
-    absent-policy-string = validate { src = toString ./fixtures; } == [ ];
+    absent-policy-path = fails { src = ./fixtures; };
+    absent-policy-string = fails { src = toString ./fixtures; };
+    absent-policy-input = fails { src.outPath = toString ./fixtures; };
+    absent-policy-empty-catalog = fails {
+      src = ./fixtures;
+      roleMap.models = { };
+      mlxCatalog = { };
+    };
   };
   realErrors = import ../model-policy.nix {
     src = homelab-contracts;
