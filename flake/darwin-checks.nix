@@ -51,6 +51,10 @@ in
       hmConfigDarwin = hmConfigDarwinHerdr;
     })
     // (import (src + "/lib/checks/herdr-settings.nix") { inherit pkgs hmConfig; })
+    // (import (src + "/lib/checks/orca.nix") {
+      inherit pkgs hmConfig;
+      hmConfigOrca = fixtures.mkHmConfig [ { programs.orca.enable = true; } ];
+    })
     // (import (src + "/lib/checks/opencode-trusted.nix") {
       inherit pkgs hmConfig;
       inherit (fixtures) mkHmConfig;

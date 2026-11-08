@@ -47,6 +47,9 @@ forAllSystems (
     inherit (cecliPkg.passthru) mcp;
     inherit (vctCliPkgs) vct-cribl-cli vct-splunk-cli;
   }
+  // nixpkgs.lib.optionalAttrs (system == "aarch64-darwin") {
+    orca = pkgs.callPackage ../modules/orca/package.nix { };
+  }
   // nixpkgs.lib.optionalAttrs (system == "x86_64-linux") {
     # The vztmpl tofu-proxmox downloads onto every commissioned node
     # (modules/proxmox-stack/ct_templates.tf pins its URL and sha256).
