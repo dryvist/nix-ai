@@ -28,6 +28,12 @@ forAllSystems (
   {
     fabric-ai = pkgs.callPackage ../modules/fabric/package.nix { inherit fabric-src; };
 
+    # On every system, like herdr-hail: the source is one fixed-output npm-tarball
+    # fetch and the output is portable data, so CI can build it everywhere.
+    gsd-core-skills = pkgs.callPackage ../modules/gsd-core-skills/package.nix {
+      version = (import ../lib/versions.nix).gsdCore;
+    };
+
     # All systems, unlike the two linux-only entries below: hail is portable
     # node and the point of exposing it is that CI can BUILD it. A module
     # default is only ever evaluated, and an npm lockfile hash that has never
@@ -40,6 +46,9 @@ forAllSystems (
     zcode-web = pkgs.callPackage ../modules/zcode/web.nix { zcode = zcodePkg; };
     inherit (cecliPkg.passthru) mcp;
     inherit (vctCliPkgs) vct-cribl-cli vct-splunk-cli;
+  }
+  // nixpkgs.lib.optionalAttrs (system == "aarch64-darwin") {
+    orca = pkgs.callPackage ../modules/orca/package.nix { };
   }
   // nixpkgs.lib.optionalAttrs (system == "x86_64-linux") {
     # The vztmpl tofu-proxmox downloads onto every commissioned node

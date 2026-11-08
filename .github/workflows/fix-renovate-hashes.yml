@@ -5,8 +5,9 @@
 # every push to a Renovate branch, refreshes hashes with nix-update while
 # keeping package versions, and commits corrected hashes back before CI runs.
 #
-# Packages covered: cecli, mcp (via cecli passthru), and zcode (source and
-# pnpm dependency hashes in modules/zcode/package.nix). The MLX Python stack
+# Packages covered: cecli, mcp (via cecli passthru), zcode (source and
+# pnpm dependency hashes in modules/zcode/package.nix), and gsd-core-skills
+# (the npm tarball hash in modules/gsd-core-skills/package.nix). The MLX Python stack
 # needs no step here: its hashes come from mlx-server/uv.lock,
 # which Renovate regenerates itself.
 # Add new packages here and to the packages output in flake.nix when needed.
@@ -54,6 +55,9 @@ jobs:
       - name: Update zcode hashes
         run: nix run nixpkgs#nix-update -- --flake zcode --override-filename modules/zcode/package.nix --version=skip
 
+      - name: Update gsd-core-skills hash
+        run: nix run nixpkgs#nix-update -- --flake gsd-core-skills --override-filename modules/gsd-core-skills/package.nix --version=skip
+
       # Commits through the GraphQL API, so GitHub signs it (Verified).
       - name: Commit hash fixes
         uses: planetscale/ghcommit-action@a6b150b81dca5dd027baa898604418eec9e11465 # v0.2.22
@@ -61,6 +65,6 @@ jobs:
           commit_message: "fix(deps): update package hashes after a version bump"
           repo: ${{ github.repository }}
           branch: ${{ github.ref_name }}
-          file_pattern: modules/cecli/package.nix modules/zcode/package.nix
+          file_pattern: modules/cecli/package.nix modules/zcode/package.nix modules/gsd-core-skills/package.nix
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}

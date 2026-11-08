@@ -33,6 +33,17 @@ installed only when `programs.ai.untrustedClis.enable = true`. oh-my-openagent (
 OpenCode plugin entry and the `omo-senpi` wrapper) is off by default and needs
 `programs.ai.ohMyOpenagent.disabled = false`; `omo-senpi` also needs the untrusted gate.
 
+### GSD Core skills
+
+The `gsd-core-skills` package (`packages.<system>.gsd-core-skills`) builds the
+[GSD Core](https://github.com/open-gsd/gsd-core) (`@opengsd/gsd-core`, MIT)
+skills, commands, and agents that upstream's installer generates per harness.
+It is pinned to npm version `1.19.0` (see `lib/versions.nix`) and produces two
+trees: `claude/` (a Claude Code config-dir tree) and `codex/` (a Codex home
+tree plus the global `~/.agents/skills` root Codex discovers). A later change
+enables it for Claude Code and Codex through the agent-skills deployment; it is
+not wired into any home configuration yet.
+
 ## Prerequisites
 
 - [Nix](https://nixos.org/) with flakes (Determinate Nix recommended)
@@ -113,6 +124,14 @@ former user preferences out of `config.json`, which Copilot CLI now reserves
 for internal state. Herdr's Copilot hooks are written separately to
 `~/.copilot/hooks/nix-ai.json`; Copilot CLI combines user hook files with hooks
 declared inline in `settings.json`. Keep secrets out of `settings`.
+
+### Orca desktop app
+
+`programs.orca.enable` (default `false`) installs [Orca](https://github.com/stablyai/orca), a desktop app that runs
+several coding agents side by side, on aarch64-darwin only. It installs the release that `modules/orca/package.nix`
+pins (v1.4.245), unchanged from its disk image, plus a login agent that sets `ORCA_TELEMETRY_DISABLED=1`. Orca holds
+no GitHub credential of its own: its GitHub features use the `gh` command's existing authentication, and this module
+configures none.
 
 ## Testing and validation
 
