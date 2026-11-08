@@ -76,7 +76,7 @@ let
     src = fetchPypi {
       pname = "mcp";
       version = mcpVersion;
-      hash = "sha256-D0fhgg+Pj5QUZrOXSesdGDmgTK3corxg6dRuipmRSSQ=";
+      hash = "sha256-ixR6UEQc8FnciMaE4K7tNofwqg85xs3nuQMw7/0rNNg=";
     };
     build-system = with python3Packages; [
       hatchling
