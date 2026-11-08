@@ -137,7 +137,7 @@
 
     # Pure resource-limit value, without evaluating the system flake's inputs.
     agent-limits-src = {
-      url = "github:dryvist/nix-darwin?ref=v3";
+      url = "github:dryvist/nix-darwin?ref=v4";
       flake = false;
     };
 

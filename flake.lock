@@ -3,16 +3,16 @@
     "agent-limits-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1792355055,
-        "narHash": "sha256-yHUHOr2Ahy6KS6GiKb6gP0B6ml+7YH8sq1XxDjqfQfg=",
+        "lastModified": 1794096262,
+        "narHash": "sha256-x1HnQpLoMyyHmhdzELbfa8q0qHVdKzA4s+x5Yxmxicw=",
         "owner": "dryvist",
         "repo": "nix-darwin",
-        "rev": "fb3e418081f1a03317eaf974c6b0469f0358d57f",
+        "rev": "81d7440c503cf13beea58dfadfd46656ceb7c8ca",
         "type": "github"
       },
       "original": {
         "owner": "dryvist",
-        "ref": "v3",
+        "ref": "v4",
         "repo": "nix-darwin",
         "type": "github"
       }
