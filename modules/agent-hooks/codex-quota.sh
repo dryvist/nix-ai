@@ -10,14 +10,19 @@ fi
 
 sessions="${CODEX_HOME:-$HOME/.codex}/sessions"
 now="$(date +%s)"
-rl=""
 
 # Weekly window: a record older than 8 days has reset, so stop looking there.
-while IFS= read -r f; do
-  rl="$(grep -h '"limit_id":"codex"' "$f" | tail -1 |
-    jq -c 'first(.. | objects | select(has("rate_limits")) | .rate_limits)' 2>/dev/null || true)"
-  [ -n "$rl" ] && break
-done < <(find "$sessions" -name 'rollout-*.jsonl' -mtime -8 -print0 2>/dev/null | xargs -0 ls -t 2>/dev/null)
+# The winner is the record with the greatest timestamp across all files, not
+# the newest file's last record: a long-running older session keeps its file
+# mtime fresh while its last record goes stale.
+rl="$(find "$sessions" -name 'rollout-*.jsonl' -mtime -8 -exec grep -h '"limit_id":"codex"' {} + 2>/dev/null |
+  jq -nRc '
+    [inputs | fromjson? | select(type == "object")
+      | {timestamp, limits: (first(.. | objects | select(has("rate_limits")) | .rate_limits))}]
+    | map(select(.limits != null and .timestamp != null))
+    | sort_by(.timestamp)
+    | last | .limits // empty
+  ' 2>/dev/null || true)"
 
 if [ -z "$rl" ]; then
   echo "codex-quota: available (no codex rate_limits record in 8 days)"
