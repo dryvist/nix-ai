@@ -23,7 +23,7 @@ jobs:
       contents: read
       id-token: write
       pull-requests: write
-    uses: JacobPEvans/.github-ai/.github/workflows/cc-dep-review.yml@v1
+    uses: JacobPEvans/.github-ai/.github/workflows/cc-dep-review.yml@v2
     secrets:
       LLM_ROUTER_BASE_URL: ${{ secrets.LLM_ROUTER_BASE_URL }}
       LLM_ROUTER_API_KEY: ${{ secrets.LLM_ROUTER_API_KEY }}
@@ -33,7 +33,7 @@ jobs:
       contents: read
       id-token: write
       pull-requests: write
-    uses: JacobPEvans/.github-ai/.github/workflows/cc-release-notes.yml@v1
+    uses: JacobPEvans/.github-ai/.github/workflows/cc-release-notes.yml@v2
     secrets:
       LLM_ROUTER_BASE_URL: ${{ secrets.LLM_ROUTER_BASE_URL }}
       LLM_ROUTER_API_KEY: ${{ secrets.LLM_ROUTER_API_KEY }}
