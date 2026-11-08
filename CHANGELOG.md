@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.24.0](https://github.com/dryvist/nix-ai/compare/v8.23.0...v8.24.0) (2026-11-08)
+
+
+### Features
+
+* **orca:** opt-in Orca desktop app module ([#2901](https://github.com/dryvist/nix-ai/issues/2901)) ([e7b0f21](https://github.com/dryvist/nix-ai/commit/e7b0f21dfd05e10b5641fd9bd1e4ad9d433224a2))
+
 ## [8.23.0](https://github.com/dryvist/nix-ai/compare/v8.22.0...v8.23.0) (2026-11-08)
 
 
