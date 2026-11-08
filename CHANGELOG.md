@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.22.0](https://github.com/dryvist/nix-ai/compare/v8.21.0...v8.22.0) (2026-11-08)
+
+
+### Features
+
+* **agent:** zcode run j-bf2109de83158665 ([ee81213](https://github.com/dryvist/nix-ai/commit/ee8121331f24b08874e3bcc8871f98de94a8112f))
+
 ## [8.21.0](https://github.com/dryvist/nix-ai/compare/v8.20.0...v8.21.0) (2026-11-07)
 
 

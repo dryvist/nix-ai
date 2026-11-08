@@ -158,7 +158,7 @@ jobs:
   # The reusable workflow's check job sets timeout-minutes: 5.
   lane-alias-parity:
     needs: lane-alias-names
-    uses: dryvist/homelab-contracts/.github/workflows/alias-parity.yml@88d2c7980531e5da1a7d56d9332f4c58d123801a # v5.55.0
+    uses: dryvist/homelab-contracts/.github/workflows/alias-parity.yml@c6eedd33c62411ce7a2ffdd92558e18f2b9007d8 # v5.58.0
     with:
       names-artifact: lane-alias-names
       names-files: lane-alias-parity-nix-ai.json
@@ -168,7 +168,7 @@ jobs:
     name: Flake Lock Fresh
     permissions:
       contents: read
-    uses: JacobPEvans/.github/.github/workflows/_flake-lock-fresh.yml@dcf6e2eca128c0a87d9849b58dab4964f42723bf # v1.46.0
+    uses: JacobPEvans/.github/.github/workflows/_flake-lock-fresh.yml@db08209e804a3de6760b2fc8318fabf26d81857d # v1.47.2
     with:
       max_age_days: 30
 
