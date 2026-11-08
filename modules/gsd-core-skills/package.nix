@@ -57,8 +57,11 @@ stdenv.mkDerivation {
     export GSD_TEST_HOME_SANDBOX=$HOME
     mkdir -p "$HOME"
 
-    node bin/install.js --claude --global --no-legacy-cleanup
-    node bin/install.js --codex --global --no-legacy-cleanup
+    # --config-dir outranks CLAUDE_CONFIG_DIR / CODEX_HOME and points each
+    # runtime's tree at its output root.
+    mkdir -p "$out/claude" "$out/codex"
+    node bin/install.js --claude --global --config-dir "$out/claude" --no-legacy-cleanup
+    node bin/install.js --codex --global --config-dir "$out/codex" --no-legacy-cleanup
 
     test -d "$HOME/.agents/skills" || {
       echo "installer produced no $HOME/.agents/skills tree" >&2
