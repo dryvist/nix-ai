@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.24.1](https://github.com/dryvist/nix-ai/compare/v8.24.0...v8.24.1) (2026-11-08)
+
+
+### Bug Fixes
+
+* **codex-quota:** report the newest rate-limit record ([#2906](https://github.com/dryvist/nix-ai/issues/2906)) ([1652bd5](https://github.com/dryvist/nix-ai/commit/1652bd5de5099e0364b6b0098bcb7a3bf6382e4f))
+
 ## [8.24.0](https://github.com/dryvist/nix-ai/compare/v8.23.0...v8.24.0) (2026-11-08)
 
 
