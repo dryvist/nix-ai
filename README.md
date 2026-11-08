@@ -33,6 +33,17 @@ installed only when `programs.ai.untrustedClis.enable = true`. oh-my-openagent (
 OpenCode plugin entry and the `omo-senpi` wrapper) is off by default and needs
 `programs.ai.ohMyOpenagent.disabled = false`; `omo-senpi` also needs the untrusted gate.
 
+### GSD Core skills
+
+The `gsd-core-skills` package (`packages.<system>.gsd-core-skills`) builds the
+[GSD Core](https://github.com/open-gsd/gsd-core) (`@opengsd/gsd-core`, MIT)
+skills, commands, and agents that upstream's installer generates per harness.
+It is pinned to npm version `1.19.0` (see `lib/versions.nix`) and produces two
+trees: `claude/` (a Claude Code config-dir tree) and `codex/` (a Codex home
+tree plus the global `~/.agents/skills` root Codex discovers). A later change
+enables it for Claude Code and Codex through the agent-skills deployment; it is
+not wired into any home configuration yet.
+
 ## Prerequisites
 
 - [Nix](https://nixos.org/) with flakes (Determinate Nix recommended)
