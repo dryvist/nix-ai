@@ -35,7 +35,7 @@ stdenv.mkDerivation {
 
   src = fetchurl {
     url = "https://registry.npmjs.org/@opengsd/gsd-core/-/gsd-core-${version}.tgz";
-    hash = "sha512-3j2ejyDoS4xo0nv9nUwlL8NhgQAEVy4HXsAGdylnEsp2toHTE5AZsDEzZTHv6mpHMtfOyr/vf9ZbdiREyFzvkQ==";
+    hash = "sha256-CgW26wDKjBrJIAKES53EzioBVGVQqvI4f+cpeuw6TTI=";
   };
 
   # npm tarballs unpack to a single `package/` root.
