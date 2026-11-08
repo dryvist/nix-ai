@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.23.0](https://github.com/dryvist/nix-ai/compare/v8.22.0...v8.23.0) (2026-11-08)
+
+
+### Features
+
+* **agent-skills:** package GSD Core skills for Claude Code and Codex ([#2898](https://github.com/dryvist/nix-ai/issues/2898)) ([2c65850](https://github.com/dryvist/nix-ai/commit/2c6585062bc1090e527e811dcee7f3598e27cccf))
+
 ## [8.22.0](https://github.com/dryvist/nix-ai/compare/v8.21.0...v8.22.0) (2026-11-08)
 
 
