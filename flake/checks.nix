@@ -74,6 +74,26 @@ in
           ${self.packages.${system}.zcode-web} $out ${(import ../vars/ai-stack.nix).zai.zcode.model}
       '';
 
+      # nix flake check only evaluates packages.<system>, so alias the
+      # gsd-core-skills tree behind a check to force the installer runs and the
+      # generated artifacts to be asserted. The exact paths, as the installer
+      # generates them (v1.19.0): Claude Code skills at
+      # <CLAUDE_CONFIG_DIR>/skills/gsd-<name>/SKILL.md, Codex global skills at
+      # $HOME/.agents/skills/gsd-<name>/SKILL.md — outside $CODEX_HOME, folded
+      # into the package's codex/ root (see modules/gsd-core-skills/package.nix).
+      gsd-core-skills-tree =
+        let
+          gsd = self.packages.${system}.gsd-core-skills;
+        in
+        pkgs.runCommand "gsd-core-skills-tree-check" { } ''
+          test -s ${gsd}/claude/skills/gsd-plan-phase/SKILL.md
+          test -s ${gsd}/claude/skills/gsd-execute-phase/SKILL.md
+          test -s ${gsd}/codex/.agents/skills/gsd-plan-phase/SKILL.md
+          test -s ${gsd}/codex/.agents/skills/gsd-execute-phase/SKILL.md
+          test -s ${gsd}/codex/agents/gsd-planner.toml
+          touch $out
+        '';
+
       # The only check that evaluates the NixOS half. Without it `nix flake
       # check` proves `nixosModules.herdr` is an attrset and nothing more,
       # which is how an unfree default (cursor-cli) shipped green through this

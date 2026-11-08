@@ -24,6 +24,10 @@ in
   # AI CLI tools (npm)
   # renovate: datasource=npm depName=@felixgeelhaar/cclint
   cclint = "0.25.0";
+  # GSD Core (@opengsd/gsd-core): pins the npm tarball the gsd-core-skills
+  # package generates Claude Code / Codex harness files from.
+  # renovate: datasource=npm depName=@opengsd/gsd-core
+  gsdCore = "1.19.0";
   # renovate: datasource=npm depName=@githubnext/github-copilot-cli
   ghCopilot = "0.1.36";
   # renovate: datasource=npm depName=chatgpt-cli

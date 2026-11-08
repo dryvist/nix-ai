@@ -28,6 +28,12 @@ forAllSystems (
   {
     fabric-ai = pkgs.callPackage ../modules/fabric/package.nix { inherit fabric-src; };
 
+    # On every system, like herdr-hail: the source is one fixed-output npm-tarball
+    # fetch and the output is portable data, so CI can build it everywhere.
+    gsd-core-skills = pkgs.callPackage ../modules/gsd-core-skills/package.nix {
+      version = (import ../lib/versions.nix).gsdCore;
+    };
+
     # All systems, unlike the two linux-only entries below: hail is portable
     # node and the point of exposing it is that CI can BUILD it. A module
     # default is only ever evaluated, and an npm lockfile hash that has never
