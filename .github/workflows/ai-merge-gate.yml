@@ -11,5 +11,5 @@ jobs:
       pull-requests: write
     uses: JacobPEvans/.github-ai/.github/workflows/_ai-merge-gate.yml@v2
     with:
-      runner_label: review
+      runner_label: ${{ github.event.pull_request.head.repo.full_name == github.repository && 'review' || 'ubuntu-latest' }}
     secrets: inherit
