@@ -1,5 +1,17 @@
 # Changelog
 
+## [8.25.0](https://github.com/dryvist/nix-ai/compare/v8.24.2...v8.25.0) (2026-11-09)
+
+
+### Features
+
+* **codex:** allow semgrep.dev through the sandbox network proxy ([#2917](https://github.com/dryvist/nix-ai/issues/2917)) ([b75efc1](https://github.com/dryvist/nix-ai/commit/b75efc13021eb80700376a9ba635bc20ca76496b))
+
+
+### Bug Fixes
+
+* **ci:** give the Darwin validate job 30 minutes ([#2919](https://github.com/dryvist/nix-ai/issues/2919)) ([3e105dc](https://github.com/dryvist/nix-ai/commit/3e105dc83505673857a729640421512035a087d7))
+
 ## [8.24.2](https://github.com/dryvist/nix-ai/compare/v8.24.1...v8.24.2) (2026-11-09)
 
 
