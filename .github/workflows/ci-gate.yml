@@ -109,6 +109,7 @@ jobs:
       runner_label: macos-15
       all_systems: false
       focused_checks: true
+      timeout_minutes: 30
 
   lane-alias-names:
     name: Lane Alias Names
