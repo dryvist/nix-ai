@@ -5,10 +5,9 @@
 # and the OSV differential scan from JacobPEvans/.github. The local `gate` job
 # keeps the bare `Merge Gate` context this repo's ruleset requires.
 #
-# Fork-PR security guard: nix-ai is a PUBLIC repository. The org gate routes
-# every job through `runner_label` only for same-repo PRs and falls back to
-# `ubuntu-latest` for fork PRs, so fork-author-controlled code never runs on
-# the self-hosted RunsOn runners.
+# The small shared-gate jobs use GitHub-hosted runners. Nix validation keeps
+# the larger RunsOn lane for pushes and same-repository PRs, and falls back to
+# GitHub-hosted runners for fork PRs.
 
 name: CI Gate
 
@@ -42,14 +41,14 @@ jobs:
     secrets:
       TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
     with:
-      runner_label: runs-on=${{ github.run_id }}/runner=2cpu-linux-x64
+      runner_label: ubuntu-latest
       nix_validate: true
       profile: nix
       # `nix flake check` evaluates the whole tree; give it the larger runner.
       # cpu=8: the check builds run in parallel (max-jobs = auto) and saturate 4 cores.
       # volume=80gb: the default root volume runs out of space while the
       # llama-swap and fabric Go builds compile side by side.
-      nix_validate_runner_label: runs-on=${{ github.run_id }}/cpu=8/ram=32/family=m7+c7/extras=s3-cache/volume=80gb
+      nix_validate_runner_label: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && format('runs-on={0}/cpu=8/ram=32/family=m7+c7/extras=s3-cache/volume=80gb', github.run_id) || 'ubuntu-latest' }}
       # PRs run the Linux-scoped checks; only main runs the cross-system suite.
       all_systems: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       nix_skip_deps_only: true
