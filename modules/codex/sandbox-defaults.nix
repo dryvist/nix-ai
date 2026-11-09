@@ -22,5 +22,6 @@
     "raw.githubusercontent.com"
     "codeload.github.com"
     "objects.githubusercontent.com"
+    "semgrep.dev"
   ];
 }
