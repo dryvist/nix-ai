@@ -87,6 +87,9 @@ run_aws() {
   [ "$rc" = 0 ] || [ "$rc" = 2 ]
 }
 
+# The store answers 503 and 504 in bursts; standard retry mode backs off and rides them out.
+export AWS_RETRY_MODE=standard AWS_MAX_ATTEMPTS=10
+
 started=$(date +%s)
 dirs=0
 failed=0
