@@ -62,6 +62,10 @@ in
     assert
       !hasInfix "s3 sync \"$src/\"" code
       || throw "session-archive must never whole-tree sync a vendor dir: ListObjectsV2 truncation re-uploads the entire corpus";
+    # The store returns 503 and 504 in bursts; the CLI default of 2 retries fails whole leaf syncs.
+    assert
+      hasInfix "export AWS_RETRY_MODE=standard AWS_MAX_ATTEMPTS=10" code
+      || throw "session-archive must set standard AWS CLI retries so storage error bursts do not fail a sync";
     # Symlinks inside these dirs point into this machine's /nix/store.
     assert
       hasInfix "--no-follow-symlinks" code

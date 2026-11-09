@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.26.0](https://github.com/dryvist/nix-ai/compare/v8.25.0...v8.26.0) (2026-11-09)
+
+
+### Features
+
+* **mlx:** cap static resident requestTimeoutSeconds at 7200s ([#2922](https://github.com/dryvist/nix-ai/issues/2922)) ([cca1be3](https://github.com/dryvist/nix-ai/commit/cca1be3d586a2595a6c9b3495ed433f6f7624e46))
+
 ## [8.25.0](https://github.com/dryvist/nix-ai/compare/v8.24.2...v8.25.0) (2026-11-09)
 
 
