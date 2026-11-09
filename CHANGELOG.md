@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.24.2](https://github.com/dryvist/nix-ai/compare/v8.24.1...v8.24.2) (2026-11-09)
+
+
+### Bug Fixes
+
+* **deps:** update nix-claude-code to v2.5.0 ([#2914](https://github.com/dryvist/nix-ai/issues/2914)) ([9f492d9](https://github.com/dryvist/nix-ai/commit/9f492d9ac354d4e5d86f2e6268cb9d30db935e27))
+
 ## [8.24.1](https://github.com/dryvist/nix-ai/compare/v8.24.0...v8.24.1) (2026-11-08)
 
 
