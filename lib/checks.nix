@@ -134,7 +134,6 @@ in
 // (import ./checks/ai-stack-endpoint.nix { inherit pkgs; })
 // (import ./checks/ai-stack-drift-check.nix { inherit pkgs src; })
 // (import ./checks/claude.nix { inherit pkgs hmConfig; })
-// (import ./checks/claude-code-channel.nix { inherit pkgs hmConfig; })
 // (import ./checks/telemetry.nix { inherit pkgs mkHmConfigWith; })
 // (import ./checks/codex-otel.nix { inherit pkgs mkHmConfigWith; })
 // (import ./checks/opencode-otel.nix { inherit pkgs mkHmConfigWith; })

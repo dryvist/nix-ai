@@ -79,7 +79,7 @@ in
 
   # Skipping the binary must never skip the configuration.
   #
-  # On darwin both modules set `package = null` so Homebrew owns the binary.
+  # On darwin Claude Code sets `package = null` (programs.claude.install = "native").
   # The failure mode this guards is a later edit that reaches for `enable`
   # instead — which would drop every settings file, MCP server and permission
   # set along with the binary, leaving a brew-installed CLI with no config at
