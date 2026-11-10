@@ -1384,14 +1384,15 @@
         "nix-devenv": "nix-devenv",
         "nixpkgs": [
           "nixpkgs-unstable"
-        ]
+        ],
+        "penso-tap": "penso-tap"
       },
       "locked": {
-        "lastModified": 1793973790,
-        "narHash": "sha256-DSq6Lv0oX9cZX1RwXgrV5iBo2S6VgWx27kaGHaSTAH8=",
+        "lastModified": 1794283656,
+        "narHash": "sha256-07qDg+bO4Y9fDcBYdMNlbiR0A7KtcER5sDulqBrn9H8=",
         "owner": "jpe-nix",
         "repo": "nix-herdr",
-        "rev": "543374aaef1ae3f25a924b6fede546c8edd86943",
+        "rev": "3617bbe542622d73018424991c8e703e28e8fdee",
         "type": "github"
       },
       "original": {
@@ -1522,6 +1523,22 @@
       "original": {
         "owner": "openai",
         "repo": "codex-plugin-cc",
+        "type": "github"
+      }
+    },
+    "penso-tap": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1793169243,
+        "narHash": "sha256-cBADammNcFl+N0PnoA4fCHJczSF8Ck6FWU8pnVR1B/s=",
+        "owner": "penso",
+        "repo": "homebrew-tap",
+        "rev": "238454b44704bcf382d4f2db51dd20496899f14f",
+        "type": "github"
+      },
+      "original": {
+        "owner": "penso",
+        "repo": "homebrew-tap",
         "type": "github"
       }
     },
