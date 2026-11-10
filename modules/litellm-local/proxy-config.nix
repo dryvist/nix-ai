@@ -76,6 +76,23 @@ in
 {
   model_list = modelList;
 
+  # A 429 is a busy or rate-limited deployment, and a timeout bounds a whole
+  # generation. Neither is retried on the same rung: the request goes straight
+  # to the next rung. Other error classes keep `num_retries` below.
+  router_settings = {
+    retry_policy = {
+      RateLimitErrorRetries = 0;
+      TimeoutErrorRetries = 0;
+    };
+  }
+  // lib.optionalAttrs hostServed {
+    # Static resident aliases and host-served rungs are singleton or near-singleton
+    # groups. LiteLLM exposes cooldown suppression at router level, so enable its
+    # native setting whenever such deployments are rendered: otherwise one 429
+    # would take the only deployment of its group out of rotation.
+    disable_cooldowns = true;
+  };
+
   litellm_settings = {
     # Clients disagree about which sampling params they send; dropping the
     # ones a given backend rejects keeps a role swap from breaking a client.
@@ -142,13 +159,6 @@ in
     callbacks = [ "otel" ];
     turn_off_message_logging = true;
   };
-}
-// lib.optionalAttrs hostServed {
-  # Static resident aliases and host-served rungs are singleton or near-singleton
-  # groups. LiteLLM exposes cooldown suppression at router level, so enable its
-  # native setting whenever such deployments are rendered: otherwise one 429
-  # would take the only deployment of its group out of rotation.
-  router_settings.disable_cooldowns = true;
 }
 # LiteLLM 1.105 refuses to boot without a master key. This proxy takes none by
 # design (see default.nix) and listens on loopback only, so set the switch

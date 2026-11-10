@@ -67,6 +67,12 @@ let
 
   retriesConfigured = (settings.num_retries or 0) > 0;
 
+  # A 429 means a busy or rate-limited rung, and a timeout bounds a whole
+  # generation: neither is retried on the same rung, so both fall through.
+  retryPolicy = (rendered.router_settings or { }).retry_policy or { };
+  busyRungsNotRetried =
+    (retryPolicy.RateLimitErrorRetries or null) == 0 && (retryPolicy.TimeoutErrorRetries or null) == 0;
+
   # The main tier gets retries and a context-window repair, never a silent
   # quality swap, so it must not appear as a fallback source group.
   mainTierNotInFallbacks = !(lib.elem "claude-*" fallbackGroups);
@@ -162,6 +168,10 @@ let
     {
       ok = retriesConfigured;
       msg = "litellm_settings.num_retries must be greater than zero so a transient upstream failure is retried before it spends a fallback";
+    }
+    {
+      ok = busyRungsNotRetried;
+      msg = "router_settings.retry_policy must set RateLimitErrorRetries and TimeoutErrorRetries to 0 so a busy rung hands the request to the next rung at once; got: ${builtins.toJSON retryPolicy}";
     }
     {
       # The fixture declares `subagent-local2` with NO contextWindow, so the
