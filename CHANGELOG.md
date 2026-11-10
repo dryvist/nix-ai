@@ -1,5 +1,17 @@
 # Changelog
 
+## [8.27.0](https://github.com/dryvist/nix-ai/compare/v8.26.0...v8.27.0) (2026-11-10)
+
+
+### Features
+
+* **claude:** native Claude Code via install option; codex from llm-agents ([#2928](https://github.com/dryvist/nix-ai/issues/2928)) ([ff13d9a](https://github.com/dryvist/nix-ai/commit/ff13d9ac82ed97c5a5f36845e1e2fc6cde99b18f))
+
+
+### Bug Fixes
+
+* **session-archive:** retry storage errors with standard AWS CLI retries ([#2923](https://github.com/dryvist/nix-ai/issues/2923)) ([5bd6cf8](https://github.com/dryvist/nix-ai/commit/5bd6cf85b5d4838871e8c9868f117455d37b2685))
+
 ## [8.26.0](https://github.com/dryvist/nix-ai/compare/v8.25.0...v8.26.0) (2026-11-09)
 
 
