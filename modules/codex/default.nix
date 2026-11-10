@@ -40,7 +40,7 @@ in
       # planModeReasoningEffort).
       approvalPolicy = lib.mkDefault "on-request";
       approvalsReviewer = lib.mkDefault "auto_review";
-      package = llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.codex;
+      package = lib.mkDefault llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.codex;
       # config.toml is managed via home.activation — do NOT set settings here.
     };
 
