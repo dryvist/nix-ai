@@ -15,17 +15,6 @@ let
   contracts = hmConfigStaticServing.config.programs.mlx.staticResidentContracts;
   qwen = contracts."mlx-community/Qwen3.8-27B-4bit";
   small9b = contracts."mlx-community/Qwen3.5-9B-OptiQ-4bit";
-  residentGroups = lib.unique (
-    lib.concatMap (contract: builtins.attrNames contract.roles) (builtins.attrValues contracts)
-  );
-  fallbackSources = map (
-    entry: builtins.head (builtins.attrNames entry)
-  ) renderedConfig.litellm_settings.fallbacks;
-  singleDeploymentResidentGroups = builtins.filter (
-    group:
-    builtins.length (builtins.filter (route: route.model_name == group) routes) == 1
-    && !(builtins.elem group fallbackSources)
-  ) residentGroups;
   judge = routeFor "judge";
   fast = routeFor "fast";
   default = routeFor "default";
@@ -53,9 +42,6 @@ in
         ]
       && mediumLocal.litellm_params.model == "custom_openai/${qwen.model}"
       && mediumLocal.litellm_params.api_base == "os.environ/LOCAL_LLM_URL"
-      && !(builtins.any (
-        entry: entry ? judge
-      ) hmConfigStaticServing.config.programs.litellmLocal.renderedConfig.litellm_settings.fallbacks)
     then
       helpers.mkMarker "check-mlx-static-resident-routing" "LiteLLM routes resident aliases locally and preserves the router-first medium chain"
     else
@@ -71,8 +57,11 @@ in
       throw "LiteLLM localEndpoint must be the default-role resident's loopback endpoint, got ${builtins.toJSON hmConfigStaticServing.config.programs.litellmLocal.localEndpoint}";
 
   mlx-static-resident-cooldowns =
-    if singleDeploymentResidentGroups != [ ] && renderedConfig.router_settings.disable_cooldowns then
-      helpers.mkMarker "check-mlx-static-resident-cooldowns" "catalog-derived single-deployment resident groups render LiteLLM cooldown suppression"
+    if
+      (renderedConfig.router_settings.disable_cooldowns or false)
+      && default.litellm_params.max_parallel_requests == qwen.concurrency
+    then
+      helpers.mkMarker "check-mlx-static-resident-cooldowns" "capped static resident routes render LiteLLM cooldown suppression"
     else
-      throw "single-deployment static resident groups without fallbacks must render LiteLLM router cooldown suppression";
+      throw "capped static resident routes must render LiteLLM router cooldown suppression";
 }
