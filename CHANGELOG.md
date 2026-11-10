@@ -1,5 +1,19 @@
 # Changelog
 
+## [8.28.0](https://github.com/dryvist/nix-ai/compare/v8.27.0...v8.28.0) (2026-11-10)
+
+
+### Features
+
+* **claude:** let a host override the auto-compact percentage ([#2929](https://github.com/dryvist/nix-ai/issues/2929)) ([13260f0](https://github.com/dryvist/nix-ai/commit/13260f084dbbbc8789f5d145406b9ec68623ee32))
+
+
+### Bug Fixes
+
+* **codex:** keep the codex package at default priority ([#2935](https://github.com/dryvist/nix-ai/issues/2935)) ([2527be7](https://github.com/dryvist/nix-ai/commit/2527be753bbb5cd96262d0184ea77a17ed4731d9))
+* **deps:** point ai-llm-prompts input at JacobPEvans-ai ([#2934](https://github.com/dryvist/nix-ai/issues/2934)) ([4f116ee](https://github.com/dryvist/nix-ai/commit/4f116eea9c50ea0c7f13ea74426c7ffc024939da))
+* **deps:** update nix-herdr ([#2932](https://github.com/dryvist/nix-ai/issues/2932)) ([9c72185](https://github.com/dryvist/nix-ai/commit/9c7218587949d9c8201d9f1b258622da3983b9e6))
+
 ## [8.27.0](https://github.com/dryvist/nix-ai/compare/v8.26.0...v8.27.0) (2026-11-10)
 
 
