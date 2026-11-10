@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.28.1](https://github.com/dryvist/nix-ai/compare/v8.28.0...v8.28.1) (2026-11-10)
+
+
+### Bug Fixes
+
+* **litellm-local:** default native subagents to each CLI's own model ([#2941](https://github.com/dryvist/nix-ai/issues/2941)) ([1aa1b81](https://github.com/dryvist/nix-ai/commit/1aa1b81869dab687159d1a0ce59adbefbe6f419b))
+
 ## [8.28.0](https://github.com/dryvist/nix-ai/compare/v8.27.0...v8.28.0) (2026-11-10)
 
 
