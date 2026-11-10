@@ -30,7 +30,6 @@ probe=
 probe_repos=(
   "$HOME/git/public/nix/nix-ai"
   "$HOME/git/public/homelab/tofu-proxmox"
-  "$HOME/git/private/dryvist/docs/docs-starlight"
 )
 
 while [ $# -gt 0 ]; do
