@@ -118,6 +118,10 @@ in
       c.modelFlagOverrides.${judge27b}.promptCacheSize == 8
       || throw "catalog: Qwen3.8 prompt-cache slot cap must stay at 8 (Zammad 1001254 Metal buffer limit)";
     assert
+      c.modelFlagOverrides.${mimo}.promptCacheSize == 8
+      && builtins.match ".*--prompt-cache-size 8.*" (commandBuilder.mkModelCmd mimo) != null
+      || throw "catalog: MiMo prompt-cache slot cap must stay at 8 (Metal buffer limit) in its served command";
+    assert
       c.modelContextWindows.${mimo} == mimoProfile.context_window
       || throw "catalog: MiMo context window disagrees with the shared MLX profile";
     # Worker concurrency and proxy admission are separate: the Qwen worker
