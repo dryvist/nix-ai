@@ -2,8 +2,8 @@
 # Managed by nix-ai's programs.zsh.initContent via modules/ai-shell.nix.
 # Single source of truth for AI-tool wrapper aliases.
 
-# `claude` (unaliased) resolves via PATH to ~/.local/bin/claude — the pinned
-# stable build maintained by Anthropic's claude.ai/install.sh.
+# `claude` (unaliased) runs the binary nix-claude-code's programs.claude.install
+# selects (darwin default: the native installer at ~/.local/bin/claude).
 # `claude-latest` bypasses the local install and fetches the npm `latest`
 # dist-tag of @anthropic-ai/claude-code on every invocation.
 alias claude-latest="bunx @anthropic-ai/claude-code@latest"

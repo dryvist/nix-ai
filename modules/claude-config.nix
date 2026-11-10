@@ -112,22 +112,9 @@ in
       enable = true;
       callerId = "claude-code";
 
-      # One owner per host: the `claude-code@latest` cask on darwin,
-      # llm-agents.nix on Linux. Rationale and the full source table live in
-      # modules/herdr/README.md ("Where CLI binaries come from").
-      #
-      # `enable` stays true either way — only the binary is skipped, so every
-      # settings file, permission set and MCP server below is still rendered.
-      #
-      # This must stay a definition, not the option's default. Drop the line
-      # and nix-claude-code falls back to `pkgs.claude-code`, silently
-      # reinstalling a second, months-old claude beside the cask.
-      package = lib.mkDefault (
-        if pkgs.stdenv.hostPlatform.isDarwin then
-          null
-        else
-          llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.claude-code
-      );
+      # Used only when programs.claude.install = "nix" (the Linux default);
+      # nix-claude-code picks the install method and binaryPath.
+      package = lib.mkDefault llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.claude-code;
 
       # API Key Helper for headless authentication (cron jobs, CI/CD)
       # Uses Bitwarden Secrets Manager to securely fetch OAuth token

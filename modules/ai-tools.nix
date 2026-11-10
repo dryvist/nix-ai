@@ -7,16 +7,13 @@
 # PACKAGE HIERARCHY (STRICT - NO EXCEPTIONS)
 # ============================================================================
 #
-# nixpkgs -> llm-agents.nix -> homebrew (GUI + 2 CLIs) -> bunx wrapper -> uvx.
+# nixpkgs -> llm-agents.nix -> homebrew (GUI only) -> bunx wrapper -> uvx.
 #
 # The full decision matrix lives in modules/herdr/README.md. The short
 # version: check `nix search nixpkgs <pkg>` first; reach for
 # github:numtide/llm-agents.nix for an agent CLI nixpkgs does not carry;
-# homebrew is GUI applications, plus exactly two CLI casks
-# (claude-code@latest, codex) that must track upstream faster than a
-# relock-and-rebuild cycle — darwin-only, config still in Nix, Linux
-# unaffected. A cask cannot run on Linux guests, which used to pin this
-# stack to one machine, so a third needs the same justification. bunx for
+# homebrew is GUI applications only; Claude Code's install method is
+# nix-claude-code's programs.claude.install (darwin default: native). bunx for
 # npm packages, always version-pinned; uvx for Python CLI tools.
 #
 # ============================================================================
@@ -29,12 +26,11 @@
 # LLM-AGENTS.NIX: claude-code, antigravity-cli (`agy`), herdr, codex
 #
 # HOMEBREW (lib/homebrew.nix): block-goose-cli, langgraph-cli, the desktop
-#   apps (claude, codex-app, chatgpt, antigravity, antigravity-ide), plus the
-#   claude-code@latest and codex CLI casks (darwin only)
+#   apps (claude, codex-app, chatgpt, antigravity, antigravity-ide)
 #
-# ONE OWNER PER CLI. claude-code and codex come from Homebrew on darwin
-#   (`package = null`; nix-ai still renders their config) and llm-agents.nix
-#   on Linux. Never both. See modules/herdr/README.md.
+# ONE OWNER PER CLI. codex comes from llm-agents.nix everywhere. claude-code
+#   follows programs.claude.install: native installer on darwin, llm-agents.nix
+#   on Linux. See modules/herdr/README.md.
 #
 # BUNX WRAPPER PACKAGES (npm packages not in nixpkgs/homebrew):
 #   cclint: @felixgeelhaar/cclint (CLAUDE.md lint)

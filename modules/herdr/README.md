@@ -31,18 +31,16 @@ the stack could not leave one machine.
 
 | CLI | Source |
 | --- | --- |
-| Claude Code, Codex | `llm-agents.nix` on Linux, Homebrew cask on darwin |
-| `agy`, Copilot CLI, OpenCode | `llm-agents.nix` |
+| Claude Code | `programs.claude.install`: native installer on darwin, `llm-agents.nix` on Linux |
+| Codex, `agy`, Copilot CLI, OpenCode | `llm-agents.nix` |
 | herdr on Home Manager | `nix-herdr` |
 | qwen-code, Cursor | nixpkgs 26.05 |
 | Claude Desktop, Codex app, ChatGPT, Antigravity, Antigravity IDE | homebrew |
 
-Claude Code and Codex are the one split in that table. Both ship several
-releases a week, which a relock-and-rebuild cycle cannot keep up with, so on
-darwin Homebrew owns the binary and `brew upgrade` keeps it current. Nix still
-owns all of their configuration on both platforms — the modules set
-`package = null` on darwin and render every settings file regardless. Linux is
-untouched by that exception and has no Homebrew at all.
+Claude Code is the one split in that table. nix-claude-code's
+`programs.claude.install` picks the method; on darwin the native installer
+updates itself from Anthropic's `latest` channel. Nix still renders all of its
+configuration on both platforms.
 
 [`numtide/llm-agents.nix`](https://github.com/numtide/llm-agents.nix) carries
 150+ agent CLIs for `x86_64-linux`, `aarch64-linux` and `aarch64-darwin` — an
@@ -54,12 +52,7 @@ Two rules that will bite otherwise:
 - **It deliberately does not `follows` nixpkgs**, unlike every other input.
   It pins its own `nixpkgs-unstable` and the numtide cache is keyed to that
   pin; forcing 26.05 breaks builds *and* loses every cache hit.
-- **`lib/homebrew.nix` is GUI apps plus a closed two-entry CLI exception**
-  (`claude-code@latest`, `codex`). Both are darwin-only, both keep their
-  configuration in Nix with `package = null`, and Linux still takes both from
-  llm-agents.nix. The exception exists because those two must track upstream
-  within days, which a relock-and-rebuild cycle cannot deliver. Do not add a
-  third CLI cask without that same justification written at the entry.
+- **`lib/homebrew.nix` is GUI apps only.** No CLI casks.
 
 ### Known cost: macOS TCC
 
