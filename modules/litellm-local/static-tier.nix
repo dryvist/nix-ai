@@ -6,10 +6,12 @@
 # Each router rung is its own group (`<alias>-homelab`) because a fallback
 # target must be a named group; the `*` wildcard cannot be one. A request too
 # large for the resident's window goes to that same group.
+#
+# Each resident route admits as many requests as its worker decodes at once
+# (the contract's `concurrency`); a request beyond that is refused immediately.
 {
   lib,
   staticResidentModels,
-  admissionLimits,
   headAliases,
   localModels,
 }:
@@ -32,7 +34,7 @@ in
         api_key = "os.environ/OPENAI_API_KEY";
         timeout = contract.timeoutSeconds;
         stream_timeout = contract.timeoutSeconds;
-        max_parallel_requests = admissionLimits.${modelId};
+        max_parallel_requests = contract.concurrency;
       };
       model_info = {
         max_input_tokens = contract.maxInputTokens;

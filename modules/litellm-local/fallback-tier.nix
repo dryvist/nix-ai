@@ -82,28 +82,35 @@ let
     {
       model_name = m.name;
       litellm_params =
-        if isRouterRung m then
-          {
-            model = "openai/${m.router}";
-            api_base = "os.environ/LLM_ROUTER_URL";
-            api_key = "os.environ/OPENAI_API_KEY";
-          }
-        else
-          {
-            # custom_openai, not openai: the openai provider sends Anthropic
-            # /v1/messages through LiteLLM's Responses bridge, which never converts a
-            # mid-conversation system turn, and the local model's chat template rejects it.
-            # custom_openai takes the chat-completions path, which converts that turn.
-            model = "custom_openai/${m.id}";
-            api_base = "os.environ/${localEndpointEnvVar}";
-            # The loopback server takes no credential. LiteLLM still wants the key
-            # present, so name the same variable every other leg uses rather than
-            # inventing a second one.
-            api_key = "os.environ/OPENAI_API_KEY";
-            # mlx-lm-server implements chat completions only. Without this,
-            # LiteLLM sends /v1/responses and the local rung answers 404.
-            use_chat_completions_api = true;
-          };
+        (
+          if isRouterRung m then
+            {
+              model = "openai/${m.router}";
+              api_base = "os.environ/LLM_ROUTER_URL";
+              api_key = "os.environ/OPENAI_API_KEY";
+            }
+          else
+            {
+              # custom_openai, not openai: the openai provider sends Anthropic
+              # /v1/messages through LiteLLM's Responses bridge, which never converts a
+              # mid-conversation system turn, and the local model's chat template rejects it.
+              # custom_openai takes the chat-completions path, which converts that turn.
+              model = "custom_openai/${m.id}";
+              api_base = "os.environ/${localEndpointEnvVar}";
+              # The loopback server takes no credential. LiteLLM still wants the key
+              # present, so name the same variable every other leg uses rather than
+              # inventing a second one.
+              api_key = "os.environ/OPENAI_API_KEY";
+              # mlx-lm-server implements chat completions only. Without this,
+              # LiteLLM sends /v1/responses and the local rung answers 404.
+              use_chat_completions_api = true;
+            }
+        )
+        # The worker's decode width: a request beyond it is refused at once and
+        # falls through to the next rung instead of queueing inside the worker.
+        // lib.optionalAttrs ((m.concurrency or null) != null) {
+          max_parallel_requests = m.concurrency;
+        };
     }
     # A router rung's window is the router's to advertise; only a rung this
     # host serves declares one (and needs one, for the overflow escape).
