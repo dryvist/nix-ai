@@ -175,6 +175,9 @@ in
       claudeHaikuUntouched
       || throw "Claude Code's haiku tier must stay on Anthropic: the `small` capability's local target cannot hold Claude Code's system prompt, so an override fails every background call";
     assert
+      subagentModel == null
+      || throw "the default subagentTier must set no subagent model; got: ${toString subagentModel}";
+    assert
       claudeSubagentMatchesOption
       || throw "native subagents must run on the derived subagentModel group (${toString subagentModel}); got: ${
         claudeEnv.CLAUDE_CODE_SUBAGENT_MODEL or "unset"

@@ -43,18 +43,18 @@ in
     subagentTier = lib.mkOption {
       type = lib.types.enum [
         "anthropic"
+        "native"
         "router"
       ];
-      default = "router";
+      default = "native";
       description = ''
-        Which tier Claude Code's native subagents run on. Sessions need no
-        setting of their own.
+        Which tier native subagents run on in every agent CLI.
 
-        `router` (default) sets `CLAUDE_CODE_SUBAGENT_MODEL` to `local-only`:
-        this host's own model, with no router leg, so subagent context that is
-        private never reaches the router, which refuses content its key is not
-        cleared for. Default only: an Agent call that names a model goes to the
-        router, where that key's clearance applies.
+        `native` (default) sets no subagent model; each CLI uses its own.
+
+        `router` sets the subagent model to `local-only`: this host's own
+        model, no router leg. An Agent call that names a model still goes to
+        the router.
         Without the proxy hop (`enable = false` or `claudeDirect`) the variable
         is not set, and Claude Code picks its own subagent model.
 
@@ -79,8 +79,9 @@ in
           null;
       description = ''
         The group native subagents run on, derived from the options above:
-        `local-only` when the router tier is on and this host declares a local
-        rung, null otherwise. The Claude, Codex and OpenCode settings read it.
+        `local-only` when `subagentTier = "router"` and this host declares a
+        local rung, null otherwise. The Claude, Codex, OpenCode and Antigravity
+        settings read it.
       '';
     };
 
