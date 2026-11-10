@@ -8,6 +8,7 @@
   hmConfigLitellmSubagents,
 }:
 let
+  helpers = import ./helpers.nix { inherit pkgs; };
   cfg = hmConfigLitellmSubagents.config;
   group =
     assert
@@ -23,6 +24,14 @@ let
   );
 in
 {
+  # The default is the ladder head, not the host-only group: a host-only
+  # default would queue behind a busy worker instead of handing off.
+  litellm-local-subagent-default-head =
+    if group == "medium" then
+      helpers.mkMarker "check-litellm-local-subagent-default-head" "native, OpenCode, Codex and Antigravity subagents default to the medium ladder head"
+    else
+      throw "subagentModel must default to the medium ladder head, got ${group}";
+
   litellm-local-opencode-subagents =
     pkgs.runCommand "check-litellm-local-opencode-subagents"
       {

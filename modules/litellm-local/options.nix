@@ -50,11 +50,11 @@ in
         Which tier Claude Code's native subagents run on. Sessions need no
         setting of their own.
 
-        `router` (default) sets `CLAUDE_CODE_SUBAGENT_MODEL` to `local-only`:
-        this host's own model, with no router leg, so subagent context that is
-        private never reaches the router, which refuses content its key is not
-        cleared for. Default only: an Agent call that names a model goes to the
-        router, where that key's clearance applies.
+        `router` (default) sets `CLAUDE_CODE_SUBAGENT_MODEL` to `medium`, the
+        fallback ladder head: this host's own rung first, then the shared
+        router. A subagent that finds the local rung at capacity hands off to
+        the next rung at once. `local-only` (this host alone, no fallback) is
+        not the default; a caller opts in by naming that group.
         Without the proxy hop (`enable = false` or `claudeDirect`) the variable
         is not set, and Claude Code picks its own subagent model.
 
@@ -74,13 +74,14 @@ in
           && cfg.subagentTier == "router"
           && lib.any (m: (m.router or null) == null) cfg.localModels
         then
-          "local-only"
+          "medium"
         else
           null;
       description = ''
         The group native subagents run on, derived from the options above:
-        `local-only` when the router tier is on and this host declares a local
-        rung, null otherwise. The Claude, Codex and OpenCode settings read it.
+        `medium`, the fallback ladder head, when the router tier is on and this
+        host declares a local rung; null otherwise. The Claude, Codex, OpenCode
+        and Antigravity settings read it.
       '';
     };
 

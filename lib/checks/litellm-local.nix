@@ -72,7 +72,7 @@ let
         tokenFilePath
         subagentModel
         ;
-      # Same config as claudeEnv, so the explicit-group check sees local-only.
+      # Same config as claudeEnv, so the explicit-group check sees the subagent group.
       rendered = renderedTier;
     })
     claudeTierNames

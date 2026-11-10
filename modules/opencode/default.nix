@@ -234,7 +234,7 @@ let
       # The built-in subagents the Task tool runs by name use the derived group.
       // lib.optionalAttrs (litellmLocal.subagentModel != null) (
         lib.genAttrs [ "general" "explore" ] (name: {
-          description = "${name} subagent, run on the local-only group";
+          description = "${name} subagent, run on the ${litellmLocal.subagentModel} group";
           mode = "subagent";
           model = "mlx/${litellmLocal.subagentModel}";
         })
