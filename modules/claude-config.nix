@@ -212,10 +212,10 @@ in
         # now; forcing it removed low/medium as real options.
         alwaysThinkingEnabled = false;
 
-        # % of context window at which auto-compaction fires. Bumped to 70%
-        # to maximize active working context before compaction.
+        # % of context window at which auto-compaction fires; a host may
+        # override it. The window itself is env.CLAUDE_CODE_AUTO_COMPACT_WINDOW.
         # Don't also set env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE.
-        autoCompactThresholdPercent = 70;
+        autoCompactThresholdPercent = lib.mkDefault 70;
         cleanupPeriodDays = 180;
         # A repository's `.mcp.json` written by `agent-skill-groups link` only
         # ever names catalog servers from the on-demand tier, so approve
