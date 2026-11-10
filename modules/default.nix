@@ -278,14 +278,6 @@ in
       # Fabric — 252+ AI prompt patterns + CLI (defaults to MLX backend)
       fabric.enable = true;
 
-      # Bleeding-edge Claude Code at ~/.local/bin/claude via the upstream
-      # opt-in module (nix-claude-code owns programs.claude.latest).
-      claude.latest.enable = true;
-      # Runs the installer during home-manager activation, so every user
-      # profile that imports this module gets the binary without a manual
-      # step (idempotent once installed; the first activation needs network).
-      claude.latest.installOnActivation = true;
-
       copilot-cli.enable = lib.mkDefault untrusted;
 
       # Herdr runs the agent CLIs above. Consumer hosts choose the server

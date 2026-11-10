@@ -46,10 +46,12 @@ let
       };
   executableFor =
     name: tool:
-    if (tool.cfg.package or null) != null then
-      "${tool.cfg.package}/bin/${name}"
-    else
-      "/opt/homebrew/bin/${name}";
+    tool.cfg.binaryPath or (
+      if (tool.cfg.package or null) != null then
+        "${tool.cfg.package}/bin/${name}"
+      else
+        throw "agent-launchers: ${name} has neither binaryPath nor package"
+    );
   gatewayWrapperFor =
     name: target: gateway:
     pkgs.writeShellScript "${name}-gateway-launcher" ''

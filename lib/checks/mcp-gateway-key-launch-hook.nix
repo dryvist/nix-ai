@@ -12,15 +12,21 @@ let
         ln -s "${pkgs.bash}/bin/bash" "$out/bin/claude"
       '';
   printenvCommand = "exec ${pkgs.coreutils}/bin/printenv \"$@\"";
-  hmConfigWithoutHook = mkHmConfig [ { programs.claude.package = fakeClaude; } ];
+  claudeFixture = {
+    install = "nix";
+    package = fakeClaude;
+  };
+  hmConfigWithoutHook = mkHmConfig [ { programs.claude = claudeFixture; } ];
   hmConfigWithHook = mkHmConfig [
     {
-      programs.aiMcp.gatewayKeyLaunchPrefixFor = { callerId, env }: [
-        "${pkgs.coreutils}/bin/env"
-        "--"
-        "${env}=${callerId}-fixture-key"
-      ];
-      programs.claude.package = fakeClaude;
+      programs = {
+        aiMcp.gatewayKeyLaunchPrefixFor = { callerId, env }: [
+          "${pkgs.coreutils}/bin/env"
+          "--"
+          "${env}=${callerId}-fixture-key"
+        ];
+        claude = claudeFixture;
+      };
     }
   ];
   launcherPackage =
