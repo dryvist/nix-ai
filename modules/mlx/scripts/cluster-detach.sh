@@ -21,11 +21,35 @@ cluster_detach_probe() {
   return 1
 }
 
+# Runs `cluster-detach --worker` on the peer over SSH and sets CLUSTER_PEER_DETACH_RC.
+cluster_detach_peer() {
+  local timeout="$1" peer_pid
+  CLUSTER_PEER_DETACH_RC=0
+  echo "cluster-detach: peer-ssh detaching worker"
+  "${CLUSTER_SSH_BIN:-/usr/bin/ssh}" -o BatchMode=yes -o ConnectTimeout=10 \
+    "$CLUSTER_PEER_SSH" cluster-detach --worker \
+    > >(while IFS= read -r line || [ -n "$line" ]; do printf 'worker: %s\n' "$line"; done) 2>&1 &
+  peer_pid=$!
+  if cluster_peer_ssh_wait "$peer_pid" "$((timeout + 30))" peer-detach-timeout; then
+    if [ "${CLUSTER_PEER_SSH_RC:-1}" -eq 0 ]; then
+      echo "cluster-detach: peer-ssh peer-detach-succeeded"
+    else
+      CLUSTER_PEER_DETACH_RC="$CLUSTER_PEER_SSH_RC"
+      lifecycle_refuse peer-detach-failed "worker detach failed (rc=$CLUSTER_PEER_DETACH_RC)"
+    fi
+  else
+    CLUSTER_PEER_DETACH_RC="${CLUSTER_PEER_SSH_RC:-1}"
+    if [ "$CLUSTER_PEER_DETACH_RC" -ne 124 ]; then
+      lifecycle_refuse peer-detach-failed "worker detach could not be confirmed (rc=$CLUSTER_PEER_DETACH_RC)"
+    fi
+  fi
+}
+
 cluster_detach_main() {
   local timeout deadline failed=0 peer_detach_rc=0 used swap_threshold stale_swap=false
   local current link_state serve_ok=false held="?" worker_invocation=false probed label url model
   local unhealthy=""
-  local session_arg="" current_session peer_pid
+  local session_arg="" current_session peer_only=false
   state_dir="${CLUSTER_STATE_DIR:-$(dirname "$CLUSTER_STATE_FILE")}"
   mkdir -p "$state_dir"
   export CLUSTER_LIFECYCLE_COMPONENT=cluster-detach
@@ -33,6 +57,11 @@ cluster_detach_main() {
   trap 'cluster_lifecycle_lock_release' EXIT
   while [ "$#" -gt 0 ]; do
     case "$1" in
+      --peer)
+        [ "$peer_only" = false ] || { lifecycle_refuse usage "cluster-detach [--peer | --worker [--session ID]]"; exit 1; }
+        peer_only=true
+        shift
+        ;;
       --worker)
         [ "$worker_invocation" = false ] || { lifecycle_refuse usage "cluster-detach [--worker [--session ID]]"; exit 1; }
         worker_invocation=true
@@ -55,6 +84,13 @@ cluster_detach_main() {
     lifecycle_refuse usage "--session requires --worker and a valid session id"
     exit 1
   fi
+  # --peer retries only the worker detach, from the coordinator.
+  if [ "$peer_only" = true ] && {
+    [ "$worker_invocation" = true ] || [ "${CLUSTER_ROLE:-}" != coordinator ] || [ -z "${CLUSTER_PEER_SSH:-}" ]
+  }; then
+    lifecycle_refuse usage "--peer is only valid on the coordinator with a peer SSH target, without --worker"
+    exit 1
+  fi
   [ "$worker_invocation" = false ] || [ "${CLUSTER_ROLE:-}" = worker ] || {
     lifecycle_refuse usage "--worker is only valid on the worker role"
     exit 1
@@ -71,6 +107,10 @@ cluster_detach_main() {
     fi
   fi
   timeout="${CLUSTER_DETACH_TIMEOUT_SECS:-300}"
+  if [ "$peer_only" = true ]; then
+    cluster_detach_peer "$timeout"
+    exit "$CLUSTER_PEER_DETACH_RC"
+  fi
   [ "$worker_invocation" = false ] || echo "cluster-detach: peer worker invocation accepted"
 
   echo "cluster-detach: D1 local teardown"
@@ -82,24 +122,8 @@ cluster_detach_main() {
   fi
 
   if [ "${CLUSTER_ROLE:-}" = coordinator ] && [ -n "${CLUSTER_PEER_SSH:-}" ]; then
-    echo "cluster-detach: peer-ssh detaching worker"
-    "${CLUSTER_SSH_BIN:-/usr/bin/ssh}" -o BatchMode=yes -o ConnectTimeout=10 \
-      "$CLUSTER_PEER_SSH" cluster-detach --worker \
-      > >(while IFS= read -r line || [ -n "$line" ]; do printf 'worker: %s\n' "$line"; done) 2>&1 &
-    peer_pid=$!
-    if cluster_peer_ssh_wait "$peer_pid" "$((timeout + 30))" peer-detach-timeout; then
-      if [ "${CLUSTER_PEER_SSH_RC:-1}" -eq 0 ]; then
-        echo "cluster-detach: peer-ssh peer-detach-succeeded"
-      else
-        peer_detach_rc="$CLUSTER_PEER_SSH_RC"
-        lifecycle_refuse peer-detach-failed "worker detach failed (rc=$peer_detach_rc)"
-      fi
-    else
-      peer_detach_rc="${CLUSTER_PEER_SSH_RC:-1}"
-      if [ "$peer_detach_rc" -ne 124 ]; then
-        lifecycle_refuse peer-detach-failed "worker detach could not be confirmed (rc=$peer_detach_rc)"
-      fi
-    fi
+    cluster_detach_peer "$timeout"
+    peer_detach_rc="$CLUSTER_PEER_DETACH_RC"
   fi
 
   echo "cluster-detach: D2 standalone real-completion probe"

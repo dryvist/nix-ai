@@ -48,3 +48,9 @@ rank_process_absent() {
   rank_process_pids > /dev/null 2>&1 || rc=$?
   [ "$rc" -eq 1 ]
 }
+
+# A rank that outlived SIGKILL leaves this marker. Teardown, the daytime agent and
+# the nightly preflight read it to hold or finish the deferred restore.
+rank_restore_pending_file() {
+  printf '%s/restore-pending\n' "${CLUSTER_STATE_DIR:-$(dirname "$CLUSTER_PEER_STATE_FILE")}"
+}
