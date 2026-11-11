@@ -38,7 +38,7 @@ let
         f=${on.home.file.${claudeFile s}.source}
         grep -qxF 'name: ${s.name}' "$f"
         ${lib.optionalString ((s.model or null) != null) ''grep -qxF 'model: ${s.model}' "$f"''}
-        ${lib.optionalString (s.name == "vikunja-specialist") ''grep -qxF 'model: local-only' "$f"''}
+        ${lib.optionalString (s.name == "vikunja-specialist") ''! grep -q '^model:' "$f"''}
         ${lib.concatMapStrings (t: "grep -qxF -- '- ${t}' \"$f\"\n") (toolsOf s)}
         ${
           if s.owns == [ ] then
