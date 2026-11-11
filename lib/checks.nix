@@ -174,6 +174,15 @@ in
 // (import ./checks/claude-router-launchers.nix { inherit pkgs; })
 // (import ./checks/fast-delegation.nix { inherit pkgs mkHmConfig; })
 // (import ./checks/codex-approvals.nix { inherit pkgs hmConfig mkHmConfig; })
+// (import ./checks/codex-quota-push.nix {
+  inherit
+    pkgs
+    src
+    hmConfig
+    mkHmConfig
+    mkHmConfigDarwin
+    ;
+})
 // (import ./checks/cli-ownership.nix { inherit pkgs hmConfig hmConfigUntrusted; })
 // (import ./checks/untrusted-clis.nix {
   inherit
