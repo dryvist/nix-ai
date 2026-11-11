@@ -1,5 +1,20 @@
 # Changelog
 
+## [8.29.0](https://github.com/dryvist/nix-ai/compare/v8.28.1...v8.29.0) (2026-11-11)
+
+
+### Features
+
+* **agent:** zcode run j-7f4471ca31a61b57 ([25ea360](https://github.com/dryvist/nix-ai/commit/25ea360e14870f1656f4a513e8f643e60e950267))
+
+
+### Bug Fixes
+
+* **agent-context-baseline:** probe only nix-ai and tofu-proxmox ([#2938](https://github.com/dryvist/nix-ai/issues/2938)) ([f211672](https://github.com/dryvist/nix-ai/commit/f2116720a2c8c14d3d8b0426f8a08bdb41a8a0b0))
+* **mlx:** recover cluster teardown without a person ([#2949](https://github.com/dryvist/nix-ai/issues/2949)) ([3f60a64](https://github.com/dryvist/nix-ai/commit/3f60a64a358b1c7701f07df9ce8dbaf65923f053))
+* replace private names with role words ([#2944](https://github.com/dryvist/nix-ai/issues/2944)) ([25ea360](https://github.com/dryvist/nix-ai/commit/25ea360e14870f1656f4a513e8f643e60e950267))
+* **session-archive:** sync Claude projects one folder at a time ([#2945](https://github.com/dryvist/nix-ai/issues/2945)) ([ac51fb1](https://github.com/dryvist/nix-ai/commit/ac51fb19dc4a85de6aa135f3616b4caf93ef8687))
+
 ## [8.28.1](https://github.com/dryvist/nix-ai/compare/v8.28.0...v8.28.1) (2026-11-10)
 
 
