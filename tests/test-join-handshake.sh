@@ -752,6 +752,7 @@ FAKE_NOW=1000
 SECONDS=0
 write_state "$CLUSTER_PEER_STATE_FILE" true 1000 "$JOIN_SESSION_ID" commit 1000
 unset FAKE_SSH_SEQUENCE FAKE_SSH_COUNT_FILE
+
 FAKE_SSH_RC=1
 export FAKE_SSH_RC
 : > "$FAKE_SSH_LOG"
@@ -781,6 +782,37 @@ check 'coordinator kickstarts before observing worker failure' 1 "$(grep -c 'kic
 contains 'coordinator failure invokes session-scoped remote detach' \
   'user@worker cluster-detach --worker --session 20261018T120000Z-0123abcd' "$(cat "$FAKE_SSH_LOG")"
 contains 'coordinator records worker abort' 'REFUSE reason=worker-aborted' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
+unset FAKE_SSH_SEQUENCE FAKE_SSH_COUNT_FILE
+echo 'a worker refusal before J3 (exit 4) gets no remote detach:'
+: > "$FAKE_SSH_LOG"
+printf '4\n' > "$tmp/ssh-results"
+export FAKE_SSH_SEQUENCE="$tmp/ssh-results"
+export FAKE_SSH_COUNT_FILE="$tmp/ssh-count"
+: > "$FAKE_SSH_COUNT_FILE"
+: > "$CLUSTER_LIFECYCLE_LOG"
+untouched_rc=0
+(
+  cluster_lifecycle_log_start
+  cluster_lifecycle_lock_acquire || exit 2
+  FAKE_PGREP_STATE=absent
+  JOIN_SESSION_ID=20261018T120000Z-0123abcd
+  JOIN_MODEL_EXPLICIT=false
+  CLUSTER_PEER_SSH_PID=
+  CLUSTER_PEER_SSH_RC=0
+  JOIN_EXIT_ACTIVE=false
+  JOIN_SIGNAL_RC=0
+  formed=false
+  ceiling_attempted=true
+  quiesced=false
+  cluster_peer_ssh_start || exit 2
+  set +e
+  false
+  cluster_join_exit
+) > /dev/null 2>&1 || untouched_rc=$?
+check 'coordinator exits 1 after an untouched worker refusal' 1 "$untouched_rc"
+check 'coordinator requests no worker detach after an untouched refusal' 0 "$(grep -c 'cluster-detach --worker' "$FAKE_SSH_LOG" || true)"
+contains 'coordinator names the untouched worker refusal' 'REFUSE reason=peer-join-refused' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
+contains 'coordinator logs the skipped cleanup' 'peer-cleanup-skipped reason=worker-refused-before-J3' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
 unset FAKE_SSH_SEQUENCE FAKE_SSH_COUNT_FILE
 FAKE_SSH_RC=0
 export FAKE_SSH_RC

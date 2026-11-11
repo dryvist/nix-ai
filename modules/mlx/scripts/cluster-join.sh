@@ -10,6 +10,13 @@ join_refuse() {
   lifecycle_refuse "$1" "$2"
 }
 
+# A worker refusal before J3 that changed nothing exits 4, so the coordinator knows the worker needs no cleanup.
+# Every other refusal exits 1.
+join_exit_untouched() {
+  [ "${worker_invocation:-false}" != true ] || exit 4
+  exit 1
+}
+
 cluster_model_refuse() {
   local detail="$1"
   lifecycle_refuse model-not-cached "$detail"
@@ -362,7 +369,11 @@ cluster_join_exit() {
   if [ "${JOIN_SIGNAL_RC:-0}" -ne 0 ]; then
     rc=$JOIN_SIGNAL_RC
   elif [ "$peer_started" = true ] && [ "$peer_rc" -ne 0 ]; then
-    lifecycle_refuse peer-join-failed "worker join failed or could not be reaped (rc=$peer_rc)"
+    if [ "$peer_rc" -eq 4 ]; then
+      lifecycle_refuse peer-join-refused "worker refused before J3 and changed nothing (rc=4)"
+    else
+      lifecycle_refuse peer-join-failed "worker join failed or could not be reaped (rc=$peer_rc)"
+    fi
     if [ "$teardown_done" = false ]; then
       cluster_teardown "${JOIN_SESSION_ID:-}" || teardown_rc=$?
       teardown_done=true
@@ -373,7 +384,9 @@ cluster_join_exit() {
       rc=1
     fi
   fi
-  if [ "$peer_started" = true ] && {
+  if [ "$peer_started" = true ] && [ "$peer_rc" -eq 4 ]; then
+    echo "cluster-join: peer-cleanup-skipped reason=worker-refused-before-J3 session=${JOIN_SESSION_ID:-none}"
+  elif [ "$peer_started" = true ] && {
     [ "$rc" -ne 0 ] || [ "${JOIN_SIGNAL_RC:-0}" -ne 0 ] ||
       [ "${TEARDOWN_FAILED:-0}" -ne 0 ];
   }; then
@@ -1015,7 +1028,7 @@ cluster_join_main() {
   selected_model="${CLUSTER_MODEL:-}"
   [ "$model_explicit" = false ] || selected_model="$model_arg"
   if ! cluster_join_model_select "$selected_model" "$model_explicit" "$pipeline_requested"; then
-    exit 1
+    join_exit_untouched
   fi
 
   echo "cluster-join: J1 pd-start-gate"
@@ -1034,7 +1047,8 @@ cluster_join_main() {
       JOIN_REBOOT=1
       exit 3
     fi
-    exit 1
+    [ "$stale_rank" = false ] || exit 1
+    join_exit_untouched
   fi
 
   echo "cluster-join: J2 link-prep check"
@@ -1042,7 +1056,7 @@ cluster_join_main() {
     echo "cluster-join: link-prep PASS"
   else
     join_refuse link-prep-not-ready "run sudo /nix/var/nix/profiles/system/activate"
-    exit 1
+    join_exit_untouched
   fi
 
   echo "cluster-join: J2a memory floor"
@@ -1055,7 +1069,7 @@ cluster_join_main() {
   else
     echo "cluster-join: guard=J2a decision=refuse reason=memory-floor"
     lifecycle_refuse memory-floor "${MEM_HEADROOM_DETAIL:-unknown}"
-    exit 1
+    join_exit_untouched
   fi
 
   echo "cluster-join: J3 wired-ceiling"

@@ -261,7 +261,7 @@ no_host_change 'coordinator floor refusal'
 
 echo 'a worker under its memory floor refuses with no teardown, even with its session already set:'
 FAKE_FREE_PAGES=1000 CLUSTER_ROLE=worker floor_join --worker --session 20261111T020000Z-0123abcd
-check 'worker join under the floor exits 1' 1 "$floor_rc"
+check 'worker join under the floor exits 4 (refused, untouched)' 4 "$floor_rc"
 contains 'worker floor refusal is a guard line' 'cluster-join: guard=J2a decision=refuse reason=memory-floor' "$floor_out"
 no_host_change 'worker floor refusal'
 
@@ -280,11 +280,11 @@ check 'coordinator J1 logs no stale-rank decision' 0 "$(grep -c 'decision=teardo
 no_host_change 'coordinator J1 rank-alive refusal'
 echo 'every other worker refusal before J3 changes nothing on this host and runs no teardown:'
 FAKE_J2_REFUSE=1 CLUSTER_ROLE=worker floor_join "${worker_session[@]}"
-check 'worker J2 link-prep refusal exits 1' 1 "$floor_rc"
+check 'worker J2 link-prep refusal exits 4 (refused, untouched)' 4 "$floor_rc"
 contains 'worker J2 refusal is logged' 'REFUSE reason=link-prep-not-ready' "$floor_out"
 no_host_change 'worker J2 link-prep refusal'
 CLUSTER_MODEL=org/missing CLUSTER_ROLE=worker floor_join "${worker_session[@]}"
-check 'worker model-select refusal exits 1' 1 "$floor_rc"
+check 'worker model-select refusal exits 4 (refused, untouched)' 4 "$floor_rc"
 check 'worker model-select refusal stops before J1' 0 "$(grep -c 'J1 pd-start-gate' "$tmp/join-floor.log" || true)"
 no_host_change 'worker model-select refusal'
 

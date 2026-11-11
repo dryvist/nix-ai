@@ -24,6 +24,8 @@ Every refusal before J3 (before J1, J1, J2, J2a) leaves the host as it was: no s
 is made and no peer or link state is published. The one exception is a stale rank found by a worker's J1, below.
 The coordinator learns of a worker refusal from the worker join's exit (`peer-join-exited`)
 or from `peer-ready-timeout` after `joinTimeoutSecs`.
+A `--worker` join that refuses before J3 and changed nothing exits 4; the coordinator logs
+`peer-join-refused` and `peer-cleanup-skipped reason=worker-refused-before-J3` and requests no worker detach.
 
 - **Before J1.** Refusal tokens: `model-not-cached` or `model-too-large`.
   Operator action: cache the selected model on both nodes, or choose a model whose shard fits the configured wired budget.
