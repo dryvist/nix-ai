@@ -15,6 +15,7 @@
 # default), so pressure surfaces as an application error, not host-wide swap.
 import inspect
 import os
+import sys
 
 import mlx.core as mx
 import mlx_lm.server
@@ -22,6 +23,7 @@ import mlx_lm.utils
 from mlx_lm.server import main
 
 from mlx_bounded_queue import DropOldestRequestQueue
+from mlx_generation_watchdog import model_name_from_argv, start_generation_watchdog
 
 _limit = os.environ.get("MLX_L1_MEMORY_LIMIT_BYTES")
 if _limit:
@@ -121,5 +123,33 @@ if _max_pending is not None:
 
     _generator.__init__ = _init_with_bounded_queue
     print(f"mlx-lm-launch: bounded pending queue enabled (capacity={_capacity})", flush=True)
+
+# A dead generation thread leaves the listener answering while every completion
+# fails, and the process never exits, so launchd KeepAlive never restarts it.
+# Watch each generator the server builds; mlx_generation_watchdog.py exits the
+# process with a non-zero status when the generator's own liveness check stays
+# false. Fail closed if upstream renames the thread or its liveness method.
+_response_generator = mlx_lm.server.ResponseGenerator
+_response_generator_source = inspect.getsource(_response_generator)
+if (
+    "self._generation_thread = Thread(target=self._run_generate)" not in _response_generator_source
+    or "def generation_available(self)" not in _response_generator_source
+):
+    raise RuntimeError(
+        "mlx-lm ResponseGenerator no longer starts a generation thread with "
+        "generation_available(); re-check mlx_generation_watchdog before "
+        "changing the pinned mlx-lm version."
+    )
+
+_watchdog_model = model_name_from_argv(sys.argv)
+_original_generator_init = _response_generator.__init__
+
+
+def _init_with_generation_watchdog(self, *args, **kwargs):
+    _original_generator_init(self, *args, **kwargs)
+    start_generation_watchdog(self.generation_available, _watchdog_model)
+
+
+_response_generator.__init__ = _init_with_generation_watchdog
 
 main()
