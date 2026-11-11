@@ -557,6 +557,48 @@ check 'detach keeps link-state up after disarm failure' up "$(cat "$CLUSTER_STAT
 contains 'detach reports disarm failure' 'REFUSE reason=disarm-failed' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
 unset FAIL_PEER_WRITE
 
+echo 'a standalone worker detach succeeds, so a finished restore stays finished:'
+pending="$CLUSTER_STATE_DIR/restore-pending"
+rm -f "$pending"
+printf 'down\n' > "$CLUSTER_STATE_FILE"
+export CLUSTER_STANDALONE_WIRED_LIMIT_MB=0
+: > "$EVENTS"
+: > "$FAKE_SSH_LOG"
+: > "$CLUSTER_LIFECYCLE_LOG"
+set +e
+(CLUSTER_ROLE=worker cluster_detach_main --worker) > /dev/null 2>&1
+detach_rc=$?
+set -e
+check 'standalone worker detach exits 0' 0 "$detach_rc"
+check 'standalone worker detach keeps link-state down' down "$(cat "$CLUSTER_STATE_FILE")"
+check 'standalone worker detach sends no stop signal' 0 "$(grep -cE '^launchctl kill' "$EVENTS" || true)"
+check 'standalone worker detach issues no ssh' 0 "$(wc -l < "$FAKE_SSH_LOG" | tr -d ' ')"
+check 'standalone worker detach starts no rank' 0 "$(grep -c "$CLUSTER_RANK_LABEL" "$EVENTS" || true)"
+contains 'standalone worker detach ran the real teardown' 'cluster-detach: teardown complete' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
+
+echo 'the coordinator finish clears its marker before the worker leg, whatever the worker returns:'
+for pair in '0 0' '255 1'; do
+  read -r FAKE_SSH_RC expected_rc <<< "$pair"
+  export FAKE_SSH_RC
+  printf 'up\n' > "$CLUSTER_STATE_FILE"
+  printf 'session=none\n' > "$pending"
+  : > "$EVENTS"
+  : > "$FAKE_SSH_LOG"
+  : > "$CLUSTER_LIFECYCLE_LOG"
+  set +e
+  (CLUSTER_ROLE=coordinator CLUSTER_PEER_SSH=user@worker cluster_detach_main) > /dev/null 2>&1
+  detach_rc=$?
+  set -e
+  check "finish with worker leg rc=$FAKE_SSH_RC exits $expected_rc" "$expected_rc" "$detach_rc"
+  check "finish with worker leg rc=$FAKE_SSH_RC clears the local marker" no "$([ -f "$pending" ] && echo yes || echo no)"
+  check "finish with worker leg rc=$FAKE_SSH_RC writes link-state down" down "$(cat "$CLUSTER_STATE_FILE")"
+  check "finish with worker leg rc=$FAKE_SSH_RC publishes abort" abort "$(jq -r .phase "$CLUSTER_PEER_STATE_FILE")"
+  check "finish with worker leg rc=$FAKE_SSH_RC issues one worker detach" 1 "$(wc -l < "$FAKE_SSH_LOG" | tr -d ' ')"
+  check "finish with worker leg rc=$FAKE_SSH_RC starts no rank" 0 "$(grep -c "$CLUSTER_RANK_LABEL" "$EVENTS" || true)"
+  contains "finish with worker leg rc=$FAKE_SSH_RC logs restore-finished" 'guard=T1 decision=pass reason=restore-finished' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
+done
+export FAKE_SSH_RC=0
+
 echo 'peer state accepts restore-pending only when disarmed:'
 rm -f "$CLUSTER_PEER_STATE_FILE"
 if peer_state_write false 0 '' restore-pending; then
