@@ -150,7 +150,9 @@ printf '1\n' > "$sysctl_rc"
 check 'unreadable wired ceiling refuses' refuse "$(room_verdict)"
 
 floor_verdict() { memory_floor_ok && echo pass || echo refuse; }
-memsize_read_count() { wc -l < "$memsize_reads" 2> /dev/null | tr -d ' ' || echo 0; }
+memsize_read_count() {
+  if [ -f "$memsize_reads" ]; then wc -l < "$memsize_reads" | tr -d ' '; else echo 0; fi
+}
 
 echo '7. an explicit 0 floor is off and reads nothing; an unset or empty floor refuses:'
 reset_state
