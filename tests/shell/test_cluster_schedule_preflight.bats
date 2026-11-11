@@ -169,6 +169,15 @@ assert_no_side_effects() {
   assert_no_side_effects
 }
 
+@test 'a restore-pending marker holds until the daytime run finishes the restore' {
+  touch "$BATS_TEST_TMPDIR/restore-pending"
+  run_preflight
+  [ "$status" -eq 1 ]
+  [[ "$output" == *'guard=N1 decision=hold reason=restore-pending'* ]]
+  [[ "$output" != *'guard=N2'* ]]
+  assert_no_side_effects
+}
+
 @test 'an unanswerable rank probe holds' {
   export FAKE_PGREP_RC=2
   run_preflight
@@ -190,6 +199,13 @@ assert_no_side_effects() {
   run_preflight
   [ "$status" -eq 1 ]
   [[ "$output" == *'guard=N2 decision=hold reason=peer-armed'* ]]
+  assert_no_side_effects
+}
+
+@test 'a peer with a deferred restore holds' {
+  FAKE_PEER_JSON='{"armed":false,"phase":"restore-pending","configuration_revision":"rev-a","software":{"nix_ai":"nix-rev","mlx":"mlx-ver","mlx_lm":"mlx-lm-ver","macos":"25F71","model":"example/model","model_revision":""}}' run_preflight
+  [ "$status" -eq 1 ]
+  [[ "$output" == *'guard=N2 decision=hold reason=peer-restore-pending'* ]]
   assert_no_side_effects
 }
 

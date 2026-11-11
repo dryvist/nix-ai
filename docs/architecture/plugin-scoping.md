@@ -51,7 +51,7 @@ and re-enabled per-repo. Mapping:
 | `ansible-proxmox`, `ansible-proxmox-apps` | `ansible-workflows@lunar-claude`, `proxmox-infrastructure@lunar-claude` |
 | `ansible-splunk` | `ansible-workflows@lunar-claude` |
 | `cribl`, `cc-edge-*`, `cc-stream-*` | `cribl-pack-validator@vct-cribl-pack-validator-skills` |
-| Obsidian-vault repos | `obsidian@obsidian-skills`, `obsidian-visual-skills@axton-obsidian-visual-skills`, `visual-explainer@visual-explainer-marketplace` |
+| Personal note-vault repos | `obsidian@obsidian-skills`, `obsidian-visual-skills@axton-obsidian-visual-skills`, `visual-explainer@visual-explainer-marketplace` |
 | Browser-automation repos | `browser-use@browser-use-skills` |
 
 Add to a repo:
@@ -90,7 +90,7 @@ Packs are defined once in [`modules/claude/plugins/packs.nix`](../../modules/cla
 | `proxmox` | `terraform` + proxmox-infrastructure | `terraform-proxmox`, `ansible-proxmox*` |
 | `ansible` | ansible-workflows | `ansible-*` |
 | `cribl` | cribl-pack-validator | `cribl`, `cc-edge-*`, `cc-stream-*` |
-| `obsidian` | obsidian, obsidian-visual-skills, visual-explainer | Obsidian-vault repos |
+| `obsidian` | obsidian, obsidian-visual-skills, visual-explainer | Personal note-vault repos |
 | `browser` | browser-use | Browser-automation repos |
 | `api` | api-design-principles, rest-api-design, better-auth, backend-development | API/backend repos |
 | `mcp-dev` | mcp-server-dev, agent-sdk-dev | Repos building MCP servers / SDK apps |

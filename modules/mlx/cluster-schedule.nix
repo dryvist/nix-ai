@@ -7,10 +7,11 @@
 # Otherwise the attribute set is empty and no agent is defined.
 #
 #   dev.mlx-cluster.schedule-nightly  read-only preflight, then the existing join on a pass
-#   dev.mlx-cluster.schedule-daytime  the existing detach, when this host is clustered
+#   dev.mlx-cluster.schedule-daytime  the existing detach, when this host is clustered;
+#                                     a bounded worker-only retry, when the worker is not
 #
-# Neither agent reboots or retries. A lifecycle exit 3 is logged and propagated,
-# so launchd records it and an operator acts.
+# Neither agent reboots. A lifecycle exit 3 is logged and propagated, so launchd
+# records it and an operator acts.
 #
 # Split out of ./cluster-mode.nix for the per-file size cap. The lifecycle packages
 # it launches are built there from the same env contract, and passed in.

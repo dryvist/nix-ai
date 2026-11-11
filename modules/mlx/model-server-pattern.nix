@@ -2,9 +2,9 @@
 # server. Split out of default.nix at the 12KB file-size gate, same as
 # ./worker-env.nix and ./llama-swap-launch-pkg.nix.
 #
-# Five consumers read this one value (launchd.nix, launchd-watchdog.nix,
-# packages.nix, cluster-cli-env.nix -> CLUSTER_STANDALONE_PROCESS_PATTERN, and
-# scripts/mlx-status.sh). Fixing it here fixes all of them; patching consumers
+# Consumers read this one value: cluster-cli-env.nix exports it as
+# CLUSTER_STANDALONE_PROCESS_PATTERN, and default.nix and cluster-mode.nix
+# thread it through. Fixing it here fixes all of them; patching consumers
 # individually is what lets them drift apart again.
 #
 # The mlx-lm value is DERIVED from mlxLmServer.launchScriptBasename — the same

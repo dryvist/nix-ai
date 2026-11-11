@@ -103,7 +103,7 @@ let
   # Path where the policy file will be deployed (must be absolute for policyPaths)
   policyPath = "${homeDir}/.gemini/antigravity-cli/policies/nix-managed.toml";
 
-  # Built-in subagents run on the group the proxy option derives (`medium`),
+  # Built-in subagents run on the group the proxy option derives (`local-only`),
   # the group the Claude, Codex and OpenCode settings also use. The endpoint is
   # already the proxy: default.nix sets GOOGLE_GEMINI_BASE_URL to it. subagentModel
   # is null unless the proxy is enabled, so no override is emitted without it.

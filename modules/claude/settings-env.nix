@@ -72,6 +72,9 @@
   # the option into this same env var), and a hardcoded value here is
   # invisible to whoever is reading the option's own default. Set it there.
 
+  # Sandbox tools the delegation routing hook may pick (space-separated);
+  # widened per tool once it is proven.
+  AGENT_ROUTE_ZCODE_TOOLS = "zcode";
 }
 # Local LiteLLM proxy — route Claude Code through it so subagent-tier work
 # resolves to a role alias upstream instead of a physical model id.
@@ -115,7 +118,6 @@
     # by the hook at the moment it needs them, never exported. Kept even under
     # `claudeDirect`: the guard still needs to resolve roles.
     LLM_ROUTER_URL = aiStack.llmRouterEndpoint;
-    LLM_ROUTER_TOKEN_FILE = toString aiStack.llmEndpointTokenFile;
     LITELLM_LOCAL_BASE_URL = lib.removeSuffix "/v1" aiStack.localRouterUrl;
     # The role the `fast-subagent` skill's helper requests by default
     # (claude-code-plugins ai-delegation). A role name from the committed
@@ -123,13 +125,18 @@
     # router's decision.
     FAST_SUBAGENT_MODEL = "small";
   }
+  # The bearer file's path exists only in file mode; in env-bearer mode callers
+  # use LITELLM_LOCAL_BASE_URL with the local proxy key instead.
+  // lib.optionalAttrs (aiStack.llmEndpointTokenFile != null && aiStack.llmEndpointTokenFile != "") {
+    LLM_ROUTER_TOKEN_FILE = toString aiStack.llmEndpointTokenFile;
+  }
   // lib.optionalAttrs (aiStack.internalDomains != [ ]) {
     CLAUDE_SUBAGENT_INTERNAL_DOMAINS = lib.concatStringsSep " " aiStack.internalDomains;
   }
 )
-# Native subagents run on the group the proxy option derives: `medium`, the
-# fallback ladder head. Null keeps Claude Code's default. Under
-# claudeDirect there is no proxy hop to reach that group.
+# Native subagents run on the group the proxy option derives: `local-only`, this
+# host's own model with no router leg. Null (`native`) keeps Claude Code's
+# default. Under claudeDirect there is no proxy hop to reach that group.
 // lib.optionalAttrs (litellmLocal.subagentTier == "anthropic") {
   CLAUDE_CODE_SUBAGENT_MODEL = litellmLocal.subagentAnthropicModel;
 }

@@ -43,18 +43,21 @@ in
     subagentTier = lib.mkOption {
       type = lib.types.enum [
         "anthropic"
+        "native"
         "router"
       ];
-      default = "router";
+      default = "native";
       description = ''
-        Which tier Claude Code's native subagents run on. Sessions need no
-        setting of their own.
+        Which tier native subagents run on in every agent CLI.
 
-        `router` (default) sets `CLAUDE_CODE_SUBAGENT_MODEL` to `medium`, the
-        fallback ladder head: this host's own rung first, then the shared
-        router. A subagent that finds the local rung at capacity hands off to
-        the next rung at once. `local-only` (this host alone, no fallback) is
-        not the default; a caller opts in by naming that group.
+        `native` (default) sets no subagent model; each CLI uses its own.
+
+        `router` sets the subagent model to `local-only`: this host's own
+        model, with no shared-router leg.
+        Host-served rungs enforce their declared concurrency; rate-limit and
+        timeout errors are not retried, so `medium` falls through to its next
+        rung immediately. `local-only` is outside that fallback chain and fails
+        locally at capacity.
         Without the proxy hop (`enable = false` or `claudeDirect`) the variable
         is not set, and Claude Code picks its own subagent model.
 
@@ -74,14 +77,14 @@ in
           && cfg.subagentTier == "router"
           && lib.any (m: (m.router or null) == null) cfg.localModels
         then
-          "medium"
+          "local-only"
         else
           null;
       description = ''
         The group native subagents run on, derived from the options above:
-        `medium`, the fallback ladder head, when the router tier is on and this
-        host declares a local rung; null otherwise. The Claude, Codex, OpenCode
-        and Antigravity settings read it.
+        `local-only` when `subagentTier = "router"` and this host declares a
+        local rung, null otherwise. The Claude, Codex, OpenCode and Antigravity
+        settings read it.
       '';
     };
 

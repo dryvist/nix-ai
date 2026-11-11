@@ -59,6 +59,14 @@ in
     assert
       hasInfix "maxdepth 1" code
       || throw "session-archive must iterate depth-1 subdirectories (per-leaf sync)";
+    # projects/ holds one folder per project and is too large to sync as one prefix,
+    # so its children are iterated as leaves, and its loose files go through cp.
+    assert
+      hasInfix "if [ \"\${sub##*/}\" = projects ]; then" code
+      || throw "session-archive must sync projects/ one project folder at a time, not as one prefix";
+    assert
+      hasInfix "find \"$src/projects\" -mindepth 1 -maxdepth 1 -type f" code
+      || throw "session-archive must archive loose files directly under projects/ alongside root-level files";
     assert
       !hasInfix "s3 sync \"$src/\"" code
       || throw "session-archive must never whole-tree sync a vendor dir: ListObjectsV2 truncation re-uploads the entire corpus";

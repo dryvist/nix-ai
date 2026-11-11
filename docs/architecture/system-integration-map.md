@@ -51,15 +51,18 @@ Claude Code is the exception to "no local gateway hop": with
 `programs.litellmLocal.enable`, its `ANTHROPIC_BASE_URL` points at the loopback
 proxy on `:4100`. The proxy splits traffic by model name — `claude-*` reaches
 Anthropic with the session's own forwarded credentials (so the main model still
-bills the subscription and is never rerouted), while every other name resolves
-through the shared router.
+bills the subscription and is never rerouted). Other names follow LiteLLM's
+route configuration: capability aliases can fall through to the shared router,
+while `local-only` addresses a model served by this host.
 
 The `medium` capability names one stable group that heads a cost-ordered chain
 assembled by
 [`fallback-tier.nix`](../../modules/litellm-local/fallback-tier.nix) from
 generated data in `tier-candidates.json`. A chain rather than one model, so a
-single retired upstream model cannot take every subagent down with it; a stable
-head name, so re-ranking the chain never edits a consumer.
+single retired upstream model does not take down callers of that capability; a
+stable head name, so re-ranking the chain never edits a consumer. Router-mode
+subagents use the derived `local-only` group when this host declares a local
+rung, outside the shared-router fallback chain.
 
 **The chain is generated, not hand-written.** `litellm-tier-refresh` re-ranks it
 against two live sources and keeps only their intersection: the public model

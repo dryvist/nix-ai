@@ -171,8 +171,9 @@ rec {
 
   # `local-only`: this host's first own rung under a name that appears in no
   # fallback or context-window chain, so a request either answers on this
-  # machine or fails. For callers whose data must never leave the host. Not the
-  # subagent default (see options.nix `subagentModel`); a caller opts in by name.
+  # machine or fails. For callers whose data must never leave the host. It is
+  # also the derived subagent default when router mode has a local rung (see
+  # options.nix `subagentModel`); other callers can opt in by name.
   localOnlyEntries = lib.optional (hostRungs != [ ]) (
     (lib.findFirst (d: d.model_name == (builtins.head hostRungs).name) null localList)
     // {
