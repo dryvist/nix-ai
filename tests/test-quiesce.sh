@@ -293,6 +293,9 @@ state_written=false
 JOIN_SESSION_ID=20261111T020000Z-0123abcd
 cluster_join_publish_preparing > /dev/null 2>&1 || true
 check 'J6 publish sets the published-state flag' true "$state_written"
+quiesced=false
+(cluster_join_quiesce > /dev/null 2>&1; printf '%s\n' "$quiesced" > "$tmp/quiesced-flag") || true
+check 'J4 quiesce sets the quiesced flag before it changes anything' true "$(cat "$tmp/quiesced-flag")"
 
 # Positive control. 2097152 pages is exactly the 32768MB floor, so J2a passes. The sysctl stub reads back the value
 # J3 wrote, so J3 passes and the recorders see its write and the J4 quiesce; the join then refuses at J5 on its

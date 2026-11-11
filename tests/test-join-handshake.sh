@@ -767,6 +767,7 @@ if (
   formed=false
   quiesced=false
   ceiling_attempted=false
+  state_written=true # in cluster_join_main the J6 publish precedes the worker ssh start
   cluster_lifecycle_log_start
   cluster_lifecycle_lock_acquire || exit 2
   cluster_peer_ssh_start || exit 2
