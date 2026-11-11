@@ -252,6 +252,9 @@ in
           export LITELLM_LOCAL_KEY=${lib.escapeShellArg cfg.clientToken}
           export OPENAI_API_KEY="$LITELLM_LOCAL_KEY"
           export LLM_ROUTER_URL=${lib.escapeShellArg aiStack.llmRouterEndpoint}
+        ''
+        # Only in file mode; env-bearer mode has no bearer file to point at.
+        + lib.optionalString (aiStack.llmEndpointTokenFile != null) ''
           export LLM_ROUTER_TOKEN_FILE=${lib.escapeShellArg (toString aiStack.llmEndpointTokenFile)}
         ''
         + lib.optionalString (aiStack.internalDomains != [ ]) ''

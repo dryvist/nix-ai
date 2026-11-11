@@ -58,6 +58,23 @@ let
 
   claudeEnv = enabled.programs.claude.settings.env;
 
+  # Env-bearer mode: no bearer file is declared, so neither surface may carry
+  # an empty LLM_ROUTER_TOKEN_FILE that callers would read as a path.
+  envBearer =
+    (hmConfigLitellmLocal.extendModules {
+      modules = [
+        {
+          services.aiStack = {
+            llmEndpointTokenFile = lib.mkForce null;
+            llmEndpointBearerFromEnv = lib.mkForce true;
+          };
+        }
+      ];
+    }).config;
+  envBearerOmitsTokenFile =
+    !(envBearer.programs.claude.settings.env ? LLM_ROUTER_TOKEN_FILE)
+    && !(lib.hasInfix "LLM_ROUTER_TOKEN_FILE" envBearer.programs.zsh.initContent);
+
   # The main model must stay on Anthropic: only the subagent and background
   # tiers are repointed at roles.
   claudeMainUntouched = !(claudeEnv ? ANTHROPIC_MODEL);
@@ -196,6 +213,9 @@ in
     assert
       claudeGetsTokenPathOnly
       || throw "settings.json must carry LLM_ROUTER_TOKEN_FILE as the bearer file's PATH, never its contents";
+    assert
+      envBearerOmitsTokenFile
+      || throw "with no router token file declared, settings.json and shell init must omit LLM_ROUTER_TOKEN_FILE rather than render it empty";
     assert
       codexDefaultUntouched
       || throw "enabling the proxy must not change Codex's default model provider; a per-alias litellm profile file (--profile <alias>) is the opt-in";

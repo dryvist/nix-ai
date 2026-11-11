@@ -118,13 +118,17 @@
     # by the hook at the moment it needs them, never exported. Kept even under
     # `claudeDirect`: the guard still needs to resolve roles.
     LLM_ROUTER_URL = aiStack.llmRouterEndpoint;
-    LLM_ROUTER_TOKEN_FILE = toString aiStack.llmEndpointTokenFile;
     LITELLM_LOCAL_BASE_URL = lib.removeSuffix "/v1" aiStack.localRouterUrl;
     # The role the `fast-subagent` skill's helper requests by default
     # (claude-code-plugins ai-delegation). A role name from the committed
     # alias contract, never a physical id: what it resolves to is the
     # router's decision.
     FAST_SUBAGENT_MODEL = "small";
+  }
+  # The bearer file's path exists only in file mode; in env-bearer mode callers
+  # use LITELLM_LOCAL_BASE_URL with the local proxy key instead.
+  // lib.optionalAttrs (aiStack.llmEndpointTokenFile != null) {
+    LLM_ROUTER_TOKEN_FILE = toString aiStack.llmEndpointTokenFile;
   }
   // lib.optionalAttrs (aiStack.internalDomains != [ ]) {
     CLAUDE_SUBAGENT_INTERNAL_DOMAINS = lib.concatStringsSep " " aiStack.internalDomains;
