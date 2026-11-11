@@ -27,8 +27,9 @@ or from `peer-ready-timeout` after `joinTimeoutSecs`.
 A `--worker` join that refuses before J3 and changed nothing exits 4; the coordinator logs
 `peer-join-refused` and `peer-cleanup-skipped reason=worker-refused-before-J3` and requests no worker detach.
 
-- **Before J1.** Refusal tokens: `model-not-cached` or `model-too-large`.
-  Operator action: cache the selected model on both nodes, or choose a model whose shard fits the configured wired budget.
+- **Before J1.** Refusal tokens: `model-not-cached`, `model-too-large`, `model-invalid` or `sharding-mode-invalid`.
+  Operator action: cache the selected model on both nodes, or choose a model whose shard fits the configured wired budget;
+  for `model-invalid` or `sharding-mode-invalid`, correct the model id or `programs.mlx.clusterMode.shardingMode`.
 - **J1, PD start gate.** Refusal tokens: `pd-gate-unconfigured`, `rank-alive`,
   `rank-probe-unanswerable`, `device-budget-unverified`, `pd-count-unreadable`, or `pd-reserve`.
   On a `--worker` join, `rank-alive` is a stale rank: the coordinator's own J1 already found no rank, so no formed

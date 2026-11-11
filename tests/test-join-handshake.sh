@@ -1231,6 +1231,18 @@ if cluster_join_model_select user/override true true; then
 else
   echo '  FAIL cached model override refused'; fail=1
 fi
+if cluster_join_model_select 'not a model' true false > "$tmp/model-refuse.log" 2>&1; then
+  echo '  FAIL an invalid model id was accepted'; fail=1
+fi
+contains 'an invalid model id refuses as model-invalid' 'REFUSE reason=model-invalid' "$(cat "$tmp/model-refuse.log")"
+if CLUSTER_SHARDING_MODE=diagonal cluster_join_model_select org/default false false > "$tmp/model-refuse.log" 2>&1; then
+  echo '  FAIL an invalid sharding mode was accepted'; fail=1
+fi
+contains 'an invalid sharding mode refuses as sharding-mode-invalid' 'REFUSE reason=sharding-mode-invalid' "$(cat "$tmp/model-refuse.log")"
+if cluster_join_model_select org/missing true false > "$tmp/model-refuse.log" 2>&1; then
+  echo '  FAIL an uncached model was accepted'; fail=1
+fi
+contains 'an uncached model still refuses as model-not-cached' 'REFUSE reason=model-not-cached' "$(cat "$tmp/model-refuse.log")"
 
 echo 'the responder serves the state as of the request, not as of its previous reply:'
 mkdir -p "$tmp/serve"

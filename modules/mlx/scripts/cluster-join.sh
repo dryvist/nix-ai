@@ -17,9 +17,10 @@ join_exit_untouched() {
   exit 1
 }
 
+# $1 detail; $2 reason token, model-not-cached unless the caller names another.
 cluster_model_refuse() {
-  local detail="$1"
-  lifecycle_refuse model-not-cached "$detail"
+  local detail="$1" reason="${2:-model-not-cached}"
+  lifecycle_refuse "$reason" "$detail"
   return 1
 }
 
@@ -41,7 +42,7 @@ cluster_join_model_select() {
   local org repo cache_dir ref revision snapshot_dir file size total_bytes=0 total_mb shard_mb ceiling reserve limit found_safetensors=false
   local LC_ALL=C
   if ! [[ "$model" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]]; then
-    cluster_model_refuse invalid-model-id
+    cluster_model_refuse "model id '$model' is not org/repo" model-invalid
     return 1
   fi
   org="${model%%/*}"
@@ -71,7 +72,7 @@ cluster_join_model_select() {
       tensor | tensor-parallel) JOIN_SHARDING=tensor ;;
       pipeline) JOIN_SHARDING=pipeline ;;
       *)
-        cluster_model_refuse 'invalid configured sharding mode'
+        cluster_model_refuse "configured sharding mode '${CLUSTER_SHARDING_MODE:-}' is not tensor or pipeline" sharding-mode-invalid
         return 1
         ;;
     esac
