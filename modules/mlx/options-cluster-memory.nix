@@ -18,4 +18,20 @@
       replace it with the selected model's measured shard size.
     '';
   };
+
+  options.programs.mlx.clusterMode.memoryFloorPercent = lib.mkOption {
+    type = lib.types.ints.between 0 90;
+    default = 0;
+    description = ''
+      Share of this host's physical memory that must stay free (vm_stat free,
+      inactive, and speculative pages) for a join to proceed, so the rank shard
+      leaves room for the host's other workloads. 0 turns the floor off.
+
+      cluster-join checks it twice on each host. At J2a, before the wired ceiling
+      is written, anything is quiesced, or a rank can start, the host must
+      already hold this much free memory; a refusal logs
+      `guard=J2a decision=refuse reason=memory-floor` and spends nothing. At J5
+      the free-memory requirement becomes shardMemoryMb plus this floor.
+    '';
+  };
 }

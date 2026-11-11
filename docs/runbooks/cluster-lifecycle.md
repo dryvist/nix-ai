@@ -29,6 +29,10 @@ Each join runs the gates in this order. J1 also runs again at J9 immediately bef
 - **J2, link preparation.** Refusal tokens: `link-prep-not-ready`. The check is read-only.
   Operator action: run `sudo /nix/var/nix/profiles/system/activate`,
   then retry after the link address is present on a carrier-active port outside `bridge0`.
+- **J2a, memory floor.** Refusal tokens: `memory-floor`, logged as `guard=J2a decision=refuse reason=memory-floor`.
+  The host must already hold `programs.mlx.clusterMode.memoryFloorPercent` of its physical memory free (0 turns it off).
+  The check runs before the wired ceiling is written or anything is quiesced, so a refusal spends nothing.
+  J5 also requires the shard plus this floor to be free. Operator action: free the reported memory or lower the floor.
 - **J3, wired ceiling.** Refusal tokens: `wired-ceiling-set-failed`.
   Operator action: check `programs.mlx.clusterMode.wiredLimitMb` and the configured exact-value privilege grant, then retry.
 - **J4, swap and quiesce.** The coordinator refuses with `stale-swap` when used swap exceeds `joinSwapThresholdMb`.

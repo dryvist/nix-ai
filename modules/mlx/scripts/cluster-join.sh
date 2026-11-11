@@ -1023,6 +1023,19 @@ cluster_join_main() {
     exit 1
   fi
 
+  echo "cluster-join: J2a memory floor"
+  if memory_floor_ok; then
+    if [ "${MEM_FLOOR_MB:-0}" -gt 0 ]; then
+      echo "cluster-join: guard=J2a decision=pass reason=memory-floor-met"
+    else
+      echo "cluster-join: guard=J2a decision=pass reason=memory-floor-off"
+    fi
+  else
+    echo "cluster-join: guard=J2a decision=refuse reason=memory-floor"
+    lifecycle_refuse memory-floor "${MEM_HEADROOM_DETAIL:-unknown}"
+    exit 1
+  fi
+
   echo "cluster-join: J3 wired-ceiling"
   ceiling_attempted=true
   if set_wired_limit "${CLUSTER_WIRED_LIMIT_MB:-}"; then

@@ -17,6 +17,9 @@ case "$1" in
     printf '11 0 application.com.example.one.1.2\n'
     printf '12 0 application.com.example.two.3.4\n'
     ;;
+  kickstart)
+    printf '%s\n' "$*" >> "$FAKE_LAUNCHCTL_LOG"
+    ;;
   bootout)
     printf '%s\n' "$*" >> "$FAKE_LAUNCHCTL_LOG"
     case "$*" in *application.com.example.two.3.4*) exit 17 ;; esac
@@ -35,8 +38,13 @@ case "$1" in
 esac
 LAUNCHCTL
 write_stub "$tmp/bin/sysctl" <<'SYSCTL'
+if [ "${1:-}" = -w ]; then
+  printf '%s\n' "$*" >> "${FAKE_SYSCTL_WRITES:-/dev/null}"
+  exit 0
+fi
 case "${2:-}" in
   kern.boottime) printf '{ sec = 100, usec = 0 }\n' ;;
+  hw.memsize) printf '%s\n' "${FAKE_MEMSIZE:-0}" ;;
   *) printf 'vm.swapusage: total = 0M used = 0M free = 1M\n' ;;
 esac
 SYSCTL
@@ -46,13 +54,24 @@ CURL
 write_stub "$tmp/bin/pgrep" <<'PGREP'
 exit 0
 PGREP
+write_stub "$tmp/bin/vm_stat" <<'VMSTAT'
+printf 'Mach Virtual Memory Statistics: (page size of 16384 bytes)\n'
+printf 'Pages free:                              %s.\n' "${FAKE_FREE_PAGES:-0}"
+printf 'Pages inactive:                          0.\n'
+printf 'Pages speculative:                       0.\n'
+printf 'Pages wired down:                        0.\n'
+VMSTAT
+write_stub "$tmp/bin/sudo" <<'SUDO'
+[ "${1:-}" = -n ] && shift
+"$@"
+SUDO
 write_stub "$tmp/bin/curl" <<'CURL'
 case "$*" in
   *chat/completions*) printf '{"usage":{"completion_tokens":1}}\n' ;;
 esac
 exit 0
 CURL
-chmod +x "$tmp/bin/launchctl" "$tmp/bin/sysctl" "$tmp/bin/curl" "$tmp/bin/pgrep"
+chmod +x "$tmp/bin/launchctl" "$tmp/bin/sysctl" "$tmp/bin/curl" "$tmp/bin/pgrep" "$tmp/bin/vm_stat" "$tmp/bin/sudo"
 
 # shellcheck source=modules/mlx/scripts/cluster-join.sh
 source modules/mlx/scripts/cluster-join.sh
@@ -176,6 +195,43 @@ check 'join exits non-zero on a disabled serving label' 1 "$join_disabled_rc"
 contains 'disabled serving label named in refusal' \
   'REFUSE reason=serving-label-disabled detail=declared label org.example.agent is disabled' "$join_disabled_out"
 check 'join boots out nothing when a serving label is disabled' "" "$(cat "$FAKE_LAUNCHCTL_LOG")"
+
+echo 'a host under its memory floor refuses before the wired ceiling, quiesce or any rank start:'
+export CLUSTER_VMSTAT_BIN="$tmp/bin/vm_stat"
+export CLUSTER_SUDO_BIN="$tmp/bin/sudo"
+export FAKE_SYSCTL_WRITES="$tmp/sysctl-writes"
+export FAKE_MEMSIZE=137438953472
+export CLUSTER_MEMORY_FLOOR_PCT=25
+floor_join() {
+  : > "$FAKE_LAUNCHCTL_LOG"
+  : > "$FAKE_SYSCTL_WRITES"
+  rm -f "$tmp/state/quiesced-agents"
+  floor_rc=0
+  (
+    unset -f set_wired_limit
+    # shellcheck source=modules/mlx/scripts/cluster-wired-limit.sh
+    source modules/mlx/scripts/cluster-wired-limit.sh
+    cluster_join_main
+  ) > "$tmp/join-floor.log" 2>&1 || floor_rc=$?
+  floor_out="$(cat "$tmp/join-floor.log")"
+}
+# 25% of 131072MB is 32768MB; 1000 pages of 16384 bytes is 15MB.
+FAKE_FREE_PAGES=1000 floor_join
+check 'join under the floor exits 1' 1 "$floor_rc"
+contains 'floor refusal is a guard line' 'cluster-join: guard=J2a decision=refuse reason=memory-floor' "$floor_out"
+contains 'floor refusal names the shortfall' 'REFUSE reason=memory-floor detail=15MB free' "$floor_out"
+check 'floor refusal writes no sysctl value' 0 "$(wc -l < "$FAKE_SYSCTL_WRITES" | tr -d ' ')"
+check 'floor refusal boots out and kickstarts nothing' "" "$(cat "$FAKE_LAUNCHCTL_LOG")"
+check 'floor refusal never reaches the wired ceiling' 0 "$(grep -c 'J3 wired-ceiling' "$tmp/join-floor.log" || true)"
+check 'floor refusal records no quiesced agent' no "$([ -e "$tmp/state/quiesced-agents" ] && echo yes || echo no)"
+# 2097152 pages is exactly the 32768MB floor: J2a passes and the join reaches J3, which writes the ceiling.
+FAKE_FREE_PAGES=2097152 floor_join
+contains 'a host at its floor passes J2a' 'cluster-join: guard=J2a decision=pass reason=memory-floor-met' "$floor_out"
+contains 'a host at its floor reaches the wired ceiling' 'cluster-join: J3 wired-ceiling' "$floor_out"
+check 'the sysctl write recorder sees the J3 write' yes "$([ -s "$FAKE_SYSCTL_WRITES" ] && echo yes || echo no)"
+unset CLUSTER_MEMORY_FLOOR_PCT
+FAKE_FREE_PAGES=0 floor_join
+contains 'an off floor logs its pass' 'cluster-join: guard=J2a decision=pass reason=memory-floor-off' "$floor_out"
 
 # Detach verifies each declared serving label; the stubs below stand in for the D3/D4 readings.
 pd_held_count() { PD_HELD=0; }
