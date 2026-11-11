@@ -337,8 +337,10 @@ cluster_join_exit() {
   trap - EXIT
   trap 'cluster_join_signal 130' INT
   trap 'cluster_join_signal 143' TERM
-  # Teardown follows what this host changed: the wired ceiling, a quiesce, or published state. A worker's session id
-  # is set before J1, so it alone says nothing was changed.
+  # Teardown follows what this host changed: the wired ceiling, a quiesce, or published state. A refusal before J3
+  # (model select, J1 including rank-alive, J2, J2a) changed nothing, so it kills no rank, writes no sysctl, calls no
+  # launchctl and publishes nothing, on a worker as on the coordinator. The coordinator learns of it from the worker
+  # join's exit (peer-join-exited) or its READY timeout (peer-ready-timeout), not from a peer-state write.
   if [ "${formed:-false}" != true ] && {
     [ "${ceiling_attempted:-false}" = true ] || [ "${quiesced:-false}" = true ] ||
       [ "${state_written:-false}" = true ];

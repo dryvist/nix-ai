@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# The sourced cluster-join functions read these; shellcheck cannot see that from this file.
+export PD_GATE_REASON PD_COUNT_DETAIL JOIN_SESSION_ID
+
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 mkdir -p "$tmp/bin" "$tmp/state"
@@ -223,6 +226,13 @@ floor_join() {
     unset -f set_wired_limit
     # shellcheck source=modules/mlx/scripts/cluster-wired-limit.sh
     source modules/mlx/scripts/cluster-wired-limit.sh
+    pd_start_gate() {
+      [ "${FAKE_J1_REFUSE:-}" = rank-alive ] || return 0
+      PD_GATE_REASON=rank-alive
+      PD_COUNT_DETAIL='pids=4242'
+      return 1
+    }
+    link_prep_ok() { [ -z "${FAKE_J2_REFUSE:-}" ]; }
     cluster_teardown() { printf 'teardown\n' >> "$FAKE_STATE_LOG"; }
     peer_state_write() { printf 'peer-state %s\n' "$*" >> "$FAKE_STATE_LOG"; return 1; }
     link_state_write() { printf 'link-state %s\n' "$1" >> "$FAKE_STATE_LOG"; }
@@ -252,6 +262,27 @@ FAKE_FREE_PAGES=1000 CLUSTER_ROLE=worker floor_join --worker --session 20261111T
 check 'worker join under the floor exits 1' 1 "$floor_rc"
 contains 'worker floor refusal is a guard line' 'cluster-join: guard=J2a decision=refuse reason=memory-floor' "$floor_out"
 no_host_change 'worker floor refusal'
+
+echo 'every worker refusal before J3 changes nothing on this host and runs no teardown:'
+worker_session=(--worker --session 20261111T020000Z-0123abcd)
+FAKE_J1_REFUSE=rank-alive CLUSTER_ROLE=worker floor_join "${worker_session[@]}"
+check 'worker J1 rank-alive refusal exits 1' 1 "$floor_rc"
+contains 'worker J1 refusal names the live rank' 'REFUSE reason=rank-alive detail=pids=4242' "$floor_out"
+no_host_change 'worker J1 rank-alive refusal'
+FAKE_J2_REFUSE=1 CLUSTER_ROLE=worker floor_join "${worker_session[@]}"
+check 'worker J2 link-prep refusal exits 1' 1 "$floor_rc"
+contains 'worker J2 refusal is logged' 'REFUSE reason=link-prep-not-ready' "$floor_out"
+no_host_change 'worker J2 link-prep refusal'
+CLUSTER_MODEL=org/missing CLUSTER_ROLE=worker floor_join "${worker_session[@]}"
+check 'worker model-select refusal exits 1' 1 "$floor_rc"
+check 'worker model-select refusal stops before J1' 0 "$(grep -c 'J1 pd-start-gate' "$tmp/join-floor.log" || true)"
+no_host_change 'worker model-select refusal'
+
+echo 'the J6 publish marks published state before its first write, so a later refusal runs teardown:'
+state_written=false
+JOIN_SESSION_ID=20261111T020000Z-0123abcd
+cluster_join_publish_preparing > /dev/null 2>&1 || true
+check 'J6 publish sets the published-state flag' true "$state_written"
 
 # Positive control. 2097152 pages is exactly the 32768MB floor, so J2a passes. The sysctl stub reads back the value
 # J3 wrote, so J3 passes and the recorders see its write and the J4 quiesce; the join then refuses at J5 on its

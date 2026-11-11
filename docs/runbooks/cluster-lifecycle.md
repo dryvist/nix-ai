@@ -33,7 +33,13 @@ Each join runs the gates in this order. J1 also runs again at J9 immediately bef
   The host must already hold `programs.mlx.clusterMode.memoryFloorPercent` of its physical memory free, exact to the page
   (0, the default, turns it off). The check runs before the wired ceiling is written, anything is quiesced, or state is
   published, so a refusal spends nothing and runs no teardown, on the coordinator and on a `--worker` join alike.
+
+Every refusal before J3 (before J1, J1 including `rank-alive`, J2, J2a) leaves the host as it was:
+no rank is stopped, no sysctl value is written, no launchctl call is made and no peer or link state is published.
+The coordinator learns of a worker refusal from the worker join's exit (`peer-join-exited`)
+or from `peer-ready-timeout` after `joinTimeoutSecs`.
   J5 also requires the shard plus this floor to be free. Operator action: free the reported memory or lower the floor.
+
 - **J3, wired ceiling.** Refusal tokens: `wired-ceiling-set-failed`.
   Operator action: check `programs.mlx.clusterMode.wiredLimitMb` and the configured exact-value privilege grant, then retry.
 - **J4, swap and quiesce.** The coordinator refuses with `stale-swap` when used swap exceeds `joinSwapThresholdMb`.
