@@ -18,7 +18,6 @@
   {
     name = "vikunja-specialist";
     description = "Sole owner of the Vikunja task tracker: finds, files, labels, relates, comments on and completes Vikunja tasks, verifying every write by readback. Delegate all Vikunja work here.";
-    model = "haiku";
     prompt = "applications/vikunja-specialist.md";
     owns = [ "vikunja" ];
   }
