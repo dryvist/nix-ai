@@ -156,6 +156,8 @@ write_vmstat 16384 0 0 0 0
 check 'unset floor passes' pass "$(floor_verdict)"
 export CLUSTER_MEMORY_FLOOR_PCT=0
 check 'zero floor passes' pass "$(floor_verdict)"
+export CLUSTER_MEMORY_FLOOR_PCT=''
+check 'an empty floor is off, the same as 0' pass "$(floor_verdict)"
 check 'an off floor never reads hw.memsize' 0 "$(memsize_read_count)"
 
 echo '8. free plus reclaimable memory at the floor passes; one page under refuses:'
@@ -183,6 +185,19 @@ reset_state
 export CLUSTER_MEMORY_FLOOR_PCT=abc
 write_vmstat 16384 7864320 0 0 0
 check 'a non-numeric floor refuses' refuse "$(floor_verdict)"
+export CLUSTER_MEMORY_FLOOR_PCT=91
+check 'a floor above the 90% option cap refuses' refuse "$(floor_verdict)"
+export CLUSTER_MEMORY_FLOOR_PCT=90
+check 'a 90% floor is accepted' pass "$(floor_verdict)"
+
+echo '9b. the floor is exact to the page, not rounded to whole MiB:'
+reset_state
+export CLUSTER_MEMORY_FLOOR_PCT=10
+# 10% of 137438953472 bytes is 13743895347.2 bytes: 838860.8 pages of 16384 bytes.
+write_vmstat 16384 838861 0 0 0
+check 'the first whole page at or above a non-MiB-aligned floor passes' pass "$(floor_verdict)"
+write_vmstat 16384 838860 0 0 0
+check 'one page under a non-MiB-aligned floor refuses' refuse "$(floor_verdict)"
 
 echo '10. J5 keeps the floor free once the shard is placed:'
 reset_state

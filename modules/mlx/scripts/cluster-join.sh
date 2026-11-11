@@ -337,9 +337,11 @@ cluster_join_exit() {
   trap - EXIT
   trap 'cluster_join_signal 130' INT
   trap 'cluster_join_signal 143' TERM
+  # Teardown follows what this host changed: the wired ceiling, a quiesce, or published state. A worker's session id
+  # is set before J1, so it alone says nothing was changed.
   if [ "${formed:-false}" != true ] && {
     [ "${ceiling_attempted:-false}" = true ] || [ "${quiesced:-false}" = true ] ||
-      [ -n "${JOIN_SESSION_ID:-}" ];
+      [ "${state_written:-false}" = true ];
   }; then
     cluster_teardown "${JOIN_SESSION_ID:-}" || teardown_rc=$?
     teardown_done=true
@@ -451,6 +453,7 @@ cluster_join_new_session() {
 }
 
 cluster_join_publish_preparing() {
+  state_written=true
   if ! peer_state_write false 0 "$JOIN_SESSION_ID" preparing; then
     lifecycle_refuse preparing-state-write-failed "could not publish the current session before the worker launch"
     return 1
@@ -939,6 +942,7 @@ cluster_join_main() {
   formed=false
   quiesced=false
   ceiling_attempted=false
+  state_written=false
   JOIN_REBOOT=0
   JOIN_EXIT_ACTIVE=false
   JOIN_SIGNAL_RC=0
@@ -1025,7 +1029,7 @@ cluster_join_main() {
 
   echo "cluster-join: J2a memory floor"
   if memory_floor_ok; then
-    if [ "${MEM_FLOOR_MB:-0}" -gt 0 ]; then
+    if [ "${MEM_FLOOR_PCT:-0}" -gt 0 ]; then
       echo "cluster-join: guard=J2a decision=pass reason=memory-floor-met"
     else
       echo "cluster-join: guard=J2a decision=pass reason=memory-floor-off"

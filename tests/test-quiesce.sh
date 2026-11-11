@@ -11,6 +11,7 @@ write_stub() {
 }
 
 write_stub "$tmp/bin/launchctl" <<'LAUNCHCTL'
+printf '%s\n' "$*" >> "${FAKE_LAUNCHCTL_ALL:-/dev/null}"
 case "$1" in
   list)
     printf 'PID Status Label\n'
@@ -40,11 +41,15 @@ LAUNCHCTL
 write_stub "$tmp/bin/sysctl" <<'SYSCTL'
 if [ "${1:-}" = -w ]; then
   printf '%s\n' "$*" >> "${FAKE_SYSCTL_WRITES:-/dev/null}"
+  [ -z "${FAKE_WIRED_FILE:-}" ] || printf '%s\n' "${2#*=}" > "$FAKE_WIRED_FILE"
   exit 0
 fi
 case "${2:-}" in
   kern.boottime) printf '{ sec = 100, usec = 0 }\n' ;;
   hw.memsize) printf '%s\n' "${FAKE_MEMSIZE:-0}" ;;
+  iogpu.wired_limit_mb)
+    if [ -n "${FAKE_WIRED_FILE:-}" ] && [ -f "$FAKE_WIRED_FILE" ]; then cat "$FAKE_WIRED_FILE"; else printf '0\n'; fi
+    ;;
   *) printf 'vm.swapusage: total = 0M used = 0M free = 1M\n' ;;
 esac
 SYSCTL
@@ -202,36 +207,68 @@ export CLUSTER_SUDO_BIN="$tmp/bin/sudo"
 export FAKE_SYSCTL_WRITES="$tmp/sysctl-writes"
 export FAKE_MEMSIZE=137438953472
 export CLUSTER_MEMORY_FLOOR_PCT=25
+export FAKE_LAUNCHCTL_ALL="$tmp/launchctl-all"
+export FAKE_WIRED_FILE="$tmp/wired-limit"
+export FAKE_STATE_LOG="$tmp/state-writes"
+# Runs one join with every host change recorded: each launchctl subcommand, each sysctl write, and each teardown,
+# peer-state or link-state call. Arguments go to cluster_join_main.
 floor_join() {
   : > "$FAKE_LAUNCHCTL_LOG"
+  : > "$FAKE_LAUNCHCTL_ALL"
   : > "$FAKE_SYSCTL_WRITES"
-  rm -f "$tmp/state/quiesced-agents"
+  : > "$FAKE_STATE_LOG"
+  rm -f "$tmp/state/quiesced-agents" "$FAKE_WIRED_FILE"
   floor_rc=0
   (
     unset -f set_wired_limit
     # shellcheck source=modules/mlx/scripts/cluster-wired-limit.sh
     source modules/mlx/scripts/cluster-wired-limit.sh
-    cluster_join_main
+    cluster_teardown() { printf 'teardown\n' >> "$FAKE_STATE_LOG"; }
+    peer_state_write() { printf 'peer-state %s\n' "$*" >> "$FAKE_STATE_LOG"; return 1; }
+    link_state_write() { printf 'link-state %s\n' "$1" >> "$FAKE_STATE_LOG"; }
+    # The join reaches the recorders through its exit trap; one direct call each keeps them visible to shellcheck.
+    cluster_teardown
+    : > "$FAKE_STATE_LOG"
+    cluster_join_main "$@"
   ) > "$tmp/join-floor.log" 2>&1 || floor_rc=$?
   floor_out="$(cat "$tmp/join-floor.log")"
+}
+no_host_change() {
+  check "$1: no sysctl write" 0 "$(wc -l < "$FAKE_SYSCTL_WRITES" | tr -d ' ')"
+  check "$1: no launchctl call of any kind" "" "$(cat "$FAKE_LAUNCHCTL_ALL")"
+  check "$1: no teardown, peer-state or link-state write" "" "$(cat "$FAKE_STATE_LOG")"
+  check "$1: never reaches the wired ceiling" 0 "$(grep -c 'J3 wired-ceiling' "$tmp/join-floor.log" || true)"
+  check "$1: records no quiesced agent" no "$([ -e "$tmp/state/quiesced-agents" ] && echo yes || echo no)"
 }
 # 25% of 131072MB is 32768MB; 1000 pages of 16384 bytes is 15MB.
 FAKE_FREE_PAGES=1000 floor_join
 check 'join under the floor exits 1' 1 "$floor_rc"
 contains 'floor refusal is a guard line' 'cluster-join: guard=J2a decision=refuse reason=memory-floor' "$floor_out"
 contains 'floor refusal names the shortfall' 'REFUSE reason=memory-floor detail=15MB free' "$floor_out"
-check 'floor refusal writes no sysctl value' 0 "$(wc -l < "$FAKE_SYSCTL_WRITES" | tr -d ' ')"
-check 'floor refusal boots out and kickstarts nothing' "" "$(cat "$FAKE_LAUNCHCTL_LOG")"
-check 'floor refusal never reaches the wired ceiling' 0 "$(grep -c 'J3 wired-ceiling' "$tmp/join-floor.log" || true)"
-check 'floor refusal records no quiesced agent' no "$([ -e "$tmp/state/quiesced-agents" ] && echo yes || echo no)"
-# 2097152 pages is exactly the 32768MB floor: J2a passes and the join reaches J3, which writes the ceiling.
+no_host_change 'coordinator floor refusal'
+
+echo 'a worker under its memory floor refuses with no teardown, even with its session already set:'
+FAKE_FREE_PAGES=1000 CLUSTER_ROLE=worker floor_join --worker --session 20261111T020000Z-0123abcd
+check 'worker join under the floor exits 1' 1 "$floor_rc"
+contains 'worker floor refusal is a guard line' 'cluster-join: guard=J2a decision=refuse reason=memory-floor' "$floor_out"
+no_host_change 'worker floor refusal'
+
+# Positive control. 2097152 pages is exactly the 32768MB floor, so J2a passes. The sysctl stub reads back the value
+# J3 wrote, so J3 passes and the recorders see its write and the J4 quiesce; the join then refuses at J5 on its
+# unconfigured shard. This proves the recorders above would have caught a change.
 FAKE_FREE_PAGES=2097152 floor_join
 contains 'a host at its floor passes J2a' 'cluster-join: guard=J2a decision=pass reason=memory-floor-met' "$floor_out"
-contains 'a host at its floor reaches the wired ceiling' 'cluster-join: J3 wired-ceiling' "$floor_out"
+contains 'a host at its floor passes the wired ceiling' 'cluster-join: wired-ceiling PASS' "$floor_out"
 check 'the sysctl write recorder sees the J3 write' yes "$([ -s "$FAKE_SYSCTL_WRITES" ] && echo yes || echo no)"
+check 'the launchctl recorder sees the J4 quiesce' yes "$([ -s "$FAKE_LAUNCHCTL_ALL" ] && echo yes || echo no)"
+check 'the state recorder sees the teardown after a later refusal' yes "$(grep -q '^teardown$' "$FAKE_STATE_LOG" && echo yes || echo no)"
+export CLUSTER_MEMORY_FLOOR_PCT=''
+FAKE_FREE_PAGES=0 floor_join
+contains 'an empty floor logs the same pass as 0' 'cluster-join: guard=J2a decision=pass reason=memory-floor-off' "$floor_out"
 unset CLUSTER_MEMORY_FLOOR_PCT
 FAKE_FREE_PAGES=0 floor_join
-contains 'an off floor logs its pass' 'cluster-join: guard=J2a decision=pass reason=memory-floor-off' "$floor_out"
+contains 'an unset floor logs its pass' 'cluster-join: guard=J2a decision=pass reason=memory-floor-off' "$floor_out"
+unset FAKE_LAUNCHCTL_ALL FAKE_WIRED_FILE
 
 # Detach verifies each declared serving label; the stubs below stand in for the D3/D4 readings.
 pd_held_count() { PD_HELD=0; }
