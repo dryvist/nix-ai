@@ -70,12 +70,14 @@ in
 
       expectedSettingsOptions = [
         "alwaysThinkingEnabled"
+        "autoCompactWindow"
         "cleanupPeriodDays"
         "env"
         "permissions"
         "sandbox"
         "skillListingBudgetFraction"
         "skillOverrides"
+        "subagentModel"
       ];
       actualSettingsOptions = builtins.attrNames cfg.settings;
       missingSettingsOptions = builtins.filter (
@@ -133,7 +135,12 @@ in
       {
         name = "settings.autoCompactThresholdPercent";
         actual = cfg.settings.autoCompactThresholdPercent;
-        expected = 70;
+        expected = 50;
+      }
+      {
+        name = "settings.autoCompactWindow";
+        actual = cfg.settings.autoCompactWindow;
+        expected = "800000";
       }
       {
         name = "settings.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS";
