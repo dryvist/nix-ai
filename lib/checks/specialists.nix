@@ -38,6 +38,7 @@ let
         f=${on.home.file.${claudeFile s}.source}
         grep -qxF 'name: ${s.name}' "$f"
         ${lib.optionalString ((s.model or null) != null) ''grep -qxF 'model: ${s.model}' "$f"''}
+        ${lib.optionalString (s.name == "github-specialist") ''if grep -q '^model:' "$f"; then exit 1; fi''}
         ${lib.concatMapStrings (t: "grep -qxF -- '- ${t}' \"$f\"\n") (toolsOf s)}
         ${
           if s.owns == [ ] then
