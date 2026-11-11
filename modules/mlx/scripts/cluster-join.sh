@@ -1034,21 +1034,35 @@ cluster_join_main() {
 
   echo "cluster-join: J1 pd-start-gate"
   if pd_start_gate; then
-    :
+    echo "cluster-join: guard=J1 decision=pass reason=${PD_GATE_REASON:-pd-reserve-available}"
   else
     lifecycle_refuse "${PD_GATE_REASON:-pd-gate-refused}" "${PD_COUNT_DETAIL:-${PD_BUDGET_DETAIL:-protection-domain gate refused}}"
-    # A worker join runs only after the coordinator's own J1 found no rank there, so a rank alive on the worker is
-    # stale: no formed cluster can own it. The exit teardown stops it with the verified rank stop (SIGTERM, then the
-    # audited SIGKILL that marks the host reboot-required) and the next scheduled join starts from a clean host.
+    # A worker join runs only after the coordinator's own J1 found no rank there and the coordinator published this
+    # session as preparing or ready. Only with that published state is a rank alive on the worker stale: no formed
+    # cluster can own it. The exit teardown stops it with the verified rank stop (SIGTERM, then the audited SIGKILL
+    # that marks the host reboot-required) and the next scheduled join starts from a clean host. Without that state
+    # the rank may belong to another session, so the worker refuses untouched.
     if [ "$worker_invocation" = true ] && [ "${PD_GATE_REASON:-}" = rank-alive ]; then
-      echo "cluster-join: guard=J1 decision=teardown reason=stale-worker-rank"
-      stale_rank=true
+      if peer_state_session_read && { [ "$PEER_PHASE" = preparing ] || [ "$PEER_PHASE" = ready ]; }; then
+        echo "cluster-join: guard=J1 decision=teardown reason=stale-worker-rank coordinator-phase=$PEER_PHASE"
+        stale_rank=true
+      else
+        echo "cluster-join: guard=J1 decision=refuse reason=stale-worker-rank-unconfirmed coordinator=${PEER_GATE_REASON:-phase=${PEER_PHASE:-none}}"
+      fi
     fi
-    if [ "${PD_REBOOT:-0}" = 1 ]; then
+    if [ "$stale_rank" = true ]; then
+      [ "${PD_REBOOT:-0}" != 1 ] || {
+        JOIN_REBOOT=1
+        exit 3
+      }
+      exit 1
+    fi
+    # A worker refusal here changed nothing, so it exits untouched (4) even when the gate marks this host
+    # reboot-required: the coordinator then requests no remote detach, and the worker's own refusal line names it.
+    if [ "${PD_REBOOT:-0}" = 1 ] && [ "$worker_invocation" != true ]; then
       JOIN_REBOOT=1
       exit 3
     fi
-    [ "$stale_rank" = false ] || exit 1
     join_exit_untouched
   fi
 

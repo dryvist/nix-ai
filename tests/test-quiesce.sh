@@ -229,10 +229,29 @@ floor_join() {
     # shellcheck source=modules/mlx/scripts/cluster-wired-limit.sh
     source modules/mlx/scripts/cluster-wired-limit.sh
     pd_start_gate() {
-      [ "${FAKE_J1_REFUSE:-}" = rank-alive ] || return 0
-      PD_GATE_REASON=rank-alive
-      PD_COUNT_DETAIL='pids=4242'
+      case "${FAKE_J1_REFUSE:-}" in
+        rank-alive)
+          PD_GATE_REASON=rank-alive
+          PD_COUNT_DETAIL='pids=4242'
+          ;;
+        pd-reserve)
+          PD_GATE_REASON=pd-reserve
+          PD_COUNT_DETAIL='the next rank PD would reach the configured reserve'
+          PD_REBOOT=1
+          ;;
+        *) return 0 ;;
+      esac
       return 1
+    }
+    # The coordinator's published session state as the worker reads it: FAKE_COORD_PHASE set means it exists and
+    # matches this session; unset means the worker cannot read it.
+    peer_state_session_read() {
+      PEER_PHASE="${FAKE_COORD_PHASE:-}"
+      PEER_GATE_REASON=""
+      [ -n "$PEER_PHASE" ] || {
+        PEER_GATE_REASON=peer-state-unreachable
+        return 1
+      }
     }
     link_prep_ok() { [ -z "${FAKE_J2_REFUSE:-}" ]; }
     cluster_teardown() { printf 'teardown\n' >> "$FAKE_STATE_LOG"; }
@@ -267,10 +286,10 @@ no_host_change 'worker floor refusal'
 
 echo 'a stale worker rank at J1 goes to the exit teardown; a coordinator rank at J1 changes nothing:'
 worker_session=(--worker --session 20261111T020000Z-0123abcd)
-FAKE_J1_REFUSE=rank-alive CLUSTER_ROLE=worker floor_join "${worker_session[@]}"
+FAKE_COORD_PHASE=preparing FAKE_J1_REFUSE=rank-alive CLUSTER_ROLE=worker floor_join "${worker_session[@]}"
 check 'worker J1 rank-alive refusal exits 1' 1 "$floor_rc"
 contains 'worker J1 refusal names the live rank' 'REFUSE reason=rank-alive detail=pids=4242' "$floor_out"
-contains 'worker J1 logs the stale-rank decision' 'cluster-join: guard=J1 decision=teardown reason=stale-worker-rank' "$floor_out"
+contains 'worker J1 logs the stale-rank decision' 'cluster-join: guard=J1 decision=teardown reason=stale-worker-rank coordinator-phase=preparing' "$floor_out"
 check 'worker J1 stale rank runs the exit teardown once' teardown "$(cat "$FAKE_STATE_LOG")"
 check 'worker J1 stale rank: no sysctl write from the join' 0 "$(wc -l < "$FAKE_SYSCTL_WRITES" | tr -d ' ')"
 check 'worker J1 stale rank: never reaches the wired ceiling' 0 "$(grep -c 'J3 wired-ceiling' "$tmp/join-floor.log" || true)"
@@ -278,6 +297,25 @@ FAKE_J1_REFUSE=rank-alive floor_join
 check 'coordinator J1 rank-alive refusal exits 1' 1 "$floor_rc"
 check 'coordinator J1 logs no stale-rank decision' 0 "$(grep -c 'decision=teardown reason=stale-worker-rank' "$tmp/join-floor.log" || true)"
 no_host_change 'coordinator J1 rank-alive refusal'
+echo 'a worker rank at J1 without the coordinator session published is not proven stale and is left alone:'
+FAKE_J1_REFUSE=rank-alive CLUSTER_ROLE=worker floor_join "${worker_session[@]}"
+check 'worker J1 rank-alive without coordinator state exits 4 (refused, untouched)' 4 "$floor_rc"
+contains 'worker J1 logs the unconfirmed stale rank' \
+  'cluster-join: guard=J1 decision=refuse reason=stale-worker-rank-unconfirmed coordinator=peer-state-unreachable' "$floor_out"
+check 'worker J1 rank-alive without coordinator state logs no teardown decision' 0 \
+  "$(grep -c 'decision=teardown reason=stale-worker-rank' "$tmp/join-floor.log" || true)"
+no_host_change 'worker J1 rank-alive without coordinator state'
+FAKE_COORD_PHASE=abort FAKE_J1_REFUSE=rank-alive CLUSTER_ROLE=worker floor_join "${worker_session[@]}"
+check 'worker J1 rank-alive with an aborted coordinator session exits 4' 4 "$floor_rc"
+no_host_change 'worker J1 rank-alive with an aborted coordinator session'
+echo 'a worker pd-reserve refusal at J1 changed nothing and exits untouched; the coordinator still exits 3:'
+FAKE_J1_REFUSE=pd-reserve CLUSTER_ROLE=worker floor_join "${worker_session[@]}"
+check 'worker J1 pd-reserve refusal exits 4 (refused, untouched)' 4 "$floor_rc"
+contains 'worker J1 pd-reserve refusal is logged' 'REFUSE reason=pd-reserve' "$floor_out"
+no_host_change 'worker J1 pd-reserve refusal'
+FAKE_J1_REFUSE=pd-reserve floor_join
+check 'coordinator J1 pd-reserve refusal exits 3' 3 "$floor_rc"
+no_host_change 'coordinator J1 pd-reserve refusal'
 echo 'every other worker refusal before J3 changes nothing on this host and runs no teardown:'
 FAKE_J2_REFUSE=1 CLUSTER_ROLE=worker floor_join "${worker_session[@]}"
 check 'worker J2 link-prep refusal exits 4 (refused, untouched)' 4 "$floor_rc"

@@ -32,10 +32,14 @@ A `--worker` join that refuses before J3 and changed nothing exits 4; the coordi
   for `model-invalid` or `sharding-mode-invalid`, correct the model id or `programs.mlx.clusterMode.shardingMode`.
 - **J1, PD start gate.** Refusal tokens: `pd-gate-unconfigured`, `rank-alive`,
   `rank-probe-unanswerable`, `device-budget-unverified`, `pd-count-unreadable`, or `pd-reserve`.
-  On a `--worker` join, `rank-alive` is a stale rank: the coordinator's own J1 already found no rank, so no formed
-  cluster owns it. The join logs `guard=J1 decision=teardown reason=stale-worker-rank`, and its exit teardown stops the
-  rank with the verified rank stop; the next scheduled join starts from a clean host. A SIGKILL in that stop marks the
-  host reboot-required (exit 3).
+  On a `--worker` join, `rank-alive` is a stale rank only when the coordinator has published this session as
+  `preparing` or `ready`: its own J1 already found no rank, so no formed cluster owns it. The join logs
+  `guard=J1 decision=teardown reason=stale-worker-rank`, and its exit teardown stops the rank with the verified rank
+  stop; the next scheduled join starts from a clean host. A SIGKILL in that stop marks the host reboot-required
+  (exit 3). Without that published session the worker logs
+  `guard=J1 decision=refuse reason=stale-worker-rank-unconfirmed`, leaves the rank running and exits 4.
+  Any other worker J1 refusal, `pd-reserve` included, changed nothing and exits 4, so the coordinator requests no
+  worker detach; a coordinator `pd-reserve` refusal still exits 3.
   Operator action: correct the budget or reserve configuration; on the coordinator, prove no rank remains;
   restore the device/count probe; or reboot this Mac when `pd-reserve` returns exit 3.
 - **J2, link preparation.** Refusal tokens: `link-prep-not-ready`. The check is read-only.
