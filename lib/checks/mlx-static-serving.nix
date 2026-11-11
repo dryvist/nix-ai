@@ -74,14 +74,30 @@ let
     else
       (builtins.head args == first && builtins.length args > 1 && builtins.elemAt args 1 == second)
       || hasPair (builtins.tail args) first second;
-  queueTest = pkgs.runCommand "check-mlx-bounded-queue" { } ''
+  # Launcher helpers are pure Python: run them with the pinned server's
+  # interpreter and the scripts directory on PYTHONPATH, as production does.
+  launcherHelperEnv = ''
     server=${mlxLmServer.pkg}/bin/mlx-lm-server
     python="$(${pkgs.gnused}/bin/sed -n 's|^exec "\([^"]*/bin/python\)".*|\1|p' "$server")"
     unset PYTHONPATH
     ${pkgs.gnused}/bin/sed '/^exec /,$d' "$server" > mlx-lm-server-env.sh
     source mlx-lm-server-env.sh
+  '';
+  queueTest = pkgs.runCommand "check-mlx-bounded-queue" { } ''
+    ${launcherHelperEnv}
     "$python" -c 'import mlx_bounded_queue'
     "$python" ${src}/tests/test_mlx_bounded_queue.py
+    touch "$out"
+  '';
+  generationWatchdogTest = pkgs.runCommand "check-mlx-generation-watchdog" { } ''
+    ${launcherHelperEnv}
+    "$python" -c 'import mlx_generation_watchdog'
+    "$python" ${src}/tests/test_mlx_generation_watchdog.py
+    # The launcher refuses to start if the pinned upstream lacks these two
+    # strings; fail the build here so an mlx-lm bump surfaces before a deploy.
+    server_py="$(find -L "$(dirname "$(dirname "$python")")" -path '*/mlx_lm/server.py' | head -n 1)"
+    grep -qF 'self._generation_thread = Thread(target=self._run_generate)' "$server_py"
+    grep -qF 'def generation_available(self)' "$server_py"
     touch "$out"
   '';
   cachePreflightTest = pkgs.runCommand "check-mlx-resident-model-cache" { } ''
@@ -219,5 +235,6 @@ in
       throw "static resident proxy requirement: server-only config must render its model agent without client routes, and declared local consumers must require LiteLLM";
 
   mlx-static-resident-queue = queueTest;
+  mlx-static-resident-generation-watchdog = generationWatchdogTest;
   mlx-static-resident-cache = cachePreflightTest;
 }
