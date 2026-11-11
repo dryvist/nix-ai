@@ -338,12 +338,13 @@ cluster_join_exit() {
   trap 'cluster_join_signal 130' INT
   trap 'cluster_join_signal 143' TERM
   # Teardown follows what this host changed: the wired ceiling, a quiesce, or published state. A refusal before J3
-  # (model select, J1 including rank-alive, J2, J2a) changed nothing, so it kills no rank, writes no sysctl, calls no
-  # launchctl and publishes nothing, on a worker as on the coordinator. The coordinator learns of it from the worker
-  # join's exit (peer-join-exited) or its READY timeout (peer-ready-timeout), not from a peer-state write.
+  # (model select, J1, J2, J2a) changed nothing, so it writes no sysctl, calls no launchctl and publishes nothing, on a
+  # worker as on the coordinator. The one exception is a stale rank found by a worker's J1 (stale_rank): the
+  # teardown's verified rank stop clears it. The coordinator learns of a worker refusal from the worker join's exit
+  # (peer-join-exited) or its READY timeout (peer-ready-timeout), not from a peer-state write.
   if [ "${formed:-false}" != true ] && {
     [ "${ceiling_attempted:-false}" = true ] || [ "${quiesced:-false}" = true ] ||
-      [ "${state_written:-false}" = true ];
+      [ "${state_written:-false}" = true ] || [ "${stale_rank:-false}" = true ];
   }; then
     cluster_teardown "${JOIN_SESSION_ID:-}" || teardown_rc=$?
     teardown_done=true
@@ -945,6 +946,7 @@ cluster_join_main() {
   quiesced=false
   ceiling_attempted=false
   state_written=false
+  stale_rank=false
   JOIN_REBOOT=0
   JOIN_EXIT_ACTIVE=false
   JOIN_SIGNAL_RC=0
@@ -1014,6 +1016,13 @@ cluster_join_main() {
     :
   else
     lifecycle_refuse "${PD_GATE_REASON:-pd-gate-refused}" "${PD_COUNT_DETAIL:-${PD_BUDGET_DETAIL:-protection-domain gate refused}}"
+    # A worker join runs only after the coordinator's own J1 found no rank there, so a rank alive on the worker is
+    # stale: no formed cluster can own it. The exit teardown stops it with the verified rank stop (SIGTERM, then the
+    # audited SIGKILL that marks the host reboot-required) and the next scheduled join starts from a clean host.
+    if [ "$worker_invocation" = true ] && [ "${PD_GATE_REASON:-}" = rank-alive ]; then
+      echo "cluster-join: guard=J1 decision=teardown reason=stale-worker-rank"
+      stale_rank=true
+    fi
     if [ "${PD_REBOOT:-0}" = 1 ]; then
       JOIN_REBOOT=1
       exit 3

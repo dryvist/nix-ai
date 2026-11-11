@@ -265,12 +265,20 @@ check 'worker join under the floor exits 1' 1 "$floor_rc"
 contains 'worker floor refusal is a guard line' 'cluster-join: guard=J2a decision=refuse reason=memory-floor' "$floor_out"
 no_host_change 'worker floor refusal'
 
-echo 'every worker refusal before J3 changes nothing on this host and runs no teardown:'
+echo 'a stale worker rank at J1 goes to the exit teardown; a coordinator rank at J1 changes nothing:'
 worker_session=(--worker --session 20261111T020000Z-0123abcd)
 FAKE_J1_REFUSE=rank-alive CLUSTER_ROLE=worker floor_join "${worker_session[@]}"
 check 'worker J1 rank-alive refusal exits 1' 1 "$floor_rc"
 contains 'worker J1 refusal names the live rank' 'REFUSE reason=rank-alive detail=pids=4242' "$floor_out"
-no_host_change 'worker J1 rank-alive refusal'
+contains 'worker J1 logs the stale-rank decision' 'cluster-join: guard=J1 decision=teardown reason=stale-worker-rank' "$floor_out"
+check 'worker J1 stale rank runs the exit teardown once' teardown "$(cat "$FAKE_STATE_LOG")"
+check 'worker J1 stale rank: no sysctl write from the join' 0 "$(wc -l < "$FAKE_SYSCTL_WRITES" | tr -d ' ')"
+check 'worker J1 stale rank: never reaches the wired ceiling' 0 "$(grep -c 'J3 wired-ceiling' "$tmp/join-floor.log" || true)"
+FAKE_J1_REFUSE=rank-alive floor_join
+check 'coordinator J1 rank-alive refusal exits 1' 1 "$floor_rc"
+check 'coordinator J1 logs no stale-rank decision' 0 "$(grep -c 'decision=teardown reason=stale-worker-rank' "$tmp/join-floor.log" || true)"
+no_host_change 'coordinator J1 rank-alive refusal'
+echo 'every other worker refusal before J3 changes nothing on this host and runs no teardown:'
 FAKE_J2_REFUSE=1 CLUSTER_ROLE=worker floor_join "${worker_session[@]}"
 check 'worker J2 link-prep refusal exits 1' 1 "$floor_rc"
 contains 'worker J2 refusal is logged' 'REFUSE reason=link-prep-not-ready' "$floor_out"
