@@ -28,6 +28,10 @@ let
     text = builtins.readFile ./worktree-add-guard.sh;
   };
 
+  # The rollout selection lives once in codex-rollouts.sh and is inlined ahead
+  # of each consumer's body, so codex-quota and the metrics reader share one copy.
+  codexRollouts = builtins.readFile ./codex-rollouts.sh;
+
   codexQuota = pkgs.writeShellApplication {
     name = "codex-quota";
     runtimeInputs = [
@@ -35,7 +39,7 @@ let
       pkgs.findutils
       pkgs.gnugrep
     ];
-    text = builtins.readFile ./codex-quota.sh;
+    text = codexRollouts + builtins.readFile ./codex-quota.sh;
   };
 
   # One Claude PreToolUse slot carries every policy: each script exits early

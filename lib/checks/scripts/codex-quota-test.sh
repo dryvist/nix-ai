@@ -4,7 +4,9 @@
 set -euo pipefail
 
 out="${out:?out not set (expected from the Nix build environment)}"
-script="${SRC}/modules/agent-hooks/codex-quota.sh"
+# The probe as default.nix builds it: the shared rollout selection, then the probe.
+script="$(mktemp -d)/codex-quota.sh"
+cat "${SRC}/modules/agent-hooks/codex-rollouts.sh" "${SRC}/modules/agent-hooks/codex-quota.sh" > "$script"
 
 fail=0
 

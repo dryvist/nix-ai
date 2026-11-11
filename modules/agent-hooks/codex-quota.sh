@@ -8,21 +8,9 @@ if ! codex --version >/dev/null 2>&1; then
   exit 1
 fi
 
-sessions="${CODEX_HOME:-$HOME/.codex}/sessions"
 now="$(date +%s)"
 
-# Weekly window: a record older than 8 days has reset, so stop looking there.
-# The winner is the record with the greatest timestamp across all files, not
-# the newest file's last record: a long-running older session keeps its file
-# mtime fresh while its last record goes stale.
-rl="$(find "$sessions" -name 'rollout-*.jsonl' -mtime -8 -exec grep -h '"limit_id":"codex"' {} + 2>/dev/null |
-  jq -nRc '
-    [inputs | fromjson? | select(type == "object")
-      | {timestamp, limits: (first(.. | objects | select(has("rate_limits")) | .rate_limits))}]
-    | map(select(.limits != null and .timestamp != null))
-    | sort_by(.timestamp)
-    | last | .limits // empty
-  ' 2>/dev/null || true)"
+rl="$(codex_rollout_record | jq -c '.limits // empty' 2>/dev/null || true)"
 
 if [ -z "$rl" ]; then
   echo "codex-quota: available (no codex rate_limits record in 8 days)"
