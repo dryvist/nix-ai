@@ -64,7 +64,7 @@ peer_state_write() {
   local out="${CLUSTER_PEER_STATE_FILE:-}" software boot configuration_revision ts formed_at=0 tmp
   case "$armed" in true | false) ;; *) return 1 ;; esac
   case "$armed_at" in '' | *[!0-9]*) return 1 ;; esac
-  case "$phase" in preparing | ready | commit | started | abort | formed) ;; *) return 1 ;; esac
+  case "$phase" in preparing | ready | commit | started | abort | formed | restore-pending) ;; *) return 1 ;; esac
   case "$start_at" in '' | *[!0-9]*) return 1 ;; esac
   case "$phase" in
     preparing | ready | commit | started | formed)
@@ -72,7 +72,7 @@ peer_state_write() {
       ;;
   esac
   case "$phase:$armed" in
-    preparing:false | ready:true | commit:true | started:true | abort:false | formed:true) ;;
+    preparing:false | ready:true | commit:true | started:true | abort:false | formed:true | restore-pending:false) ;;
     *) return 1 ;;
   esac
   [ -n "$out" ] || return 1

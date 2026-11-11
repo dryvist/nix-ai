@@ -159,7 +159,7 @@ chmod +x "$tmp/bin/mv"
 mkdir -p "$tmp/Some App.app"
 printf 'label-a\nlabel-b\nlabel-c %s\n' "$tmp/Some App.app/label-c.plist" > "$tmp/state/quiesced-agents"
 touch "$tmp/home/Library/LaunchAgents/label-a.plist" "$tmp/Some App.app/label-c.plist"
-peer_state_write() { printf 'disarm\n' >> "$EVENTS"; }
+peer_state_write() { printf 'peer-%s\n' "${4:-}" >> "$EVENTS"; }
 rank_process_absent_calls=0
 rank_process_absent() {
   rank_process_absent_calls=$((rank_process_absent_calls + 1))
@@ -185,7 +185,7 @@ else
   echo '  FAIL normal teardown returned failure'; fail=1
 fi
 ordered="$(tr '\n' ' ' < "$EVENTS")"
-contains 'teardown order' 'disarm stop count ceiling restore-serving launchctl bootstrap gui/'"$(id -u)"' '"$tmp/home/Library/LaunchAgents/label-a.plist"' launchctl kickstart gui/'"$(id -u)"'/label-b launchctl bootstrap gui/'"$(id -u)"' '"$tmp/Some App.app/label-c.plist"' link-down' "$ordered"
+contains 'teardown order' 'peer-abort stop count ceiling restore-serving launchctl bootstrap gui/'"$(id -u)"' '"$tmp/home/Library/LaunchAgents/label-a.plist"' launchctl kickstart gui/'"$(id -u)"'/label-b launchctl bootstrap gui/'"$(id -u)"' '"$tmp/Some App.app/label-c.plist"' link-down' "$ordered"
 check 'quiesced label file truncated' 0 "$(wc -c < "$tmp/state/quiesced-agents" | tr -d ' ')"
 check 'link state down after teardown' down "$(cat "$CLUSTER_STATE_FILE")"
 
@@ -205,8 +205,80 @@ if cluster_teardown > "$tmp/survivor.log" 2>&1; then
 fi
 survivor_events="$(cat "$EVENTS")"
 check 'surviving rank leaves state up' up "$(cat "$CLUSTER_STATE_FILE")"
-check 'surviving rank stops before count/restore' 'disarm
-stop-survivor' "$survivor_events"
+check 'surviving rank stops before count/restore, then publishes restore-pending' 'peer-abort
+stop-survivor
+peer-restore-pending' "$survivor_events"
+pending="$CLUSTER_STATE_DIR/restore-pending"
+check 'surviving rank records the restore-pending marker' yes "$([ -f "$pending" ] && echo yes || echo no)"
+contains 'surviving rank logs the deferral' 'guard=T1 decision=defer reason=rank-survivor' "$(cat "$tmp/survivor.log")"
+no_rank_start() {
+  check "$1: no rank kickstart or bootstrap" 0 "$(grep -c "$CLUSTER_RANK_LABEL" "$EVENTS" || true)"
+  check "$1: no link prep" 0 "$(grep -c 'link-prep' "$EVENTS" || true)"
+}
+no_rank_start 'surviving rank'
+check 'surviving rank leaves the wired ceiling alone' 0 "$(grep -c '^ceiling$' "$EVENTS" || true)"
+
+echo 'a restore-pending marker with the rank still present holds without another stop:'
+: > "$EVENTS"
+TEARDOWN_REBOOT=0
+if cluster_teardown > "$tmp/pending-hold.log" 2>&1; then
+  echo '  FAIL pending hold returned success'; fail=1
+fi
+check 'pending hold publishes restore-pending and attempts no stop' 'peer-restore-pending' "$(cat "$EVENTS")"
+check 'pending hold requests no reboot' 0 "$TEARDOWN_REBOOT"
+contains 'pending hold logs its decision' 'guard=T1 decision=hold reason=rank-survivor-pending' "$(cat "$tmp/pending-hold.log")"
+check 'pending hold keeps the marker' yes "$([ -f "$pending" ] && echo yes || echo no)"
+check 'pending hold leaves state up' up "$(cat "$CLUSTER_STATE_FILE")"
+no_rank_start 'pending hold'
+
+echo 'a restore-pending marker with the rank gone finishes the restore:'
+rank_process_absent() { return 0; }
+restore_normal_serving() { printf 'restore-serving\n' >> "$EVENTS"; return 1; }
+: > "$EVENTS"
+if cluster_teardown > "$tmp/pending-fail.log" 2>&1; then
+  echo '  FAIL finish with a failed serving restore returned success'; fail=1
+fi
+check 'failed finish keeps the marker' yes "$([ -f "$pending" ] && echo yes || echo no)"
+check 'failed finish does not publish abort' 0 "$(grep -c '^peer-abort$' "$EVENTS" || true)"
+no_rank_start 'failed finish'
+restore_normal_serving() { printf 'restore-serving\n' >> "$EVENTS"; return 0; }
+: > "$EVENTS"
+if cluster_teardown > "$tmp/pending-finish.log" 2>&1; then
+  check 'finish returns success' 0 "$?"
+else
+  echo '  FAIL finish returned failure'; fail=1
+fi
+check 'finish restores, links down, then publishes abort' 'peer-restore-pending
+count
+ceiling
+restore-serving
+link-down
+peer-abort' "$(cat "$EVENTS")"
+check 'finish removes the marker' no "$([ -f "$pending" ] && echo yes || echo no)"
+contains 'finish logs its decision' 'guard=T1 decision=pass reason=restore-finished' "$(cat "$tmp/pending-finish.log")"
+no_rank_start 'finish'
+
+echo 'the finish path leaves already-running serving labels untouched:'
+printf 'up\n' > "$CLUSTER_STATE_FILE"
+printf 'session=none\n' > "$pending"
+(
+  unset -f restore_normal_serving
+  source modules/mlx/scripts/cluster-serving-restore.sh
+  unset CLUSTER_WATCHDOG_LABEL CLUSTER_RESTORE_CMD CLUSTER_QUIESCE_CMD
+  : > "$EVENTS"
+  if CLUSTER_ROLE=coordinator CLUSTER_SERVER_LABELS='dev.test.server dev.test.router' \
+    cluster_teardown > "$tmp/pending-running.log" 2>&1; then
+    check 'finish over running serving returns success' 0 "$?"
+  else
+    echo '  FAIL finish over running serving returned failure'; fail=1
+  fi
+  check 'running serving labels get no enable, kickstart or bootstrap' 0 \
+    "$(grep -cE '^launchctl (enable|kickstart|bootstrap|bootout|kill)' "$EVENTS" || true)"
+  check 'running serving labels are only inspected' 4 "$(grep -cE '^launchctl print' "$EVENTS" || true)"
+  no_rank_start 'finish over running serving'
+  exit "$fail"
+) || fail=1
+rm -f "$pending"
 
 unset -f rank_process_absent rank_process_pids rank_reap_verified rank_stop_verified
 source modules/mlx/scripts/cluster-rank-status.sh
@@ -446,6 +518,20 @@ check 'detach reports disarm failure' 1 "$detach_rc"
 check 'detach keeps link-state up after disarm failure' up "$(cat "$CLUSTER_STATE_FILE")"
 contains 'detach reports disarm failure' 'REFUSE reason=disarm-failed' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
 unset FAIL_PEER_WRITE
+
+echo 'peer state accepts restore-pending only when disarmed:'
+rm -f "$CLUSTER_PEER_STATE_FILE"
+if peer_state_write false 0 '' restore-pending; then
+  check 'restore-pending phase is published' restore-pending "$(jq -r .phase "$CLUSTER_PEER_STATE_FILE")"
+  check 'restore-pending phase is disarmed' false "$(jq -r .armed "$CLUSTER_PEER_STATE_FILE")"
+else
+  echo '  FAIL disarmed restore-pending write was refused'; fail=1
+fi
+if peer_state_write true 1 20261018T120000Z-0123abcd restore-pending; then
+  echo '  FAIL armed restore-pending write was accepted'; fail=1
+else
+  echo '  ok   armed restore-pending write is refused'
+fi
 
 echo 'teardown waits for PD release before it requests a reboot:'
 rank_process_absent() { return 0; }

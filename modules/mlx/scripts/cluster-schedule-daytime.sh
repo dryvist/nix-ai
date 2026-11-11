@@ -1,7 +1,8 @@
 # shellcheck shell=bash
-# Daytime agent body, coordinator only. When this host is clustered, it runs the
-# existing detach. Otherwise it logs the hold and exits 0. It never reboots and
-# never retries. A detach exit 3 is logged and propagated.
+# Daytime agent body, coordinator only. When this host is clustered, or holds a
+# deferred restore whose rank has exited, it runs the existing detach. Otherwise
+# it logs the hold and exits 0. It never reboots. A detach exit 3 is logged and
+# propagated.
 
 # D2: launchd must still hold each standalone serving label, or detach cannot
 # restore serving. A cluster quiesce boots these labels out, so a check for loaded
@@ -41,7 +42,19 @@ schedule_serving_loadable() {
 schedule_daytime_main() {
   local rc=0
   echo "cluster-schedule: daytime start CLUSTER_INVOKER=${CLUSTER_INVOKER:-manual}"
-  if schedule_clustered; then
+  # D0: a deferred restore. Detach finishes it once the rank has exited; while
+  # the rank lives, a detach would only repeat the stop that already failed.
+  if [ -f "$(rank_restore_pending_file)" ]; then
+    if rank_process_running; then
+      schedule_log D0 hold rank-survivor-pending
+      return 0
+    fi
+    if ! rank_process_absent; then
+      schedule_log D0 hold rank-probe-unanswerable
+      return 1
+    fi
+    schedule_log D0 pass finish-restore
+  elif schedule_clustered; then
     schedule_log D1 pass clustered
   else
     rc=$?

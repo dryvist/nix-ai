@@ -90,7 +90,14 @@ A propagated worker exit 3 identifies the worker as the node that requested rebo
 
 The teardown order is disarm peer state, stop and verify the rank, read the kernel PD count,
 restore the standalone wired ceiling and serving, then write link state `down`.
-If the rank cannot be proven absent, teardown leaves serving and link state unchanged.
+If the rank cannot be proven absent, teardown leaves serving and link state unchanged,
+writes a `restore-pending` marker in the state directory, publishes peer phase `restore-pending`,
+and logs `guard=T1 decision=defer reason=rank-survivor`.
+The coordinator preflight also holds at N2 (`peer-restore-pending`) while the worker publishes that phase.
+While the marker remains and the rank is still present, teardown holds with `reason=rank-survivor-pending`
+and sends no further stop signal.
+The next daytime run finishes the restore through the existing detach once the rank has exited
+(`guard=D0 decision=pass reason=finish-restore`), and the nightly preflight holds at N1 with `reason=restore-pending` until then.
 A PD count still nonzero 30 seconds after the rank stops (re-read once per second)
 requires a reboot before the next join.
 
