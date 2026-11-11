@@ -340,6 +340,44 @@ for pair in '42 1' '255 1' '3 3'; do
     "REFUSE reason=peer-detach-failed detail=worker detach failed (rc=$FAKE_SSH_RC)" "$(cat "$CLUSTER_LIFECYCLE_LOG")"
 done
 
+echo 'coordinator --peer retries only the worker detach, under the lifecycle lock:'
+for pair in '0 0' '42 42' '3 3'; do
+  read -r FAKE_SSH_RC expected_rc <<< "$pair"
+  export FAKE_SSH_RC
+  : > "$EVENTS"
+  : > "$FAKE_SSH_LOG"
+  : > "$CLUSTER_LIFECYCLE_LOG"
+  set +e
+  (cluster_detach_main --peer)
+  detach_rc=$?
+  set -e
+  check "peer-only worker rc=$FAKE_SSH_RC exits $expected_rc" "$expected_rc" "$detach_rc"
+  check 'peer-only issues one worker detach' '-o BatchMode=yes -o ConnectTimeout=10 user@worker cluster-detach --worker' "$(cat "$FAKE_SSH_LOG")"
+  check 'peer-only runs no local teardown' 0 "$(grep -c '^local-teardown$' "$EVENTS" || true)"
+  check 'peer-only makes no launchctl call' 0 "$(grep -c '^launchctl ' "$EVENTS" || true)"
+  check 'peer-only releases the lifecycle lock' no "$([ -d "$CLUSTER_STATE_DIR/cluster-lifecycle.lock" ] && echo yes || echo no)"
+done
+export FAKE_SSH_RC=0
+for args in '--peer --worker' '--worker --peer'; do
+  : > "$FAKE_SSH_LOG"
+  read -r -a argv <<< "$args"
+  set +e
+  (cluster_detach_main "${argv[@]}") > /dev/null 2>&1
+  detach_rc=$?
+  set -e
+  check "detach $args is refused" 1 "$detach_rc"
+  check "detach $args issues no ssh" 0 "$(wc -l < "$FAKE_SSH_LOG" | tr -d ' ')"
+done
+CLUSTER_ROLE=worker
+: > "$FAKE_SSH_LOG"
+set +e
+(cluster_detach_main --peer) > /dev/null 2>&1
+detach_rc=$?
+set -e
+check 'worker detach --peer is refused' 1 "$detach_rc"
+check 'worker detach --peer issues no ssh' 0 "$(wc -l < "$FAKE_SSH_LOG" | tr -d ' ')"
+CLUSTER_ROLE=coordinator
+
 echo 'coordinator detach applies the detach timeout plus a 30s SSH deadline:'
 export FAKE_SSH_HANG=true
 export FAKE_SSH_RC=0

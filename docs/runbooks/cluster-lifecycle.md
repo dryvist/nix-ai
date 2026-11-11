@@ -79,6 +79,11 @@ and exits 1 for every peer return code except 3.
 A worker detach that returns 3 propagates exit 3.
 A local swap level above `detachSwapThresholdMb` logs `stale-swap` and exits 3.
 Run `cluster-detach` locally on the worker if SSH cannot complete its teardown.
+`cluster-detach --peer` runs only the worker detach over SSH, from the coordinator, under the lifecycle lock.
+When the coordinator is standalone but the worker still publishes `armed: true` or phase `restore-pending`,
+the daytime agent runs `cluster-detach --peer` once per run and at most three runs per worker session,
+logging `guard=D3 decision=retry reason=<peer-armed|peer-restore-pending> attempt=<n>/3`.
+After the third attempt it holds with `peer-retry-exhausted`; after a worker exit 3 it holds with `peer-reboot-required`.
 
 The worker-join result follows the same mapping: the coordinator logs `REFUSE reason=peer-join-failed rc=<n>`
 and returns 1 for any nonzero worker result except 3, which is propagated as 3.

@@ -52,6 +52,7 @@
 
   scheduleDaytime = [
     ./scripts/cluster-rank-status.sh
+    ./scripts/cluster-peer-state.sh
     ./scripts/cluster-schedule-common.sh
     ./scripts/cluster-schedule-daytime.sh
   ];

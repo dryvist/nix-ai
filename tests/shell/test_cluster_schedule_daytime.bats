@@ -72,6 +72,7 @@ STUB
   printf 'down\n' > "$CLUSTER_STATE_FILE"
   printf '{"armed":false}\n' > "$CLUSTER_PEER_STATE_FILE"
   PENDING="$CLUSTER_STATE_DIR/restore-pending"
+  RETRY="$CLUSTER_STATE_DIR/peer-detach-retry"
 
   local layer
   for layer in cluster-rank-status cluster-peer-state cluster-schedule-common cluster-schedule-daytime; do
@@ -139,5 +140,84 @@ peer_armed() {
   [ "$status" -eq 0 ]
   [[ "$output" == *'guard=D1 decision=pass reason=clustered'* ]]
   [ "$(calls '^detach $')" = 1 ]
+  assert_no_rank_start
+}
+
+@test 'an armed peer is retried once with a peer-only detach' {
+  peer_armed
+  run schedule_daytime_main
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'guard=D1 decision=hold reason=not-clustered'* ]]
+  [[ "$output" == *'guard=D3 decision=retry reason=peer-armed attempt=1/3'* ]]
+  [ "$(calls '^detach --peer$')" = 1 ]
+  [ "$(cat "$RETRY")" = "$SESSION 1" ]
+  assert_no_rank_start
+}
+
+@test 'a peer with a pending restore is retried' {
+  FAKE_PEER_JSON="{\"armed\":false,\"phase\":\"restore-pending\",\"session\":\"$SESSION\"}" run schedule_daytime_main
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'guard=D3 decision=retry reason=peer-restore-pending attempt=1/3'* ]]
+  [ "$(calls '^detach --peer$')" = 1 ]
+  assert_no_rank_start
+}
+
+@test 'a fourth run for the same peer session holds as exhausted' {
+  peer_armed
+  printf '%s 3\n' "$SESSION" > "$RETRY"
+  run schedule_daytime_main
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'guard=D3 decision=hold reason=peer-retry-exhausted'* ]]
+  [ "$(calls '^detach')" = 0 ]
+  assert_no_rank_start
+}
+
+@test 'attempts recorded for another peer session start over' {
+  peer_armed
+  printf '%s 3\n' 20261109T230000Z-ffffffff > "$RETRY"
+  run schedule_daytime_main
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'guard=D3 decision=retry reason=peer-armed attempt=1/3'* ]]
+  [ "$(calls '^detach --peer$')" = 1 ]
+  assert_no_rank_start
+}
+
+@test 'a peer that needs a reboot stops the retries for that session' {
+  peer_armed
+  FAKE_DETACH_RC=3 run schedule_daytime_main
+  [ "$status" -eq 3 ]
+  [[ "$output" == *'guard=D3 decision=hold reason=peer-reboot-required'* ]]
+  : > "$CALLS"
+  run schedule_daytime_main
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'guard=D3 decision=hold reason=peer-reboot-required'* ]]
+  [ "$(calls '^detach')" = 0 ]
+  assert_no_rank_start
+}
+
+@test 'a failed peer retry is reported and counted' {
+  peer_armed
+  FAKE_DETACH_RC=1 run schedule_daytime_main
+  [ "$status" -eq 1 ]
+  [ "$(cat "$RETRY")" = "$SESSION 1" ]
+  [ "$(calls '^detach --peer$')" = 1 ]
+  assert_no_rank_start
+}
+
+@test 'a standalone peer passes and clears the retry count' {
+  printf '%s 2\n' "$SESSION" > "$RETRY"
+  run schedule_daytime_main
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'guard=D3 decision=pass reason=peer-standalone'* ]]
+  [ ! -e "$RETRY" ]
+  [ "$(calls '^detach')" = 0 ]
+  assert_no_rank_start
+}
+
+@test 'an unreachable peer holds without a retry' {
+  FAKE_CURL_RC=7 run schedule_daytime_main
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'guard=D3 decision=hold reason=peer-unreachable'* ]]
+  [ "$(calls '^detach')" = 0 ]
   assert_no_rank_start
 }

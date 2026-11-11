@@ -1,8 +1,58 @@
 # shellcheck shell=bash
 # Daytime agent body, coordinator only. When this host is clustered, or holds a
-# deferred restore whose rank has exited, it runs the existing detach. Otherwise
-# it logs the hold and exits 0. It never reboots. A detach exit 3 is logged and
-# propagated.
+# deferred restore whose rank has exited, it runs the existing detach. When this
+# host is standalone but the worker is still armed or holds a deferred restore,
+# it retries the worker detach, at most once per run and three runs per worker
+# session. Otherwise it logs the hold and exits 0. It never reboots. A detach
+# exit 3 is logged and propagated.
+
+# D3: a worker left clustered by a failed peer detach. The coordinator has
+# already torn itself down, so D1 says not-clustered; the worker's own peer state
+# says whether it still needs a detach. The count lives in the state directory as
+# "<worker session> <attempts>", or "<worker session> reboot" after an exit 3.
+schedule_guard_peer_detach() {
+  local retry_file armed phase session reason recorded="" count="" rc=0
+  retry_file="${CLUSTER_STATE_DIR:-$(dirname "$CLUSTER_PEER_STATE_FILE")}/peer-detach-retry"
+  if ! peer_state_fetch; then
+    schedule_log D3 hold peer-unreachable
+    return 0
+  fi
+  armed="$(jq -r '.armed // false' <<< "$PEER_STATE_RAW")"
+  phase="$(jq -r '.phase // ""' <<< "$PEER_STATE_RAW")"
+  session="$(jq -r '.session // ""' <<< "$PEER_STATE_RAW")"
+  if [ "$armed" = true ]; then
+    reason=peer-armed
+  elif [ "$phase" = restore-pending ]; then
+    reason=peer-restore-pending
+  else
+    rm -f "$retry_file"
+    schedule_log D3 pass peer-standalone
+    return 0
+  fi
+  session="${session:-none}"
+  read -r recorded count < "$retry_file" 2> /dev/null || true
+  [ "$recorded" = "$session" ] || count=0
+  if [ "$count" = reboot ]; then
+    schedule_log D3 hold peer-reboot-required
+    return 0
+  fi
+  case "$count" in '' | *[!0-9]*) count=0 ;; esac
+  if [ "$count" -ge 3 ]; then
+    schedule_log D3 hold peer-retry-exhausted
+    return 0
+  fi
+  count=$((count + 1))
+  printf '%s %s\n' "$session" "$count" > "$retry_file"
+  schedule_log D3 retry "$reason attempt=$count/3"
+  "$CLUSTER_DETACH_BIN" --peer || rc=$?
+  if [ "$rc" -eq 3 ]; then
+    printf '%s reboot\n' "$session" > "$retry_file"
+    schedule_log D3 hold peer-reboot-required
+    return 3
+  fi
+  echo "cluster-schedule: daytime peer detach rc=$rc"
+  return "$rc"
+}
 
 # D2: launchd must still hold each standalone serving label, or detach cannot
 # restore serving. A cluster quiesce boots these labels out, so a check for loaded
@@ -60,7 +110,8 @@ schedule_daytime_main() {
     rc=$?
     if [ "$rc" -eq 1 ]; then
       schedule_log D1 hold not-clustered
-      return 0
+      schedule_guard_peer_detach
+      return
     fi
     echo "cluster-schedule: D1 detail=$SCHEDULE_CLUSTER_DETAIL"
     schedule_log D1 hold mode-unanswerable
