@@ -1068,7 +1068,7 @@ cluster_join_main() {
 
   echo "cluster-join: J2 link-prep check"
   if link_prep_ok; then
-    echo "cluster-join: link-prep PASS"
+    echo "cluster-join: guard=J2 decision=pass reason=link-prep-ready"
   else
     join_refuse link-prep-not-ready "run sudo /nix/var/nix/profiles/system/activate"
     join_exit_untouched
@@ -1090,7 +1090,7 @@ cluster_join_main() {
   echo "cluster-join: J3 wired-ceiling"
   ceiling_attempted=true
   if set_wired_limit "${CLUSTER_WIRED_LIMIT_MB:-}"; then
-    echo "cluster-join: wired-ceiling PASS"
+    echo "cluster-join: guard=J3 decision=pass reason=wired-ceiling-set"
   else
     join_refuse wired-ceiling-set-failed "could not set the configured cluster wired ceiling"
     exit 1
@@ -1104,7 +1104,7 @@ cluster_join_main() {
     CLUSTER_SHARD_MEMORY_MB="$JOIN_SHARD_MEMORY_MB"
   fi
   if rank_start_room_ok; then
-    echo "cluster-join: room PASS"
+    echo "cluster-join: guard=J5 decision=pass reason=rank-start-room-available"
   else
     local reason=rank-start-room-unavailable
     case "${MEM_HEADROOM_DETAIL:-}" in room-unconfigured*) reason=room-unconfigured ;; esac

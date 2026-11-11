@@ -340,7 +340,7 @@ check 'J4 quiesce sets the quiesced flag before it changes anything' true "$(cat
 # unconfigured shard. This proves the recorders above would have caught a change.
 FAKE_FREE_PAGES=2097152 floor_join
 contains 'a host at its floor passes J2a' 'cluster-join: guard=J2a decision=pass reason=memory-floor-met' "$floor_out"
-contains 'a host at its floor passes the wired ceiling' 'cluster-join: wired-ceiling PASS' "$floor_out"
+contains 'a host at its floor passes the wired ceiling' 'cluster-join: guard=J3 decision=pass reason=wired-ceiling-set' "$floor_out"
 check 'the sysctl write recorder sees the J3 write' yes "$([ -s "$FAKE_SYSCTL_WRITES" ] && echo yes || echo no)"
 check 'the launchctl recorder sees the J4 quiesce' yes "$([ -s "$FAKE_LAUNCHCTL_ALL" ] && echo yes || echo no)"
 check 'the state recorder sees the teardown after a later refusal' yes "$(grep -q '^teardown$' "$FAKE_STATE_LOG" && echo yes || echo no)"
