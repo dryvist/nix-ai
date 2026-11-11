@@ -73,5 +73,9 @@ in
     assert
       noPrefixRoute == route
       || throw "litellm-local: external env-bearer delivery must enable router pass-through";
+    assert
+      !((mk [ ]).config.programs.claude.settings.env ? LLM_ROUTER_TOKEN_FILE)
+      && !(pkgs.lib.hasInfix "LLM_ROUTER_TOKEN_FILE" (mk [ ]).config.programs.zsh.initContent)
+      || throw "litellm-local: env-bearer mode must omit LLM_ROUTER_TOKEN_FILE from settings.json and shell init";
     helpers.mkMarker "check-litellm-local-launch-prefix" "litellm-local: module and external wrappers can deliver the bearer through the environment";
 }
