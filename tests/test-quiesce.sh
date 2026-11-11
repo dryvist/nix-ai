@@ -124,6 +124,8 @@ export CLUSTER_SHARDING_MODE=tensor
 export CLUSTER_SHARD_MEMORY_MB=0
 export CLUSTER_WIRED_LIMIT_MB=2000
 export CLUSTER_COMPOSITOR_RESERVE_MB=100
+# The module always declares the floor; 0 is its default and turns it off.
+export CLUSTER_MEMORY_FLOOR_PCT=0
 export CLUSTER_LAUNCHCTL_BIN="$tmp/bin/launchctl"
 export CLUSTER_SYSCTL_BIN="$tmp/bin/sysctl"
 export CLUSTER_PGREP_BIN="$tmp/bin/pgrep"
@@ -293,12 +295,19 @@ contains 'a host at its floor passes the wired ceiling' 'cluster-join: wired-cei
 check 'the sysctl write recorder sees the J3 write' yes "$([ -s "$FAKE_SYSCTL_WRITES" ] && echo yes || echo no)"
 check 'the launchctl recorder sees the J4 quiesce' yes "$([ -s "$FAKE_LAUNCHCTL_ALL" ] && echo yes || echo no)"
 check 'the state recorder sees the teardown after a later refusal' yes "$(grep -q '^teardown$' "$FAKE_STATE_LOG" && echo yes || echo no)"
-export CLUSTER_MEMORY_FLOOR_PCT=''
+export CLUSTER_MEMORY_FLOOR_PCT=0
 FAKE_FREE_PAGES=0 floor_join
-contains 'an empty floor logs the same pass as 0' 'cluster-join: guard=J2a decision=pass reason=memory-floor-off' "$floor_out"
-unset CLUSTER_MEMORY_FLOOR_PCT
-FAKE_FREE_PAGES=0 floor_join
-contains 'an unset floor logs its pass' 'cluster-join: guard=J2a decision=pass reason=memory-floor-off' "$floor_out"
+contains 'a declared 0 floor logs its pass' 'cluster-join: guard=J2a decision=pass reason=memory-floor-off' "$floor_out"
+for declared in empty unset; do
+  if [ "$declared" = empty ]; then export CLUSTER_MEMORY_FLOOR_PCT=''; else unset CLUSTER_MEMORY_FLOOR_PCT; fi
+  FAKE_FREE_PAGES=2097152 floor_join
+  contains "an $declared floor refuses at J2a" 'cluster-join: guard=J2a decision=refuse reason=memory-floor' "$floor_out"
+  contains "an $declared floor names the missing declaration" 'unset or empty' "$floor_out"
+  check "an $declared floor exits 1" 1 "$floor_rc"
+  check "an $declared floor writes no sysctl value" no "$([ -s "$FAKE_SYSCTL_WRITES" ] && echo yes || echo no)"
+  check "an $declared floor quiesces nothing" no "$([ -s "$FAKE_LAUNCHCTL_ALL" ] && echo yes || echo no)"
+done
+export CLUSTER_MEMORY_FLOOR_PCT=0
 unset FAKE_LAUNCHCTL_ALL FAKE_WIRED_FILE
 
 # Detach verifies each declared serving label; the stubs below stand in for the D3/D4 readings.

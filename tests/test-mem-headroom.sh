@@ -62,7 +62,9 @@ Pages purgeable:                         0.
 EOFVM
 }
 reset_state() {
-  unset CLUSTER_SHARD_MEMORY_MB CLUSTER_COMPOSITOR_RESERVE_MB CLUSTER_MEMORY_FLOOR_PCT
+  unset CLUSTER_SHARD_MEMORY_MB CLUSTER_COMPOSITOR_RESERVE_MB
+  # The module always declares the floor; 0 is its default and turns it off.
+  export CLUSTER_MEMORY_FLOOR_PCT=0
   rm -f "$vmstat_rc" "$sysctl_rc" "$memsize_reads"
   # 128 GiB of physical memory.
   printf '137438953472\n' > "$memsize_fixture"
@@ -150,15 +152,18 @@ check 'unreadable wired ceiling refuses' refuse "$(room_verdict)"
 floor_verdict() { memory_floor_ok && echo pass || echo refuse; }
 memsize_read_count() { wc -l < "$memsize_reads" 2> /dev/null | tr -d ' ' || echo 0; }
 
-echo '7. an unset or zero memory floor is off and reads nothing:'
+echo '7. an explicit 0 floor is off and reads nothing; an unset or empty floor refuses:'
 reset_state
 write_vmstat 16384 0 0 0 0
-check 'unset floor passes' pass "$(floor_verdict)"
-export CLUSTER_MEMORY_FLOOR_PCT=0
-check 'zero floor passes' pass "$(floor_verdict)"
-export CLUSTER_MEMORY_FLOOR_PCT=''
-check 'an empty floor is off, the same as 0' pass "$(floor_verdict)"
+check 'a declared 0 floor passes' pass "$(floor_verdict)"
 check 'an off floor never reads hw.memsize' 0 "$(memsize_read_count)"
+unset CLUSTER_MEMORY_FLOOR_PCT
+check 'an unset floor refuses' refuse "$(floor_verdict)"
+memory_floor_ok || true
+case "$MEM_HEADROOM_DETAIL" in *'unset or empty'*) echo '  ok   unset floor refusal names the missing declaration' ;; *) echo "  FAIL unset floor detail: $MEM_HEADROOM_DETAIL"; fail=1 ;; esac
+check 'an unset floor refuses the room gate too' refuse "$(CLUSTER_SHARD_MEMORY_MB=100 room_verdict)"
+export CLUSTER_MEMORY_FLOOR_PCT=''
+check 'an empty floor refuses' refuse "$(floor_verdict)"
 
 echo '8. free plus reclaimable memory at the floor passes; one page under refuses:'
 reset_state

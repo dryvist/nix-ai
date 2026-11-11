@@ -148,18 +148,23 @@ rank_start_room_ok() {
 # THE DECLARED PER-HOST MEMORY FLOOR. The room checks above size memory for this
 # Mac's own shard only; they know nothing of agent sessions, browsers or other
 # model servers. CLUSTER_MEMORY_FLOOR_PCT is the share of physical memory that
-# must stay free (free + reclaimable, read the same way as mem_stat_mb). Unset,
-# empty and 0 all mean the Nix default: the floor is off, with no probe, and the
-# join logs memory-floor-off. A value that is not a whole percentage from 0 to 90
-# (the option's range), or an unreadable hw.memsize, refuses rather than
-# guessing. Sets MEM_FLOOR_PCT, MEM_TOTAL_BYTES, MEM_TOTAL_MB and MEM_FLOOR_MB
-# (rounded up) without a subshell, so a refusal detail reaches the caller.
+# must stay free (free + reclaimable, read the same way as mem_stat_mb). The Nix
+# module always exports it; an explicit 0 turns the floor off, with no probe, and
+# the join logs memory-floor-off. Unset or empty refuses: a missing declaration is
+# never read as "off". A value that is not a whole percentage from 0 to 90 (the
+# option's range), or an unreadable hw.memsize, refuses rather than guessing.
+# Sets MEM_FLOOR_PCT, MEM_TOTAL_BYTES, MEM_TOTAL_MB and MEM_FLOOR_MB (rounded up)
+# without a subshell, so a refusal detail reaches the caller.
 memory_floor_read() {
-  local pct="${CLUSTER_MEMORY_FLOOR_PCT:-0}" bytes
+  local pct="${CLUSTER_MEMORY_FLOOR_PCT:-}" bytes
   MEM_FLOOR_PCT=0
   MEM_TOTAL_BYTES=0
   MEM_FLOOR_MB=0
   MEM_TOTAL_MB=0
+  if [ -z "$pct" ]; then
+    MEM_HEADROOM_DETAIL="CLUSTER_MEMORY_FLOOR_PCT is unset or empty; the floor must be declared (0 turns it off), refusing"
+    return 1
+  fi
   if ! [[ "$pct" =~ ^[0-9]{1,2}$ ]] || [ "$((10#$pct))" -gt 90 ]; then
     MEM_HEADROOM_DETAIL="CLUSTER_MEMORY_FLOOR_PCT '${pct}' is not a whole percentage from 0 to 90; refusing rather than guessing a floor"
     return 1

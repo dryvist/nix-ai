@@ -131,6 +131,8 @@ export CLUSTER_JOIN_TIMEOUT_SECS=20
 export CLUSTER_HTTP_PORT=8000
 export CLUSTER_ROLE=coordinator
 export CLUSTER_RANK_LABEL=dev.test.rank
+# The module always declares the floor; 0 is its default and turns it off.
+export CLUSTER_MEMORY_FLOOR_PCT=0
 export CLUSTER_RANK_PROCESS_PATTERN=/fake-rank
 export CLUSTER_RDMA_DEVICE=rdma_test
 export CLUSTER_PD_DEVICE_BUDGET=11
