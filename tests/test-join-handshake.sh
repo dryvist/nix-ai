@@ -431,6 +431,47 @@ else
 fi
 CLUSTER_PEER_SSH_PID=""
 
+echo 'the READY wait reads once more after its last sleep, and after a worker exit:'
+saved_join_timeout=$CLUSTER_JOIN_TIMEOUT_SECS
+CLUSTER_JOIN_TIMEOUT_SECS=5
+# The fake worker stamps READY at 1000; a read within the 5 s timeout of that is fresh.
+FAKE_NOW=1000
+write_state "$FAKE_PEER_STATE_FILE" false 0 "" abort
+command sleep 30 &
+CLUSTER_PEER_SSH_PID=$!
+READY_WORKER_ON_SLEEP=true
+if cluster_join_wait_worker_ready > "$tmp/final-sleep.log" 2>&1; then
+  echo '  ok   a READY written during the final sleep is seen'
+else
+  echo "  FAIL READY written during the final sleep was reported as: $(tail -1 "$tmp/final-sleep.log")"; fail=1
+fi
+FAKE_NOW=1000
+write_state "$FAKE_PEER_STATE_FILE" false 0 "" abort
+if cluster_join_wait_worker_ready > "$tmp/ready-timeout.log" 2>&1; then
+  echo '  FAIL a worker that never published READY was accepted'; fail=1
+else
+  contains 'a live worker without READY times out' 'REFUSE reason=peer-ready-timeout' "$(cat "$tmp/ready-timeout.log")"
+fi
+kill "$CLUSTER_PEER_SSH_PID" 2> /dev/null || true
+wait "$CLUSTER_PEER_SSH_PID" 2> /dev/null || true
+FAKE_NOW=1000
+write_state "$FAKE_PEER_STATE_FILE" true 1000 "$JOIN_SESSION_ID" ready
+if (
+  eval "real_$(declare -f peer_armed_read)"
+  armed_reads=0
+  # The first read misses READY, as if the worker published it just after; the worker has already exited.
+  peer_armed_read() { armed_reads=$((armed_reads + 1)); [ "$armed_reads" -gt 1 ] && real_peer_armed_read; }
+  cluster_peer_ssh_running() { return 1; }
+  CLUSTER_PEER_SSH_PID=4242
+  cluster_join_wait_worker_ready
+) > "$tmp/ready-then-exit.log" 2>&1; then
+  echo '  ok   a worker that published READY and then exited is not reported as exited before READY'
+else
+  echo "  FAIL READY-then-exit was reported as: $(tail -1 "$tmp/ready-then-exit.log")"; fail=1
+fi
+CLUSTER_JOIN_TIMEOUT_SECS=$saved_join_timeout
+READY_WORKER_ON_SLEEP=false
+
 echo 'an abort after worker READY becomes commit-withdrawn and launches nothing:'
 CLUSTER_ROLE=worker
 CLUSTER_PEER_STATE_FILE="$tmp/state/worker-peer-state.json"

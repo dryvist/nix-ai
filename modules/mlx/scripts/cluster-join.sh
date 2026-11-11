@@ -511,7 +511,8 @@ cluster_join_publish_ready() {
 cluster_join_wait_worker_ready() {
   local timeout="${CLUSTER_JOIN_TIMEOUT_SECS:-600}" deadline remaining
   deadline=$((SECONDS + timeout))
-  while [ "$SECONDS" -lt "$deadline" ]; do
+  # The loop reads once more after its last sleep, so a READY or an exit inside that sleep is reported as such.
+  while :; do
     if peer_armed_read; then
       echo "cluster-join: peer phase=ready session=$JOIN_SESSION_ID"
       return 0
@@ -528,11 +529,17 @@ cluster_join_wait_worker_ready() {
         ;;
     esac
     if [ -n "${CLUSTER_PEER_SSH_PID:-}" ] && ! cluster_peer_ssh_running; then
+      # The worker may have published READY between the read above and its exit.
+      if peer_armed_read; then
+        echo "cluster-join: peer phase=ready session=$JOIN_SESSION_ID"
+        return 0
+      fi
       lifecycle_refuse peer-join-exited "worker join exited before publishing READY for session $JOIN_SESSION_ID"
       return 1
     fi
-    echo "cluster-join: peer phase WAIT reason=${PEER_GATE_REASON:-unknown}"
     remaining=$((deadline - SECONDS))
+    [ "$remaining" -gt 0 ] || break
+    echo "cluster-join: peer phase WAIT reason=${PEER_GATE_REASON:-unknown}"
     [ "$remaining" -le 5 ] || remaining=5
     sleep "$remaining"
   done
