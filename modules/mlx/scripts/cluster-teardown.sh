@@ -198,17 +198,19 @@ cluster_restore_quiesced_agents() {
 }
 
 cluster_teardown() {
-  local count_rc=0 session="${1:-}" disarm_failed=false
+  local count_rc=0 session="${1:-}" disarm_failed=false pending phase=abort
   TEARDOWN_FAILED=0
   TEARDOWN_REBOOT=0
   TEARDOWN_SIGKILLED=0
   if [ -z "$session" ] && [ -f "${CLUSTER_PEER_STATE_FILE:-}" ]; then
     session="$(jq -r '.session // ""' "$CLUSTER_PEER_STATE_FILE" 2> /dev/null || true)"
   fi
-  if peer_state_write false 0 "$session" abort; then
+  pending="$(rank_restore_pending_file)"
+  [ ! -f "$pending" ] || phase=restore-pending
+  if peer_state_write false 0 "$session" "$phase"; then
     echo "cluster-teardown: peer state disarmed for session=${session:-none}"
   else
-    lifecycle_refuse disarm-failed "could not write peer phase abort for session=${session:-none}"
+    lifecycle_refuse disarm-failed "could not write peer phase $phase for session=${session:-none}"
     disarm_failed=true
     TEARDOWN_FAILED=1
   fi
@@ -216,8 +218,21 @@ cluster_teardown() {
     lifecycle_refuse teardown-state-remove-failed "could not remove rank-model state"
     TEARDOWN_FAILED=1
   fi
+  # A rank that outlived SIGKILL still holds its wired shard and PDs, so serving,
+  # the wired ceiling and link-state wait. The marker lets a later run finish.
   if ! rank_process_absent; then
+    if [ -f "$pending" ]; then
+      echo "cluster-teardown: guard=T1 decision=hold reason=rank-survivor-pending"
+      lifecycle_refuse rank-survivor-pending "the rank from a deferred teardown is still present; no stop is retried"
+      return 1
+    fi
     if ! rank_stop_verified || ! rank_process_absent; then
+      if printf 'session=%s ts=%s\n' "${session:-none}" "$(date +%s)" > "$pending" &&
+        peer_state_write false 0 "$session" restore-pending; then
+        echo "cluster-teardown: guard=T1 decision=defer reason=rank-survivor"
+      else
+        lifecycle_refuse restore-pending-write-failed "could not record the deferred restore"
+      fi
       lifecycle_refuse rank-survivor "rank absence is unverified; serving and link-state stay unchanged"
       return 1
     fi
@@ -268,6 +283,14 @@ cluster_teardown() {
   else
     lifecycle_refuse link-state-write-failed "could not write link-state down"
     TEARDOWN_FAILED=1
+  fi
+  if [ "$TEARDOWN_FAILED" -eq 0 ] && [ -f "$pending" ]; then
+    if peer_state_write false 0 "$session" abort && rm -f "$pending"; then
+      echo "cluster-teardown: guard=T1 decision=pass reason=restore-finished"
+    else
+      lifecycle_refuse restore-pending-clear-failed "could not clear the deferred restore"
+      TEARDOWN_FAILED=1
+    fi
   fi
   return "$TEARDOWN_FAILED"
 }

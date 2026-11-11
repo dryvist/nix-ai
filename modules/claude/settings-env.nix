@@ -72,6 +72,9 @@
   # the option into this same env var), and a hardcoded value here is
   # invisible to whoever is reading the option's own default. Set it there.
 
+  # Sandbox tools the delegation routing hook may pick (space-separated);
+  # widened per tool once it is proven.
+  AGENT_ROUTE_ZCODE_TOOLS = "zcode";
 }
 # Local LiteLLM proxy — route Claude Code through it so subagent-tier work
 # resolves to a role alias upstream instead of a physical model id.
@@ -127,9 +130,9 @@
     CLAUDE_SUBAGENT_INTERNAL_DOMAINS = lib.concatStringsSep " " aiStack.internalDomains;
   }
 )
-# Native subagents run on the group the proxy option derives: `local-only`, this
-# host's own model with no router leg. Null keeps Claude Code's default. Under
-# claudeDirect there is no proxy hop to reach that group.
+# Native subagents run on the group the proxy option derives. Null (the
+# `native` tier) keeps Claude Code's default. Under claudeDirect there is no
+# proxy hop to reach that group.
 // lib.optionalAttrs (litellmLocal.subagentTier == "anthropic") {
   CLAUDE_CODE_SUBAGENT_MODEL = litellmLocal.subagentAnthropicModel;
 }

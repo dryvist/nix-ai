@@ -36,11 +36,11 @@ done
 
 **What:** Remove these from the cluster state directory: `pd-debt`, old `rank-*` files except the kept `rank-model`,
 `last-halt-cause`, `standalone-lease`, `link-down-*`, `link-facts-last`, `link-prep-repairs`, `port-reups`, `generation-*`,
-`health-gate`, `heartbeat-ticks`, `mem-headroom-refused`, `pd-auto-reboot-last`, `peer-*` except `peer-state.json`,
+`health-gate`, `heartbeat-ticks`, `mem-headroom-refused`, `pd-auto-reboot-last`, `peer-*` except `peer-state.json` and `peer-detach-retry`,
 `serving-quiesced`, `soak-busy-skips`, `maintenance-window-task`, `alerts-undelivered.log`, and `*.tmp`.
 
-The keep set is `bin/` and `signing/` (the signing identity), `ibv-matrix.json`, `link-state`, `peer-state.json`,
-`quiesced-agents`, and `rank-model`.
+The keep set is `bin/` and `signing/` (the signing identity), `ibv-matrix.json`, `link-state`, `peer-detach-retry`,
+`peer-state.json`, `quiesced-agents`, `rank-model`, and `restore-pending`.
 
 **Why a converge leaves it:** These are files in the user's application-support directory, not declared Nix store paths.
 Convergence does not delete them.
@@ -52,7 +52,7 @@ state="$HOME/Library/Application Support/mlx-cluster"
 if [ -d "$state" ]; then
   find "$state" -mindepth 1 -maxdepth 1 -print |
     sed "s#^$state/##" |
-    awk 'BEGIN { split("bin ibv-matrix.json link-state peer-state.json quiesced-agents rank-model signing", names)
+    awk 'BEGIN { split("bin ibv-matrix.json link-state peer-detach-retry peer-state.json quiesced-agents rank-model restore-pending signing", names)
                  for (i in names) keep[names[i]] = 1 }
          !($0 in keep) { print "STALE " $0; stale = 1 }
          END { if (!stale) print "CLEAN" }'
@@ -81,7 +81,7 @@ find "$state" -mindepth 1 -maxdepth 1 \( \
   -o -name 'heartbeat-ticks' \
   -o -name 'mem-headroom-refused' \
   -o -name 'pd-auto-reboot-last' \
-  -o \( -name 'peer-*' ! -name 'peer-state.json' \) \
+  -o \( -name 'peer-*' ! -name 'peer-state.json' ! -name 'peer-detach-retry' \) \
   -o -name 'serving-quiesced' \
   -o -name 'soak-busy-skips' \
   -o -name 'maintenance-window-task' \

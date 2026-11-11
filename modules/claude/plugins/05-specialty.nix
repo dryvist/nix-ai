@@ -123,7 +123,7 @@ _:
     # Codex/Gemini won't pick them up until that module is extended (tracked
     # separately). Re-evaluated during the cost/intelligence alignment pass;
     # this documented decision stands. obsidian@obsidian-skills stays
-    # disabled globally; re-enable in Obsidian-vault repos via per-repo
+    # disabled globally; re-enable in personal note-vault repos via per-repo
     # .claude/settings.json.
     "obsidian@obsidian-skills" = false;
     "obsidian-visual-skills@axton-obsidian-visual-skills" = false;

@@ -141,6 +141,16 @@ in
         expected = "1";
       }
       {
+        name = "settings.env.AGENT_ROUTE_ZCODE_TOOLS";
+        actual = cfg.settings.env.AGENT_ROUTE_ZCODE_TOOLS or null;
+        expected = "zcode";
+      }
+      {
+        name = "settings.env has no AGENT_ROUTE_GLM_MODEL";
+        actual = cfg.settings.env ? AGENT_ROUTE_GLM_MODEL;
+        expected = false;
+      }
+      {
         name = "model";
         actual = cfg.model;
         expected = "opusplan";

@@ -113,18 +113,31 @@ for pair in "${vendors[@]}"; do
   # large parent prefixes, so a whole-tree sync fails to see what is already
   # uploaded and re-pushes tens of thousands of present objects every run
   # (verified live). Depth-1 subdirectory prefixes stay small enough to list.
+  # projects/ is too large to sync whole (one folder per project), so its
+  # children are the leaves. Their S3 keys match the whole-directory layout.
+  leaves=()
   while IFS= read -r sub; do
-    dirs=$((dirs + 1))
-    if ! run_aws s3 sync "$sub/" "s3://$bkt/$rel/${sub##*/}/" \
-      --no-follow-symlinks --only-show-errors "${exclude_args[@]}"; then
-      echo "$(date -Iseconds) sync $rel/${sub##*/} failed" >>"$log"
-      failed=$((failed + 1))
+    if [ "${sub##*/}" = projects ]; then
+      while IFS= read -r proj; do
+        leaves+=("$proj")
+      done < <(find "$sub" -maxdepth 1 -mindepth 1 -type d)
+    else
+      leaves+=("$sub")
     fi
   done < <(find "$src" -maxdepth 1 -mindepth 1 -type d)
+  for leaf in "${leaves[@]}"; do
+    dirs=$((dirs + 1))
+    key="$rel/${leaf#"$src"/}"
+    if ! run_aws s3 sync "$leaf/" "s3://$bkt/$key/" \
+      --no-follow-symlinks --only-show-errors "${exclude_args[@]}"; then
+      echo "$(date -Iseconds) sync $key failed" >>"$log"
+      failed=$((failed + 1))
+    fi
+  done
 
-  # Root-level files are few and small: cp unconditionally, bucket versioning
-  # absorbs the re-uploads. Reuse the exclude patterns so credentials at the
-  # top level never leave the machine.
+  # Root-level files and loose files directly under projects/ are few and
+  # small: cp unconditionally, bucket versioning absorbs the re-uploads. Reuse
+  # the exclude patterns so credentials at these levels never leave the machine.
   while IFS= read -r f; do
     skip=0
     for e in "${excludes[@]}"; do
@@ -132,11 +145,12 @@ for pair in "${vendors[@]}"; do
       case "${f##*/}" in $e) skip=1 ;; esac
     done
     [ "$skip" = 1 ] && continue
-    if ! run_aws s3 cp "$f" "s3://$bkt/$rel/${f##*/}" --only-show-errors; then
-      echo "$(date -Iseconds) cp $rel/${f##*/} failed" >>"$log"
+    key="$rel/${f#"$src"/}"
+    if ! run_aws s3 cp "$f" "s3://$bkt/$key" --only-show-errors; then
+      echo "$(date -Iseconds) cp $key failed" >>"$log"
       failed=$((failed + 1))
     fi
-  done < <(find "$src" -maxdepth 1 -type f)
+  done < <(find "$src" -maxdepth 1 -type f; find "$src/projects" -mindepth 1 -maxdepth 1 -type f 2>/dev/null)
 done
 
 echo "$(date -Iseconds) archive finished dirs=$dirs failed=$failed in $(($(date +%s) - started))s" >>"$log"

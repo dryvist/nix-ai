@@ -79,6 +79,11 @@ and exits 1 for every peer return code except 3.
 A worker detach that returns 3 propagates exit 3.
 A local swap level above `detachSwapThresholdMb` logs `stale-swap` and exits 3.
 Run `cluster-detach` locally on the worker if SSH cannot complete its teardown.
+`cluster-detach --peer` runs only the worker detach over SSH, from the coordinator, under the lifecycle lock.
+When the coordinator is standalone but the worker still publishes `armed: true` or phase `restore-pending`,
+the daytime agent runs `cluster-detach --peer` once per run and at most three runs per worker session,
+logging `guard=D3 decision=retry reason=<peer-armed|peer-restore-pending> attempt=<n>/3`.
+After the third attempt it holds with `peer-retry-exhausted`; after a worker exit 3 it holds with `peer-reboot-required`.
 
 The worker-join result follows the same mapping: the coordinator logs `REFUSE reason=peer-join-failed rc=<n>`
 and returns 1 for any nonzero worker result except 3, which is propagated as 3.
@@ -90,7 +95,14 @@ A propagated worker exit 3 identifies the worker as the node that requested rebo
 
 The teardown order is disarm peer state, stop and verify the rank, read the kernel PD count,
 restore the standalone wired ceiling and serving, then write link state `down`.
-If the rank cannot be proven absent, teardown leaves serving and link state unchanged.
+If the rank cannot be proven absent, teardown leaves serving and link state unchanged,
+writes a `restore-pending` marker in the state directory, publishes peer phase `restore-pending`,
+and logs `guard=T1 decision=defer reason=rank-survivor`.
+The coordinator preflight also holds at N2 (`peer-restore-pending`) while the worker publishes that phase.
+While the marker remains and the rank is still present, teardown holds with `reason=rank-survivor-pending`
+and sends no further stop signal.
+The next daytime run finishes the restore through the existing detach once the rank has exited
+(`guard=D0 decision=pass reason=finish-restore`), and the nightly preflight holds at N1 with `reason=restore-pending` until then.
 A PD count still nonzero 30 seconds after the rank stops (re-read once per second)
 requires a reboot before the next join.
 

@@ -50,6 +50,11 @@ schedule_guard_night_window() {
 # with this host's peer state armed, means a join already ran or is running.
 schedule_guard_mode() {
   local rc=0
+  # The daytime agent finishes a deferred restore; this read-only preflight waits for it.
+  if [ -f "$(rank_restore_pending_file)" ]; then
+    schedule_log N1 hold restore-pending
+    return 1
+  fi
   if schedule_clustered; then
     echo "cluster-schedule: N1 detail=$SCHEDULE_CLUSTER_DETAIL"
     schedule_log N1 hold already-clustered
@@ -113,6 +118,10 @@ schedule_guard_peer() {
   armed="$(jq -r '.armed // false' <<< "$SCHEDULE_PEER_RAW" 2> /dev/null || echo false)"
   if [ "$armed" = true ]; then
     schedule_log N2 hold peer-armed
+    return 1
+  fi
+  if [ "$(jq -r '.phase // ""' <<< "$SCHEDULE_PEER_RAW" 2> /dev/null || true)" = restore-pending ]; then
+    schedule_log N2 hold peer-restore-pending
     return 1
   fi
   rev_local="$(schedule_local_value configuration_revision)"
