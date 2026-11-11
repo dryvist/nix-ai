@@ -239,12 +239,12 @@ in
       # refuse an empty key, so every client sends the same placeholder. The
       # router bearer stays confined to the launchd agent's own environment.
       #
-      # LLM_ROUTER_URL and LLM_ROUTER_TOKEN_FILE are exported for callers that
+      # LLM_ROUTER_URL (always) and LLM_ROUTER_TOKEN_FILE (file mode only) are exported for callers that
       # must reach the UPSTREAM router directly rather than through this proxy
       # — asking what a role actually resolves to, which the local `*` wildcard
       # hides. Both values are non-secret (an address and a path); the token
       # file's CONTENTS are never exported, so a caller reads the file itself
-      # at the moment it needs the bearer. Claude Code gets the same three
+      # at the moment it needs the bearer. Claude Code gets the same
       # non-secret values through settings.json (modules/claude/settings-env.nix)
       # so its hooks see them from every surface, not only a login shell.
       programs.zsh.initContent = lib.mkBefore (
@@ -254,7 +254,7 @@ in
           export LLM_ROUTER_URL=${lib.escapeShellArg aiStack.llmRouterEndpoint}
         ''
         # Only in file mode; env-bearer mode has no bearer file to point at.
-        + lib.optionalString (aiStack.llmEndpointTokenFile != null) ''
+        + lib.optionalString (aiStack.llmEndpointTokenFile != null && aiStack.llmEndpointTokenFile != "") ''
           export LLM_ROUTER_TOKEN_FILE=${lib.escapeShellArg (toString aiStack.llmEndpointTokenFile)}
         ''
         + lib.optionalString (aiStack.internalDomains != [ ]) ''

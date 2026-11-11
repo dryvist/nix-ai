@@ -127,7 +127,7 @@
   }
   # The bearer file's path exists only in file mode; in env-bearer mode callers
   # use LITELLM_LOCAL_BASE_URL with the local proxy key instead.
-  // lib.optionalAttrs (aiStack.llmEndpointTokenFile != null) {
+  // lib.optionalAttrs (aiStack.llmEndpointTokenFile != null && aiStack.llmEndpointTokenFile != "") {
     LLM_ROUTER_TOKEN_FILE = toString aiStack.llmEndpointTokenFile;
   }
   // lib.optionalAttrs (aiStack.internalDomains != [ ]) {
