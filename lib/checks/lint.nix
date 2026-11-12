@@ -149,7 +149,7 @@
     nativeBuildInputs = [ pkgs.jq ];
   } "${pkgs.bash}/bin/bash ${./scripts/worktree-add-guard-test.sh}";
 
-  # Checks legacy output, JSON states, thresholds, reset windows, and unknown cases.
+  # Checks the quota probe rejects an unusable CLI and preserves quota decisions.
   codex-quota = pkgs.runCommand "check-codex-quota" {
     SRC = src;
     nativeBuildInputs = [
