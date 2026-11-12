@@ -53,8 +53,11 @@ in
         `native` (default) sets no subagent model; each CLI uses its own.
 
         `router` sets the subagent model to `local-only`: this host's own
-        model, no router leg. An Agent call that names a model still goes to
-        the router.
+        model, with no shared-router leg.
+        Host-served rungs enforce their declared concurrency; rate-limit and
+        timeout errors are not retried, so `medium` falls through to its next
+        rung immediately. `local-only` is outside that fallback chain and fails
+        locally at capacity.
         Without the proxy hop (`enable = false` or `claudeDirect`) the variable
         is not set, and Claude Code picks its own subagent model.
 
