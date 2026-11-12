@@ -1,5 +1,19 @@
 # Changelog
 
+## [8.30.0](https://github.com/dryvist/nix-ai/compare/v8.29.1...v8.30.0) (2026-11-12)
+
+
+### Features
+
+* **mlx:** refuse a cluster join below a declared memory floor ([#2952](https://github.com/dryvist/nix-ai/issues/2952)) ([e3667fa](https://github.com/dryvist/nix-ai/commit/e3667fafdcced7811fb7eedd44bf31593f839fe6))
+
+
+### Bug Fixes
+
+* **claude:** omit LLM_ROUTER_TOKEN_FILE when no router token file is declared ([#2956](https://github.com/dryvist/nix-ai/issues/2956)) ([05c8883](https://github.com/dryvist/nix-ai/commit/05c88830d3c68dd67f8dfd7bc46eb8765bd8ffe1))
+* let the github specialist inherit the subagent model ([#2963](https://github.com/dryvist/nix-ai/issues/2963)) ([024e371](https://github.com/dryvist/nix-ai/commit/024e3716db5da87021170d93a8ab01c232429299))
+* let the vikunja specialist inherit the subagent model ([#2961](https://github.com/dryvist/nix-ai/issues/2961)) ([1971eef](https://github.com/dryvist/nix-ai/commit/1971eef96feea46f21f729d17dfd46af1fc0cddb))
+
 ## [8.29.1](https://github.com/dryvist/nix-ai/compare/v8.29.0...v8.29.1) (2026-11-11)
 
 
