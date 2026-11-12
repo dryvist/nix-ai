@@ -1,0 +1,26 @@
+name: Agent pr-keeper
+
+# Forwards a failed check run to the pr-keeper agent. The envelope id is the
+# Actions run id, so one event produces one agent run.
+on:
+  check_run:
+    types: [completed]
+
+permissions: {}
+
+concurrency:
+  group: agent-pr-keeper-${{ github.event.check_run.head_sha }}-${{ github.event.check_run.name }}
+  cancel-in-progress: false
+
+jobs:
+  forward:
+    # Failed checks only; never this workflow's own check, so a failed forward
+    # cannot start another forward.
+    if: >-
+      github.event.check_run.conclusion == 'failure' &&
+      !startsWith(github.event.check_run.name, 'forward')
+    uses: JacobPEvans/.github-ai/.github/workflows/github-event-forwarder.yml@cd8b9b6ef598a05d6eb591241733213ec3043502 # forwarder with the explicit secret; re-pin to its release after it merges
+    with:
+      agent_name: pr-keeper
+    secrets:
+      webhook_url: ${{ secrets.DIFY_PR_KEEPER_WEBHOOK_URL }}
