@@ -17,10 +17,14 @@ let
   k2Oq6eRevision = "2cca82ec88e24bd5fc264e4bcd29922182c8f62f";
   mimoMaxOutputTokens = mimoProfile.max_output_tokens;
   mimoConcurrency = mimoProfile.max_parallel_requests;
+  # Prompt-cache slot count for the MiMo entry, below the fleet default of 16:
+  # each cached prompt holds Metal buffers, so the count bounds that total.
+  mimoPromptCacheSize = 8;
   mimoSwapFlags = {
     autoUnloadIdleSeconds = mimoSwap.auto_unload_idle_seconds;
     maxNumSeqs = mimoSwap.max_num_sequences;
     maxRequestTokens = mimoSwap.max_request_tokens;
+    promptCacheSize = mimoPromptCacheSize;
   }
   // (
     if mimoSwap ? paged_cache_block_size then
@@ -111,7 +115,10 @@ in
     classes = {
       resident = {
         cacheProvisioning.concurrency = mimoConcurrency;
-        flags.maxTokens = mimoMaxOutputTokens;
+        flags = {
+          maxTokens = mimoMaxOutputTokens;
+          promptCacheSize = mimoPromptCacheSize;
+        };
       };
       swap = {
         cacheProvisioning.pinned = {

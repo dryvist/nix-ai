@@ -75,6 +75,10 @@ let
   # model this host does not serve is a build error, not a runtime 404.
   mlxWindows = config.programs.mlx.modelContextWindows or { };
   maxLocalContextWindow = 200000;
+  # Decode concurrency of each model the mlx module launches, the same option
+  # the worker is started with. A rung on an id the module does not launch gets
+  # no cap, since no worker width is known for it.
+  mlxConcurrency = config.programs.mlx.modelConcurrencyLimits or { };
   resolveRung =
     m:
     let
@@ -92,6 +96,7 @@ let
         id
         router
         ;
+      concurrency = if m.id != null then mlxConcurrency.${m.id} or null else null;
       contextWindow =
         if m.id != null && contextWindow != null then
           lib.min maxLocalContextWindow contextWindow
@@ -120,7 +125,6 @@ let
   staticTier = import ./static-tier.nix {
     inherit lib staticResidentModels;
     inherit (cfg) headAliases;
-    admissionLimits = config.programs.mlx.modelAdmissionLimits;
     localModels = resolvedLocalModels;
   };
 
