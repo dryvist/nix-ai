@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.33.0](https://github.com/dryvist/nix-ai/compare/v8.32.0...v8.33.0) (2026-11-12)
+
+
+### Features
+
+* **agent-hooks:** codex-quota states and declared thresholds ([#2980](https://github.com/dryvist/nix-ai/issues/2980)) ([03309d2](https://github.com/dryvist/nix-ai/commit/03309d29071d85c597a98cf9f202213e251f0310))
+
 ## [8.32.0](https://github.com/dryvist/nix-ai/compare/v8.31.0...v8.32.0) (2026-11-12)
 
 
