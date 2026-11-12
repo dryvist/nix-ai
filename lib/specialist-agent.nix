@@ -25,17 +25,19 @@ let
   body =
     assert lib.hasPrefix "---\n" text || throw "${s.prompt} has no OKF frontmatter to strip";
     lib.removePrefix "\n" (lib.concatStringsSep "\n---\n" (lib.tail parts));
-  frontmatter = (pkgs.formats.yaml { }).generate "${s.name}-frontmatter.yaml" (
-    {
-      inherit (s) name description;
-    }
-    // lib.optionalAttrs (s.model != null) { inherit (s) model; }
-    // lib.optionalAttrs (tools != [ ]) { inherit tools; }
-    # Claude Code accepts agent mcpServers only as a list of { name = config; } and drops a mapping.
-    // lib.optionalAttrs (s.mcpServers != { }) {
-      mcpServers = lib.mapAttrsToList (name: config: { ${name} = config; }) s.mcpServers;
-    }
-  );
+  frontmatterAttrs = {
+    inherit (s) name description;
+  }
+  // lib.optionalAttrs (s.model != null) { inherit (s) model; }
+  // lib.optionalAttrs (tools != [ ]) { inherit tools; }
+  # Claude Code accepts agent mcpServers only as a list of { name = config; } and drops a mapping.
+  // lib.optionalAttrs (s.mcpServers != { }) {
+    mcpServers = lib.mapAttrsToList (name: config: { ${name} = config; }) s.mcpServers;
+  };
+  # yq renders block lists indented; the delegation hook's frontmatter parser rejects them at column 0.
+  frontmatter = pkgs.runCommand "${s.name}-frontmatter.yaml" { nativeBuildInputs = [ pkgs.yq ]; } ''
+    yq -y . ${(pkgs.formats.json { }).generate "${s.name}-frontmatter.json" frontmatterAttrs} > $out
+  '';
   markdown = pkgs.runCommand "${s.name}.md" { } ''
     {
       echo ---
