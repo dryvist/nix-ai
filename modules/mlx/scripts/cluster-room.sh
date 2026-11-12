@@ -2,8 +2,9 @@
 # Shared cluster room gates.
 
 # Free-ish and wired memory this host currently holds, in MB, from ONE vm_stat
-# read: prints "<free_mb> <wired_mb>" on stdout, nothing and nonzero on any
-# parse failure.
+# read: prints "<free_mb> <wired_mb> <free_bytes>" on stdout, nothing and
+# nonzero on any parse failure. The exact byte count serves the memory floor,
+# which must not round to whole MiB.
 #
 # Free-ish = free pages plus what the kernel can reclaim without paging
 # anything out (inactive + speculative) — NEVER wired down. WHY FREE, NOT
@@ -79,9 +80,10 @@ mem_stat_mb() {
       '' | *[!0-9]*) return 1 ;;
     esac
   done
-  printf '%s %s\n' \
+  printf '%s %s %s\n' \
     $(((free + inactive + speculative) * page_size / 1048576)) \
-    $((wired * page_size / 1048576))
+    $((wired * page_size / 1048576)) \
+    $(((free + inactive + speculative) * page_size))
 }
 
 # Precondition wrapper over mem_stat_mb. $1 = required shard size in MB.
@@ -99,7 +101,7 @@ mem_headroom_ok() {
     MEM_HEADROOM_DETAIL="could not read vm_stat; refusing to guess whether the shard fits"
     return 1
   fi
-  read -r free wired <<< "$stat_out"
+  read -r free wired _ <<< "$stat_out"
   [ "$free" -ge "$required" ] && return 0
   MEM_HEADROOM_DETAIL="${free}MB free (+reclaimable) against ${required}MB required for the shard"
   if [ "$wired" -ge "$required" ]; then
@@ -126,13 +128,77 @@ mem_headroom_ok() {
 # question free memory cannot answer at all: "does the shard's WIRED demand
 # still fit under the GPU wired ceiling, with the compositor's own draw left
 # standing". Both must hold; either alone is a false green.
+#
+# The declared memory floor stays free once the shard is placed, so the free
+# requirement here is the shard plus the floor.
 rank_start_room_ok() {
   local required="${CLUSTER_SHARD_MEMORY_MB:-}"
   if ! [[ "$required" =~ ^[0-9]{1,8}$ ]] || [ "$((10#${required:-0}))" -le 0 ]; then
     MEM_HEADROOM_DETAIL="room-unconfigured: CLUSTER_SHARD_MEMORY_MB must be a positive integer"
     return 1
   fi
-  mem_headroom_ok "$required" && wired_ceiling_room_ok "$required"
+  memory_floor_read || return 1
+  if ! mem_headroom_ok "$((10#$required + MEM_FLOOR_MB))"; then
+    [ "$MEM_FLOOR_MB" -eq 0 ] || MEM_HEADROOM_DETAIL="$MEM_HEADROOM_DETAIL, including the ${MEM_FLOOR_MB}MB memory floor"
+    return 1
+  fi
+  wired_ceiling_room_ok "$required"
+}
+
+# THE DECLARED PER-HOST MEMORY FLOOR. The room checks above size memory for this
+# Mac's own shard only; they know nothing of agent sessions, browsers or other
+# model servers. CLUSTER_MEMORY_FLOOR_PCT is the share of physical memory that
+# must stay free (free + reclaimable, read the same way as mem_stat_mb). The Nix
+# module always exports it; an explicit 0 turns the floor off, with no probe, and
+# the join logs memory-floor-off. Unset or empty refuses: a missing declaration is
+# never read as "off". A value that is not a whole percentage from 0 to 90 (the
+# option's range), or an unreadable hw.memsize, refuses rather than guessing.
+# Sets MEM_FLOOR_PCT, MEM_TOTAL_BYTES, MEM_TOTAL_MB and MEM_FLOOR_MB (rounded up)
+# without a subshell, so a refusal detail reaches the caller.
+memory_floor_read() {
+  local pct="${CLUSTER_MEMORY_FLOOR_PCT:-}" bytes
+  MEM_FLOOR_PCT=0
+  MEM_TOTAL_BYTES=0
+  MEM_FLOOR_MB=0
+  MEM_TOTAL_MB=0
+  if [ -z "$pct" ]; then
+    MEM_HEADROOM_DETAIL="CLUSTER_MEMORY_FLOOR_PCT is unset or empty; the floor must be declared (0 turns it off), refusing"
+    return 1
+  fi
+  if ! [[ "$pct" =~ ^[0-9]{1,2}$ ]] || [ "$((10#$pct))" -gt 90 ]; then
+    MEM_HEADROOM_DETAIL="CLUSTER_MEMORY_FLOOR_PCT '${pct}' is not a whole percentage from 0 to 90; refusing rather than guessing a floor"
+    return 1
+  fi
+  MEM_FLOOR_PCT=$((10#$pct))
+  [ "$MEM_FLOOR_PCT" -gt 0 ] || return 0
+  bytes="$("${CLUSTER_SYSCTL_BIN:-/usr/sbin/sysctl}" -n hw.memsize 2> /dev/null)" || bytes=""
+  if ! [[ "$bytes" =~ ^[0-9]{1,15}$ ]] || [ "$bytes" -eq 0 ]; then
+    MEM_HEADROOM_DETAIL="could not read hw.memsize (got '${bytes}'); refusing to guess the ${pct}% memory floor"
+    return 1
+  fi
+  MEM_TOTAL_BYTES=$bytes
+  MEM_TOTAL_MB=$((bytes / 1048576))
+  MEM_FLOOR_MB=$(((bytes * MEM_FLOOR_PCT + 104857599) / 104857600))
+}
+
+# J2a runs this before J3 writes the wired ceiling, before J4 quiesces anything
+# and before any rank can start, so a refusal spends nothing and changes no
+# sysctl value. It measures memory as the host stands, with its other workloads
+# still running: a host already under its floor refuses before the join begins.
+# J5 then checks that the floor still holds once the shard is placed.
+memory_floor_ok() {
+  local stat_out free wired free_bytes
+  memory_floor_read || return 1
+  [ "$MEM_FLOOR_PCT" -gt 0 ] || return 0
+  if ! stat_out="$(mem_stat_mb)"; then
+    MEM_HEADROOM_DETAIL="could not read vm_stat; refusing to guess whether the memory floor holds"
+    return 1
+  fi
+  read -r free wired free_bytes <<< "$stat_out"
+  # Exact in bytes: free / total >= pct / 100, with no rounding to whole MiB.
+  [ $((free_bytes * 100)) -ge $((MEM_TOTAL_BYTES * MEM_FLOOR_PCT)) ] && return 0
+  MEM_HEADROOM_DETAIL="${free}MB free (+reclaimable) is under the ${MEM_FLOOR_MB}MB floor (${CLUSTER_MEMORY_FLOOR_PCT}% of ${MEM_TOTAL_MB}MB)"
+  return 1
 }
 
 # THE RUNG THAT REFUSES A START ONTO AN ALREADY-POISONED HOST.
@@ -209,7 +275,7 @@ wired_ceiling_room_ok() {
     MEM_HEADROOM_DETAIL="could not read vm_stat; refusing to guess how much wired memory this host already holds"
     return 1
   fi
-  read -r free wired <<< "$stat_out"
+  read -r free wired _ <<< "$stat_out"
   budget=$((ceiling - reserve))
   if [ "$budget" -le 0 ]; then
     MEM_HEADROOM_DETAIL="compositor reserve ${reserve}MB is at or above the ${ceiling}MB wired ceiling; refusing rather than starting under a ${budget}MB budget"

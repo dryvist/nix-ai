@@ -20,15 +20,37 @@ The coordinator's result is the cluster result.
 
 Each join runs the gates in this order. J1 also runs again at J9 immediately before a rank can start.
 
-- **Before J1.** Refusal tokens: `model-not-cached` or `model-too-large`.
-  Operator action: cache the selected model on both nodes, or choose a model whose shard fits the configured wired budget.
+Every refusal before J3 (before J1, J1, J2, J2a) leaves the host as it was: no sysctl value is written, no launchctl call
+is made and no peer or link state is published. The one exception is a stale rank found by a worker's J1, below.
+The coordinator learns of a worker refusal from the worker join's exit (`peer-join-exited`)
+or from `peer-ready-timeout` after `joinTimeoutSecs`.
+A `--worker` join that refuses before J3 and changed nothing exits 4; the coordinator logs
+`peer-join-refused` and `peer-cleanup-skipped reason=worker-refused-before-J3` and requests no worker detach.
+
+- **Before J1.** Refusal tokens: `model-not-cached`, `model-too-large`, `model-invalid` or `sharding-mode-invalid`.
+  Operator action: cache the selected model on both nodes, or choose a model whose shard fits the configured wired budget;
+  for `model-invalid` or `sharding-mode-invalid`, correct the model id or `programs.mlx.clusterMode.shardingMode`.
 - **J1, PD start gate.** Refusal tokens: `pd-gate-unconfigured`, `rank-alive`,
   `rank-probe-unanswerable`, `device-budget-unverified`, `pd-count-unreadable`, or `pd-reserve`.
-  Operator action: correct the budget or reserve configuration; prove no rank remains;
+  On a `--worker` join, `rank-alive` is a stale rank only when the coordinator has published this session as
+  `preparing` or `ready`: its own J1 already found no rank, so no formed cluster owns it. The join logs
+  `guard=J1 decision=teardown reason=stale-worker-rank`, and its exit teardown stops the rank with the verified rank
+  stop; the next scheduled join starts from a clean host. A SIGKILL in that stop marks the host reboot-required
+  (exit 3). Without that published session the worker logs
+  `guard=J1 decision=refuse reason=stale-worker-rank-unconfirmed`, leaves the rank running and exits 4.
+  Any other worker J1 refusal, `pd-reserve` included, changed nothing and exits 4, so the coordinator requests no
+  worker detach; a coordinator `pd-reserve` refusal still exits 3.
+  Operator action: correct the budget or reserve configuration; on the coordinator, prove no rank remains;
   restore the device/count probe; or reboot this Mac when `pd-reserve` returns exit 3.
 - **J2, link preparation.** Refusal tokens: `link-prep-not-ready`. The check is read-only.
   Operator action: run `sudo /nix/var/nix/profiles/system/activate`,
   then retry after the link address is present on a carrier-active port outside `bridge0`.
+- **J2a, memory floor.** Refusal tokens: `memory-floor`, logged as `guard=J2a decision=refuse reason=memory-floor`.
+  The host must already hold `programs.mlx.clusterMode.memoryFloorPercent` of its physical memory free, exact to the page
+  (an explicit 0, the default, turns it off; an unset or empty value refuses). The check runs before the wired ceiling
+  is written, anything is quiesced, or state is published, so a refusal spends nothing and runs no teardown, on the
+  coordinator and on a `--worker` join alike. J5 also requires the shard plus this floor to be free.
+  Operator action: free the reported memory or lower the floor.
 - **J3, wired ceiling.** Refusal tokens: `wired-ceiling-set-failed`.
   Operator action: check `programs.mlx.clusterMode.wiredLimitMb` and the configured exact-value privilege grant, then retry.
 - **J4, swap and quiesce.** The coordinator refuses with `stale-swap` when used swap exceeds `joinSwapThresholdMb`.
