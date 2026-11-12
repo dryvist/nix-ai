@@ -1,5 +1,20 @@
 # Changelog
 
+## [8.32.0](https://github.com/dryvist/nix-ai/compare/v8.31.0...v8.32.0) (2026-11-12)
+
+
+### Features
+
+* **agent-skills:** add Orca orchestration and emulator skills ([#2973](https://github.com/dryvist/nix-ai/issues/2973)) ([b77b9d7](https://github.com/dryvist/nix-ai/commit/b77b9d7b51e6f90c4a1ba6422b946f7fbb518442))
+* **ci:** forward failed check runs to the pr-keeper agent ([#2943](https://github.com/dryvist/nix-ai/issues/2943)) ([9edc16d](https://github.com/dryvist/nix-ai/commit/9edc16dfc76c0cd813e6a79ef316ea5a9fb314e7))
+* **orca:** put the bundled CLI on PATH, drop the telemetry login agent ([#2974](https://github.com/dryvist/nix-ai/issues/2974)) ([51f07eb](https://github.com/dryvist/nix-ai/commit/51f07ebc097444d0bedad294940d9589e2ffcc2d))
+
+
+### Bug Fixes
+
+* **agent-hooks:** find the Codex CLI without the caller PATH in codex-quota ([#2970](https://github.com/dryvist/nix-ai/issues/2970)) ([903d28f](https://github.com/dryvist/nix-ai/commit/903d28fa89705e0ac39c6da0509389e546109d15))
+* cap local model context at 200000 ([#2971](https://github.com/dryvist/nix-ai/issues/2971)) ([8a5b852](https://github.com/dryvist/nix-ai/commit/8a5b85240f1e794f70a2a8c9a5c758768560ff63))
+
 ## [8.31.0](https://github.com/dryvist/nix-ai/compare/v8.30.0...v8.31.0) (2026-11-12)
 
 
