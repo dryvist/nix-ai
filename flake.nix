@@ -175,6 +175,11 @@
       flake = false;
     };
 
+    orca-skills = {
+      url = "github:stablyai/orca";
+      flake = false;
+    };
+
     # Animated technical diagrams as self-contained HTML+SVG. Cross-tool only.
     dashmotion = {
       url = "github:csthink/dashmotion";
