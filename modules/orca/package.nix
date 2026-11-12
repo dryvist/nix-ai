@@ -24,11 +24,15 @@ stdenvNoCC.mkDerivation rec {
     runHook preInstall
     mkdir -p "$out/Applications"
     cp -R Orca.app "$out/Applications/"
+    # The bundled launcher resolves symlinks back to its .app, so linking it is enough to put `orca` on PATH.
+    mkdir -p "$out/bin"
+    ln -s "$out/Applications/Orca.app/Contents/Resources/bin/orca" "$out/bin/orca"
     runHook postInstall
   '';
 
   meta = {
     description = "Orca desktop application";
+    mainProgram = "orca";
     homepage = "https://github.com/stablyai/orca";
     license = lib.licenses.mit;
     platforms = [ "aarch64-darwin" ];
