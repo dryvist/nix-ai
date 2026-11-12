@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # The sourced cluster-join functions read these; shellcheck cannot see that from this file.
-export PD_GATE_REASON PD_COUNT_DETAIL JOIN_SESSION_ID
+export PD_GATE_REASON PD_COUNT_DETAIL PD_REBOOT PEER_GATE_REASON JOIN_SESSION_ID
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
