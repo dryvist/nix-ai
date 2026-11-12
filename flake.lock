@@ -1266,11 +1266,11 @@
         "visual-explainer-marketplace": "visual-explainer-marketplace"
       },
       "locked": {
-        "lastModified": 1794341664,
-        "narHash": "sha256-hEwvyyQXDzOMYmmKbGdQuTC7qy48g4QQTINQaSQm3s0=",
+        "lastModified": 1794433316,
+        "narHash": "sha256-c/XtnF03H4/3oykq4NIF7GjrAiQW5b+0CjPEtcDeGTs=",
         "owner": "dryvist",
         "repo": "nix-claude-code",
-        "rev": "1100b7a57127f2e8e39857b970ba72d567222c7d",
+        "rev": "dd9874320e0b1f21c9d49ce7926d44aa39292fc0",
         "type": "github"
       },
       "original": {

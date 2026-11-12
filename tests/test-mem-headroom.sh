@@ -12,6 +12,8 @@ vmstat_fixture="$state_dir/vmstat-output"
 vmstat_rc="$state_dir/vmstat-rc"
 sysctl_fixture="$state_dir/sysctl-output"
 sysctl_rc="$state_dir/sysctl-rc"
+memsize_fixture="$state_dir/memsize-output"
+memsize_reads="$state_dir/memsize-reads"
 
 cat > "$bin/vm_stat" << VMSTAT
 #!$BASH
@@ -23,6 +25,11 @@ cat > "$bin/sysctl" << SYSCTL
 #!$BASH
 forced="\$(cat '$sysctl_rc' 2>/dev/null || true)"
 if [ -n "\$forced" ]; then exit "\$forced"; fi
+if [ "\${2:-}" = hw.memsize ]; then
+  printf 'read\\n' >> '$memsize_reads'
+  cat '$memsize_fixture'
+  exit 0
+fi
 cat '$sysctl_fixture'
 SYSCTL
 chmod +x "$bin/vm_stat" "$bin/sysctl"
@@ -56,7 +63,11 @@ EOFVM
 }
 reset_state() {
   unset CLUSTER_SHARD_MEMORY_MB CLUSTER_COMPOSITOR_RESERVE_MB
-  rm -f "$vmstat_rc" "$sysctl_rc"
+  # The module always declares the floor; 0 is its default and turns it off.
+  export CLUSTER_MEMORY_FLOOR_PCT=0
+  rm -f "$vmstat_rc" "$sysctl_rc" "$memsize_reads"
+  # 128 GiB of physical memory.
+  printf '137438953472\n' > "$memsize_fixture"
   printf '102400\n' > "$sysctl_fixture"
   write_vmstat 16384 0 0 0 0
 }
@@ -137,6 +148,75 @@ export CLUSTER_COMPOSITOR_RESERVE_MB=16384
 write_vmstat 16384 7864320 0 0 327680
 printf '1\n' > "$sysctl_rc"
 check 'unreadable wired ceiling refuses' refuse "$(room_verdict)"
+
+floor_verdict() { memory_floor_ok && echo pass || echo refuse; }
+memsize_read_count() {
+  if [ -f "$memsize_reads" ]; then wc -l < "$memsize_reads" | tr -d ' '; else echo 0; fi
+}
+
+echo '7. an explicit 0 floor is off and reads nothing; an unset or empty floor refuses:'
+reset_state
+write_vmstat 16384 0 0 0 0
+check 'a declared 0 floor passes' pass "$(floor_verdict)"
+check 'an off floor never reads hw.memsize' 0 "$(memsize_read_count)"
+unset CLUSTER_MEMORY_FLOOR_PCT
+check 'an unset floor refuses' refuse "$(floor_verdict)"
+memory_floor_ok || true
+case "$MEM_HEADROOM_DETAIL" in *'unset or empty'*) echo '  ok   unset floor refusal names the missing declaration' ;; *) echo "  FAIL unset floor detail: $MEM_HEADROOM_DETAIL"; fail=1 ;; esac
+check 'an unset floor refuses the room gate too' refuse "$(CLUSTER_SHARD_MEMORY_MB=100 room_verdict)"
+export CLUSTER_MEMORY_FLOOR_PCT=''
+check 'an empty floor refuses' refuse "$(floor_verdict)"
+
+echo '8. free plus reclaimable memory at the floor passes; one page under refuses:'
+reset_state
+export CLUSTER_MEMORY_FLOOR_PCT=25
+# 25% of 131072MB is 32768MB, which is 2097152 pages of 16384 bytes.
+write_vmstat 16384 1048576 524288 524288 0
+check 'free memory exactly at the floor passes' pass "$(floor_verdict)"
+write_vmstat 16384 1048575 524288 524288 0
+check 'free memory under the floor refuses' refuse "$(floor_verdict)"
+memory_floor_ok || true
+case "$MEM_HEADROOM_DETAIL" in *'32767MB free'*'32768MB floor'*'25% of 131072MB'*) echo '  ok   floor refusal names measured free memory and the floor' ;; *) echo "  FAIL floor refusal detail: $MEM_HEADROOM_DETAIL"; fail=1 ;; esac
+
+echo '9. an unreadable floor input refuses instead of guessing:'
+reset_state
+export CLUSTER_MEMORY_FLOOR_PCT=25
+write_vmstat 16384 7864320 0 0 0
+printf 'unknown\n' > "$memsize_fixture"
+check 'unreadable hw.memsize refuses' refuse "$(floor_verdict)"
+reset_state
+export CLUSTER_MEMORY_FLOOR_PCT=25
+printf '1\n' > "$vmstat_rc"
+check 'unreadable vm_stat refuses the floor' refuse "$(floor_verdict)"
+reset_state
+export CLUSTER_MEMORY_FLOOR_PCT=abc
+write_vmstat 16384 7864320 0 0 0
+check 'a non-numeric floor refuses' refuse "$(floor_verdict)"
+export CLUSTER_MEMORY_FLOOR_PCT=91
+check 'a floor above the 90% option cap refuses' refuse "$(floor_verdict)"
+export CLUSTER_MEMORY_FLOOR_PCT=90
+check 'a 90% floor is accepted' pass "$(floor_verdict)"
+
+echo '9b. the floor is exact to the page, not rounded to whole MiB:'
+reset_state
+export CLUSTER_MEMORY_FLOOR_PCT=10
+# 10% of 137438953472 bytes is 13743895347.2 bytes: 838860.8 pages of 16384 bytes.
+write_vmstat 16384 838861 0 0 0
+check 'the first whole page at or above a non-MiB-aligned floor passes' pass "$(floor_verdict)"
+write_vmstat 16384 838860 0 0 0
+check 'one page under a non-MiB-aligned floor refuses' refuse "$(floor_verdict)"
+
+echo '10. J5 keeps the floor free once the shard is placed:'
+reset_state
+export CLUSTER_SHARD_MEMORY_MB=1000
+export CLUSTER_MEMORY_FLOOR_PCT=25
+# 1000MB shard + 32768MB floor = 33768MB = 2161152 pages.
+write_vmstat 16384 2161152 0 0 0
+check 'shard plus floor exactly free passes' pass "$(room_verdict)"
+write_vmstat 16384 2161151 0 0 0
+check 'shard fits but would cross the floor: refuses' refuse "$(room_verdict)"
+rank_start_room_ok || true
+case "$MEM_HEADROOM_DETAIL" in *'33768MB required'*'32768MB memory floor'*) echo '  ok   J5 refusal names the shard plus the floor' ;; *) echo "  FAIL J5 floor refusal detail: $MEM_HEADROOM_DETAIL"; fail=1 ;; esac
 
 if [ "$fail" -ne 0 ]; then
   echo 'memory headroom checks FAILED' >&2

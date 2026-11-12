@@ -10,9 +10,17 @@ join_refuse() {
   lifecycle_refuse "$1" "$2"
 }
 
+# A worker refusal before J3 that changed nothing exits 4, so the coordinator knows the worker needs no cleanup.
+# Every other refusal exits 1.
+join_exit_untouched() {
+  [ "${worker_invocation:-false}" != true ] || exit 4
+  exit 1
+}
+
+# $1 detail; $2 reason token, model-not-cached unless the caller names another.
 cluster_model_refuse() {
-  local detail="$1"
-  lifecycle_refuse model-not-cached "$detail"
+  local detail="$1" reason="${2:-model-not-cached}"
+  lifecycle_refuse "$reason" "$detail"
   return 1
 }
 
@@ -34,7 +42,7 @@ cluster_join_model_select() {
   local org repo cache_dir ref revision snapshot_dir file size total_bytes=0 total_mb shard_mb ceiling reserve limit found_safetensors=false
   local LC_ALL=C
   if ! [[ "$model" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]]; then
-    cluster_model_refuse invalid-model-id
+    cluster_model_refuse "model id '$model' is not org/repo" model-invalid
     return 1
   fi
   org="${model%%/*}"
@@ -64,7 +72,7 @@ cluster_join_model_select() {
       tensor | tensor-parallel) JOIN_SHARDING=tensor ;;
       pipeline) JOIN_SHARDING=pipeline ;;
       *)
-        cluster_model_refuse 'invalid configured sharding mode'
+        cluster_model_refuse "configured sharding mode '${CLUSTER_SHARDING_MODE:-}' is not tensor or pipeline" sharding-mode-invalid
         return 1
         ;;
     esac
@@ -337,9 +345,14 @@ cluster_join_exit() {
   trap - EXIT
   trap 'cluster_join_signal 130' INT
   trap 'cluster_join_signal 143' TERM
+  # Teardown follows what this host changed: the wired ceiling, a quiesce, or published state. A refusal before J3
+  # (model select, J1, J2, J2a) changed nothing, so it writes no sysctl, calls no launchctl and publishes nothing, on a
+  # worker as on the coordinator. The one exception is a stale rank found by a worker's J1 (stale_rank): the
+  # teardown's verified rank stop clears it. The coordinator learns of a worker refusal from the worker join's exit
+  # (peer-join-exited) or its READY timeout (peer-ready-timeout), not from a peer-state write.
   if [ "${formed:-false}" != true ] && {
     [ "${ceiling_attempted:-false}" = true ] || [ "${quiesced:-false}" = true ] ||
-      [ -n "${JOIN_SESSION_ID:-}" ];
+      [ "${state_written:-false}" = true ] || [ "${stale_rank:-false}" = true ];
   }; then
     cluster_teardown "${JOIN_SESSION_ID:-}" || teardown_rc=$?
     teardown_done=true
@@ -357,7 +370,11 @@ cluster_join_exit() {
   if [ "${JOIN_SIGNAL_RC:-0}" -ne 0 ]; then
     rc=$JOIN_SIGNAL_RC
   elif [ "$peer_started" = true ] && [ "$peer_rc" -ne 0 ]; then
-    lifecycle_refuse peer-join-failed "worker join failed or could not be reaped (rc=$peer_rc)"
+    if [ "$peer_rc" -eq 4 ]; then
+      lifecycle_refuse peer-join-refused "worker refused before J3 and changed nothing (rc=4)"
+    else
+      lifecycle_refuse peer-join-failed "worker join failed or could not be reaped (rc=$peer_rc)"
+    fi
     if [ "$teardown_done" = false ]; then
       cluster_teardown "${JOIN_SESSION_ID:-}" || teardown_rc=$?
       teardown_done=true
@@ -368,7 +385,9 @@ cluster_join_exit() {
       rc=1
     fi
   fi
-  if [ "$peer_started" = true ] && {
+  if [ "$peer_started" = true ] && [ "$peer_rc" -eq 4 ]; then
+    echo "cluster-join: peer-cleanup-skipped reason=worker-refused-before-J3 session=${JOIN_SESSION_ID:-none}"
+  elif [ "$peer_started" = true ] && {
     [ "$rc" -ne 0 ] || [ "${JOIN_SIGNAL_RC:-0}" -ne 0 ] ||
       [ "${TEARDOWN_FAILED:-0}" -ne 0 ];
   }; then
@@ -451,6 +470,7 @@ cluster_join_new_session() {
 }
 
 cluster_join_publish_preparing() {
+  state_written=true
   if ! peer_state_write false 0 "$JOIN_SESSION_ID" preparing; then
     lifecycle_refuse preparing-state-write-failed "could not publish the current session before the worker launch"
     return 1
@@ -505,7 +525,8 @@ cluster_join_publish_ready() {
 cluster_join_wait_worker_ready() {
   local timeout="${CLUSTER_JOIN_TIMEOUT_SECS:-600}" deadline remaining
   deadline=$((SECONDS + timeout))
-  while [ "$SECONDS" -lt "$deadline" ]; do
+  # The loop reads once more after its last sleep, so a READY or an exit inside that sleep is reported as such.
+  while :; do
     if peer_armed_read; then
       echo "cluster-join: peer phase=ready session=$JOIN_SESSION_ID"
       return 0
@@ -522,11 +543,17 @@ cluster_join_wait_worker_ready() {
         ;;
     esac
     if [ -n "${CLUSTER_PEER_SSH_PID:-}" ] && ! cluster_peer_ssh_running; then
+      # The worker may have published READY between the read above and its exit.
+      if peer_armed_read; then
+        echo "cluster-join: peer phase=ready session=$JOIN_SESSION_ID"
+        return 0
+      fi
       lifecycle_refuse peer-join-exited "worker join exited before publishing READY for session $JOIN_SESSION_ID"
       return 1
     fi
-    echo "cluster-join: peer phase WAIT reason=${PEER_GATE_REASON:-unknown}"
     remaining=$((deadline - SECONDS))
+    [ "$remaining" -gt 0 ] || break
+    echo "cluster-join: peer phase WAIT reason=${PEER_GATE_REASON:-unknown}"
     [ "$remaining" -le 5 ] || remaining=5
     sleep "$remaining"
   done
@@ -939,6 +966,8 @@ cluster_join_main() {
   formed=false
   quiesced=false
   ceiling_attempted=false
+  state_written=false
+  stale_rank=false
   JOIN_REBOOT=0
   JOIN_EXIT_ACTIVE=false
   JOIN_SIGNAL_RC=0
@@ -1000,33 +1029,68 @@ cluster_join_main() {
   selected_model="${CLUSTER_MODEL:-}"
   [ "$model_explicit" = false ] || selected_model="$model_arg"
   if ! cluster_join_model_select "$selected_model" "$model_explicit" "$pipeline_requested"; then
-    exit 1
+    join_exit_untouched
   fi
 
   echo "cluster-join: J1 pd-start-gate"
   if pd_start_gate; then
-    :
+    echo "cluster-join: guard=J1 decision=pass reason=${PD_GATE_REASON:-pd-reserve-available}"
   else
     lifecycle_refuse "${PD_GATE_REASON:-pd-gate-refused}" "${PD_COUNT_DETAIL:-${PD_BUDGET_DETAIL:-protection-domain gate refused}}"
-    if [ "${PD_REBOOT:-0}" = 1 ]; then
+    # A worker join runs only after the coordinator's own J1 found no rank there and the coordinator published this
+    # session as preparing or ready. Only with that published state is a rank alive on the worker stale: no formed
+    # cluster can own it. The exit teardown stops it with the verified rank stop (SIGTERM, then the audited SIGKILL
+    # that marks the host reboot-required) and the next scheduled join starts from a clean host. Without that state
+    # the rank may belong to another session, so the worker refuses untouched.
+    if [ "$worker_invocation" = true ] && [ "${PD_GATE_REASON:-}" = rank-alive ]; then
+      if peer_state_session_read && { [ "$PEER_PHASE" = preparing ] || [ "$PEER_PHASE" = ready ]; }; then
+        echo "cluster-join: guard=J1 decision=teardown reason=stale-worker-rank coordinator-phase=$PEER_PHASE"
+        stale_rank=true
+      else
+        echo "cluster-join: guard=J1 decision=refuse reason=stale-worker-rank-unconfirmed coordinator=${PEER_GATE_REASON:-phase=${PEER_PHASE:-none}}"
+      fi
+    fi
+    if [ "$stale_rank" = true ]; then
+      [ "${PD_REBOOT:-0}" != 1 ] || {
+        JOIN_REBOOT=1
+        exit 3
+      }
+      exit 1
+    fi
+    # A worker refusal here changed nothing, so it exits untouched (4) even when the gate marks this host
+    # reboot-required: the coordinator then requests no remote detach, and the worker's own refusal line names it.
+    if [ "${PD_REBOOT:-0}" = 1 ] && [ "$worker_invocation" != true ]; then
       JOIN_REBOOT=1
       exit 3
     fi
-    exit 1
+    join_exit_untouched
   fi
 
   echo "cluster-join: J2 link-prep check"
   if link_prep_ok; then
-    echo "cluster-join: link-prep PASS"
+    echo "cluster-join: guard=J2 decision=pass reason=link-prep-ready"
   else
     join_refuse link-prep-not-ready "run sudo /nix/var/nix/profiles/system/activate"
-    exit 1
+    join_exit_untouched
+  fi
+
+  echo "cluster-join: J2a memory floor"
+  if memory_floor_ok; then
+    if [ "${MEM_FLOOR_PCT:-0}" -gt 0 ]; then
+      echo "cluster-join: guard=J2a decision=pass reason=memory-floor-met"
+    else
+      echo "cluster-join: guard=J2a decision=pass reason=memory-floor-off"
+    fi
+  else
+    echo "cluster-join: guard=J2a decision=refuse reason=memory-floor"
+    lifecycle_refuse memory-floor "${MEM_HEADROOM_DETAIL:-unknown}"
+    join_exit_untouched
   fi
 
   echo "cluster-join: J3 wired-ceiling"
   ceiling_attempted=true
   if set_wired_limit "${CLUSTER_WIRED_LIMIT_MB:-}"; then
-    echo "cluster-join: wired-ceiling PASS"
+    echo "cluster-join: guard=J3 decision=pass reason=wired-ceiling-set"
   else
     join_refuse wired-ceiling-set-failed "could not set the configured cluster wired ceiling"
     exit 1
@@ -1040,7 +1104,7 @@ cluster_join_main() {
     CLUSTER_SHARD_MEMORY_MB="$JOIN_SHARD_MEMORY_MB"
   fi
   if rank_start_room_ok; then
-    echo "cluster-join: room PASS"
+    echo "cluster-join: guard=J5 decision=pass reason=rank-start-room-available"
   else
     local reason=rank-start-room-unavailable
     case "${MEM_HEADROOM_DETAIL:-}" in room-unconfigured*) reason=room-unconfigured ;; esac

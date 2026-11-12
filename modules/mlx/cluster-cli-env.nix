@@ -57,6 +57,7 @@ let
     CLUSTER_SHARDING_MODE = if ncfg.shardingMode == "pipeline" then "pipeline" else "tensor";
     CLUSTER_SHARD_MEMORY_MB = toString ncfg.shardMemoryMb;
     CLUSTER_COMPOSITOR_RESERVE_MB = toString ncfg.compositorReserveMb;
+    CLUSTER_MEMORY_FLOOR_PCT = toString ncfg.memoryFloorPercent;
     HF_HOME = cfg.huggingFaceHome;
     CLUSTER_RDMA_DEVICE = ncfg.rdmaDevice;
     CLUSTER_JOIN_TIMEOUT_SECS = toString ncfg.joinTimeoutSecs;

@@ -3,7 +3,7 @@ set -euo pipefail
 
 # The sourced cluster-join and cluster-teardown functions read these; shellcheck cannot see that from this file.
 export JOIN_REBOOT JOIN_MODEL_EXPLICIT JOIN_EXIT_ACTIVE JOIN_SIGNAL_RC CLUSTER_PEER_SSH_RC \
-  CLUSTER_COORDINATOR_LEASE_SECS COORDINATOR_LEASE_TS formed ceiling_attempted quiesced
+  CLUSTER_COORDINATOR_LEASE_SECS COORDINATOR_LEASE_TS formed ceiling_attempted quiesced state_written
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
@@ -131,6 +131,8 @@ export CLUSTER_JOIN_TIMEOUT_SECS=20
 export CLUSTER_HTTP_PORT=8000
 export CLUSTER_ROLE=coordinator
 export CLUSTER_RANK_LABEL=dev.test.rank
+# The module always declares the floor; 0 is its default and turns it off.
+export CLUSTER_MEMORY_FLOOR_PCT=0
 export CLUSTER_RANK_PROCESS_PATTERN=/fake-rank
 export CLUSTER_RDMA_DEVICE=rdma_test
 export CLUSTER_PD_DEVICE_BUDGET=11
@@ -429,6 +431,47 @@ else
 fi
 CLUSTER_PEER_SSH_PID=""
 
+echo 'the READY wait reads once more after its last sleep, and after a worker exit:'
+saved_join_timeout=$CLUSTER_JOIN_TIMEOUT_SECS
+CLUSTER_JOIN_TIMEOUT_SECS=5
+# The fake worker stamps READY at 1000; a read within the 5 s timeout of that is fresh.
+FAKE_NOW=1000
+write_state "$FAKE_PEER_STATE_FILE" false 0 "" abort
+command sleep 30 &
+CLUSTER_PEER_SSH_PID=$!
+READY_WORKER_ON_SLEEP=true
+if cluster_join_wait_worker_ready > "$tmp/final-sleep.log" 2>&1; then
+  echo '  ok   a READY written during the final sleep is seen'
+else
+  echo "  FAIL READY written during the final sleep was reported as: $(tail -1 "$tmp/final-sleep.log")"; fail=1
+fi
+FAKE_NOW=1000
+write_state "$FAKE_PEER_STATE_FILE" false 0 "" abort
+if cluster_join_wait_worker_ready > "$tmp/ready-timeout.log" 2>&1; then
+  echo '  FAIL a worker that never published READY was accepted'; fail=1
+else
+  contains 'a live worker without READY times out' 'REFUSE reason=peer-ready-timeout' "$(cat "$tmp/ready-timeout.log")"
+fi
+kill "$CLUSTER_PEER_SSH_PID" 2> /dev/null || true
+wait "$CLUSTER_PEER_SSH_PID" 2> /dev/null || true
+FAKE_NOW=1000
+write_state "$FAKE_PEER_STATE_FILE" true 1000 "$JOIN_SESSION_ID" ready
+if (
+  eval "real_$(declare -f peer_armed_read)"
+  armed_reads=0
+  # The first read misses READY, as if the worker published it just after; the worker has already exited.
+  peer_armed_read() { armed_reads=$((armed_reads + 1)); [ "$armed_reads" -gt 1 ] && real_peer_armed_read; }
+  cluster_peer_ssh_running() { return 1; }
+  CLUSTER_PEER_SSH_PID=4242
+  cluster_join_wait_worker_ready
+) > "$tmp/ready-then-exit.log" 2>&1; then
+  echo '  ok   a worker that published READY and then exited is not reported as exited before READY'
+else
+  echo "  FAIL READY-then-exit was reported as: $(tail -1 "$tmp/ready-then-exit.log")"; fail=1
+fi
+CLUSTER_JOIN_TIMEOUT_SECS=$saved_join_timeout
+READY_WORKER_ON_SLEEP=false
+
 echo 'an abort after worker READY becomes commit-withdrawn and launches nothing:'
 CLUSTER_ROLE=worker
 CLUSTER_PEER_STATE_FILE="$tmp/state/worker-peer-state.json"
@@ -590,6 +633,7 @@ if (
   formed=false
   quiesced=false
   ceiling_attempted=false
+  state_written=true # the fixture has already published this session's ready state
   cluster_lifecycle_log_start
   cluster_lifecycle_lock_acquire || exit 2
   trap cluster_join_exit EXIT
@@ -626,6 +670,7 @@ if (
   formed=false
   quiesced=false
   ceiling_attempted=false
+  state_written=true # the fixture has already published this session's ready state
   cluster_lifecycle_log_start
   cluster_lifecycle_lock_acquire || exit 2
   trap cluster_join_exit EXIT
@@ -683,6 +728,7 @@ if (
   formed=false
   quiesced=false
   ceiling_attempted=false
+  state_written=true # the fixture has already published this session's ready state
   cluster_lifecycle_log_start
   cluster_lifecycle_lock_acquire || exit 2
   trap cluster_join_exit EXIT
@@ -706,6 +752,7 @@ FAKE_NOW=1000
 SECONDS=0
 write_state "$CLUSTER_PEER_STATE_FILE" true 1000 "$JOIN_SESSION_ID" commit 1000
 unset FAKE_SSH_SEQUENCE FAKE_SSH_COUNT_FILE
+
 FAKE_SSH_RC=1
 export FAKE_SSH_RC
 : > "$FAKE_SSH_LOG"
@@ -720,6 +767,7 @@ if (
   formed=false
   quiesced=false
   ceiling_attempted=false
+  state_written=true # in cluster_join_main the J6 publish precedes the worker ssh start
   cluster_lifecycle_log_start
   cluster_lifecycle_lock_acquire || exit 2
   cluster_peer_ssh_start || exit 2
@@ -735,6 +783,37 @@ check 'coordinator kickstarts before observing worker failure' 1 "$(grep -c 'kic
 contains 'coordinator failure invokes session-scoped remote detach' \
   'user@worker cluster-detach --worker --session 20261018T120000Z-0123abcd' "$(cat "$FAKE_SSH_LOG")"
 contains 'coordinator records worker abort' 'REFUSE reason=worker-aborted' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
+unset FAKE_SSH_SEQUENCE FAKE_SSH_COUNT_FILE
+echo 'a worker refusal before J3 (exit 4) gets no remote detach:'
+: > "$FAKE_SSH_LOG"
+printf '4\n' > "$tmp/ssh-results"
+export FAKE_SSH_SEQUENCE="$tmp/ssh-results"
+export FAKE_SSH_COUNT_FILE="$tmp/ssh-count"
+: > "$FAKE_SSH_COUNT_FILE"
+: > "$CLUSTER_LIFECYCLE_LOG"
+untouched_rc=0
+(
+  cluster_lifecycle_log_start
+  cluster_lifecycle_lock_acquire || exit 2
+  FAKE_PGREP_STATE=absent
+  JOIN_SESSION_ID=20261018T120000Z-0123abcd
+  JOIN_MODEL_EXPLICIT=false
+  CLUSTER_PEER_SSH_PID=
+  CLUSTER_PEER_SSH_RC=0
+  JOIN_EXIT_ACTIVE=false
+  JOIN_SIGNAL_RC=0
+  formed=false
+  ceiling_attempted=true
+  quiesced=false
+  cluster_peer_ssh_start || exit 2
+  set +e
+  false
+  cluster_join_exit
+) > /dev/null 2>&1 || untouched_rc=$?
+check 'coordinator exits 1 after an untouched worker refusal' 1 "$untouched_rc"
+check 'coordinator requests no worker detach after an untouched refusal' 0 "$(grep -c 'cluster-detach --worker' "$FAKE_SSH_LOG" || true)"
+contains 'coordinator names the untouched worker refusal' 'REFUSE reason=peer-join-refused' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
+contains 'coordinator logs the skipped cleanup' 'peer-cleanup-skipped reason=worker-refused-before-J3' "$(cat "$CLUSTER_LIFECYCLE_LOG")"
 unset FAKE_SSH_SEQUENCE FAKE_SSH_COUNT_FILE
 FAKE_SSH_RC=0
 export FAKE_SSH_RC
@@ -1153,6 +1232,18 @@ if cluster_join_model_select user/override true true; then
 else
   echo '  FAIL cached model override refused'; fail=1
 fi
+if cluster_join_model_select 'not a model' true false > "$tmp/model-refuse.log" 2>&1; then
+  echo '  FAIL an invalid model id was accepted'; fail=1
+fi
+contains 'an invalid model id refuses as model-invalid' 'REFUSE reason=model-invalid' "$(cat "$tmp/model-refuse.log")"
+if CLUSTER_SHARDING_MODE=diagonal cluster_join_model_select org/default false false > "$tmp/model-refuse.log" 2>&1; then
+  echo '  FAIL an invalid sharding mode was accepted'; fail=1
+fi
+contains 'an invalid sharding mode refuses as sharding-mode-invalid' 'REFUSE reason=sharding-mode-invalid' "$(cat "$tmp/model-refuse.log")"
+if cluster_join_model_select org/missing true false > "$tmp/model-refuse.log" 2>&1; then
+  echo '  FAIL an uncached model was accepted'; fail=1
+fi
+contains 'an uncached model still refuses as model-not-cached' 'REFUSE reason=model-not-cached' "$(cat "$tmp/model-refuse.log")"
 
 echo 'the responder serves the state as of the request, not as of its previous reply:'
 mkdir -p "$tmp/serve"
