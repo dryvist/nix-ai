@@ -89,7 +89,7 @@ in
   # mlx-lm-launch.py replaced a direct mlx_lm.server invocation (#1368) —
   # the pattern used to read "/mlx_lm\.server" and nobody updated it, so
   # every pgrep/pkill consumer (llama-swap-launch.sh's old reap,
-  # mlx-watchdog.sh, mlx-status.sh, cluster-join.sh's quiesce reap) silently
+  # mlx-status.sh, cluster-join.sh's quiesce reap) silently
   # matched nothing for months. See scripts/llama-swap-reap.sh for the
   # measured incident.
   launchScriptBasename = baseNameOf (toString launcher);

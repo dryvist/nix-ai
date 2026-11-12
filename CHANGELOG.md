@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.29.1](https://github.com/dryvist/nix-ai/compare/v8.29.0...v8.29.1) (2026-11-11)
+
+
+### Bug Fixes
+
+* **mlx:** restart the model server when its generation thread dies ([#2954](https://github.com/dryvist/nix-ai/issues/2954)) ([498bb61](https://github.com/dryvist/nix-ai/commit/498bb6127ad334396595cbe37c8539a3449f10cc))
+
 ## [8.29.0](https://github.com/dryvist/nix-ai/compare/v8.28.1...v8.29.0) (2026-11-11)
 
 
