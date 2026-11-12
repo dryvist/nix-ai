@@ -23,6 +23,8 @@ let
   derive = import ./derive.nix { inherit lib; };
 
   enabled = lib.filterAttrs (_: sel: sel.enable) cfg.catalog;
+  contextCap = 200000;
+  capContext = tokens: lib.min contextCap tokens;
 
   entryFor =
     name:
@@ -40,7 +42,7 @@ let
     (derivePinning.cacheMemoryMbFor {
       inherit (entry) kv weightGb;
       inherit (classDef) cacheProvisioning;
-      windowTokens = entry.contextWindowTokens or 32768;
+      windowTokens = capContext (entry.contextWindowTokens or 32768);
       budgetGb = cfg.memoryHardLimitGb;
     }).cacheMemoryMb;
 
@@ -117,8 +119,8 @@ let
     let
       entry = entryFor name;
       timeouts = derive.requestTimeouts {
+        contextWindowTokens = capContext entry.contextWindowTokens;
         inherit (entry)
-          contextWindowTokens
           maxOutputTokens
           queueSize
           prefillTokensPerSecond
@@ -132,16 +134,16 @@ let
       inherit (entry)
         model
         servicePort
-        contextWindowTokens
         maxOutputTokens
         queueSize
         weightGb
         ;
+      contextWindowTokens = capContext entry.contextWindowTokens;
       concurrency = servedConcurrency entry;
       catalogKey = name;
       launchdLabel = if roles ? default then "dev.mlx-model-server" else "dev.mlx-model-server.${name}";
       backend = cfg.modelBackends.${entry.model} or cfg.modelServerBackend;
-      maxInputTokens = entry.contextWindowTokens - entry.maxOutputTokens;
+      maxInputTokens = capContext entry.contextWindowTokens - entry.maxOutputTokens;
       timeoutSeconds = timeouts.requestTimeoutSeconds;
       inherit (timeouts) pipeTimeoutSeconds;
       inherit roles;
@@ -166,6 +168,7 @@ in
     modelContextWindows = lib.mkOption {
       type = lib.types.attrsOf lib.types.ints.positive;
       default = { };
+      apply = lib.mapAttrs (_: capContext);
       internal = true;
       description = "Selected catalog context windows keyed by physical model id.";
     };

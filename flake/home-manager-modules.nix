@@ -13,6 +13,7 @@
   agentNofile,
   karpathy-skills,
   mattpocock-skills,
+  orca-skills,
   llm-agents,
   nix-herdr,
   dashmotion,
@@ -64,6 +65,7 @@ let
     inherit jacobpevans-cc-plugins;
     inherit karpathy-skills;
     mattpocock = mattpocock-skills;
+    inherit orca-skills;
     inherit dashmotion;
     inherit ponytail;
     inherit claude-channel-slack;

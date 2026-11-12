@@ -24,8 +24,11 @@ let
       pkgs
       enabledPlugins
       ;
-    # Select Anthropic skills below instead of discovering its whole bundle.
-    marketplaceInputs = builtins.removeAttrs marketplaceInputs [ "anthropic-agent-skills" ];
+    # Select Anthropic and Orca skills below instead of discovering their whole bundles.
+    marketplaceInputs = builtins.removeAttrs marketplaceInputs [
+      "anthropic-agent-skills"
+      "orca-skills"
+    ];
   };
 in
 {
@@ -82,6 +85,9 @@ in
         canvas-design = "${marketplaceInputs.anthropic-agent-skills}/skills/canvas-design/SKILL.md";
         skill-creator = "${marketplaceInputs.anthropic-agent-skills}/skills/skill-creator/SKILL.md";
         mcp-builder = "${marketplaceInputs.anthropic-agent-skills}/skills/mcp-builder/SKILL.md";
+        # These two Orca skills are selected by name so its other skills are not deployed.
+        orca-emulator = "${marketplaceInputs.orca-skills}/skills/orca-emulator/SKILL.md";
+        orchestration = "${marketplaceInputs.orca-skills}/skills/orchestration/SKILL.md";
       };
 
       # Category map for the generated INDEX.md and, through `groups` below,
