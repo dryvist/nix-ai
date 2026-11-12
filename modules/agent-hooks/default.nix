@@ -36,11 +36,7 @@ let
       pkgs.findutils
       pkgs.gnugrep
     ];
-    text = ''
-      export CODEX_QUOTA_EXHAUSTED_THRESHOLD=${toString cfg.codexQuota.exhaustedThreshold}
-      export CODEX_QUOTA_LOW_THRESHOLD=${toString cfg.codexQuota.lowThreshold}
-      ${builtins.readFile ./codex-quota.sh}
-    '';
+    text = builtins.readFile ./codex-quota.sh;
   };
 
   # One Claude PreToolUse slot carries every policy: each script exits early
@@ -63,30 +59,7 @@ in
     '';
   };
 
-  options.programs.agentHooks.codexQuota = {
-    exhaustedThreshold = lib.mkOption {
-      type = lib.types.ints.between 0 100;
-      default = 95;
-      description = "Percent used at or above which Codex quota is exhausted.";
-    };
-
-    lowThreshold = lib.mkOption {
-      type = lib.types.ints.between 0 100;
-      default = 90;
-      description = "Percent used at or above which Codex quota is low.";
-    };
-  };
-
   config = lib.mkMerge [
-    {
-      assertions = [
-        {
-          assertion = cfg.codexQuota.lowThreshold < cfg.codexQuota.exhaustedThreshold;
-          message = "programs.agentHooks.codexQuota.lowThreshold must be less than exhaustedThreshold.";
-        }
-      ];
-    }
-
     # `codex-quota` is the one quota check; the ai-delegation plugin's router
     # and judge call it to decide whether Codex answers.
     { home.packages = [ codexQuota ]; }
