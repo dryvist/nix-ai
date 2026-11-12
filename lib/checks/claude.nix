@@ -54,6 +54,7 @@ in
         "model"
         "outputStyle"
         "plugins"
+        "repoGroups"
         "remoteControlAtStartup"
         "rules"
         "settings"
@@ -189,6 +190,11 @@ in
         name = "plugins.allowRuntimeInstall";
         actual = cfg.plugins.allowRuntimeInstall;
         expected = true;
+      }
+      {
+        name = "repoGroups default";
+        actual = cfg.repoGroups;
+        expected = { };
       }
       {
         # Language-server plugin for TS: on since typescript-language-server

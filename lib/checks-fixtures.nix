@@ -66,6 +66,25 @@ rec {
 
   hmConfig = mkHmConfig [ ];
 
+  # Project-scoped Claude plugin enablement via rendered home.file settings.
+  hmConfigClaudeRepoGroups = mkHmConfig [
+    {
+      programs.claude.repoGroups = {
+        repo-one = {
+          directories = [
+            "git/public/repo-one"
+            "git/worktrees/repo-one"
+          ];
+          plugins = [ "typescript-lsp@claude-plugins-official" ];
+        };
+        repo-two = {
+          directories = [ "git/public/repo-two" ];
+          plugins = [ "estate-lsp@jacobpevans-cc-plugins" ];
+        };
+      };
+    }
+  ];
+
   # Same stack with the untrusted agent CLIs switched on
   # (lib/checks/untrusted-clis.nix). The checks that pin a particular
   # untrusted CLI's wiring read this fixture; the default one has none.

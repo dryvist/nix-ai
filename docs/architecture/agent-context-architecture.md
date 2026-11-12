@@ -146,9 +146,10 @@ at `~/.agents/skills/GROUP-MCP.json` (`programs.agentSkills.groupMcpServers`):
 | `<repo>/.claude/skills/` symlinks | Claude Code |
 | `<repo>/.mcp.json` (untracked) | Claude Code |
 
-Plugin scoping is a separate, committed mechanism (`ai-pack`, see
-[plugin-scoping.md](plugin-scoping.md)); the linker does not write
-`.claude/settings.json`, `.codex/config.toml` or `opencode.json`.
+Claude plugin scoping uses `programs.claude.repoGroups` to render project settings
+for configured workspace directories, or the existing `ai-pack` command for a
+manual repository change (see [plugin-scoping.md](plugin-scoping.md)). The skill
+linker does not write `.claude/settings.json`, `.codex/config.toml` or `opencode.json`.
 
 Renderer: `agent-skill-groups link`, invoked from
 `~/.config/direnv/lib/agent-skill-groups.sh`, which direnv sources before every

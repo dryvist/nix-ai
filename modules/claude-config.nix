@@ -101,6 +101,8 @@ let
 
 in
 {
+  imports = [ ./claude/repo-groups.nix ];
+
   # excludedMcpServers + mcpServerNames come from the shared MCP client helper,
   # same as every other client. Declared here rather than in nix-claude-code
   # because the shared catalog and its per-client exclude semantics are nix-ai's

@@ -23,7 +23,7 @@ match user requests to dropped skills because it cannot see what those skills do
     "terraform-module-builder@…": false
 
   +
-~/git/<repo>/main/.claude/settings.json   ← per-repo (committed, deep-merged on session start)
+~/git/<repo>/main/.claude/settings.json   ← project-level (deep-merged on session start)
   enabledPlugins:                            Project-specific overrides: ansible, terraform,
     "ansible-workflows@…": true              proxmox, cribl-pack-validator, etc.
     "proxmox-infrastructure@…": true
@@ -31,6 +31,51 @@ match user requests to dropped skills because it cannot see what those skills do
 
 Claude Code deep-merges project-scoped settings on top of user settings on session start.
 A plugin disabled at user level can be re-enabled per-repo without touching global config.
+
+## Home Manager repository groups
+
+Configure `programs.claude.repoGroups` to render project settings for named groups of
+workspace directories. Each group applies the same plugin set to every path in its
+`directories` list. The paths are relative to `$HOME`, so a path such as
+`git/public/nix-ai` works when `~/git` points to another volume. Home Manager uses
+ordinary `home.file` entries to place `.claude/settings.json` at each path.
+
+```nix
+programs.claude.repoGroups = {
+  terraform = {
+    directories = [
+      "git/public/terraform-proxmox"
+      "git/worktrees/terraform-proxmox"
+    ];
+    plugins = [
+      "terraform-module-builder@claude-code-plugins-plus"
+      "infrastructure-as-code-generator@claude-code-plugins-plus"
+      "proxmox-infrastructure@lunar-claude"
+    ];
+  };
+  ansible = {
+    directories = [ "git/public/ansible-proxmox" ];
+    plugins = [
+      "ansible-workflows@lunar-claude"
+      "proxmox-infrastructure@lunar-claude"
+    ];
+  };
+};
+```
+
+For each rendered file, the module sets every plugin ID configured in
+`programs.claude.plugins.enabled`: IDs in the group's `plugins` list are enabled,
+and the remaining known IDs are disabled for that project. With the default empty
+`repoGroups`, Home Manager creates no project settings and user-level plugin behavior
+is unchanged.
+
+Claude Code reads shared project settings from the session's primary working directory.
+Start Claude Code at the repository root for a root `.claude/settings.json` to apply.
+See the [Claude Code settings documentation](https://code.claude.com/docs/en/settings).
+
+Home Manager does not force or replace an unmanaged existing `.claude/settings.json`
+at a configured path. Remove it or fold its desired settings into the Nix configuration
+before activating that group.
 
 ## Universal plugins (stay at user level)
 
@@ -68,10 +113,11 @@ Add to a repo:
 Commit to `.claude/settings.json` (not `.claude/settings.local.json` — the `.local` variant
 is gitignored and won't propagate to teammates or worktrees).
 
-## Skill packs (one-command import)
+## Manual plugin pack import
 
-Hand-listing plugins per repo is error-prone and duplicates the grouping everywhere it is
-used. **Packs** name a reusable bundle once and let a repo import the whole set:
+For repositories not declared in `programs.claude.repoGroups`, the existing `ai-pack`
+command remains available. Packs name a reusable bundle once and let a repository import
+the whole set manually:
 
 ```bash
 cd ~/git/<repo>/<worktree>
@@ -82,7 +128,7 @@ ai-pack --list        # show all packs
 
 Packs are defined once in [`modules/claude/plugins/packs.nix`](../../modules/claude/plugins/packs.nix)
 (also exported as `nix-ai.lib.skillPacks`) and rendered by Nix to `~/.config/ai-packs/<name>.json`.
-`ai-pack <name>` deep-merges the chosen pack into the repo's committed `.claude/settings.json`.
+`ai-pack <name>` deep-merges the chosen pack into the repository's `.claude/settings.json`.
 
 | Pack | Plugins | Typical repos |
 | --- | --- | --- |

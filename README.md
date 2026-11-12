@@ -113,6 +113,7 @@ Everything is enabled with sensible defaults. Common toggles on the default modu
 | `programs.claude.effortLevel` | enum or null | `null` | Reasoning effort (`"low"` / `"medium"` / `"high"`); null = upstream default |
 | `programs.claude.settings.sandbox.enabled` | bool | `false` | Filesystem/network sandbox isolation |
 | `programs.claude.trustedProjectDirs` | list of str | `[]` | Directories auto-trusted for CLAUDE.md imports |
+| `programs.claude.repoGroups` | attrsOf submodule | `{}` | Render repository-scoped plugin settings under listed HOME-relative workspace directories; see [plugin scoping](docs/architecture/plugin-scoping.md) |
 | `services.aiStack.defaultLocalModelId` | str | `""` | Local MLX model ID; set to enable on-device inference |
 
 Claude's full option schema comes from [nix-claude-code](https://github.com/dryvist/nix-claude-code);
