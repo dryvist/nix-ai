@@ -1831,11 +1831,11 @@
     "vct-cribl-cli": {
       "flake": false,
       "locked": {
-        "lastModified": 1789417551,
-        "narHash": "sha256-6x6c7rOUTBYF7U4QaYFNSYj2h960kY8czBeimZJL4WA=",
+        "lastModified": 1794466088,
+        "narHash": "sha256-w6MSSIM4IQWJkQZUSlVJj/P6RBbpVIjs5qRHIvD3R54=",
         "owner": "VisiCore",
         "repo": "vct-cribl-cli",
-        "rev": "b7bc6b7a3809448f6c5b36afa459e2b294f29072",
+        "rev": "60f20d765ad65dc6f093603f3db1a77bf1532fda",
         "type": "github"
       },
       "original": {
