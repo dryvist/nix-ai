@@ -75,6 +75,12 @@ priority system above.
 in `01-official.nix`) and Tier 2 (first-party MCP integrations
 to GitHub/Slack/Stripe/etc. in `02-vendors.nix`).
 
+## Cross-tool Skills
+
+The shared agent-skill catalog includes `orchestration` for running work in
+separate Orca worker agents, and `orca-emulator` for iOS Simulator control. Both
+come from the pinned `stablyai/orca` input.
+
 ## Duplicate Resolution Rule
 
 When the same role (e.g., `code-reviewer`, `test-automator`, `playwright`) ships

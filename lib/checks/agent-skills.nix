@@ -92,6 +92,8 @@ in
           "frontend-design"
           "langfuse"
           "migrate-to-langfuse"
+          "orca-emulator"
+          "orchestration"
         ];
       }
       # The names above resolving to nothing is the silent failure: the option
@@ -192,6 +194,15 @@ in
       builtins.elem ".codex/skills/langfuse" managedSkillEntries
       || throw "langfuse skill not discovered from langfuse-skills input";
     assert
+      builtins.elem ".codex/skills/orchestration" managedSkillEntries
+      || throw "orchestration skill not discovered from the targeted Orca input";
+    assert
+      builtins.elem ".codex/skills/orca-emulator" managedSkillEntries
+      || throw "orca-emulator skill not discovered from the targeted Orca input";
+    assert
+      !(builtins.elem ".codex/skills/orca-cli" managedSkillEntries)
+      || throw "orca-cli skill deployed although it was not selected";
+    assert
       builtins.elem ".codex/skills/file-organizer" managedSkillEntries
       || throw "file-organizer skill not deployed from programs.agentSkills.local";
     # The INDEX is what the loader-less harnesses (Copilot, cecli) actually read,
@@ -226,6 +237,15 @@ in
     assert
       builtins.elem ".agents/skills/hf-cli" sharedHomeFileNames
       || throw "Agent Skills agents root is missing hf-cli";
+    assert
+      builtins.elem ".agents/skills/orchestration" sharedHomeFileNames
+      || throw "Agent Skills agents root is missing orchestration";
+    assert
+      builtins.elem ".agents/skills/orca-emulator" sharedHomeFileNames
+      || throw "Agent Skills agents root is missing orca-emulator";
+    assert
+      !(builtins.elem ".agents/skills/orca-cli" sharedHomeFileNames)
+      || throw "Agent Skills agents root deployed the unselected orca-cli skill";
     assert
       pkgs.lib.hasInfix "/nix/store/*-home-manager-files/.codex/skills/*" inactiveRootCleanup
       || throw "Agent Skills agents root must clean stale Home Manager links from the inactive Codex root";

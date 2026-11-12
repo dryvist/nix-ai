@@ -1526,6 +1526,22 @@
         "type": "github"
       }
     },
+    "orca-skills": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1794459274,
+        "narHash": "sha256-Z/KuytxmK1megg/0RyQa/Nif4Wz6Jlwd/KzeCSvzI8g=",
+        "owner": "stablyai",
+        "repo": "orca",
+        "rev": "e902c9a65b691fdffcc5b4200bbf4fda2a12dc73",
+        "type": "github"
+      },
+      "original": {
+        "owner": "stablyai",
+        "repo": "orca",
+        "type": "github"
+      }
+    },
     "penso-tap": {
       "flake": false,
       "locked": {
@@ -1591,6 +1607,7 @@
         "nix-herdr": "nix-herdr",
         "nixpkgs": "nixpkgs_2",
         "nixpkgs-unstable": "nixpkgs-unstable",
+        "orca-skills": "orca-skills",
         "ponytail": "ponytail",
         "token-meter-src": "token-meter-src",
         "vct-cribl-cli": "vct-cribl-cli",

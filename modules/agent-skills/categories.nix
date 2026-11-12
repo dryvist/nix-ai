@@ -61,6 +61,9 @@ rec {
     "fast-subagent"
     "handoff"
     "native-first"
+    # Third-party Orca skills required in every global session.
+    "orca-emulator"
+    "orchestration"
     "ponytail"
     "premium-agent-orchestration"
     "resume"

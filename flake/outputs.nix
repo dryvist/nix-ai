@@ -17,6 +17,7 @@
   nix-codex-launcher-src,
   karpathy-skills,
   mattpocock-skills,
+  orca-skills,
   fabric-src,
   dashmotion,
   ponytail,
@@ -108,6 +109,7 @@ in
       nix-codex-launcher-src
       karpathy-skills
       mattpocock-skills
+      orca-skills
       nixpkgs-unstable
       llm-agents
       nix-herdr
