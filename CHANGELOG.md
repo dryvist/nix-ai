@@ -1,5 +1,13 @@
 # Changelog
 
+## [8.33.1](https://github.com/dryvist/nix-ai/compare/v8.33.0...v8.33.1) (2026-11-12)
+
+
+### Bug Fixes
+
+* **agent-hooks:** restore the codex-quota hook and its test to the 8.32 form ([#2983](https://github.com/dryvist/nix-ai/issues/2983)) ([7a3df05](https://github.com/dryvist/nix-ai/commit/7a3df05f04ae1886e52335dc505a6ef5fb66046c))
+* **agents:** indent block lists in specialist frontmatter ([#2968](https://github.com/dryvist/nix-ai/issues/2968)) ([a16ee6f](https://github.com/dryvist/nix-ai/commit/a16ee6f85488a24817927bd3947ead323b0ea50b))
+
 ## [8.33.0](https://github.com/dryvist/nix-ai/compare/v8.32.0...v8.33.0) (2026-11-12)
 
 
