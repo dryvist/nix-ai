@@ -31,6 +31,7 @@ let
   codexQuota = pkgs.writeShellApplication {
     name = "codex-quota";
     runtimeInputs = [
+      config.programs.codex.package
       pkgs.jq
       pkgs.findutils
       pkgs.gnugrep

@@ -2,8 +2,9 @@
 # Exit 0 when the codex CLI runs and Codex has quota. Exit 1 otherwise.
 set -euo pipefail
 
-# A quota reading means nothing when the CLI cannot start; the launcher exits 127 when its target is missing.
-if ! codex --version >/dev/null 2>&1; then
+# A quota reading means nothing when the CLI cannot start. Keep its stderr so
+# the caller can see the launch failure (for example, a missing executable).
+if ! codex --version >/dev/null; then
   echo "codex-quota: unavailable (the codex CLI does not run)"
   exit 1
 fi
