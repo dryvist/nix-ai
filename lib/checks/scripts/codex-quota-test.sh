@@ -13,7 +13,7 @@ expect_case() {
   local expected_status="$4" expected_text="$5" setup_fn="${6:-}"
   local case_dir bin codex_home home output status
 
-  case_dir="$(mktemp -d)"
+  case_dir="$(mktemp -d "${TMPDIR:-/tmp}/codex-quota.XXXXXX")"
   bin="$case_dir/bin"
   codex_home="$case_dir/codex-home"
   home="$case_dir/home"
@@ -33,7 +33,7 @@ expect_case() {
     PATH="$bin:$PATH" \
       CODEX_HOME="$codex_home" \
       HOME="$home" \
-      bash "$script"
+      bash "$script" 2>&1
   )
   status=$?
   set -e
@@ -43,6 +43,24 @@ expect_case() {
     echo "PASS ($label): exit $status and output contains '$expected_text'"
   else
     echo "FAIL ($label): expected exit $expected_status and output containing '$expected_text'; got exit $status" >&2
+    printf 'Output: %s\n' "$output" >&2
+    fail=1
+  fi
+}
+
+expect_missing_cli() {
+  local case_dir output status bash_bin
+  case_dir="$(mktemp -d "${TMPDIR:-/tmp}/codex-quota.XXXXXX")"
+  bash_bin="$(command -v bash)"
+  set +e
+  output=$(PATH="$case_dir" CODEX_HOME="$case_dir/no-codex-home" HOME="$case_dir/home" "$bash_bin" "$script" 2>&1)
+  status=$?
+  set -e
+  rm -rf "$case_dir"
+  if [ "$status" -eq 1 ] && [[ "$output" == *"codex: command not found"* ]]; then
+    echo "PASS (CLI missing from PATH): exit $status and actual launch reason is printed"
+  else
+    echo "FAIL (CLI missing from PATH): expected exit 1 and command-not-found reason; got exit $status" >&2
     printf 'Output: %s\n' "$output" >&2
     fail=1
   fi
@@ -64,6 +82,7 @@ write_racy_sessions() {
 }
 
 expect_case "CLI cannot run" 127 "" 1 "unavailable"
+expect_missing_cli
 expect_case "no session files" 0 "" 0 "available"
 expect_case "quota exhausted" 0 "$session_exhausted" 1 "exhausted"
 expect_case "quota available" 0 "$session_available" 0 "available"
