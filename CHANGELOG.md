@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.31.0](https://github.com/dryvist/nix-ai/compare/v8.30.0...v8.31.0) (2026-11-12)
+
+
+### Features
+
+* **claude:** auto-compact at 400000 tokens ([#2960](https://github.com/dryvist/nix-ai/issues/2960)) ([a14d003](https://github.com/dryvist/nix-ai/commit/a14d0031acd0c0bdca64bfedece0c4240f9bf81b))
+
 ## [8.30.0](https://github.com/dryvist/nix-ai/compare/v8.29.1...v8.30.0) (2026-11-12)
 
 
