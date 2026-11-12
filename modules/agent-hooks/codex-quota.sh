@@ -2,11 +2,18 @@
 # Exit 0 when the codex CLI runs and Codex has quota. Exit 1 otherwise.
 set -euo pipefail
 
-# A quota reading means nothing when the CLI cannot start; the launcher exits 127 when its target is missing.
-if ! codex --version >/dev/null 2>&1; then
-  echo "codex-quota: unavailable (the codex CLI does not run)"
+# A quota reading means nothing when the CLI cannot start. The wrapper pins
+# codex to the path its module installs (CODEX_QUOTA_CODEX), so the probe does
+# not depend on the caller's PATH, where the profile bin directory holding the
+# codex launcher can be absent. A failed probe reports the CLI's own output on
+# stderr instead of discarding it.
+codex_bin="${CODEX_QUOTA_CODEX:-codex}"
+codex_version="$("$codex_bin" --version 2>&1)" || {
+  status=$?
+  printf 'codex-quota: unavailable (%s exited %s: %s)\n' \
+    "$codex_bin" "$status" "${codex_version:-no output}" >&2
   exit 1
-fi
+}
 
 sessions="${CODEX_HOME:-$HOME/.codex}/sessions"
 now="$(date +%s)"

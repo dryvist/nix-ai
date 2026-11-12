@@ -10,7 +10,7 @@ fail=0
 
 expect_case() {
   local label="$1" stub_exit="$2" session_json="$3"
-  local expected_status="$4" expected_text="$5" setup_fn="${6:-}"
+  local expected_status="$4" expected_text="$5" setup_fn="${6:-}" pinned_codex="${7:-}"
   local case_dir bin codex_home home output status
 
   case_dir="$(mktemp -d)"
@@ -30,10 +30,19 @@ expect_case() {
   set +e
   output=$(
     cd "$case_dir/empty"
-    PATH="$bin:$PATH" \
-      CODEX_HOME="$codex_home" \
-      HOME="$home" \
-      bash "$script"
+    if [ -n "$pinned_codex" ]; then
+      # PATH carries no codex here; the probe gets it the way the wrapper pins it.
+      CODEX_QUOTA_CODEX="$bin/$pinned_codex" \
+        CODEX_HOME="$codex_home" \
+        HOME="$home" \
+        bash "$script" 2>&1
+    else
+      PATH="$bin:$PATH" \
+        CODEX_QUOTA_CODEX="" \
+        CODEX_HOME="$codex_home" \
+        HOME="$home" \
+        bash "$script" 2>&1
+    fi
   )
   status=$?
   set -e
@@ -68,6 +77,8 @@ expect_case "no session files" 0 "" 0 "available"
 expect_case "quota exhausted" 0 "$session_exhausted" 1 "exhausted"
 expect_case "quota available" 0 "$session_available" 0 "available"
 expect_case "newest timestamp wins over newest mtime" 0 "" 1 '"p":96' write_racy_sessions
+expect_case "codex absent from PATH, pinned by the wrapper" 0 "$session_available" 0 "available {" "" codex
+expect_case "pinned codex missing reports the reason" 0 "" 1 "exited 127" "" absent-codex
 
 if [ "$fail" -eq 0 ]; then
   touch "$out"

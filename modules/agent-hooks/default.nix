@@ -28,6 +28,18 @@ let
     text = builtins.readFile ./worktree-add-guard.sh;
   };
 
+  # The quota probe must reach codex the way this module provides it: the CLI
+  # installed through programs.codex.package (the same store path the launcher
+  # in the user profile wraps), not whatever `codex` the calling shell's PATH
+  # happens to resolve — tool shells can drop the profile bin directory. When
+  # the codex package is unset (the probe alone is enabled), fall back to a
+  # PATH lookup.
+  codexBin =
+    if (config.programs.codex.package or null) != null then
+      "${config.programs.codex.package}/bin/codex"
+    else
+      "codex";
+
   codexQuota = pkgs.writeShellApplication {
     name = "codex-quota";
     runtimeInputs = [
@@ -35,7 +47,10 @@ let
       pkgs.findutils
       pkgs.gnugrep
     ];
-    text = builtins.readFile ./codex-quota.sh;
+    text = ''
+      CODEX_QUOTA_CODEX=${lib.escapeShellArg codexBin}
+    ''
+    + builtins.readFile ./codex-quota.sh;
   };
 
   # One Claude PreToolUse slot carries every policy: each script exits early
