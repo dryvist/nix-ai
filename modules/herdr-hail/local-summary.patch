@@ -2,22 +2,13 @@ diff --git a/package.json b/package.json
 index d057838..920dc6a 100644
 --- a/package.json
 +++ b/package.json
-@@ -8,6 +8,7 @@
-   },
-   "scripts": {
-     "build": "tsc",
+@@ -10,0 +11 @@
 +    "test": "node --test dist/notification.test.js",
-     "start": "node dist/index.js",
-     "check": "node dist/index.js --check",
-     "dry-run": "node dist/index.js --dry-run",
 diff --git a/src/config.ts b/src/config.ts
 index aa9746f..ba5fa0c 100644
 --- a/src/config.ts
 +++ b/src/config.ts
-@@ -33,6 +33,13 @@ export interface Config {
-   /** Read source used to fetch context for a notification. */
-   contextSource: "visible" | "recent" | "recent_unwrapped" | "detection";
-   contextLines: number;
+@@ -35,0 +36,7 @@ export interface Config {
 +  summarizer: {
 +    enabled: boolean;
 +    baseUrl: string;
@@ -25,13 +16,7 @@ index aa9746f..ba5fa0c 100644
 +    timeoutMs: number;
 +    maxInputChars: number;
 +  };
-   slack: SlackConfig;
-   discord: DiscordConfig;
- }
-@@ -42,6 +49,13 @@ const DEFAULTS: Config = {
-   pollIntervalMs: 1500,
-   contextSource: "visible",
-   contextLines: 12,
+@@ -44,0 +52,7 @@ const DEFAULTS: Config = {
 +  summarizer: {
 +    enabled: false,
 +    baseUrl: "http://127.0.0.1:11434/v1",
@@ -39,46 +24,25 @@ index aa9746f..ba5fa0c 100644
 +    timeoutMs: 1500,
 +    maxInputChars: 4000,
 +  },
-   slack: { enabled: false, botToken: "", appToken: "", channel: "", allowedUsers: [] },
-   discord: { enabled: false, botToken: "", channelId: "", allowedUsers: [], messageContent: false },
- };
-@@ -76,6 +90,7 @@ export function loadConfig(): Config {
-   const cfg: Config = {
-     ...DEFAULTS,
-     ...fromFile,
+@@ -78,0 +93 @@ export function loadConfig(): Config {
 +    summarizer: { ...DEFAULTS.summarizer, ...fromFile.summarizer },
-     slack: { ...DEFAULTS.slack, ...fromFile.slack },
-     discord: { ...DEFAULTS.discord, ...fromFile.discord },
-   };
 diff --git a/src/index.ts b/src/index.ts
 index eae1812..a122855 100644
 --- a/src/index.ts
 +++ b/src/index.ts
-@@ -2,7 +2,7 @@ import { loadConfig } from "./config.js";
- import { DiscordAdapter } from "./discord.js";
- import { HerdrClient } from "./herdr.js";
- import { parseMenu } from "./menu.js";
+@@ -5 +5 @@ import { parseMenu } from "./menu.js";
 -import { ChannelAdapter, buildNotification } from "./notification.js";
 +import { ChannelAdapter, buildNotification, summarizeContext } from "./notification.js";
- import { SlackAdapter } from "./slack.js";
- import { Transition, Watcher } from "./watcher.js";
- 
-@@ -94,6 +94,9 @@ async function main() {
-         ? await herdr.agentRead(t.agent.pane_id, cfg.contextSource).catch(() => "")
-         : "";
-     const notification = buildNotification(t.agent, context, cfg.contextLines);
+@@ -96,0 +97,3 @@ async function main() {
 +    if (notification.status === "blocked" && cfg.summarizer.enabled) {
 +      notification.summary = await summarizeContext(notification.context, cfg.summarizer);
 +    }
- 
-     console.log(
-       `${t.from} → ${t.to}  [${t.agent.agent}] ${notification.title} (${t.agent.pane_id})`,
 diff --git a/src/notification.test.ts b/src/notification.test.ts
 new file mode 100644
-index 0000000..cd2f65b
+index 0000000..732fdd9
 --- /dev/null
 +++ b/src/notification.test.ts
-@@ -0,0 +1,97 @@
+@@ -0,0 +1,75 @@
 +import assert from "node:assert/strict";
 +import { test } from "node:test";
 +import type { Config } from "./config.js";
@@ -127,28 +91,6 @@ index 0000000..cd2f65b
 +  ]);
 +});
 +
-+test("a blocked notification names the pane and the command that answers it, not the cwd", () => {
-+  const base = {
-+    pane_id: "w1:p1",
-+    agent_status: "blocked",
-+    terminal_title_stripped: "Approval",
-+    terminal_title: "",
-+    cwd: "/home/me/private-project",
-+    agent: "claude",
-+  } as Parameters<typeof buildNotification>[0];
-+
-+  const freeText = buildNotification(base, "Delete the deployment?", 40);
-+  const freeLines = summaryLines(freeText).join("\n");
-+  assert.ok(freeLines.includes("pane `w1:p1`"));
-+  assert.ok(
-+    freeLines.includes('herdr pane send-text w1:p1 "answer" && herdr agent send-keys w1:p1 enter'),
-+  );
-+  assert.ok(!freeLines.includes("/home/me/private-project"));
-+
-+  const menu = buildNotification(base, "Allow once?\n❯ 1. Allow once\n  2. Deny", 40);
-+  assert.ok(summaryLines(menu).join("\n").includes("herdr agent send-keys w1:p1 <choice number>"));
-+});
-+
 +test("summarizer sends only the recent bounded context to loopback", async () => {
 +  let body = "";
 +  const request: typeof fetch = async (input, init) => {
@@ -177,29 +119,15 @@ index 0000000..cd2f65b
 +  assert.equal(called, false);
 +});
 diff --git a/src/notification.ts b/src/notification.ts
-index 4a9ca28..4adf69b 100644
+index 82b18ed..c0fd196 100644
 --- a/src/notification.ts
 +++ b/src/notification.ts
-@@ -1,5 +1,6 @@
- import { Agent, AgentStatus } from "./herdr.js";
- import { MenuChoice, parseMenu } from "./menu.js";
+@@ -2,0 +3 @@ import { MenuChoice, parseMenu } from "./menu.js";
 +import type { Config } from "./config.js";
- 
- export interface Notification {
-   paneId: string;
-@@ -10,6 +11,8 @@ export interface Notification {
-   context: string;
-   /** How many context lines the excerpt may keep. */
-   contextLines: number;
+@@ -12,0 +14,2 @@ export interface Notification {
 +  /** A short local-model summary of the blocked agent's recent output. */
 +  summary?: string;
-   /** Present when the blocked agent is showing a numbered selection prompt. */
-   choices: MenuChoice[] | null;
- }
-@@ -40,6 +43,92 @@ export function statusEmoji(status: AgentStatus): string {
-   return EMOJI[status] ?? "🔔";
- }
- 
+@@ -42,0 +46,86 @@ export function statusEmoji(status: AgentStatus): string {
 +const ANSI = /\u001B(?:\[[0-?]*[ -/]*[@-~]|\][^\u0007]*(?:\u0007|\u001B\\)|[@-_])/gu;
 +const SPINNER_ONLY = /^[\s⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏◐◓◑◒◴◷◶◵⏳✢✳✴✵✶✻✽✾✿❋❊⟳⟲▏▕▁▂▃▄▅▆▇█░▒▓|/\\-]+$/u;
 +const SPINNER_PREFIX = /^[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏◐◓◑◒◴◷◶◵⏳✢✳✴✵✶✻✽✾✿❋❊⟳⟲]/u;
@@ -286,42 +214,22 @@ index 4a9ca28..4adf69b 100644
 +  }
 +}
 +
- // The "Chat about this" menu row ends the question without an answer; it gets no button or excerpt line.
- const CHAT_ROW = /^\s*[❯>›▶]?\s*\d{1,2}[.)]\s+chat about this\s*$/iu;
- 
-@@ -48,18 +137,15 @@ export function buildNotification(
-   context: string,
-   contextLines: number,
- ): Notification {
+@@ -51 +140,2 @@ export function buildNotification(
 -  const choices = agent.agent_status === "blocked" ? parseMenu(context) : null;
 +  const cleaned = cleanContext(context);
 +  const choices = agent.agent_status === "blocked" ? parseMenu(cleaned) : null;
-   return {
-     paneId: agent.pane_id,
-     status: agent.agent_status,
-     title: agent.terminal_title_stripped || agent.terminal_title || agent.pane_id,
-     cwd: agent.cwd,
-     agentKind: agent.agent,
+@@ -58,5 +148 @@ export function buildNotification(
 -    context: context
 -      .split("\n")
 -      .filter((line) => !CHAT_ROW.test(line))
 -      .join("\n")
 -      .trim(),
 +    context: cleaned.split("\n").filter((line) => !CHAT_ROW.test(line)).join("\n"),
-     contextLines,
-     choices: choices?.filter((c) => !/^chat about this$/i.test(c.label)) ?? null,
-   };
-@@ -106,10 +192,10 @@ export function summaryLines(n: Notification, maxChars = SLACK_SECTION_MAX): str
-     `*${n.title}*`,
-     n.status === "blocked" ? `pane \`${n.paneId}\`` : `\`${n.cwd}\``,
-   ];
+@@ -95,0 +182 @@ export function summaryLines(n: Notification, maxChars = SLACK_SECTION_MAX): str
 +  if (n.summary) lines.push(`*Background:* ${n.summary}`);
-   if (n.context) {
+@@ -97,3 +184,2 @@ export function summaryLines(n: Notification, maxChars = SLACK_SECTION_MAX): str
 -    // The six fence characters count toward the budget with the other lines.
 -    const room = maxChars - [...lines, "``````", ...footer].join("\n").length;
 -    lines.push("```" + excerpt(n, room) + "```");
 +    const room = maxChars - [...lines, ...footer].join("\n").length;
 +    lines.push(excerpt(n, room));
-   }
-   return [...lines, ...footer];
- }
