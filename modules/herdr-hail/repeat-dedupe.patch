@@ -1,37 +1,182 @@
+diff --git a/package.json b/package.json
+index 920dc6a..1f72792 100644
+--- a/package.json
++++ b/package.json
+@@ -8,7 +8,7 @@
+   },
+   "scripts": {
+     "build": "tsc",
+-    "test": "node --test dist/notification.test.js",
++    "test": "node --test dist/",
+     "start": "node dist/index.js",
+     "check": "node dist/index.js --check",
+     "dry-run": "node dist/index.js --dry-run",
 diff --git a/src/index.ts b/src/index.ts
-index a122855..b34745b 100644
+index a122855..00b58d7 100644
 --- a/src/index.ts
 +++ b/src/index.ts
-@@ -9,6 +9,9 @@
- // A tiny per-agent debounce so a flapping status can't spam the channels.
- const NOTIFY_COOLDOWN_MS = 4000;
-
-+// An identical hail (same agent, status and excerpt) is dropped for this long.
-+const REPEAT_WINDOW_MS = 15 * 60 * 1000;
-+
- function warnOpenChannel(name: string): void {
-   console.warn(
-     `⚠️  ${name}: no allowedUsers configured — anyone who can post in the ` +
-@@ -79,6 +82,7 @@
+@@ -3,6 +3,7 @@ import { DiscordAdapter } from "./discord.js";
+ import { HerdrClient } from "./herdr.js";
+ import { parseMenu } from "./menu.js";
+ import { ChannelAdapter, buildNotification, summarizeContext } from "./notification.js";
++import { RepeatGuard } from "./repeat.js";
+ import { SlackAdapter } from "./slack.js";
+ import { Transition, Watcher } from "./watcher.js";
+ 
+@@ -79,9 +80,16 @@ async function main() {
    }
-
+ 
    const lastNotified = new Map<string, number>(); // terminal_id -> ts
-+  const lastSent = new Map<string, number>(); // hail key -> ts, pruned past the window
++  const repeats = new RepeatGuard();
    const watcher = new Watcher(herdr, cfg.pollIntervalMs);
-
+ 
    watcher.on("transition", async (t: Transition) => {
-@@ -98,6 +102,14 @@
-       notification.summary = await summarizeContext(notification.context, cfg.summarizer);
-     }
-
-+    const key = [t.agent.terminal_id, t.to, notification.context].join("\n");
-+    for (const [k, ts] of lastSent) if (now - ts >= REPEAT_WINDOW_MS) lastSent.delete(k);
-+    if (lastSent.has(key)) {
-+      console.log(`repeat dropped: ${notification.title} (${t.agent.pane_id})`);
++    // Ahead of the notifyOn filter so a held status is re-armed even when the
++    // agent leaves it for a status we never notify on.
++    if (!repeats.mayNotify(t.agent.terminal_id, t.to)) {
++      console.log(`repeat held: ${t.to} (${t.agent.pane_id})`);
 +      return;
 +    }
-+    lastSent.set(key, now);
-+
+     if (!cfg.notifyOn.includes(t.to)) return;
+ 
+     const now = Date.now();
+@@ -97,6 +105,7 @@ async function main() {
+     if (notification.status === "blocked" && cfg.summarizer.enabled) {
+       notification.summary = await summarizeContext(notification.context, cfg.summarizer);
+     }
++    repeats.markNotified(t.agent.terminal_id, t.to);
+ 
      console.log(
        `${t.from} → ${t.to}  [${t.agent.agent}] ${notification.title} (${t.agent.pane_id})`,
-     );
+diff --git a/src/repeat.test.ts b/src/repeat.test.ts
+new file mode 100644
+index 0000000..1c7af4f
+--- /dev/null
++++ b/src/repeat.test.ts
+@@ -0,0 +1,85 @@
++import assert from "node:assert/strict";
++import { test } from "node:test";
++import type { Agent, HerdrClient } from "./herdr.js";
++import { RepeatGuard } from "./repeat.js";
++import { Watcher } from "./watcher.js";
++
++const agent = (status: string): Agent =>
++  ({
++    terminal_id: "t1",
++    agent: "claude",
++    terminal_title: "t",
++    terminal_title_stripped: "t",
++    agent_status: status,
++    workspace_id: "w1",
++    tab_id: "tab",
++    pane_id: "w1:p1",
++    focused: false,
++    cwd: "/work",
++    foreground_cwd: "/work",
++    revision: 1,
++  }) as Agent;
++
++/** Feed one transition through the guard the way index.ts does: the guard
++ * re-arms on any status, but only statuses in notifyOn post. */
++const feed = (guard: RepeatGuard, posts: string[], id: string, to: string): void => {
++  if (!guard.mayNotify(id, to)) return;
++  if (!["blocked", "done"].includes(to)) return;
++  guard.markNotified(id, to);
++  posts.push(to);
++};
++
++test("ten reports of the same blocked state notify exactly once", () => {
++  const guard = new RepeatGuard();
++  const posts: string[] = [];
++  for (let tick = 0; tick < 10; tick++) feed(guard, posts, "t1", "blocked");
++  assert.equal(posts.length, 1);
++});
++
++test("leaving blocked and re-entering notifies a second time", () => {
++  const guard = new RepeatGuard();
++  const posts: string[] = [];
++  feed(guard, posts, "t1", "blocked");
++  feed(guard, posts, "t1", "blocked"); // still waiting
++  feed(guard, posts, "t1", "working"); // left the state
++  feed(guard, posts, "t1", "blocked"); // re-entered
++  assert.equal(posts.length, 2);
++});
++
++test("agents in different terminals hold independent latches", () => {
++  const guard = new RepeatGuard();
++  const posts: string[] = [];
++  feed(guard, posts, "t1", "blocked");
++  feed(guard, posts, "t2", "blocked");
++  feed(guard, posts, "t1", "blocked");
++  assert.equal(posts.length, 2);
++});
++
++test("a held blocked state posts once across ten ticks; re-entry posts again", async () => {
++  let status = "working";
++  const herdr = {
++    request: async () => ({}),
++    agentList: async () => [agent(status)],
++    agentRead: async () => "",
++    agentSend: async () => {},
++    ping: async () => true,
++  } as unknown as HerdrClient;
++  const watcher = new Watcher(herdr, 1500);
++  const guard = new RepeatGuard();
++  const posts: string[] = [];
++  watcher.on("transition", (t) => feed(guard, posts, t.agent.terminal_id, t.to));
++
++  const poll = async () => await (watcher as unknown as { poll(): Promise<void> }).poll();
++  await poll(); // primes without emitting
++  status = "blocked";
++  for (let tick = 0; tick < 10; tick++) await poll(); // blocked, held
++  assert.equal(posts.length, 1);
++  assert.deepEqual(posts, ["blocked"]);
++
++  status = "working";
++  await poll(); // the agent left the blocked state
++  status = "blocked";
++  await poll(); // and re-entered it
++  assert.equal(posts.length, 2);
++  assert.deepEqual(posts, ["blocked", "blocked"]);
++});
+diff --git a/src/repeat.ts b/src/repeat.ts
+new file mode 100644
+index 0000000..f748fd2
+--- /dev/null
++++ b/src/repeat.ts
+@@ -0,0 +1,35 @@
++import type { AgentStatus } from "./herdr.js";
++
++/**
++ * One notification per status stay: a transition into a status notifies,
++ * further transitions into the same held status notify nothing, and a
++ * transition into any other status re-arms the agent so re-entering notifies
++ * again.
++ *
++ * Keyed by terminal_id and status only — never by notification content. An
++ * earlier guard keyed on the pane excerpt, which keeps changing while the
++ * agent waits (clocks, counters, redraws), so every repeat looked new and one
++ * waiting agent was hailed every few minutes. Restarting the bridge resets
++ * this guard, but the watcher stays quiet while a status is unchanged, so a
++ * restart alone never re-posts.
++ */
++export class RepeatGuard {
++  private notified = new Map<string, AgentStatus>(); // terminal_id -> status posted for
++
++  /**
++   * Whether a transition into `to` may notify. Seeing any status other than
++   * the one last posted for clears the latch: the agent left the state it was
++   * notified for, so entering again notifies again.
++   */
++  mayNotify(terminalId: string, to: AgentStatus): boolean {
++    const latched = this.notified.get(terminalId);
++    if (latched === to) return false;
++    this.notified.delete(terminalId);
++    return true;
++  }
++
++  /** Record that `terminalId` was notified while holding `status`. */
++  markNotified(terminalId: string, status: AgentStatus): void {
++    this.notified.set(terminalId, status);
++  }
++}
