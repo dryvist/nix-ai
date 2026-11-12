@@ -288,6 +288,7 @@ in
 // (import ./checks/mlx-mtp-reachable.nix { inherit pkgs mkHmConfig; })
 // (import ./checks/mlx-model-extra-args.nix { inherit pkgs; })
 // (import ./checks/mlx-catalog.nix { inherit pkgs hmConfigCatalog; })
+// (import ./checks/local-context-cap.nix { inherit pkgs hmConfigCatalog; })
 // (import ./checks/mlx-backend-selection.nix { inherit pkgs hmConfigCatalog; })
 // (import ./checks/mlx-catalog-roles.nix {
   inherit
