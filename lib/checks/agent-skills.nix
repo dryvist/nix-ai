@@ -89,6 +89,7 @@ in
         actual = builtins.sort builtins.lessThan cfg.claudeAlwaysListed;
         expected = [
           "canvas-design"
+          "find-skills"
           "frontend-design"
           "langfuse"
           "migrate-to-langfuse"

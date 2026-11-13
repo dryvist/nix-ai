@@ -59,6 +59,8 @@ rec {
     # delegation habit as local-subagents, and the skill every session is
     # meant to keep re-using for routine steps.
     "fast-subagent"
+    # Discovery only: adopt a found skill through a flake input, never `skills add`.
+    "find-skills"
     "handoff"
     "native-first"
     # Third-party Orca skills required in every global session.
@@ -245,9 +247,13 @@ rec {
   ];
   docs = [
     "brand-guidelines"
-    "dashmotion"
     "doc-coauthoring"
     "internal-comms"
+  ];
+  # Architecture, network and topology diagrams.
+  diagrams = [
+    "dashmotion"
+    "drawio-skill"
   ];
   research = [
     "github-code-search"

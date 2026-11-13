@@ -98,7 +98,8 @@ in
       #   nix       — Nix, nix-darwin, home-manager, macOS system config
       #   homelab   — Proxmox, OpenTofu, Ansible, Terrakube, OpenBao, network
       #   ai        — LLM serving, routing, Hugging Face, delegation to Codex
-      #   docs      — documentation sites, diagrams, long-form writing
+      #   docs      — documentation sites, long-form writing
+      #   diagrams  — architecture, network and topology diagrams
       #   research  — code and paper search, reading, summarising
       #   workspace — office formats, design, art, personal organisation
       categories = lib.mkDefault (import ./categories.nix);

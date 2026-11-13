@@ -30,6 +30,8 @@ let
     mattpocock = "mattpocock-skills";
     orca-skills = "orca-skills";
     dashmotion = "dashmotion";
+    vercel-skills = "vercel-skills";
+    drawio-skill = "drawio-skill";
     ponytail = "ponytail";
     claude-channel-slack = "claude-channel-slack";
     last30days-skill = "last30days-skill";
