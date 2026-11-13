@@ -34,4 +34,10 @@ in
       unit.serviceConfig.User == "orca" && cfg.users.users.orca.isSystemUser
       || throw "orca-server must run as the dedicated orca system user";
     helpers.mkMarker "check-orca-server-nixos-module" "orca-server unit: ExecStart, telemetry env, firewall port, dedicated user";
+
+  # Builds the package and runs the launcher on its bundled runtime.
+  orca-server-package = pkgs.runCommand "check-orca-server-package" { } ''
+    HOME=$TMPDIR ${cfg.services.orca-server.package}/bin/orca --help > /dev/null
+    touch $out
+  '';
 }
