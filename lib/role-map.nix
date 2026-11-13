@@ -1,6 +1,6 @@
 # The LLM role map: which model serves each router role and which models every
 # host class keeps. Model concurrency comes from the shared model catalog.
-# Role assignments are in dryvist/homelab-contracts
+# Role assignments are in jpe-ansible/homelab-contracts
 # ansible/roles/llm_roles/files/model-roles.json.
 #
 # `src` is the `homelab-contracts` flake input; every in-flake caller passes it

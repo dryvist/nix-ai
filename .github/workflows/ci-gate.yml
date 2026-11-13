@@ -150,7 +150,7 @@ jobs:
   # The reusable workflow's check job sets timeout-minutes: 5.
   lane-alias-parity:
     needs: lane-alias-names
-    uses: dryvist/homelab-contracts/.github/workflows/alias-parity.yml@694b93a9bf58a96467afa7864af8278e4812fadf # v5.60.0
+    uses: jpe-ansible/homelab-contracts/.github/workflows/alias-parity.yml@694b93a9bf58a96467afa7864af8278e4812fadf # v5.60.0
     with:
       names-artifact: lane-alias-names
       names-files: lane-alias-parity-nix-ai.json
