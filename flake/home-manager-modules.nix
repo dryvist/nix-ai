@@ -39,7 +39,8 @@ let
     langfuse-skills = "langfuse-skills";
     gh-stack = "gh-stack";
   };
-  # Module args that are not marketplace entries.
+  # Flake inputs passed to modules as module args. browser-use-skills is also
+  # a marketplace entry (see skillSourceInputs).
   inherit (inputs) awesome-claude-skills browser-use-skills;
   # Marketplace flake inputs now live inside nix-claude-code. Surface the
   # full set here so non-Claude consumers (agent-skills, codex, antigravity-cli) can
