@@ -100,6 +100,7 @@ in
   herdr = mkGuest {
     modules = [
       nixosModules.herdr
+      nixosModules.orca-server
       {
         services.herdr = {
           enable = true;
@@ -107,6 +108,9 @@ in
           # leading `-`, so a first converge starts inert rather than failing.
           environmentFile = "/var/lib/herdr/.env";
         };
+
+        # Headless Orca server on this guest; runs as the herdr user.
+        services.orca-server.enable = true;
       }
     ];
   };
