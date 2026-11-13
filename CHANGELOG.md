@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.35.0](https://github.com/dryvist/nix-ai/compare/v8.34.0...v8.35.0) (2026-11-13)
+
+
+### Features
+
+* **litellm-local:** add small-no-thinking alias ([#2994](https://github.com/dryvist/nix-ai/issues/2994)) ([8d565df](https://github.com/dryvist/nix-ai/commit/8d565df9e703ca2b080831b180ab96e72731854b))
+
 ## [8.34.0](https://github.com/dryvist/nix-ai/compare/v8.33.1...v8.34.0) (2026-11-13)
 
 
