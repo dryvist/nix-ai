@@ -47,19 +47,20 @@ in
 
     bind = lib.mkOption {
       type = lib.types.str;
-      default = "0.0.0.0";
+      default = "127.0.0.1";
       description = ''
-        Address the server listens on, passed as `--bind`. The CLI default is
-        127.0.0.1; this default listens on every interface. Clients from public
+        Address the server listens on, passed as `--bind`. Clients from public
         addresses are refused unless the CLI's `--allow-public` is given, which
         this module does not pass.
       '';
     };
 
+    openFirewall = lib.mkEnableOption "opening the server port in the firewall";
+
     port = lib.mkOption {
       type = lib.types.port;
       default = 6768;
-      description = "TCP port the server listens on. Opened in the firewall.";
+      description = "TCP port the server listens on.";
     };
 
     extraPackages = lib.mkOption {
@@ -81,7 +82,7 @@ in
 
     users.groups = lib.mkIf (cfg.user == "orca") { orca = { }; };
 
-    networking.firewall.allowedTCPPorts = [ cfg.port ];
+    networking.firewall.allowedTCPPorts = lib.mkIf cfg.openFirewall [ cfg.port ];
 
     # Puts `orca` on the PATH of interactive sessions, for one-time foreground
     # runs as the server user.

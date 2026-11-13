@@ -1,6 +1,6 @@
 # orca-server NixOS module check (x86_64-linux): the module evaluated on its
 # own yields a unit that runs the packaged `orca serve` with telemetry
-# disabled, binds every interface on the default port, opens that port, and
+# disabled, binds loopback on the default port, opens that port when asked, and
 # runs as the dedicated orca user.
 {
   pkgs,
@@ -12,12 +12,17 @@ let
     system = "x86_64-linux";
     modules = [
       (src + "/modules/orca/nixos.nix")
-      { services.orca-server.enable = true; }
+      {
+        services.orca-server = {
+          enable = true;
+          openFirewall = true;
+        };
+      }
     ];
   };
   cfg = evaluated.config;
   unit = cfg.systemd.services.orca-server;
-  expectedExecStart = "${cfg.services.orca-server.package}/bin/orca serve --supervise --no-pairing --bind 0.0.0.0 --port 6768";
+  expectedExecStart = "${cfg.services.orca-server.package}/bin/orca serve --supervise --no-pairing --bind 127.0.0.1 --port 6768";
 in
 {
   orca-server-nixos-module =

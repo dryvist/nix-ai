@@ -110,7 +110,11 @@ in
         };
 
         # Headless Orca server on this guest; runs as the herdr user.
-        services.orca-server.enable = true;
+        services.orca-server = {
+          enable = true;
+          bind = "0.0.0.0";
+          openFirewall = true;
+        };
       }
     ];
   };

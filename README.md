@@ -137,8 +137,8 @@ existing authentication, and this module configures none.
 
 `packages.x86_64-linux.orca-server` packages the headless `orca serve` command from Orca's published server tarball.
 `nixosModules.orca-server` runs it as the `orca-server` systemd unit when `services.orca-server.enable` is `true`
-(default `false`). The unit listens on `services.orca-server.bind` (default `0.0.0.0`) at `services.orca-server.port`
-(default `6768`) and opens that port in the firewall.
+(default `false`). The unit listens on `services.orca-server.bind` (default `127.0.0.1`) at `services.orca-server.port`
+(default `6768`). Set `services.orca-server.openFirewall` to open that port in the firewall.
 
 ## Testing and validation
 
