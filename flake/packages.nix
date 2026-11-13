@@ -72,6 +72,10 @@ forAllSystems (
     herdr-remote-relay = pkgs.callPackage ../modules/herdr-remote/package.nix {
       src = herdr-remote-src;
     };
+
+    # Headless Orca server, built from the published server tarball. The
+    # aarch64-darwin desktop package above is a separate derivation.
+    orca-server = pkgs.callPackage ../modules/orca/server-package.nix { };
   }
 )
 // {
