@@ -5,10 +5,6 @@
 # and the OSV differential scan from JacobPEvans/.github. The local `gate` job
 # keeps the bare `Merge Gate` context this repo's ruleset requires.
 #
-# The small shared-gate jobs use GitHub-hosted runners. Nix validation keeps
-# the larger RunsOn lane for pushes and same-repository PRs, and falls back to
-# GitHub-hosted runners for fork PRs.
-
 name: CI Gate
 
 on:
@@ -44,11 +40,7 @@ jobs:
       runner_label: ubuntu-latest
       nix_validate: true
       profile: nix
-      # `nix flake check` evaluates the whole tree; give it the larger runner.
-      # cpu=8: the check builds run in parallel (max-jobs = auto) and saturate 4 cores.
-      # volume=80gb: the default root volume runs out of space while the
-      # llama-swap and fabric Go builds compile side by side.
-      nix_validate_runner_label: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && format('runs-on={0}/cpu=8/ram=32/family=m7+c7/extras=s3-cache/volume=80gb', github.run_id) || 'ubuntu-latest' }}
+      nix_validate_runner_label: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && (vars.CI_RUNNER_LABEL || 'ubuntu-24.04') || 'ubuntu-latest' }}
       # PRs run the Linux-scoped checks; only main runs the cross-system suite.
       all_systems: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       nix_skip_deps_only: true
@@ -158,7 +150,7 @@ jobs:
   # The reusable workflow's check job sets timeout-minutes: 5.
   lane-alias-parity:
     needs: lane-alias-names
-    uses: dryvist/homelab-contracts/.github/workflows/alias-parity.yml@694b93a9bf58a96467afa7864af8278e4812fadf # v5.60.0
+    uses: jpe-ansible/homelab-contracts/.github/workflows/alias-parity.yml@694b93a9bf58a96467afa7864af8278e4812fadf # v5.60.0
     with:
       names-artifact: lane-alias-names
       names-files: lane-alias-parity-nix-ai.json

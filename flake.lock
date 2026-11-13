@@ -905,15 +905,15 @@
     "homelab-contracts": {
       "flake": false,
       "locked": {
-        "lastModified": 1794098472,
-        "narHash": "sha256-sNGmUpqh9X8TJfBr+LO6Uuy0rY0llXS3ANpy9ZKPl8I=",
-        "owner": "dryvist",
+        "lastModified": 1794466530,
+        "narHash": "sha256-8xGC/2GZt8ZMtiipCIxeiBl9iQFHvKui+1oHmfeKta8=",
+        "owner": "jpe-ansible",
         "repo": "homelab-contracts",
-        "rev": "c6eedd33c62411ce7a2ffdd92558e18f2b9007d8",
+        "rev": "694b93a9bf58a96467afa7864af8278e4812fadf",
         "type": "github"
       },
       "original": {
-        "owner": "dryvist",
+        "owner": "jpe-ansible",
         "ref": "v5",
         "repo": "homelab-contracts",
         "type": "github"

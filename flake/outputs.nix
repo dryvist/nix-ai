@@ -1,4 +1,4 @@
-{
+inputs@{
   self,
   nixpkgs,
   nixpkgs-unstable,
@@ -6,8 +6,6 @@
   nix-herdr,
   home-manager,
   ai-llm-prompts,
-  jacobpevans-cc-plugins,
-  browser-use-skills,
   nix-claude-code,
   nix-codex,
   nix-agy,
@@ -15,22 +13,9 @@
   nix-agent-sandbox-src,
   nix-claude-code-launcher-src,
   nix-codex-launcher-src,
-  karpathy-skills,
-  mattpocock-skills,
-  orca-skills,
   fabric-src,
-  dashmotion,
-  ponytail,
-  claude-channel-slack,
-  last30days-skill,
-  autoresearch,
-  context-engineering-kit,
-  managing-dependencies,
-  langfuse-skills,
-  awesome-claude-skills,
   vct-cribl-cli,
   vct-splunk-cli,
-  gh-stack,
   herdr-remote-src,
   herdr-hail-src,
   token-meter-src,
@@ -97,35 +82,20 @@ in
 {
   homeManagerModules = import ./home-manager-modules.nix {
     inherit (nixpkgs) lib;
-    inherit self;
+    inherit self inputs;
     inherit
       ai-llm-prompts
-      jacobpevans-cc-plugins
-      browser-use-skills
       nix-claude-code
       nix-codex
       nix-agy
       nix-claude-code-launcher-src
       nix-codex-launcher-src
-      karpathy-skills
-      mattpocock-skills
-      orca-skills
       nixpkgs-unstable
       llm-agents
       nix-herdr
       herdr-hail-src
-      dashmotion
-      ponytail
-      claude-channel-slack
-      last30days-skill
-      autoresearch
-      context-engineering-kit
-      managing-dependencies
-      langfuse-skills
-      awesome-claude-skills
       vct-cribl-cli
       vct-splunk-cli
-      gh-stack
       token-meter-src
       homelab-contracts
       nix-agent-sandbox-src
