@@ -46,7 +46,7 @@
 
     # LLM role map source (lib/role-map.nix).
     homelab-contracts = {
-      url = "github:dryvist/homelab-contracts?ref=v5";
+      url = "github:jpe-ansible/homelab-contracts?ref=v5";
       flake = false;
     };
 
