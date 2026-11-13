@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.34.0](https://github.com/dryvist/nix-ai/compare/v8.33.1...v8.34.0) (2026-11-13)
+
+
+### Features
+
+* **orca:** headless server package and NixOS service ([#2990](https://github.com/dryvist/nix-ai/issues/2990)) ([026a5c7](https://github.com/dryvist/nix-ai/commit/026a5c740a74ec2919e62fd0cbc278508597a0d4))
+
 ## [8.33.1](https://github.com/dryvist/nix-ai/compare/v8.33.0...v8.33.1) (2026-11-12)
 
 
