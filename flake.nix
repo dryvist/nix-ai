@@ -180,6 +180,13 @@
       flake = false;
     };
 
+    # Chrome team web-platform guidance (HTML/CSS/client JS). Only the
+    # modern-web-guidance skill is deployed; see modules/agent-skills/default.nix.
+    modern-web-guidance = {
+      url = "github:GoogleChrome/modern-web-guidance";
+      flake = false;
+    };
+
     # Animated technical diagrams as self-contained HTML+SVG. Cross-tool only.
     dashmotion = {
       url = "github:csthink/dashmotion";

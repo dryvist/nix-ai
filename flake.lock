@@ -1110,6 +1110,22 @@
         "type": "github"
       }
     },
+    "modern-web-guidance": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1794280113,
+        "narHash": "sha256-bqsUEI1yaGy1sd8DBJzG5cOv4Yv0RSYac6e9egqYFJU=",
+        "owner": "GoogleChrome",
+        "repo": "modern-web-guidance",
+        "rev": "4dd968349e54ca45a05dd5c818fb035c9054b022",
+        "type": "github"
+      },
+      "original": {
+        "owner": "GoogleChrome",
+        "repo": "modern-web-guidance",
+        "type": "github"
+      }
+    },
     "native-ui": {
       "inputs": {
         "nixpkgs": [
@@ -1598,6 +1614,7 @@
         "llm-agents": "llm-agents",
         "managing-dependencies": "managing-dependencies",
         "mattpocock-skills": "mattpocock-skills",
+        "modern-web-guidance": "modern-web-guidance",
         "nix-agent-sandbox-src": "nix-agent-sandbox-src",
         "nix-agy": "nix-agy",
         "nix-claude-code": "nix-claude-code",

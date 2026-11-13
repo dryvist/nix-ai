@@ -249,6 +249,12 @@ rec {
     "doc-coauthoring"
     "internal-comms"
   ];
+  web = [
+    "frontend-design"
+    "modern-web-guidance"
+    "web-artifacts-builder"
+    "webapp-testing"
+  ];
   research = [
     "github-code-search"
     "huggingface-papers"
