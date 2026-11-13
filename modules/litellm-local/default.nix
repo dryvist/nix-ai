@@ -74,20 +74,35 @@ let
   # fallback-tier.nix's contextWindow assertion. That is intended -- naming a
   # model this host does not serve is a build error, not a runtime 404.
   mlxWindows = config.programs.mlx.modelContextWindows or { };
-  resolveRung = m: {
-    inherit (m)
-      name
-      id
-      router
-      ;
-    contextWindow =
-      if m.contextWindow != null then
-        m.contextWindow
-      else if m.id != null then
-        mlxWindows.${m.id} or null
-      else
-        null;
-  };
+  maxLocalContextWindow = 200000;
+  # Decode concurrency of each model the mlx module launches, the same option
+  # the worker is started with. A rung on an id the module does not launch gets
+  # no cap, since no worker width is known for it.
+  mlxConcurrency = config.programs.mlx.modelConcurrencyLimits or { };
+  resolveRung =
+    m:
+    let
+      contextWindow =
+        if m.contextWindow != null then
+          m.contextWindow
+        else if m.id != null then
+          mlxWindows.${m.id} or null
+        else
+          null;
+    in
+    {
+      inherit (m)
+        name
+        id
+        router
+        ;
+      concurrency = if m.id != null then mlxConcurrency.${m.id} or null else null;
+      contextWindow =
+        if m.id != null && contextWindow != null then
+          lib.min maxLocalContextWindow contextWindow
+        else
+          contextWindow;
+    };
   resolvedLocalModels = map resolveRung cfg.localModels;
   resolvedChains = lib.mapAttrs (_: map resolveRung) cfg.isolatedChains;
   staticResidentModels = config.programs.mlx.staticResidentContracts or { };
@@ -110,7 +125,6 @@ let
   staticTier = import ./static-tier.nix {
     inherit lib staticResidentModels;
     inherit (cfg) headAliases;
-    admissionLimits = config.programs.mlx.modelAdmissionLimits;
     localModels = resolvedLocalModels;
   };
 

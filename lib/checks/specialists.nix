@@ -39,16 +39,18 @@ let
         grep -qxF 'name: ${s.name}' "$f"
         ${lib.optionalString ((s.model or null) != null) ''grep -qxF 'model: ${s.model}' "$f"''}
         ${lib.optionalString ((s.model or null) == null) ''if grep -q '^model:' "$f"; then exit 1; fi''}
-        ${lib.concatMapStrings (t: "grep -qxF -- '- ${t}' \"$f\"\n") (toolsOf s)}
+        ${lib.concatMapStrings (t: "grep -qxF -- '  - ${t}' \"$f\"\n") (toolsOf s)}
         ${
           if s.owns == [ ] then
             ''! grep -q '^mcpServers:' "$f"''
           else
             ''
               grep -qxF 'mcpServers:' "$f"
-              ${lib.concatMapStrings (n: "grep -q '^- ${n}:$' \"$f\"\n") s.owns}
+              ${lib.concatMapStrings (n: "grep -q '^  - ${n}:$' \"$f\"\n") s.owns}
             ''
         }
+        # The delegation hook's frontmatter parser rejects a block list item at column 0.
+        awk 'NR > 1 && /^---$/ { exit } /^- / { bad = 1 } END { exit bad }' "$f"
         ! grep -q 'type: LLM Prompt' "$f"
         touch $out
       ''

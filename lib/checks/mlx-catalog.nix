@@ -21,6 +21,7 @@ in
       mimoSwap = mimoProfile.swap;
       judgeModel = modelCatalog.${judge27b};
       judgeProfile = judgeModel.profiles.mlx;
+      cappedContextWindow = tokens: pkgs.lib.min 200000 tokens;
       judgeMaxOutput = judgeProfile.max_output_tokens or judgeModel.max_output_tokens;
       judgeFlags = c.modelFlagOverrides.${judge27b};
       judgeArgs = builtins.concatStringsSep " " c.modelExtraArgs.${judge27b};
@@ -109,16 +110,20 @@ in
       builtins.match ".*--tool-call-parser.*" judgeCmd == null
       || throw "catalog: official mlx_lm serving args must not carry --tool-call-parser: ${judgeCmd}";
     assert
-      c.modelContextWindows.${judge27b} == judgeProfile.context_window
+      c.modelContextWindows.${judge27b} == cappedContextWindow judgeProfile.context_window
       || throw "catalog: Qwen3.8 context window disagrees with the shared model profile";
     assert
-      c.modelFlagOverrides.${judge27b}.maxRequestTokens == judgeProfile.context_window
+      c.modelFlagOverrides.${judge27b}.maxRequestTokens == cappedContextWindow judgeProfile.context_window
       || throw "catalog: Qwen3.8 request cap disagrees with the shared model profile";
     assert
       c.modelFlagOverrides.${judge27b}.promptCacheSize == 8
       || throw "catalog: Qwen3.8 prompt-cache slot cap must stay at 8 (Zammad 1001254 Metal buffer limit)";
     assert
-      c.modelContextWindows.${mimo} == mimoProfile.context_window
+      c.modelFlagOverrides.${mimo}.promptCacheSize == 8
+      && builtins.match ".*--prompt-cache-size 8.*" (commandBuilder.mkModelCmd mimo) != null
+      || throw "catalog: MiMo prompt-cache slot cap must stay at 8 (Metal buffer limit) in its served command";
+    assert
+      c.modelContextWindows.${mimo} == cappedContextWindow mimoProfile.context_window
       || throw "catalog: MiMo context window disagrees with the shared MLX profile";
     # Worker concurrency and proxy admission are separate: the Qwen worker
     # stays serial while the proxy admits its active slot plus bounded waiters.

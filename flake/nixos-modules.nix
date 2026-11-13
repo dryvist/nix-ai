@@ -29,4 +29,8 @@
       inherit herdr-remote-src;
     };
   };
+
+  orca-server = {
+    imports = [ ../modules/orca/nixos.nix ];
+  };
 }

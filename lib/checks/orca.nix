@@ -1,5 +1,6 @@
-# Orca module checks (aarch64-darwin): enabled installs the package and the
-# telemetry-off login agent; the default installs neither.
+# Orca module checks (aarch64-darwin): enabled installs the package, whose
+# bin/orca resolves to the bundled CLI, and defines no LaunchAgent; the default
+# installs nothing.
 {
   pkgs,
   hmConfig,
@@ -7,38 +8,44 @@
 }:
 let
   helpers = import ./helpers.nix { inherit pkgs; };
-  hasOrca = config: builtins.any (package: pkgs.lib.getName package == "orca") config.home.packages;
+  orcaPackages =
+    config: builtins.filter (package: pkgs.lib.getName package == "orca") config.home.packages;
+  hasOrca = config: orcaPackages config != [ ];
 in
 {
-  orca-launchd =
+  orca-module =
     let
       cfg = hmConfigOrca.config;
-      agent = cfg.launchd.agents.orca-telemetry;
-      args = agent.config.ProgramArguments;
-      expectedArgs = [
-        "/bin/launchctl"
-        "setenv"
-        "ORCA_TELEMETRY_DISABLED"
-        "1"
-      ];
     in
     assert
       hasOrca cfg || throw "Orca package missing from home.packages when programs.orca.enable = true";
-    assert agent.enable || throw "Orca telemetry LaunchAgent must be enabled";
+    # deepSeq forces every agent definition, not only the one name asserted below.
     assert
-      args == expectedArgs
-      || throw "Orca telemetry LaunchAgent ProgramArguments: ${builtins.concatStringsSep " " args}";
-    assert
-      (agent.config.RunAtLoad or false) || throw "Orca telemetry LaunchAgent must have RunAtLoad = true";
-    helpers.mkMarker "check-orca-launchd" "Orca enabled: package installed, launchctl setenv ORCA_TELEMETRY_DISABLED 1 at load";
+      builtins.deepSeq cfg.launchd.agents (!(cfg.launchd.agents ? orca-telemetry))
+      || throw "Orca must not define a telemetry LaunchAgent";
+    helpers.mkMarker "check-orca-module" "Orca enabled: package installed, no LaunchAgent defined";
 
-  orca-launchd-negative =
+  orca-cli-link =
+    let
+      package = builtins.head (orcaPackages hmConfigOrca.config);
+    in
+    pkgs.runCommand "check-orca-cli-link" { } ''
+      cli=${package}/bin/orca
+      test -L "$cli" || { echo "bin/orca is not a symlink"; exit 1; }
+      test -x "$cli" || { echo "bin/orca does not resolve to an executable"; exit 1; }
+      case "$(readlink -f "$cli")" in
+        */Orca.app/Contents/Resources/bin/orca) ;;
+        *) echo "bin/orca resolves outside the bundled CLI: $(readlink -f "$cli")"; exit 1 ;;
+      esac
+      touch "$out"
+    '';
+
+  orca-module-negative =
     let
       cfg = hmConfig.config;
     in
     assert !(hasOrca cfg) || throw "Orca package must NOT be installed by default";
     assert
-      !(cfg.launchd.agents ? orca-telemetry)
-      || throw "Orca telemetry LaunchAgent must NOT be defined by default";
-    helpers.mkMarker "check-orca-launchd-negative" "Orca default: package and LaunchAgent correctly absent";
+      !(cfg.launchd.agents ? orca-telemetry) || throw "Orca telemetry LaunchAgent must NOT be defined";
+    helpers.mkMarker "check-orca-module-negative" "Orca default: package and LaunchAgent correctly absent";
 }

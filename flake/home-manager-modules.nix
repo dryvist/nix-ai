@@ -1,9 +1,8 @@
 {
   self,
   lib,
+  inputs,
   ai-llm-prompts,
-  browser-use-skills,
-  jacobpevans-cc-plugins,
   nix-claude-code,
   nix-codex,
   nix-agy,
@@ -11,28 +10,38 @@
   nix-claude-code-launcher-src,
   nix-codex-launcher-src,
   agentNofile,
-  karpathy-skills,
-  mattpocock-skills,
   llm-agents,
   nix-herdr,
-  dashmotion,
-  ponytail,
-  claude-channel-slack,
-  last30days-skill,
-  autoresearch,
-  context-engineering-kit,
-  managing-dependencies,
-  langfuse-skills,
-  awesome-claude-skills,
   vct-cribl-cli,
   vct-splunk-cli,
-  gh-stack,
   token-meter-src,
   homelab-contracts,
   nix-agent-sandbox-src,
   herdr-hail-src,
 }:
 let
+  # Skill-source flake inputs, keyed by the name marketplaceInputs exposes.
+  # Each value is the flake input it is read from. Only mattpocock differs
+  # between the two names.
+  skillSourceInputs = {
+    jacobpevans-cc-plugins = "jacobpevans-cc-plugins";
+    browser-use-skills = "browser-use-skills";
+    karpathy-skills = "karpathy-skills";
+    mattpocock = "mattpocock-skills";
+    orca-skills = "orca-skills";
+    dashmotion = "dashmotion";
+    ponytail = "ponytail";
+    claude-channel-slack = "claude-channel-slack";
+    last30days-skill = "last30days-skill";
+    autoresearch = "autoresearch";
+    context-engineering-kit = "context-engineering-kit";
+    managing-dependencies = "managing-dependencies";
+    langfuse-skills = "langfuse-skills";
+    gh-stack = "gh-stack";
+  };
+  # Flake inputs passed to modules as module args. browser-use-skills is also
+  # a marketplace entry (see skillSourceInputs).
+  inherit (inputs) awesome-claude-skills browser-use-skills;
   # Marketplace flake inputs now live inside nix-claude-code. Surface the
   # full set here so non-Claude consumers (agent-skills, codex, antigravity-cli) can
   # still discover plugins/skills without each consumer having to reach into
@@ -60,20 +69,8 @@ let
       superpowers-marketplace
       visual-explainer-marketplace
       ;
-    inherit browser-use-skills;
-    inherit jacobpevans-cc-plugins;
-    inherit karpathy-skills;
-    mattpocock = mattpocock-skills;
-    inherit dashmotion;
-    inherit ponytail;
-    inherit claude-channel-slack;
-    inherit last30days-skill;
-    inherit autoresearch;
-    inherit context-engineering-kit;
-    inherit managing-dependencies;
-    inherit langfuse-skills;
-    inherit gh-stack;
-  };
+  }
+  // builtins.mapAttrs (_: name: inputs.${name}) skillSourceInputs;
   # Args a PARTIAL export sets at default priority, so any combination of
   # exports — and a partial one composed with `default` — merges instead of
   # failing "defined multiple times". A consumer that imports
@@ -181,7 +178,7 @@ in
   agent-skills = {
     imports = [ ../modules/agent-skills ];
     _module.args = partialArgs {
-      inherit marketplaceInputs;
+      inherit marketplaceInputs awesome-claude-skills;
     };
   };
 
@@ -213,6 +210,7 @@ in
         llm-agents
         marketplaceInputs
         homelab-contracts
+        awesome-claude-skills
         ;
     };
   };
@@ -237,6 +235,7 @@ in
         marketplaceInputs
         llm-agents
         homelab-contracts
+        awesome-claude-skills
         ;
     };
   };
@@ -253,6 +252,7 @@ in
         nix-claude-code
         marketplaceInputs
         homelab-contracts
+        awesome-claude-skills
         ;
     };
   };
@@ -280,6 +280,7 @@ in
         nix-claude-code
         marketplaceInputs
         homelab-contracts
+        awesome-claude-skills
         ;
     };
   };
@@ -304,6 +305,7 @@ in
         marketplaceInputs
         llm-agents
         homelab-contracts
+        awesome-claude-skills
         ;
     };
   };

@@ -905,15 +905,15 @@
     "homelab-contracts": {
       "flake": false,
       "locked": {
-        "lastModified": 1794098472,
-        "narHash": "sha256-sNGmUpqh9X8TJfBr+LO6Uuy0rY0llXS3ANpy9ZKPl8I=",
-        "owner": "dryvist",
+        "lastModified": 1794466530,
+        "narHash": "sha256-8xGC/2GZt8ZMtiipCIxeiBl9iQFHvKui+1oHmfeKta8=",
+        "owner": "jpe-ansible",
         "repo": "homelab-contracts",
-        "rev": "c6eedd33c62411ce7a2ffdd92558e18f2b9007d8",
+        "rev": "694b93a9bf58a96467afa7864af8278e4812fadf",
         "type": "github"
       },
       "original": {
-        "owner": "dryvist",
+        "owner": "jpe-ansible",
         "ref": "v5",
         "repo": "homelab-contracts",
         "type": "github"
@@ -1526,6 +1526,22 @@
         "type": "github"
       }
     },
+    "orca-skills": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1794459274,
+        "narHash": "sha256-Z/KuytxmK1megg/0RyQa/Nif4Wz6Jlwd/KzeCSvzI8g=",
+        "owner": "stablyai",
+        "repo": "orca",
+        "rev": "e902c9a65b691fdffcc5b4200bbf4fda2a12dc73",
+        "type": "github"
+      },
+      "original": {
+        "owner": "stablyai",
+        "repo": "orca",
+        "type": "github"
+      }
+    },
     "penso-tap": {
       "flake": false,
       "locked": {
@@ -1591,6 +1607,7 @@
         "nix-herdr": "nix-herdr",
         "nixpkgs": "nixpkgs_2",
         "nixpkgs-unstable": "nixpkgs-unstable",
+        "orca-skills": "orca-skills",
         "ponytail": "ponytail",
         "token-meter-src": "token-meter-src",
         "vct-cribl-cli": "vct-cribl-cli",
@@ -1814,11 +1831,11 @@
     "vct-cribl-cli": {
       "flake": false,
       "locked": {
-        "lastModified": 1789417551,
-        "narHash": "sha256-6x6c7rOUTBYF7U4QaYFNSYj2h960kY8czBeimZJL4WA=",
+        "lastModified": 1794466088,
+        "narHash": "sha256-w6MSSIM4IQWJkQZUSlVJj/P6RBbpVIjs5qRHIvD3R54=",
         "owner": "VisiCore",
         "repo": "vct-cribl-cli",
-        "rev": "b7bc6b7a3809448f6c5b36afa459e2b294f29072",
+        "rev": "60f20d765ad65dc6f093603f3db1a77bf1532fda",
         "type": "github"
       },
       "original": {

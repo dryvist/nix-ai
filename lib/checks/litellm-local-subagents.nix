@@ -8,6 +8,7 @@
   hmConfigLitellmSubagents,
 }:
 let
+  helpers = import ./helpers.nix { inherit pkgs; };
   cfg = hmConfigLitellmSubagents.config;
   group =
     assert
@@ -23,6 +24,14 @@ let
   );
 in
 {
+  # The router tier defaults to the host-only group, outside the shared-router
+  # fallback chain, so subagent traffic stays on this host.
+  litellm-local-subagent-default-head =
+    if group == "local-only" then
+      helpers.mkMarker "check-litellm-local-subagent-default-head" "native, OpenCode, Codex and Antigravity subagents default to the local-only group"
+    else
+      throw "subagentModel must default to the local-only group, got ${group}";
+
   litellm-local-opencode-subagents =
     pkgs.runCommand "check-litellm-local-opencode-subagents"
       {

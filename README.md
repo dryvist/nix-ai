@@ -129,9 +129,16 @@ declared inline in `settings.json`. Keep secrets out of `settings`.
 
 `programs.orca.enable` (default `false`) installs [Orca](https://github.com/stablyai/orca), a desktop app that runs
 several coding agents side by side, on aarch64-darwin only. It installs the release that `modules/orca/package.nix`
-pins (v1.4.245), unchanged from its disk image, plus a login agent that sets `ORCA_TELEMETRY_DISABLED=1`. Orca holds
-no GitHub credential of its own: its GitHub features use the `gh` command's existing authentication, and this module
-configures none.
+pins (v1.4.245), unchanged from its disk image, and puts the bundled `orca` CLI on `PATH`. Orca's telemetry setting is
+in its own Settings → Privacy. Orca holds no GitHub credential of its own: its GitHub features use the `gh` command's
+existing authentication, and this module configures none.
+
+### Orca server
+
+`packages.x86_64-linux.orca-server` packages the headless `orca serve` command from Orca's published server tarball.
+`nixosModules.orca-server` runs it as the `orca-server` systemd unit when `services.orca-server.enable` is `true`
+(default `false`). The unit listens on `services.orca-server.bind` (default `127.0.0.1`) at `services.orca-server.port`
+(default `6768`). Set `services.orca-server.openFirewall` to open that port in the firewall.
 
 ## Testing and validation
 

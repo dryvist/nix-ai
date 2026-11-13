@@ -28,8 +28,8 @@
 # goes in the config file, and LiteLLM resolves it from the process
 # environment at load time. That is what keeps the router bearer out of the
 # store.
-{
-  model_list = [
+let
+  modelList = [
     {
       model_name = "claude-*";
       # No api_key, deliberately: this deployment is reached with the OAuth
@@ -67,6 +67,31 @@
   ++ isolatedTier.modelList
   ++ staticTier.routes
   ++ staticTier.routerRungs;
+
+  # A deployment this host serves itself carries its worker's decode width as
+  # max_parallel_requests, so a 429 from it is a capacity signal, not a health
+  # signal. Cooldowns are suppressed for such deployments (below).
+  hostServed = lib.any (d: (d.litellm_params or { }) ? max_parallel_requests) modelList;
+in
+{
+  model_list = modelList;
+
+  # A 429 is a busy or rate-limited deployment, and a timeout bounds a whole
+  # generation. Neither is retried on the same rung: the request goes straight
+  # to the next rung. Other error classes keep `num_retries` below.
+  router_settings = {
+    retry_policy = {
+      RateLimitErrorRetries = 0;
+      TimeoutErrorRetries = 0;
+    };
+  }
+  // lib.optionalAttrs hostServed {
+    # Static resident aliases and host-served rungs are singleton or near-singleton
+    # groups. LiteLLM exposes cooldown suppression at router level, so enable its
+    # native setting whenever such deployments are rendered: otherwise one 429
+    # would take the only deployment of its group out of rotation.
+    disable_cooldowns = true;
+  };
 
   litellm_settings = {
     # Clients disagree about which sampling params they send; dropping the
@@ -134,12 +159,6 @@
     callbacks = [ "otel" ];
     turn_off_message_logging = true;
   };
-}
-// lib.optionalAttrs (staticTier.routes != [ ]) {
-  # Static resident aliases are catalog-derived singleton groups. LiteLLM
-  # 1.98 exposes cooldown suppression at router level, so enable its native
-  # setting only when those routes are rendered.
-  router_settings.disable_cooldowns = true;
 }
 # LiteLLM 1.105 refuses to boot without a master key. This proxy takes none by
 # design (see default.nix) and listens on loopback only, so set the switch

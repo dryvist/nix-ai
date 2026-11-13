@@ -225,6 +225,16 @@
     modelFlagOverrides = lib.mkOption {
       type = lib.types.attrsOf (lib.types.attrsOf lib.types.raw);
       default = { };
+      apply = lib.mapAttrs (
+        _: flags:
+        let
+          maxRequestTokens = flags.maxRequestTokens or null;
+        in
+        if maxRequestTokens == null then
+          flags
+        else
+          flags // { maxRequestTokens = lib.min 200000 maxRequestTokens; }
+      );
       example = lib.literalExpression ''
         {
           "mlx-community/<sliding-window-model>" = {
