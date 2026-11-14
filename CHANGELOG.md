@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.37.2](https://github.com/dryvist/nix-ai/compare/v8.37.1...v8.37.2) (2026-11-14)
+
+
+### Bug Fixes
+
+* **mcp:** add the wheel hash for mcp-server-time 2026.11.4 ([#3025](https://github.com/dryvist/nix-ai/issues/3025)) ([8eb8257](https://github.com/dryvist/nix-ai/commit/8eb825727a500bbd840c9ad5e656fc4693b39546))
+
 ## [8.37.1](https://github.com/dryvist/nix-ai/compare/v8.37.0...v8.37.1) (2026-11-14)
 
 
