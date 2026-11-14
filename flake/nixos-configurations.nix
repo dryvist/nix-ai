@@ -60,6 +60,11 @@ let
         settings = {
           PasswordAuthentication = false;
           KbdInteractiveAuthentication = false;
+          # Paths only: the orchestrator writes the CA key, principals and
+          # signed host certificate there; sshd skips a file that is absent.
+          TrustedUserCAKeys = "/etc/ssh/trusted-user-ca-keys.pem";
+          AuthorizedPrincipalsFile = "/etc/ssh/principals/%u";
+          HostCertificate = "/etc/ssh/ssh_host_ed25519_key-cert.pub";
         };
       };
 
