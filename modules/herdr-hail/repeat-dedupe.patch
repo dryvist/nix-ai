@@ -1,37 +1,363 @@
 diff --git a/src/index.ts b/src/index.ts
-index a122855..b34745b 100644
 --- a/src/index.ts
 +++ b/src/index.ts
-@@ -9,6 +9,9 @@
- // A tiny per-agent debounce so a flapping status can't spam the channels.
- const NOTIFY_COOLDOWN_MS = 4000;
-
-+// An identical hail (same agent, status and excerpt) is dropped for this long.
-+const REPEAT_WINDOW_MS = 15 * 60 * 1000;
+@@ -5,0 +6 @@
++import { RepeatGuard } from "./repeat.js";
+@@ -81 +82,2 @@
+-  const lastNotified = new Map<string, number>(); // terminal_id -> ts
++  const lastNotified = new Map<string, { timestamp: number; reservation: symbol }>();
++  const repeats = new RepeatGuard();
+@@ -83,0 +86,5 @@
++  watcher.on("remove", (terminalId: string) => {
++    repeats.clear(terminalId);
++    lastNotified.delete(terminalId);
++  });
 +
- function warnOpenChannel(name: string): void {
-   console.warn(
-     `⚠️  ${name}: no allowedUsers configured — anyone who can post in the ` +
-@@ -79,6 +82,7 @@
-   }
-
-   const lastNotified = new Map<string, number>(); // terminal_id -> ts
-+  const lastSent = new Map<string, number>(); // hail key -> ts, pruned past the window
-   const watcher = new Watcher(herdr, cfg.pollIntervalMs);
-
-   watcher.on("transition", async (t: Transition) => {
-@@ -98,6 +102,14 @@
-       notification.summary = await summarizeContext(notification.context, cfg.summarizer);
-     }
-
-+    const key = [t.agent.terminal_id, t.to, notification.context].join("\n");
-+    for (const [k, ts] of lastSent) if (now - ts >= REPEAT_WINDOW_MS) lastSent.delete(k);
-+    if (lastSent.has(key)) {
-+      console.log(`repeat dropped: ${notification.title} (${t.agent.pane_id})`);
-+      return;
+@@ -85 +92,2 @@
+-    if (!cfg.notifyOn.includes(t.to)) return;
++    await repeats.notifyOnce(t.agent.terminal_id, t.to, async () => {
++      if (!cfg.notifyOn.includes(t.to)) return false;
+@@ -87,4 +95,7 @@
+-    const now = Date.now();
+-    const prev = lastNotified.get(t.agent.terminal_id) ?? 0;
+-    if (now - prev < NOTIFY_COOLDOWN_MS) return;
+-    lastNotified.set(t.agent.terminal_id, now);
++      const now = Date.now();
++      const terminalId = t.agent.terminal_id;
++      const prev = lastNotified.get(terminalId)?.timestamp ?? 0;
++      if (now - prev < NOTIFY_COOLDOWN_MS) return false;
++      // Reserve the cooldown before reading context or delivering to channels.
++      const reservation = Symbol();
++      lastNotified.set(terminalId, { timestamp: now, reservation });
+@@ -92,8 +103,10 @@
+-    const context =
+-      t.to === "blocked"
+-        ? await herdr.agentRead(t.agent.pane_id, cfg.contextSource).catch(() => "")
+-        : "";
+-    const notification = buildNotification(t.agent, context, cfg.contextLines);
+-    if (notification.status === "blocked" && cfg.summarizer.enabled) {
+-      notification.summary = await summarizeContext(notification.context, cfg.summarizer);
+-    }
++      let delivered = false;
++      try {
++        const context =
++          t.to === "blocked"
++            ? await herdr.agentRead(t.agent.pane_id, cfg.contextSource).catch(() => "")
++            : "";
++        const notification = buildNotification(t.agent, context, cfg.contextLines);
++        if (notification.status === "blocked" && cfg.summarizer.enabled) {
++          notification.summary = await summarizeContext(notification.context, cfg.summarizer);
++        }
+@@ -101,4 +114,4 @@
+-    console.log(
+-      `${t.from} → ${t.to}  [${t.agent.agent}] ${notification.title} (${t.agent.pane_id})`,
+-    );
+-    if (dryRun) return;
++        console.log(
++          `${t.from} → ${t.to}  [${t.agent.agent}] ${notification.title} (${t.agent.pane_id})`,
++        );
++        if (dryRun) return false;
+@@ -106 +119,12 @@
+-    await Promise.allSettled(channels.map((ch) => ch.post(notification)));
++        const results = await Promise.allSettled(channels.map((ch) => ch.post(notification)));
++        delivered = results.some((result) => result.status === "fulfilled");
++        return delivered;
++      } finally {
++        if (!delivered) {
++          // Release failed cooldown reservations so a later transition can retry.
++          if (lastNotified.get(terminalId)?.reservation === reservation) {
++            lastNotified.delete(terminalId);
++          }
++        }
++      }
++    });
+diff --git a/src/notification.test.ts b/src/notification.test.ts
+--- a/src/notification.test.ts
++++ b/src/notification.test.ts
+@@ -4,0 +5 @@
++import "./repeat.test.js";
+diff --git a/src/repeat.test.ts b/src/repeat.test.ts
+--- /dev/null
++++ b/src/repeat.test.ts
+@@ -0,0 +1,195 @@
++import assert from "node:assert/strict";
++import { test } from "node:test";
++import type { Agent, AgentStatus, HerdrClient } from "./herdr.js";
++import { RepeatGuard } from "./repeat.js";
++import { Watcher } from "./watcher.js";
++
++const agent = (status: string): Agent =>
++  ({
++    terminal_id: "t1",
++    agent: "claude",
++    terminal_title: "t",
++    terminal_title_stripped: "t",
++    agent_status: status,
++    workspace_id: "w1",
++    tab_id: "tab",
++    pane_id: "w1:p1",
++    focused: false,
++    cwd: "/work",
++    foreground_cwd: "/work",
++    revision: 1,
++  }) as Agent;
++
++/** Feed a transition through the same delivery gate used by index.ts. */
++const feed = async (
++  guard: RepeatGuard,
++  posts: { status: AgentStatus; context: string }[],
++  id: string,
++  to: AgentStatus,
++  context: string,
++): Promise<void> => {
++  await guard.notifyOnce(id, to, async () => {
++    if (!["blocked", "done"].includes(to)) return false;
++    posts.push({ status: to, context });
++    return true;
++  });
++};
++
++test("ten reports of the same blocked state with changing context notify exactly once", async () => {
++  const guard = new RepeatGuard();
++  const posts: { status: AgentStatus; context: string }[] = [];
++  for (let tick = 0; tick < 10; tick++) {
++    await feed(guard, posts, "t1", "blocked", `context ${tick}`);
++  }
++  assert.equal(posts.length, 1);
++  assert.deepEqual(posts[0], { status: "blocked", context: "context 0" });
++});
++
++test("leaving blocked and re-entering notifies a second time", async () => {
++  const guard = new RepeatGuard();
++  const posts: { status: AgentStatus; context: string }[] = [];
++  await feed(guard, posts, "t1", "blocked", "first context");
++  await feed(guard, posts, "t1", "blocked", "same episode");
++  await feed(guard, posts, "t1", "working", "not notified");
++  await feed(guard, posts, "t1", "blocked", "new episode");
++  assert.equal(posts.length, 2);
++  assert.deepEqual(posts.map((post) => post.status), ["blocked", "blocked"]);
++});
++
++test("failed delivery leaves the blocked episode eligible for retry", async () => {
++  const guard = new RepeatGuard();
++  let attempts = 0;
++  let posts = 0;
++  const deliver = () =>
++    guard.notifyOnce("t1", "blocked", async () => {
++      attempts++;
++      if (attempts === 1) return false;
++      posts++;
++      return true;
++    });
++
++  assert.equal(await deliver(), false);
++  assert.equal(await deliver(), true);
++  assert.equal(await deliver(), false);
++  assert.equal(attempts, 2);
++  assert.equal(posts, 1);
++});
++
++test("a concurrent transition is suppressed while delivery is in flight", async () => {
++  const guard = new RepeatGuard();
++  let resolveDelivery!: (delivered: boolean) => void;
++  const first = guard.notifyOnce(
++    "t1",
++    "blocked",
++    () => new Promise<boolean>((resolve) => (resolveDelivery = resolve)),
++  );
++
++  assert.equal(await guard.notifyOnce("t1", "blocked", async () => true), false);
++  resolveDelivery(true);
++  assert.equal(await first, true);
++});
++
++test("an in-flight completion cannot latch a previous status episode", async () => {
++  const guard = new RepeatGuard();
++  let resolveDelivery!: (delivered: boolean) => void;
++  const first = guard.notifyOnce(
++    "t1",
++    "blocked",
++    () => new Promise<boolean>((resolve) => (resolveDelivery = resolve)),
++  );
++
++  assert.equal(await guard.notifyOnce("t1", "working", async () => true), false);
++  resolveDelivery(true);
++  assert.equal(await first, false);
++  assert.equal(await guard.notifyOnce("t1", "blocked", async () => true), true);
++});
++
++test("agents in different terminals hold independent latches", async () => {
++  const guard = new RepeatGuard();
++  const posts: { status: AgentStatus; context: string }[] = [];
++  await feed(guard, posts, "t1", "blocked", "first terminal");
++  await feed(guard, posts, "t2", "blocked", "second terminal");
++  await feed(guard, posts, "t1", "blocked", "repeat");
++  assert.equal(posts.length, 2);
++});
++
++test("the repeat latch evicts the oldest terminal when full", async () => {
++  const guard = new RepeatGuard();
++  for (let terminal = 0; terminal < 1025; terminal++) {
++    await guard.notifyOnce(`t${terminal}`, "blocked", async () => true);
++  }
++  assert.equal(await guard.notifyOnce("t0", "blocked", async () => true), true);
++});
++
++test("a held blocked state posts once across ten ticks; re-entry posts again", async () => {
++  let status = "working";
++  const herdr = {
++    request: async () => ({}),
++    agentList: async () => [agent(status)],
++    agentRead: async () => "",
++    agentSend: async () => {},
++    ping: async () => true,
++  } as unknown as HerdrClient;
++  const watcher = new Watcher(herdr, 1500);
++  const guard = new RepeatGuard();
++  const posts: { status: AgentStatus; context: string }[] = [];
++  const pending: Promise<void>[] = [];
++  watcher.on("transition", (t) => {
++    pending.push(feed(guard, posts, t.agent.terminal_id, t.to, t.to));
++  });
++
++  const poll = async () => {
++    await (watcher as unknown as { poll(): Promise<void> }).poll();
++    await Promise.all(pending.splice(0));
++  };
++  await poll(); // primes without emitting
++  status = "blocked";
++  for (let tick = 0; tick < 10; tick++) await poll();
++  assert.equal(posts.length, 1);
++  assert.deepEqual(posts.map((post) => post.status), ["blocked"]);
++
++  status = "working";
++  await poll();
++  status = "blocked";
++  await poll();
++  assert.equal(posts.length, 2);
++  assert.deepEqual(posts.map((post) => post.status), ["blocked", "blocked"]);
++});
++
++test("a disappeared terminal releases its latch before its ID is reused", async () => {
++  let agents = [agent("working")];
++  const herdr = {
++    request: async () => ({}),
++    agentList: async () => agents,
++    agentRead: async () => "",
++    agentSend: async () => {},
++    ping: async () => true,
++  } as unknown as HerdrClient;
++  const watcher = new Watcher(herdr, 1500);
++  const guard = new RepeatGuard();
++  const posts: { status: AgentStatus; context: string }[] = [];
++  const pending: Promise<void>[] = [];
++  watcher.on("transition", (t) => {
++    pending.push(feed(guard, posts, t.agent.terminal_id, t.to, t.to));
++  });
++  watcher.on("remove", (terminalId: string) => guard.clear(terminalId));
++
++  const poll = async () => {
++    await (watcher as unknown as { poll(): Promise<void> }).poll();
++    await Promise.all(pending.splice(0));
++  };
++  await poll();
++  agents = [agent("blocked")];
++  await poll();
++  assert.equal(posts.length, 1);
++
++  agents = [];
++  await poll();
++  agents = [agent("working")];
++  await poll();
++  agents = [agent("blocked")];
++  await poll();
++
++  assert.equal(posts.length, 2);
++  assert.deepEqual(posts.map((post) => post.status), ["blocked", "blocked"]);
++});
+diff --git a/src/repeat.ts b/src/repeat.ts
+--- /dev/null
++++ b/src/repeat.ts
+@@ -0,0 +1,73 @@
++import type { AgentStatus } from "./herdr.js";
++
++const MAX_NOTIFIED_TERMINALS = 1024;
++
++/**
++ * One notification per status stay: a transition into a status notifies,
++ * further transitions into the same held status notify nothing, and a
++ * transition into any other status re-arms the agent so re-entering notifies
++ * again.
++ *
++ * Keyed by terminal_id and status only — never by notification content. An
++ * earlier guard keyed on the pane excerpt, which keeps changing while the
++ * agent waits (clocks, counters, redraws), so every repeat looked new and one
++ * waiting agent was hailed every few minutes. Restarting the bridge resets
++ * this guard, but the watcher stays quiet while a status is unchanged, so a
++ * restart alone never re-posts.
++ */
++export class RepeatGuard {
++  private latest = new Map<string, { status: AgentStatus; episode: number }>();
++  private notified = new Map<string, number>(); // terminal_id -> episode posted for
++  private inFlight = new Map<string, symbol>(); // terminal_id -> delivery reservation
++
++  /** Record every transition before checking whether a delivery can start. */
++  private recordStatus(terminalId: string, status: AgentStatus): number {
++    const current = this.latest.get(terminalId);
++    if (current?.status === status) return current.episode;
++
++    const episode = (current?.episode ?? 0) + 1;
++    this.latest.set(terminalId, { status, episode });
++    this.notified.delete(terminalId);
++    return episode;
++  }
++
++  /** Clear held and in-flight state when a terminal disappears from the watcher. */
++  clear(terminalId: string): void {
++    this.latest.delete(terminalId);
++    this.notified.delete(terminalId);
++    this.inFlight.delete(terminalId);
++  }
++
++  /** Run a delivery for an eligible state and latch it only after current success. */
++  async notifyOnce(
++    terminalId: string,
++    status: AgentStatus,
++    deliver: () => Promise<boolean>,
++  ): Promise<boolean> {
++    const episode = this.recordStatus(terminalId, status);
++    if (this.inFlight.has(terminalId) || this.notified.get(terminalId) === episode) return false;
++
++    const reservation = Symbol();
++    this.inFlight.set(terminalId, reservation);
++    try {
++      if (!(await deliver()) || this.inFlight.get(terminalId) !== reservation) return false;
++      if (!this.markNotified(terminalId, status, episode)) return false;
++      return true;
++    } finally {
++      if (this.inFlight.get(terminalId) === reservation) this.inFlight.delete(terminalId);
 +    }
-+    lastSent.set(key, now);
++  }
 +
-     console.log(
-       `${t.from} → ${t.to}  [${t.agent.agent}] ${notification.title} (${t.agent.pane_id})`,
-     );
++  /** Latch only when the delivery still belongs to the terminal's current episode. */
++  private markNotified(terminalId: string, status: AgentStatus, episode: number): boolean {
++    const current = this.latest.get(terminalId);
++    if (!current || current.episode !== episode || current.status !== status) return false;
++
++    this.notified.set(terminalId, episode);
++    if (this.notified.size > MAX_NOTIFIED_TERMINALS) {
++      const oldest = this.notified.keys().next();
++      if (!oldest.done) this.notified.delete(oldest.value);
++    }
++    return true;
++  }
++}
+diff --git a/src/watcher.ts b/src/watcher.ts
+--- a/src/watcher.ts
++++ b/src/watcher.ts
+@@ -66 +66,4 @@
+-      if (!seen.has(id)) this.last.delete(id);
++      if (!seen.has(id)) {
++        this.last.delete(id);
++        this.emit("remove", id);
++      }
