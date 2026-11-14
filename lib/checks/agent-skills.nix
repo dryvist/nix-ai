@@ -6,9 +6,13 @@
 }:
 let
   helpers = import ./helpers.nix { inherit pkgs; };
+  sourceTable = import ../../modules/agent-skills/sources.nix;
 
   cfg = hmConfig.config.programs.agentSkills;
   sharedCfg = hmConfigAgentSkillsShared.config.programs.agentSkills;
+  claudeSourceSkillNames = pkgs.lib.unique (
+    pkgs.lib.concatLists (pkgs.lib.mapAttrsToList (_: source: source.claude) sourceTable)
+  );
   homeFileNames = builtins.attrNames hmConfig.config.home.file;
   # INDEX.md and GROUPS.json are generated manifests, not skill directories.
   manifests = [
@@ -61,13 +65,10 @@ in
         actual = builtins.length cfg.fromFlakeInputs > 0;
         expected = true;
       }
-      # `local` is no longer empty: file-organizer's upstream layout matches no
-      # discovery pattern, so it is wired by path. Assert the entry is present
-      # rather than pinning the whole attrset — a second local skill should not
-      # break this check, but silently losing this one should.
+      # Every table-selected skill from this source must be wired locally.
       {
         name = "agentSkills.local.file-organizer";
-        actual = cfg.local ? file-organizer;
+        actual = builtins.all (name: cfg.local ? ${name}) sourceTable.awesome-claude-skills.skills;
         expected = true;
       }
       {
@@ -81,21 +82,13 @@ in
       # skill from a harness rather than failing, so both are pinned.
       {
         name = "agentSkills.local.design-skills";
-        actual = cfg.local ? frontend-design && cfg.local ? canvas-design;
+        actual = builtins.all (name: cfg.local ? ${name}) sourceTable.anthropic-agent-skills.claude;
         expected = true;
       }
       {
         name = "agentSkills.claudeAlwaysListed";
         actual = builtins.sort builtins.lessThan cfg.claudeAlwaysListed;
-        expected = [
-          "canvas-design"
-          "find-skills"
-          "frontend-design"
-          "langfuse"
-          "migrate-to-langfuse"
-          "orca-emulator"
-          "orchestration"
-        ];
+        expected = builtins.sort builtins.lessThan claudeSourceSkillNames;
       }
       # The names above resolving to nothing is the silent failure: the option
       # still reads correctly while ~/.claude/skills stays empty and Claude
@@ -192,20 +185,23 @@ in
       !(builtins.elem ".codex/skills/browser-use" managedSkillEntries)
       || throw "browser-use skill deployed although its plugin is disabled";
     assert
-      builtins.elem ".codex/skills/langfuse" managedSkillEntries
-      || throw "langfuse skill not discovered from langfuse-skills input";
+      builtins.all (
+        name: builtins.elem ".codex/skills/${name}" managedSkillEntries
+      ) sourceTable.langfuse-skills.claude
+      || throw "Claude-listed Langfuse skills not discovered from langfuse-skills input";
     assert
-      builtins.elem ".codex/skills/orchestration" managedSkillEntries
-      || throw "orchestration skill not discovered from the targeted Orca input";
-    assert
-      builtins.elem ".codex/skills/orca-emulator" managedSkillEntries
-      || throw "orca-emulator skill not discovered from the targeted Orca input";
+      builtins.all (
+        name: builtins.elem ".codex/skills/${name}" managedSkillEntries
+      ) sourceTable.orca-skills.skills
+      || throw "Selected Orca skills not discovered from the targeted Orca input";
     assert
       !(builtins.elem ".codex/skills/orca-cli" managedSkillEntries)
       || throw "orca-cli skill deployed although it was not selected";
     assert
-      builtins.elem ".codex/skills/file-organizer" managedSkillEntries
-      || throw "file-organizer skill not deployed from programs.agentSkills.local";
+      builtins.all (
+        name: builtins.elem ".codex/skills/${name}" managedSkillEntries
+      ) sourceTable.awesome-claude-skills.skills
+      || throw "Table-selected local skills not deployed";
     # The INDEX is what the loader-less harnesses (Copilot, cecli) actually read,
     # so a flat rebuild there is a silent regression for them specifically.
     assert
