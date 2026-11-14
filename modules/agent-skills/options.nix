@@ -4,6 +4,9 @@
 { lib, ... }:
 
 let
+  sources = import ./sources.nix;
+  claudeSkills = lib.unique (lib.concatLists (lib.mapAttrsToList (_: source: source.claude) sources));
+
   componentModule = lib.types.submodule {
     options = {
       name = lib.mkOption { type = lib.types.str; };
@@ -144,15 +147,7 @@ in
     # be listed twice.
     claudeAlwaysListed = lib.mkOption {
       type = lib.types.listOf lib.types.str;
-      default = [
-        "canvas-design"
-        "find-skills"
-        "frontend-design"
-        "langfuse"
-        "migrate-to-langfuse"
-        "orca-emulator"
-        "orchestration"
-      ];
+      default = claudeSkills;
       example = [ "canvas-design" ];
       description = "Skill names to link into ~/.claude/skills, which Claude Code reads in every repository.";
     };

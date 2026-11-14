@@ -20,60 +20,23 @@
   herdr-hail-src,
 }:
 let
-  # Skill-source flake inputs, keyed by the name marketplaceInputs exposes.
-  # Each value is the flake input it is read from. Only mattpocock differs
-  # between the two names.
-  skillSourceInputs = {
-    jacobpevans-cc-plugins = "jacobpevans-cc-plugins";
-    browser-use-skills = "browser-use-skills";
-    karpathy-skills = "karpathy-skills";
-    mattpocock = "mattpocock-skills";
-    orca-skills = "orca-skills";
-    modern-web-guidance = "modern-web-guidance";
-    dashmotion = "dashmotion";
-    vercel-skills = "find-skills-src";
-    drawio-skill = "drawio-skill";
-    ponytail = "ponytail";
-    claude-channel-slack = "claude-channel-slack";
-    last30days-skill = "last30days-skill";
-    autoresearch = "autoresearch";
-    context-engineering-kit = "context-engineering-kit";
-    managing-dependencies = "managing-dependencies";
-    langfuse-skills = "langfuse-skills";
-    gh-stack = "gh-stack";
-  };
+  # One skill-source entry per marketplace name, with its flake input and the
+  # skills selected from it. See modules/agent-skills/sources.nix.
+  skillSources = import ../modules/agent-skills/sources.nix;
+  # The flake input each source is read from. Marketplace sources live inside
+  # nix-claude-code; the rest are this flake's own inputs (`karpathy-skills`,
+  # for one, is not yet promoted to nix-claude-code).
+  skillSourceRoots = builtins.mapAttrs (
+    _: source:
+    if builtins.hasAttr source.input inputs then
+      inputs.${source.input}
+    else
+      nix-claude-code.inputs.${source.input}
+  ) skillSources;
+  marketplaceInputs = skillSourceRoots;
   # Flake inputs passed to modules as module args. browser-use-skills is also
-  # a marketplace entry (see skillSourceInputs).
+  # a marketplace entry (see sources.nix).
   inherit (inputs) awesome-claude-skills browser-use-skills;
-  # Marketplace flake inputs now live inside nix-claude-code. Surface the
-  # full set here so non-Claude consumers (agent-skills, codex, antigravity-cli) can
-  # still discover plugins/skills without each consumer having to reach into
-  # `nix-claude-code.inputs` themselves. The catalog of marketplace names
-  # is owned by nix-claude-code; this attrset just selects what nix-ai
-  # still needs. `karpathy-skills` lives in nix-ai (not yet promoted to
-  # nix-claude-code) so it's spliced in directly.
-  marketplaceInputs = {
-    inherit (nix-claude-code.inputs)
-      anthropic-agent-skills
-      bills-claude-skills
-      bitwarden-marketplace
-      huggingface-skills
-      vct-cribl-pack-validator-skills
-      cc-dev-tools
-      cc-marketplace
-      claude-code-plugins-plus
-      claude-code-workflows
-      claude-plugins-official
-      claude-skills
-      lunar-claude
-      obsidian-skills
-      openai-codex
-      axton-obsidian-visual-skills
-      superpowers-marketplace
-      visual-explainer-marketplace
-      ;
-  }
-  // builtins.mapAttrs (_: name: inputs.${name}) skillSourceInputs;
   # Args a PARTIAL export sets at default priority, so any combination of
   # exports — and a partial one composed with `default` — merges instead of
   # failing "defined multiple times". A consumer that imports
@@ -131,6 +94,7 @@ in
         browser-use-skills
         awesome-claude-skills
         marketplaceInputs
+        skillSourceRoots
         llm-agents
         herdr-hail-src
         vct-cribl-cli
@@ -181,7 +145,7 @@ in
   agent-skills = {
     imports = [ ../modules/agent-skills ];
     _module.args = partialArgs {
-      inherit marketplaceInputs awesome-claude-skills;
+      inherit marketplaceInputs skillSourceRoots;
     };
   };
 
@@ -212,6 +176,7 @@ in
         agentNofile
         llm-agents
         marketplaceInputs
+        skillSourceRoots
         homelab-contracts
         awesome-claude-skills
         ;
@@ -236,6 +201,7 @@ in
         nix-codex-launcher-src
         agentNofile
         marketplaceInputs
+        skillSourceRoots
         llm-agents
         homelab-contracts
         awesome-claude-skills
@@ -254,6 +220,7 @@ in
       inherit
         nix-claude-code
         marketplaceInputs
+        skillSourceRoots
         homelab-contracts
         awesome-claude-skills
         ;
@@ -282,6 +249,7 @@ in
       inherit
         nix-claude-code
         marketplaceInputs
+        skillSourceRoots
         homelab-contracts
         awesome-claude-skills
         ;
@@ -306,6 +274,7 @@ in
       inherit
         nix-claude-code
         marketplaceInputs
+        skillSourceRoots
         llm-agents
         homelab-contracts
         awesome-claude-skills

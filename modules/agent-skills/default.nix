@@ -8,15 +8,63 @@
   lib,
   pkgs,
   marketplaceInputs,
-  awesome-claude-skills,
+  skillSourceRoots,
   ...
 }:
 
 let
+  sources = import ./sources.nix;
   pluginTiers = import ../claude/plugins {
     inherit lib marketplaceInputs;
   };
   inherit (pluginTiers) enabledPlugins;
+
+  # Sources with an explicit `skills` list are wired by path in `local` below;
+  # every other source hands its whole bundle to discovery.
+  selectedSources = lib.filterAttrs (_: source: builtins.isList source.skills) sources;
+  discoveredInputs = builtins.removeAttrs marketplaceInputs (builtins.attrNames selectedSources);
+
+  # A selected skill lives at <input>/skills/<name>/SKILL.md, or at
+  # <input>/<name>/SKILL.md when the source ships a single skill at its root.
+  skillFileCandidates = sourceName: skillName: [
+    "${skillSourceRoots.${sourceName}}/skills/${skillName}/SKILL.md"
+    "${skillSourceRoots.${sourceName}}/${skillName}/SKILL.md"
+  ];
+  matchingSkillFiles =
+    sourceName: skillName:
+    builtins.filter builtins.pathExists (skillFileCandidates sourceName skillName);
+  skillFile =
+    sourceName: skillName:
+    let
+      candidates = skillFileCandidates sourceName skillName;
+      matches = matchingSkillFiles sourceName skillName;
+    in
+    if matches == [ ] then builtins.head candidates else builtins.head matches;
+
+  selectedSkillRefs = lib.concatMap (
+    sourceName:
+    map (name: {
+      inherit name sourceName;
+    }) sources.${sourceName}.skills
+  ) (builtins.attrNames selectedSources);
+  namedSkillRefs = lib.concatMap (
+    sourceName:
+    let
+      source = sources.${sourceName};
+      explicitNames = if builtins.isList source.skills then source.skills else [ ];
+    in
+    map (name: {
+      inherit name sourceName;
+    }) (lib.unique (explicitNames ++ source.claude))
+  ) (builtins.attrNames sources);
+  invalidNamedSkills = builtins.filter (
+    skill:
+    builtins.length (matchingSkillFiles skill.sourceName skill.name) != 1
+    || (
+      builtins.isList sources.${skill.sourceName}.skills
+      && !(builtins.elem skill.name sources.${skill.sourceName}.skills)
+    )
+  ) namedSkillRefs;
 
   sharedSkills = import ./discovery.nix {
     inherit
@@ -24,12 +72,7 @@ let
       pkgs
       enabledPlugins
       ;
-    # Select Anthropic, Orca and Chrome skills below instead of discovering their whole bundles.
-    marketplaceInputs = builtins.removeAttrs marketplaceInputs [
-      "anthropic-agent-skills"
-      "orca-skills"
-      "modern-web-guidance"
-    ];
+    marketplaceInputs = discoveredInputs;
   };
 in
 {
@@ -74,24 +117,23 @@ in
   ];
 
   config = {
+    assertions = [
+      {
+        assertion = invalidNamedSkills == [ ];
+        message = "Agent Skills source table names must resolve to skill directories containing SKILL.md: ${builtins.toJSON invalidNamedSkills}";
+      }
+    ];
+
     programs.agentSkills = {
       enable = lib.mkDefault true;
       fromFlakeInputs = lib.mkDefault sharedSkills;
 
-      # Targeted Anthropic sources preserve each complete skill directory.
-      # file-organizer matches no discovery pattern.
-      local = {
-        file-organizer = "${awesome-claude-skills}/file-organizer/SKILL.md";
-        frontend-design = "${marketplaceInputs.anthropic-agent-skills}/skills/frontend-design/SKILL.md";
-        canvas-design = "${marketplaceInputs.anthropic-agent-skills}/skills/canvas-design/SKILL.md";
-        skill-creator = "${marketplaceInputs.anthropic-agent-skills}/skills/skill-creator/SKILL.md";
-        mcp-builder = "${marketplaceInputs.anthropic-agent-skills}/skills/mcp-builder/SKILL.md";
-        # These two Orca skills are selected by name so its other skills are not deployed.
-        orca-emulator = "${marketplaceInputs.orca-skills}/skills/orca-emulator/SKILL.md";
-        orchestration = "${marketplaceInputs.orca-skills}/skills/orchestration/SKILL.md";
-        # The same bundle's chrome-extensions skill is not wanted.
-        modern-web-guidance = "${marketplaceInputs.modern-web-guidance}/skills/modern-web-guidance/SKILL.md";
-      };
+      local = lib.listToAttrs (
+        map (skill: {
+          inherit (skill) name;
+          value = skillFile skill.sourceName skill.name;
+        }) selectedSkillRefs
+      );
 
       # Category map for the generated INDEX.md and, through `groups` below,
       # the deployment groups `activeGroups` gates. Every deployed skill is
