@@ -24,6 +24,11 @@
     "backend-development@claude-code-workflows" = true;
   };
 
+  # Architecture diagrams grounded in the repo's manifests and IaC.
+  diagrams = {
+    "engineer-design-diagram@claude-code-plugins-plus" = true;
+  };
+
   # Building MCP servers / Agent SDK apps.
   mcp-dev = {
     "mcp-server-dev@claude-plugins-official" = true;

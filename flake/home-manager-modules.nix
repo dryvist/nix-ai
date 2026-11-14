@@ -31,6 +31,8 @@ let
     orca-skills = "orca-skills";
     modern-web-guidance = "modern-web-guidance";
     dashmotion = "dashmotion";
+    vercel-skills = "find-skills-src";
+    drawio-skill = "drawio-skill";
     ponytail = "ponytail";
     claude-channel-slack = "claude-channel-slack";
     last30days-skill = "last30days-skill";

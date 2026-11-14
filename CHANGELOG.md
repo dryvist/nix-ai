@@ -1,5 +1,17 @@
 # Changelog
 
+## [8.37.0](https://github.com/dryvist/nix-ai/compare/v8.36.0...v8.37.0) (2026-11-14)
+
+
+### Features
+
+* **agent-skills:** add find-skills and a diagrams group ([#3015](https://github.com/dryvist/nix-ai/issues/3015)) ([da41b79](https://github.com/dryvist/nix-ai/commit/da41b790bbfc7c20c10a81334f0bd6a65d6dcdee))
+
+
+### Bug Fixes
+
+* **flake:** resolve ai-llm-prompts from its current owner ([#3008](https://github.com/dryvist/nix-ai/issues/3008)) ([994fae0](https://github.com/dryvist/nix-ai/commit/994fae06f7486aa10ebe917edea19a215f1c7d9e))
+
 ## [8.36.0](https://github.com/dryvist/nix-ai/compare/v8.35.0...v8.36.0) (2026-11-14)
 
 
