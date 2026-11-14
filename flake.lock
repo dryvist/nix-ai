@@ -25,15 +25,15 @@
         ]
       },
       "locked": {
-        "lastModified": 1794262646,
-        "narHash": "sha256-q5lU9lmN0sAUz1K/Lns2+o5cNWYu4PnCjvQK/JDyWek=",
-        "owner": "JacobPEvans-ai",
+        "lastModified": 1794625557,
+        "narHash": "sha256-2yh17GBrQyCOSQSsu8Invfnj4ZjxzG5ultLXtVgqxFs=",
+        "owner": "jpe-ai-agents",
         "repo": "ai-llm-prompts",
-        "rev": "3ec6a8b78aa7d8ffe28af4c220cea1a508fce704",
+        "rev": "8b3cde6e03b6fed504acb1e8399713b632922d14",
         "type": "github"
       },
       "original": {
-        "owner": "JacobPEvans-ai",
+        "owner": "jpe-ai-agents",
         "ref": "v1",
         "repo": "ai-llm-prompts",
         "type": "github"
