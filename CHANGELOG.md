@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.37.1](https://github.com/dryvist/nix-ai/compare/v8.37.0...v8.37.1) (2026-11-14)
+
+
+### Bug Fixes
+
+* **deps:** update the jacobpevans-cc-plugins input ([0854c32](https://github.com/dryvist/nix-ai/commit/0854c32c21cf4df961b607915266612658c29383))
+
 ## [8.37.0](https://github.com/dryvist/nix-ai/compare/v8.36.0...v8.37.0) (2026-11-14)
 
 
