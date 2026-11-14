@@ -87,13 +87,13 @@
     # informational only — package.nix has its own renovate-managed
     # version constant.
     # renovate: datasource=pypi depName=cecli-dev
-    cecli = "1.10.1";
+    cecli = "1.12.1";
 
     # Qwen Code — Alibaba's terminal coding agent. Brew-installed via
     # nix-darwin's homebrew.brews; this pin documents the expected
     # version so consumers can sanity-check what brew has.
     # renovate: datasource=github-releases depName=QwenLM/qwen-code
-    qwen-code = "0.26.4";
+    qwen-code = "0.26.9";
 
     # LangGraph platform CLI — brew-installed via nix-darwin homebrew.brews;
     # this pin documents the expected version so consumers can sanity-check
