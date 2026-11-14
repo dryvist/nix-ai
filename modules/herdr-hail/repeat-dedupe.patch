@@ -1,3 +1,4 @@
+diff --git a/src/index.ts b/src/index.ts
 --- a/src/index.ts
 +++ b/src/index.ts
 @@ -5,0 +6 @@
@@ -70,13 +71,15 @@
 +        }
 +      }
 +    });
+diff --git a/src/notification.test.ts b/src/notification.test.ts
 --- a/src/notification.test.ts
 +++ b/src/notification.test.ts
 @@ -4,0 +5 @@
 +import "./repeat.test.js";
---- a/src/repeat.test.ts
+diff --git a/src/repeat.test.ts b/src/repeat.test.ts
+--- /dev/null
 +++ b/src/repeat.test.ts
-@@ -0,0 +1,180 @@
+@@ -0,0 +1,195 @@
 +import assert from "node:assert/strict";
 +import { test } from "node:test";
 +import type { Agent, AgentStatus, HerdrClient } from "./herdr.js";
@@ -168,6 +171,21 @@
 +  assert.equal(await first, true);
 +});
 +
++test("an in-flight completion cannot latch a previous status episode", async () => {
++  const guard = new RepeatGuard();
++  let resolveDelivery!: (delivered: boolean) => void;
++  const first = guard.notifyOnce(
++    "t1",
++    "blocked",
++    () => new Promise<boolean>((resolve) => (resolveDelivery = resolve)),
++  );
++
++  assert.equal(await guard.notifyOnce("t1", "working", async () => true), false);
++  resolveDelivery(true);
++  assert.equal(await first, false);
++  assert.equal(await guard.notifyOnce("t1", "blocked", async () => true), true);
++});
++
 +test("agents in different terminals hold independent latches", async () => {
 +  const guard = new RepeatGuard();
 +  const posts: { status: AgentStatus; context: string }[] = [];
@@ -257,9 +275,10 @@
 +  assert.equal(posts.length, 2);
 +  assert.deepEqual(posts.map((post) => post.status), ["blocked", "blocked"]);
 +});
---- a/src/repeat.ts
+diff --git a/src/repeat.ts b/src/repeat.ts
+--- /dev/null
 +++ b/src/repeat.ts
-@@ -0,0 +1,66 @@
+@@ -0,0 +1,73 @@
 +import type { AgentStatus } from "./herdr.js";
 +
 +const MAX_NOTIFIED_TERMINALS = 1024;
@@ -278,54 +297,62 @@
 + * restart alone never re-posts.
 + */
 +export class RepeatGuard {
-+  private notified = new Map<string, AgentStatus>(); // terminal_id -> status posted for
++  private latest = new Map<string, { status: AgentStatus; episode: number }>();
++  private notified = new Map<string, number>(); // terminal_id -> episode posted for
 +  private inFlight = new Map<string, symbol>(); // terminal_id -> delivery reservation
 +
-+  /**
-+   * Whether a transition into `to` may notify. Seeing any status other than
-+   * the one last posted for clears the latch: the agent left the state it was
-+   * notified for, so entering again notifies again.
-+   */
-+  mayNotify(terminalId: string, to: AgentStatus): boolean {
-+    const latched = this.notified.get(terminalId);
-+    if (latched === to) return false;
++  /** Record every transition before checking whether a delivery can start. */
++  private recordStatus(terminalId: string, status: AgentStatus): number {
++    const current = this.latest.get(terminalId);
++    if (current?.status === status) return current.episode;
++
++    const episode = (current?.episode ?? 0) + 1;
++    this.latest.set(terminalId, { status, episode });
 +    this.notified.delete(terminalId);
-+    return true;
++    return episode;
 +  }
 +
 +  /** Clear held and in-flight state when a terminal disappears from the watcher. */
 +  clear(terminalId: string): void {
++    this.latest.delete(terminalId);
 +    this.notified.delete(terminalId);
 +    this.inFlight.delete(terminalId);
 +  }
 +
-+  /** Run a delivery for an eligible state and latch it only after success. */
++  /** Run a delivery for an eligible state and latch it only after current success. */
 +  async notifyOnce(
 +    terminalId: string,
 +    status: AgentStatus,
 +    deliver: () => Promise<boolean>,
 +  ): Promise<boolean> {
-+    if (this.inFlight.has(terminalId) || !this.mayNotify(terminalId, status)) return false;
++    const episode = this.recordStatus(terminalId, status);
++    if (this.inFlight.has(terminalId) || this.notified.get(terminalId) === episode) return false;
++
 +    const reservation = Symbol();
 +    this.inFlight.set(terminalId, reservation);
 +    try {
 +      if (!(await deliver()) || this.inFlight.get(terminalId) !== reservation) return false;
-+      this.markNotified(terminalId, status);
++      if (!this.markNotified(terminalId, status, episode)) return false;
 +      return true;
 +    } finally {
 +      if (this.inFlight.get(terminalId) === reservation) this.inFlight.delete(terminalId);
 +    }
 +  }
 +
-+  /** Record that `terminalId` was notified while holding `status`. */
-+  markNotified(terminalId: string, status: AgentStatus): void {
-+    this.notified.set(terminalId, status);
++  /** Latch only when the delivery still belongs to the terminal's current episode. */
++  private markNotified(terminalId: string, status: AgentStatus, episode: number): boolean {
++    const current = this.latest.get(terminalId);
++    if (!current || current.episode !== episode || current.status !== status) return false;
++
++    this.notified.set(terminalId, episode);
 +    if (this.notified.size > MAX_NOTIFIED_TERMINALS) {
 +      const oldest = this.notified.keys().next();
 +      if (!oldest.done) this.notified.delete(oldest.value);
 +    }
++    return true;
 +  }
 +}
+diff --git a/src/watcher.ts b/src/watcher.ts
 --- a/src/watcher.ts
 +++ b/src/watcher.ts
 @@ -66 +66,4 @@
