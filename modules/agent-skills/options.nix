@@ -146,6 +146,7 @@ in
       type = lib.types.listOf lib.types.str;
       default = [
         "canvas-design"
+        "find-skills"
         "frontend-design"
         "langfuse"
         "migrate-to-langfuse"
