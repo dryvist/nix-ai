@@ -187,6 +187,18 @@
       flake = false;
     };
 
+    # find-skills: search the open skills ecosystem. Cross-tool only.
+    vercel-skills = {
+      url = "github:vercel-labs/skills";
+      flake = false;
+    };
+
+    # draw.io diagrams from structured sources. Cross-tool only.
+    drawio-skill = {
+      url = "github:Agents365-ai/drawio-skill";
+      flake = false;
+    };
+
     # Animated technical diagrams as self-contained HTML+SVG. Cross-tool only.
     dashmotion = {
       url = "github:csthink/dashmotion";

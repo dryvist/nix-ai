@@ -92,6 +92,7 @@ Packs are defined once in [`modules/claude/plugins/packs.nix`](../../modules/cla
 | `cribl` | cribl-pack-validator | `cribl`, `cc-edge-*`, `cc-stream-*` |
 | `obsidian` | obsidian, obsidian-visual-skills, visual-explainer | Personal note-vault repos |
 | `browser` | browser-use | Browser-automation repos |
+| `diagrams` | engineer-design-diagram | Repos that need architecture diagrams |
 | `api` | api-design-principles, rest-api-design, better-auth, backend-development | API/backend repos |
 | `mcp-dev` | mcp-server-dev, agent-sdk-dev | Repos building MCP servers / SDK apps |
 | `modernization` | code-modernization | Legacy-uplift repos |
