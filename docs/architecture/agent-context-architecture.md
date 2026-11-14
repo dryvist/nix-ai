@@ -136,6 +136,10 @@ A repository declares its groups once:
 skill-groups: [core, homelab]
 ```
 
+`iac`, `security`, `observability`, `splunk` and `web` are opt-in: a repository
+that builds a site or user-facing HTML declares `web` for the Chrome web-platform
+guidance.
+
 Everything else is generated from that declaration plus the group→skill map
 nix-ai publishes at `~/.agents/skills/GROUPS.json` and the group→MCP-server map
 at `~/.agents/skills/GROUP-MCP.json` (`programs.agentSkills.groupMcpServers`):

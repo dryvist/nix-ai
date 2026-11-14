@@ -24,10 +24,11 @@ let
       pkgs
       enabledPlugins
       ;
-    # Select Anthropic and Orca skills below instead of discovering their whole bundles.
+    # Select Anthropic, Orca and Chrome skills below instead of discovering their whole bundles.
     marketplaceInputs = builtins.removeAttrs marketplaceInputs [
       "anthropic-agent-skills"
       "orca-skills"
+      "modern-web-guidance"
     ];
   };
 in
@@ -88,6 +89,8 @@ in
         # These two Orca skills are selected by name so its other skills are not deployed.
         orca-emulator = "${marketplaceInputs.orca-skills}/skills/orca-emulator/SKILL.md";
         orchestration = "${marketplaceInputs.orca-skills}/skills/orchestration/SKILL.md";
+        # The same bundle's chrome-extensions skill is not wanted.
+        modern-web-guidance = "${marketplaceInputs.modern-web-guidance}/skills/modern-web-guidance/SKILL.md";
       };
 
       # Category map for the generated INDEX.md and, through `groups` below,
@@ -99,6 +102,7 @@ in
       #   homelab   — Proxmox, OpenTofu, Ansible, Terrakube, OpenBao, network
       #   ai        — LLM serving, routing, Hugging Face, delegation to Codex
       #   docs      — documentation sites, diagrams, long-form writing
+      #   web       — HTML/CSS/client JS for sites and deliverables (opt-in)
       #   research  — code and paper search, reading, summarising
       #   workspace — office formats, design, art, personal organisation
       categories = lib.mkDefault (import ./categories.nix);
@@ -113,16 +117,16 @@ in
       # the agent-skills check fails the build the moment one is not.
       groups = lib.mkDefault config.programs.agentSkills.categories;
 
-      # B6 "topic-scoped skill groups": `iac`, `security`, `observability`, and
-      # `splunk` are opt-in per repository (repo-link/agent-skill-groups.sh links
+      # B6 "topic-scoped skill groups": `iac`, `security`, `observability`,
+      # `splunk`, and `web` are opt-in per repository (repo-link/agent-skill-groups.sh links
       # them in when the repo's AGENTS.md declares the group), not part of the
       # global always-installed set. Every other category still deploys
       # everywhere — unchanged default. A host that already sets activeGroups
       # keeps its own list (mkDefault).
       activeGroups = lib.mkDefault (
-        builtins.filter (g: g != "iac" && g != "security" && g != "observability" && g != "splunk") (
-          builtins.attrNames config.programs.agentSkills.categories
-        )
+        builtins.filter (
+          g: g != "iac" && g != "security" && g != "observability" && g != "splunk" && g != "web"
+        ) (builtins.attrNames config.programs.agentSkills.categories)
       );
     };
   };
