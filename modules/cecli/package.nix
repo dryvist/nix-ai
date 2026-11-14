@@ -102,7 +102,7 @@ let
   };
 
   # renovate: datasource=pypi depName=cecli-dev
-  version = "1.10.1";
+  version = "1.12.1";
 in
 python3Packages.buildPythonApplication {
   pname = "cecli";

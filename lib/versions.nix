@@ -27,19 +27,19 @@ in
   # GSD Core (@opengsd/gsd-core): pins the npm tarball the gsd-core-skills
   # package generates Claude Code / Codex harness files from.
   # renovate: datasource=npm depName=@opengsd/gsd-core
-  gsdCore = "1.19.0";
+  gsdCore = "1.20.1";
   # renovate: datasource=npm depName=@githubnext/github-copilot-cli
   ghCopilot = "0.1.36";
   # renovate: datasource=npm depName=chatgpt-cli
   chatgptCli = "3.3.0";
   # renovate: datasource=npm depName=claude-flow
-  claudeFlow = "3.66.0";
+  claudeFlow = "3.72.2";
   # renovate: datasource=npm depName=@googleworkspace/cli
   gwsCli = "0.22.5";
   # renovate: datasource=npm depName=@openwhispr/cli
   openwhisprCli = "0.3.0";
   # renovate: datasource=npm depName=langfuse-cli
-  langfuseCli = "1.2.4";
+  langfuseCli = "1.3.1";
   # Agent-config synchronizer. The npm package is dyoshikawa/rulesync; at least
   # six unrelated projects share the name, so pin and verify against that repo.
   # renovate: datasource=npm depName=rulesync
@@ -51,11 +51,11 @@ in
 
   # MCP servers (npm)
   # renovate: datasource=npm depName=mcp-remote
-  mcpRemote = "0.15.2";
+  mcpRemote = "0.16.5";
   # renovate: datasource=npm depName=@modelcontextprotocol/server-everything
-  mcpEverything = "2.1.0";
+  mcpEverything = "2.2.1";
   # renovate: datasource=npm depName=@modelcontextprotocol/server-filesystem
-  mcpFilesystem = "2.1.0";
+  mcpFilesystem = "2.2.0";
   # renovate: datasource=npm depName=mcp-server-apple-events
   mcpAppleEvents = "1.6.2";
   # renovate: datasource=npm depName=@democratize-technology/vikunja-mcp
@@ -77,13 +77,13 @@ in
 
   # MCP servers (pypi)
   # renovate: datasource=pypi depName=mcp-server-time
-  mcpServerTime = "2026.10.28";
+  mcpServerTime = "2026.11.4";
   # renovate: datasource=pypi depName=fabric-mcp
   fabricMcp = "1.3.7";
   # renovate: datasource=pypi depName=google-workspace-mcp
   gwsMcp = "2.0.9";
   # renovate: datasource=pypi depName=unifi-mcp-server
-  unifiMcpServer = "0.7.0";
+  unifiMcpServer = "0.8.0";
 
   # MCP servers (uvx from git — not published to PyPI or npm)
   # Consumed as git+https://github.com/basher83/zammad-mcp.git@v<version>; the
@@ -101,7 +101,7 @@ in
   # mlx-core group). renovate.json5 blocks transformers 5.13.0, which breaks
   # mlx-lm at import; the rule there carries the reproduction detail.
   # renovate: datasource=pypi depName=parakeet-mlx
-  parakeetMlx = "0.5.3";
+  parakeetMlx = "0.7.0";
   mlxVlmInstallSpec =
     let
       package = uvLock.package "mlx-vlm";
@@ -123,7 +123,7 @@ in
   # nixpkgs so it tracks the upstream release train; nixpkgs lags by months
   # and builds it from source with a large test closure.
   # renovate: datasource=pypi depName=litellm
-  litellm = "1.106.6";
+  litellm = "1.108.2";
 
   # Fabric Go CLI: Renovate tracks the fabric-src input; use its locked tag.
   fabric = builtins.head (
@@ -133,11 +133,11 @@ in
   # FluidAudio CLI (github-releases). Built from source at home-manager
   # activation time, not a sandboxed Nix derivation — see modules/fluidaudio.nix.
   # renovate: datasource=github-releases depName=FluidInference/FluidAudio
-  fluidAudio = "0.18.0";
+  fluidAudio = "0.18.2";
 
   # ZCode CLI (github-releases), built from this tag by modules/zcode/package.nix.
   # fix-renovate-hashes.yml refreshes the source and pnpm dependency hashes in
   # that file after a Renovate bump; the zcode-build check builds it.
   # renovate: datasource=github-releases depName=zai-org/ZCode
-  zcode = "v3.14.3";
+  zcode = "v3.17.2";
 }

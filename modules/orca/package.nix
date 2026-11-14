@@ -8,7 +8,7 @@
 stdenvNoCC.mkDerivation rec {
   pname = "orca";
   # renovate: datasource=github-releases depName=stablyai/orca
-  version = "1.4.245";
+  version = "1.4.252";
 
   src = fetchurl {
     url = "https://github.com/stablyai/orca/releases/download/v${version}/orca-macos-arm64.dmg";
