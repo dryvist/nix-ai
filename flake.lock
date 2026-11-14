@@ -475,6 +475,22 @@
         "type": "github"
       }
     },
+    "drawio-skill": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1793517968,
+        "narHash": "sha256-ksqi4HJ/Z6baDoWNkoXLvGNfKMFK8lbsS3Zp5aMRfuU=",
+        "owner": "Agents365-ai",
+        "repo": "drawio-skill",
+        "rev": "1f59eae2ca4740ed72a195279469fb58fa39d9e0",
+        "type": "github"
+      },
+      "original": {
+        "owner": "Agents365-ai",
+        "repo": "drawio-skill",
+        "type": "github"
+      }
+    },
     "dryvist-github": {
       "inputs": {
         "git-hooks": "git-hooks",
@@ -530,6 +546,22 @@
         "owner": "danielmiessler",
         "ref": "v1.4.524",
         "repo": "fabric",
+        "type": "github"
+      }
+    },
+    "find-skills-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1793871261,
+        "narHash": "sha256-IknOGjSczICbpqxWRoH5YYffg8VT5YCT5EdXUGuLssU=",
+        "owner": "vercel-labs",
+        "repo": "skills",
+        "rev": "cabe07254cddf16a3a650253f0ba03d543d8a86e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "vercel-labs",
+        "repo": "skills",
         "type": "github"
       }
     },
@@ -1601,7 +1633,9 @@
         "claude-code-plugins": "claude-code-plugins_2",
         "context-engineering-kit": "context-engineering-kit",
         "dashmotion": "dashmotion",
+        "drawio-skill": "drawio-skill",
         "fabric-src": "fabric-src",
+        "find-skills-src": "find-skills-src",
         "gh-stack": "gh-stack",
         "herdr-hail-src": "herdr-hail-src",
         "herdr-remote-src": "herdr-remote-src",
