@@ -1,5 +1,19 @@
 # Changelog
 
+## [8.36.0](https://github.com/dryvist/nix-ai/compare/v8.35.0...v8.36.0) (2026-11-14)
+
+
+### Features
+
+* **agent-skills:** add web skill group with modern-web-guidance ([#2999](https://github.com/dryvist/nix-ai/issues/2999)) ([2a2afa4](https://github.com/dryvist/nix-ai/commit/2a2afa496c11c3b815fac99c23c83c7f29b22ed7))
+* **nixos:** read SSH CA trust and host certificate from fixed paths ([#3001](https://github.com/dryvist/nix-ai/issues/3001)) ([ccb8e25](https://github.com/dryvist/nix-ai/commit/ccb8e256ad936c08024a11af32b1b1f50d395a37))
+
+
+### Bug Fixes
+
+* **deps:** update opentelemetry-api to 1.45.2 ([#3003](https://github.com/dryvist/nix-ai/issues/3003)) ([769bc3e](https://github.com/dryvist/nix-ai/commit/769bc3e01b186db08ada699078f30700ccbc38ca))
+* **herdr-hail:** notify once per waiting state with an actionable reply ([#2972](https://github.com/dryvist/nix-ai/issues/2972)) ([16751b4](https://github.com/dryvist/nix-ai/commit/16751b4a73f6806ece0d0b02aad01fa8f91207a5))
+
 ## [8.35.0](https://github.com/dryvist/nix-ai/compare/v8.34.0...v8.35.0) (2026-11-13)
 
 
