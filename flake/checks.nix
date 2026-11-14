@@ -56,6 +56,10 @@ in
       # (x86_64-linux) like every other check so a single linux runner covers it.
       fabric-ai-build = self.packages.${system}.fabric-ai;
 
+      # herdr-hail sets doCheck = true, which runs npm test after compiling its
+      # patched TypeScript. Alias it as a check so the dedupe tests execute in CI.
+      herdr-hail-build = self.packages.${system}.herdr-hail;
+
       # Same reason: builds ZCode at the lib/versions.nix pin, verifying the
       # source and pnpm dependency hashes, then runs the installed CLI.
       zcode-build =

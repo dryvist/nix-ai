@@ -21,6 +21,13 @@ let
     ) null renderedConfig.litellm_settings.context_window_fallbacks;
   small = routeFor "small";
   smallRouter = routeFor "small-homelab";
+  smallNoThinking = routeFor "small-no-thinking";
+  smallNoThinkingRung = rungFor "small-no-thinking-homelab";
+  noThinkingBody = {
+    chat_template_kwargs = {
+      enable_thinking = false;
+    };
+  };
   contracts = hmConfigStaticServing.config.programs.mlx.staticResidentContracts;
   small9b = contracts."mlx-community/Qwen3.5-9B-OptiQ-4bit";
   residentRoles = lib.unique (
@@ -58,4 +65,22 @@ in
       helpers.mkMarker "check-mlx-static-role-router-fallbacks" "every static resident role falls back to its own <role>-homelab router rung, which forwards the role name to the router"
     else
       throw "every static resident role must fall back to its <role>-homelab router rung; missing: ${builtins.toJSON rolesWithoutRouterFallback}";
+
+  mlx-static-no-thinking-alias =
+    if
+      smallNoThinking.litellm_params.model == small.litellm_params.model
+      && smallNoThinking.litellm_params.api_base == small.litellm_params.api_base
+      && smallNoThinking.litellm_params.extra_body == noThinkingBody
+      && smallNoThinking.model_info == small.model_info
+      && !(small.litellm_params ? extra_body)
+      && (fallbackFor "small-no-thinking")."small-no-thinking" == [ "small-no-thinking-homelab" ]
+      && (windowFallbackFor "small-no-thinking")."small-no-thinking" == [ "small-no-thinking-homelab" ]
+      && smallNoThinkingRung != null
+      && smallNoThinkingRung.litellm_params.model == "openai/small"
+      && smallNoThinkingRung.litellm_params.api_base == "os.environ/LLM_ROUTER_URL"
+      && smallNoThinkingRung.litellm_params.extra_body == noThinkingBody
+    then
+      helpers.mkMarker "check-mlx-static-no-thinking-alias" "small-no-thinking shares the small resident's deployment and sends thinking-off per request; its overflow and router fallback forward small with the same body, and small keeps the worker default"
+    else
+      throw "small-no-thinking must mirror the small route with extra_body enable_thinking = false, fall back to small-no-thinking-homelab, which forwards small with the same body; small must carry no extra_body";
 }

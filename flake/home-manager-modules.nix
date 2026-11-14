@@ -29,6 +29,7 @@ let
     karpathy-skills = "karpathy-skills";
     mattpocock = "mattpocock-skills";
     orca-skills = "orca-skills";
+    modern-web-guidance = "modern-web-guidance";
     dashmotion = "dashmotion";
     ponytail = "ponytail";
     claude-channel-slack = "claude-channel-slack";
