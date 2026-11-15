@@ -1,5 +1,13 @@
 # Changelog
 
+## [8.38.0](https://github.com/dryvist/nix-ai/compare/v8.37.2...v8.38.0) (2026-11-15)
+
+
+### Features
+
+* **agent:** zcode run j-22e380b71f59ae0e ([c9f4338](https://github.com/dryvist/nix-ai/commit/c9f4338cb57929d4023b0ed52683c9834f63422a))
+* **nixos:** ship python3 on herdr guests for orchestrator modules ([#3029](https://github.com/dryvist/nix-ai/issues/3029)) ([7c4c42b](https://github.com/dryvist/nix-ai/commit/7c4c42b8462a27f1ddea59fe923a2c6d6dd2c13a))
+
 ## [8.37.2](https://github.com/dryvist/nix-ai/compare/v8.37.1...v8.37.2) (2026-11-14)
 
 
