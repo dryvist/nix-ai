@@ -32,9 +32,18 @@ let
   # flake's. The rule this repo holds to is that nix owns the software and
   # Ansible owns the orchestration.
   base =
-    { lib, modulesPath, ... }:
+    {
+      lib,
+      modulesPath,
+      pkgs,
+      ...
+    }:
     {
       imports = [ "${modulesPath}/virtualisation/proxmox-lxc.nix" ];
+
+      # Ansible's modules run on the guest through this interpreter; the
+      # orchestrator points ansible_python_interpreter at the system profile.
+      environment.systemPackages = [ pkgs.python3 ];
 
       # An unprivileged LXC has no say over its own network, clock or kernel;
       # Proxmox supplies all three. Declaring them here would produce units
