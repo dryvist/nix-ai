@@ -1,0 +1,88 @@
+diff --git a/.github/workflows/ci-gate.yml b/.github/workflows/ci-gate.yml
+index 4efe28a5..3d2dd29f 100644
+--- a/.github/workflows/ci-gate.yml
++++ b/.github/workflows/ci-gate.yml
+@@ -10,14 +10,15 @@ name: CI Gate
+ on:
+   pull_request:
+     types: [opened, synchronize, reopened]
+-  # Push runs save the Nix store cache; the default branch's cache is readable
+-  # by PRs into develop and by develop-to-main promotions.
+-  push:
+-    branches: [develop]
++  merge_group:
++  # No push trigger: the required checks report from pull_request and
++  # merge_group runs only. post-merge.yml takes over the develop pushes that
++  # used to save the Nix store cache here and settles the checks a fast lane
++  # deferred.
+ 
+ concurrency:
+   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+-  cancel-in-progress: true
++  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+ 
+ permissions:
+   contents: read
+@@ -58,6 +59,13 @@ jobs:
+       osv_scan: true
+       osv_config_file: osv-scanner.toml
+       zizmor: true
++      # Tiny-lane path lists: the _ci-gate.yml defaults plus this repo's
++      # instruction and guarded paths. The lane classifier denies the tiny
++      # lane whenever an instruction_paths file changed, so instruction
++      # markdown matching **.md here is never low-risk-only.
++      low_risk_paths: 'docs/**,**.md,**.mdx,tests/**'
++      instruction_paths: 'AGENTS.md,**/AGENTS.md,**/prompts/**,**/skills/**,**/rules/**,lib/*instructions*.nix,**/instructions/**,agents/**'
++      guarded_paths: '.github/workflows/**,**/*secret*,**/*credential*,**/*token*,**/vault/**,*.sops.*,.sops.yaml,.github/**'
+       filters: |
+         nix:
+           - '.github/workflows/ci-gate.yml'
+diff --git a/.github/workflows/post-merge.yml b/.github/workflows/post-merge.yml
+new file mode 100644
+index 00000000..d361bc24
+--- /dev/null
++++ b/.github/workflows/post-merge.yml
+@@ -0,0 +1,43 @@
++# Post Merge — develop pushes settle what the merge queue deferred.
++#
++# Thin wrapper over the shared post-merge workflow. The gate no longer runs
++# on push (ci-gate.yml), so this takes over the develop pushes: it re-runs
++# the CI Gate on HEAD over the commits the `green` ref has not settled,
++# fast-forwards green, and reverts deferred pull requests that went red.
++# The push-event gate run also saves the Nix store cache pull requests
++# restore.
++#
++name: Post Merge
++
++on:
++  push:
++    branches: [develop]
++
++jobs:
++  post-merge:
++    permissions:
++      contents: write    # green ref moves, post-merge-red dispatches
++      pull-requests: write
++      checks: read       # AI Merge Gate verdicts on the head commits
++      actions: read      # the gate's run report reads this run's jobs
++    uses: JacobPEvans/.github/.github/workflows/_post-merge.yml@v1
++    with:
++      # The caller's gate stack, forwarded verbatim.
++      profile: nix
++      filters: |
++        nix:
++          - '.github/workflows/ci-gate.yml'
++          - '**.nix'
++          - 'flake.lock'
++          - 'lib/**'
++          - 'modules/**'
++          - 'scripts/**'
++        markdown:
++          - '**.md'
++          - '.markdownlint*'
++        python:
++          - 'mlx-server/**'
++          - 'orchestrator/**'
++    secrets:
++      GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
++      slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
