@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.39.0](https://github.com/dryvist/nix-ai/compare/v8.38.0...v8.39.0) (2026-11-15)
+
+
+### Features
+
+* **claude:** let the delegation hook pick the Cursor sandbox tool ([#3035](https://github.com/dryvist/nix-ai/issues/3035)) ([5b7c59a](https://github.com/dryvist/nix-ai/commit/5b7c59a110e3c6ed4f2c6bb332830667c829ddee))
+
 ## [8.38.0](https://github.com/dryvist/nix-ai/compare/v8.37.2...v8.38.0) (2026-11-15)
 
 

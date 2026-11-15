@@ -74,7 +74,7 @@
 
   # Sandbox tools the delegation routing hook may pick (space-separated);
   # widened per tool once it is proven.
-  AGENT_ROUTE_ZCODE_TOOLS = "zcode";
+  AGENT_ROUTE_ZCODE_TOOLS = "zcode cursor-agent";
 }
 # Local LiteLLM proxy — route Claude Code through it so subagent-tier work
 # resolves to a role alias upstream instead of a physical model id.
