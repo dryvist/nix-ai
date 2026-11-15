@@ -7,9 +7,9 @@ pkgs.buildNpmPackage rec {
     hash = "sha256-gu+cyMKsoh9gp1UTdDFdKBz0KLQ4nX8Xn7WJPd9CWys=";
   };
   postPatch = ''
-    cp ${../../patches/mcp-remote-0.15.2-package-lock.json} package-lock.json
+    cp ${../../patches + "/mcp-remote-${version}-package-lock.json"} package-lock.json
   '';
-  npmDepsHash = "sha256-hOQ2zKS9cLFY18AIjA2nbJUsACokZUlekDeipTtB8WY=";
+  npmDepsHash = "sha256-t4BvpAX6El4A22f/SmScZd4n6qR53EBy6i6vIRMo6Ms=";
   dontNpmBuild = true;
   npmPackFlags = [ "--ignore-scripts" ];
   meta.mainProgram = "mcp-remote";
