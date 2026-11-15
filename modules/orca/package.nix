@@ -12,7 +12,7 @@ stdenvNoCC.mkDerivation rec {
 
   src = fetchurl {
     url = "https://github.com/stablyai/orca/releases/download/v${version}/orca-macos-arm64.dmg";
-    hash = "sha256-pBO2WZiSawpGVNa34MD3iaX3WK06d3o97GDI3nIrutg=";
+    hash = "sha256-JnlOMTgAbgY1BuX7vAWXz9nfLQYL17weLGa/iYlsGQA=";
   };
 
   nativeBuildInputs = [ undmg ];
