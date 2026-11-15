@@ -1,0 +1,42 @@
+# Post-merge settlement: the checks a fast-lane merge deferred run here on
+# HEAD. The shared _post-merge.yml collects the checks:deferred pull requests
+# between the `green` ref and HEAD, re-runs the gate on this push event, then
+# fast-forwards `green` or reverts the deferred pull requests.
+#
+# The profile and filters mirror ci-gate.yml's shared-gate call so the gate
+# config cannot drift; the lane path lists stay on the gate caller.
+
+name: Post Merge
+
+on:
+  push:
+    branches: [develop]
+
+jobs:
+  post-merge:
+    permissions:
+      contents: write    # green ref moves, post-merge-red dispatches
+      pull-requests: write
+      checks: read       # AI Merge Gate verdicts on the head commits
+      actions: read      # the gate's run report reads this run's jobs
+    uses: JacobPEvans/.github/.github/workflows/_post-merge.yml@v1
+    with:
+      profile: nix       # the caller's gate stack, forwarded verbatim
+      # Same filters body as ci-gate.yml's shared-gate call.
+      filters: |
+        nix:
+          - '.github/workflows/ci-gate.yml'
+          - '**.nix'
+          - 'flake.lock'
+          - 'lib/**'
+          - 'modules/**'
+          - 'scripts/**'
+        markdown:
+          - '**.md'
+          - '.markdownlint*'
+        python:
+          - 'mlx-server/**'
+          - 'orchestrator/**'
+    secrets:
+      AUTOMATION_APP_PRIVATE_KEY: ${{ secrets.GH_ACTION_RELEASE_PLEASE_PRIVATE_KEY }}
+      slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}

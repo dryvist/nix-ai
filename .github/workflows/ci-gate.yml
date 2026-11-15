@@ -10,6 +10,7 @@ name: CI Gate
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+  merge_group:
   # Push runs save the Nix store cache; the default branch's cache is readable
   # by PRs into develop and by develop-to-main promotions.
   push:
@@ -17,7 +18,8 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  # Queue entries and push runs finish. PR updates cancel.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -36,6 +38,7 @@ jobs:
     uses: JacobPEvans/.github/.github/workflows/_ci-gate.yml@v1
     secrets:
       TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+      AUTOMATION_APP_PRIVATE_KEY: ${{ secrets.GH_ACTION_RELEASE_PLEASE_PRIVATE_KEY }}
     with:
       runner_label: ubuntu-latest
       nix_validate: true
@@ -58,6 +61,10 @@ jobs:
       osv_scan: true
       osv_config_file: osv-scanner.toml
       zizmor: true
+      # Lane classifier paths. Each list replaces the shared default, so it
+      # repeats that default and adds this repository's paths.
+      instruction_paths: 'AGENTS.md,**/AGENTS.md,**/prompts/**,**/skills/**,**/rules/**,.claude/**,**/instructions/**,agents/**'
+      guarded_paths: '.github/**,**/*secret*,**/*credential*,**/*token*,**/vault/**,*.sops.*,.sops.yaml'
       filters: |
         nix:
           - '.github/workflows/ci-gate.yml'
@@ -73,8 +80,8 @@ jobs:
           - 'mlx-server/**'
           - 'orchestrator/**'
 
-  # Darwin builds only when a Nix input changes on a develop PR. Promotions
-  # (PRs into main) and push runs always run it.
+  # Darwin builds only when a Nix input changes on a develop PR or a queue
+  # entry. Promotions (PRs into main) and push runs always run it.
   changes:
     name: Darwin Changes
     runs-on: ubuntu-26.04
@@ -82,9 +89,16 @@ jobs:
     outputs:
       nix: ${{ steps.filter.outputs.nix }}
     steps:
+      # A queue entry is diffed with git; a pull request is diffed by the API.
+      - name: Checkout repository
+        if: github.event_name == 'merge_group'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
       - name: Filter Nix inputs
         id: filter
-        if: github.event_name == 'pull_request'
+        if: github.event_name != 'push'
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
         with:
           filters: |
@@ -95,7 +109,7 @@ jobs:
   darwin-checks:
     name: Darwin Checks
     needs: changes
-    if: ${{ github.event_name != 'pull_request' || github.base_ref == 'main' || needs.changes.outputs.nix == 'true' }}
+    if: ${{ github.event_name == 'push' || github.base_ref == 'main' || needs.changes.outputs.nix == 'true' }}
     uses: JacobPEvans/.github/.github/workflows/_nix-validate.yml@v1
     with:
       runner_label: macos-15
@@ -179,5 +193,6 @@ jobs:
         uses: re-actors/alls-green@b5b5b37504aa4183270bd3d855c52a67f212be35 # release/v1
         with:
           jobs: ${{ toJSON(needs) }}
-          # Darwin Checks is skipped on develop PRs that change no Nix input.
+          # Darwin Checks is skipped on develop PRs and queue entries that
+          # change no Nix input.
           allowed-skips: darwin-checks
