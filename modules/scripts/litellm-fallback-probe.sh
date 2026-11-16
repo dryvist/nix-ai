@@ -43,6 +43,7 @@ if [ "$#" -eq 0 ]; then
 fi
 
 failed=0
+busy=0
 for model in "$@"; do
   printf '%-24s ' "$model"
 
@@ -52,7 +53,7 @@ for model in "$@"; do
 
   # `|| true` so a curl failure is classified below rather than killing the
   # loop under `set -e` — one dead member must not hide the rest of the chain.
-  response=$(curl -sS -m "$TIMEOUT" -X POST "$BASE/v1/chat/completions" \
+  response=$(curl -sS -m "$TIMEOUT" -w '\n__HTTP_CODE__:%{http_code}' -X POST "$BASE/v1/chat/completions" \
     -H 'content-type: application/json' \
     -H "Authorization: Bearer $TOKEN" \
     -d "$body" 2>&1) || true
@@ -60,13 +61,35 @@ for model in "$@"; do
   verdict=$(printf '%s' "$response" | python3 -c '
 import json, sys
 raw = sys.stdin.read()
+http_code = ""
+marker = "\n__HTTP_CODE__:"
+if marker in raw:
+    raw, http_code = raw.rsplit(marker, 1)
+    http_code = http_code.strip()
 try:
     d = json.loads(raw)
 except Exception:
     print("FAIL\tunparseable response: " + raw[:160].replace("\n", " "))
     raise SystemExit
 if "error" in d:
-    print("FAIL\t" + str(d["error"].get("message", d["error"]))[:160].replace("\n", " "))
+    err = d["error"]
+    if isinstance(err, dict):
+        msg = str(err.get("message", err))
+        code = str(err.get("code", ""))
+        etype = str(err.get("type", ""))
+    else:
+        msg = str(err)
+        code = ""
+        etype = ""
+    one_line = msg[:160].replace("\n", " ")
+    # A local deployment whose max_parallel_requests slots are full returns
+    # HTTP 429 RateLimitError while actively serving traffic — busy, not dead.
+    is_slot_busy = (
+        (http_code == "429" or code == "429" or "RateLimitError" in msg or etype == "rate_limit_error")
+        and ("max_parallel_requests" in msg or "slots in use" in msg)
+    )
+    tag = "BUSY" if is_slot_busy else "FAIL"
+    print(f"{tag}\t{one_line}")
     raise SystemExit
 try:
     choice = d["choices"][0]
@@ -86,7 +109,11 @@ print("OK\tserved=%s%s" % (served, note))
   status=${verdict%%$'\t'*}
   detail=${verdict#*$'\t'}
   echo "$status  $detail"
-  [ "$status" = "OK" ] || failed=$((failed + 1))
+  if [ "$status" = "BUSY" ]; then
+    busy=$((busy + 1))
+  elif [ "$status" != "OK" ]; then
+    failed=$((failed + 1))
+  fi
 done
 
 if [ "$failed" -ne 0 ]; then
@@ -98,4 +125,8 @@ if [ "$failed" -ne 0 ]; then
 fi
 
 echo ""
-echo "all $# chain member(s) served a completion"
+if [ "$busy" -ne 0 ]; then
+  echo "$# chain member(s) checked ($busy busy, 0 failed)"
+else
+  echo "all $# chain member(s) served a completion"
+fi

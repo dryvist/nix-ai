@@ -1,5 +1,5 @@
 # Executables the local proxy ships: the launchd entry point and the two
-# operator commands.
+# operator commands (`litellm-fallback-probe` and `litellm-alias-subset-check`).
 #
 # Split out of ./default.nix to stay under the .file-size.yml ceiling. Grouped
 # by responsibility rather than by size — everything here produces something
@@ -51,23 +51,6 @@ let
     '';
   };
 
-  # The probe, on a schedule, paging when a rung stops answering. The probe
-  # itself was already "the only check that settles it" (fallback-tier.nix) and
-  # nothing ran it, so a converged host could carry a correct config and a rung
-  # that 404s every request with the machine having no opinion about it.
-  fallbackWatch = pkgs.writeShellApplication {
-    name = "litellm-fallback-watch";
-    runtimeInputs = [
-      pkgs.curl
-      pkgs.python3
-      pkgs.coreutils
-    ];
-    text = ''
-      LITELLM_PROBE_BIN=${fallbackProbe}/bin/litellm-fallback-probe \
-        exec ${./../scripts/litellm-fallback-watch.sh} "$@"
-    '';
-  };
-
   # CI-time / operator tool: proves the shared router actually serves every
   # alias in programs.litellmLocal.aliases. Not
   # gated on litellmLocal.enable — it tests the upstream router directly, and
@@ -111,7 +94,6 @@ in
 {
   inherit
     fallbackProbe
-    fallbackWatch
     aliasSubsetCheck
     proxyScript
     ;

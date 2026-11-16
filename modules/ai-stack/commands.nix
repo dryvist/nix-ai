@@ -23,10 +23,8 @@ in
 {
   ai-stack-drift-check = pkgs.writeShellApplication {
     name = "ai-stack-drift-check";
-    # coreutils for `mktemp`/`rm` (the script's scratch dir), same as
-    # litellm-fallback-watch adds it for the same reason its sibling probe
-    # does not: writeShellApplication only puts runtimeInputs on PATH, and a
-    # launchd agent's PATH cannot be assumed to already carry them.
+    # coreutils for `mktemp`/`rm` (the script's scratch dir), because
+    # writeShellApplication only puts runtimeInputs on PATH.
     runtimeInputs = [
       pkgs.curl
       pkgs.python3
