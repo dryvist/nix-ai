@@ -150,7 +150,7 @@ in
       {
         name = "settings.env.AGENT_ROUTE_ZCODE_TOOLS";
         actual = cfg.settings.env.AGENT_ROUTE_ZCODE_TOOLS or null;
-        expected = "zcode cursor-agent";
+        expected = "zcode cursor-agent opencode-qwen";
       }
       {
         name = "settings.env has no AGENT_ROUTE_GLM_MODEL";
