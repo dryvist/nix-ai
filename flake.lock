@@ -1776,11 +1776,11 @@
     "token-meter-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1792205855,
-        "narHash": "sha256-YBZqBt2r/i2HJsuucGroZKZw2PUuHgZSax5AVZjxr+g=",
+        "lastModified": 1794350135,
+        "narHash": "sha256-nl/KyE1nMaohaNROfy4477iR/fO2xDnLC0QVv27iw8I=",
         "owner": "dryvist",
         "repo": "token-meter",
-        "rev": "90cdb56f7b0ba0572741ad74c921a36a9a6632f3",
+        "rev": "1d5cacd69d88d852bfb2b2f40938ca3c41cb0295",
         "type": "github"
       },
       "original": {
