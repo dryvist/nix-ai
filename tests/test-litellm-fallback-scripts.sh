@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Regression tests for the two litellm-local fallback scripts.
+# Regression tests for litellm-fallback-probe.
 #
 # (A) litellm-fallback-probe must ask the proxy NOT to fall back. Without that,
 #     LiteLLM's own chain answers for the rung under test — a request addressed
@@ -8,17 +8,13 @@
 #     against a stub proxy rather than by grepping the source, because what
 #     matters is the field the proxy actually receives.
 #
-# (B) litellm-fallback-watch's read_int must always yield an integer. A state
-#     file holding `08` used to abort the watcher with an invalid-octal
-#     arithmetic error: the streak never incremented and the watcher could
-#     never page, so a genuinely dead rung stayed invisible. Empty and
-#     whitespace files survived only by accident (`$(( + 1 ))` evaluates to 1),
-#     so they are fenced here too.
+# (B) HTTP 429 from occupied max_parallel_requests slots means the deployment is
+#     busy serving traffic, so it reports BUSY and exits 0; real errors (e.g.
+#     404 NotFoundError) report FAIL and exit 1.
 set -o errexit -o nounset -o pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROBE="$repo_root/modules/scripts/litellm-fallback-probe.sh"
-WATCH="$repo_root/modules/scripts/litellm-fallback-watch.sh"
 
 work="$(mktemp -d)"
 trap 'rm -rf "$work"; [ -n "${stub_pid:-}" ] && kill "$stub_pid" 2>/dev/null || true' EXIT
@@ -54,10 +50,34 @@ class H(http.server.BaseHTTPRequestHandler):
     def do_POST(self):
         raw = self.rfile.read(int(self.headers["content-length"]))
         (out / "bodies.jsonl").open("a").write(raw.decode() + "\n")
-        body = json.dumps({"model": json.loads(raw)["model"],
-                           "choices": [{"finish_reason": "stop",
-                                        "message": {"content": "OK"}}]}).encode()
-        self.send_response(200)
+        req = json.loads(raw)
+        model = req["model"]
+        if model == "busy-rung":
+            status = 429
+            payload = {
+                "error": {
+                    "message": "litellm.RateLimitError: Deployment has all max_parallel_requests slots in use.",
+                    "type": "rate_limit_error",
+                    "code": "429",
+                }
+            }
+        elif model == "dead-rung":
+            status = 404
+            payload = {
+                "error": {
+                    "message": "litellm.NotFoundError: model group not found",
+                    "type": "not_found_error",
+                    "code": "404",
+                }
+            }
+        else:
+            status = 200
+            payload = {
+                "model": model,
+                "choices": [{"finish_reason": "stop", "message": {"content": "OK"}}],
+            }
+        body = json.dumps(payload).encode()
+        self.send_response(status)
         self.send_header("content-type", "application/json")
         self.send_header("content-length", str(len(body)))
         self.end_headers()
@@ -88,45 +108,17 @@ check "disable_fallbacks sent" true \
 check "rung addressed by name" '"rung-under-test"' \
   "$(python3 -c 'import json,sys; print(json.dumps(json.loads(open(sys.argv[1]).readline()).get("model")))' "$work/bodies.jsonl")"
 
-# ---- (B) read_int always yields an integer --------------------------------
-state="$work/state"
-mkdir -p "$state"
+# ---- (B) occupied max_parallel_requests is BUSY (exit 0), 404 still fails ----
+echo "the probe treats max_parallel_requests 429 as BUSY, not FAIL:"
+busy_out=$(LITELLM_LOCAL_URL="http://127.0.0.1:$(cat "$work/port")" \
+  bash "$PROBE" busy-rung 2>&1) && busy_rc=0 || busy_rc=$?
+check "busy rung exits 0" 0 "$busy_rc"
+check "busy rung reports BUSY" 1 "$(printf '%s\n' "$busy_out" | grep -c 'BUSY')"
 
-# The watcher's failure branch prints "probe failed N/M"; N is read_int + 1.
-watch_streak() {
-  printf '%s' "$1" > "$state/fallback-probe-failures"
-  LITELLM_PROBE_BIN=false \
-    LITELLM_WATCH_STATE_DIR="$state" \
-    LITELLM_WATCH_CONSECUTIVE=99 \
-    bash "$WATCH" 2>&1 | sed -n 's/.*probe failed \([0-9]*\)\/.*/\1/p'
-}
-
-echo "a garbage streak file still advances the streak:"
-check "empty file" 1 "$(watch_streak '')"
-check "whitespace file" 1 "$(watch_streak '   ')"
-check "non-numeric file" 1 "$(watch_streak 'wedged')"
-# The regression: bash reads a leading zero as octal, so `08` aborted the whole
-# watcher under `set -e` before it could count, log, or page.
-check "leading-zero file" 9 "$(watch_streak '08')"
-check "ordinary value" 4 "$(watch_streak '3')"
-
-rm -f "$state/fallback-probe-failures"
-check "missing file" 1 "$(LITELLM_PROBE_BIN=false \
-  LITELLM_WATCH_STATE_DIR="$state" LITELLM_WATCH_CONSECUTIVE=99 \
-  bash "$WATCH" 2>&1 | sed -n 's/.*probe failed \([0-9]*\)\/.*/\1/p')"
-
-echo "a garbage last-page stamp does not wedge the page path:"
-printf '99' > "$state/fallback-probe-failures"
-printf '  ' > "$state/fallback-probe-last-page"
-LITELLM_PROBE_BIN=false LITELLM_WATCH_STATE_DIR="$state" \
-  LITELLM_WATCH_CONSECUTIVE=2 bash "$WATCH" >"$work/page.log" 2>&1 && rc=0 || rc=$?
-check "pages rather than aborting" 1 "$rc"
-check "wedge reported" 1 "$(grep -c 'WEDGE' "$work/page.log")"
-
-echo "a healthy probe clears a garbage streak:"
-printf '  ' > "$state/fallback-probe-failures"
-LITELLM_PROBE_BIN=true LITELLM_WATCH_STATE_DIR="$state" \
-  bash "$WATCH" >"$work/ok.log" 2>&1
-check "reports the no-op" 1 "$(grep -c 'nothing to do' "$work/ok.log")"
+echo "the probe still fails on a dead rung:"
+dead_out=$(LITELLM_LOCAL_URL="http://127.0.0.1:$(cat "$work/port")" \
+  bash "$PROBE" dead-rung 2>&1) && dead_rc=0 || dead_rc=$?
+check "dead rung exits 1" 1 "$dead_rc"
+check "dead rung reports FAIL" 1 "$(printf '%s\n' "$dead_out" | grep -c 'FAIL')"
 
 exit "$fail"

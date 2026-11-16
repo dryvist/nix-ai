@@ -1,33 +1,23 @@
-# The two launchd agents the local proxy owns.
+# The launchd agent the local proxy owns.
 #
 # Split out of ./default.nix to stay under the .file-size.yml ceiling and to
 # follow the per-module launchd.nix pattern already used by fabric and mlx.
 #
-# They are deliberately SEPARATE agents. The proxy is KeepAlive and serves live
-# traffic; the refresh is a short interval job that reaches two network
-# endpoints, one of which has been measured hanging intermittently. Folding the
-# refresh into the proxy would let a failed catalog fetch restart something that
-# was serving fine.
-#
-# Neither agent may carry a credential in `EnvironmentVariables`: launchd
-# agents get no shell init, so the proxy reads the router bearer from its file
-# at exec time or receives it from a process wrapper. `lib/checks/litellm-local.nix` asserts the proxy agent
-# carries no `OPENAI_API_KEY`.
+# Neither the agent nor its environment may carry a credential in
+# `EnvironmentVariables`: launchd agents get no shell init, so the proxy reads
+# the router bearer from its file at exec time or receives it from a process
+# wrapper. `lib/checks/litellm-local.nix` asserts the proxy agent carries no
+# `OPENAI_API_KEY`.
 {
   config,
   lib,
   cfg,
   aiStack,
   proxyScript,
-  fallbackWatch,
   telemetryTracesEndpoint,
 }:
 let
   logDir = "${config.home.homeDirectory}/Library/Logs/litellm-local";
-  # Same operator-seeded Slack webhook the MLX watchdog uses. Deliberately the
-  # same file so one configured notifier pages both local model and proxy
-  # failures.
-  litellmAlertUrlFile = "${config.home.homeDirectory}/.config/mlx-cluster/alert-url";
 in
 {
   litellm-local = {
@@ -74,37 +64,6 @@ in
       };
       StandardOutPath = "${logDir}/litellm-local.log";
       StandardErrorPath = "${logDir}/litellm-local.error.log";
-    };
-  };
-
-  # ALERT ON ABSENCE OF SUCCESS. KeepAlive above restarts the proxy only when
-  # the process EXITS, so every "up but not serving" mode is invisible to
-  # launchd — and a fallback rung that 404s every request keeps the proxy
-  # perfectly healthy. Config inspection cannot see it either: a rung's params
-  # can render exactly right and still name a group the upstream does not
-  # serve.
-  #
-  # So this sends a REAL completion to every rung on an interval and pages when
-  # one stops answering. Its own agent, not folded into the proxy: this reaches
-  # the network and must never be able to restart something that was serving
-  # fine.
-  litellm-fallback-watch = {
-    enable = true;
-    config = {
-      Label = "dev.litellm-fallback-watch";
-      ProgramArguments = [ "${fallbackWatch}/bin/litellm-fallback-watch" ];
-      # Not RunAtLoad: a converge bounces the proxy, and probing it mid-restart
-      # would page on the restart rather than on a dead rung.
-      RunAtLoad = false;
-      StartInterval = 900;
-      ProcessType = "Background";
-      EnvironmentVariables = {
-        HOME = config.home.homeDirectory;
-        LITELLM_LOCAL_URL = lib.removeSuffix "/v1" aiStack.localRouterUrl;
-        LITELLM_ALERT_URL_FILE = litellmAlertUrlFile;
-      };
-      StandardOutPath = "${logDir}/fallback-watch.log";
-      StandardErrorPath = "${logDir}/fallback-watch.error.log";
     };
   };
 }

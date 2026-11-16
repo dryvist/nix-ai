@@ -186,7 +186,6 @@ let
   };
   inherit (commands)
     fallbackProbe
-    fallbackWatch
     aliasSubsetCheck
     proxyScript
     ;
@@ -238,7 +237,6 @@ in
           cfg
           aiStack
           proxyScript
-          fallbackWatch
           telemetryTracesEndpoint
           ;
       };
