@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.39.1](https://github.com/dryvist/nix-ai/compare/v8.39.0...v8.39.1) (2026-11-16)
+
+
+### Bug Fixes
+
+* **deps:** bump the nix-agent-sandbox input to v1.24.1 and re-pin the canary lock digest ([550c828](https://github.com/dryvist/nix-ai/commit/550c82803c5cca8be826360dffa3ccc6f462ff8a))
+
 ## [8.39.0](https://github.com/dryvist/nix-ai/compare/v8.38.0...v8.39.0) (2026-11-15)
 
 
