@@ -146,6 +146,16 @@ let
       };
       flakeInput = ponytailTrimmed marketplaceInputs.ponytail;
     };
+    # agentops lives in nix-ai (input + tier entry). Ships a native
+    # .claude-plugin/marketplace.json whose one plugin, `agentops`, sits in
+    # ./plugin; the root skills/ tree feeds the other harnesses.
+    "agentops-marketplace" = {
+      source = {
+        type = "github";
+        url = "boshu2/agentops";
+      };
+      flakeInput = marketplaceInputs.agentops-marketplace;
+    };
     # autoresearch lives in nix-ai (input + tier entry), same as ponytail.
     # Ships a native .claude-plugin/marketplace.json; content is pinned via the
     # flake input — the GitHub source here is registry identity metadata only.

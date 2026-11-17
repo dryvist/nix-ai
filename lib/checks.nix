@@ -158,6 +158,9 @@ in
     hmConfigAgentSkillsShared
     ;
 })
+// (import ./checks/agentops-skills.nix {
+  inherit pkgs hmConfig;
+})
 // (import ./checks/agent-skills-authoring.nix {
   marketplaceInputs = aiModule._module.args.marketplaceInputs;
   inherit
