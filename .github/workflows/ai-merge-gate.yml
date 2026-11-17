@@ -8,6 +8,7 @@ jobs:
     permissions:
       checks: read
       contents: read
+      id-token: write
       pull-requests: write
     uses: JacobPEvans/.github-ai/.github/workflows/_ai-merge-gate.yml@v2
     with:
