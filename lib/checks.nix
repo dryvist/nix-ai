@@ -210,6 +210,9 @@ in
 // (import ./checks/herdr-hail-dedupe.nix {
   inherit pkgs;
 })
+// (import ./checks/plan-skill-gate.nix {
+  inherit pkgs hmConfig;
+})
 // (import ./checks/qwen-code.nix {
   inherit
     pkgs

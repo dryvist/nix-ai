@@ -6,11 +6,19 @@
   config,
   lib,
   pkgs,
+  marketplaceInputs,
   ...
 }:
 
 let
   cfg = config.programs.agentHooks;
+
+  inherit (import ../claude/plugins { inherit lib marketplaceInputs; }) enabledPlugins;
+
+  # Plan mode may only present a plan after the agentops plan skill ran this
+  # session: the transcript holds its Skill call or its slash command. Both
+  # patterns need unescaped quotes, so text that merely mentions them does not match.
+  planSkillGate = ''f="$(${pkgs.jq}/bin/jq -r .transcript_path)"; ${pkgs.gnugrep}/bin/grep -qE '"skill":"agentops:plan"|"content":"<command-name>/agentops:plan<' "$f" || { echo 'Run the agentops:plan skill before presenting the plan.' >&2; exit 2; }'';
 
   guard = pkgs.writeShellApplication {
     name = "worktree-add-guard";
@@ -59,6 +67,16 @@ in
     '';
   };
 
+  options.programs.agentHooks.planSkillGate.enable = lib.mkOption {
+    type = lib.types.bool;
+    default = enabledPlugins."agentops@agentops-marketplace" or false;
+    defaultText = lib.literalMD "whether the `agentops@agentops-marketplace` plugin is enabled";
+    description = ''
+      Block Claude Code's `ExitPlanMode` until the session has run the
+      agentops `plan` skill, so every plan starts from it.
+    '';
+  };
+
   config = lib.mkMerge [
     # `codex-quota` is the one quota check; the ai-delegation plugin's router
     # and judge call it to decide whether Codex answers.
@@ -75,6 +93,21 @@ in
     # than silently dropping a guard — neither is set in this repo today.
     (lib.mkIf (config.programs.claude.enable && cfg.worktreeAddGuard.enable) {
       programs.claude.hooks.preToolUse = lib.mkDefault claudePreToolUse;
+    })
+
+    (lib.mkIf (config.programs.claude.enable && cfg.planSkillGate.enable) {
+      programs.claude.hooks.events.PreToolUse = [
+        {
+          matcher = "ExitPlanMode";
+          hooks = [
+            {
+              type = "command";
+              command = planSkillGate;
+              timeout = 10;
+            }
+          ];
+        }
+      ];
     })
 
     (lib.mkIf (cfg.worktreeAddGuard.enable && config.programs.codex.enable) {
