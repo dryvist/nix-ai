@@ -221,6 +221,14 @@
       flake = false;
     };
 
+    # Engineering skills for coding agents (plan, orchestrate, doc, review,
+    # validate, codex-exec, agy-native, skill-eval and more). Dual-channel:
+    # the Claude plugin and the cross-harness skill root read the same tree.
+    agentops = {
+      url = "github:boshu2/agentops/v3.12.0";
+      flake = false;
+    };
+
     # Autonomous goal-directed iteration engine (modify → verify →
     # keep/discard). Dual-channel; its .opencode/ command files also feed the
     # opencode module directly.

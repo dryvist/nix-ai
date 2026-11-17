@@ -17,6 +17,23 @@
         "type": "github"
       }
     },
+    "agentops": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1794337320,
+        "narHash": "sha256-EDnSPP8hCQ68bMDkWu4TDv1J8Pvtaph3sBykrXJZuUQ=",
+        "owner": "boshu2",
+        "repo": "agentops",
+        "rev": "a5cda4888198c824827855285b3c771a233c7293",
+        "type": "github"
+      },
+      "original": {
+        "owner": "boshu2",
+        "ref": "v3.12.0",
+        "repo": "agentops",
+        "type": "github"
+      }
+    },
     "ai-llm-prompts": {
       "inputs": {
         "claude-code-plugins": "claude-code-plugins",
@@ -1625,6 +1642,7 @@
     "root": {
       "inputs": {
         "agent-limits-src": "agent-limits-src",
+        "agentops": "agentops",
         "ai-llm-prompts": "ai-llm-prompts",
         "autoresearch": "autoresearch",
         "awesome-claude-skills": "awesome-claude-skills",

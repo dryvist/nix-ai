@@ -141,6 +141,21 @@ in
       uncategorised = builtins.filter (n: !(builtins.elem n categorised)) (
         map (n: pkgs.lib.removePrefix ".codex/skills/" n) managedSkillEntries
       );
+      # Names agentops shares with mattpocock-skills and project-standards.
+      sharedNames = [
+        "implement"
+        "research"
+        "skill-builder"
+        "triage"
+      ];
+      agentopsGlobal = [
+        "agy-native"
+        "codex-exec"
+        "doc"
+        "orchestrate"
+        "plan"
+        "skill-eval"
+      ];
     in
     assert
       uncategorised == [ ]
@@ -179,6 +194,19 @@ in
     assert
       builtins.elem ".codex/skills/premium-agent-orchestration" managedSkillEntries
       || throw "premium-agent-orchestration skill not discovered from the direct plugin input";
+    # agentops wins every skill name it shares with another input: its
+    # SKILL.md is the only one carrying `skill_api_version`.
+    assert
+      builtins.all (
+        name:
+        pkgs.lib.hasInfix "skill_api_version" (
+          builtins.readFile "${deployedPaths.".codex/skills/${name}"}/SKILL.md"
+        )
+      ) sharedNames
+      || throw "Skills shared with another input must deploy from agentops: ${builtins.toJSON sharedNames}";
+    assert
+      builtins.all (name: builtins.elem ".codex/skills/${name}" managedSkillEntries) agentopsGlobal
+      || throw "agentops skills missing from the skill root: ${builtins.toJSON agentopsGlobal}";
     # Discovery follows the plugin flag: a disabled plugin's skills must not
     # deploy, or disabling a plugin would trim the listing but not the tree.
     assert

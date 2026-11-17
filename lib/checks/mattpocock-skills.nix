@@ -36,6 +36,14 @@ let
     }
   ];
   deployed = cfg.deployedSkillPaths;
+  # agentops ships these names too and its copy is the one deployed
+  # (lib/checks/agent-skills.nix proves which).
+  shadowed = [
+    "implement"
+    "research"
+    "triage"
+  ];
+  ownDeployed = builtins.filter (skill: !(lib.elem skill.name shadowed)) skills;
   groupedNames = builtins.attrNames grouped.config.programs.agentSkills.deployedSkillPaths;
   inherit (cfg.categories) productivity;
   keepListed = import ../../modules/claude/always-listed-skills.nix;
@@ -48,7 +56,7 @@ in
     assert builtins.length manifest.skills == builtins.length names;
     assert builtins.all (
       skill: deployed.".codex/skills/${skill.name}" == builtins.dirOf skill.source
-    ) skills;
+    ) ownDeployed;
     assert builtins.all (
       skill:
       builtins.pathExists "${deployed.".codex/skills/${skill.name}"}/agents/openai.yaml"
@@ -56,7 +64,7 @@ in
         (lib.hasInfix "allow_implicit_invocation: false" (
           builtins.readFile "${deployed.".codex/skills/${skill.name}"}/agents/openai.yaml"
         )) == skill.userInvoked
-    ) skills;
+    ) ownDeployed;
     assert builtins.pathExists "${deployed.".codex/skills/tdd"}/tests.md";
     assert builtins.pathExists "${deployed.".codex/skills/teach"}/MISSION-FORMAT.md";
     assert builtins.length (builtins.filter (skill: skill.name == "handoff") cfg.fromFlakeInputs) == 1;
