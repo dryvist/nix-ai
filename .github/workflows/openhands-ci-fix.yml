@@ -49,7 +49,7 @@ jobs:
       ci_structure: >-
         CI Gate runs Darwin Checks (nix flake check through the shared Nix validate
         workflow), Flake Lock Fresh, and lane alias checks, aggregated in Merge Gate.
-        A flake.lock change also requires updating the MCP facade canary golden in
-        lib/checks/mcp-facade-default-off-goldens.nix (flakeLockSha256 and both
-        projection digests).
-      extra_tools: "Bash(nix:*),Bash(sha256sum:*)"
+        The MCP facade canary golden lives in
+        lib/checks/mcp-facade-default-off-goldens.nix. Nix is not installed on the
+        review runners, so this agent cannot evaluate the checks.
+      extra_tools: "Bash(sha256sum:*)"
