@@ -21,10 +21,11 @@ in
       printf '%s\n' '{"type":"tool_use","name":"Skill","input":{"skill":"agentops:plan"}}' > skill.jsonl
       printf '%s\n' '{"type":"user","message":{"role":"user","content":"<command-name>/agentops:plan</command-name>"}}' > slash.jsonl
       printf '%s\n' '{"type":"assistant","message":{"content":[{"type":"text","text":"\"skill\":\"agentops:plan\" \"content\":\"<command-name>/agentops:plan<"}]}}' > mention.jsonl
-      run "$PWD/none.jsonl" 2>/dev/null
-      [ $? -eq 2 ] || { echo "ExitPlanMode was allowed without the plan skill" >&2; exit 1; }
-      run "$PWD/mention.jsonl" 2>/dev/null
-      [ $? -eq 2 ] || { echo "ExitPlanMode was allowed by a mere mention of the plan skill" >&2; exit 1; }
+      # The builder runs with errexit, so a blocked call's exit code is captured, not left to end the script.
+      rc=0; run "$PWD/none.jsonl" 2>/dev/null || rc=$?
+      [ "$rc" -eq 2 ] || { echo "ExitPlanMode was allowed without the plan skill (exit $rc)" >&2; exit 1; }
+      rc=0; run "$PWD/mention.jsonl" 2>/dev/null || rc=$?
+      [ "$rc" -eq 2 ] || { echo "ExitPlanMode was allowed by a mere mention of the plan skill (exit $rc)" >&2; exit 1; }
       run "$PWD/skill.jsonl" || { echo "ExitPlanMode was blocked after the Skill call" >&2; exit 1; }
       run "$PWD/slash.jsonl" || { echo "ExitPlanMode was blocked after /agentops:plan" >&2; exit 1; }
       touch "$out"
