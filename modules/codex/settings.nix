@@ -293,6 +293,10 @@ in
           assertion = unknownOnDemandMcpServers == [ ];
           message = "Codex on-demand MCP servers are not available: ${builtins.toJSON unknownOnDemandMcpServers}";
         }
+        {
+          assertion = cfg.model == null || lib.hasSuffix "-luna" cfg.model;
+          message = "OpenAI Codex model slugs follow AGENTS.md, 'Delegation routing' and use the Luna family.";
+        }
       ];
     }
     # Codex reads hooks.json only behind this flag. A non-empty hooks.events
