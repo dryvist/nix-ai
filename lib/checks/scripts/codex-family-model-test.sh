@@ -18,7 +18,7 @@ write_cache() {
 JSON
 }
 write_config() {
-  printf 'model = "stale"\nmodel_reasoning_effort = "xhigh"\n\n[mcp_servers.demo]\ncommand = "demo"\n' > "$root/config.toml"
+  printf 'model = "stale"\nmodel_reasoning_effort = "medium"\n\n[mcp_servers.demo]\ncommand = "demo"\n' > "$root/config.toml"
 }
 expect() { # <label> <jq filter> <expected>
   actual=$(yj -tj < "$root/config.toml" | jq -r "$2")
@@ -26,20 +26,32 @@ expect() { # <label> <jq filter> <expected>
 }
 
 write_cache; write_config
-bash "$script" luna "$root"
+bash "$script" luna xhigh "$root"
 expect "lowest priority wins" .model gpt-newer-luna
-expect "other keys kept" .model_reasoning_effort xhigh
+expect "effort pinned" .model_reasoning_effort xhigh
 expect "tables kept" .mcp_servers.demo.command demo
 
 write_config
-bash "$script" sol "$root"
-expect "other family" .model gpt-newest-sol
+if bash "$script" sol xhigh "$root"; then
+  echo "FAIL alternate family was accepted" >&2
+  exit 1
+fi
+expect "rejected family leaves model" .model stale
+expect "rejected family leaves effort" .model_reasoning_effort medium
+
+if bash "$script" luna high "$root"; then
+  echo "FAIL alternate effort was accepted" >&2
+  exit 1
+fi
+expect "rejected effort leaves model" .model stale
+expect "rejected effort leaves config" .model_reasoning_effort medium
 
 write_config
-bash "$script" absent "$root"
-expect "unknown family leaves model" .model stale
+printf '{"models": []}\n' > "$root/models_cache.json"
+bash "$script" luna xhigh "$root"
+expect "missing listed Luna model leaves model" .model stale
 
 write_config; rm "$root/models_cache.json"
-bash "$script" luna "$root"
+bash "$script" luna xhigh "$root"
 expect "missing cache leaves model" .model stale
 echo "codex-family-model: all cases passed"

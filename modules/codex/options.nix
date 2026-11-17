@@ -15,15 +15,7 @@ let
   mcpClient = import ../mcp/client.nix { inherit lib; };
   hookType = lib.types.nullOr (lib.types.either lib.types.path lib.types.lines);
   nullableStr = lib.types.nullOr lib.types.str;
-  nullableReasoningEffort = lib.types.nullOr (
-    lib.types.enum [
-      "minimal"
-      "low"
-      "medium"
-      "high"
-      "xhigh"
-    ]
-  );
+  reasoningEffort = lib.types.enum [ "xhigh" ];
   nullableVerbosity = lib.types.nullOr (
     lib.types.enum [
       "low"
@@ -92,15 +84,19 @@ in
     model = lib.mkOption {
       type = nullableStr;
       default = null;
-      description = "Default Codex model. Leave null to resolve it from `modelFamily`.";
+      description = ''
+        Default exact Codex model slug. Leave null to resolve it from `modelFamily`.
+        The OpenAI model selection follows AGENTS.md, "Delegation routing".
+      '';
     };
 
     modelFamily = lib.mkOption {
-      type = nullableStr;
+      type = lib.types.enum [ "luna" ];
       default = "luna";
       description = ''
-        Model family whose newest listed model is written to config.toml at activation when `model` is null.
+        The OpenAI model family whose newest listed model is written to config.toml at activation when `model` is null.
         Codex accepts exact model slugs only, so the slug comes from its own model cache and none is written here.
+        See AGENTS.md, "Delegation routing".
       '';
     };
 
@@ -111,9 +107,11 @@ in
     };
 
     modelReasoningEffort = lib.mkOption {
-      type = nullableReasoningEffort;
+      type = reasoningEffort;
       default = "xhigh";
-      description = "Default reasoning effort for Codex.";
+      description = ''
+        Default OpenAI reasoning effort for Codex. See AGENTS.md, "Delegation routing".
+      '';
     };
 
     modelVerbosity = lib.mkOption {
@@ -123,9 +121,11 @@ in
     };
 
     planModeReasoningEffort = lib.mkOption {
-      type = nullableReasoningEffort;
+      type = reasoningEffort;
       default = "xhigh";
-      description = "Default reasoning effort for plan mode.";
+      description = ''
+        Default OpenAI reasoning effort for plan mode. See AGENTS.md, "Delegation routing".
+      '';
     };
 
     reviewModel = lib.mkOption {

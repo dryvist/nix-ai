@@ -1,23 +1,29 @@
 #!/usr/bin/env bash
-# Point config.toml's `model` at the listed model of a family (for example "luna") that Codex's own model cache
-# ranks newest. Codex accepts exact model slugs only, so the slug is resolved here, at activation, and no version
-# is written in Nix or parsed here: the cache ranks models by `priority`, and the lowest is the newest.
+# Resolve the OpenAI model selection from Codex's cache under AGENTS.md, "Delegation routing".
+# Codex accepts exact model slugs, so the cache ranks them by `priority`, and the lowest is newest.
 #
-# Edits only the `model` key, in place. Nothing else in config.toml is touched.
+# Writes the configured Luna model and xhigh effort to config.toml.
 #
 # Arguments:
-#   $1 - model family, the slug suffix after the last dash (for example luna)
-#   $2 - Codex directory holding models_cache.json and config.toml
+#   $1 - model family
+#   $2 - reasoning effort
+#   $3 - Codex directory holding models_cache.json and config.toml
 #
 # jq and yj must be on PATH (callers ensure this via PATH export).
 
 set -euo pipefail
 
 family="$1"
-dir="$2"
+reasoning_effort="$2"
+dir="$3"
 cache="$dir/models_cache.json"
 target="$dir/config.toml"
 log() { echo "$(date '+%Y-%m-%d %H:%M:%S') [$1] codex-family-model: $2" >&2; }
+
+if [[ "$family" != "luna" || "$reasoning_effort" != "xhigh" ]]; then
+  log ERROR 'OpenAI Codex selection follows AGENTS.md, "Delegation routing"'
+  exit 2
+fi
 
 slug=""
 if [[ -f "$cache" ]]; then
@@ -36,7 +42,7 @@ fi
 
 tmp=$(mktemp "$target.XXXXXX")
 trap 'rm -f "$tmp"' EXIT
-yj -tj < "$target" | jq --arg m "$slug" '.model = $m' | yj -jt > "$tmp"
+yj -tj < "$target" | jq --arg m "$slug" --arg e "$reasoning_effort" '.model = $m | .model_reasoning_effort = $e' | yj -jt > "$tmp"
 chmod 600 "$tmp"
 mv "$tmp" "$target"
 trap - EXIT
