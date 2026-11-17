@@ -125,6 +125,10 @@ let
     "fast-subagent"
     # Offered in every session's skill listing.
     "monitoring-first"
+    # Called by the replan skill after a long gap; a manual-invoke skill cannot
+    # be called from another skill.
+    "continue-claude-code-work"
+    "read-claude-code-history"
   ];
 
   # Measured entries with no model invocation in the last 30 days (2026-10-11

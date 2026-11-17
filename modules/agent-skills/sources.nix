@@ -113,6 +113,11 @@
     skills = "all";
     claude = [ ];
   };
+  daymade-skills = {
+    input = "daymade-claude-code-skills";
+    skills = "all";
+    claude = [ ];
+  };
   karpathy-skills = {
     input = "karpathy-skills";
     skills = "all";

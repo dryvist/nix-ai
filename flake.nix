@@ -175,6 +175,12 @@
       flake = false;
     };
 
+    # Session-history reader and continuation skills (daymade-claude-code plugin).
+    daymade-claude-code-skills = {
+      url = "github:daymade/claude-code-skills";
+      flake = false;
+    };
+
     orca-skills = {
       url = "github:stablyai/orca";
       flake = false;
