@@ -19,6 +19,11 @@ _:
   enabledPlugins = {
     "mattpocock-skills@mattpocock" = true;
 
+    # daymade-skills — daymade/claude-code-skills (1535★). Only the Claude Code
+    # plugin: read-claude-code-history reads local session transcripts with
+    # timestamps; continue-claude-code-work reconciles a session with live state.
+    "daymade-claude-code@daymade-skills" = true;
+
     # ========================================================================
     # autoresearch — uditgoenka/autoresearch (5300★)
     # ========================================================================

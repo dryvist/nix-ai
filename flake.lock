@@ -445,6 +445,22 @@
         "type": "github"
       }
     },
+    "daymade-claude-code-skills": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1794254250,
+        "narHash": "sha256-QJHUi+Xa56uYlABD6AmroFF/ILr0VfuLWuYsSu/QzFc=",
+        "owner": "daymade",
+        "repo": "claude-code-skills",
+        "rev": "9a63300be6d3a321e46291305e0465e1508caac5",
+        "type": "github"
+      },
+      "original": {
+        "owner": "daymade",
+        "repo": "claude-code-skills",
+        "type": "github"
+      }
+    },
     "devenv": {
       "inputs": {
         "crate2nix": "crate2nix",
@@ -1633,6 +1649,7 @@
         "claude-code-plugins": "claude-code-plugins_2",
         "context-engineering-kit": "context-engineering-kit",
         "dashmotion": "dashmotion",
+        "daymade-claude-code-skills": "daymade-claude-code-skills",
         "drawio-skill": "drawio-skill",
         "fabric-src": "fabric-src",
         "find-skills-src": "find-skills-src",

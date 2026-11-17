@@ -166,6 +166,15 @@ let
       };
       flakeInput = marketplaceInputs.context-engineering-kit;
     };
+    # daymade-skills ships a native .claude-plugin/marketplace.json; only the
+    # daymade-claude-code plugin is enabled (04-community.nix).
+    "daymade-skills" = {
+      source = {
+        type = "github";
+        url = "daymade/claude-code-skills";
+      };
+      flakeInput = marketplaceInputs.daymade-skills;
+    };
     # managing-dependencies is a single-plugin marketplace rooted at ./.
     "managing-dependencies" = {
       source = {
