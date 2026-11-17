@@ -15,7 +15,10 @@
 
 let
   inherit (import ../vars/ai-stack.nix) zai;
-  claudeRouterPkgs = pkgs.callPackage ./claude-router-pkgs.nix { };
+  claudeRouterPkgs = pkgs.callPackage ./claude-router-pkgs.nix {
+    localRouterUrl = config.programs.litellmLocal.baseUrl;
+    localRouterToken = config.programs.litellmLocal.clientToken;
+  };
 in
 {
   config = {
@@ -42,6 +45,8 @@ in
     home.packages = [
       claudeRouterPkgs.claudeLlm
       claudeRouterPkgs.claudeOcg
+      claudeRouterPkgs.claudeHomelab
+      claudeRouterPkgs.claudeLocal
     ]
     ++ lib.optional config.programs.ai.untrustedClis.enable (
       pkgs.callPackage ./claude-zai-pkg.nix { inherit zai; }
