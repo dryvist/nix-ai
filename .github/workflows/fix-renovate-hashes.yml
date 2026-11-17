@@ -7,7 +7,10 @@
 #
 # Packages covered: cecli, mcp (via cecli passthru), zcode (source and
 # pnpm dependency hashes in modules/zcode/package.nix), and gsd-core-skills
-# (the npm tarball hash in modules/gsd-core-skills/package.nix). The MLX Python stack
+# (the npm tarball hash in modules/gsd-core-skills/package.nix), plus the
+# flakeLockSha256 digest of the MCP facade canary golden, which tracks flake.lock
+# byte for byte; its projection digests change only with MCP output and stay for
+# review. The MLX Python stack
 # needs no step here: its hashes come from mlx-server/uv.lock,
 # which Renovate regenerates itself.
 # Add new packages here and to the packages output in flake.nix when needed.
@@ -58,13 +61,20 @@ jobs:
       - name: Update gsd-core-skills hash
         run: nix run nixpkgs#nix-update -- --flake gsd-core-skills --override-filename modules/gsd-core-skills/package.nix --version=skip
 
+      # builtins.hashString "sha256" over flake.lock equals sha256sum of the file.
+      - name: Re-pin the facade canary flake.lock digest
+        run: |
+          digest="$(sha256sum flake.lock | cut -d' ' -f1)"
+          sed -i -E "s/(flakeLockSha256 = \")[0-9a-f]{64}(\";)/\1${digest}\2/" lib/checks/mcp-facade-default-off-goldens.nix
+          grep -q "flakeLockSha256 = \"${digest}\";" lib/checks/mcp-facade-default-off-goldens.nix
+
       # Commits through the GraphQL API, so GitHub signs it (Verified).
       - name: Commit hash fixes
         uses: planetscale/ghcommit-action@a6b150b81dca5dd027baa898604418eec9e11465 # v0.2.22
         with:
-          commit_message: "fix(deps): update package hashes after a version bump"
+          commit_message: "fix(deps): update package and lock hashes after a version bump"
           repo: ${{ github.repository }}
           branch: ${{ github.ref_name }}
-          file_pattern: modules/cecli/package.nix modules/zcode/package.nix modules/gsd-core-skills/package.nix
+          file_pattern: modules/cecli/package.nix modules/zcode/package.nix modules/gsd-core-skills/package.nix lib/checks/mcp-facade-default-off-goldens.nix
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
