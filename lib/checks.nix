@@ -171,6 +171,7 @@ in
   instructions = catalogInstructions;
 })
 // (import ./checks/codex.nix { inherit pkgs hmConfig; })
+// (import ./checks/codex-model-policy.nix { inherit pkgs hmConfig; })
 // (import ./checks/claude-router-launchers.nix { inherit pkgs; })
 // (import ./checks/fast-delegation.nix { inherit pkgs mkHmConfig; })
 // (import ./checks/codex-approvals.nix { inherit pkgs hmConfig mkHmConfig; })
