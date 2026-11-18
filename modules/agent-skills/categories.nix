@@ -158,6 +158,7 @@ rec {
     "ponytail-gain"
     "ponytail-help"
     "ponytail-review"
+    "pre-publish-checker"
     "review-standards"
   ];
   nix = [
@@ -187,7 +188,13 @@ rec {
   # Topic-vocabulary group for monitoring and observability. Opt-in per repo
   # instead of bundled into every session.
   observability = [
+    "anomaly-detection"
+    "data-ingestion"
+    "generic-mitigations"
     "monitoring-first"
+    "monitoring-graphs"
+    "postmortem-aggregator"
+    "postmortem-generator"
   ];
   splunk = observability;
   # Topic-vocabulary group for the codeql-resolver skills (repo-link maps the

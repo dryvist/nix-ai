@@ -177,6 +177,19 @@
     skills = "all";
     claude = [ ];
   };
+  sre-skills = {
+    input = "sre-skills";
+    skills = [
+      "anomaly-detection"
+      "data-ingestion"
+      "generic-mitigations"
+      "monitoring-graphs"
+      "postmortem-aggregator"
+      "postmortem-generator"
+      "pre-publish-checker"
+    ];
+    claude = [ ];
+  };
   superpowers-marketplace = {
     input = "superpowers-marketplace";
     skills = "all";
