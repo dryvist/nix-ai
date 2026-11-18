@@ -170,6 +170,9 @@ in
   inherit pkgs hmConfig;
   instructions = catalogInstructions;
 })
+// (import ./checks/agent-skills-sre.nix {
+  inherit pkgs hmConfig;
+})
 // (import ./checks/codex.nix { inherit pkgs hmConfig; })
 // (import ./checks/claude-router-launchers.nix { inherit pkgs; })
 // (import ./checks/fast-delegation.nix { inherit pkgs mkHmConfig; })

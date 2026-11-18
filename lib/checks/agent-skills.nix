@@ -141,35 +141,16 @@ in
       uncategorised = builtins.filter (n: !(builtins.elem n categorised)) (
         map (n: pkgs.lib.removePrefix ".codex/skills/" n) managedSkillEntries
       );
-      groupsData = builtins.fromJSON (
-        builtins.unsafeDiscardStringContext hmConfig.config.home.file.".codex/skills/GROUPS.json".text
-      );
-      sreObservabilitySkills = [
-        "anomaly-detection"
-        "data-ingestion"
-        "generic-mitigations"
-        "monitoring-graphs"
-        "postmortem-aggregator"
-        "postmortem-generator"
-      ];
-      excludedGcpSreSkills = [
-        "cloud-logging"
-        "cloud-monitoring"
-        "gcp-architecture-discovery"
-        "gcp-mcp-setup"
-        "gcp-playbooks"
-        "gcp-setup"
-        "gcp-slo-management"
-        "investigation-entrypoint"
-        "safe-sre-investigator"
-      ];
     in
     assert
       uncategorised == [ ]
       || throw "Agent Skills deployed without a category (add to modules/agent-skills/categories.nix): ${builtins.toJSON uncategorised}";
     assert skillIndex != "" || throw "Agent Skills .codex/skills/INDEX.md is empty (module not loaded)";
     assert
-      groupsData.core or { } != { } || throw "Agent Skills GROUPS.json has no deployed core skills";
+      (builtins.fromJSON (
+        builtins.unsafeDiscardStringContext hmConfig.config.home.file.".codex/skills/GROUPS.json".text
+      )).core or { } != { }
+      || throw "Agent Skills GROUPS.json has no deployed core skills";
     assert builtins.length managedSkillEntries > 0 || throw "No managed .codex skill entries found";
     assert
       !(builtins.hasAttr ".agents/skills/INDEX.md" hmConfig.config.home.file)
@@ -221,27 +202,6 @@ in
         name: builtins.elem ".codex/skills/${name}" managedSkillEntries
       ) sourceTable.awesome-claude-skills.skills
       || throw "Table-selected local skills not deployed";
-    assert
-      builtins.all (name: cfg.local ? ${name}) sourceTable.sre-skills.skills
-      || throw "Non-GCP sre-skills entries missing from programs.agentSkills.local";
-    assert
-      builtins.elem ".codex/skills/pre-publish-checker" managedSkillEntries
-      || throw "pre-publish-checker skill not deployed in active review group";
-    assert
-      builtins.all (
-        name:
-        (groupsData.observability or { }) ? ${name}
-        && !(builtins.elem ".codex/skills/${name}" managedSkillEntries)
-      ) sreObservabilitySkills
-      || throw "SRE observability skills must be opt-in in GROUPS.json.observability, not globally deployed";
-    assert
-      builtins.all (
-        name:
-        !(cfg.local ? ${name})
-        && !(builtins.elem ".codex/skills/${name}" managedSkillEntries)
-        && !((groupsData.observability or { }) ? ${name})
-      ) excludedGcpSreSkills
-      || throw "GCP-focused skills from sre-skills must not be wired or deployed";
     # The INDEX is what the loader-less harnesses (Copilot, cecli) actually read,
     # so a flat rebuild there is a silent regression for them specifically.
     assert
