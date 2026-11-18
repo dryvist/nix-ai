@@ -271,6 +271,13 @@
       flake = false;
     };
 
+    # Cloud-agnostic SRE and observability skills (non-GCP subset selected in
+    # modules/agent-skills/sources.nix).
+    sre-skills = {
+      url = "github:gemini-cli-extensions/sre";
+      flake = false;
+    };
+
   };
 
   outputs = inputs: import ./flake/outputs.nix inputs;
