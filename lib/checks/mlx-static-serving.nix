@@ -181,11 +181,10 @@ in
       && limits.aliases.medium == qwen.model
       && limits.aliases.small == small9b.model
       && limits.routerUrl == hmConfigStaticServing.config.services.aiStack.localRouterUrl
-      &&
-        limits.clients.ghGuard.url == "http://127.0.0.1:${toString small9b.servicePort}/v1/chat/completions"
-      && limits.clients.ghGuard.model == small9b.model
-      && small9b.servicePort != hmConfigStaticServing.config.programs.litellmLocal.port
-      && limits.clients.ghGuard.timeoutSeconds == small9b.timeoutSeconds
+      && limits.clients.ghGuard.url == "http://127.0.0.1:${toString qwen.servicePort}/v1/chat/completions"
+      && limits.clients.ghGuard.model == qwen.model
+      && qwen.servicePort != hmConfigStaticServing.config.programs.litellmLocal.port
+      && limits.clients.ghGuard.timeoutSeconds == qwen.timeoutSeconds
       && limits.clients.recorder.identity == "recorder"
       && limits.clients.recorder.models.medium == "medium"
       && limits.clients.recorder.models.small == "small"
