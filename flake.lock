@@ -994,11 +994,11 @@
     "jacobpevans-cc-plugins": {
       "flake": false,
       "locked": {
-        "lastModified": 1795134880,
-        "narHash": "sha256-6LRUIhQMLyYOXaFqrf4LGex/etOtwwBROuw9V5uZprc=",
+        "lastModified": 1795175393,
+        "narHash": "sha256-Vz/+MA2Km+aWiL8SLXOOQ1ZCCC/43eRnYGJ48BBA8WI=",
         "owner": "dryvist",
         "repo": "claude-code-plugins",
-        "rev": "8577f46be10345a146cb5179d37321e3ef8647c3",
+        "rev": "914dae15dd4b4d8410f063d4cf56d0fd114b0a22",
         "type": "github"
       },
       "original": {
