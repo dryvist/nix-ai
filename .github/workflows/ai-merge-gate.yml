@@ -8,8 +8,9 @@ jobs:
     permissions:
       checks: read
       contents: read
+      id-token: write # Required by the OIDC entry's check-publishing jobs.
       pull-requests: write
-    uses: JacobPEvans/.github-ai/.github/workflows/_ai-merge-gate.yml@v2
+    uses: JacobPEvans/.github-ai/.github/workflows/_ai-merge-gate-oidc.yml@02a519e0d71b0a72ae783e5db707203a53222523 # v2.28.0
     with:
       runner_label: ${{ github.event.pull_request.head.repo.full_name == github.repository && 'review' || 'ubuntu-latest' }}
     secrets:
