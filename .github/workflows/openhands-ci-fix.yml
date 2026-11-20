@@ -1,0 +1,55 @@
+---
+name: OpenHands CI Fix
+
+# Started by the PR Reconcile sweep: one workflow_dispatch per head commit of a
+# pull request whose code checks failed. The called workflow handles gating,
+# attempt caps, daily limits and concurrency.
+on:
+  workflow_dispatch:
+    inputs:
+      failure_run_id:
+        description: ID of the failed run
+        required: true
+        type: string
+      failure_head_branch:
+        description: Head branch of the failed run
+        required: true
+        type: string
+
+# The called workflow's jobs request exactly these scopes (fix commit, pull
+# request comment through the issues API, run logs); a caller that grants
+# less fails at graph validation.
+permissions:
+  actions: read
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  fix:
+    uses: JacobPEvans/.github-ai/.github/workflows/cc-ci-fix.yml@c3b5d978ce18039f54cdf62d81c38eaf0bfb0f1f # v2.31.0
+    secrets:
+      LLM_ROUTER_BASE_URL: ${{ secrets.LLM_ROUTER_BASE_URL }}
+      LLM_ROUTER_API_KEY: ${{ secrets.LLM_ROUTER_API_KEY }}
+      OPENBAO_ADDR: ${{ secrets.OPENBAO_ADDR }}
+      GH_APP_CLAUDE_BOT_ID: ${{ secrets.GH_APP_CLAUDE_BOT_ID }}
+      GH_APP_CLAUDE_BOT_PRIVATE_KEY: ${{ secrets.GH_APP_CLAUDE_BOT_PRIVATE_KEY }}
+    with:
+      # Hosted runners cannot reach the model router; the review pool can.
+      runner_label: review
+      agent: openhands
+      local_model: medium
+      daily_run_limit: "20"
+      failure_conclusion: failure
+      failure_run_id: ${{ inputs.failure_run_id }}
+      failure_head_branch: ${{ inputs.failure_head_branch }}
+      failure_head_repository: ${{ github.repository }}
+      failure_actor: ${{ github.actor }}
+      repo_context: "Nix flake of AI tooling modules for macOS (nix-darwin, Home Manager)"
+      ci_structure: >-
+        CI Gate runs Darwin Checks (nix flake check through the shared Nix validate
+        workflow), Flake Lock Fresh, and lane alias checks, aggregated in Merge Gate.
+        The MCP facade canary golden lives in
+        lib/checks/mcp-facade-default-off-goldens.nix. Nix is not installed on the
+        review runners, so this agent cannot evaluate the checks.
+      extra_tools: "Bash(sha256sum:*)"
