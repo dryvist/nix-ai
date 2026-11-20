@@ -12,6 +12,7 @@
 #   - cc-marketplace (ananddtyagi/cc-marketplace, 679★)
 #   - claude-skills (secondsky/claude-skills, 129★)         — single-skill specialty plugins
 #   - autoresearch (uditgoenka/autoresearch, 5300★)         — autonomous iteration engine
+#   - claude-community (anthropics/claude-plugins-community) — Anthropic's community catalog
 
 _:
 
@@ -190,5 +191,12 @@ _:
     # dependencies, and the "verify it exists before suggesting it" rule guards
     # a failure mode that is not repo-specific.
     "managing-dependencies@managing-dependencies" = false;
+
+    # ========================================================================
+    # claude-community — anthropics/claude-plugins-community
+    # ========================================================================
+    # next-ai-drawio ships its own `drawio` MCP server (.mcp.json, run with npx).
+    # Temporary: set to false once the drawio MCP is served through LiteLLM.
+    "next-ai-drawio@claude-community" = true;
   };
 }

@@ -58,6 +58,7 @@ priority system above.
 | `superpowers-marketplace` | `obra/superpowers-marketplace` | 925 | 4 |
 | `cc-marketplace` | `ananddtyagi/cc-marketplace` | 679 | 4 |
 | `claude-skills` | `secondsky/claude-skills` | 129 | 4 |
+| `claude-community` | `anthropics/claude-plugins-community` (registered in nix-ai, no flake input) | — | 4 |
 | `browser-use-skills` | `browser-use/browser-use` (synthetic) | 91681 | 5 |
 | `fabric-patterns` | `danielmiessler/fabric` (synthetic) | 41428 | 5 |
 | `obsidian-skills` | `kepano/obsidian-skills` | 28277 | 5 |
