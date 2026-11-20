@@ -174,6 +174,17 @@ let
       };
       flakeInput = marketplaceInputs.managing-dependencies;
     };
+    # claude-community is Anthropic's community marketplace. The name is reserved
+    # for a github source under anthropics, so it has no flake input (a flake input
+    # would render a directory source). Every plugin in it pins its own external
+    # source, which Claude fetches at install.
+    "claude-community" = {
+      source = {
+        type = "github";
+        url = "anthropics/claude-plugins-community";
+      };
+      flakeInput = null;
+    };
   };
   # claude-channel-slack: Slack channel plugin (Socket Mode). Pinned by SHA in
   # nix-ai's flake.nix. Registered only with programs.claude.slackChannel.enable.
