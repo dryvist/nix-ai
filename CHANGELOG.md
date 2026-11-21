@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.40.0](https://github.com/jpe-nix/nix-ai/compare/v8.39.1...v8.40.0) (2026-11-20)
+
+
+### Features
+
+* **agents:** declare network egress on the GitHub specialist ([#3064](https://github.com/jpe-nix/nix-ai/issues/3064)) ([76dfe5f](https://github.com/jpe-nix/nix-ai/commit/76dfe5f81668048bea57d73224f80bb23047dad7))
+
 ## [8.39.1](https://github.com/dryvist/nix-ai/compare/v8.39.0...v8.39.1) (2026-11-16)
 
 

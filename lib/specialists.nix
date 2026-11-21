@@ -25,6 +25,7 @@
     name = "github-specialist";
     description = "GitHub specialist, tier 1 only: reads repos/PRs/checks, comments, reruns CI and merges on green via gh with a per-repo write token from openbao-github-creds. Repo creation, settings, rulesets and App installs are out of scope and fail closed.";
     prompt = "auto-ai-agent/github-specialist.md";
+    egress = "network";
     owns = [ ];
     tools = [
       "Bash"
