@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.40.1](https://github.com/jpe-nix/nix-ai/compare/v8.40.0...v8.40.1) (2026-11-21)
+
+
+### Bug Fixes
+
+* **mlx:** point the ghGuard client at the default resident ([#3077](https://github.com/jpe-nix/nix-ai/issues/3077)) ([4422afa](https://github.com/jpe-nix/nix-ai/commit/4422afade206fd1c99160b13a4ee9f38612885d6))
+
 ## [8.40.0](https://github.com/jpe-nix/nix-ai/compare/v8.39.1...v8.40.0) (2026-11-20)
 
 
