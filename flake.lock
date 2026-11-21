@@ -994,11 +994,11 @@
     "jacobpevans-cc-plugins": {
       "flake": false,
       "locked": {
-        "lastModified": 1794791104,
-        "narHash": "sha256-D8CADKpU41vQuqH9fPOZzGVFDFttDpR8GEKNAsXkyP4=",
+        "lastModified": 1795134880,
+        "narHash": "sha256-6LRUIhQMLyYOXaFqrf4LGex/etOtwwBROuw9V5uZprc=",
         "owner": "dryvist",
         "repo": "claude-code-plugins",
-        "rev": "b0ecd76cbafecb215805140ba9667ccec678e2d3",
+        "rev": "8577f46be10345a146cb5179d37321e3ef8647c3",
         "type": "github"
       },
       "original": {
@@ -1129,11 +1129,11 @@
     "mattpocock-skills": {
       "flake": false,
       "locked": {
-        "lastModified": 1792425100,
-        "narHash": "sha256-2FKfe3/Fwc4MmwBLa+d/oQW4/gtYIssdWapy2MPd39I=",
+        "lastModified": 1794472958,
+        "narHash": "sha256-AYSRCvBL8TDDdW3rgKu2T7gl4YYDoDId0jYbabEFyfs=",
         "owner": "mattpocock",
         "repo": "skills",
-        "rev": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+        "rev": "5863806dd4e15c63174bee4e7515a4256792ecfa",
         "type": "github"
       },
       "original": {
@@ -1512,11 +1512,11 @@
     },
     "nixpkgs-unstable": {
       "locked": {
-        "lastModified": 1792506237,
-        "narHash": "sha256-Q/8KLB6jNfpaUN1HAedE/u/Et9feE/zYSsutBLKrCFk=",
+        "lastModified": 1794840529,
+        "narHash": "sha256-ySrWnmZB5UsZTYGHHnBjllT05O5iFjElCRS+mabtfP0=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "5adc50831c259f87faeb09ddf930d43597197473",
+        "rev": "e21fec321d73511849707a7585e4ea155ee4bf40",
         "type": "github"
       },
       "original": {
@@ -1609,11 +1609,11 @@
     "ponytail": {
       "flake": false,
       "locked": {
-        "lastModified": 1792288514,
-        "narHash": "sha256-sVnxA4rfxa2SlS2g+2+q3odRq0VJz1z7PEVHW2QRPQI=",
+        "lastModified": 1793275171,
+        "narHash": "sha256-PhPtZbeX2wBp19GtWRy+fV93+fFYZe5S487eXPDl/us=",
         "owner": "DietrichGebert",
         "repo": "ponytail",
-        "rev": "09c434ab73ca43761c5d8b0c5d341926c2fba710",
+        "rev": "96608e078b2d5ea607c5c3b8b5a54d1c1fba6846",
         "type": "github"
       },
       "original": {
@@ -1776,11 +1776,11 @@
     "token-meter-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1792205855,
-        "narHash": "sha256-YBZqBt2r/i2HJsuucGroZKZw2PUuHgZSax5AVZjxr+g=",
+        "lastModified": 1794350135,
+        "narHash": "sha256-nl/KyE1nMaohaNROfy4477iR/fO2xDnLC0QVv27iw8I=",
         "owner": "dryvist",
         "repo": "token-meter",
-        "rev": "90cdb56f7b0ba0572741ad74c921a36a9a6632f3",
+        "rev": "1d5cacd69d88d852bfb2b2f40938ca3c41cb0295",
         "type": "github"
       },
       "original": {
