@@ -1,5 +1,5 @@
-# The local API URL is defined once, then consumed by clients and the existing
-# fallback watcher. Keep this check against the evaluated Home Manager output.
+# The local API URL is defined once, then consumed by clients. Keep this
+# check against the evaluated Home Manager output.
 {
   pkgs,
   src,
@@ -42,15 +42,6 @@ let
 
   local = hmConfigLitellmLocal.config;
   localUrl = local.services.aiStack.localRouterUrl;
-  watcher = local.launchd.agents.litellm-fallback-watch.config;
-  watchEnvironment = watcher.EnvironmentVariables;
-  watcherCoversProxy =
-    watcher.Label == "dev.litellm-fallback-watch"
-    && watcher.StartInterval > 0
-    && watchEnvironment.LITELLM_LOCAL_URL == lib.removeSuffix "/v1" localUrl
-    &&
-      watchEnvironment.LITELLM_ALERT_URL_FILE
-      == local.home.homeDirectory + "/.config/mlx-cluster/alert-url";
 
   bearerFromEnv = mkHmConfig [
     {
@@ -83,8 +74,8 @@ assert
   == hmConfigStaticServing.config.services.aiStack.localRouterUrl
   || throw "MLX_API_URL must derive from services.aiStack.localRouterUrl";
 assert
-  watcherCoversProxy
-  || throw "dev.litellm-fallback-watch must probe the local proxy and reuse the shared Slack webhook";
+  !(local.launchd.agents ? litellm-fallback-watch)
+  || throw "dev.litellm-fallback-watch LaunchAgent must stay retired";
 assert
   bearerStartUsesEnv
   || throw "the token-file branch must be skipped when OPENAI_API_KEY comes from the launch prefix";
