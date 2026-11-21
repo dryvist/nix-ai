@@ -15,6 +15,13 @@ rules:
         dryvist/*: ref-pin
         JacobPEvans/*: ref-pin
 
+  # ACCEPTED: workflow_run is the only trigger that reacts to a CI Gate result.
+  # The called cc-ci-fix-oidc workflow checks out and runs code only when the
+  # failed run's head repository is this repository, so fork code never runs.
+  dangerous-triggers:
+    ignore:
+      - openhands-ci-fix.yml
+
 # IGNORED: These workflows use reusable workflows from JacobPEvans/.github-ai that require
   # secrets for authentication (API keys, tokens). secrets: inherit is intentional
   # as the reusable workflows are owned by the same org and need these secrets.
