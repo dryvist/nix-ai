@@ -38,7 +38,7 @@ stdenv.mkDerivation (finalAttrs: {
     owner = "zai-org";
     repo = "ZCode";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-4LZIl6ofaxcmb28fu21Kc5oJAe+/AKRDAM/2xRKYxI8=";
+    hash = "sha256-clsAVUzMjLvOHuolk269vh0vEs8Ul6T/x5DrtoTHMTg=";
   };
 
   # The full lockfile supplies the build; production deployments below keep
@@ -47,7 +47,7 @@ stdenv.mkDerivation (finalAttrs: {
     inherit (finalAttrs) pname version src;
     pnpm = pnpm_10_latest;
     fetcherVersion = 4;
-    hash = "sha256-q2ClqOoSG0/Oyi4H9snIUc0AVk5y40V+optxyMBfzn8=";
+    hash = "sha256-NANY8h22gEhmXVRJaY/DoPpWlcokpDz3qz39rXQkKd8=";
   };
 
   nativeBuildInputs = [
