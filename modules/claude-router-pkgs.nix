@@ -1,4 +1,10 @@
-{ pkgs, lib }:
+{
+  pkgs,
+  lib,
+  curl ? pkgs.curl,
+  localRouterUrl ? null,
+  localRouterToken ? null,
+}:
 let
   claudeLlmRouterModels = {
     model = "medium";
@@ -17,17 +23,24 @@ let
   claudeRouterNames = lib.unique (
     builtins.attrValues claudeLlmRouterModels ++ builtins.attrValues claudeOcgRouterModels
   );
+  modelDiscoveryScript = import ./claude-router-discovery.nix;
 
   mkClaudeRouter =
     {
       name,
-      routerKeyEnv,
-      routerKeyCommandEnv,
+      routerKeyEnv ? null,
+      routerKeyCommandEnv ? null,
       routerModels,
+      routerUrl ? null,
+      fixedRouterToken ? null,
+      customHeaders ? "",
+      discoverModels ? false,
       direct ? null,
       aliases ? [ ],
     }:
     let
+      # A fixed-token launcher runs no key lookup, so it carries none of the key variables.
+      keyed = fixedRouterToken == null;
       supportsDirect = direct != null;
       directKeyEnv = if supportsDirect then direct.keyEnv else "";
       directKeyCommandEnv = if supportsDirect then direct.keyCommandEnv else "";
@@ -44,8 +57,14 @@ let
             subagent = "";
           };
       clearCredentialEnv = [
-        "${routerKeyEnv}="
-        "${routerKeyCommandEnv}="
+        "CLAUDE_LLM_ROUTER_KEY="
+        "CLAUDE_LLM_KEY_COMMAND="
+        "CLAUDE_OCG_ROUTER_KEY="
+        "CLAUDE_OCG_KEY_COMMAND="
+        "CLAUDE_HOMELAB_ROUTER_KEY="
+        "CLAUDE_HOMELAB_KEY_COMMAND="
+        "OPENCODE_GO_API_KEY="
+        "OCG_DIRECT_KEY_COMMAND="
       ]
       ++ lib.optionals supportsDirect [
         "${directKeyEnv}="
@@ -53,11 +72,18 @@ let
       ];
       launcher = pkgs.writeShellApplication {
         inherit name;
+        runtimeInputs = lib.optionals discoverModels [
+          curl
+          pkgs.jq
+          pkgs.coreutils
+        ];
         text = ''
-          router_key_env=${lib.escapeShellArg routerKeyEnv}
-          router_key_command_env=${lib.escapeShellArg routerKeyCommandEnv}
-          direct_key_env=${lib.escapeShellArg directKeyEnv}
-          direct_key_command_env=${lib.escapeShellArg directKeyCommandEnv}
+          ${lib.optionalString keyed ''
+            router_key_env=${lib.escapeShellArg routerKeyEnv}
+            router_key_command_env=${lib.escapeShellArg routerKeyCommandEnv}
+            direct_key_env=${lib.escapeShellArg directKeyEnv}
+            direct_key_command_env=${lib.escapeShellArg directKeyCommandEnv}
+          ''}
           supports_direct=${if supportsDirect then "1" else "0"}
           mode=router
           if [[ "''${NIX_AI_CLAUDE_ROUTER_FETCH_ATTEMPTED:-}" == 1 ]]; then
@@ -101,8 +127,10 @@ let
           set -- "''${args[@]}"
 
           if [[ "$mode" == direct ]]; then
-            key_name=$direct_key_env
-            command_name=$direct_key_command_env
+            ${lib.optionalString keyed ''
+              key_name=$direct_key_env
+              command_name=$direct_key_command_env
+            ''}
             base_url=${lib.escapeShellArg directBaseUrl}
             model=${lib.escapeShellArg directModels.model}
             opus_model=${lib.escapeShellArg directModels.opus}
@@ -110,9 +138,14 @@ let
             haiku_model=${lib.escapeShellArg directModels.haiku}
             subagent_model=${lib.escapeShellArg directModels.subagent}
           else
-            key_name=$router_key_env
-            command_name=$router_key_command_env
-            router_url="''${LLM_ROUTER_URL:?set LLM_ROUTER_URL}"
+            ${lib.optionalString keyed ''
+              key_name=$router_key_env
+              command_name=$router_key_command_env
+            ''}
+            router_url=${
+              if routerUrl != null then lib.escapeShellArg routerUrl else "\${LLM_ROUTER_URL:?set LLM_ROUTER_URL}"
+            }
+            router_url="''${router_url%/}"
             base_url="''${router_url%/v1}"
             model=${lib.escapeShellArg routerModels.model}
             opus_model=${lib.escapeShellArg routerModels.opus}
@@ -125,34 +158,49 @@ let
             model=$model_override
           fi
 
-          key_value="''${!key_name:-}"
-          if [[ -z "$key_value" ]]; then
-            if [[ "''${NIX_AI_CLAUDE_ROUTER_FETCH_ATTEMPTED:-}" == 1 ]]; then
-              printf '%s\n' "${name}: key command did not set $key_name" >&2
-              exit 1
-            fi
-            key_command="''${!command_name:-}"
-            if [[ -z "$key_command" ]]; then
-              printf '%s\n' "${name}: set $key_name, or $command_name to fetch it" >&2
-              exit 1
-            fi
-            read -ra fetch <<<"$key_command"
-            if ((''${#fetch[@]} == 0)); then
-              printf '%s\n' "${name}: $command_name is empty" >&2
-              exit 1
-            fi
-            exec env \
-              NIX_AI_CLAUDE_ROUTER_FETCH_ATTEMPTED=1 \
-              "NIX_AI_CLAUDE_ROUTER_FETCH_MODE=$mode" \
-              "''${fetch[@]}" "$0" "$@"
-          fi
+          ${
+            if fixedRouterToken != null then
+              ''
+                key_value=${lib.escapeShellArg fixedRouterToken}
+                anthropic_auth_token=
+              ''
+            else
+              ''
+                key_value="''${!key_name:-}"
+                if [[ -z "$key_value" ]]; then
+                  if [[ "''${NIX_AI_CLAUDE_ROUTER_FETCH_ATTEMPTED:-}" == 1 ]]; then
+                    printf '%s\n' "${name}: key command did not set $key_name" >&2
+                    exit 1
+                  fi
+                  key_command="''${!command_name:-}"
+                  if [[ -z "$key_command" ]]; then
+                    printf '%s\n' "${name}: set $key_name, or $command_name to fetch it" >&2
+                    exit 1
+                  fi
+                  read -ra fetch <<<"$key_command"
+                  if ((''${#fetch[@]} == 0)); then
+                    printf '%s\n' "${name}: $command_name is empty" >&2
+                    exit 1
+                  fi
+                  exec env \
+                    NIX_AI_CLAUDE_ROUTER_FETCH_ATTEMPTED=1 \
+                    "NIX_AI_CLAUDE_ROUTER_FETCH_MODE=$mode" \
+                    "''${fetch[@]}" "$0" "$@"
+                fi
+                anthropic_auth_token=$key_value
+              ''
+          }
 
-          exec env \
+          ${lib.optionalString discoverModels (modelDiscoveryScript {
+            inherit name;
+          })}
+
+          ${if discoverModels then "env" else "exec env"} \
             ${lib.concatMapStringsSep " " lib.escapeShellArg clearCredentialEnv} \
             ANTHROPIC_API_KEY= \
-            ANTHROPIC_AUTH_TOKEN="$key_value" \
+            ANTHROPIC_AUTH_TOKEN="$anthropic_auth_token" \
             ANTHROPIC_BASE_URL="$base_url" \
-            ANTHROPIC_CUSTOM_HEADERS= \
+            ANTHROPIC_CUSTOM_HEADERS=${lib.escapeShellArg customHeaders} \
             ANTHROPIC_MODEL="$model" \
             ANTHROPIC_DEFAULT_OPUS_MODEL="$opus_model" \
             ANTHROPIC_DEFAULT_SONNET_MODEL="$sonnet_model" \
@@ -163,12 +211,13 @@ let
             CLAUDE_CODE_USE_FOUNDRY= \
             CLAUDE_CODE_SUBAGENT_MODEL="$subagent_model" \
             CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT=1 \
+            ${lib.optionalString discoverModels ''CLAUDE_CODE_MAX_CONTEXT_TOKENS="$context_window"''} \
             CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
             NIX_AI_CLAUDE_ROUTER_FETCH_ATTEMPTED= \
             NIX_AI_CLAUDE_ROUTER_FETCH_MODE= \
             OPENAI_API_KEY= \
             PATH="$HOME/.local/bin:$PATH" \
-            claude "$@"
+            ${if discoverModels then ''claude --settings "$settings_file" "$@"'' else ''claude "$@"''}
         '';
       };
     in
@@ -190,6 +239,33 @@ in
     routerKeyEnv = "CLAUDE_LLM_ROUTER_KEY";
     routerKeyCommandEnv = "CLAUDE_LLM_KEY_COMMAND";
     routerModels = claudeLlmRouterModels;
+    discoverModels = true;
+  };
+
+  claudeHomelab = mkClaudeRouter {
+    name = "claude-homelab";
+    routerKeyEnv = "CLAUDE_HOMELAB_ROUTER_KEY";
+    routerKeyCommandEnv = "CLAUDE_HOMELAB_KEY_COMMAND";
+    routerModels = claudeLlmRouterModels;
+    discoverModels = true;
+  };
+
+  claudeLocal = mkClaudeRouter {
+    name = "claude-local";
+    routerModels = claudeLlmRouterModels;
+    routerUrl =
+      if localRouterUrl == null then throw "claude-local requires localRouterUrl" else localRouterUrl;
+    fixedRouterToken =
+      if localRouterToken == null then
+        throw "claude-local requires localRouterToken"
+      else
+        localRouterToken;
+    customHeaders =
+      if localRouterToken == null then
+        throw "claude-local requires localRouterToken"
+      else
+        "x-litellm-api-key: Bearer ${localRouterToken}\nx-litellm-tags: claude-local";
+    discoverModels = true;
   };
 
   claudeOcg = mkClaudeRouter {
