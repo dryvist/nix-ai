@@ -33,9 +33,8 @@ alongside the existing Cribl/Splunk pipeline.
 
 **Hard constraints:**
 
-1. The operator works at Cisco/Splunk. Daily prompts include Splunk product content,
-   internal engineering material, and client data. None of this may leave the local
-   network in trace payloads.
+1. Daily prompts can include confidential work material. None of it may leave the
+   local network in trace payloads.
 2. Claude Code, Codex CLI, and Gemini CLI are not instrumented — only surfaces that
    are already isolated from work content (local MLX inference).
 3. The Splunk/Cribl pipeline must not regress. The Galileo branch is additive.
