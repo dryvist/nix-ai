@@ -22,6 +22,7 @@ in
       "features"
       "hooks"
       "model"
+      "modelFamily"
       "modelProvider"
       "modelReasoningEffort"
       "modelVerbosity"

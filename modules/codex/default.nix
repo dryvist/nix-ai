@@ -33,11 +33,8 @@ in
 
   config = lib.mkIf cfg.enable {
     programs.codex = {
-      # No model is pinned here: `model` stays null and the codexFamilyModel
-      # activation below writes the newest listed model of `modelFamily` (luna),
-      # so `codex exec` never runs whatever an interactive /model pick last
-      # wrote. Effort defaults to xhigh (modelReasoningEffort and
-      # planModeReasoningEffort).
+      # Luna and xhigh follow AGENTS.md, "Delegation routing". The codexFamilyModel
+      # activation below resolves the newest listed Luna slug for config.toml.
       approvalPolicy = lib.mkDefault "on-request";
       approvalsReviewer = lib.mkDefault "auto_review";
       package = lib.mkDefault llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.codex;
@@ -66,12 +63,13 @@ in
         };
       };
 
-      # Codex accepts exact model slugs only, so the slug is read from Codex's own
-      # model cache at activation instead of being written (or versioned) here.
+      # Codex accepts exact model slugs, so activation reads the Luna slug from
+      # Codex's own model cache.
       activation.codexFamilyModel = lib.mkIf (cfg.model == null && cfg.modelFamily != null) (
         lib.hm.dag.entryAfter [ "codexConfigMerge" ] ''
           export PATH="${pkgs.jq}/bin:${pkgs.yj}/bin:$PATH"
-          $DRY_RUN_CMD ${../scripts/codex-family-model.sh} "${cfg.modelFamily}" "${config.home.homeDirectory}/.codex"
+          $DRY_RUN_CMD ${../scripts/codex-family-model.sh} \
+            "${cfg.modelFamily}" "${cfg.modelReasoningEffort}" "${config.home.homeDirectory}/.codex"
         ''
       );
     };
