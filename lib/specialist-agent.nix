@@ -15,6 +15,7 @@ let
     model = null;
     owns = [ ];
     tools = null;
+    egress = null;
     mcpServers = { };
   }
   // spec;
@@ -30,6 +31,8 @@ let
   }
   // lib.optionalAttrs (s.model != null) { inherit (s) model; }
   // lib.optionalAttrs (tools != [ ]) { inherit tools; }
+  # Read by the delegation hook: network work runs in the session, never on a no-egress executor rung.
+  // lib.optionalAttrs (s.egress != null) { inherit (s) egress; }
   # Claude Code accepts agent mcpServers only as a list of { name = config; } and drops a mapping.
   // lib.optionalAttrs (s.mcpServers != { }) {
     mcpServers = lib.mapAttrsToList (name: config: { ${name} = config; }) s.mcpServers;
