@@ -1,0 +1,56 @@
+---
+name: OpenHands CI Fix
+
+# Started when CI Gate fails, and by the PR Reconcile sweep: one
+# workflow_dispatch per head commit of a pull request whose code checks failed.
+# The called workflow handles gating, attempt caps, daily limits and concurrency.
+on:
+  workflow_run:
+    workflows: ["CI Gate"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      failure_run_id:
+        description: ID of the failed run
+        required: true
+        type: string
+      failure_head_branch:
+        description: Head branch of the failed run
+        required: true
+        type: string
+
+# The called workflow's jobs request exactly these scopes (fix commit through the
+# OIDC commit token, pull request comment through the issues API, run logs); a
+# caller that grants less fails at graph validation.
+permissions:
+  actions: read
+  contents: write
+  id-token: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  fix:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'failure'
+    uses: JacobPEvans/.github-ai/.github/workflows/cc-ci-fix-oidc.yml@v2
+    secrets:
+      LLM_ROUTER_BASE_URL: ${{ secrets.LLM_ROUTER_BASE_URL }}
+      LLM_ROUTER_API_KEY: ${{ secrets.LLM_ROUTER_API_KEY }}
+      OPENBAO_ADDR: ${{ secrets.OPENBAO_ADDR }}
+    with:
+      runner_label: review
+      agent: openhands
+      local_model: medium
+      daily_run_limit: "20"
+      # Empty on workflow_run: the called workflow reads the failed run from the event.
+      failure_conclusion: ${{ github.event_name == 'workflow_dispatch' && 'failure' || '' }}
+      failure_run_id: ${{ inputs.failure_run_id }}
+      failure_head_branch: ${{ inputs.failure_head_branch }}
+      failure_head_repository: ${{ github.event_name == 'workflow_dispatch' && github.repository || '' }}
+      failure_actor: ${{ github.event_name == 'workflow_dispatch' && github.actor || '' }}
+      repo_context: "Nix flake of AI tooling modules for macOS (nix-darwin, Home Manager)"
+      ci_structure: >-
+        CI Gate runs Darwin Checks (nix flake check through the shared Nix validate
+        workflow), Flake Lock Fresh, and lane alias checks, aggregated in Merge Gate.
+        The MCP facade canary golden lives in
+        lib/checks/mcp-facade-default-off-goldens.nix.
